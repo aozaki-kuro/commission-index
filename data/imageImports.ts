@@ -58,7 +58,7 @@ import A20240114 from '#images/webp/20240114_七市.webp'
 import A20240223 from '#images/webp/20240223_AOS.webp'
 import A20240225 from '#images/webp/20240225.webp'
 import A20240405 from '#images/webp/20240405_七市.webp'
-import A20240406 from '#images/webp/20240406_どれい.webp'
+import A20240406 from '#images/webp/20240406_Dorei.webp'
 import A20240409 from '#images/webp/20240409_雪国裕.webp'
 import A20240410 from '#images/webp/20240410_中村六翅.webp'
 import A20240421A from '#images/webp/20240421_Gisyu (part 1).webp'
@@ -66,7 +66,7 @@ import A20240421B from '#images/webp/20240421_Gisyu (part 2).webp'
 import A20240423 from '#images/webp/20240423.webp'
 import A20240513 from '#images/webp/20240513.webp'
 import A20240515 from '#images/webp/20240515_七市.webp'
-import A20240620 from '#images/webp/20240620_どれい.webp'
+import A20240620 from '#images/webp/20240620_Dorei.webp'
 import A20240725 from '#images/webp/20240725_AOS.webp'
 import A20240726 from '#images/webp/20240726.webp'
 import A20240729 from '#images/webp/20240729.webp'
@@ -113,6 +113,7 @@ import A20251122 from '#images/webp/20251122.webp'
 import A20251203 from '#images/webp/20251203.webp'
 import A20251223 from '#images/webp/20251223_MINK.webp'
 import A20260125 from '#images/webp/20260125_Gisyu.webp'
+import A20260208 from '#images/webp/20260208_Dorei.webp'
 
 export const imageImports = {
   '20201220_病ん太廊': A20201220,
@@ -173,7 +174,7 @@ export const imageImports = {
   '20240223_AOS': A20240223,
   '20240225': A20240225,
   '20240405_七市': A20240405,
-  '20240406_どれい': A20240406,
+  '20240406_Dorei': A20240406,
   '20240409_雪国裕': A20240409,
   '20240410_中村六翅': A20240410,
   '20240421_Gisyu (part 1)': A20240421A,
@@ -181,7 +182,7 @@ export const imageImports = {
   '20240423': A20240423,
   '20240513': A20240513,
   '20240515_七市': A20240515,
-  '20240620_どれい': A20240620,
+  '20240620_Dorei': A20240620,
   '20240725_AOS': A20240725,
   '20240726': A20240726,
   '20240729': A20240729,
@@ -228,4 +229,5 @@ export const imageImports = {
   '20251203': A20251203,
   '20251223_MINK': A20251223,
   '20260125_Gisyu': A20260125,
+  '20260208_Dorei': A20260208,
 }
