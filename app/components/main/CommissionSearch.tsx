@@ -46,12 +46,6 @@ const clearSearchQueryParamInAddress = () => {
   window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
 }
 
-const subscribeToUrlQuery = (onStoreChange: () => void) => {
-  if (typeof window === 'undefined') return () => {}
-  window.addEventListener('popstate', onStoreChange)
-  return () => window.removeEventListener('popstate', onStoreChange)
-}
-
 const getUrlQuerySnapshot = () => {
   if (typeof window === 'undefined') return ''
   return new URLSearchParams(window.location.search).get('q') ?? ''
@@ -174,9 +168,14 @@ const evaluateRpn = (
 }
 
 const CommissionSearch = () => {
-  const urlQuery = useSyncExternalStore(subscribeToUrlQuery, getUrlQuerySnapshot, () => '')
+  const initialUrlQuery = useSyncExternalStore(
+    () => () => {},
+    getUrlQuerySnapshot,
+    () => '',
+  )
   const [inputQuery, setInputQuery] = useState<string | null>(null)
-  const query = inputQuery ?? urlQuery
+  const query = inputQuery ?? initialUrlQuery
+  const hasQuery = !!normalize(query)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const liveRef = useRef<HTMLParagraphElement>(null)
@@ -284,16 +283,16 @@ const CommissionSearch = () => {
   // 3) 初次从 ?q= 访问时自动跳到搜索区域
   useEffect(() => {
     if (didAutoJumpRef.current || typeof window === 'undefined') return
-    if (!new URLSearchParams(window.location.search).get('q')) return
+    if (!initialUrlQuery) return
 
     didAutoJumpRef.current = true
     requestAnimationFrame(() => {
       jumpToCommissionSearch({ focusMode: 'none' })
     })
-  }, [])
+  }, [initialUrlQuery])
 
   const copySearchUrl = async () => {
-    if (typeof window === 'undefined' || !normalize(query)) return
+    if (typeof window === 'undefined' || !hasQuery) return
     const text = buildSearchUrl(query)
 
     try {
@@ -344,7 +343,7 @@ const CommissionSearch = () => {
             type="button"
             onClick={copySearchUrl}
             className={`absolute right-8 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[opacity,color] hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
-              normalize(query) ? '' : 'pointer-events-none opacity-0'
+              hasQuery ? '' : 'pointer-events-none opacity-0'
             }`}
             aria-label="Copy search URL"
           >
@@ -365,7 +364,7 @@ const CommissionSearch = () => {
             type="button"
             onClick={clearSearch}
             className={`absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[opacity,color] hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
-              normalize(query) ? '' : 'pointer-events-none opacity-0'
+              hasQuery ? '' : 'pointer-events-none opacity-0'
             }`}
             aria-label="Clear search"
           >
