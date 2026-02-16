@@ -36,7 +36,7 @@ const buildTermMatcher = (entries: SearchEntry[]): MatchTerm => {
   const allIds = new Set(entries.map(entry => entry.id))
   const fuse = new Fuse(entries, {
     keys: ['searchText'],
-    threshold: 0.35,
+    threshold: 0.3,
     ignoreLocation: true,
     includeScore: false,
     minMatchCharLength: 1,

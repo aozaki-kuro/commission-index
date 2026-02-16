@@ -45,12 +45,10 @@ const Listing = ({ Character, commissionMap }: ListingProps) => {
             .join(' ')
           const searchText = [
             Character,
-            commission.fileName,
             creator,
             commission.Design ?? '',
             commission.Description ?? '',
             keywordSearchText,
-            commission.Links.join(' '),
           ]
             .join(' ')
             .toLowerCase()
