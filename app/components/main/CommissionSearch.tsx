@@ -1,36 +1,29 @@
 'use client'
 
-import { Input } from '@headlessui/react'
+import {
+  Dialog,
+  DialogPanel,
+  DialogTitle,
+  Input,
+  Transition,
+  TransitionChild,
+} from '@headlessui/react'
 import Fuse from 'fuse.js'
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { jumpToCommissionSearch } from '#lib/jumpToCommissionSearch'
 
 const normalize = (s: string) => s.trim().toLowerCase()
+const toFuseOperatorQuery = (rawQuery: string) =>
+  normalize(rawQuery)
+    .replace(/\s*\|\s*/g, ' | ')
+    .replace(/\s*!\s*/g, ' !')
+    .replace(/\s+/g, ' ')
 
 type Entry = {
   id: number
   element: HTMLElement
   sectionId?: string
   searchText: string
-}
-
-type TokenKind = 'term' | 'and' | 'or' | 'not' | 'lparen' | 'rparen'
-type Token = { type: TokenKind; value?: string }
-
-const allIdsOf = (entries: Entry[]) => new Set(entries.map(e => e.id))
-
-const intersect = (a: Set<number>, b: Set<number>) => {
-  const out = new Set<number>()
-  for (const x of a) if (b.has(x)) out.add(x)
-  return out
-}
-
-const union = (a: Set<number>, b: Set<number>) => new Set<number>([...a, ...b])
-
-const diff = (a: Set<number>, b: Set<number>) => {
-  const out = new Set<number>()
-  for (const x of a) if (!b.has(x)) out.add(x)
-  return out
 }
 
 const buildSearchUrl = (rawQuery: string) => {
@@ -51,122 +44,6 @@ const getUrlQuerySnapshot = () => {
   return new URLSearchParams(window.location.search).get('q') ?? ''
 }
 
-const precedence = (type: TokenKind) => {
-  if (type === 'not') return 3
-  if (type === 'and') return 2
-  if (type === 'or') return 1
-  return 0
-}
-
-const isOperator = (t: Token) => t.type === 'and' || t.type === 'or' || t.type === 'not'
-
-const tokenize = (query: string): Token[] => {
-  const raw = query.match(/\(|\)|&&|\|\||!|[^\s()]+/g) ?? []
-  const base: Token[] = raw.map(part => {
-    const u = part.toUpperCase()
-    if (part === '(') return { type: 'lparen' }
-    if (part === ')') return { type: 'rparen' }
-    if (u === 'AND' || part === '&&') return { type: 'and' }
-    if (u === 'OR' || part === '||') return { type: 'or' }
-    if (u === 'NOT' || part === '!') return { type: 'not' }
-    return { type: 'term', value: normalize(part) }
-  })
-
-  // 隐式 AND: term/rparen 后面接 term/lparen/not
-  const out: Token[] = []
-  const startsOperand = (t: Token) => t.type === 'term' || t.type === 'lparen' || t.type === 'not'
-  const endsOperand = (t: Token) => t.type === 'term' || t.type === 'rparen'
-
-  for (const t of base) {
-    const prev = out[out.length - 1]
-    if (prev && endsOperand(prev) && startsOperand(t)) out.push({ type: 'and' })
-    out.push(t)
-  }
-  return out
-}
-
-const toRpn = (tokens: Token[]): Token[] | null => {
-  const output: Token[] = []
-  const ops: Token[] = []
-
-  for (const t of tokens) {
-    if (t.type === 'term') {
-      output.push(t)
-      continue
-    }
-
-    if (t.type === 'lparen') {
-      ops.push(t)
-      continue
-    }
-
-    if (t.type === 'rparen') {
-      let ok = false
-      while (ops.length) {
-        const top = ops.pop()!
-        if (top.type === 'lparen') {
-          ok = true
-          break
-        }
-        output.push(top)
-      }
-      if (!ok) return null
-      continue
-    }
-
-    // operator
-    while (ops.length) {
-      const top = ops[ops.length - 1]
-      if (!isOperator(top)) break
-
-      const pop =
-        t.type === 'not'
-          ? precedence(top.type) > precedence(t.type) // not 右结合
-          : precedence(top.type) >= precedence(t.type)
-
-      if (!pop) break
-      output.push(ops.pop()!)
-    }
-    ops.push(t)
-  }
-
-  while (ops.length) {
-    const top = ops.pop()!
-    if (top.type === 'lparen' || top.type === 'rparen') return null
-    output.push(top)
-  }
-  return output
-}
-
-const evaluateRpn = (
-  rpn: Token[],
-  universe: Set<number>,
-  matchTerm: (term: string) => Set<number>,
-): Set<number> | null => {
-  const st: Set<number>[] = []
-
-  for (const t of rpn) {
-    if (t.type === 'term') {
-      st.push(matchTerm(t.value ?? ''))
-      continue
-    }
-
-    if (t.type === 'not') {
-      const v = st.pop()
-      if (!v) return null
-      st.push(diff(universe, v))
-      continue
-    }
-
-    const b = st.pop()
-    const a = st.pop()
-    if (!a || !b) return null
-    st.push(t.type === 'and' ? intersect(a, b) : union(a, b))
-  }
-
-  return st.length === 1 ? st[0] : null
-}
-
 const CommissionSearch = () => {
   const initialUrlQuery = useSyncExternalStore(
     () => () => {},
@@ -175,115 +52,87 @@ const CommissionSearch = () => {
   )
   const [inputQuery, setInputQuery] = useState<string | null>(null)
   const query = inputQuery ?? initialUrlQuery
-  const hasQuery = !!normalize(query)
+  const normalizedQuery = normalize(query)
+  const fuseQuery = toFuseOperatorQuery(query)
+  const hasQuery = !!normalizedQuery
 
   const inputRef = useRef<HTMLInputElement>(null)
   const liveRef = useRef<HTMLParagraphElement>(null)
   const didAutoJumpRef = useRef(false)
+  const [isHelpOpen, setIsHelpOpen] = useState(false)
 
-  // 1) 静态索引，仅在挂载时构建
   const index = useMemo(() => {
     if (typeof window === 'undefined') {
       return {
         entries: [] as Entry[],
         sections: [] as HTMLElement[],
-        universe: new Set<number>(),
-        matchTerm: (term: string) => {
-          void term
-          return new Set<number>()
-        },
+        allIds: new Set<number>(),
+        fuse: null as Fuse<Entry> | null,
       }
     }
 
-    const entryElements = Array.from(
+    const entries = Array.from(
       document.querySelectorAll<HTMLElement>('[data-commission-entry="true"]'),
-    )
-    const sectionElements = Array.from(
-      document.querySelectorAll<HTMLElement>('[data-character-section="true"]'),
-    )
-
-    const entries: Entry[] = entryElements.map((element, id) => ({
+    ).map((element, id) => ({
       id,
       element,
       sectionId: element.dataset.characterSectionId,
       searchText: (element.dataset.searchText ?? '').toLowerCase(),
     }))
 
-    const universe = allIdsOf(entries)
-
-    const fuse = new Fuse(entries, {
-      keys: ['searchText'],
-      threshold: 0.3,
-      ignoreLocation: true,
-      includeScore: false,
-      minMatchCharLength: 1,
-    })
-
-    const cache = new Map<string, Set<number>>()
-    const matchTerm = (term: string) => {
-      const t = normalize(term)
-      if (!t) return new Set(universe)
-
-      const hit = cache.get(t)
-      if (hit) return new Set(hit)
-
-      const ids = new Set(fuse.search(t).map(r => r.item.id))
-      cache.set(t, ids)
-      return new Set(ids)
+    return {
+      entries,
+      sections: Array.from(
+        document.querySelectorAll<HTMLElement>('[data-character-section="true"]'),
+      ),
+      allIds: new Set(entries.map(entry => entry.id)),
+      fuse: new Fuse(entries, {
+        keys: ['searchText'],
+        threshold: 0.2,
+        ignoreLocation: true,
+        includeScore: false,
+        minMatchCharLength: 1,
+        useExtendedSearch: true,
+      }),
     }
-
-    return { entries, sections: sectionElements, universe, matchTerm }
   }, [])
 
-  // 2) 执行搜索并刷新 DOM 显示
   useEffect(() => {
-    const q = normalize(query)
-    const { entries, sections, universe, matchTerm } = index
-    if (!entries.length) return
+    const { entries, sections, allIds, fuse } = index
+    if (!entries.length || !fuse) return
 
-    const fallback = () =>
-      q
-        .split(/\s+/)
-        .filter(Boolean)
-        .reduce((acc, t) => intersect(acc, matchTerm(t)), new Set(universe))
-
-    const rpn = q ? toRpn(tokenize(q)) : null
-    const matchedIds = !q
-      ? new Set(universe)
-      : rpn
-        ? (evaluateRpn(rpn, universe, matchTerm) ?? fallback())
-        : fallback()
+    const matchedIds = hasQuery
+      ? new Set(fuse.search(fuseQuery).map(result => result.item.id))
+      : new Set(allIds)
 
     const visibleBySection = new Map<string, number>()
     let matchedCount = 0
 
-    for (const e of entries) {
-      const show = matchedIds.has(e.id)
-      e.element.classList.toggle('hidden', !show)
-      if (!show) continue
+    for (const entry of entries) {
+      const visible = matchedIds.has(entry.id)
+      entry.element.classList.toggle('hidden', !visible)
+      if (!visible) continue
+
       matchedCount += 1
-      if (e.sectionId)
-        visibleBySection.set(e.sectionId, (visibleBySection.get(e.sectionId) ?? 0) + 1)
+      if (entry.sectionId) {
+        visibleBySection.set(entry.sectionId, (visibleBySection.get(entry.sectionId) ?? 0) + 1)
+      }
     }
 
     for (const section of sections) {
-      const total = Number(section.dataset.totalCommissions ?? '0')
       const shown = visibleBySection.get(section.id) ?? 0
-      const hide = !!q && total > 0 && shown === 0
-      section.classList.toggle('hidden', hide)
+      section.classList.toggle('hidden', hasQuery && shown === 0)
     }
 
     if (liveRef.current) {
-      liveRef.current.textContent = q
+      liveRef.current.textContent = hasQuery
         ? `Search results: ${matchedCount} of ${entries.length} commissions shown.`
         : `Search cleared. Showing all ${entries.length} commissions.`
     }
-  }, [query, index])
+  }, [fuseQuery, hasQuery, index])
 
-  // 3) 初次从 ?q= 访问时自动跳到搜索区域
   useEffect(() => {
-    if (didAutoJumpRef.current || typeof window === 'undefined') return
-    if (!initialUrlQuery) return
+    if (didAutoJumpRef.current || !initialUrlQuery) return
 
     didAutoJumpRef.current = true
     requestAnimationFrame(() => {
@@ -292,11 +141,10 @@ const CommissionSearch = () => {
   }, [initialUrlQuery])
 
   const copySearchUrl = async () => {
-    if (typeof window === 'undefined' || !hasQuery) return
-    const text = buildSearchUrl(query)
+    if (!hasQuery) return
 
     try {
-      await navigator.clipboard.writeText(text)
+      await navigator.clipboard.writeText(buildSearchUrl(query))
       if (liveRef.current) liveRef.current.textContent = 'Search URL copied.'
     } catch {
       if (liveRef.current) liveRef.current.textContent = 'Failed to copy search URL.'
@@ -305,7 +153,7 @@ const CommissionSearch = () => {
 
   const clearSearch = () => {
     setInputQuery('')
-    if (typeof window !== 'undefined') clearSearchQueryParamInAddress()
+    clearSearchQueryParamInAddress()
     inputRef.current?.focus()
   }
 
@@ -333,11 +181,31 @@ const CommissionSearch = () => {
             type="search"
             value={query}
             onChange={e => setInputQuery(e.target.value)}
-            placeholder="Search: AND / OR / NOT"
+            placeholder="Search"
             autoComplete="off"
             aria-label="Search commissions"
-            className="peer w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-16 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
+            className="peer w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-24 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
           />
+
+          <button
+            type="button"
+            onClick={() => setIsHelpOpen(true)}
+            className={`absolute inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[right,color] duration-200 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
+              hasQuery ? 'right-16' : 'right-0'
+            }`}
+            aria-label="Search help"
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
+              <circle cx="12" cy="12" r="9" strokeWidth="2" />
+              <path
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M9.6 9.2a2.6 2.6 0 1 1 4.8 1.4c-.6.8-1.4 1.2-2 1.8-.4.4-.6.9-.6 1.6"
+              />
+              <circle cx="12" cy="17.3" r="0.8" fill="currentColor" stroke="none" />
+            </svg>
+          </button>
 
           <button
             type="button"
@@ -377,6 +245,66 @@ const CommissionSearch = () => {
       </div>
 
       <p ref={liveRef} aria-live="polite" className="sr-only" />
+
+      <Transition appear show={isHelpOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-20" onClose={setIsHelpOpen}>
+          <TransitionChild
+            as={Fragment}
+            enter="ease-out duration-200"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-150"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-[2px] dark:bg-black/55" />
+          </TransitionChild>
+
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <TransitionChild
+              as={Fragment}
+              enter="ease-out duration-200"
+              enterFrom="opacity-0 scale-95"
+              enterTo="opacity-100 scale-100"
+              leave="ease-in duration-150"
+              leaveFrom="opacity-100 scale-100"
+              leaveTo="opacity-0 scale-95"
+            >
+              <DialogPanel className="w-full max-w-md rounded-2xl border border-gray-300/80 bg-white/95 p-5 font-mono text-sm text-gray-700 shadow-[0_16px_50px_rgba(0,0,0,0.16)] backdrop-blur-sm dark:border-gray-700 dark:bg-black/90 dark:text-gray-300">
+                <DialogTitle className="text-base font-bold text-gray-900 dark:text-gray-100">
+                  Search Help
+                </DialogTitle>
+
+                <div className="mt-3 space-y-2 text-gray-700 dark:text-gray-300">
+                  <p>Type one or more keywords to filter commissions.</p>
+                  <p>
+                    <code className="text-xs">space</code>: all terms must match.
+                  </p>
+                  <p>
+                    <code className="text-xs">|</code>: either side can match.
+                  </p>
+                  <p>
+                    <code className="text-xs">!</code>: exclude a term.
+                  </p>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    Example: <code className="text-xs">blue hair | silver !sketch</code>
+                  </p>
+                </div>
+
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setIsHelpOpen(false)}
+                    className="rounded-md border border-gray-300/80 bg-gray-100/85 px-3 py-1.5 text-xs font-semibold text-gray-800 transition-colors hover:bg-gray-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:border-gray-600 dark:bg-gray-800/90 dark:text-gray-100 dark:hover:bg-gray-700 dark:focus-visible:outline-gray-300"
+                  >
+                    Close
+                  </button>
+                </div>
+              </DialogPanel>
+            </TransitionChild>
+          </div>
+        </Dialog>
+      </Transition>
     </section>
   )
 }
