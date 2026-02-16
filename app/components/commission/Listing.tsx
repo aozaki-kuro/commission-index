@@ -21,7 +21,12 @@ const Listing = ({ Character, commissionMap }: ListingProps) => {
   const commissions = characterData?.Commissions ?? []
 
   return (
-    <div id={sectionId} data-character-section="true" data-total-commissions={commissions.length}>
+    <div
+      id={sectionId}
+      className="scroll-mt-[28vh]"
+      data-character-section="true"
+      data-total-commissions={commissions.length}
+    >
       {/* 显示角色标题 */}
       <Title Content={Character} />
       {/* 如果没有数据，显示占位文本，否则显示委托作品列表 */}

@@ -1,12 +1,91 @@
 'use client'
 
+import { Input } from '@headlessui/react'
 import { useEffect, useRef, useState } from 'react'
 
 const normalizeQuery = (value: string) => value.trim().toLowerCase()
 
+const isWildcardMatch = (pattern: string, text: string) => {
+  let patternIndex = 0
+  let textIndex = 0
+  let starIndex = -1
+  let matchIndex = 0
+
+  while (textIndex < text.length) {
+    if (patternIndex < pattern.length && pattern[patternIndex] === text[textIndex]) {
+      patternIndex += 1
+      textIndex += 1
+      continue
+    }
+
+    if (patternIndex < pattern.length && pattern[patternIndex] === '*') {
+      starIndex = patternIndex
+      matchIndex = textIndex
+      patternIndex += 1
+      continue
+    }
+
+    if (starIndex !== -1) {
+      patternIndex = starIndex + 1
+      matchIndex += 1
+      textIndex = matchIndex
+      continue
+    }
+
+    return false
+  }
+
+  while (patternIndex < pattern.length && pattern[patternIndex] === '*') {
+    patternIndex += 1
+  }
+
+  return patternIndex === pattern.length
+}
+
+const isWildcardPrefixMatch = (pattern: string, prefix: string) => {
+  let patternIndex = 0
+  let prefixIndex = 0
+  let starIndex = -1
+  let matchIndex = 0
+
+  while (prefixIndex < prefix.length) {
+    if (patternIndex < pattern.length && pattern[patternIndex] === prefix[prefixIndex]) {
+      patternIndex += 1
+      prefixIndex += 1
+      continue
+    }
+
+    if (patternIndex < pattern.length && pattern[patternIndex] === '*') {
+      starIndex = patternIndex
+      matchIndex = prefixIndex
+      patternIndex += 1
+      continue
+    }
+
+    if (starIndex !== -1) {
+      patternIndex = starIndex + 1
+      matchIndex += 1
+      prefixIndex = matchIndex
+      continue
+    }
+
+    return false
+  }
+
+  return true
+}
+
 const matchesToken = (searchText: string, token: string) => {
   if (!token) return true
-  return searchText.includes(token)
+  if (searchText.includes(token)) return true
+
+  const terms = searchText.split(/\s+/).filter(Boolean)
+
+  if (token.includes('*')) {
+    if (terms.some(term => isWildcardMatch(token, term))) return true
+  }
+
+  return terms.some(term => term.includes('*') && isWildcardPrefixMatch(term, token))
 }
 
 type QueryToken =
@@ -240,13 +319,13 @@ const CommissionSearch = () => {
           <label htmlFor="commission-search-input" className="sr-only">
             Search commissions
           </label>
-          <input
+          <Input
             id="commission-search-input"
             type="search"
             value={query}
             onChange={event => setQuery(event.target.value)}
             placeholder="Search: AND / OR / NOT"
-            className="w-full bg-transparent font-mono text-xs tracking-[0.01em] outline-none placeholder:text-gray-400"
+            className="w-full bg-transparent font-mono text-xs tracking-[0.01em] outline-none placeholder:text-gray-400 sm:text-sm"
             autoComplete="off"
             aria-label="Search commissions"
           />
