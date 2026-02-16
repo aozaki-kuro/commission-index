@@ -14,13 +14,14 @@ const Commission = ({ activeChars, staleChars, commissionMap }: CommissionProps)
       {activeChars.map(chara => (
         <Listing
           Character={chara.DisplayName}
+          status="active"
           commissionMap={commissionMap}
           key={chara.DisplayName}
         />
       ))}
 
       {/* Divider between Active and Stale Commissions */}
-      <div id="--------Stale Divder--------">
+      <div id="--------Stale Divder--------" data-stale-divider="true">
         <div className="pt-0" />
         <hr />
         <div className="pb-8" />
@@ -30,6 +31,7 @@ const Commission = ({ activeChars, staleChars, commissionMap }: CommissionProps)
       {staleChars.map(chara => (
         <Listing
           Character={chara.DisplayName}
+          status="stale"
           commissionMap={commissionMap}
           key={chara.DisplayName}
         />

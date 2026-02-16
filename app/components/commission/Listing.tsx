@@ -8,6 +8,7 @@ import IllustratorInfo from './IllustratorInfo'
 
 type ListingProps = {
   Character: string
+  status: 'active' | 'stale'
   commissionMap: Map<string, CharacterCommissions>
 }
 
@@ -15,7 +16,7 @@ type ListingProps = {
  * Listing 组件显示特定角色的所有委托作品，包括图片、信息和链接。
  * @param Character - 角色名称。
  */
-const Listing = ({ Character, commissionMap }: ListingProps) => {
+const Listing = ({ Character, status, commissionMap }: ListingProps) => {
   const sectionId = getCharacterSectionId(Character)
   const characterData = commissionMap.get(Character)
   const commissions = characterData?.Commissions ?? []
@@ -25,6 +26,7 @@ const Listing = ({ Character, commissionMap }: ListingProps) => {
       id={sectionId}
       className="scroll-mt-[28vh]"
       data-character-section="true"
+      data-character-status={status}
       data-total-commissions={commissions.length}
     >
       {/* 显示角色标题 */}

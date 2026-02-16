@@ -30,6 +30,12 @@ type Entry = {
   searchText: string
 }
 
+type Section = {
+  id: string
+  element: HTMLElement
+  status: 'active' | 'stale' | undefined
+}
+
 const buildSearchUrl = (rawQuery: string) => {
   const url = new URL(window.location.href)
   if (normalize(rawQuery)) url.searchParams.set('q', rawQuery)
@@ -69,7 +75,8 @@ const CommissionSearch = () => {
     if (typeof window === 'undefined') {
       return {
         entries: [] as Entry[],
-        sections: [] as HTMLElement[],
+        sections: [] as Section[],
+        staleDivider: null as HTMLElement | null,
         allIds: new Set<number>(),
         fuse: null as Fuse<Entry> | null,
       }
@@ -88,7 +95,12 @@ const CommissionSearch = () => {
       entries,
       sections: Array.from(
         document.querySelectorAll<HTMLElement>('[data-character-section="true"]'),
-      ),
+      ).map(element => ({
+        id: element.id,
+        element,
+        status: element.dataset.characterStatus as 'active' | 'stale' | undefined,
+      })),
+      staleDivider: document.querySelector<HTMLElement>('[data-stale-divider="true"]'),
       allIds: new Set(entries.map(entry => entry.id)),
       fuse: new Fuse(entries, {
         keys: ['searchText'],
@@ -102,7 +114,7 @@ const CommissionSearch = () => {
   }, [])
 
   useEffect(() => {
-    const { entries, sections, allIds, fuse } = index
+    const { entries, sections, staleDivider, allIds, fuse } = index
     if (!entries.length || !fuse) return
 
     let matchedIds = new Set(allIds)
@@ -137,9 +149,22 @@ const CommissionSearch = () => {
       }
     }
 
+    let visibleActiveSections = 0
+    let visibleStaleSections = 0
+
     for (const section of sections) {
       const shown = visibleBySection.get(section.id) ?? 0
-      section.classList.toggle('hidden', hasQuery && shown === 0)
+      section.element.classList.toggle('hidden', hasQuery && shown === 0)
+
+      if (shown > 0) {
+        if (section.status === 'active') visibleActiveSections += 1
+        if (section.status === 'stale') visibleStaleSections += 1
+      }
+    }
+
+    if (staleDivider) {
+      const shouldShowDivider = !hasQuery || (visibleActiveSections > 0 && visibleStaleSections > 0)
+      staleDivider.classList.toggle('hidden', !shouldShowDivider)
     }
 
     if (liveRef.current) {
