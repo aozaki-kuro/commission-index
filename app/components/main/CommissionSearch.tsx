@@ -301,13 +301,13 @@ const CommissionSearch = () => {
             placeholder="Search: AND / OR / NOT"
             autoComplete="off"
             aria-label="Search commissions"
-            className="w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-8 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
+            className="peer w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-8 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
           />
 
           <button
             type="button"
             onClick={clearSearch}
-            className="absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-colors hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300"
+            className="absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[opacity,color] peer-placeholder-shown:pointer-events-none peer-placeholder-shown:opacity-0 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300"
             aria-label="Clear search"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
