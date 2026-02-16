@@ -18,6 +18,10 @@ const toFuseOperatorQuery = (rawQuery: string) =>
     .replace(/\s*\|\s*/g, ' | ')
     .replace(/\s*!\s*/g, ' !')
     .replace(/\s+/g, ' ')
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const hasOperatorSyntax = (query: string) => /[|!]/.test(query)
+const hasWholeWord = (text: string, term: string) =>
+  new RegExp(`\\b${escapeRegExp(term)}\\b`, 'i').test(text)
 
 type Entry = {
   id: number
@@ -88,7 +92,7 @@ const CommissionSearch = () => {
       allIds: new Set(entries.map(entry => entry.id)),
       fuse: new Fuse(entries, {
         keys: ['searchText'],
-        threshold: 0.2,
+        threshold: 0.3,
         ignoreLocation: true,
         includeScore: false,
         minMatchCharLength: 1,
@@ -101,9 +105,23 @@ const CommissionSearch = () => {
     const { entries, sections, allIds, fuse } = index
     if (!entries.length || !fuse) return
 
-    const matchedIds = hasQuery
-      ? new Set(fuse.search(fuseQuery).map(result => result.item.id))
-      : new Set(allIds)
+    let matchedIds = new Set(allIds)
+    if (hasQuery) {
+      const terms = normalizedQuery.split(/\s+/).filter(Boolean)
+      const strictMatchIds =
+        !hasOperatorSyntax(normalizedQuery) && terms.length
+          ? new Set(
+              entries
+                .filter(entry => terms.every(term => hasWholeWord(entry.searchText, term)))
+                .map(entry => entry.id),
+            )
+          : null
+
+      matchedIds =
+        strictMatchIds && strictMatchIds.size > 0
+          ? strictMatchIds
+          : new Set(fuse.search(fuseQuery).map(result => result.item.id))
+    }
 
     const visibleBySection = new Map<string, number>()
     let matchedCount = 0
@@ -129,7 +147,7 @@ const CommissionSearch = () => {
         ? `Search results: ${matchedCount} of ${entries.length} commissions shown.`
         : `Search cleared. Showing all ${entries.length} commissions.`
     }
-  }, [fuseQuery, hasQuery, index])
+  }, [fuseQuery, hasQuery, index, normalizedQuery])
 
   useEffect(() => {
     if (didAutoJumpRef.current || !initialUrlQuery) return
