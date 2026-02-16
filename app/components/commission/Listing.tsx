@@ -21,7 +21,7 @@ const Listing = ({ Character, commissionMap }: ListingProps) => {
   const commissions = characterData?.Commissions ?? []
 
   return (
-    <div id={sectionId}>
+    <div id={sectionId} data-character-section="true" data-total-commissions={commissions.length}>
       {/* 显示角色标题 */}
       <Title Content={Character} />
       {/* 如果没有数据，显示占位文本，否则显示委托作品列表 */}
@@ -33,9 +33,26 @@ const Listing = ({ Character, commissionMap }: ListingProps) => {
           const altText = `Copyright ©️ ${year} ${creator || 'Anonymous'} & Crystallize`
           const imageSrc = imageImports[commission.fileName as keyof typeof imageImports]
           const elementId = `${sectionId}-${date}`
+          const searchText = [
+            Character,
+            commission.fileName,
+            creator,
+            commission.Design ?? '',
+            commission.Description ?? '',
+            commission.Links.join(' '),
+          ]
+            .join(' ')
+            .toLowerCase()
 
           return (
-            <div key={commission.fileName} id={elementId} className="pt-4">
+            <div
+              key={commission.fileName}
+              id={elementId}
+              className="pt-4"
+              data-commission-entry="true"
+              data-character-section-id={sectionId}
+              data-search-text={searchText}
+            >
               {/* 如果有图片资源，显示图片 */}
               {imageSrc && (
                 <Image

@@ -6,6 +6,7 @@ import CommissionDescription from '#components/main/Description'
 import Footer from '#components/main/Footer'
 
 import CharacterList from '#components/main/CharacterList'
+import CommissionSearch from '#components/main/CommissionSearch'
 import DevLiveRefresh from '#components/main/DevLiveRefresh'
 
 import Hamburger from '#components/main/Hamburger'
@@ -24,6 +25,7 @@ const Home: NextPage = () => {
       <div className="relative mx-auto flex justify-center">
         <div id="Main Contents" className="w-full max-w-160">
           <CommissionDescription />
+          <CommissionSearch />
           <Commission
             activeChars={status.active}
             staleChars={status.stale}
