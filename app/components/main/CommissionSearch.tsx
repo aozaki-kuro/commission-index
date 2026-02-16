@@ -32,11 +32,11 @@ const diff = (a: Set<number>, b: Set<number>) => {
   return out
 }
 
-const updateQueryParam = (rawQuery: string) => {
+const buildSearchUrl = (rawQuery: string) => {
   const url = new URL(window.location.href)
   if (normalize(rawQuery)) url.searchParams.set('q', rawQuery)
   else url.searchParams.delete('q')
-  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+  return url.toString()
 }
 
 const precedence = (type: TokenKind) => {
@@ -263,11 +263,17 @@ const CommissionSearch = () => {
     }
   }, [query, index])
 
-  // 3) 同步 URL 参数
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    updateQueryParam(query)
-  }, [query])
+  const copySearchUrl = async () => {
+    if (typeof window === 'undefined' || !normalize(query)) return
+    const text = buildSearchUrl(query)
+
+    try {
+      await navigator.clipboard.writeText(text)
+      if (liveRef.current) liveRef.current.textContent = 'Search URL copied.'
+    } catch {
+      if (liveRef.current) liveRef.current.textContent = 'Failed to copy search URL.'
+    }
+  }
 
   const clearSearch = () => {
     setQuery('')
@@ -303,6 +309,25 @@ const CommissionSearch = () => {
             aria-label="Search commissions"
             className="peer w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-8 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
           />
+
+          <button
+            type="button"
+            onClick={copySearchUrl}
+            className="absolute right-8 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[opacity,color] peer-placeholder-shown:pointer-events-none peer-placeholder-shown:opacity-0 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300"
+            aria-label="Copy search URL"
+          >
+            <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor">
+              <circle cx="18" cy="5.5" r="2.3" strokeWidth="2" />
+              <circle cx="6" cy="12" r="2.3" strokeWidth="2" />
+              <circle cx="18" cy="18.5" r="2.3" strokeWidth="2" />
+              <path
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M8.2 11l7.6-4.1M8.2 13l7.6 4.1"
+              />
+            </svg>
+          </button>
 
           <button
             type="button"
