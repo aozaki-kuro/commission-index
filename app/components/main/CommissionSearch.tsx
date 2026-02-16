@@ -1,68 +1,161 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const normalizeQuery = (value: string) => value.trim().toLowerCase()
-const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-const splitTerms = (value: string) => value.split(/[\s,./|:;()[\]{}"']+/).filter(Boolean)
-
-const wildcardPrefixMatch = (token: string, wildcardPattern: string) => {
-  const t = token.toLowerCase()
-  const p = wildcardPattern.toLowerCase()
-  const memo = new Map<string, boolean>()
-
-  const dfs = (ti: number, pi: number): boolean => {
-    const key = `${ti}:${pi}`
-    const cached = memo.get(key)
-    if (cached !== undefined) return cached
-
-    // If the token is fully consumed, the remaining wildcard pattern
-    // must be only '*' to still be considered a match.
-    if (ti === t.length)
-      return p
-        .slice(pi)
-        .split('')
-        .every(char => char === '*')
-    if (pi === p.length) return false
-
-    let result = false
-    if (p[pi] === '*') {
-      result = dfs(ti, pi + 1) || dfs(ti + 1, pi)
-    } else if (t[ti] === p[pi]) {
-      result = dfs(ti + 1, pi + 1)
-    }
-
-    memo.set(key, result)
-    return result
-  }
-
-  return dfs(0, 0)
-}
 
 const matchesToken = (searchText: string, token: string) => {
   if (!token) return true
+  return searchText.includes(token)
+}
 
-  if (!token.includes('*')) {
-    if (searchText.includes(token)) return true
+type QueryToken =
+  | { type: 'term'; value: string }
+  | { type: 'and' | 'or' | 'not' | 'lparen' | 'rparen' }
 
-    // Also treat wildcard terms in data (e.g. "l*cia") as match patterns.
-    const wildcardTerms = splitTerms(searchText).filter(term => term.includes('*'))
-    return wildcardTerms.some(term => wildcardPrefixMatch(token, term))
+const tokenizeQuery = (query: string): QueryToken[] => {
+  const rawTokens = query.match(/\(|\)|&&|\|\||!|[^\s()]+/g) ?? []
+  const tokens: QueryToken[] = rawTokens.map(raw => {
+    const upper = raw.toUpperCase()
+    if (raw === '(') return { type: 'lparen' }
+    if (raw === ')') return { type: 'rparen' }
+    if (upper === 'AND' || raw === '&&') return { type: 'and' }
+    if (upper === 'OR' || raw === '||') return { type: 'or' }
+    if (upper === 'NOT' || raw === '!') return { type: 'not' }
+    return { type: 'term', value: normalizeQuery(raw) }
+  })
+
+  const output: QueryToken[] = []
+  const shouldInsertAnd = (prev: QueryToken, current: QueryToken) => {
+    const prevIsOperand = prev.type === 'term' || prev.type === 'rparen'
+    const currentStartsOperand =
+      current.type === 'term' || current.type === 'lparen' || current.type === 'not'
+    return prevIsOperand && currentStartsOperand
   }
 
-  const pattern = token
-    .split('*')
-    .map(part => escapeRegex(part))
-    .join('.*')
-  const regex = new RegExp(pattern, 'i')
+  for (const token of tokens) {
+    const prev = output.at(-1)
+    if (prev && shouldInsertAnd(prev, token)) {
+      output.push({ type: 'and' })
+    }
+    output.push(token)
+  }
 
-  return regex.test(searchText)
+  return output
+}
+
+const toRpn = (tokens: QueryToken[]): QueryToken[] | null => {
+  const output: QueryToken[] = []
+  const operators: QueryToken[] = []
+
+  const precedence = (token: QueryToken) => {
+    if (token.type === 'not') return 3
+    if (token.type === 'and') return 2
+    if (token.type === 'or') return 1
+    return 0
+  }
+
+  const isOperator = (token: QueryToken) =>
+    token.type === 'and' || token.type === 'or' || token.type === 'not'
+
+  for (const token of tokens) {
+    if (token.type === 'term') {
+      output.push(token)
+      continue
+    }
+
+    if (token.type === 'lparen') {
+      operators.push(token)
+      continue
+    }
+
+    if (token.type === 'rparen') {
+      let foundLParen = false
+      while (operators.length > 0) {
+        const top = operators.pop()
+        if (!top) return null
+        if (top.type === 'lparen') {
+          foundLParen = true
+          break
+        }
+        output.push(top)
+      }
+      if (!foundLParen) return null
+      continue
+    }
+
+    while (operators.length > 0) {
+      const top = operators.at(-1)
+      if (!top || !isOperator(top)) break
+
+      const shouldPop =
+        token.type === 'not'
+          ? precedence(top) > precedence(token)
+          : precedence(top) >= precedence(token)
+      if (!shouldPop) break
+
+      const popped = operators.pop()
+      if (!popped) return null
+      output.push(popped)
+    }
+
+    operators.push(token)
+  }
+
+  while (operators.length > 0) {
+    const top = operators.pop()
+    if (!top || top.type === 'lparen' || top.type === 'rparen') return null
+    output.push(top)
+  }
+
+  return output
+}
+
+const evaluateRpn = (searchText: string, rpn: QueryToken[]): boolean | null => {
+  const stack: boolean[] = []
+
+  for (const token of rpn) {
+    if (token.type === 'term') {
+      stack.push(matchesToken(searchText, token.value))
+      continue
+    }
+
+    if (token.type === 'not') {
+      const value = stack.pop()
+      if (value === undefined) return null
+      stack.push(!value)
+      continue
+    }
+
+    const right = stack.pop()
+    const left = stack.pop()
+    if (left === undefined || right === undefined) return null
+
+    if (token.type === 'and') stack.push(left && right)
+    else if (token.type === 'or') stack.push(left || right)
+  }
+
+  if (stack.length !== 1) return null
+  return stack[0]
 }
 
 const matchesQuery = (searchText: string, query: string) => {
-  const tokens = normalizeQuery(query).split(/\s+/).filter(Boolean)
-  if (tokens.length === 0) return true
-  return tokens.every(token => matchesToken(searchText, token))
+  const normalized = normalizeQuery(query)
+  if (!normalized) return true
+
+  const rpn = toRpn(tokenizeQuery(normalized))
+  if (!rpn) {
+    const fallbackTokens = normalized.split(/\s+/).filter(Boolean)
+    return fallbackTokens.every(token => matchesToken(searchText, token))
+  }
+
+  const result = evaluateRpn(searchText, rpn)
+  if (result === null) {
+    const fallbackTokens = normalized.split(/\s+/).filter(Boolean)
+    return fallbackTokens.every(token => matchesToken(searchText, token))
+  }
+
+  return result
 }
 
 const updateQueryParam = (query: string) => {
@@ -83,32 +176,7 @@ const CommissionSearch = () => {
     if (typeof window === 'undefined') return ''
     return new URLSearchParams(window.location.search).get('q') ?? ''
   })
-  const [isOpen, setIsOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
   const liveRef = useRef<HTMLParagraphElement>(null)
-  const hasQuery = useMemo(() => normalizeQuery(query).length > 0, [query])
-
-  useEffect(() => {
-    if (!isOpen) return
-    const id = requestAnimationFrame(() => inputRef.current?.focus())
-    return () => cancelAnimationFrame(id)
-  }, [isOpen])
-
-  useEffect(() => {
-    if (!isOpen) return
-
-    const handlePointerDown = (event: PointerEvent) => {
-      const target = event.target as Node | null
-      if (!target) return
-      if (containerRef.current?.contains(target)) return
-      if (normalizeQuery(query).length > 0) return
-      setIsOpen(false)
-    }
-
-    document.addEventListener('pointerdown', handlePointerDown)
-    return () => document.removeEventListener('pointerdown', handlePointerDown)
-  }, [isOpen, query])
 
   useEffect(() => {
     const normalized = normalizeQuery(query)
@@ -157,13 +225,8 @@ const CommissionSearch = () => {
   }, [query])
 
   return (
-    <section className="mt-8 mb-6 flex h-12 items-center justify-end">
-      <div
-        ref={containerRef}
-        className={`relative h-11 overflow-hidden border-b border-gray-300/80 bg-transparent text-gray-700 transition-[width,border-color] duration-250 ease-out dark:border-gray-700 dark:text-gray-300 ${
-          isOpen ? 'w-full' : 'w-28 md:w-36 lg:w-44'
-        }`}
-      >
+    <section id="commission-search" className="mt-8 mb-6 flex h-12 items-center justify-end">
+      <div className="relative h-11 w-full overflow-hidden border-b border-gray-300/80 bg-transparent text-gray-700 dark:border-gray-700 dark:text-gray-300">
         <svg
           viewBox="0 0 24 24"
           className="absolute top-1/2 left-2.5 h-3.5 w-3.5 shrink-0 -translate-y-1/2 opacity-70"
@@ -173,52 +236,18 @@ const CommissionSearch = () => {
           <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.4-4.4" />
           <circle cx="11" cy="11" r="6" strokeWidth="2" />
         </svg>
-
-        <div
-          className={`absolute inset-y-0 right-2 left-8 flex items-center transition-all duration-180 ${
-            isOpen
-              ? 'pointer-events-none translate-y-1 opacity-0'
-              : 'pointer-events-auto translate-y-0 opacity-100'
-          }`}
-        >
-          <button
-            type="button"
-            onClick={() => setIsOpen(true)}
-            aria-expanded={isOpen}
-            aria-controls="commission-search-input"
-            className="inline-flex h-full w-full items-center justify-between gap-2 text-xs tracking-[0.02em] focus-visible:outline-none"
-            tabIndex={isOpen ? -1 : 0}
-          >
-            <span>Search</span>
-            {hasQuery ? (
-              <span className="text-[10px] text-gray-500 dark:text-gray-400">filtered</span>
-            ) : null}
-          </button>
-        </div>
-
-        <div
-          className={`absolute inset-y-0 right-2 left-8 flex items-center gap-2 transition-all duration-180 ${
-            isOpen
-              ? 'pointer-events-auto translate-y-0 opacity-100'
-              : 'pointer-events-none -translate-y-1 opacity-0'
-          }`}
-        >
+        <div className="absolute inset-y-0 right-2 left-8 flex items-center gap-2">
           <label htmlFor="commission-search-input" className="sr-only">
             Search commissions
           </label>
           <input
-            ref={inputRef}
             id="commission-search-input"
             type="search"
             value={query}
             onChange={event => setQuery(event.target.value)}
-            onKeyDown={event => {
-              if (event.key === 'Escape') setIsOpen(false)
-            }}
-            placeholder="Search (supports * wildcard, e.g. L*cia)"
-            className="w-full bg-transparent text-xs tracking-[0.01em] outline-none placeholder:text-gray-400"
+            placeholder="Search: AND / OR / NOT"
+            className="w-full bg-transparent font-mono text-xs tracking-[0.01em] outline-none placeholder:text-gray-400"
             autoComplete="off"
-            tabIndex={isOpen ? 0 : -1}
             aria-label="Search commissions"
           />
         </div>
