@@ -4,6 +4,7 @@ export interface Commission {
   Links: string[]
   Design?: string // 修改为单个字符串
   Description?: string
+  Keyword?: string
   Hidden?: boolean
 }
 

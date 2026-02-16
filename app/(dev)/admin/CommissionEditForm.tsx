@@ -32,6 +32,7 @@ interface CommissionEditFormProps {
     links: string[]
     design?: string | null
     description?: string | null
+    keyword?: string | null
     hidden: boolean
   }
   characters: CharacterRow[]
@@ -75,6 +76,7 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
   const [linksValue, setLinksValue] = useState(initialLinks)
   const [designValue, setDesignValue] = useState(commission.design ?? '')
   const [descriptionValue, setDescriptionValue] = useState(commission.description ?? '')
+  const [keywordValue, setKeywordValue] = useState(commission.keyword ?? '')
 
   const selectedCharacter = useMemo(
     () => sortedCharacters.find(character => character.id === selectedCharacterId) ?? null,
@@ -274,6 +276,22 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
             />
           </Field>
         </div>
+
+        <Field className="space-y-1">
+          <Label className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
+            Keywords (optional, comma-separated, search-only)
+          </Label>
+          <Input
+            name="keyword"
+            value={keywordValue}
+            onChange={event => setKeywordValue(event.target.value)}
+            placeholder="e.g. studio k, skeb, private tag"
+            className={controlStyles}
+          />
+          <Description className="text-xs text-gray-500 dark:text-gray-400">
+            Separate keywords with commas. They are searchable but never rendered publicly.
+          </Description>
+        </Field>
       </div>
 
       <div className="flex flex-wrap items-center gap-4">

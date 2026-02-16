@@ -209,6 +209,21 @@ const AddCommissionForm = ({ characters }: AddCommissionFormProps) => {
         </Field>
       </div>
 
+      <Field className="space-y-1">
+        <Label className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
+          Keywords (optional, comma-separated, search-only)
+        </Label>
+        <Input
+          type="text"
+          name="keyword"
+          placeholder="e.g. studio k, skeb, private tag"
+          className={controlStyles}
+        />
+        <Description className="text-xs text-gray-500 dark:text-gray-400">
+          Separate keywords with commas. They are searchable but never rendered publicly.
+        </Description>
+      </Field>
+
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-3">
           <SubmitButton>Save commission</SubmitButton>

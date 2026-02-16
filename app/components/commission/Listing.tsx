@@ -33,12 +33,18 @@ const Listing = ({ Character, commissionMap }: ListingProps) => {
           const altText = `Copyright ©️ ${year} ${creator || 'Anonymous'} & Crystallize`
           const imageSrc = imageImports[commission.fileName as keyof typeof imageImports]
           const elementId = `${sectionId}-${date}`
+          const keywordSearchText = (commission.Keyword ?? '')
+            .split(/[,\n，、;；]/)
+            .map(keyword => keyword.trim())
+            .filter(Boolean)
+            .join(' ')
           const searchText = [
             Character,
             commission.fileName,
             creator,
             commission.Design ?? '',
             commission.Description ?? '',
+            keywordSearchText,
             commission.Links.join(' '),
           ]
             .join(' ')

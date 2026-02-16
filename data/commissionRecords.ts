@@ -12,6 +12,7 @@ interface CharacterRow {
   links?: string | null
   design?: string | null
   description?: string | null
+  keyword?: string | null
   hidden?: number | null
 }
 
@@ -37,6 +38,11 @@ const parseLinks = (raw?: string | null): string[] => {
   }
 }
 
+const hasCommissionKeywordColumn = (): boolean => {
+  const columns = queryAll<{ name: string }>('PRAGMA table_info(commissions)')
+  return columns.some(column => column.name === 'keyword')
+}
+
 // 将数据库行转换为具备排序信息的角色记录列表
 const buildCharacterRecords = (rows: CharacterRow[]): CharacterRecord[] => {
   const characters = new Map<number, CharacterRecord>()
@@ -60,6 +66,7 @@ const buildCharacterRecords = (rows: CharacterRow[]): CharacterRecord[] => {
       Links: parseLinks(row.links),
       Design: row.design ?? undefined,
       Description: row.description ?? undefined,
+      Keyword: row.keyword ?? undefined,
       Hidden: Boolean(row.hidden ?? 0),
     })
   })
@@ -69,6 +76,9 @@ const buildCharacterRecords = (rows: CharacterRow[]): CharacterRecord[] => {
 
 // 从 SQLite 读取角色与委托信息（开发环境实时读取，生产走缓存）
 const loadCharacterRecords = (): CharacterRecord[] => {
+  const hasKeywordColumn = hasCommissionKeywordColumn()
+  const keywordSelect = hasKeywordColumn ? 'commissions.keyword as keyword,' : 'NULL as keyword,'
+
   const rows = queryAll<CharacterRow>(
     `SELECT
        characters.id,
@@ -79,6 +89,7 @@ const loadCharacterRecords = (): CharacterRecord[] => {
        commissions.links,
        commissions.design,
        commissions.description,
+       ${keywordSelect}
        commissions.hidden
      FROM characters
      LEFT JOIN commissions ON commissions.character_id = characters.id

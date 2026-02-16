@@ -20,6 +20,7 @@ interface CommissionRow {
   links: string[]
   design?: string | null
   description?: string | null
+  keyword?: string | null
   hidden: boolean
 }
 
@@ -41,6 +42,33 @@ const ensureDatabaseExists = () => {
   }
 }
 
+const hasCommissionKeywordColumn = (db: BetterSqlite3Database): boolean => {
+  const columns = db.prepare('PRAGMA table_info(commissions)').all() as Array<{
+    name?: string | null
+  }>
+  return columns.some(column => column.name === 'keyword')
+}
+
+const ensureCommissionKeywordColumn = (db: BetterSqlite3Database) => {
+  if (hasCommissionKeywordColumn(db)) return
+  db.prepare('ALTER TABLE commissions ADD COLUMN keyword TEXT').run()
+}
+
+const normalizeKeyword = (value?: string | null): string | null => {
+  const raw = value?.trim()
+  if (!raw) return null
+
+  const keywords = raw
+    .split(/[,\n，、;；]/)
+    .map(keyword => keyword.trim())
+    .filter(Boolean)
+
+  if (keywords.length === 0) return null
+
+  const uniqueKeywords = Array.from(new Set(keywords))
+  return uniqueKeywords.join(', ')
+}
+
 const openDatabase = (readonly: boolean) => {
   ensureDatabaseExists()
 
@@ -54,6 +82,7 @@ const openDatabase = (readonly: boolean) => {
   if (!readonly) {
     db.pragma('foreign_keys = ON')
     db.pragma('journal_mode = DELETE')
+    ensureCommissionKeywordColumn(db)
   }
 
   return db
@@ -79,6 +108,9 @@ const withWritableDatabase = <TReturn>(handler: (db: BetterSqlite3Database) => T
 
 export const getAdminData = (): AdminData =>
   withReadOnlyDatabase(db => {
+    const hasKeywordColumn = hasCommissionKeywordColumn(db)
+    const keywordSelect = hasKeywordColumn ? 'commissions.keyword as keyword,' : 'NULL as keyword,'
+
     const rawCharacters = db
       .prepare(
         `
@@ -118,6 +150,7 @@ export const getAdminData = (): AdminData =>
           commissions.links as links,
           commissions.design as design,
           commissions.description as description,
+          ${keywordSelect}
           commissions.hidden as hidden
         FROM commissions
         JOIN characters ON characters.id = commissions.character_id
@@ -132,6 +165,7 @@ export const getAdminData = (): AdminData =>
       links: string
       design?: string | null
       description?: string | null
+      keyword?: string | null
       hidden: number
     }>
 
@@ -143,6 +177,7 @@ export const getAdminData = (): AdminData =>
       links: JSON.parse(row.links) as string[],
       design: row.design ?? null,
       description: row.description ?? null,
+      keyword: row.keyword ?? null,
       hidden: Boolean(row.hidden),
     }))
 
@@ -238,6 +273,7 @@ export const createCommission = (input: {
   links: string[]
   design?: string | null
   description?: string | null
+  keyword?: string | null
   hidden?: boolean
 }): { characterName: string } => {
   ensureWritable()
@@ -259,6 +295,7 @@ export const createCommission = (input: {
         links,
         design,
         description,
+        keyword,
         hidden
       ) VALUES (
         @characterId,
@@ -266,6 +303,7 @@ export const createCommission = (input: {
         @links,
         @design,
         @description,
+        @keyword,
         @hidden
       )
     `,
@@ -275,6 +313,7 @@ export const createCommission = (input: {
       links: JSON.stringify(input.links),
       design: input.design ?? null,
       description: input.description ?? null,
+      keyword: normalizeKeyword(input.keyword),
       hidden: input.hidden ? 1 : 0,
     })
 
@@ -289,6 +328,7 @@ export const updateCommission = (input: {
   links: string[]
   design?: string | null
   description?: string | null
+  keyword?: string | null
   hidden?: boolean
 }) => {
   ensureWritable()
@@ -311,6 +351,7 @@ export const updateCommission = (input: {
         links = @links,
         design = @design,
         description = @description,
+        keyword = @keyword,
         hidden = @hidden
       WHERE id = @id
     `,
@@ -321,6 +362,7 @@ export const updateCommission = (input: {
       links: JSON.stringify(input.links),
       design: input.design ?? null,
       description: input.description ?? null,
+      keyword: normalizeKeyword(input.keyword),
       hidden: input.hidden ? 1 : 0,
     })
   })

@@ -82,6 +82,7 @@ export const addCommissionAction = async (
   const linksRaw = formData.get('links')?.toString() ?? ''
   const design = formData.get('design')?.toString().trim() || undefined
   const description = formData.get('description')?.toString().trim() || undefined
+  const keyword = formData.get('keyword')?.toString().trim() || undefined
   const hidden = formData.get('hidden') === 'on'
 
   if (!Number.isFinite(characterId) || characterId <= 0) {
@@ -104,6 +105,7 @@ export const addCommissionAction = async (
       links,
       design,
       description,
+      keyword,
       hidden,
     })
     await runImagePipeline()
@@ -182,6 +184,7 @@ export const updateCommissionAction = async (
   const linksRaw = formData.get('links')?.toString() ?? ''
   const design = formData.get('design')?.toString().trim() || undefined
   const description = formData.get('description')?.toString().trim() || undefined
+  const keyword = formData.get('keyword')?.toString().trim() || undefined
   const hidden = formData.get('hidden') === 'on'
 
   if (!Number.isFinite(id) || id <= 0) {
@@ -209,6 +212,7 @@ export const updateCommissionAction = async (
       links,
       design,
       description,
+      keyword,
       hidden,
     })
     await runImagePipeline()

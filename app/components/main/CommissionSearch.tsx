@@ -16,7 +16,13 @@ const wildcardPrefixMatch = (token: string, wildcardPattern: string) => {
     const cached = memo.get(key)
     if (cached !== undefined) return cached
 
-    if (ti === t.length) return true
+    // If the token is fully consumed, the remaining wildcard pattern
+    // must be only '*' to still be considered a match.
+    if (ti === t.length)
+      return p
+        .slice(pi)
+        .split('')
+        .every(char => char === '*')
     if (pi === p.length) return false
 
     let result = false
@@ -59,11 +65,28 @@ const matchesQuery = (searchText: string, query: string) => {
   return tokens.every(token => matchesToken(searchText, token))
 }
 
+const updateQueryParam = (query: string) => {
+  const url = new URL(window.location.href)
+  const normalized = normalizeQuery(query)
+
+  if (normalized) {
+    url.searchParams.set('q', query)
+  } else {
+    url.searchParams.delete('q')
+  }
+
+  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+}
+
 const CommissionSearch = () => {
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(() => {
+    if (typeof window === 'undefined') return ''
+    return new URLSearchParams(window.location.search).get('q') ?? ''
+  })
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const liveRef = useRef<HTMLParagraphElement>(null)
   const hasQuery = useMemo(() => normalizeQuery(query).length > 0, [query])
 
   useEffect(() => {
@@ -97,6 +120,7 @@ const CommissionSearch = () => {
     )
 
     const visibleBySection = new Map<string, number>()
+    let matched = 0
     entries.forEach(entry => {
       const searchText = (entry.dataset.searchText ?? '').toLowerCase()
       const sectionId = entry.dataset.characterSectionId
@@ -105,6 +129,7 @@ const CommissionSearch = () => {
       entry.classList.toggle('hidden', !isMatch)
 
       if (!isMatch) return
+      matched += 1
 
       if (!sectionId) return
 
@@ -117,19 +142,31 @@ const CommissionSearch = () => {
       const shouldHide = normalized.length > 0 && total > 0 && sectionMatched === 0
       section.classList.toggle('hidden', shouldHide)
     })
+
+    if (liveRef.current) {
+      liveRef.current.textContent =
+        normalized.length > 0
+          ? `Search results: ${matched} of ${entries.length} commissions shown.`
+          : `Search cleared. Showing all ${entries.length} commissions.`
+    }
+  }, [query])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    updateQueryParam(query)
   }, [query])
 
   return (
-    <section className="mt-8 mb-6 flex h-11 items-center justify-end">
+    <section className="mt-8 mb-6 flex h-12 items-center justify-end">
       <div
         ref={containerRef}
-        className={`relative h-10 overflow-hidden rounded-full border border-gray-300 bg-white text-gray-700 shadow-sm transition-[width,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] focus-within:ring-2 focus-within:ring-gray-500 focus-within:ring-offset-2 ${
-          isOpen ? 'w-full max-w-md' : 'w-32'
+        className={`relative h-11 overflow-hidden border-b border-gray-300/80 bg-transparent text-gray-700 transition-[width,border-color] duration-250 ease-out dark:border-gray-700 dark:text-gray-300 ${
+          isOpen ? 'w-full' : 'w-28 md:w-36 lg:w-44'
         }`}
       >
         <svg
           viewBox="0 0 24 24"
-          className="absolute top-1/2 left-3 h-4 w-4 shrink-0 -translate-y-1/2"
+          className="absolute top-1/2 left-2.5 h-3.5 w-3.5 shrink-0 -translate-y-1/2 opacity-70"
           fill="none"
           stroke="currentColor"
         >
@@ -138,7 +175,7 @@ const CommissionSearch = () => {
         </svg>
 
         <div
-          className={`absolute inset-y-0 right-2 left-9 flex items-center transition-all duration-200 ${
+          className={`absolute inset-y-0 right-2 left-8 flex items-center transition-all duration-180 ${
             isOpen
               ? 'pointer-events-none translate-y-1 opacity-0'
               : 'pointer-events-auto translate-y-0 opacity-100'
@@ -149,20 +186,18 @@ const CommissionSearch = () => {
             onClick={() => setIsOpen(true)}
             aria-expanded={isOpen}
             aria-controls="commission-search-input"
-            className="inline-flex w-full items-center justify-between gap-2 text-sm focus-visible:outline-none"
+            className="inline-flex h-full w-full items-center justify-between gap-2 text-xs tracking-[0.02em] focus-visible:outline-none"
             tabIndex={isOpen ? -1 : 0}
           >
             <span>Search</span>
             {hasQuery ? (
-              <span className="rounded-full bg-gray-900 px-2 py-0.5 text-xs text-white">
-                Active
-              </span>
+              <span className="text-[10px] text-gray-500 dark:text-gray-400">filtered</span>
             ) : null}
           </button>
         </div>
 
         <div
-          className={`absolute inset-y-0 right-2 left-9 flex items-center gap-2 transition-all duration-200 ${
+          className={`absolute inset-y-0 right-2 left-8 flex items-center gap-2 transition-all duration-180 ${
             isOpen
               ? 'pointer-events-auto translate-y-0 opacity-100'
               : 'pointer-events-none -translate-y-1 opacity-0'
@@ -181,12 +216,14 @@ const CommissionSearch = () => {
               if (event.key === 'Escape') setIsOpen(false)
             }}
             placeholder="Search (supports * wildcard, e.g. L*cia)"
-            className="w-full bg-transparent text-sm outline-none placeholder:text-gray-500"
+            className="w-full bg-transparent text-xs tracking-[0.01em] outline-none placeholder:text-gray-400"
             autoComplete="off"
             tabIndex={isOpen ? 0 : -1}
+            aria-label="Search commissions"
           />
         </div>
       </div>
+      <p ref={liveRef} aria-live="polite" className="sr-only" />
     </section>
   )
 }
