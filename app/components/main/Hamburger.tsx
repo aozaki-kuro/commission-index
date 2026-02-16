@@ -10,6 +10,8 @@ interface CharacterEntry {
 const STYLES = {
   menuButton:
     'relative z-30 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 backdrop-blur-[12px] transition-all duration-300 hover:bg-gray-100/80 hover:shadow-[0_4px_16px_rgba(0,0,0,0.12)] focus:outline-hidden dark:bg-black/80 dark:text-white dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] dark:ring-white/10 dark:hover:bg-gray-900/80 dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]',
+  searchButton:
+    'relative z-30 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 backdrop-blur-[12px] transition-all duration-300 hover:bg-gray-100/80 hover:shadow-[0_4px_16px_rgba(0,0,0,0.12)] focus:outline-hidden dark:bg-black/80 dark:text-white dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] dark:ring-white/10 dark:hover:bg-gray-900/80 dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]',
   listItem:
     'group flex w-full items-center rounded-lg px-4 py-2 font-mono text-base text-gray-900 !no-underline transition-colors duration-150 hover:bg-white/70 dark:text-white dark:hover:bg-white/10',
   toggleButton:
@@ -216,6 +218,7 @@ const CharacterList = memo(({ active, stale, close }: CharacterListProps) => {
 CharacterList.displayName = 'CharacterList'
 
 interface MenuContentProps {
+  mounted: boolean
   open: boolean
   close: () => void
   toggle: () => void
@@ -223,7 +226,7 @@ interface MenuContentProps {
   stale: CharacterEntry[]
 }
 
-const MenuContent = memo(({ open, close, toggle, active, stale }: MenuContentProps) => {
+const MenuContent = memo(({ mounted, open, close, toggle, active, stale }: MenuContentProps) => {
   useEffect(() => {
     const html = document.documentElement
     if (open) {
@@ -241,11 +244,13 @@ const MenuContent = memo(({ open, close, toggle, active, stale }: MenuContentPro
 
   return (
     <>
-      {open && (
+      {mounted && (
         <button
           type="button"
           aria-label="Close navigation menu"
-          className="fixed inset-0 z-20 bg-gray-200/10 backdrop-blur-xs dark:bg-gray-900/10"
+          className={`fixed inset-0 z-20 bg-gray-200/10 backdrop-blur-xs transition-opacity duration-200 dark:bg-gray-900/10 ${
+            open ? 'opacity-100' : 'opacity-0'
+          }`}
           onClick={close}
         />
       )}
@@ -262,10 +267,15 @@ const MenuContent = memo(({ open, close, toggle, active, stale }: MenuContentPro
         <MenuIcon isOpen={open} />
       </button>
 
-      {open ? (
+      {mounted ? (
         <div
           id="mobile-character-menu"
-          className="absolute right-4 bottom-full z-40 mb-4 max-h-[calc(100vh-8rem)] w-64 origin-bottom-right overflow-y-auto rounded-xl border border-white/20 bg-white/80 font-mono shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-lg focus:outline-hidden dark:bg-black/80"
+          aria-hidden={!open}
+          className={`absolute right-4 bottom-full z-40 mb-4 max-h-[calc(100vh-8rem)] w-64 origin-bottom-right overflow-y-auto rounded-xl border border-white/20 bg-white/80 font-mono shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-lg transition-[opacity,transform] duration-220 ease-out focus:outline-hidden dark:bg-black/80 ${
+            open
+              ? 'translate-y-0 scale-100 opacity-100'
+              : 'pointer-events-none translate-y-2 scale-95 opacity-0'
+          }`}
           style={backdropStyle}
         >
           <div className="border-b border-gray-300/50 p-4 dark:border-white/10">
@@ -288,12 +298,79 @@ interface HamburgerProps {
 
 const Hamburger = ({ active, stale }: HamburgerProps) => {
   const [open, setOpen] = useState(false)
-  const close = useCallback(() => setOpen(false), [])
-  const toggle = useCallback(() => setOpen(prev => !prev), [])
+  const [mounted, setMounted] = useState(false)
+  const closeTimerRef = useRef<number | null>(null)
+
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current)
+      closeTimerRef.current = null
+    }
+  }, [])
+
+  const openMenu = useCallback(() => {
+    clearCloseTimer()
+    setMounted(true)
+    requestAnimationFrame(() => setOpen(true))
+  }, [clearCloseTimer])
+
+  const close = useCallback(() => {
+    setOpen(false)
+    clearCloseTimer()
+    closeTimerRef.current = window.setTimeout(() => {
+      setMounted(false)
+      closeTimerRef.current = null
+    }, 220)
+  }, [clearCloseTimer])
+
+  const toggle = useCallback(() => {
+    if (open) {
+      close()
+      return
+    }
+    openMenu()
+  }, [close, open, openMenu])
+
+  useEffect(() => {
+    return () => clearCloseTimer()
+  }, [clearCloseTimer])
+  const jumpToSearch = useCallback(() => {
+    close()
+    window.setTimeout(() => {
+      const searchSection = document.getElementById('commission-search')
+      searchSection?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+
+      const searchInput = document.getElementById('commission-search-input')
+      if (searchInput instanceof HTMLInputElement) {
+        searchInput.focus({ preventScroll: true })
+      }
+    }, 0)
+  }, [close])
 
   return (
-    <div className="fixed right-8 bottom-8 block md:hidden">
-      <MenuContent open={open} close={close} toggle={toggle} active={active} stale={stale} />
+    <div className="fixed right-8 bottom-8 flex flex-col items-end gap-3 md:hidden">
+      {!open ? (
+        <button
+          type="button"
+          className={STYLES.searchButton}
+          onClick={jumpToSearch}
+          aria-label="Jump to search"
+          title="Search"
+        >
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
+            <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.4-4.4" />
+            <circle cx="11" cy="11" r="6" strokeWidth="2" />
+          </svg>
+        </button>
+      ) : null}
+      <MenuContent
+        mounted={mounted}
+        open={open}
+        close={close}
+        toggle={toggle}
+        active={active}
+        stale={stale}
+      />
     </div>
   )
 }
