@@ -1,6 +1,7 @@
 'use client'
 
 import { buildCharacterNavItems, CharacterNavItem } from '#lib/characters'
+import { jumpToCommissionSearch } from '#lib/jumpToCommissionSearch'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 interface CharacterEntry {
@@ -335,17 +336,8 @@ const Hamburger = ({ active, stale }: HamburgerProps) => {
     return () => clearCloseTimer()
   }, [clearCloseTimer])
   const jumpToSearch = useCallback(() => {
-    close()
-    window.setTimeout(() => {
-      const searchSection = document.getElementById('commission-search')
-      searchSection?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-
-      const searchInput = document.getElementById('commission-search-input')
-      if (searchInput instanceof HTMLInputElement) {
-        searchInput.focus({ preventScroll: true })
-      }
-    }, 0)
-  }, [close])
+    jumpToCommissionSearch({ topGap: 40, focusMode: 'immediate' })
+  }, [])
 
   return (
     <div className="fixed right-8 bottom-8 flex flex-col items-end gap-3 md:hidden">
