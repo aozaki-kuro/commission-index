@@ -2,7 +2,8 @@
 
 import { Input } from '@headlessui/react'
 import Fuse from 'fuse.js'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { jumpToCommissionSearch } from '#lib/jumpToCommissionSearch'
 
 const normalize = (s: string) => s.trim().toLowerCase()
 
@@ -37,6 +38,23 @@ const buildSearchUrl = (rawQuery: string) => {
   if (normalize(rawQuery)) url.searchParams.set('q', rawQuery)
   else url.searchParams.delete('q')
   return url.toString()
+}
+
+const clearSearchQueryParamInAddress = () => {
+  const url = new URL(window.location.href)
+  url.searchParams.delete('q')
+  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+}
+
+const subscribeToUrlQuery = (onStoreChange: () => void) => {
+  if (typeof window === 'undefined') return () => {}
+  window.addEventListener('popstate', onStoreChange)
+  return () => window.removeEventListener('popstate', onStoreChange)
+}
+
+const getUrlQuerySnapshot = () => {
+  if (typeof window === 'undefined') return ''
+  return new URLSearchParams(window.location.search).get('q') ?? ''
 }
 
 const precedence = (type: TokenKind) => {
@@ -156,13 +174,13 @@ const evaluateRpn = (
 }
 
 const CommissionSearch = () => {
-  const [query, setQuery] = useState(() => {
-    if (typeof window === 'undefined') return ''
-    return new URLSearchParams(window.location.search).get('q') ?? ''
-  })
+  const urlQuery = useSyncExternalStore(subscribeToUrlQuery, getUrlQuerySnapshot, () => '')
+  const [inputQuery, setInputQuery] = useState<string | null>(null)
+  const query = inputQuery ?? urlQuery
 
   const inputRef = useRef<HTMLInputElement>(null)
   const liveRef = useRef<HTMLParagraphElement>(null)
+  const didAutoJumpRef = useRef(false)
 
   // 1) 静态索引，仅在挂载时构建
   const index = useMemo(() => {
@@ -263,6 +281,17 @@ const CommissionSearch = () => {
     }
   }, [query, index])
 
+  // 3) 初次从 ?q= 访问时自动跳到搜索区域
+  useEffect(() => {
+    if (didAutoJumpRef.current || typeof window === 'undefined') return
+    if (!new URLSearchParams(window.location.search).get('q')) return
+
+    didAutoJumpRef.current = true
+    requestAnimationFrame(() => {
+      jumpToCommissionSearch({ focusMode: 'none' })
+    })
+  }, [])
+
   const copySearchUrl = async () => {
     if (typeof window === 'undefined' || !normalize(query)) return
     const text = buildSearchUrl(query)
@@ -276,7 +305,8 @@ const CommissionSearch = () => {
   }
 
   const clearSearch = () => {
-    setQuery('')
+    setInputQuery('')
+    if (typeof window !== 'undefined') clearSearchQueryParamInAddress()
     inputRef.current?.focus()
   }
 
@@ -303,17 +333,19 @@ const CommissionSearch = () => {
             id="commission-search-input"
             type="search"
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={e => setInputQuery(e.target.value)}
             placeholder="Search: AND / OR / NOT"
             autoComplete="off"
             aria-label="Search commissions"
-            className="peer w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-8 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
+            className="peer w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-16 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
           />
 
           <button
             type="button"
             onClick={copySearchUrl}
-            className="absolute right-8 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[opacity,color] peer-placeholder-shown:pointer-events-none peer-placeholder-shown:opacity-0 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300"
+            className={`absolute right-8 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[opacity,color] hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
+              normalize(query) ? '' : 'pointer-events-none opacity-0'
+            }`}
             aria-label="Copy search URL"
           >
             <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor">
@@ -332,7 +364,9 @@ const CommissionSearch = () => {
           <button
             type="button"
             onClick={clearSearch}
-            className="absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[opacity,color] peer-placeholder-shown:pointer-events-none peer-placeholder-shown:opacity-0 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300"
+            className={`absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[opacity,color] hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
+              normalize(query) ? '' : 'pointer-events-none opacity-0'
+            }`}
             aria-label="Clear search"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">

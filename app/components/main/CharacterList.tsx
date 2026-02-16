@@ -50,7 +50,7 @@ const CharacterList = ({ characters }: CharacterListProps) => {
           </ul>
         </nav>
 
-        <div className="relative flex pl-4 font-mono text-sm">
+        <div className="relative flex pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
           <svg
             viewBox="0 0 24 24"
             className="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-all duration-300"
@@ -61,13 +61,16 @@ const CharacterList = ({ characters }: CharacterListProps) => {
             <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.4-4.4" />
             <circle cx="11" cy="11" r="6" strokeWidth="2" />
           </svg>
-          <button
-            type="button"
-            onClick={jumpToSearch}
-            className="cursor-pointer bg-transparent p-0 font-bold text-gray-700 underline decoration-gray-400 decoration-1 underline-offset-1 transition-colors duration-200 hover:text-gray-900 focus-visible:text-gray-900 dark:text-gray-200 dark:decoration-gray-600 dark:hover:text-white dark:focus-visible:text-white"
+          <a
+            href="#commission-search"
+            onClick={event => {
+              event.preventDefault()
+              jumpToSearch()
+            }}
+            className="font-mono text-sm font-bold no-underline transition-colors duration-200"
           >
             Search
-          </button>
+          </a>
         </div>
 
         {showAdminLink ? (
