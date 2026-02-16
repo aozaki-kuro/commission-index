@@ -4,88 +4,82 @@ import { Input } from '@headlessui/react'
 import { useEffect, useRef, useState } from 'react'
 
 const normalizeQuery = (value: string) => value.trim().toLowerCase()
+const normalizeFuzzyToken = (value: string) =>
+  normalizeQuery(value)
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[^\p{L}\p{N}]+/gu, '')
+const normalizeMaskedPattern = (value: string) =>
+  normalizeQuery(value)
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[^\p{L}\p{N}*]+/gu, '')
+const FUZZY_SUBSEQUENCE_MIN_QUERY_LENGTH = 4
+const FUZZY_SUBSEQUENCE_MAX_LENGTH_DELTA = 2
 
-const isWildcardMatch = (pattern: string, text: string) => {
-  let patternIndex = 0
-  let textIndex = 0
-  let starIndex = -1
-  let matchIndex = 0
+const isSubsequence = (needle: string, haystack: string) => {
+  if (!needle) return true
+  let needleIndex = 0
 
-  while (textIndex < text.length) {
-    if (patternIndex < pattern.length && pattern[patternIndex] === text[textIndex]) {
-      patternIndex += 1
-      textIndex += 1
-      continue
+  for (const char of haystack) {
+    if (char === needle[needleIndex]) {
+      needleIndex += 1
+      if (needleIndex === needle.length) return true
     }
-
-    if (patternIndex < pattern.length && pattern[patternIndex] === '*') {
-      starIndex = patternIndex
-      matchIndex = textIndex
-      patternIndex += 1
-      continue
-    }
-
-    if (starIndex !== -1) {
-      patternIndex = starIndex + 1
-      matchIndex += 1
-      textIndex = matchIndex
-      continue
-    }
-
-    return false
   }
 
-  while (patternIndex < pattern.length && pattern[patternIndex] === '*') {
+  return false
+}
+
+const isMaskedPatternPrefixMatch = (pattern: string, query: string) => {
+  if (!pattern.includes('*')) return false
+  if (!query) return true
+
+  let queryIndex = 0
+
+  for (
+    let patternIndex = 0;
+    patternIndex < pattern.length && queryIndex < query.length;
     patternIndex += 1
+  ) {
+    const patternChar = pattern[patternIndex]
+    if (patternChar === '*') {
+      queryIndex += 1
+      continue
+    }
+
+    if (patternChar !== query[queryIndex]) return false
+    queryIndex += 1
   }
 
-  return patternIndex === pattern.length
+  return queryIndex === query.length
 }
 
-const isWildcardPrefixMatch = (pattern: string, prefix: string) => {
-  let patternIndex = 0
-  let prefixIndex = 0
-  let starIndex = -1
-  let matchIndex = 0
-
-  while (prefixIndex < prefix.length) {
-    if (patternIndex < pattern.length && pattern[patternIndex] === prefix[prefixIndex]) {
-      patternIndex += 1
-      prefixIndex += 1
-      continue
-    }
-
-    if (patternIndex < pattern.length && pattern[patternIndex] === '*') {
-      starIndex = patternIndex
-      matchIndex = prefixIndex
-      patternIndex += 1
-      continue
-    }
-
-    if (starIndex !== -1) {
-      patternIndex = starIndex + 1
-      matchIndex += 1
-      prefixIndex = matchIndex
-      continue
-    }
-
-    return false
-  }
-
-  return true
-}
+const shouldUseSubsequenceMatch = (query: string, term: string) =>
+  query.length >= FUZZY_SUBSEQUENCE_MIN_QUERY_LENGTH &&
+  term.length <= query.length + FUZZY_SUBSEQUENCE_MAX_LENGTH_DELTA &&
+  term[0] === query[0]
 
 const matchesToken = (searchText: string, token: string) => {
-  if (!token) return true
-  if (searchText.includes(token)) return true
+  const normalizedToken = normalizeFuzzyToken(token)
+  if (!normalizedToken) return true
 
-  const terms = searchText.split(/\s+/).filter(Boolean)
+  const rawTerms = searchText.split(/\s+/).filter(Boolean)
+  const normalizedTerms = rawTerms.map(normalizeFuzzyToken).filter(Boolean)
+  if (normalizedTerms.some(term => term.includes(normalizedToken))) return true
 
-  if (token.includes('*')) {
-    if (terms.some(term => isWildcardMatch(token, term))) return true
+  if (
+    normalizedTerms.some(
+      term =>
+        shouldUseSubsequenceMatch(normalizedToken, term) && isSubsequence(normalizedToken, term),
+    )
+  ) {
+    return true
   }
 
-  return terms.some(term => term.includes('*') && isWildcardPrefixMatch(term, token))
+  return rawTerms
+    .map(normalizeMaskedPattern)
+    .some(pattern => isMaskedPatternPrefixMatch(pattern, normalizedToken))
 }
 
 type QueryToken =
@@ -222,17 +216,16 @@ const matchesQuery = (searchText: string, query: string) => {
   const normalized = normalizeQuery(query)
   if (!normalized) return true
 
-  const rpn = toRpn(tokenizeQuery(normalized))
-  if (!rpn) {
+  const evaluateFallback = () => {
     const fallbackTokens = normalized.split(/\s+/).filter(Boolean)
     return fallbackTokens.every(token => matchesToken(searchText, token))
   }
 
+  const rpn = toRpn(tokenizeQuery(normalized))
+  if (!rpn) return evaluateFallback()
+
   const result = evaluateRpn(searchText, rpn)
-  if (result === null) {
-    const fallbackTokens = normalized.split(/\s+/).filter(Boolean)
-    return fallbackTokens.every(token => matchesToken(searchText, token))
-  }
+  if (result === null) return evaluateFallback()
 
   return result
 }
@@ -255,6 +248,7 @@ const CommissionSearch = () => {
     if (typeof window === 'undefined') return ''
     return new URLSearchParams(window.location.search).get('q') ?? ''
   })
+
   const liveRef = useRef<HTMLParagraphElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -269,6 +263,7 @@ const CommissionSearch = () => {
 
     const visibleBySection = new Map<string, number>()
     let matched = 0
+
     entries.forEach(entry => {
       const searchText = (entry.dataset.searchText ?? '').toLowerCase()
       const sectionId = entry.dataset.characterSectionId
@@ -280,7 +275,6 @@ const CommissionSearch = () => {
       matched += 1
 
       if (!sectionId) return
-
       visibleBySection.set(sectionId, (visibleBySection.get(sectionId) ?? 0) + 1)
     })
 
@@ -321,10 +315,12 @@ const CommissionSearch = () => {
           <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.4-4.4" />
           <circle cx="11" cy="11" r="6" strokeWidth="2" />
         </svg>
+
         <div className="absolute inset-y-0 right-2 left-8 flex items-center gap-2">
           <label htmlFor="commission-search-input" className="sr-only">
             Search commissions
           </label>
+
           <Input
             ref={inputRef}
             id="commission-search-input"
@@ -332,10 +328,11 @@ const CommissionSearch = () => {
             value={query}
             onChange={event => setQuery(event.target.value)}
             placeholder="Search: AND / OR / NOT"
-            className="w-full bg-transparent pr-8 font-mono text-xs tracking-[0.01em] outline-none placeholder:text-gray-400 sm:text-sm"
             autoComplete="off"
             aria-label="Search commissions"
+            className="w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-8 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
           />
+
           {query ? (
             <button
               type="button"
@@ -351,6 +348,7 @@ const CommissionSearch = () => {
           ) : null}
         </div>
       </div>
+
       <p ref={liveRef} aria-live="polite" className="sr-only" />
     </section>
   )
