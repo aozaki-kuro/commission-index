@@ -256,6 +256,7 @@ const CommissionSearch = () => {
     return new URLSearchParams(window.location.search).get('q') ?? ''
   })
   const liveRef = useRef<HTMLParagraphElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const normalized = normalizeQuery(query)
@@ -303,6 +304,11 @@ const CommissionSearch = () => {
     updateQueryParam(query)
   }, [query])
 
+  const clearSearch = () => {
+    setQuery('')
+    inputRef.current?.focus()
+  }
+
   return (
     <section id="commission-search" className="mt-8 mb-6 flex h-12 items-center justify-end">
       <div className="relative h-11 w-full overflow-hidden border-b border-gray-300/80 bg-transparent text-gray-700 dark:border-gray-700 dark:text-gray-300">
@@ -320,15 +326,29 @@ const CommissionSearch = () => {
             Search commissions
           </label>
           <Input
+            ref={inputRef}
             id="commission-search-input"
             type="search"
             value={query}
             onChange={event => setQuery(event.target.value)}
             placeholder="Search: AND / OR / NOT"
-            className="w-full bg-transparent font-mono text-xs tracking-[0.01em] outline-none placeholder:text-gray-400 sm:text-sm"
+            className="w-full bg-transparent pr-8 font-mono text-xs tracking-[0.01em] outline-none placeholder:text-gray-400 sm:text-sm"
             autoComplete="off"
             aria-label="Search commissions"
           />
+          {query ? (
+            <button
+              type="button"
+              onClick={clearSearch}
+              className="absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-colors hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300"
+              aria-label="Clear search"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
+                <path strokeWidth="2.2" strokeLinecap="round" d="M6 6l12 12" />
+                <path strokeWidth="2.2" strokeLinecap="round" d="M18 6L6 18" />
+              </svg>
+            </button>
+          ) : null}
         </div>
       </div>
       <p ref={liveRef} aria-live="polite" className="sr-only" />
