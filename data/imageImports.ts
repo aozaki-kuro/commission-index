@@ -48,8 +48,8 @@ import A20231018 from '#images/webp/20231018.webp'
 import A20231031 from '#images/webp/20231031_Nanashi.webp'
 import A20231109 from '#images/webp/20231109_YYDAP.webp'
 import A20231117 from '#images/webp/20231117.webp'
-import A20231204A from '#images/webp/20231204_UnoRyoku.webp'
 import A20231204B from '#images/webp/20231204_Kariume.webp'
+import A20231204A from '#images/webp/20231204_UnoRyoku.webp'
 import A20231215 from '#images/webp/20231215.webp'
 import A20231231 from '#images/webp/20231231_Naga4mangan.webp'
 import A20240102 from '#images/webp/20240102_UnoRyoku.webp'
@@ -164,8 +164,8 @@ export const imageImports = {
   '20231031_Nanashi': A20231031,
   '20231109_YYDAP': A20231109,
   '20231117': A20231117,
-  '20231204_UnoRyoku': A20231204A,
   '20231204_Kariume': A20231204B,
+  '20231204_UnoRyoku': A20231204A,
   '20231215': A20231215,
   '20231231_Naga4mangan': A20231231,
   '20240102_UnoRyoku': A20240102,
