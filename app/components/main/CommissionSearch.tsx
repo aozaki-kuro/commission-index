@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 const normalizeQuery = (value: string) => value.trim().toLowerCase()
 const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -61,7 +61,31 @@ const matchesQuery = (searchText: string, query: string) => {
 
 const CommissionSearch = () => {
   const [query, setQuery] = useState('')
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const hasQuery = useMemo(() => normalizeQuery(query).length > 0, [query])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const id = requestAnimationFrame(() => inputRef.current?.focus())
+    return () => cancelAnimationFrame(id)
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null
+      if (!target) return
+      if (containerRef.current?.contains(target)) return
+      if (normalizeQuery(query).length > 0) return
+      setIsOpen(false)
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    return () => document.removeEventListener('pointerdown', handlePointerDown)
+  }, [isOpen, query])
 
   useEffect(() => {
     const normalized = normalizeQuery(query)
@@ -96,35 +120,73 @@ const CommissionSearch = () => {
   }, [query])
 
   return (
-    <section className="mt-6 mb-6 space-y-2">
-      <label htmlFor="commission-search" className="block text-sm font-medium text-gray-700">
-        Search commissions
-      </label>
-      <div className="flex items-center gap-2">
-        <input
-          id="commission-search"
-          type="search"
-          value={query}
-          onChange={event => setQuery(event.target.value)}
-          placeholder="Character, file name, illustrator, description..."
-          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm transition-colors outline-none focus:border-gray-500"
-          autoComplete="off"
-        />
-        {hasQuery ? (
+    <section className="mt-8 mb-6 flex h-11 items-center justify-end">
+      <div
+        ref={containerRef}
+        className={`relative h-10 overflow-hidden rounded-full border border-gray-300 bg-white text-gray-700 shadow-sm transition-[width,box-shadow] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] focus-within:ring-2 focus-within:ring-gray-500 focus-within:ring-offset-2 ${
+          isOpen ? 'w-full max-w-md' : 'w-32'
+        }`}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="absolute top-1/2 left-3 h-4 w-4 shrink-0 -translate-y-1/2"
+          fill="none"
+          stroke="currentColor"
+        >
+          <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.4-4.4" />
+          <circle cx="11" cy="11" r="6" strokeWidth="2" />
+        </svg>
+
+        <div
+          className={`absolute inset-y-0 right-2 left-9 flex items-center transition-all duration-200 ${
+            isOpen
+              ? 'pointer-events-none translate-y-1 opacity-0'
+              : 'pointer-events-auto translate-y-0 opacity-100'
+          }`}
+        >
           <button
             type="button"
-            onClick={() => setQuery('')}
-            className="shrink-0 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+            onClick={() => setIsOpen(true)}
+            aria-expanded={isOpen}
+            aria-controls="commission-search-input"
+            className="inline-flex w-full items-center justify-between gap-2 text-sm focus-visible:outline-none"
+            tabIndex={isOpen ? -1 : 0}
           >
-            Clear
+            <span>Search</span>
+            {hasQuery ? (
+              <span className="rounded-full bg-gray-900 px-2 py-0.5 text-xs text-white">
+                Active
+              </span>
+            ) : null}
           </button>
-        ) : null}
+        </div>
+
+        <div
+          className={`absolute inset-y-0 right-2 left-9 flex items-center gap-2 transition-all duration-200 ${
+            isOpen
+              ? 'pointer-events-auto translate-y-0 opacity-100'
+              : 'pointer-events-none -translate-y-1 opacity-0'
+          }`}
+        >
+          <label htmlFor="commission-search-input" className="sr-only">
+            Search commissions
+          </label>
+          <input
+            ref={inputRef}
+            id="commission-search-input"
+            type="search"
+            value={query}
+            onChange={event => setQuery(event.target.value)}
+            onKeyDown={event => {
+              if (event.key === 'Escape') setIsOpen(false)
+            }}
+            placeholder="Search (supports * wildcard, e.g. L*cia)"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-gray-500"
+            autoComplete="off"
+            tabIndex={isOpen ? 0 : -1}
+          />
+        </div>
       </div>
-      <p className="text-xs text-gray-500">
-        {hasQuery
-          ? 'Wildcard supported: use * to match any characters.'
-          : 'Search by character, artist, or text. Example: L*cia'}
-      </p>
     </section>
   )
 }
