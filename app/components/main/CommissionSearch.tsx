@@ -2,225 +2,157 @@
 
 import { Input } from '@headlessui/react'
 import Fuse from 'fuse.js'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
-const normalizeQuery = (value: string) => value.trim().toLowerCase()
+const normalize = (s: string) => s.trim().toLowerCase()
 
-type SearchEntry = {
+type Entry = {
   id: number
   element: HTMLElement
-  sectionId: string | undefined
+  sectionId?: string
   searchText: string
 }
 
-type MatchTerm = (term: string) => Set<number>
+type TokenKind = 'term' | 'and' | 'or' | 'not' | 'lparen' | 'rparen'
+type Token = { type: TokenKind; value?: string }
 
-const cloneSet = (set: Set<number>) => new Set(set)
-const unionSets = (left: Set<number>, right: Set<number>) => new Set([...left, ...right])
-const intersectSets = (left: Set<number>, right: Set<number>) => {
-  const result = new Set<number>()
-  for (const value of left) {
-    if (right.has(value)) result.add(value)
-  }
-  return result
-}
-const subtractSets = (left: Set<number>, right: Set<number>) => {
-  const result = new Set<number>()
-  for (const value of left) {
-    if (!right.has(value)) result.add(value)
-  }
-  return result
+const allIdsOf = (entries: Entry[]) => new Set(entries.map(e => e.id))
+
+const intersect = (a: Set<number>, b: Set<number>) => {
+  const out = new Set<number>()
+  for (const x of a) if (b.has(x)) out.add(x)
+  return out
 }
 
-const buildTermMatcher = (entries: SearchEntry[]): MatchTerm => {
-  const allIds = new Set(entries.map(entry => entry.id))
-  const fuse = new Fuse(entries, {
-    keys: ['searchText'],
-    threshold: 0.3,
-    ignoreLocation: true,
-    includeScore: false,
-    minMatchCharLength: 1,
-  })
-  const cache = new Map<string, Set<number>>()
+const union = (a: Set<number>, b: Set<number>) => new Set<number>([...a, ...b])
 
-  return term => {
-    const normalized = normalizeQuery(term)
-    if (!normalized) return cloneSet(allIds)
-    const cached = cache.get(normalized)
-    if (cached) return cloneSet(cached)
-
-    const matched = new Set(fuse.search(normalized).map(result => result.item.id))
-    cache.set(normalized, matched)
-    return cloneSet(matched)
-  }
+const diff = (a: Set<number>, b: Set<number>) => {
+  const out = new Set<number>()
+  for (const x of a) if (!b.has(x)) out.add(x)
+  return out
 }
 
-type QueryToken =
-  | { type: 'term'; value: string }
-  | { type: 'and' | 'or' | 'not' | 'lparen' | 'rparen' }
+const updateQueryParam = (rawQuery: string) => {
+  const url = new URL(window.location.href)
+  if (normalize(rawQuery)) url.searchParams.set('q', rawQuery)
+  else url.searchParams.delete('q')
+  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+}
 
-const tokenizeQuery = (query: string): QueryToken[] => {
-  const rawTokens = query.match(/\(|\)|&&|\|\||!|[^\s()]+/g) ?? []
-  const tokens: QueryToken[] = rawTokens.map(raw => {
-    const upper = raw.toUpperCase()
-    if (raw === '(') return { type: 'lparen' }
-    if (raw === ')') return { type: 'rparen' }
-    if (upper === 'AND' || raw === '&&') return { type: 'and' }
-    if (upper === 'OR' || raw === '||') return { type: 'or' }
-    if (upper === 'NOT' || raw === '!') return { type: 'not' }
-    return { type: 'term', value: normalizeQuery(raw) }
+const precedence = (type: TokenKind) => {
+  if (type === 'not') return 3
+  if (type === 'and') return 2
+  if (type === 'or') return 1
+  return 0
+}
+
+const isOperator = (t: Token) => t.type === 'and' || t.type === 'or' || t.type === 'not'
+
+const tokenize = (query: string): Token[] => {
+  const raw = query.match(/\(|\)|&&|\|\||!|[^\s()]+/g) ?? []
+  const base: Token[] = raw.map(part => {
+    const u = part.toUpperCase()
+    if (part === '(') return { type: 'lparen' }
+    if (part === ')') return { type: 'rparen' }
+    if (u === 'AND' || part === '&&') return { type: 'and' }
+    if (u === 'OR' || part === '||') return { type: 'or' }
+    if (u === 'NOT' || part === '!') return { type: 'not' }
+    return { type: 'term', value: normalize(part) }
   })
 
-  const output: QueryToken[] = []
-  const shouldInsertAnd = (prev: QueryToken, current: QueryToken) => {
-    const prevIsOperand = prev.type === 'term' || prev.type === 'rparen'
-    const currentStartsOperand =
-      current.type === 'term' || current.type === 'lparen' || current.type === 'not'
-    return prevIsOperand && currentStartsOperand
-  }
+  // 隐式 AND: term/rparen 后面接 term/lparen/not
+  const out: Token[] = []
+  const startsOperand = (t: Token) => t.type === 'term' || t.type === 'lparen' || t.type === 'not'
+  const endsOperand = (t: Token) => t.type === 'term' || t.type === 'rparen'
 
-  for (const token of tokens) {
-    const prev = output.at(-1)
-    if (prev && shouldInsertAnd(prev, token)) {
-      output.push({ type: 'and' })
-    }
-    output.push(token)
+  for (const t of base) {
+    const prev = out[out.length - 1]
+    if (prev && endsOperand(prev) && startsOperand(t)) out.push({ type: 'and' })
+    out.push(t)
   }
-
-  return output
+  return out
 }
 
-const toRpn = (tokens: QueryToken[]): QueryToken[] | null => {
-  const output: QueryToken[] = []
-  const operators: QueryToken[] = []
+const toRpn = (tokens: Token[]): Token[] | null => {
+  const output: Token[] = []
+  const ops: Token[] = []
 
-  const precedence = (token: QueryToken) => {
-    if (token.type === 'not') return 3
-    if (token.type === 'and') return 2
-    if (token.type === 'or') return 1
-    return 0
-  }
-
-  const isOperator = (token: QueryToken) =>
-    token.type === 'and' || token.type === 'or' || token.type === 'not'
-
-  for (const token of tokens) {
-    if (token.type === 'term') {
-      output.push(token)
+  for (const t of tokens) {
+    if (t.type === 'term') {
+      output.push(t)
       continue
     }
 
-    if (token.type === 'lparen') {
-      operators.push(token)
+    if (t.type === 'lparen') {
+      ops.push(t)
       continue
     }
 
-    if (token.type === 'rparen') {
-      let foundLParen = false
-      while (operators.length > 0) {
-        const top = operators.pop()
-        if (!top) return null
+    if (t.type === 'rparen') {
+      let ok = false
+      while (ops.length) {
+        const top = ops.pop()!
         if (top.type === 'lparen') {
-          foundLParen = true
+          ok = true
           break
         }
         output.push(top)
       }
-      if (!foundLParen) return null
+      if (!ok) return null
       continue
     }
 
-    while (operators.length > 0) {
-      const top = operators.at(-1)
-      if (!top || !isOperator(top)) break
+    // operator
+    while (ops.length) {
+      const top = ops[ops.length - 1]
+      if (!isOperator(top)) break
 
-      const shouldPop =
-        token.type === 'not'
-          ? precedence(top) > precedence(token)
-          : precedence(top) >= precedence(token)
-      if (!shouldPop) break
+      const pop =
+        t.type === 'not'
+          ? precedence(top.type) > precedence(t.type) // not 右结合
+          : precedence(top.type) >= precedence(t.type)
 
-      const popped = operators.pop()
-      if (!popped) return null
-      output.push(popped)
+      if (!pop) break
+      output.push(ops.pop()!)
     }
-
-    operators.push(token)
+    ops.push(t)
   }
 
-  while (operators.length > 0) {
-    const top = operators.pop()
-    if (!top || top.type === 'lparen' || top.type === 'rparen') return null
+  while (ops.length) {
+    const top = ops.pop()!
+    if (top.type === 'lparen' || top.type === 'rparen') return null
     output.push(top)
   }
-
   return output
 }
 
 const evaluateRpn = (
-  matchTerm: MatchTerm,
+  rpn: Token[],
   universe: Set<number>,
-  rpn: QueryToken[],
+  matchTerm: (term: string) => Set<number>,
 ): Set<number> | null => {
-  const stack: Set<number>[] = []
+  const st: Set<number>[] = []
 
-  for (const token of rpn) {
-    if (token.type === 'term') {
-      stack.push(matchTerm(token.value))
+  for (const t of rpn) {
+    if (t.type === 'term') {
+      st.push(matchTerm(t.value ?? ''))
       continue
     }
 
-    if (token.type === 'not') {
-      const value = stack.pop()
-      if (value === undefined) return null
-      stack.push(subtractSets(universe, value))
+    if (t.type === 'not') {
+      const v = st.pop()
+      if (!v) return null
+      st.push(diff(universe, v))
       continue
     }
 
-    const right = stack.pop()
-    const left = stack.pop()
-    if (left === undefined || right === undefined) return null
-
-    if (token.type === 'and') stack.push(intersectSets(left, right))
-    else if (token.type === 'or') stack.push(unionSets(left, right))
+    const b = st.pop()
+    const a = st.pop()
+    if (!a || !b) return null
+    st.push(t.type === 'and' ? intersect(a, b) : union(a, b))
   }
 
-  if (stack.length !== 1) return null
-  return stack[0]
-}
-
-const matchesQuery = (matchTerm: MatchTerm, allIds: Set<number>, query: string) => {
-  const normalized = normalizeQuery(query)
-  if (!normalized) return cloneSet(allIds)
-
-  const evaluateFallback = () => {
-    const fallbackTokens = normalized.split(/\s+/).filter(Boolean)
-    return fallbackTokens.reduce(
-      (current, token) => intersectSets(current, matchTerm(token)),
-      allIds,
-    )
-  }
-
-  const rpn = toRpn(tokenizeQuery(normalized))
-  if (!rpn) return evaluateFallback()
-
-  const result = evaluateRpn(matchTerm, allIds, rpn)
-  if (result === null) return evaluateFallback()
-
-  return result
-}
-
-const updateQueryParam = (query: string) => {
-  const url = new URL(window.location.href)
-  const normalized = normalizeQuery(query)
-
-  if (normalized) {
-    url.searchParams.set('q', query)
-  } else {
-    url.searchParams.delete('q')
-  }
-
-  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+  return st.length === 1 ? st[0] : null
 }
 
 const CommissionSearch = () => {
@@ -229,58 +161,106 @@ const CommissionSearch = () => {
     return new URLSearchParams(window.location.search).get('q') ?? ''
   })
 
-  const liveRef = useRef<HTMLParagraphElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const liveRef = useRef<HTMLParagraphElement>(null)
 
-  useEffect(() => {
-    const normalized = normalizeQuery(query)
+  // 1) 静态索引，仅在挂载时构建
+  const index = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return {
+        entries: [] as Entry[],
+        sections: [] as HTMLElement[],
+        universe: new Set<number>(),
+        matchTerm: (_: string) => new Set<number>(),
+      }
+    }
+
     const entryElements = Array.from(
       document.querySelectorAll<HTMLElement>('[data-commission-entry="true"]'),
     )
-    const sections = Array.from(
+    const sectionElements = Array.from(
       document.querySelectorAll<HTMLElement>('[data-character-section="true"]'),
     )
-    const entries = entryElements.map((element, index) => ({
-      id: index,
+
+    const entries: Entry[] = entryElements.map((element, id) => ({
+      id,
       element,
       sectionId: element.dataset.characterSectionId,
       searchText: (element.dataset.searchText ?? '').toLowerCase(),
     }))
 
+    const universe = allIdsOf(entries)
+
+    const fuse = new Fuse(entries, {
+      keys: ['searchText'],
+      threshold: 0.3,
+      ignoreLocation: true,
+      includeScore: false,
+      minMatchCharLength: 1,
+    })
+
+    const cache = new Map<string, Set<number>>()
+    const matchTerm = (term: string) => {
+      const t = normalize(term)
+      if (!t) return new Set(universe)
+
+      const hit = cache.get(t)
+      if (hit) return new Set(hit)
+
+      const ids = new Set(fuse.search(t).map(r => r.item.id))
+      cache.set(t, ids)
+      return new Set(ids)
+    }
+
+    return { entries, sections: sectionElements, universe, matchTerm }
+  }, [])
+
+  // 2) 执行搜索并刷新 DOM 显示
+  useEffect(() => {
+    const q = normalize(query)
+    const { entries, sections, universe, matchTerm } = index
+    if (!entries.length) return
+
+    const fallback = () =>
+      q
+        .split(/\s+/)
+        .filter(Boolean)
+        .reduce((acc, t) => intersect(acc, matchTerm(t)), new Set(universe))
+
+    const rpn = q ? toRpn(tokenize(q)) : null
+    const matchedIds = !q
+      ? new Set(universe)
+      : rpn
+        ? (evaluateRpn(rpn, universe, matchTerm) ?? fallback())
+        : fallback()
+
     const visibleBySection = new Map<string, number>()
-    let matched = 0
-    const allIds = new Set(entries.map(entry => entry.id))
-    const matchTerm = buildTermMatcher(entries)
-    const matchedIds = matchesQuery(matchTerm, allIds, normalized)
+    let matchedCount = 0
 
-    entries.forEach(entry => {
-      const isMatch = matchedIds.has(entry.id)
+    for (const e of entries) {
+      const show = matchedIds.has(e.id)
+      e.element.classList.toggle('hidden', !show)
+      if (!show) continue
+      matchedCount += 1
+      if (e.sectionId)
+        visibleBySection.set(e.sectionId, (visibleBySection.get(e.sectionId) ?? 0) + 1)
+    }
 
-      entry.element.classList.toggle('hidden', !isMatch)
-
-      if (!isMatch) return
-      matched += 1
-
-      const sectionId = entry.sectionId
-      if (!sectionId) return
-      visibleBySection.set(sectionId, (visibleBySection.get(sectionId) ?? 0) + 1)
-    })
-
-    sections.forEach(section => {
+    for (const section of sections) {
       const total = Number(section.dataset.totalCommissions ?? '0')
-      const sectionMatched = visibleBySection.get(section.id) ?? 0
-      const shouldHide = normalized.length > 0 && total > 0 && sectionMatched === 0
-      section.classList.toggle('hidden', shouldHide)
-    })
+      const shown = visibleBySection.get(section.id) ?? 0
+      const hide = !!q && total > 0 && shown === 0
+      section.classList.toggle('hidden', hide)
+    }
 
     if (liveRef.current) {
-      liveRef.current.textContent =
-        normalized.length > 0
-          ? `Search results: ${matched} of ${entryElements.length} commissions shown.`
-          : `Search cleared. Showing all ${entryElements.length} commissions.`
+      liveRef.current.textContent = q
+        ? `Search results: ${matchedCount} of ${entries.length} commissions shown.`
+        : `Search cleared. Showing all ${entries.length} commissions.`
     }
-  }, [query])
+  }, [query, index])
 
+  // 3) 同步 URL 参数
   useEffect(() => {
     if (typeof window === 'undefined') return
     updateQueryParam(query)
@@ -314,7 +294,7 @@ const CommissionSearch = () => {
             id="commission-search-input"
             type="search"
             value={query}
-            onChange={event => setQuery(event.target.value)}
+            onChange={e => setQuery(e.target.value)}
             placeholder="Search: AND / OR / NOT"
             autoComplete="off"
             aria-label="Search commissions"
