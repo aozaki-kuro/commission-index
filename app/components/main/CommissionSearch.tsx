@@ -1,85 +1,58 @@
 'use client'
 
 import { Input } from '@headlessui/react'
+import Fuse from 'fuse.js'
 import { useEffect, useRef, useState } from 'react'
 
 const normalizeQuery = (value: string) => value.trim().toLowerCase()
-const normalizeFuzzyToken = (value: string) =>
-  normalizeQuery(value)
-    .normalize('NFKD')
-    .replace(/\p{M}/gu, '')
-    .replace(/[^\p{L}\p{N}]+/gu, '')
-const normalizeMaskedPattern = (value: string) =>
-  normalizeQuery(value)
-    .normalize('NFKD')
-    .replace(/\p{M}/gu, '')
-    .replace(/[^\p{L}\p{N}*]+/gu, '')
-const FUZZY_SUBSEQUENCE_MIN_QUERY_LENGTH = 4
-const FUZZY_SUBSEQUENCE_MAX_LENGTH_DELTA = 2
 
-const isSubsequence = (needle: string, haystack: string) => {
-  if (!needle) return true
-  let needleIndex = 0
-
-  for (const char of haystack) {
-    if (char === needle[needleIndex]) {
-      needleIndex += 1
-      if (needleIndex === needle.length) return true
-    }
-  }
-
-  return false
+type SearchEntry = {
+  id: number
+  element: HTMLElement
+  sectionId: string | undefined
+  searchText: string
 }
 
-const isMaskedPatternPrefixMatch = (pattern: string, query: string) => {
-  if (!pattern.includes('*')) return false
-  if (!query) return true
+type MatchTerm = (term: string) => Set<number>
 
-  let queryIndex = 0
-
-  for (
-    let patternIndex = 0;
-    patternIndex < pattern.length && queryIndex < query.length;
-    patternIndex += 1
-  ) {
-    const patternChar = pattern[patternIndex]
-    if (patternChar === '*') {
-      queryIndex += 1
-      continue
-    }
-
-    if (patternChar !== query[queryIndex]) return false
-    queryIndex += 1
+const cloneSet = (set: Set<number>) => new Set(set)
+const unionSets = (left: Set<number>, right: Set<number>) => new Set([...left, ...right])
+const intersectSets = (left: Set<number>, right: Set<number>) => {
+  const result = new Set<number>()
+  for (const value of left) {
+    if (right.has(value)) result.add(value)
   }
-
-  return queryIndex === query.length
+  return result
+}
+const subtractSets = (left: Set<number>, right: Set<number>) => {
+  const result = new Set<number>()
+  for (const value of left) {
+    if (!right.has(value)) result.add(value)
+  }
+  return result
 }
 
-const shouldUseSubsequenceMatch = (query: string, term: string) =>
-  query.length >= FUZZY_SUBSEQUENCE_MIN_QUERY_LENGTH &&
-  term.length <= query.length + FUZZY_SUBSEQUENCE_MAX_LENGTH_DELTA &&
-  term[0] === query[0]
+const buildTermMatcher = (entries: SearchEntry[]): MatchTerm => {
+  const allIds = new Set(entries.map(entry => entry.id))
+  const fuse = new Fuse(entries, {
+    keys: ['searchText'],
+    threshold: 0.35,
+    ignoreLocation: true,
+    includeScore: false,
+    minMatchCharLength: 1,
+  })
+  const cache = new Map<string, Set<number>>()
 
-const matchesToken = (searchText: string, token: string) => {
-  const normalizedToken = normalizeFuzzyToken(token)
-  if (!normalizedToken) return true
+  return term => {
+    const normalized = normalizeQuery(term)
+    if (!normalized) return cloneSet(allIds)
+    const cached = cache.get(normalized)
+    if (cached) return cloneSet(cached)
 
-  const rawTerms = searchText.split(/\s+/).filter(Boolean)
-  const normalizedTerms = rawTerms.map(normalizeFuzzyToken).filter(Boolean)
-  if (normalizedTerms.some(term => term.includes(normalizedToken))) return true
-
-  if (
-    normalizedTerms.some(
-      term =>
-        shouldUseSubsequenceMatch(normalizedToken, term) && isSubsequence(normalizedToken, term),
-    )
-  ) {
-    return true
+    const matched = new Set(fuse.search(normalized).map(result => result.item.id))
+    cache.set(normalized, matched)
+    return cloneSet(matched)
   }
-
-  return rawTerms
-    .map(normalizeMaskedPattern)
-    .some(pattern => isMaskedPatternPrefixMatch(pattern, normalizedToken))
 }
 
 type QueryToken =
@@ -184,19 +157,23 @@ const toRpn = (tokens: QueryToken[]): QueryToken[] | null => {
   return output
 }
 
-const evaluateRpn = (searchText: string, rpn: QueryToken[]): boolean | null => {
-  const stack: boolean[] = []
+const evaluateRpn = (
+  matchTerm: MatchTerm,
+  universe: Set<number>,
+  rpn: QueryToken[],
+): Set<number> | null => {
+  const stack: Set<number>[] = []
 
   for (const token of rpn) {
     if (token.type === 'term') {
-      stack.push(matchesToken(searchText, token.value))
+      stack.push(matchTerm(token.value))
       continue
     }
 
     if (token.type === 'not') {
       const value = stack.pop()
       if (value === undefined) return null
-      stack.push(!value)
+      stack.push(subtractSets(universe, value))
       continue
     }
 
@@ -204,27 +181,30 @@ const evaluateRpn = (searchText: string, rpn: QueryToken[]): boolean | null => {
     const left = stack.pop()
     if (left === undefined || right === undefined) return null
 
-    if (token.type === 'and') stack.push(left && right)
-    else if (token.type === 'or') stack.push(left || right)
+    if (token.type === 'and') stack.push(intersectSets(left, right))
+    else if (token.type === 'or') stack.push(unionSets(left, right))
   }
 
   if (stack.length !== 1) return null
   return stack[0]
 }
 
-const matchesQuery = (searchText: string, query: string) => {
+const matchesQuery = (matchTerm: MatchTerm, allIds: Set<number>, query: string) => {
   const normalized = normalizeQuery(query)
-  if (!normalized) return true
+  if (!normalized) return cloneSet(allIds)
 
   const evaluateFallback = () => {
     const fallbackTokens = normalized.split(/\s+/).filter(Boolean)
-    return fallbackTokens.every(token => matchesToken(searchText, token))
+    return fallbackTokens.reduce(
+      (current, token) => intersectSets(current, matchTerm(token)),
+      allIds,
+    )
   }
 
   const rpn = toRpn(tokenizeQuery(normalized))
   if (!rpn) return evaluateFallback()
 
-  const result = evaluateRpn(searchText, rpn)
+  const result = evaluateRpn(matchTerm, allIds, rpn)
   if (result === null) return evaluateFallback()
 
   return result
@@ -254,26 +234,34 @@ const CommissionSearch = () => {
 
   useEffect(() => {
     const normalized = normalizeQuery(query)
-    const entries = Array.from(
+    const entryElements = Array.from(
       document.querySelectorAll<HTMLElement>('[data-commission-entry="true"]'),
     )
     const sections = Array.from(
       document.querySelectorAll<HTMLElement>('[data-character-section="true"]'),
     )
+    const entries = entryElements.map((element, index) => ({
+      id: index,
+      element,
+      sectionId: element.dataset.characterSectionId,
+      searchText: (element.dataset.searchText ?? '').toLowerCase(),
+    }))
 
     const visibleBySection = new Map<string, number>()
     let matched = 0
+    const allIds = new Set(entries.map(entry => entry.id))
+    const matchTerm = buildTermMatcher(entries)
+    const matchedIds = matchesQuery(matchTerm, allIds, normalized)
 
     entries.forEach(entry => {
-      const searchText = (entry.dataset.searchText ?? '').toLowerCase()
-      const sectionId = entry.dataset.characterSectionId
-      const isMatch = normalized.length === 0 || matchesQuery(searchText, normalized)
+      const isMatch = matchedIds.has(entry.id)
 
-      entry.classList.toggle('hidden', !isMatch)
+      entry.element.classList.toggle('hidden', !isMatch)
 
       if (!isMatch) return
       matched += 1
 
+      const sectionId = entry.sectionId
       if (!sectionId) return
       visibleBySection.set(sectionId, (visibleBySection.get(sectionId) ?? 0) + 1)
     })
@@ -288,8 +276,8 @@ const CommissionSearch = () => {
     if (liveRef.current) {
       liveRef.current.textContent =
         normalized.length > 0
-          ? `Search results: ${matched} of ${entries.length} commissions shown.`
-          : `Search cleared. Showing all ${entries.length} commissions.`
+          ? `Search results: ${matched} of ${entryElements.length} commissions shown.`
+          : `Search cleared. Showing all ${entryElements.length} commissions.`
     }
   }, [query])
 
