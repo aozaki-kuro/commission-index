@@ -22,6 +22,7 @@ const IllustratorInfo = ({ commission, kebabName }: IllustratorInfoProps) => {
   const { date, creator } = parseCommissionFileName(fileName)
   const linkId = `#${kebabName}-${date}`
   const formattedDate = parseAndFormatDate(date, 'yyyy/MM/dd')
+  const quotedDescription = `"${description}"`
 
   const hasCreator = Boolean(creator)
   const hasDescription = Boolean(description)
@@ -41,7 +42,7 @@ const IllustratorInfo = ({ commission, kebabName }: IllustratorInfoProps) => {
           {hasCreator ? (
             <span>{creator}</span>
           ) : hasDescription ? (
-            <span>{description}</span>
+            <span>{quotedDescription}</span>
           ) : (
             <span>-</span>
           )}
@@ -50,7 +51,7 @@ const IllustratorInfo = ({ commission, kebabName }: IllustratorInfoProps) => {
             <>
               {/* 使用分隔符，并通过 mx 来控制间距，不使用空格字符 */}
               <span className="mx-2 select-none md:mx-4">|</span>
-              <span>{description}</span>
+              <span>{quotedDescription}</span>
             </>
           )}
         </div>
