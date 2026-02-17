@@ -15,31 +15,38 @@ import Fuse from 'fuse.js'
 import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { jumpToCommissionSearch } from '#lib/jumpToCommissionSearch'
 import {
+  applySuggestionToQuery,
   collectSuggestions,
   extractSuggestionContextQuery,
   extractSuggestionQuery,
   filterSuggestions,
-  formatSuggestionToken,
   getMatchedEntryIds,
-  getSuggestionTerms,
   normalizeQuery,
-  replaceLastTokenWithSuggestion,
+  normalizeQuotedTokenBoundary,
+  parseSuggestionRows,
+  type SearchEntryLike,
+  type SearchIndexLike,
   type Suggestion,
+  type SuggestionEntryLike,
 } from '#lib/search'
 
-type Entry = {
-  id: number
-  element: HTMLElement
-  sectionId?: string
-  searchText: string
-  suggestText: string
-  suggestionTerms: string[]
-}
+type Entry = SearchEntryLike &
+  SuggestionEntryLike & {
+    element: HTMLElement
+    sectionId?: string
+  }
 
 type Section = {
   id: string
   element: HTMLElement
   status: 'active' | 'stale' | undefined
+}
+
+type SearchIndex = SearchIndexLike<Entry> & {
+  entryById: Map<number, Entry>
+  sections: Section[]
+  staleDivider: HTMLElement | null
+  suggestions: Suggestion[]
 }
 
 const searchSyntaxRows = [
@@ -78,8 +85,56 @@ const getUrlQuerySnapshot = () => {
   return new URLSearchParams(window.location.search).get('q') ?? ''
 }
 
-const normalizeQuotedTokenBoundary = (rawQuery: string) =>
-  rawQuery.replace(/("[^"]*")(?=[^\s|!])/g, '$1 ')
+const buildSearchIndex = (): SearchIndex => {
+  if (typeof window === 'undefined') {
+    return {
+      entries: [],
+      entryById: new Map(),
+      sections: [],
+      staleDivider: null,
+      allIds: new Set<number>(),
+      suggestions: [],
+      fuse: null,
+    }
+  }
+
+  const entries = Array.from(
+    document.querySelectorAll<HTMLElement>('[data-commission-entry="true"]'),
+  ).map((element, id) => {
+    const suggestText = element.dataset.searchSuggest ?? ''
+    const suggestionRows = parseSuggestionRows(suggestText)
+    return {
+      suggestionRows,
+      id,
+      element,
+      sectionId: element.dataset.characterSectionId,
+      searchText: (element.dataset.searchText ?? '').toLowerCase(),
+    }
+  })
+
+  return {
+    entries,
+    entryById: new Map(entries.map(entry => [entry.id, entry])),
+    sections: Array.from(
+      document.querySelectorAll<HTMLElement>('[data-character-section="true"]'),
+    ).map(element => ({
+      id: element.id,
+      element,
+      status: element.dataset.characterStatus as 'active' | 'stale' | undefined,
+    })),
+    staleDivider: document.querySelector<HTMLElement>('[data-stale-divider="true"]'),
+    allIds: new Set(entries.map(entry => entry.id)),
+    suggestions: collectSuggestions(entries),
+    fuse: new Fuse(entries, {
+      keys: ['searchText'],
+      threshold: 0.33,
+      ignoreLocation: true,
+      includeScore: false,
+      minMatchCharLength: 1,
+      useExtendedSearch: true,
+    }),
+  }
+}
 
 const CommissionSearch = () => {
   const initialUrlQuery = useSyncExternalStore(
@@ -98,61 +153,19 @@ const CommissionSearch = () => {
   const liveRef = useRef<HTMLParagraphElement>(null)
   const didAutoJumpRef = useRef(false)
   const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const previousMatchedIdsRef = useRef<Set<number>>(new Set())
+  const sectionVisibilityRef = useRef(new Map<string, boolean>())
+  const staleDividerVisibilityRef = useRef(true)
   const [isHelpOpen, setIsHelpOpen] = useState(false)
   const [copyState, setCopyState] = useState<'idle' | 'success'>('idle')
 
-  const index = useMemo(() => {
-    if (typeof window === 'undefined') {
-      return {
-        entries: [] as Entry[],
-        sections: [] as Section[],
-        staleDivider: null as HTMLElement | null,
-        allIds: new Set<number>(),
-        suggestions: [] as Suggestion[],
-        fuse: null as Fuse<Entry> | null,
-      }
-    }
-
-    const entries = Array.from(
-      document.querySelectorAll<HTMLElement>('[data-commission-entry="true"]'),
-    ).map((element, id) => ({
-      suggestText: element.dataset.searchSuggest ?? '',
-      suggestionTerms: getSuggestionTerms(element.dataset.searchSuggest ?? ''),
-      id,
-      element,
-      sectionId: element.dataset.characterSectionId,
-      searchText: (element.dataset.searchText ?? '').toLowerCase(),
-    }))
-    const suggestions: Suggestion[] = collectSuggestions(entries)
-
-    return {
-      entries,
-      sections: Array.from(
-        document.querySelectorAll<HTMLElement>('[data-character-section="true"]'),
-      ).map(element => ({
-        id: element.id,
-        element,
-        status: element.dataset.characterStatus as 'active' | 'stale' | undefined,
-      })),
-      staleDivider: document.querySelector<HTMLElement>('[data-stale-divider="true"]'),
-      allIds: new Set(entries.map(entry => entry.id)),
-      suggestions,
-      fuse: new Fuse(entries, {
-        keys: ['searchText'],
-        threshold: 0.33,
-        ignoreLocation: true,
-        includeScore: false,
-        minMatchCharLength: 1,
-        useExtendedSearch: true,
-      }),
-    }
-  }, [])
+  const index = useMemo(() => buildSearchIndex(), [])
 
   const matchedIds = useMemo(() => getMatchedEntryIds(query, index), [index, query])
 
   const suggestionContextMatchedIds = useMemo(
-    () => getMatchedEntryIds(suggestionContextQuery, index),
-    [index, suggestionContextQuery],
+    () => (suggestionQuery ? getMatchedEntryIds(suggestionContextQuery, index) : index.allIds),
+    [index, suggestionContextQuery, suggestionQuery],
   )
 
   const filteredSuggestions = useMemo(() => {
@@ -165,21 +178,26 @@ const CommissionSearch = () => {
   }, [index.entries, index.suggestions, suggestionContextMatchedIds, suggestionQuery])
 
   useEffect(() => {
-    const { entries, sections, staleDivider } = index
-    if (!entries.length) return
+    const { entryById, sections, staleDivider } = index
+    const previousMatchedIds = previousMatchedIdsRef.current
+    for (const id of previousMatchedIds) {
+      if (matchedIds.has(id)) continue
+      entryById.get(id)?.element.classList.add('hidden')
+    }
+    for (const id of matchedIds) {
+      if (previousMatchedIds.has(id)) continue
+      entryById.get(id)?.element.classList.remove('hidden')
+    }
+    previousMatchedIdsRef.current = matchedIds
+
+    const entriesCount = index.entries.length
+    if (entriesCount === 0) return
 
     const visibleBySection = new Map<string, number>()
-    let matchedCount = 0
-
-    for (const entry of entries) {
-      const visible = matchedIds.has(entry.id)
-      entry.element.classList.toggle('hidden', !visible)
-      if (!visible) continue
-
-      matchedCount += 1
-      if (entry.sectionId) {
-        visibleBySection.set(entry.sectionId, (visibleBySection.get(entry.sectionId) ?? 0) + 1)
-      }
+    for (const id of matchedIds) {
+      const sectionId = entryById.get(id)?.sectionId
+      if (!sectionId) continue
+      visibleBySection.set(sectionId, (visibleBySection.get(sectionId) ?? 0) + 1)
     }
 
     let visibleActiveSections = 0
@@ -187,7 +205,11 @@ const CommissionSearch = () => {
 
     for (const section of sections) {
       const shown = visibleBySection.get(section.id) ?? 0
-      section.element.classList.toggle('hidden', hasQuery && shown === 0)
+      const visible = !hasQuery || shown > 0
+      if (sectionVisibilityRef.current.get(section.id) !== visible) {
+        sectionVisibilityRef.current.set(section.id, visible)
+        section.element.classList.toggle('hidden', !visible)
+      }
 
       if (shown > 0) {
         if (section.status === 'active') visibleActiveSections += 1
@@ -197,13 +219,16 @@ const CommissionSearch = () => {
 
     if (staleDivider) {
       const shouldShowDivider = !hasQuery || (visibleActiveSections > 0 && visibleStaleSections > 0)
-      staleDivider.classList.toggle('hidden', !shouldShowDivider)
+      if (staleDividerVisibilityRef.current !== shouldShowDivider) {
+        staleDividerVisibilityRef.current = shouldShowDivider
+        staleDivider.classList.toggle('hidden', !shouldShowDivider)
+      }
     }
 
     if (liveRef.current) {
       liveRef.current.textContent = hasQuery
-        ? `Search results: ${matchedCount} of ${entries.length} commissions shown.`
-        : `Search cleared. Showing all ${entries.length} commissions.`
+        ? `Search results: ${matchedIds.size} of ${entriesCount} commissions shown.`
+        : `Search cleared. Showing all ${entriesCount} commissions.`
     }
   }, [hasQuery, index, matchedIds])
 
@@ -260,23 +285,7 @@ const CommissionSearch = () => {
   const applySuggestion = (suggestion: string | null) => {
     if (!suggestion) return
 
-    let suggestionToken = suggestion
-    if (suggestionToken.includes(' ') && !suggestionToken.startsWith('"')) {
-      suggestionToken = `"${suggestionToken}"`
-    }
-
-    let nextQuery = ''
-
-    const match = query.match(/(.*)([\s|!]+)(.*$)/)
-
-    if (match) {
-      const [, prefix, separator] = match
-      nextQuery = `${prefix}${separator}${suggestionToken}`
-    } else {
-      nextQuery = suggestionToken
-    }
-
-    const nextQueryWithSeparator = /(?:\s|\||!)$/.test(nextQuery) ? nextQuery : `${nextQuery} `
+    const nextQueryWithSeparator = applySuggestionToQuery(query, suggestion)
 
     setInputQuery(nextQueryWithSeparator)
     setCopyState('idle')
@@ -286,6 +295,7 @@ const CommissionSearch = () => {
       inputRef.current.value = nextQueryWithSeparator
       inputRef.current.setSelectionRange(cursor, cursor)
     }
+
     requestAnimationFrame(() => {
       if (!inputRef.current) return
       inputRef.current.focus()
