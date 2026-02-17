@@ -78,6 +78,9 @@ const getUrlQuerySnapshot = () => {
   return new URLSearchParams(window.location.search).get('q') ?? ''
 }
 
+const normalizeQuotedTokenBoundary = (rawQuery: string) =>
+  rawQuery.replace(/("[^"]*")(?=[^\s|!])/g, '$1 ')
+
 const CommissionSearch = () => {
   const initialUrlQuery = useSyncExternalStore(
     () => () => {},
@@ -256,12 +259,38 @@ const CommissionSearch = () => {
 
   const applySuggestion = (suggestion: string | null) => {
     if (!suggestion) return
-    const suggestionToken = formatSuggestionToken(suggestion)
-    if (!suggestionToken) return
-    setInputQuery(replaceLastTokenWithSuggestion(query, suggestionToken))
+
+    let suggestionToken = suggestion
+    if (suggestionToken.includes(' ') && !suggestionToken.startsWith('"')) {
+      suggestionToken = `"${suggestionToken}"`
+    }
+
+    let nextQuery = ''
+
+    const match = query.match(/(.*)([\s|!]+)(.*$)/)
+
+    if (match) {
+      const [, prefix, separator] = match
+      nextQuery = `${prefix}${separator}${suggestionToken}`
+    } else {
+      nextQuery = suggestionToken
+    }
+
+    const nextQueryWithSeparator = /(?:\s|\||!)$/.test(nextQuery) ? nextQuery : `${nextQuery} `
+
+    setInputQuery(nextQueryWithSeparator)
     setCopyState('idle')
+
+    const cursor = nextQueryWithSeparator.length
+    if (inputRef.current) {
+      inputRef.current.value = nextQueryWithSeparator
+      inputRef.current.setSelectionRange(cursor, cursor)
+    }
     requestAnimationFrame(() => {
-      inputRef.current?.focus()
+      if (!inputRef.current) return
+      inputRef.current.focus()
+      const rafCursor = nextQueryWithSeparator.length
+      inputRef.current.setSelectionRange(rafCursor, rafCursor)
     })
   }
 
@@ -294,7 +323,7 @@ const CommissionSearch = () => {
             type="search"
             value={query}
             onChange={e => {
-              setInputQuery(e.target.value)
+              setInputQuery(normalizeQuotedTokenBoundary(e.target.value))
               setCopyState('idle')
             }}
             placeholder="Search"
