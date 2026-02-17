@@ -1,10 +1,13 @@
 'use client'
 
 import {
+  Combobox,
+  ComboboxInput,
+  ComboboxOption,
+  ComboboxOptions,
   Dialog,
   DialogPanel,
   DialogTitle,
-  Input,
   Transition,
   TransitionChild,
 } from '@headlessui/react'
@@ -22,18 +25,43 @@ const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const hasOperatorSyntax = (query: string) => /[|!]/.test(query)
 const hasWholeWord = (text: string, term: string) =>
   new RegExp(`\\b${escapeRegExp(term)}\\b`, 'i').test(text)
+const extractSuggestionQuery = (rawQuery: string) => {
+  const tokenMatch = rawQuery.match(/(?:^|[\s|])!?([^\s|!]*)$/)
+  if (!tokenMatch) return ''
+  return tokenMatch[1] ?? ''
+}
+const replaceLastTokenWithSuggestion = (rawQuery: string, suggestion: string) => {
+  if (!rawQuery.trim()) return suggestion
+  if (/(?:\s|\||!)$/.test(rawQuery)) return `${rawQuery}${suggestion}`
+
+  const tokenMatch = rawQuery.match(/(!?)([^\s|!]+)$/)
+  if (!tokenMatch) return `${rawQuery}${suggestion}`
+
+  const [fullToken, negation = ''] = tokenMatch
+  const prefix = rawQuery.slice(0, rawQuery.length - fullToken.length)
+  return `${prefix}${negation}${suggestion}`
+}
 
 type Entry = {
   id: number
   element: HTMLElement
   sectionId?: string
   searchText: string
+  suggestText: string
 }
 
 type Section = {
   id: string
   element: HTMLElement
   status: 'active' | 'stale' | undefined
+}
+
+type SuggestionSource = 'Character' | 'Creator' | 'Keyword'
+
+type Suggestion = {
+  term: string
+  count: number
+  sources: SuggestionSource[]
 }
 
 const searchSyntaxRows = [
@@ -83,6 +111,7 @@ const CommissionSearch = () => {
   const normalizedQuery = normalize(query)
   const fuseQuery = toFuseOperatorQuery(query)
   const hasQuery = !!normalizedQuery
+  const suggestionQuery = normalize(extractSuggestionQuery(query))
 
   const inputRef = useRef<HTMLInputElement>(null)
   const liveRef = useRef<HTMLParagraphElement>(null)
@@ -98,6 +127,7 @@ const CommissionSearch = () => {
         sections: [] as Section[],
         staleDivider: null as HTMLElement | null,
         allIds: new Set<number>(),
+        suggestions: [] as Suggestion[],
         fuse: null as Fuse<Entry> | null,
       }
     }
@@ -109,7 +139,63 @@ const CommissionSearch = () => {
       element,
       sectionId: element.dataset.characterSectionId,
       searchText: (element.dataset.searchText ?? '').toLowerCase(),
+      suggestText: element.dataset.searchSuggest ?? '',
     }))
+
+    const suggestionCounts = new Map<
+      string,
+      { term: string; count: number; sources: Set<SuggestionSource> }
+    >()
+    for (const entry of entries) {
+      const suggestionRows = entry.suggestText
+        .split('\n')
+        .map(row => row.trim())
+        .filter(Boolean)
+      const uniqueTerms = new Set(
+        suggestionRows
+          .map(row => {
+            const [, ...rest] = row.split('\t')
+            const term = rest.join('\t').trim()
+            return normalize(term)
+          })
+          .filter(Boolean),
+      )
+
+      for (const normalizedTerm of uniqueTerms) {
+        const matchedRow = suggestionRows.find(row => {
+          const [, ...rest] = row.split('\t')
+          const term = rest.join('\t').trim()
+          return normalize(term) === normalizedTerm
+        })
+        const [rawSource = 'Keyword', ...rest] = (matchedRow ?? '').split('\t')
+        const source =
+          rawSource === 'Character' || rawSource === 'Creator' || rawSource === 'Keyword'
+            ? rawSource
+            : 'Keyword'
+        const originalTerm = rest.join('\t').trim() || normalizedTerm
+        const existing = suggestionCounts.get(normalizedTerm)
+        if (existing) {
+          existing.count += 1
+          existing.sources.add(source)
+          continue
+        }
+
+        suggestionCounts.set(normalizedTerm, {
+          term: originalTerm,
+          count: 1,
+          sources: new Set([source]),
+        })
+      }
+    }
+
+    const sourceOrder: SuggestionSource[] = ['Character', 'Keyword', 'Creator']
+    const suggestions: Suggestion[] = [...suggestionCounts.values()]
+      .map(item => ({
+        term: item.term,
+        count: item.count,
+        sources: [...item.sources].sort((a, b) => sourceOrder.indexOf(a) - sourceOrder.indexOf(b)),
+      }))
+      .sort((a, b) => b.count - a.count || a.term.localeCompare(b.term))
 
     return {
       entries,
@@ -122,9 +208,10 @@ const CommissionSearch = () => {
       })),
       staleDivider: document.querySelector<HTMLElement>('[data-stale-divider="true"]'),
       allIds: new Set(entries.map(entry => entry.id)),
+      suggestions,
       fuse: new Fuse(entries, {
         keys: ['searchText'],
-        threshold: 0.3,
+        threshold: 0.35,
         ignoreLocation: true,
         includeScore: false,
         minMatchCharLength: 1,
@@ -132,6 +219,27 @@ const CommissionSearch = () => {
       }),
     }
   }, [])
+
+  const filteredSuggestions = useMemo(() => {
+    if (!suggestionQuery) return []
+
+    const exactMatches: Suggestion[] = []
+    const startsWithMatches: Suggestion[] = []
+    const includesMatches: Suggestion[] = []
+
+    for (const suggestion of index.suggestions) {
+      const normalizedSuggestion = normalize(suggestion.term)
+      if (normalizedSuggestion === suggestionQuery) {
+        exactMatches.push(suggestion)
+      } else if (normalizedSuggestion.startsWith(suggestionQuery)) {
+        startsWithMatches.push(suggestion)
+      } else if (normalizedSuggestion.includes(suggestionQuery)) {
+        includesMatches.push(suggestion)
+      }
+    }
+
+    return [...exactMatches, ...startsWithMatches, ...includesMatches].slice(0, 8)
+  }, [index.suggestions, suggestionQuery])
 
   useEffect(() => {
     const { entries, sections, staleDivider, allIds, fuse } = index
@@ -244,9 +352,18 @@ const CommissionSearch = () => {
     inputRef.current?.focus()
   }
 
+  const applySuggestion = (suggestion: string | null) => {
+    if (!suggestion) return
+    setInputQuery(replaceLastTokenWithSuggestion(query, suggestion))
+    setCopyState('idle')
+    requestAnimationFrame(() => {
+      inputRef.current?.focus()
+    })
+  }
+
   return (
     <section id="commission-search" className="mt-8 mb-6 flex h-12 items-center justify-end">
-      <div className="relative h-11 w-full overflow-hidden border-b border-gray-300/80 bg-transparent text-gray-700 dark:border-gray-700 dark:text-gray-300">
+      <div className="relative h-11 w-full overflow-visible border-b border-gray-300/80 bg-transparent text-gray-700 dark:border-gray-700 dark:text-gray-300">
         <svg
           viewBox="0 0 24 24"
           className="absolute top-1/2 left-2.5 h-3.5 w-3.5 shrink-0 -translate-y-1/2 opacity-70"
@@ -257,12 +374,17 @@ const CommissionSearch = () => {
           <circle cx="11" cy="11" r="6" strokeWidth="2" />
         </svg>
 
-        <div className="absolute inset-y-0 right-2 left-8 flex items-center gap-2">
+        <Combobox
+          as="div"
+          value={null}
+          onChange={applySuggestion}
+          className="absolute inset-y-0 right-2 left-8 flex items-center gap-2"
+        >
           <label htmlFor="commission-search-input" className="sr-only">
             Search commissions
           </label>
 
-          <Input
+          <ComboboxInput
             ref={inputRef}
             id="commission-search-input"
             type="search"
@@ -276,6 +398,26 @@ const CommissionSearch = () => {
             aria-label="Search commissions"
             className="peer w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-24 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
           />
+
+          <ComboboxOptions
+            modal={false}
+            className="absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 max-h-72 overflow-y-auto rounded-lg border border-gray-300/80 bg-white/95 py-1 text-sm shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm empty:hidden dark:border-gray-700 dark:bg-black/90"
+          >
+            {filteredSuggestions.map(suggestion => (
+              <ComboboxOption
+                key={suggestion.term}
+                value={suggestion.term}
+                className="cursor-pointer px-3 py-2 font-mono text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 dark:text-gray-300 dark:data-focus:bg-gray-800 dark:data-focus:text-gray-100"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span>{suggestion.term}</span>
+                  <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                    {suggestion.sources.join(' / ')}
+                  </span>
+                </div>
+              </ComboboxOption>
+            ))}
+          </ComboboxOptions>
 
           <button
             type="button"
@@ -344,7 +486,7 @@ const CommissionSearch = () => {
               <path strokeWidth="2.2" strokeLinecap="round" d="M18 6L6 18" />
             </svg>
           </button>
-        </div>
+        </Combobox>
       </div>
 
       <p ref={liveRef} aria-live="polite" className="sr-only" />

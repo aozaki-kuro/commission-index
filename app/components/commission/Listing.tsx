@@ -12,6 +12,8 @@ type ListingProps = {
   commissionMap: Map<string, CharacterCommissions>
 }
 
+const normalizeSuggestionKey = (term: string) => term.trim().toLowerCase()
+
 /**
  * Listing 组件显示特定角色的所有委托作品，包括图片、信息和链接。
  * @param Character - 角色名称。
@@ -39,11 +41,25 @@ const Listing = ({ Character, status, commissionMap }: ListingProps) => {
           const altText = `Copyright ©️ ${year} ${creator || 'Anonymous'} & Crystallize`
           const imageSrc = imageImports[commission.fileName as keyof typeof imageImports]
           const elementId = `${sectionId}-${date}`
-          const keywordSearchText = (commission.Keyword ?? '')
+          const keywordTerms = (commission.Keyword ?? '')
             .split(/[,\n，、;；]/)
             .map(keyword => keyword.trim())
             .filter(Boolean)
-            .join(' ')
+          const keywordSearchText = keywordTerms.join(' ')
+          const suggestionEntries = [
+            { source: 'Character', term: Character },
+            ...(creator ? [{ source: 'Creator', term: creator }] : []),
+            ...keywordTerms.map(keyword => ({ source: 'Keyword', term: keyword })),
+          ]
+          const uniqueSuggestions = new Map<string, { source: string; term: string }>()
+          for (const entry of suggestionEntries) {
+            const normalizedTerm = normalizeSuggestionKey(entry.term)
+            if (!normalizedTerm || uniqueSuggestions.has(normalizedTerm)) continue
+            uniqueSuggestions.set(normalizedTerm, entry)
+          }
+          const searchSuggestionText = [...uniqueSuggestions.values()]
+            .map(entry => `${entry.source}\t${entry.term}`)
+            .join('\n')
           const searchText = [
             Character,
             creator,
@@ -62,6 +78,7 @@ const Listing = ({ Character, status, commissionMap }: ListingProps) => {
               data-commission-entry="true"
               data-character-section-id={sectionId}
               data-search-text={searchText}
+              data-search-suggest={searchSuggestionText}
             >
               {/* 如果有图片资源，显示图片 */}
               {imageSrc && (
