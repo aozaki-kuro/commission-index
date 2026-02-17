@@ -492,7 +492,7 @@ const CommissionSearch = () => {
                               </td>
                               <td className="px-3 py-2.5 text-[11px] sm:text-xs md:text-sm">
                                 <p>{row.description}.</p>
-                                <p className="mt-0.5 break-words text-gray-500 dark:text-gray-400">
+                                <p className="mt-0.5 wrap-break-word text-gray-500 dark:text-gray-400">
                                   Example:{' '}
                                   <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 md:text-xs dark:bg-gray-800 dark:text-gray-300">
                                     {row.example}
@@ -506,7 +506,7 @@ const CommissionSearch = () => {
                     </div>
                   </div>
 
-                  <p className="text-[11px] break-words text-gray-500 sm:text-xs md:text-sm dark:text-gray-400">
+                  <p className="text-[11px] wrap-break-word text-gray-500 sm:text-xs md:text-sm dark:text-gray-400">
                     Combined example:{' '}
                     <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 md:text-xs dark:bg-gray-800 dark:text-gray-300">
                       blue hair | silver !sketch
