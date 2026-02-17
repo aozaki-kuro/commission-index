@@ -87,7 +87,9 @@ const CommissionSearch = () => {
   const inputRef = useRef<HTMLInputElement>(null)
   const liveRef = useRef<HTMLParagraphElement>(null)
   const didAutoJumpRef = useRef(false)
+  const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [isHelpOpen, setIsHelpOpen] = useState(false)
+  const [copyState, setCopyState] = useState<'idle' | 'success'>('idle')
 
   const index = useMemo(() => {
     if (typeof window === 'undefined') {
@@ -201,19 +203,43 @@ const CommissionSearch = () => {
     })
   }, [initialUrlQuery])
 
+  useEffect(
+    () => () => {
+      if (!copyResetTimerRef.current) return
+      clearTimeout(copyResetTimerRef.current)
+    },
+    [],
+  )
+
+  const setCopyFeedback = () => {
+    setCopyState('success')
+
+    if (copyResetTimerRef.current) {
+      clearTimeout(copyResetTimerRef.current)
+    }
+
+    copyResetTimerRef.current = setTimeout(() => {
+      setCopyState('idle')
+      copyResetTimerRef.current = null
+    }, 1200)
+  }
+
   const copySearchUrl = async () => {
     if (!hasQuery) return
 
     try {
       await navigator.clipboard.writeText(buildSearchUrl(query))
+      setCopyFeedback()
       if (liveRef.current) liveRef.current.textContent = 'Search URL copied.'
     } catch {
+      setCopyState('idle')
       if (liveRef.current) liveRef.current.textContent = 'Failed to copy search URL.'
     }
   }
 
   const clearSearch = () => {
     setInputQuery('')
+    setCopyState('idle')
     clearSearchQueryParamInAddress()
     inputRef.current?.focus()
   }
@@ -241,7 +267,10 @@ const CommissionSearch = () => {
             id="commission-search-input"
             type="search"
             value={query}
-            onChange={e => setInputQuery(e.target.value)}
+            onChange={e => {
+              setInputQuery(e.target.value)
+              setCopyState('idle')
+            }}
             placeholder="Search"
             autoComplete="off"
             aria-label="Search commissions"
@@ -271,22 +300,35 @@ const CommissionSearch = () => {
           <button
             type="button"
             onClick={copySearchUrl}
-            className={`absolute right-8 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[opacity,color] hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
-              hasQuery ? '' : 'pointer-events-none opacity-0'
-            }`}
-            aria-label="Copy search URL"
+            className={`absolute right-8 inline-flex h-7 w-7 items-center justify-center rounded-full transition-[opacity,color] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:focus-visible:outline-gray-300 ${
+              copyState === 'success'
+                ? 'text-emerald-600 dark:text-emerald-400'
+                : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100'
+            } ${hasQuery ? '' : 'pointer-events-none opacity-0'}`}
+            aria-label={copyState === 'success' ? 'Search URL copied' : 'Copy search URL'}
           >
-            <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor">
-              <circle cx="18" cy="5.5" r="2.3" strokeWidth="2" />
-              <circle cx="6" cy="12" r="2.3" strokeWidth="2" />
-              <circle cx="18" cy="18.5" r="2.3" strokeWidth="2" />
-              <path
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M8.2 11l7.6-4.1M8.2 13l7.6 4.1"
-              />
-            </svg>
+            {copyState === 'success' ? (
+              <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor">
+                <path
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5.6 12.3L10 16.7l8.4-9.4"
+                />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor">
+                <circle cx="18" cy="5.5" r="2.3" strokeWidth="2" />
+                <circle cx="6" cy="12" r="2.3" strokeWidth="2" />
+                <circle cx="18" cy="18.5" r="2.3" strokeWidth="2" />
+                <path
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M8.2 11l7.6-4.1M8.2 13l7.6 4.1"
+                />
+              </svg>
+            )}
           </button>
 
           <button

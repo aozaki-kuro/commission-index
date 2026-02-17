@@ -24,7 +24,6 @@ const Listing = ({ Character, status, commissionMap }: ListingProps) => {
   return (
     <div
       id={sectionId}
-      className="scroll-mt-[28vh]"
       data-character-section="true"
       data-character-status={status}
       data-total-commissions={commissions.length}
