@@ -36,6 +36,24 @@ type Section = {
   status: 'active' | 'stale' | undefined
 }
 
+const searchSyntaxRows = [
+  {
+    syntax: 'space',
+    description: 'All terms must match',
+    example: 'blue hair',
+  },
+  {
+    syntax: '|',
+    description: 'Either side can match',
+    example: 'blue | silver',
+  },
+  {
+    syntax: '!',
+    description: 'Exclude a term',
+    example: '!sketch',
+  },
+]
+
 const buildSearchUrl = (rawQuery: string) => {
   const url = new URL(window.location.href)
   if (normalize(rawQuery)) url.searchParams.set('q', rawQuery)
@@ -313,24 +331,55 @@ const CommissionSearch = () => {
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <DialogPanel className="w-full max-w-md rounded-2xl border border-gray-300/80 bg-white/95 p-5 font-mono text-sm text-gray-700 shadow-[0_16px_50px_rgba(0,0,0,0.16)] backdrop-blur-sm dark:border-gray-700 dark:bg-black/90 dark:text-gray-300">
-                <DialogTitle className="text-base font-bold text-gray-900 dark:text-gray-100">
+              <DialogPanel className="w-full max-w-md rounded-2xl border border-gray-300/80 bg-white/95 p-5 text-sm text-gray-700 shadow-[0_16px_50px_rgba(0,0,0,0.16)] backdrop-blur-sm md:text-base dark:border-gray-700 dark:bg-black/90 dark:text-gray-300">
+                <DialogTitle className="text-base font-bold text-gray-900 md:text-lg dark:text-gray-100">
                   Search Help
                 </DialogTitle>
 
-                <div className="mt-3 space-y-2 text-gray-700 dark:text-gray-300">
-                  <p>Type one or more keywords to filter commissions.</p>
-                  <p>
-                    <code className="text-xs">space</code>: all terms must match.
+                <div className="mt-3 space-y-3 text-gray-700 dark:text-gray-300">
+                  <p className="text-xs md:text-sm">
+                    Type one or more keywords to filter commissions.
                   </p>
-                  <p>
-                    <code className="text-xs">|</code>: either side can match.
-                  </p>
-                  <p>
-                    <code className="text-xs">!</code>: exclude a term.
-                  </p>
-                  <p className="text-gray-500 dark:text-gray-400">
-                    Example: <code className="text-xs">blue hair | silver !sketch</code>
+
+                  <div className="overflow-hidden rounded-lg border border-gray-200/90 dark:border-gray-700/90">
+                    <div className="max-w-full overflow-x-auto">
+                      <table className="w-full min-w-[18rem] border-separate border-spacing-0 text-left text-xs leading-relaxed md:text-sm">
+                        <thead className="bg-gray-100/80 text-gray-600 dark:bg-gray-800/70 dark:text-gray-300">
+                          <tr>
+                            <th className="px-3 py-2 font-semibold">Syntax</th>
+                            <th className="px-3 py-2 font-semibold">Meaning</th>
+                          </tr>
+                        </thead>
+
+                        <tbody className="divide-y divide-gray-200/80 dark:divide-gray-700/80">
+                          {searchSyntaxRows.map(row => (
+                            <tr key={row.syntax} className="align-top">
+                              <td className="w-20 px-3 py-2.5">
+                                <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-gray-700 md:text-xs dark:bg-gray-800 dark:text-gray-200">
+                                  {row.syntax}
+                                </code>
+                              </td>
+                              <td className="px-3 py-2.5 text-[11px] sm:text-xs md:text-sm">
+                                <p>{row.description}.</p>
+                                <p className="mt-0.5 break-words text-gray-500 dark:text-gray-400">
+                                  Example:{' '}
+                                  <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 md:text-xs dark:bg-gray-800 dark:text-gray-300">
+                                    {row.example}
+                                  </code>
+                                </p>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <p className="text-[11px] break-words text-gray-500 sm:text-xs md:text-sm dark:text-gray-400">
+                    Combined example:{' '}
+                    <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 md:text-xs dark:bg-gray-800 dark:text-gray-300">
+                      blue hair | silver !sketch
+                    </code>
                   </p>
                 </div>
 
