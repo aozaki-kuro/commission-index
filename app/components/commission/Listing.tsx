@@ -38,6 +38,16 @@ const Listing = ({ Character, status, commissionMap }: ListingProps) => {
       ) : (
         commissions.map(commission => {
           const { date, year, creator } = parseCommissionFileName(commission.fileName)
+          const month = date.slice(4, 6)
+          const day = date.slice(6, 8)
+          const searchableDateTerms = [
+            date,
+            `${year}/${month}/${day}`,
+            `${year}-${month}-${day}`,
+            `${year} ${month} ${day}`,
+            `${year}/${month}`,
+            `${year}-${month}`,
+          ]
           const altText = `Copyright ©️ ${year} ${creator || 'Anonymous'} & Crystallize`
           const imageSrc = imageImports[commission.fileName as keyof typeof imageImports]
           const elementId = `${sectionId}-${date}`
@@ -63,6 +73,7 @@ const Listing = ({ Character, status, commissionMap }: ListingProps) => {
           const searchText = [
             Character,
             creator,
+            ...searchableDateTerms,
             commission.Design ?? '',
             commission.Description ?? '',
             keywordSearchText,

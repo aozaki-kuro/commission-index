@@ -24,6 +24,7 @@ export type SuggestionEntryLike = {
 export type SearchIndexLike<T extends SearchEntryLike> = {
   entries: T[]
   allIds: Set<number>
+  strictTermIndex?: Map<string, Set<number>>
   fuse: Fuse<T> | null
 }
 
@@ -39,6 +40,7 @@ const hasOperatorSyntax = (query: string) => /[|!]/.test(query)
 const normalizeSuggestionMatchToken = (term: string) => normalize(term).replace(/[\s"'`]+/g, '')
 const trailingTokenSeparatorPattern = /(?:\s|\||!)$/
 const replaceLastTokenPattern = /(.*)([\s|!]+)(.*$)/
+const indexedTermPattern = /^[a-z0-9_]+$/
 const MAX_QUERY_CACHE_SIZE = 300
 const EMPTY_IDS = new Set<number>()
 const matchedIdsCache = new WeakMap<object, Map<string, Set<number>>>()
@@ -84,6 +86,16 @@ const getStrictTermMatches = <T extends SearchEntryLike>(
   const termCache = getStrictTermCache(index)
   const cached = termCache.get(term)
   if (cached) return cached
+
+  const indexedMatches = index.strictTermIndex?.get(term)
+  if (indexedMatches) {
+    termCache.set(term, indexedMatches)
+    return indexedMatches
+  }
+  if (index.strictTermIndex && indexedTermPattern.test(term)) {
+    termCache.set(term, EMPTY_IDS)
+    return EMPTY_IDS
+  }
 
   const pattern = new RegExp(`\\b${escapeRegExp(term)}\\b`, 'i')
   const matches = new Set(
@@ -151,6 +163,27 @@ export const parseSuggestionRows = (suggestText: string): SuggestionRows => {
     })
   }
   return rows
+}
+
+export const buildStrictTermIndex = <T extends SearchEntryLike>(entries: T[]) => {
+  const index = new Map<string, Set<number>>()
+
+  for (const entry of entries) {
+    const terms = entry.searchText.match(/[a-z0-9_]+/g)
+    if (!terms) continue
+    const uniqueTerms = new Set(terms)
+
+    for (const term of uniqueTerms) {
+      const ids = index.get(term)
+      if (ids) {
+        ids.add(entry.id)
+      } else {
+        index.set(term, new Set([entry.id]))
+      }
+    }
+  }
+
+  return index
 }
 
 const matchesMaskedAt = (pattern: string, query: string, startIndex: number) => {

@@ -16,6 +16,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } 
 import { jumpToCommissionSearch } from '#lib/jumpToCommissionSearch'
 import {
   applySuggestionToQuery,
+  buildStrictTermIndex,
   collectSuggestions,
   extractSuggestionContextQuery,
   extractSuggestionQuery,
@@ -115,6 +116,7 @@ const buildSearchIndex = (): SearchIndex => {
   return {
     entries,
     entryById: new Map(entries.map(entry => [entry.id, entry])),
+    strictTermIndex: buildStrictTermIndex(entries),
     sections: Array.from(
       document.querySelectorAll<HTMLElement>('[data-character-section="true"]'),
     ).map(element => ({
@@ -163,10 +165,11 @@ const CommissionSearch = () => {
 
   const matchedIds = useMemo(() => getMatchedEntryIds(query, index), [index, query])
 
-  const suggestionContextMatchedIds = useMemo(
-    () => (suggestionQuery ? getMatchedEntryIds(suggestionContextQuery, index) : index.allIds),
-    [index, suggestionContextQuery, suggestionQuery],
-  )
+  const suggestionContextMatchedIds = useMemo(() => {
+    if (!suggestionQuery) return index.allIds
+    if (suggestionContextQuery === query) return matchedIds
+    return getMatchedEntryIds(suggestionContextQuery, index)
+  }, [index, matchedIds, query, suggestionContextQuery, suggestionQuery])
 
   const filteredSuggestions = useMemo(() => {
     return filterSuggestions({
@@ -180,25 +183,26 @@ const CommissionSearch = () => {
   useEffect(() => {
     const { entryById, sections, staleDivider } = index
     const previousMatchedIds = previousMatchedIdsRef.current
+    const visibleBySection = new Map<string, number>()
+
     for (const id of previousMatchedIds) {
       if (matchedIds.has(id)) continue
       entryById.get(id)?.element.classList.add('hidden')
     }
     for (const id of matchedIds) {
-      if (previousMatchedIds.has(id)) continue
-      entryById.get(id)?.element.classList.remove('hidden')
+      const entry = entryById.get(id)
+      if (!entry) continue
+      if (!previousMatchedIds.has(id)) {
+        entry.element.classList.remove('hidden')
+      }
+      if (entry.sectionId) {
+        visibleBySection.set(entry.sectionId, (visibleBySection.get(entry.sectionId) ?? 0) + 1)
+      }
     }
     previousMatchedIdsRef.current = matchedIds
 
     const entriesCount = index.entries.length
     if (entriesCount === 0) return
-
-    const visibleBySection = new Map<string, number>()
-    for (const id of matchedIds) {
-      const sectionId = entryById.get(id)?.sectionId
-      if (!sectionId) continue
-      visibleBySection.set(sectionId, (visibleBySection.get(sectionId) ?? 0) + 1)
-    }
 
     let visibleActiveSections = 0
     let visibleStaleSections = 0
