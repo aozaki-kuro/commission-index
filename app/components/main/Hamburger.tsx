@@ -250,7 +250,7 @@ const MenuContent = memo(({ mounted, open, close, toggle, active, stale }: MenuC
           type="button"
           aria-label="Close navigation menu"
           className={`fixed inset-0 z-20 bg-gray-200/10 backdrop-blur-xs transition-opacity duration-200 dark:bg-gray-900/10 ${
-            open ? 'opacity-100' : 'opacity-0'
+            open ? 'opacity-100' : 'pointer-events-none opacity-0'
           }`}
           onClick={close}
         />
@@ -341,7 +341,7 @@ const Hamburger = ({ active, stale }: HamburgerProps) => {
 
   return (
     <div className="fixed right-8 bottom-8 flex flex-col items-end gap-3 md:hidden">
-      {!open ? (
+      {!mounted ? (
         <button
           type="button"
           className={STYLES.searchButton}
