@@ -258,9 +258,7 @@ const MenuContent = memo(({ mounted, open, close, toggle, active, stale }: MenuC
           id="mobile-character-menu"
           aria-hidden={!open}
           className={`absolute right-4 bottom-full z-40 mb-4 max-h-[calc(100vh-8rem)] w-64 origin-bottom-right overflow-y-auto rounded-xl border border-white/20 bg-white/80 font-mono shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-lg transition-[opacity,transform] duration-220 ease-out focus:outline-hidden dark:bg-black/80 ${
-            open
-              ? 'translate-y-0 scale-100 opacity-100'
-              : 'pointer-events-none translate-y-2 scale-95 opacity-0'
+            open ? 'translate-y-0 opacity-100' : 'pointer-events-none opacity-0'
           }`}
           style={backdropStyle}
         >
