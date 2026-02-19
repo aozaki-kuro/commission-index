@@ -9,9 +9,7 @@ interface CharacterEntry {
 }
 
 const STYLES = {
-  menuButton:
-    'relative z-30 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 backdrop-blur-[12px] transition-all duration-300 hover:bg-gray-100/80 hover:shadow-[0_4px_16px_rgba(0,0,0,0.12)] focus:outline-hidden dark:bg-black/80 dark:text-white dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] dark:ring-white/10 dark:hover:bg-gray-900/80 dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]',
-  searchButton:
+  floatingButton:
     'relative z-30 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 backdrop-blur-[12px] transition-all duration-300 hover:bg-gray-100/80 hover:shadow-[0_4px_16px_rgba(0,0,0,0.12)] focus:outline-hidden dark:bg-black/80 dark:text-white dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] dark:ring-white/10 dark:hover:bg-gray-900/80 dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]',
   listItem:
     'group flex w-full items-center rounded-lg px-4 py-2 font-mono text-base text-gray-900 !no-underline transition-colors duration-150 hover:bg-white/70 dark:text-white dark:hover:bg-white/10',
@@ -62,14 +60,8 @@ interface ListItemProps {
 }
 
 const ListItem = memo(({ item, close }: ListItemProps) => {
-  const href = `/${item.titleHash}`
-
-  const handleClick = useCallback(() => {
-    close()
-  }, [close])
-
   return (
-    <a href={href} onClick={handleClick} className={STYLES.listItem}>
+    <a href={`/${item.titleHash}`} onClick={close} className={STYLES.listItem}>
       {item.displayName}
     </a>
   )
@@ -90,7 +82,6 @@ const CharacterList = memo(({ active, stale, close }: CharacterListProps) => {
 
   const activeListRef = useRef<HTMLDivElement>(null)
   const staleListRef = useRef<HTMLDivElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
 
   const measureContainer = useCallback(() => {
     const target = (isStaleExpanded ? staleListRef : activeListRef).current
@@ -116,11 +107,6 @@ const CharacterList = memo(({ active, stale, close }: CharacterListProps) => {
   }, [measureContainer])
 
   useEffect(() => {
-    const id = requestAnimationFrame(measureContainer)
-    return () => cancelAnimationFrame(id)
-  }, [measureContainer])
-
-  useEffect(() => {
     const id = requestAnimationFrame(() => setIsInitialRender(false))
     return () => cancelAnimationFrame(id)
   }, [])
@@ -143,7 +129,7 @@ const CharacterList = memo(({ active, stale, close }: CharacterListProps) => {
   const activeItems = useMemo(
     () =>
       activeNavItems.map(item => (
-        <li key={item.displayName}>
+        <li key={item.sectionId}>
           <ListItem item={item} close={close} />
         </li>
       )),
@@ -153,7 +139,7 @@ const CharacterList = memo(({ active, stale, close }: CharacterListProps) => {
   const staleItems = useMemo(
     () =>
       staleNavItems.map(item => (
-        <li key={item.displayName}>
+        <li key={item.sectionId}>
           <ListItem item={item} close={close} />
         </li>
       )),
@@ -183,7 +169,6 @@ const CharacterList = memo(({ active, stale, close }: CharacterListProps) => {
   return (
     <div className="relative">
       <div
-        ref={containerRef}
         className={`relative overflow-hidden will-change-[height] ${
           isInitialRender ? '' : 'transition-[height] duration-300 ease-out'
         }`}
@@ -258,7 +243,7 @@ const MenuContent = memo(({ mounted, open, close, toggle, active, stale }: MenuC
 
       <button
         type="button"
-        className={STYLES.menuButton}
+        className={STYLES.floatingButton}
         style={backdropStyle}
         aria-expanded={open}
         aria-controls="mobile-character-menu"
@@ -301,6 +286,7 @@ const Hamburger = ({ active, stale }: HamburgerProps) => {
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const closeTimerRef = useRef<number | null>(null)
+  const openRafRef = useRef<number | null>(null)
 
   const clearCloseTimer = useCallback(() => {
     if (closeTimerRef.current !== null) {
@@ -309,20 +295,32 @@ const Hamburger = ({ active, stale }: HamburgerProps) => {
     }
   }, [])
 
+  const clearOpenRaf = useCallback(() => {
+    if (openRafRef.current !== null) {
+      cancelAnimationFrame(openRafRef.current)
+      openRafRef.current = null
+    }
+  }, [])
+
   const openMenu = useCallback(() => {
     clearCloseTimer()
+    clearOpenRaf()
     setMounted(true)
-    requestAnimationFrame(() => setOpen(true))
-  }, [clearCloseTimer])
+    openRafRef.current = requestAnimationFrame(() => {
+      setOpen(true)
+      openRafRef.current = null
+    })
+  }, [clearCloseTimer, clearOpenRaf])
 
   const close = useCallback(() => {
+    clearOpenRaf()
     setOpen(false)
     clearCloseTimer()
     closeTimerRef.current = window.setTimeout(() => {
       setMounted(false)
       closeTimerRef.current = null
     }, 220)
-  }, [clearCloseTimer])
+  }, [clearCloseTimer, clearOpenRaf])
 
   const toggle = useCallback(() => {
     if (open) {
@@ -333,8 +331,11 @@ const Hamburger = ({ active, stale }: HamburgerProps) => {
   }, [close, open, openMenu])
 
   useEffect(() => {
-    return () => clearCloseTimer()
-  }, [clearCloseTimer])
+    return () => {
+      clearCloseTimer()
+      clearOpenRaf()
+    }
+  }, [clearCloseTimer, clearOpenRaf])
   const jumpToSearch = useCallback(() => {
     jumpToCommissionSearch({ topGap: 40, focusMode: 'immediate' })
   }, [])
@@ -344,7 +345,7 @@ const Hamburger = ({ active, stale }: HamburgerProps) => {
       {!mounted ? (
         <button
           type="button"
-          className={STYLES.searchButton}
+          className={STYLES.floatingButton}
           onClick={jumpToSearch}
           aria-label="Jump to search"
           title="Search"
