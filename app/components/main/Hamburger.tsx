@@ -8,6 +8,9 @@ interface CharacterEntry {
   DisplayName: string
 }
 
+const LIST_TRANSITION_MS = 300
+const MENU_TRANSITION_MS = 220
+
 const STYLES = {
   floatingButton:
     'relative z-30 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/80 text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 backdrop-blur-[12px] transition-all duration-300 hover:bg-gray-100/80 hover:shadow-[0_4px_16px_rgba(0,0,0,0.12)] focus:outline-hidden dark:bg-black/80 dark:text-white dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] dark:ring-white/10 dark:hover:bg-gray-900/80 dark:hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]',
@@ -82,13 +85,18 @@ const CharacterList = memo(({ active, stale, close }: CharacterListProps) => {
 
   const activeListRef = useRef<HTMLDivElement>(null)
   const staleListRef = useRef<HTMLDivElement>(null)
+  const expandedRef = useRef(isStaleExpanded)
 
-  const measureContainer = useCallback(() => {
-    const target = (isStaleExpanded ? staleListRef : activeListRef).current
-    setContainerHeight(target?.scrollHeight ?? 0)
+  useEffect(() => {
+    expandedRef.current = isStaleExpanded
   }, [isStaleExpanded])
 
-  // Keep height in sync with content size changes
+  const measureContainer = useCallback(() => {
+    const target = (expandedRef.current ? staleListRef : activeListRef).current
+    setContainerHeight(target?.scrollHeight ?? 0)
+  }, [])
+
+  // Keep height in sync with content size changes.
   useEffect(() => {
     const activeList = activeListRef.current
     const staleList = staleListRef.current
@@ -104,7 +112,12 @@ const CharacterList = memo(({ active, stale, close }: CharacterListProps) => {
       resizeObserver.disconnect()
       cancelAnimationFrame(rafId)
     }
-  }, [measureContainer])
+  }, [measureContainer, active.length, stale.length])
+
+  useEffect(() => {
+    const rafId = requestAnimationFrame(measureContainer)
+    return () => cancelAnimationFrame(rafId)
+  }, [isStaleExpanded, measureContainer])
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setIsInitialRender(false))
@@ -119,7 +132,7 @@ const CharacterList = memo(({ active, stale, close }: CharacterListProps) => {
 
   useEffect(() => {
     if (!isAnimating) return
-    const id = window.setTimeout(() => setIsAnimating(false), 300)
+    const id = window.setTimeout(() => setIsAnimating(false), LIST_TRANSITION_MS)
     return () => window.clearTimeout(id)
   }, [isAnimating])
 
@@ -317,7 +330,7 @@ const Hamburger = ({ active, stale }: HamburgerProps) => {
     closeTimerRef.current = window.setTimeout(() => {
       setMounted(false)
       closeTimerRef.current = null
-    }, 220)
+    }, MENU_TRANSITION_MS)
   }, [clearCloseTimer, clearOpenRaf])
 
   const toggle = useCallback(() => {
