@@ -1,7 +1,5 @@
 'use client'
 
-import type { Section } from '#lib/visibility'
-import { calculateVisibility, findActiveSection } from '#lib/visibility'
 import { useEffect, useRef, useState } from 'react'
 
 const getScrollThreshold = () => {
@@ -14,31 +12,50 @@ const isElementAtThreshold = (element: HTMLElement, threshold: number) => {
   return rect.top <= threshold && rect.bottom >= threshold
 }
 
-const getSectionsFromElements = (elements: HTMLElement[]): Section[] =>
-  elements
-    .map(element => {
-      if (!element?.parentElement) return null
+const getActiveSectionIdAtThreshold = (elements: HTMLElement[], threshold: number): string => {
+  let activeId = ''
 
-      const rect = element.getBoundingClientRect()
-      const contentHeight = element.parentElement.offsetHeight
+  for (const element of elements) {
+    if (element.getBoundingClientRect().top <= threshold) {
+      activeId = element.id
+      continue
+    }
 
-      return { id: element.id, ...calculateVisibility(rect, contentHeight) }
-    })
-    .filter((section): section is Section => section !== null)
+    break
+  }
+
+  return activeId
+}
+
+const getHashTarget = (hash: string): HTMLElement | null => {
+  if (!hash || !hash.startsWith('#')) return null
+
+  const id = decodeURIComponent(hash.slice(1))
+  if (!id) return null
+
+  return document.getElementById(id)
+}
+
+const clearHash = () => {
+  const { pathname, search, hash } = window.location
+  if (!hash) return
+
+  history.replaceState(null, '', `${pathname}${search}`)
+}
 
 const resetStaleHash = () => {
   const hash = window.location.hash
   if (!hash) return
 
-  const element = document.querySelector(hash)
+  const element = getHashTarget(hash)
   if (!element) {
-    history.replaceState(null, '', ' ')
+    clearHash()
     return
   }
 
   const rect = element.getBoundingClientRect()
   const isOffscreen = rect.bottom < 0 || rect.top > window.innerHeight
-  if (isOffscreen) history.replaceState(null, '', ' ')
+  if (isOffscreen) clearHash()
 }
 
 export const useCharacterScrollSpy = (
@@ -82,10 +99,8 @@ export const useCharacterScrollSpy = (
         return
       }
 
-      const sections = getSectionsFromElements(sectionElementsRef.current)
-      if (!sections.length) return
-
-      setActiveId(findActiveSection(sections))
+      const nextActiveId = getActiveSectionIdAtThreshold(sectionElementsRef.current, threshold)
+      setActiveId(nextActiveId)
       resetStaleHash()
     }
 
@@ -103,7 +118,7 @@ export const useCharacterScrollSpy = (
         cancelAnimationFrame(rafId.current)
       }
     }
-  }, [titleIds])
+  }, [introductionId, titleIds])
 
   return activeId
 }
