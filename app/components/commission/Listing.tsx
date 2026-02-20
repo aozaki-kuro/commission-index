@@ -49,7 +49,8 @@ const Listing = ({ Character, status, commissionMap }: ListingProps) => {
             `${year}-${month}`,
           ]
           const altText = `Copyright ©️ ${year} ${creator || 'Anonymous'} & Crystallize`
-          const imageSrc = imageImports[commission.fileName as keyof typeof imageImports]
+          const mappedImage = imageImports[commission.fileName as keyof typeof imageImports]
+          const fallbackImageSrc = `/images/${encodeURIComponent(commission.fileName)}.jpg`
           const elementId = `${sectionId}-${date}`
           const keywordTerms = (commission.Keyword ?? '')
             .split(/[,\n，、;；]/)
@@ -92,13 +93,23 @@ const Listing = ({ Character, status, commissionMap }: ListingProps) => {
               data-search-suggest={searchSuggestionText}
             >
               {/* 如果有图片资源，显示图片 */}
-              {imageSrc && (
+              {mappedImage ? (
                 <Image
-                  src={imageSrc}
+                  src={mappedImage}
                   alt={altText}
                   placeholder="blur"
                   className="pointer-events-none select-none"
                   loading="lazy"
+                />
+              ) : (
+                <Image
+                  src={fallbackImageSrc}
+                  alt={altText}
+                  className="pointer-events-none select-none"
+                  loading="lazy"
+                  width={1200}
+                  height={900}
+                  style={{ width: '100%', height: 'auto' }}
                 />
               )}
               {/* 显示委托作品的详细信息 */}

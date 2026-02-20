@@ -9,7 +9,7 @@
     "deploy": "bun run prod ; wrangler deploy",
     "dev": "bun run pre-build ; next dev --turbo",
     "lint": "eslint --fix",
-    "pre-build": "bun run scripts/convert.ts ; bun run scripts/imageImport.ts",
+    "pre-build": "bun run scripts/images.ts",
     "prepare": "husky",
     "prod": "bun run pre-build ; next build",
     "start": "next start"

@@ -2,8 +2,7 @@
 
 import path from 'node:path'
 
-import { generateImageImports } from '#scripts/imageImport'
-import { runImageConversion } from '#scripts/convert'
+import { runImageWorkflow } from '#scripts/images'
 
 // Runs image conversion + import regeneration in development.
 export const runImagePipeline = async () => {
@@ -12,8 +11,7 @@ export const runImagePipeline = async () => {
     const cwd = process.cwd()
     const imagesDir = path.join(cwd, 'public', 'images')
     const webpDir = path.join(imagesDir, 'webp')
-    await runImageConversion()
-    await generateImageImports()
+    await runImageWorkflow()
     console.log('[image-pipeline] updated images in', webpDir)
   } catch (error) {
     console.error('[image-pipeline] failed:', error)
