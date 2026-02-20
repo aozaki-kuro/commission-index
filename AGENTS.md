@@ -1,6 +1,6 @@
 # AGENTS
 
-This repository contains a Next.js 15 application written in TypeScript and managed with Bun.
+This repository contains a Next.js 16 application written in TypeScript and managed with Bun.
 
 ## Development Notes
 
@@ -14,7 +14,7 @@ This repository contains a Next.js 15 application written in TypeScript and mana
 - `app/(dev)/admin` is a **development-only data maintenance UI** served at `/admin`.
 - In production behavior, `/admin` should not expose editing and should fall through to `notFound()`.
 - All write operations (`create*`, `update*`, `deleteCommission`) are valid only when `NODE_ENV=development`.
-- Always import actions from `#admin/actions` so environment routing (`actions.dev.ts` vs stub) remains intact.
+- Always import actions from `#admin/actions` so environment routing (`actions.dev.ts` vs `actions.stub.ts`) remains intact.
 - Any admin edit that changes content must include the related `data/commissions.db` update in the same commit.
 
 ## Build Timing & Validation Gates
@@ -22,10 +22,11 @@ This repository contains a Next.js 15 application written in TypeScript and mana
 Run checks in this order before pushing:
 
 1. `bun dev` — smoke-check local startup and key page routing (including `/admin` in development).
-2. `bun run lint` — auto-fix and verify formatting/lint.
-3. `bun run build` — run for every commit that changes runtime behavior, data access, routes, configs, or component logic.
+2. `bun run lint` — run ESLint with auto-fix (`eslint --fix`) and resolve any remaining issues.
+3. `bun run build` — required for commits that change runtime behavior, data access, routes, configs, or component logic.
 
 Additional guidance:
+
 - For docs-only edits, `bun run lint` is still recommended; `bun run build` can be skipped only when no runtime-related files changed.
 - If `data/commissions.db` or admin/data-access code changed, `bun run build` is mandatory.
 
@@ -46,6 +47,7 @@ _No automated tests currently. Add and run them when introduced._
 
 - Commit only source files; exclude generated or build artifacts such as `.next/`, `dist/`, `out/`, etc.
 - Keep each commit focused on one objective.
+- For data edits, include both code changes and the matching `data/commissions.db` update in one commit.
 
 ## Task Boundaries
 
