@@ -114,6 +114,7 @@ import A20251203 from '#images/webp/20251203.webp'
 import A20251223 from '#images/webp/20251223_MINK.webp'
 import A20260125 from '#images/webp/20260125_Gisyu.webp'
 import A20260208 from '#images/webp/20260208_Dorei.webp'
+import A20260222 from '#images/webp/20260222.webp'
 
 export const imageImports = {
   '20201220_Yantaro': A20201220,
@@ -230,4 +231,5 @@ export const imageImports = {
   '20251223_MINK': A20251223,
   '20260125_Gisyu': A20260125,
   '20260208_Dorei': A20260208,
+  '20260222': A20260222,
 }
