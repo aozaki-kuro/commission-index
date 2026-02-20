@@ -2,8 +2,8 @@
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Disclosure, DisclosureButton, DisclosurePanel, Transition } from '@headlessui/react'
-import { Fragment, type KeyboardEvent, type MouseEvent } from 'react'
+import { Transition, TransitionChild } from '@headlessui/react'
+import { type KeyboardEvent, type MouseEvent } from 'react'
 
 import type { CharacterRow, CommissionRow } from '#lib/admin/db'
 
@@ -21,7 +21,8 @@ interface SortableCharacterCardProps {
   onToggle: () => void
   onDeleteCommission: (commissionId: number) => void
   charactersForSelect: CharacterRow[]
-  buttonRefs: React.RefObject<Record<number, HTMLButtonElement | null>>
+  buttonRefFor: (id: number) => (el: HTMLButtonElement | null) => void
+  getButtonRef: (id: number) => HTMLButtonElement | null
   isEditing: boolean
   editingValue: string
   onStartEdit: () => void
@@ -40,7 +41,8 @@ const SortableCharacterCard = ({
   onToggle,
   onDeleteCommission,
   charactersForSelect,
-  buttonRefs,
+  buttonRefFor,
+  getButtonRef,
   isEditing,
   editingValue,
   onStartEdit,
@@ -66,7 +68,7 @@ const SortableCharacterCard = ({
   }
 
   const handleHeaderClick = (event: MouseEvent<HTMLDivElement>) => {
-    const disclosureButton = buttonRefs.current[character.id]
+    const disclosureButton = getButtonRef(character.id)
     if (!disclosureButton) return
     if (disclosureButton.contains(event.target as Node)) return
     triggerDisclosureToggle()
@@ -81,181 +83,182 @@ const SortableCharacterCard = ({
 
   return (
     <div ref={setNodeRef} style={style}>
-      <Disclosure as="div">
-        {() => (
-          <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white/95 shadow-sm ring-1 ring-gray-900/5 transition dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10">
-            <div
-              className="flex items-center gap-3 bg-white/90 px-5 py-3 dark:bg-gray-900/40"
-              role="button"
-              tabIndex={0}
-              onClick={handleHeaderClick}
-              onKeyDown={handleHeaderKeyDown}
-            >
-              <button
-                type="button"
-                className="inline-flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-lg border border-transparent text-gray-400 transition hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:cursor-grabbing dark:hover:text-gray-200 dark:focus-visible:ring-offset-gray-900"
-                {...attributes}
-                {...listeners}
-                onClick={event => event.stopPropagation()}
-                aria-label={`Drag ${character.name}`}
-                disabled={isDeleting}
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 8h16M4 16h16"
-                  />
-                </svg>
-              </button>
+      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white/95 shadow-sm ring-1 ring-gray-900/5 transition dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10">
+        <div
+          className="flex items-center gap-3 bg-white/90 px-5 py-3 dark:bg-gray-900/40"
+          role="button"
+          tabIndex={0}
+          onClick={handleHeaderClick}
+          onKeyDown={handleHeaderKeyDown}
+        >
+          <button
+            type="button"
+            className="inline-flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-lg border border-transparent text-gray-400 transition hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:cursor-grabbing dark:hover:text-gray-200 dark:focus-visible:ring-offset-gray-900"
+            {...attributes}
+            {...listeners}
+            onClick={event => event.stopPropagation()}
+            aria-label={`Drag ${character.name}`}
+            disabled={isDeleting}
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 8h16M4 16h16"
+              />
+            </svg>
+          </button>
 
-              {isEditing ? (
-                <div className="flex flex-1 items-center gap-3">
+          {isEditing ? (
+            <div className="flex flex-1 items-center gap-3">
+              <span
+                aria-hidden="true"
+                className={`h-2.5 w-2.5 shrink-0 rounded-full ${isActive ? 'bg-blue-500/90' : 'bg-gray-400/80'}`}
+              />
+              <input
+                type="text"
+                autoFocus
+                value={editingValue}
+                onChange={event => onRenameChange(event.target.value)}
+                onBlur={onSubmitRename}
+                onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault()
+                    onSubmitRename()
+                  }
+                  if (event.key === 'Escape') {
+                    event.preventDefault()
+                    onCancelEdit()
+                  }
+                }}
+                className={inlineEditStyles}
+                disabled={isDeleting}
+                onClick={event => event.stopPropagation()}
+              />
+              <span className="w-24 text-right font-mono text-xs font-normal text-gray-500 dark:text-gray-300">
+                {commissionList.length} entries
+              </span>
+            </div>
+          ) : (
+            <>
+              <button
+                ref={buttonRefFor(character.id)}
+                type="button"
+                onClick={(event: MouseEvent) => {
+                  event.preventDefault()
+                  onToggle()
+                }}
+                className="flex flex-1 items-center justify-between gap-3 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900"
+                aria-expanded={isOpen}
+              >
+                <div className="flex min-w-0 items-center gap-3">
                   <span
                     aria-hidden="true"
                     className={`h-2.5 w-2.5 shrink-0 rounded-full ${isActive ? 'bg-blue-500/90' : 'bg-gray-400/80'}`}
                   />
-                  <input
-                    type="text"
-                    autoFocus
-                    value={editingValue}
-                    onChange={event => onRenameChange(event.target.value)}
-                    onBlur={onSubmitRename}
-                    onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault()
-                        onSubmitRename()
-                      }
-                      if (event.key === 'Escape') {
-                        event.preventDefault()
-                        onCancelEdit()
-                      }
-                    }}
-                    className={inlineEditStyles}
-                    disabled={isDeleting}
-                    onClick={event => event.stopPropagation()}
-                  />
-                  <span className="w-24 text-right font-mono text-xs font-normal text-gray-500 dark:text-gray-300">
-                    {commissionList.length} entries
+                  <span className="truncate text-base font-semibold text-gray-800 dark:text-gray-100">
+                    {character.name}
                   </span>
-                </div>
-              ) : (
-                <>
-                  <DisclosureButton
-                    ref={el => {
-                      buttonRefs.current[character.id] = el
-                    }}
-                    onClick={(event: MouseEvent) => {
-                      event.preventDefault()
-                      onToggle()
-                    }}
-                    className="flex flex-1 items-center justify-between gap-3 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <span
-                        aria-hidden="true"
-                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${isActive ? 'bg-blue-500/90' : 'bg-gray-400/80'}`}
-                      />
-                      <span className="truncate text-base font-semibold text-gray-800 dark:text-gray-100">
-                        {character.name}
-                      </span>
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        onClick={event => {
-                          event.stopPropagation()
-                          event.preventDefault()
-                          onStartEdit()
-                        }}
-                        onKeyDown={event => {
-                          if (event.key === 'Enter' || event.key === ' ') {
-                            event.preventDefault()
-                            event.stopPropagation()
-                            onStartEdit()
-                          }
-                        }}
-                        className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-transparent text-gray-400 transition hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-gray-400 dark:hover:text-gray-200 dark:focus-visible:ring-offset-gray-900"
-                        aria-label={`Rename ${character.name}`}
-                        aria-disabled={isDeleting}
-                      >
-                        <svg
-                          className="h-4 w-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                          />
-                        </svg>
-                      </span>
-                    </div>
-
-                    <span className="w-24 text-right font-mono text-xs font-normal text-gray-500 dark:text-gray-300">
-                      {commissionList.length} entries
-                    </span>
-                  </DisclosureButton>
-
-                  <button
-                    type="button"
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-transparent text-gray-400 transition hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:text-gray-300 dark:text-gray-400 dark:hover:text-red-300 dark:focus-visible:ring-red-300 dark:focus-visible:ring-offset-gray-900 dark:disabled:text-gray-600"
+                  <span
+                    role="button"
+                    tabIndex={0}
                     onClick={event => {
                       event.stopPropagation()
-                      onRequestDelete()
+                      event.preventDefault()
+                      onStartEdit()
                     }}
-                    disabled={isDeleting}
-                    aria-label={`Remove ${character.name}`}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        onStartEdit()
+                      }
+                    }}
+                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-transparent text-gray-400 transition hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-gray-400 dark:hover:text-gray-200 dark:focus-visible:ring-offset-gray-900"
+                    aria-label={`Rename ${character.name}`}
+                    aria-disabled={isDeleting}
                   >
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path
-                        d="M18 6L6 18M6 6l12 12"
-                        strokeWidth={2}
                         strokeLinecap="round"
                         strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
                       />
                     </svg>
-                  </button>
-                </>
-              )}
-            </div>
+                  </span>
+                </div>
 
-            <Transition
-              show={isOpen}
-              as={Fragment}
-              enter="transition ease-out duration-150"
-              enterFrom="opacity-0 -translate-y-1"
-              enterTo="opacity-100 translate-y-0"
-              leave="transition ease-in-out duration-150"
-              leaveFrom="opacity-100 translate-y-0"
-              leaveTo="opacity-0 -translate-y-1"
-            >
-              <DisclosurePanel
-                static
-                className="space-y-4 border-t border-gray-200 bg-white/85 px-5 py-4 dark:border-gray-700 dark:bg-gray-900/30"
+                <span className="w-24 text-right font-mono text-xs font-normal text-gray-500 dark:text-gray-300">
+                  {commissionList.length} entries
+                </span>
+              </button>
+
+              <button
+                type="button"
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-transparent text-gray-400 transition hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:text-gray-300 dark:text-gray-400 dark:hover:text-red-300 dark:focus-visible:ring-red-300 dark:focus-visible:ring-offset-gray-900 dark:disabled:text-gray-600"
+                onClick={event => {
+                  event.stopPropagation()
+                  onRequestDelete()
+                }}
+                disabled={isDeleting}
+                aria-label={`Remove ${character.name}`}
               >
-                {commissionList.length === 0 ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-300">
-                    No commissions recorded yet.
-                  </p>
-                ) : (
-                  commissionList.map(commission => (
-                    <CommissionEditForm
-                      key={commission.id}
-                      commission={commission}
-                      characters={charactersForSelect}
-                      onDelete={() => onDeleteCommission(commission.id)}
-                    />
-                  ))
-                )}
-              </DisclosurePanel>
-            </Transition>
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path
+                    d="M18 6L6 18M6 6l12 12"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+            </>
+          )}
+        </div>
+
+        <Transition
+          show={isOpen}
+          unmount
+          as="div"
+          className="grid"
+          enter="transition-[grid-template-rows] duration-200 ease-in-out"
+          enterFrom="grid-rows-[0fr]"
+          enterTo="grid-rows-[1fr]"
+          leave="transition-[grid-template-rows] duration-200 ease-in-out"
+          leaveFrom="grid-rows-[1fr]"
+          leaveTo="grid-rows-[0fr]"
+        >
+          <div className="overflow-hidden">
+            <TransitionChild
+              as="div"
+              enter="transition-all duration-200 ease-out"
+              enterFrom="-translate-y-1 opacity-0"
+              enterTo="translate-y-0 opacity-100"
+              leave="transition-all duration-150 ease-in"
+              leaveFrom="translate-y-0 opacity-100"
+              leaveTo="-translate-y-1 opacity-0"
+              className="space-y-4 border-t border-gray-200 bg-white/85 px-5 py-4 dark:border-gray-700 dark:bg-gray-900/30"
+            >
+              {commissionList.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-300">
+                  No commissions recorded yet.
+                </p>
+              ) : (
+                commissionList.map(commission => (
+                  <CommissionEditForm
+                    key={commission.id}
+                    commission={commission}
+                    characters={charactersForSelect}
+                    onDelete={() => onDeleteCommission(commission.id)}
+                  />
+                ))
+              )}
+            </TransitionChild>
           </div>
-        )}
-      </Disclosure>
+        </Transition>
+      </div>
     </div>
   )
 }

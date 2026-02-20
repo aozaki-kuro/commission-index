@@ -46,6 +46,16 @@ const CommissionManager = ({ characters, commissions }: CommissionManagerProps) 
   const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({})
   const confirmDeleteButtonRef = useRef<HTMLButtonElement | null>(null)
   const dividerIndex = list.findIndex(i => i.type === 'divider')
+  const buttonRefFor = useCallback(
+    (characterId: number) => (el: HTMLButtonElement | null) => {
+      buttonRefs.current[characterId] = el
+    },
+    [],
+  )
+  const getButtonRef = useCallback(
+    (characterId: number) => buttonRefs.current[characterId] ?? null,
+    [],
+  )
 
   const handleToggle = useCallback(
     (characterId: number) => {
@@ -121,7 +131,8 @@ const CommissionManager = ({ characters, commissions }: CommissionManagerProps) 
                     handleDeleteCommission(character.id, commissionId)
                   }
                   charactersForSelect={orderedCharacters}
-                  buttonRefs={buttonRefs}
+                  buttonRefFor={buttonRefFor}
+                  getButtonRef={getButtonRef}
                   isEditing={editing?.id === character.id}
                   editingValue={editing?.id === character.id ? editing.value : character.name}
                   onStartEdit={() => startEditingName(character)}
