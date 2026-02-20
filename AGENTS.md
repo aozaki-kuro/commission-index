@@ -7,48 +7,45 @@ This repository contains a Next.js 15 application written in TypeScript and mana
 - **Runtime & package manager:** Node 22 via [mise](https://mise.jdx.dev) and `bun` for all commands.
 - **Framework:** Next.js with the `app/` router and Tailwind CSS.
 - **Path aliases:** Prefer the `#components`, `#images`, `#commission`, `#data`, `#lib`, and `#admin/*` aliases (`#admin/actions` swaps between dev + stub automatically).
-- **Data source:** Commission content now lives in `data/commissions.db`; access it through `data/sqlite.ts` (Bun uses `bun:sqlite`, Node falls back to `better-sqlite3`).
+- **Data source:** Commission content lives in `data/commissions.db`; access it through `data/sqlite.ts` (Bun uses `bun:sqlite`, Node falls back to `better-sqlite3`).
 
-## Domain Concepts
+## Dev/Admin Responsibilities (must follow)
 
-- **Commission** – `{ fileName: string, Links: string[], Design?: string, Description?: string, Hidden?: boolean }`
-- **CharacterCommissions** – `{ Character: string, Commissions: Commission[] }`
-- **Props** – `CharacterCommissions[]`; default data shape for components and pages.
-- **commissionData** – merged & filtered `Props` loaded from SQLite and sorted by date.
-- **commissionDataMap** – `Map<string, CharacterCommissions>` for quick lookup.
-- **characterStatus** – active/stale character listing in `data/commissionStatus.ts`.
-- **AdminData** – `{ characters: CharacterRow[], commissions: CommissionRow[] }` returned by `#lib/admin/db` for the admin dashboard.
+- `app/(dev)/admin` is a **development-only data maintenance UI** served at `/admin`.
+- In production behavior, `/admin` should not expose editing and should fall through to `notFound()`.
+- All write operations (`create*`, `update*`, `deleteCommission`) are valid only when `NODE_ENV=development`.
+- Always import actions from `#admin/actions` so environment routing (`actions.dev.ts` vs stub) remains intact.
+- Any admin edit that changes content must include the related `data/commissions.db` update in the same commit.
 
-## Admin Tools
+## Build Timing & Validation Gates
 
-- The development-only dashboard lives under `app/(dev)/admin` and is served from `/admin`; production requests fall through to `notFound()`.
-- Import server actions from `#admin/actions`; Next routes this to `actions.dev.ts` when `NODE_ENV=development` and to the stub otherwise.
-- Writable database operations (`create*`, `update*`, `deleteCommission`) are blocked outside development; ensure `NODE_ENV` is `development` before mutating data.
-- Editing data via the admin UI updates `data/commissions.db`; commit that file alongside related changes so the static export stays in sync.
-- If the SQLite file goes missing, create it (seed script WIP) before running the dashboard or build commands.
+Run checks in this order before pushing:
+
+1. `bun dev` — smoke-check local startup and key page routing (including `/admin` in development).
+2. `bun run lint` — auto-fix and verify formatting/lint.
+3. `bun run build` — run for every commit that changes runtime behavior, data access, routes, configs, or component logic.
+
+Additional guidance:
+- For docs-only edits, `bun run lint` is still recommended; `bun run build` can be skipped only when no runtime-related files changed.
+- If `data/commissions.db` or admin/data-access code changed, `bun run build` is mandatory.
+
+_No automated tests currently. Add and run them when introduced._
 
 ## Code Style
 
 - Format code with Prettier: single quotes, no semicolons, trailing commas, `arrowParens: avoid`, width 100.
 - ESLint follows Next.js recommendations with Prettier integration; keep the code free of lint errors.
 
-## Required Commands
-
-Run these before pushing changes:
-
-1. `bun dev` – start local development server.
-2. `bun run lint` – auto-fix and check formatting/linting.
-3. `bun run build` – ensure the project compiles.
-
-_No automated tests currently. Add and run them when introduced._
-
 ## Images
 
-- To add or update images, run `bun run scripts/convert.ts` to optimize images and `bun run scripts/imageImport.ts` to refresh `data/imageImports.ts`.
+- To add or update images, run:
+  - `bun run scripts/convert.ts`
+  - `bun run scripts/imageImport.ts`
 
 ## Commit Etiquette
 
 - Commit only source files; exclude generated or build artifacts such as `.next/`, `dist/`, `out/`, etc.
+- Keep each commit focused on one objective.
 
 ## Task Boundaries
 
