@@ -48,6 +48,10 @@ _No automated tests currently. Add and run them when introduced._
 - Commit only source files; exclude generated or build artifacts such as `.next/`, `dist/`, `out/`, etc.
 - Keep each commit focused on one objective.
 - For data edits, include both code changes and the matching `data/commissions.db` update in one commit.
+- Use this commit message format: `type(scope): short summary`.
+- Allowed `type` values: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`, `style`, `perf`, `build`, `ci`, `revert`, `data`.
+- Keep `short summary` in imperative mood, lowercase first letter, and under 72 characters.
+- If needed, add a blank line and body bullets describing what changed and why.
 
 ## Task Boundaries
 
