@@ -12,6 +12,7 @@ type ListingProps = {
   commissionMap: Map<string, CharacterCommissions>
 }
 
+const isDevelopment = process.env.NODE_ENV === 'development'
 const normalizeSuggestionKey = (term: string) => term.trim().toLowerCase()
 
 /**
@@ -50,7 +51,10 @@ const Listing = ({ Character, status, commissionMap }: ListingProps) => {
           ]
           const altText = `Copyright ©️ ${year} ${creator || 'Anonymous'} & Crystallize`
           const mappedImage = imageImports[commission.fileName as keyof typeof imageImports]
+          const devWebpFallbackSrc = `/images/webp/${encodeURIComponent(commission.fileName)}.webp`
           const fallbackImageSrc = `/images/${encodeURIComponent(commission.fileName)}.jpg`
+          const resolvedImageSrc =
+            mappedImage ?? (isDevelopment ? devWebpFallbackSrc : fallbackImageSrc)
           const elementId = `${sectionId}-${date}`
           const keywordTerms = (commission.Keyword ?? '')
             .split(/[,\n，、;；]/)
@@ -103,7 +107,7 @@ const Listing = ({ Character, status, commissionMap }: ListingProps) => {
                 />
               ) : (
                 <Image
-                  src={fallbackImageSrc}
+                  src={resolvedImageSrc}
                   alt={altText}
                   className="pointer-events-none select-none"
                   loading="lazy"
