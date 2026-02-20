@@ -45,6 +45,7 @@ const CommissionManager = ({ characters, commissions }: CommissionManagerProps) 
 
   const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({})
   const confirmDeleteButtonRef = useRef<HTMLButtonElement | null>(null)
+  const dividerIndex = list.findIndex(i => i.type === 'divider')
 
   const handleToggle = useCallback(
     (characterId: number) => {
@@ -94,7 +95,7 @@ const CommissionManager = ({ characters, commissions }: CommissionManagerProps) 
           onDragEnd={handleDragEnd}
         >
           <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
-            {list.map(item => {
+            {list.map((item, index) => {
               if (item.type === 'divider') {
                 return (
                   <SortableDivider key="divider" activeCount={activeCount} dividerId={DIVIDER_ID} />
@@ -106,10 +107,6 @@ const CommissionManager = ({ characters, commissions }: CommissionManagerProps) 
                 (a, b) => b.fileName.localeCompare(a.fileName),
               )
 
-              const dividerIndex = list.findIndex(i => i.type === 'divider')
-              const index = list.findIndex(
-                i => i.type === 'character' && i.data.id === character.id,
-              )
               const isActive = dividerIndex === -1 ? true : index < dividerIndex
 
               return (

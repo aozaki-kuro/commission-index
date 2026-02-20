@@ -39,6 +39,55 @@ const ensureWritable = () => {
   }
 }
 
+type ParsedCommissionFields = {
+  characterId: number
+  fileName: string
+  links: string[]
+  design: string | undefined
+  description: string | undefined
+  keyword: string | undefined
+  hidden: boolean
+}
+
+const parseCommissionFields = (formData: FormData): ParsedCommissionFields => {
+  const characterId = Number(formData.get('characterId'))
+  const fileName = formData.get('fileName')?.toString().trim() ?? ''
+  const linksRaw = formData.get('links')?.toString() ?? ''
+  const design = formData.get('design')?.toString().trim() || undefined
+  const description = formData.get('description')?.toString().trim() || undefined
+  const keyword = formData.get('keyword')?.toString().trim() || undefined
+  const hidden = formData.get('hidden') === 'on'
+
+  const links = linksRaw
+    .split('\n')
+    .map(link => link.trim())
+    .filter(Boolean)
+
+  return {
+    characterId,
+    fileName,
+    links,
+    design,
+    description,
+    keyword,
+    hidden,
+  }
+}
+
+const validateCommissionFields = (
+  fields: Pick<ParsedCommissionFields, 'characterId' | 'fileName'>,
+): FormState | null => {
+  if (!Number.isFinite(fields.characterId) || fields.characterId <= 0) {
+    return { status: 'error', message: 'Character selection is required.' }
+  }
+
+  if (!fields.fileName) {
+    return { status: 'error', message: 'File name is required.' }
+  }
+
+  return null
+}
+
 export const addCharacterAction = async (
   _prevState: FormState,
   formData: FormData,
@@ -76,36 +125,19 @@ export const addCommissionAction = async (
   const guard = devGuard()
   if (guard) return guard
 
-  const characterId = Number(formData.get('characterId'))
-  const fileName = formData.get('fileName')?.toString().trim() ?? ''
-  const linksRaw = formData.get('links')?.toString() ?? ''
-  const design = formData.get('design')?.toString().trim() || undefined
-  const description = formData.get('description')?.toString().trim() || undefined
-  const keyword = formData.get('keyword')?.toString().trim() || undefined
-  const hidden = formData.get('hidden') === 'on'
-
-  if (!Number.isFinite(characterId) || characterId <= 0) {
-    return { status: 'error', message: 'Character selection is required.' }
-  }
-
-  if (!fileName) {
-    return { status: 'error', message: 'File name is required.' }
-  }
-
-  const links = linksRaw
-    .split('\n')
-    .map(link => link.trim())
-    .filter(Boolean)
+  const fields = parseCommissionFields(formData)
+  const validation = validateCommissionFields(fields)
+  if (validation) return validation
 
   try {
     const { characterName, imageMapChanged } = createCommission({
-      characterId,
-      fileName,
-      links,
-      design,
-      description,
-      keyword,
-      hidden,
+      characterId: fields.characterId,
+      fileName: fields.fileName,
+      links: fields.links,
+      design: fields.design,
+      description: fields.description,
+      keyword: fields.keyword,
+      hidden: fields.hidden,
     })
     if (imageMapChanged) {
       await runImageImportPipeline()
@@ -114,7 +146,7 @@ export const addCommissionAction = async (
     revalidatePath('/admin')
     return {
       status: 'success',
-      message: `Commission "${fileName}" added to ${characterName}.`,
+      message: `Commission "${fields.fileName}" added to ${characterName}.`,
     }
   } catch (error) {
     return {
@@ -178,48 +210,32 @@ export const updateCommissionAction = async (
   if (guard) return guard
 
   const id = Number(formData.get('id'))
-  const characterId = Number(formData.get('characterId'))
-  const fileName = formData.get('fileName')?.toString().trim() ?? ''
-  const linksRaw = formData.get('links')?.toString() ?? ''
-  const design = formData.get('design')?.toString().trim() || undefined
-  const description = formData.get('description')?.toString().trim() || undefined
-  const keyword = formData.get('keyword')?.toString().trim() || undefined
-  const hidden = formData.get('hidden') === 'on'
+  const fields = parseCommissionFields(formData)
 
   if (!Number.isFinite(id) || id <= 0) {
     return { status: 'error', message: 'Invalid commission identifier.' }
   }
 
-  if (!Number.isFinite(characterId) || characterId <= 0) {
-    return { status: 'error', message: 'Character selection is required.' }
-  }
-
-  if (!fileName) {
-    return { status: 'error', message: 'File name is required.' }
-  }
-
-  const links = linksRaw
-    .split('\n')
-    .map(link => link.trim())
-    .filter(Boolean)
+  const validation = validateCommissionFields(fields)
+  if (validation) return validation
 
   try {
     const { imageMapChanged } = updateCommission({
       id,
-      characterId,
-      fileName,
-      links,
-      design,
-      description,
-      keyword,
-      hidden,
+      characterId: fields.characterId,
+      fileName: fields.fileName,
+      links: fields.links,
+      design: fields.design,
+      description: fields.description,
+      keyword: fields.keyword,
+      hidden: fields.hidden,
     })
     if (imageMapChanged) {
       await runImageImportPipeline()
     }
     revalidatePublicViews()
     revalidatePath('/admin')
-    return { status: 'success', message: `Commission "${fileName}" updated.` }
+    return { status: 'success', message: `Commission "${fields.fileName}" updated.` }
   } catch (error) {
     return {
       status: 'error',
