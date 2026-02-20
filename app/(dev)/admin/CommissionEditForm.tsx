@@ -34,7 +34,7 @@ interface CommissionEditFormProps {
   onDelete?: () => void
 }
 
-const buildImageSrc = (fileName: string) => `/images/${encodeURIComponent(fileName)}.jpg`
+const buildImageSrc = (fileName: string) => `/images/webp/${encodeURIComponent(fileName)}.webp`
 
 const surfaceStyles =
   'space-y-5 rounded-2xl border border-gray-200 bg-white/90 p-6 text-sm shadow-sm ring-1 ring-gray-900/5 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10'

@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 
 const Site = 'Commission Index'
 const Description = 'The collection of commissioned NSFW illustrations / Do Not Repost'
-const SocialImage = '/nsfw-cover-s.jpg'
+const SocialImage = '/nsfw-cover-s.webp'
 const CanonicalUrl = 'https://crystallize.cc'
 
 export const SiteMeta: Metadata = {

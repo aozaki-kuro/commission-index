@@ -10,7 +10,7 @@ const MSG = {
 } as const
 
 const DIRS = {
-  input: path.join(process.cwd(), 'public/images'),
+  input: path.join(process.cwd(), 'data/images'),
   webp: path.join(process.cwd(), 'public/images/webp'),
 }
 

@@ -7,12 +7,12 @@ import { runImageImportWorkflow, runImageWorkflow } from '#scripts/images'
 // Runs image conversion + import regeneration in development.
 export const runImagePipeline = async () => {
   try {
-    // Ensure the public/images directory exists before processing
+    // Ensure source/output image directories exist before processing
     const cwd = process.cwd()
-    const imagesDir = path.join(cwd, 'public', 'images')
-    const webpDir = path.join(imagesDir, 'webp')
+    const imagesDir = path.join(cwd, 'data', 'images')
     await runImageWorkflow()
-    console.log('[image-pipeline] updated images in', webpDir)
+    console.log('[image-pipeline] source images in', imagesDir)
+    console.log('[image-pipeline] updated images in', path.join(cwd, 'public', 'images', 'webp'))
   } catch (error) {
     console.error('[image-pipeline] failed:', error)
   }
