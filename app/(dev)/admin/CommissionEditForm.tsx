@@ -144,7 +144,7 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
               <CommissionCharacterField
                 options={sortedCharacters}
                 selectedCharacterId={selectedCharacterId}
-                onChange={setSelectedCharacterId}
+                onChange={id => setSelectedCharacterId(id ?? initialCharacterId)}
                 dropdownZIndexClassName="z-20"
               />
               <CommissionFileNameField value={fileName} onChange={setFileName} />
