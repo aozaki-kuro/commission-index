@@ -43,9 +43,9 @@ function useStoredTabIndex() {
   }, [])
 
   const getSnapshot = useCallback(() => readTabIndex(), [])
-  const getServerSnapshot = useCallback(() => 0, [])
+  const getServerSnapshot = useCallback(() => null, [])
 
-  // 关键：hydration 期间使用 server snapshot(0)，结束后再切客户端值
+  // hydration 前返回 null，避免首帧先渲染 Create 再闪到 Existing
   const index = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 
   const set = useCallback((next: number) => {
@@ -83,37 +83,44 @@ const AdminDashboard = ({ characters, commissions }: AdminDashboardProps) => {
         <Link href="/">Home</Link>
       </div>
 
-      <TabGroup selectedIndex={selectedIndex} onChange={setSelectedIndex}>
-        <TabList className="flex gap-2 rounded-xl border border-gray-200 bg-white/80 p-1 text-sm font-medium shadow-sm backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/60">
-          {tabs.map(tab => (
-            <Tab
-              key={tab}
-              className={({ selected }) =>
-                `flex-1 rounded-lg px-4 py-2.5 text-center transition-colors duration-200 ease-out focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:outline-none dark:focus-visible:ring-offset-gray-900 ${
-                  selected
-                    ? 'bg-gray-900 text-white shadow-sm dark:bg-gray-100 dark:text-gray-900'
-                    : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800/60'
-                }`
-              }
-            >
-              {tab}
-            </Tab>
-          ))}
-        </TabList>
+      {selectedIndex === null ? (
+        <div className="mt-2 space-y-6" aria-hidden="true">
+          <div className="h-11 w-full animate-pulse rounded-xl border border-gray-200 bg-gray-100/80 dark:border-gray-700 dark:bg-gray-800/60" />
+          <div className="h-56 w-full animate-pulse rounded-2xl border border-gray-200 bg-gray-100/70 dark:border-gray-700 dark:bg-gray-800/40" />
+        </div>
+      ) : (
+        <TabGroup selectedIndex={selectedIndex} onChange={setSelectedIndex}>
+          <TabList className="flex gap-2 rounded-xl border border-gray-200 bg-white/80 p-1 text-sm font-medium shadow-sm backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/60">
+            {tabs.map(tab => (
+              <Tab
+                key={tab}
+                className={({ selected }) =>
+                  `flex-1 rounded-lg px-4 py-2.5 text-center transition-colors duration-200 ease-out focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:outline-none dark:focus-visible:ring-offset-gray-900 ${
+                    selected
+                      ? 'bg-gray-900 text-white shadow-sm dark:bg-gray-100 dark:text-gray-900'
+                      : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800/60'
+                  }`
+                }
+              >
+                {tab}
+              </Tab>
+            ))}
+          </TabList>
 
-        <TabPanels className="mt-6 space-y-8">
-          <TabPanel className="animate-[tabFade_260ms_ease-out] focus:outline-none">
-            <div className="space-y-4">
-              <AddCharacterForm />
-              <AddCommissionForm characters={characterOptions} />
-            </div>
-          </TabPanel>
+          <TabPanels className="mt-6 space-y-8">
+            <TabPanel className="animate-[tabFade_260ms_ease-out] focus:outline-none">
+              <div className="space-y-4">
+                <AddCharacterForm />
+                <AddCommissionForm characters={characterOptions} />
+              </div>
+            </TabPanel>
 
-          <TabPanel className="animate-[tabFade_260ms_ease-out] focus:outline-none">
-            <CommissionManager characters={characters} commissions={commissions} />
-          </TabPanel>
-        </TabPanels>
-      </TabGroup>
+            <TabPanel className="animate-[tabFade_260ms_ease-out] focus:outline-none">
+              <CommissionManager characters={characters} commissions={commissions} />
+            </TabPanel>
+          </TabPanels>
+        </TabGroup>
+      )}
     </div>
   )
 }
