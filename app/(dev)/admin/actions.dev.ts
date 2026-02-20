@@ -13,7 +13,7 @@ import {
   type CharacterStatus,
 } from '#lib/admin/db'
 import type { FormState } from './types'
-import { runImagePipeline } from './imagePipeline'
+import { runImageImportPipeline } from './imagePipeline'
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
 
@@ -59,7 +59,6 @@ export const addCharacterAction = async (
     createCharacter({ name, status })
     revalidatePublicViews()
     revalidatePath('/admin')
-    await runImagePipeline()
     return { status: 'success', message: `Character "${name}" created.` }
   } catch (error) {
     return {
@@ -99,7 +98,7 @@ export const addCommissionAction = async (
     .filter(Boolean)
 
   try {
-    const { characterName } = createCommission({
+    const { characterName, imageMapChanged } = createCommission({
       characterId,
       fileName,
       links,
@@ -108,7 +107,9 @@ export const addCommissionAction = async (
       keyword,
       hidden,
     })
-    await runImagePipeline()
+    if (imageMapChanged) {
+      await runImageImportPipeline()
+    }
     revalidatePublicViews()
     revalidatePath('/admin')
     return {
@@ -134,7 +135,6 @@ export async function saveCharacterOrder(payload: {
     updateCharactersOrder(payload)
     revalidatePublicViews()
     revalidatePath('/admin')
-    await runImagePipeline()
     return { status: 'success', message: 'Character order updated.' }
   } catch (error) {
     return {
@@ -160,7 +160,6 @@ export async function renameCharacter(payload: {
     updateCharacter({ id: payload.id, name: trimmed, status: payload.status })
     revalidatePublicViews()
     revalidatePath('/admin')
-    await runImagePipeline()
     return { status: 'success', message: `Character "${trimmed}" updated.` }
   } catch (error) {
     return {
@@ -205,7 +204,7 @@ export const updateCommissionAction = async (
     .filter(Boolean)
 
   try {
-    updateCommission({
+    const { imageMapChanged } = updateCommission({
       id,
       characterId,
       fileName,
@@ -215,7 +214,9 @@ export const updateCommissionAction = async (
       keyword,
       hidden,
     })
-    await runImagePipeline()
+    if (imageMapChanged) {
+      await runImageImportPipeline()
+    }
     revalidatePublicViews()
     revalidatePath('/admin')
     return { status: 'success', message: `Commission "${fileName}" updated.` }
@@ -232,10 +233,12 @@ export async function deleteCommissionAction(id: number): Promise<FormState> {
   ensureWritable()
 
   try {
-    deleteCommission(id)
+    const { imageMapChanged } = deleteCommission(id)
     revalidatePublicViews()
     revalidatePath('/admin')
-    await runImagePipeline()
+    if (imageMapChanged) {
+      await runImageImportPipeline()
+    }
     return { status: 'success', message: 'Commission deleted.' }
   } catch (error) {
     return {
@@ -249,10 +252,12 @@ export async function deleteCharacterAction(id: number): Promise<FormState> {
   ensureWritable()
 
   try {
-    deleteCharacter(id)
+    const { imageMapChanged } = deleteCharacter(id)
     revalidatePublicViews()
     revalidatePath('/admin')
-    await runImagePipeline()
+    if (imageMapChanged) {
+      await runImageImportPipeline()
+    }
     return { status: 'success', message: 'Character deleted.' }
   } catch (error) {
     return {

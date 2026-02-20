@@ -22,13 +22,17 @@ type Resolution = {
 
 type GenerateImageImportsOptions = {
   strict?: boolean
+  cleanUnused?: boolean
 }
 
 type GenerateImageImportsResult = {
+  changed: boolean
   importCount: number
   mappedCount: number
   unresolved: string[]
   fallbackMatched: Resolution[]
+  unused: string[]
+  cleaned: string[]
 }
 
 function getPartNumber(fileName: string): number {
@@ -144,10 +148,21 @@ const createImportNames = (stems: string[]): Map<string, string> => {
   return names
 }
 
+const writeFileIfChanged = (filePath: string, content: string) => {
+  if (fs.existsSync(filePath)) {
+    const previous = fs.readFileSync(filePath, 'utf-8')
+    if (previous === content) return false
+  }
+
+  fs.writeFileSync(filePath, content, 'utf-8')
+  return true
+}
+
 export const generateImageImports = (
   options: GenerateImageImportsOptions = {},
 ): GenerateImageImportsResult => {
   const strictMode = options.strict ?? process.env.IMAGE_IMPORT_STRICT === '1'
+  const cleanUnused = options.cleanUnused ?? process.env.IMAGE_CLEAN_UNUSED === '1'
   const commissionFileNames = collectCommissionFileNames()
   const availableStems = loadAvailableWebpStems()
   const exactSet = new Set(availableStems)
@@ -177,6 +192,11 @@ export const generateImageImports = (
   const resolvedStems = [...new Set(resolutions.map(item => item.stem))].sort((a, b) =>
     a.localeCompare(b),
   )
+  const usedStemSet = new Set(resolvedStems)
+  const unused = availableStems
+    .filter(stem => !usedStemSet.has(stem))
+    .sort((a, b) => a.localeCompare(b))
+  const cleaned: string[] = []
   const importNameMap = createImportNames(resolvedStems)
 
   const importLines = resolvedStems.map(stem => {
@@ -203,14 +223,21 @@ export const generateImageImports = (
     '}',
     '',
   ].join('\n')
+  const fallbackMatched = resolutions.filter(item => item.mode !== 'exact')
+  let changed = false
 
   try {
-    fs.writeFileSync(OUTPUT_FILE_PATH, content, 'utf-8')
-    console.log(
-      `${MSG.SUCCESS} Generated imports: ${importLines.length} image files, ${resolutions.length} commission mappings`,
-    )
+    changed = writeFileIfChanged(OUTPUT_FILE_PATH, content)
+    if (changed) {
+      console.log(
+        `${MSG.SUCCESS} Generated imports: ${importLines.length} image files, ${resolutions.length} commission mappings`,
+      )
+    } else {
+      console.log(
+        `${MSG.SUCCESS} Import map unchanged: ${importLines.length} image files, ${resolutions.length} commission mappings`,
+      )
+    }
 
-    const fallbackMatched = resolutions.filter(item => item.mode !== 'exact')
     if (fallbackMatched.length > 0) {
       const preview = fallbackMatched
         .slice(0, 10)
@@ -232,16 +259,35 @@ export const generateImageImports = (
         throw new Error('IMAGE_IMPORT_STRICT=1 and unresolved image mappings were found.')
       }
     }
+
+    if (unused.length > 0) {
+      if (cleanUnused) {
+        for (const stem of unused) {
+          const target = path.join(WEBP_DIR_PATH, `${stem}.webp`)
+          if (!fs.existsSync(target)) continue
+          fs.unlinkSync(target)
+          cleaned.push(stem)
+        }
+        console.warn(`${MSG.WARN} Removed ${cleaned.length} unused webp files`)
+      } else {
+        console.warn(
+          `${MSG.WARN} Found ${unused.length} unused webp files. Run with IMAGE_CLEAN_UNUSED=1 to remove them.`,
+        )
+      }
+    }
   } catch (err) {
     console.error(`${MSG.ERROR} ${(err as Error).message}`)
     throw err
   }
 
   return {
+    changed,
     importCount: importLines.length,
     mappedCount: resolutions.length,
     unresolved,
-    fallbackMatched: resolutions.filter(item => item.mode !== 'exact'),
+    fallbackMatched,
+    unused,
+    cleaned,
   }
 }
 
