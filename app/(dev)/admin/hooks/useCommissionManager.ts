@@ -179,21 +179,20 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
         .filter((i): i is CharacterItem => i.type === 'character')
         .map(i => i.data.id)
 
-      setFeedback({ type: 'success', text: 'Saving…' })
-
       startSaveTransition(() => {
         saveCharacterOrder({
           active: activeIds,
           stale: staleIds,
         })
           .then(result => {
-            setFeedback(toFeedback(result))
             if (result.status === 'success') notifyDataUpdate()
           })
-          .catch(() => setFeedback({ type: 'error', text: 'Failed to update character order.' }))
+          .catch(() => {
+            // Keep drag-sort persistence silent to avoid layout shift in the list UI.
+          })
       })
     },
-    [startSaveTransition, toFeedback],
+    [startSaveTransition],
   )
 
   const sensors = useSensors(
