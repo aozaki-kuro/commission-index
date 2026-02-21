@@ -24,6 +24,7 @@ import {
   getMatchedEntryIds,
   normalizeQuery,
   normalizeQuotedTokenBoundary,
+  type FilteredSuggestion,
   parseSuggestionRows,
   type SearchEntryLike,
   type SearchIndexLike,
@@ -67,6 +68,18 @@ const searchSyntaxRows = [
     example: '!sketch',
   },
 ]
+
+const suggestionSourceLabels = {
+  Character: 'character',
+  Creator: 'creator',
+  Keyword: 'keyword',
+  Date: 'date',
+} satisfies Record<Suggestion['sources'][number], string>
+
+const formatSuggestionMatchCount = (count: number) =>
+  `${count} ${count === 1 ? 'match' : 'matches'}`
+const formatSuggestionSources = (sources: Suggestion['sources']) =>
+  sources.map(source => suggestionSourceLabels[source]).join(' / ')
 
 const buildSearchUrl = (rawQuery: string) => {
   const url = new URL(window.location.href)
@@ -171,7 +184,7 @@ const CommissionSearch = () => {
     return getMatchedEntryIds(suggestionContextQuery, index)
   }, [index, matchedIds, query, suggestionContextQuery, suggestionQuery])
 
-  const filteredSuggestions = useMemo(() => {
+  const filteredSuggestions = useMemo<FilteredSuggestion[]>(() => {
     return filterSuggestions({
       entries: index.entries,
       suggestions: index.suggestions,
@@ -354,12 +367,17 @@ const CommissionSearch = () => {
               <ComboboxOption
                 key={suggestion.term}
                 value={suggestion.term}
-                className="cursor-pointer px-3 py-2 font-mono text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 dark:text-gray-300 dark:data-focus:bg-gray-800 dark:data-focus:text-gray-100"
+                className="cursor-pointer px-3 py-1.5 font-mono text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 dark:text-gray-300 dark:data-focus:bg-gray-800 dark:data-focus:text-gray-100"
               >
-                <div className="flex items-center justify-between gap-3">
-                  <span>{suggestion.term}</span>
-                  <span className="text-[11px] text-gray-500 dark:text-gray-400">
-                    {suggestion.sources.join(' / ')}
+                <div className="grid min-w-0 gap-0.5">
+                  <div className="flex min-w-0 items-center justify-between gap-2">
+                    <span className="truncate">{suggestion.term}</span>
+                    <span className="shrink-0 rounded-full border border-gray-300/90 bg-gray-100/85 px-1.5 py-0.5 text-[10px] leading-none text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                      {formatSuggestionMatchCount(suggestion.matchedCount)}
+                    </span>
+                  </div>
+                  <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
+                    in {formatSuggestionSources(suggestion.sources)}
                   </span>
                 </div>
               </ComboboxOption>

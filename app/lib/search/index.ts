@@ -10,6 +10,10 @@ export type Suggestion = {
   sources: SuggestionSource[]
 }
 
+export type FilteredSuggestion = Suggestion & {
+  matchedCount: number
+}
+
 export type SearchEntryLike = {
   id: number
   searchText: string
@@ -453,7 +457,10 @@ export const filterSuggestions = ({
     )
   }
 
-  return topMatches.map(item => item.suggestion)
+  return topMatches.map(item => ({
+    ...item.suggestion,
+    matchedCount: item.contextCount,
+  }))
 }
 
 export const normalizeQuery = normalize

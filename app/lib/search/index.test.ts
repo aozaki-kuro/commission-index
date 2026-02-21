@@ -1,9 +1,13 @@
 import Fuse from 'fuse.js'
 import { describe, expect, it } from 'vitest'
+import { getCommissionData } from '#data/commissionData'
+import { parseCommissionFileName } from '#lib/commissions/index'
 import {
   buildStrictTermIndex,
+  collectSuggestions,
   filterSuggestions,
   getMatchedEntryIds,
+  parseSuggestionRows,
   type Suggestion,
   type SuggestionEntryLike,
   type SearchEntryLike,
@@ -25,6 +29,52 @@ const buildIndex = (entries: Entry[]): SearchIndexLike<Entry> => ({
     useExtendedSearch: true,
   }),
 })
+
+const normalizeSuggestionKey = (term: string) => term.trim().toLowerCase()
+
+const buildRealSuggestionFixtures = () => {
+  const entries: SuggestionEntryLike[] = []
+  const creatorToIds = new Map<string, number[]>()
+  let id = 1
+
+  for (const characterData of getCommissionData()) {
+    for (const commission of characterData.Commissions) {
+      const { date, year, creator } = parseCommissionFileName(commission.fileName)
+      const month = date.slice(4, 6)
+      const keywordTerms = (commission.Keyword ?? '')
+        .split(/[,\n，、;；]/)
+        .map(keyword => keyword.trim())
+        .filter(Boolean)
+
+      const suggestionEntries = [
+        { source: 'Character', term: characterData.Character },
+        { source: 'Date', term: `${year}/${month}` },
+        ...(creator ? [{ source: 'Creator', term: creator }] : []),
+        ...keywordTerms.map(keyword => ({ source: 'Keyword', term: keyword })),
+      ]
+      const uniqueSuggestions = new Map<string, { source: string; term: string }>()
+      for (const entry of suggestionEntries) {
+        const normalizedTerm = normalizeSuggestionKey(entry.term)
+        if (!normalizedTerm || uniqueSuggestions.has(normalizedTerm)) continue
+        uniqueSuggestions.set(normalizedTerm, entry)
+      }
+      const searchSuggestionText = [...uniqueSuggestions.values()]
+        .map(entry => `${entry.source}\t${entry.term}`)
+        .join('\n')
+      const suggestionRows = parseSuggestionRows(searchSuggestionText)
+      entries.push({ id, suggestionRows })
+
+      if (creator) {
+        const ids = creatorToIds.get(creator) ?? []
+        ids.push(id)
+        creatorToIds.set(creator, ids)
+      }
+      id += 1
+    }
+  }
+
+  return { entries, suggestions: collectSuggestions(entries), creatorToIds }
+}
 
 describe('search date token normalization', () => {
   it('matches month/year query formats like 09/2025 against normalized date tokens', () => {
@@ -122,5 +172,27 @@ describe('search date suggestions', () => {
         limit: 2,
       }).map(item => item.term),
     ).toEqual(['2025/10', '2025/08'])
+  })
+
+  it('returns matchedCount from the current context set', () => {
+    const { entries, suggestions, creatorToIds } = buildRealSuggestionFixtures()
+    const target = [...creatorToIds.entries()].find(([, ids]) => ids.length >= 2)
+
+    expect(target).toBeTruthy()
+
+    const [creator, ids] = target!
+    const [firstId] = ids
+
+    const result = filterSuggestions({
+      entries,
+      suggestions,
+      suggestionQuery: creator,
+      suggestionContextMatchedIds: new Set([firstId]),
+    }).find(item => item.term === creator)
+
+    expect(result).toBeTruthy()
+    expect(result?.sources).toContain('Creator')
+    expect(result?.count).toBeGreaterThanOrEqual(2)
+    expect(result?.matchedCount).toBe(1)
   })
 })
