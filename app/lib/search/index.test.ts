@@ -94,6 +94,27 @@ describe('search date token normalization', () => {
   })
 })
 
+describe('search operator strict matching', () => {
+  it('prefers strict token matching for operator queries before fuzzy fallback', () => {
+    const index = buildIndex([
+      { id: 1, searchText: 'n*yuta azki' },
+      { id: 2, searchText: 'kanaut nishe' },
+      { id: 3, searchText: 'azki' },
+    ])
+
+    expect([...getMatchedEntryIds('n*yuta | AZKi', index)].sort((a, b) => a - b)).toEqual([1, 3])
+  })
+
+  it('falls back to fuzzy matching when strict operator query has no hits', () => {
+    const index = buildIndex([
+      { id: 1, searchText: 'nanashi artist' },
+      { id: 2, searchText: 'azki' },
+    ])
+
+    expect([...getMatchedEntryIds('na | az', index)].sort((a, b) => a - b)).toEqual([1, 2])
+  })
+})
+
 describe('search suggestion token operator', () => {
   it('detects exclude operator for negation token', () => {
     expect(getSuggestionTokenOperator('Albemuth !BEMA')).toBe('exclude')

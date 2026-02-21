@@ -51,7 +51,6 @@ type SuggestionMatch = {
 
 const normalize = (s: string) => s.trim().toLowerCase()
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-const hasOperatorSyntax = (query: string) => /[|!]/.test(query)
 const normalizeSuggestionMatchToken = (term: string) => normalize(term).replace(/[\s"'`]+/g, '')
 const trailingTokenSeparatorPattern = /(?:\s|\||!)$/
 const replaceLastTokenPattern = /(.*)([\s|!]+)(.*$)/
@@ -142,6 +141,58 @@ const intersectInto = (source: Set<number>, filter: Set<number>) => {
     if (filter.has(id)) next.add(id)
   }
   return next
+}
+
+const unionInto = (source: Set<number>, other: Set<number>) => {
+  const next = new Set(source)
+  for (const id of other) next.add(id)
+  return next
+}
+
+const subtractFromAll = (allIds: Set<number>, excluded: Set<number>) => {
+  const next = new Set<number>()
+  for (const id of allIds) {
+    if (!excluded.has(id)) next.add(id)
+  }
+  return next
+}
+
+const tokenizeQuery = (query: string) => query.match(/"[^"]*"|\S+/g) ?? []
+
+const evaluateStrictQuery = <T extends SearchEntryLike>(
+  index: SearchIndexLike<T>,
+  tokens: string[],
+) => {
+  let current: Set<number> | null = null
+  let hasTerm = false
+  let pendingOperator: 'and' | 'or' = 'and'
+
+  for (const token of tokens) {
+    if (token === '|') {
+      pendingOperator = 'or'
+      continue
+    }
+
+    const isNegated = token.startsWith('!')
+    const rawTerm = trimWrappingQuotes(isNegated ? token.slice(1) : token)
+    if (!rawTerm) continue
+
+    hasTerm = true
+    const termMatches = getStrictTermMatches(index, rawTerm)
+    const tokenSet = isNegated ? subtractFromAll(index.allIds, termMatches) : new Set(termMatches)
+
+    if (!current) {
+      current = tokenSet
+    } else if (pendingOperator === 'or') {
+      current = unionInto(current, tokenSet)
+    } else {
+      current = intersectInto(current, tokenSet)
+    }
+
+    pendingOperator = 'and'
+  }
+
+  return hasTerm ? current : null
 }
 
 const getContextTermCounts = (entries: SuggestionEntryLike[], matchedIds: Set<number>) => {
@@ -341,18 +392,8 @@ export const getMatchedEntryIds = <T extends SearchEntryLike>(
   const cached = queryCache.get(normalizedRawQuery)
   if (cached) return cached
 
-  const terms = normalizedRawQuery.split(/\s+/).filter(Boolean)
-  let strictMatchIds: Set<number> | null = null
-
-  if (!hasOperatorSyntax(normalizedRawQuery) && terms.length) {
-    let currentMatches: Set<number> | null = null
-    for (const term of terms) {
-      const termMatches = getStrictTermMatches(index, term)
-      currentMatches = currentMatches ? intersectInto(currentMatches, termMatches) : termMatches
-      if (currentMatches.size === 0) break
-    }
-    strictMatchIds = currentMatches ? new Set(currentMatches) : null
-  }
+  const tokens = tokenizeQuery(normalizedRawQuery)
+  const strictMatchIds = tokens.length ? evaluateStrictQuery(index, tokens) : null
 
   const matched =
     strictMatchIds && strictMatchIds.size > 0
