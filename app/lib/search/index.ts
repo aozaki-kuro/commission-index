@@ -287,6 +287,36 @@ export const extractSuggestionQuery = (rawQuery: string) => {
   return tokenMatch[1] ?? tokenMatch[2] ?? ''
 }
 
+export const isSuggestionExclusionToken = (rawQuery: string) => {
+  const tokenMatch = rawQuery.match(/(?:^|[\s|])(!?)(?:"([^"]*)|([^\s|!]*))$/)
+  if (!tokenMatch) return false
+  const tokenBody = tokenMatch[2] ?? tokenMatch[3] ?? ''
+  if (!tokenBody) return false
+  return tokenMatch[1] === '!'
+}
+
+export const getSuggestionTokenOperator = (rawQuery: string): 'exclude' | 'or' | 'and' | null => {
+  const tokenMatch = rawQuery.match(/^(.*?)(!?)(?:"([^"]*)"|([^\s|!]*))$/)
+  if (!tokenMatch) return null
+
+  const prefix = tokenMatch[1]
+  const negation = tokenMatch[2]
+  const quotedToken = tokenMatch[3]
+  const unquotedToken = tokenMatch[4]
+  const tokenBody = (quotedToken ?? unquotedToken ?? '').trim()
+
+  if (!tokenBody) return null
+  if (negation === '!') return 'exclude'
+  const trimmedPrefix = prefix.replace(/\s+$/g, '')
+  const trailingOperator = trimmedPrefix.at(-1)
+  if (trailingOperator === '|') return 'or'
+
+  const hasWhitespaceSeparator = /\s+$/.test(prefix) && trimmedPrefix.length > 0
+  if (hasWhitespaceSeparator && quotedToken === undefined) return 'and'
+
+  return null
+}
+
 export const extractSuggestionContextQuery = (rawQuery: string) => {
   if (!rawQuery.trim()) return ''
   if (/(?:\s|\||!)$/.test(rawQuery)) return rawQuery
@@ -334,6 +364,25 @@ export const getMatchedEntryIds = <T extends SearchEntryLike>(
   }
   queryCache.set(normalizedRawQuery, matched)
   return matched
+}
+
+export const resolveSuggestionContextMatchedIds = <T extends SearchEntryLike>({
+  rawQuery,
+  suggestionQuery,
+  suggestionContextQuery,
+  matchedIds,
+  index,
+}: {
+  rawQuery: string
+  suggestionQuery: string
+  suggestionContextQuery: string
+  matchedIds: Set<number>
+  index: SearchIndexLike<T>
+}) => {
+  if (!suggestionQuery) return index.allIds
+  if (getSuggestionTokenOperator(rawQuery) === 'or') return index.allIds
+  if (suggestionContextQuery === rawQuery) return matchedIds
+  return getMatchedEntryIds(suggestionContextQuery, index)
 }
 
 export const collectSuggestions = (entries: SuggestionEntryLike[]) => {
@@ -415,12 +464,14 @@ export const filterSuggestions = ({
   suggestions,
   suggestionQuery,
   suggestionContextMatchedIds,
+  isExclusionSuggestion = false,
   limit = 8,
 }: {
   entries: SuggestionEntryLike[]
   suggestions: Suggestion[]
   suggestionQuery: string
   suggestionContextMatchedIds: Set<number>
+  isExclusionSuggestion?: boolean
   limit?: number
 }) => {
   if (limit <= 0) return []
@@ -459,7 +510,9 @@ export const filterSuggestions = ({
 
   return topMatches.map(item => ({
     ...item.suggestion,
-    matchedCount: item.contextCount,
+    matchedCount: isExclusionSuggestion
+      ? Math.max(0, suggestionContextMatchedIds.size - item.contextCount)
+      : item.contextCount,
   }))
 }
 

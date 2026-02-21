@@ -21,6 +21,7 @@ import {
   extractSuggestionContextQuery,
   extractSuggestionQuery,
   filterSuggestions,
+  getSuggestionTokenOperator,
   getMatchedEntryIds,
   normalizeQuery,
   normalizeQuotedTokenBoundary,
@@ -163,6 +164,8 @@ const CommissionSearch = () => {
   const hasQuery = !!normalizedQuery
   const suggestionQuery = normalizeQuery(extractSuggestionQuery(query))
   const suggestionContextQuery = extractSuggestionContextQuery(query)
+  const suggestionOperator = getSuggestionTokenOperator(query)
+  const suggestionIsExclusion = suggestionOperator === 'exclude'
 
   const inputRef = useRef<HTMLInputElement>(null)
   const liveRef = useRef<HTMLParagraphElement>(null)
@@ -180,9 +183,10 @@ const CommissionSearch = () => {
 
   const suggestionContextMatchedIds = useMemo(() => {
     if (!suggestionQuery) return index.allIds
+    if (suggestionOperator === 'or') return index.allIds
     if (suggestionContextQuery === query) return matchedIds
     return getMatchedEntryIds(suggestionContextQuery, index)
-  }, [index, matchedIds, query, suggestionContextQuery, suggestionQuery])
+  }, [index, matchedIds, query, suggestionContextQuery, suggestionOperator, suggestionQuery])
 
   const filteredSuggestions = useMemo<FilteredSuggestion[]>(() => {
     return filterSuggestions({
@@ -190,8 +194,15 @@ const CommissionSearch = () => {
       suggestions: index.suggestions,
       suggestionQuery,
       suggestionContextMatchedIds,
+      isExclusionSuggestion: suggestionIsExclusion,
     })
-  }, [index.entries, index.suggestions, suggestionContextMatchedIds, suggestionQuery])
+  }, [
+    index.entries,
+    index.suggestions,
+    suggestionContextMatchedIds,
+    suggestionIsExclusion,
+    suggestionQuery,
+  ])
 
   useEffect(() => {
     const { entryById, sections, staleDivider } = index
@@ -371,7 +382,22 @@ const CommissionSearch = () => {
               >
                 <div className="grid min-w-0 gap-0.5">
                   <div className="flex min-w-0 items-center justify-between gap-2">
-                    <span className="truncate">{suggestion.term}</span>
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      {suggestionIsExclusion ? (
+                        <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                          NOT
+                        </span>
+                      ) : suggestionOperator === 'or' ? (
+                        <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                          OR
+                        </span>
+                      ) : suggestionOperator === 'and' ? (
+                        <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                          AND
+                        </span>
+                      ) : null}
+                      <span className="truncate">{suggestion.term}</span>
+                    </span>
                     <span className="shrink-0 rounded-full border border-gray-300/90 bg-gray-100/85 px-1.5 py-0.5 text-[10px] leading-none text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
                       {formatSuggestionMatchCount(suggestion.matchedCount)}
                     </span>

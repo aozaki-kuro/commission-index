@@ -5,9 +5,13 @@ import { parseCommissionFileName } from '#lib/commissions/index'
 import {
   buildStrictTermIndex,
   collectSuggestions,
+  extractSuggestionContextQuery,
+  extractSuggestionQuery,
   filterSuggestions,
+  getSuggestionTokenOperator,
   getMatchedEntryIds,
   parseSuggestionRows,
+  resolveSuggestionContextMatchedIds,
   type Suggestion,
   type SuggestionEntryLike,
   type SearchEntryLike,
@@ -87,6 +91,68 @@ describe('search date token normalization', () => {
     expect([...getMatchedEntryIds('2025-09', index)]).toEqual([1])
     expect([...getMatchedEntryIds('2025/09/20', index)]).toEqual([1])
     expect([...getMatchedEntryIds('2025', index)]).toEqual([1, 2])
+  })
+})
+
+describe('search suggestion token operator', () => {
+  it('detects exclude operator for negation token', () => {
+    expect(getSuggestionTokenOperator('Albemuth !BEMA')).toBe('exclude')
+  })
+
+  it('detects OR operator for union token', () => {
+    expect(getSuggestionTokenOperator('Albemuth | BEMA')).toBe('or')
+  })
+
+  it('detects AND operator for space-separated unquoted token', () => {
+    expect(getSuggestionTokenOperator('Albemuth BEMA')).toBe('and')
+  })
+
+  it('does not mark AND for quoted token', () => {
+    expect(getSuggestionTokenOperator('Albemuth "BEMA"')).toBeNull()
+  })
+
+  it('returns null when token has no operator', () => {
+    expect(getSuggestionTokenOperator('Albemuth')).toBeNull()
+  })
+})
+
+describe('search suggestion context scope', () => {
+  it('uses global scope for OR suggestion token', () => {
+    const index = buildIndex([
+      { id: 1, searchText: 'l*cia dorie' },
+      { id: 2, searchText: 'nanashi artist' },
+    ])
+    const rawQuery = 'L*cia | N'
+    const matchedIds = getMatchedEntryIds(rawQuery, index)
+
+    const contextIds = resolveSuggestionContextMatchedIds({
+      rawQuery,
+      suggestionQuery: extractSuggestionQuery(rawQuery),
+      suggestionContextQuery: extractSuggestionContextQuery(rawQuery),
+      matchedIds,
+      index,
+    })
+
+    expect([...contextIds].sort((a, b) => a - b)).toEqual([1, 2])
+  })
+
+  it('keeps narrowed scope for non-OR suggestion token', () => {
+    const index = buildIndex([
+      { id: 1, searchText: 'l*cia dorie' },
+      { id: 2, searchText: 'nanashi artist' },
+    ])
+    const rawQuery = 'L*cia N'
+    const matchedIds = getMatchedEntryIds(rawQuery, index)
+
+    const contextIds = resolveSuggestionContextMatchedIds({
+      rawQuery,
+      suggestionQuery: extractSuggestionQuery(rawQuery),
+      suggestionContextQuery: extractSuggestionContextQuery(rawQuery),
+      matchedIds,
+      index,
+    })
+
+    expect([...contextIds].sort((a, b) => a - b)).toEqual([1])
   })
 })
 
@@ -194,5 +260,28 @@ describe('search date suggestions', () => {
     expect(result?.sources).toContain('Creator')
     expect(result?.count).toBeGreaterThanOrEqual(2)
     expect(result?.matchedCount).toBe(1)
+  })
+
+  it('returns remaining result count for exclusion suggestions', () => {
+    const { entries, suggestions, creatorToIds } = buildRealSuggestionFixtures()
+    const target = [...creatorToIds.entries()].find(([, ids]) => ids.length >= 2)
+
+    expect(target).toBeTruthy()
+
+    const [creator, ids] = target!
+    const contextIds = new Set(ids.slice(0, 2))
+
+    const result = filterSuggestions({
+      entries,
+      suggestions,
+      suggestionQuery: creator,
+      suggestionContextMatchedIds: contextIds,
+      isExclusionSuggestion: true,
+    }).find(item => item.term === creator)
+
+    expect(result).toBeTruthy()
+    expect(result?.sources).toContain('Creator')
+    expect(result?.count).toBeGreaterThanOrEqual(2)
+    expect(result?.matchedCount).toBe(0)
   })
 })
