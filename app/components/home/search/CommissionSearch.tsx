@@ -53,6 +53,10 @@ type SearchIndex = SearchIndexLike<Entry> & {
   suggestions: Suggestion[]
 }
 
+type RybbitAnalytics = {
+  event?: (name: string, properties?: Record<string, string | number | boolean>) => void
+}
+
 const searchSyntaxRows = [
   {
     syntax: 'space',
@@ -82,6 +86,7 @@ const formatSuggestionMatchCount = (count: number) =>
   `${count} ${count === 1 ? 'match' : 'matches'}`
 const formatSuggestionSources = (sources: Suggestion['sources']) =>
   sources.map(source => suggestionSourceLabels[source]).join(' / ')
+const MIN_TRACK_QUERY_LENGTH = 2
 
 const buildSearchUrl = (rawQuery: string) => {
   const url = new URL(window.location.href)
@@ -99,6 +104,19 @@ const clearSearchQueryParamInAddress = () => {
 const getUrlQuerySnapshot = () => {
   if (typeof window === 'undefined') return ''
   return new URLSearchParams(window.location.search).get('q') ?? ''
+}
+
+const trackSearchUsed = (properties: Record<string, string | number | boolean>) => {
+  if (typeof window === 'undefined') return
+  const tracker = (window as Window & { rybbit?: RybbitAnalytics }).rybbit
+  if (!tracker?.event) return
+  tracker.event('search_used', properties)
+}
+
+const getTrackableQueryLength = (query: string) => {
+  const normalized = normalizeQuery(query)
+  if (!normalized) return 0
+  return normalized.replace(/["|!]/g, '').trim().length
 }
 
 const buildSearchIndex = (): SearchIndex => {
@@ -175,6 +193,7 @@ const CommissionSearch = () => {
   const previousMatchedIdsRef = useRef<Set<number>>(new Set())
   const sectionVisibilityRef = useRef(new Map<string, boolean>())
   const staleDividerVisibilityRef = useRef(true)
+  const hasTrackedSearchUsageRef = useRef(false)
   const [isHelpOpen, setIsHelpOpen] = useState(false)
   const [copyState, setCopyState] = useState<'idle' | 'success'>('idle')
 
@@ -207,6 +226,19 @@ const CommissionSearch = () => {
     suggestionIsExclusion,
     suggestionQuery,
   ])
+
+  useEffect(() => {
+    const trackableQueryLength = getTrackableQueryLength(query)
+    if (trackableQueryLength < MIN_TRACK_QUERY_LENGTH || hasTrackedSearchUsageRef.current) return
+    hasTrackedSearchUsageRef.current = true
+
+    trackSearchUsed({
+      query_length: normalizedQuery.length,
+      trackable_query_length: trackableQueryLength,
+      result_count: matchedIds.size,
+      source: inputQuery === null ? 'url_query' : 'input',
+    })
+  }, [inputQuery, matchedIds.size, normalizedQuery.length, query])
 
   useEffect(() => {
     const { entryById, sections, staleDivider } = index
