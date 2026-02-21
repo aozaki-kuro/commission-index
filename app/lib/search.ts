@@ -389,6 +389,23 @@ const compareSuggestionMatches = (a: SuggestionMatch, b: SuggestionMatch) => {
   )
 }
 
+const insertTopSuggestionMatch = (
+  topMatches: SuggestionMatch[],
+  candidate: SuggestionMatch,
+  limit: number,
+) => {
+  let index = topMatches.length
+  for (let i = 0; i < topMatches.length; i += 1) {
+    if (compareSuggestionMatches(candidate, topMatches[i]) < 0) {
+      index = i
+      break
+    }
+  }
+
+  topMatches.splice(index, 0, candidate)
+  if (topMatches.length > limit) topMatches.pop()
+}
+
 export const filterSuggestions = ({
   entries,
   suggestions,
@@ -402,6 +419,7 @@ export const filterSuggestions = ({
   suggestionContextMatchedIds: Set<number>
   limit?: number
 }) => {
+  if (limit <= 0) return []
   if (!suggestionQuery) return []
   const normalizedSuggestionQuery = normalizeSuggestionMatchToken(suggestionQuery)
   if (!normalizedSuggestionQuery) return []
@@ -412,7 +430,7 @@ export const filterSuggestions = ({
   const contextTermCounts = useGlobalCounts
     ? null
     : getContextTermCounts(entries, suggestionContextMatchedIds)
-  const matches: SuggestionMatch[] = []
+  const topMatches: SuggestionMatch[] = []
   const preparedSuggestions = getPreparedSuggestions(suggestions)
 
   for (const preparedSuggestion of preparedSuggestions) {
@@ -428,13 +446,14 @@ export const filterSuggestions = ({
       ? suggestion.count
       : (contextTermCounts?.get(normalizedTerm) ?? 0)
     if (!useGlobalCounts && contextCount === 0) continue
-    matches.push({ suggestion, contextCount, rank, isDateSuggestion, monthSortKey })
+    insertTopSuggestionMatch(
+      topMatches,
+      { suggestion, contextCount, rank, isDateSuggestion, monthSortKey },
+      limit,
+    )
   }
 
-  return matches
-    .sort(compareSuggestionMatches)
-    .slice(0, limit)
-    .map(item => item.suggestion)
+  return topMatches.map(item => item.suggestion)
 }
 
 export const normalizeQuery = normalize

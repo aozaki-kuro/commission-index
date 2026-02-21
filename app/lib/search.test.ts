@@ -104,4 +104,23 @@ describe('search date suggestions', () => {
       }).map(item => item.term),
     ).toEqual(['2025/10'])
   })
+
+  it('keeps only top N suggestions without full sorting', () => {
+    const entries: SuggestionEntryLike[] = [{ id: 1, suggestionRows: new Map() }]
+    const suggestions: Suggestion[] = [
+      { term: '2025/08', count: 1, sources: ['Date'] },
+      { term: '2025/10', count: 1, sources: ['Date'] },
+      { term: '2024/12', count: 1, sources: ['Date'] },
+    ]
+
+    expect(
+      filterSuggestions({
+        entries,
+        suggestions,
+        suggestionQuery: '202',
+        suggestionContextMatchedIds: new Set([1]),
+        limit: 2,
+      }).map(item => item.term),
+    ).toEqual(['2025/10', '2025/08'])
+  })
 })
