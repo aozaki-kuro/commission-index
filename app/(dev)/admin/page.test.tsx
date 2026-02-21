@@ -1,0 +1,61 @@
+import { render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import AdminPage from './page'
+
+const mockNotFound = vi.fn(() => {
+  throw new Error('NEXT_NOT_FOUND')
+})
+
+const mockGetAdminData = vi.fn(() => ({
+  characters: [{ id: 1, DisplayName: 'Test Character', Status: 'active' }],
+  commissions: [{ id: 1, CharacterID: 1, FileName: '20240203' }],
+}))
+
+vi.mock('next/navigation', () => ({
+  notFound: () => mockNotFound(),
+}))
+
+vi.mock('#lib/admin/db', () => ({
+  getAdminData: () => mockGetAdminData(),
+}))
+
+vi.mock('./AdminDashboard', () => ({
+  default: ({
+    characters,
+    commissions,
+  }: {
+    characters: Array<{ id: number }>
+    commissions: Array<{ id: number }>
+  }) => <div data-testid="admin-dashboard">{`${characters.length}:${commissions.length}`}</div>,
+}))
+
+describe('AdminPage', () => {
+  const originalNodeEnv = process.env.NODE_ENV
+
+  beforeEach(() => {
+    mockNotFound.mockClear()
+    mockGetAdminData.mockClear()
+  })
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalNodeEnv
+  })
+
+  it('calls notFound in production', async () => {
+    process.env.NODE_ENV = 'production'
+
+    await expect(AdminPage()).rejects.toThrow('NEXT_NOT_FOUND')
+    expect(mockNotFound).toHaveBeenCalledTimes(1)
+    expect(mockGetAdminData).not.toHaveBeenCalled()
+  })
+
+  it('renders admin dashboard in development', async () => {
+    process.env.NODE_ENV = 'development'
+
+    const element = await AdminPage()
+    render(element)
+
+    expect(screen.getByTestId('admin-dashboard')).toHaveTextContent('1:1')
+    expect(mockGetAdminData).toHaveBeenCalledTimes(1)
+  })
+})

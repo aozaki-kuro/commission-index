@@ -23,14 +23,17 @@ Run checks in this order before pushing:
 
 1. `bun dev` — smoke-check local startup and key page routing (including `/admin` in development).
 2. `bun run lint` — run ESLint with auto-fix (`eslint --fix`) and resolve any remaining issues.
-3. `bun run build` — required for commits that change runtime behavior, data access, routes, configs, or component logic.
+3. `bun run test` — run unit/component tests (Vitest).
+4. `bun run build` — required for commits that change runtime behavior, data access, routes, configs, or component logic.
 
 Additional guidance:
 
 - For docs-only edits, `bun run lint` is still recommended; `bun run build` can be skipped only when no runtime-related files changed.
 - If `data/commissions.db` or admin/data-access code changed, `bun run build` is mandatory.
-
-_No automated tests currently. Add and run them when introduced._
+- Run `bun run test` whenever you modify:
+  - `app/(dev)/admin/*`, `#admin/actions`, `app/lib/admin/db.ts`, `next.config.ts`
+  - Rendering/component logic in `app/components/*` and `app/*/page.tsx`
+  - Search/filter/date parsing logic or other user-visible behavior in `app/lib/*` and `data/*`
 
 ## Code Style
 

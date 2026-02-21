@@ -1,5 +1,2 @@
-# Read the .env file in the root dir of the project
-if grep -q "NODE_ENV=development" .env || [ "$NODE_ENV" = "development" ]; then
-    # bash scripts/upload.sh
-    echo ""
-fi
+bun run lint
+bun run test
