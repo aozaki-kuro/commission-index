@@ -33,6 +33,16 @@ type PreparedSuggestion = {
   suggestion: Suggestion
   normalizedTerm: string
   normalizedMatchToken: string
+  isDateSuggestion: boolean
+  monthSortKey: number | null
+}
+
+type SuggestionMatch = {
+  suggestion: Suggestion
+  contextCount: number
+  rank: 0 | 1 | 2
+  isDateSuggestion: boolean
+  monthSortKey: number | null
 }
 
 const normalize = (s: string) => s.trim().toLowerCase()
@@ -63,11 +73,19 @@ const getQueryCache = <T extends SearchEntryLike>(index: SearchIndexLike<T>) => 
 const getPreparedSuggestions = (suggestions: Suggestion[]) => {
   const cached = preparedSuggestionsCache.get(suggestions)
   if (cached) return cached
-  const next = suggestions.map(suggestion => ({
-    suggestion,
-    normalizedTerm: normalize(suggestion.term),
-    normalizedMatchToken: normalizeSuggestionMatchToken(suggestion.term),
-  }))
+  const next = suggestions.map(suggestion => {
+    const isDateSuggestion = suggestion.sources.includes('Date')
+    const parsed = isDateSuggestion ? parseDateSearchInput(suggestion.term) : null
+
+    return {
+      suggestion,
+      normalizedTerm: normalize(suggestion.term),
+      normalizedMatchToken: normalizeSuggestionMatchToken(suggestion.term),
+      isDateSuggestion,
+      monthSortKey:
+        isDateSuggestion && parsed?.month ? Number(`${parsed.year}${parsed.month}`) : null,
+    }
+  })
   preparedSuggestionsCache.set(suggestions, next)
   return next
 }
@@ -356,10 +374,19 @@ const isLikelyDateNumericQuery = (query: string) => {
   return /\d/.test(trimmed) && /^[\d./-]+$/.test(trimmed)
 }
 
-const getMonthSortKey = (term: string) => {
-  const parsed = parseDateSearchInput(term)
-  if (!parsed?.month) return null
-  return Number(`${parsed.year}${parsed.month}`)
+const compareSuggestionMatches = (a: SuggestionMatch, b: SuggestionMatch) => {
+  if (a.isDateSuggestion && b.isDateSuggestion) {
+    if (a.monthSortKey !== null && b.monthSortKey !== null && a.monthSortKey !== b.monthSortKey) {
+      return b.monthSortKey - a.monthSortKey
+    }
+  }
+
+  return (
+    a.rank - b.rank ||
+    b.contextCount - a.contextCount ||
+    b.suggestion.count - a.suggestion.count ||
+    a.suggestion.term.localeCompare(b.suggestion.term)
+  )
 }
 
 export const filterSuggestions = ({
@@ -385,12 +412,13 @@ export const filterSuggestions = ({
   const contextTermCounts = useGlobalCounts
     ? null
     : getContextTermCounts(entries, suggestionContextMatchedIds)
-  const matches: Array<{ suggestion: Suggestion; contextCount: number; rank: 0 | 1 | 2 }> = []
+  const matches: SuggestionMatch[] = []
   const preparedSuggestions = getPreparedSuggestions(suggestions)
 
   for (const preparedSuggestion of preparedSuggestions) {
-    const { suggestion, normalizedMatchToken, normalizedTerm } = preparedSuggestion
-    if (suggestion.sources.includes('Date') && !showDateSuggestions) continue
+    const { suggestion, normalizedMatchToken, normalizedTerm, isDateSuggestion, monthSortKey } =
+      preparedSuggestion
+    if (isDateSuggestion && !showDateSuggestions) continue
 
     const matchType = matchesMaskedSuggestion(normalizedMatchToken, normalizedSuggestionQuery)
     if (!matchType) continue
@@ -399,34 +427,12 @@ export const filterSuggestions = ({
     const contextCount = useGlobalCounts
       ? suggestion.count
       : (contextTermCounts?.get(normalizedTerm) ?? 0)
-    matches.push({ suggestion, contextCount, rank })
-  }
-
-  const byPriority = (
-    a: { suggestion: Suggestion; contextCount: number; rank: 0 | 1 | 2 },
-    b: { suggestion: Suggestion; contextCount: number; rank: 0 | 1 | 2 },
-  ) => {
-    const aIsDate = a.suggestion.sources.includes('Date')
-    const bIsDate = b.suggestion.sources.includes('Date')
-
-    if (aIsDate && bIsDate) {
-      const aMonthSortKey = getMonthSortKey(a.suggestion.term)
-      const bMonthSortKey = getMonthSortKey(b.suggestion.term)
-      if (aMonthSortKey !== null && bMonthSortKey !== null && aMonthSortKey !== bMonthSortKey) {
-        return bMonthSortKey - aMonthSortKey
-      }
-    }
-
-    return (
-      a.rank - b.rank ||
-      b.contextCount - a.contextCount ||
-      b.suggestion.count - a.suggestion.count ||
-      a.suggestion.term.localeCompare(b.suggestion.term)
-    )
+    if (!useGlobalCounts && contextCount === 0) continue
+    matches.push({ suggestion, contextCount, rank, isDateSuggestion, monthSortKey })
   }
 
   return matches
-    .sort(byPriority)
+    .sort(compareSuggestionMatches)
     .slice(0, limit)
     .map(item => item.suggestion)
 }

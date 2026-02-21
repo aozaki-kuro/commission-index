@@ -84,4 +84,24 @@ describe('search date suggestions', () => {
       }).map(item => item.term),
     ).toEqual(['2025/10', '2025/08', '2024/12'])
   })
+
+  it('removes suggestions not present in the current context set', () => {
+    const entries: SuggestionEntryLike[] = [
+      { id: 1, suggestionRows: new Map([['2025/10', { source: 'Date', term: '2025/10' }]]) },
+      { id: 2, suggestionRows: new Map([['2025/08', { source: 'Date', term: '2025/08' }]]) },
+    ]
+    const suggestions: Suggestion[] = [
+      { term: '2025/10', count: 1, sources: ['Date'] },
+      { term: '2025/08', count: 1, sources: ['Date'] },
+    ]
+
+    expect(
+      filterSuggestions({
+        entries,
+        suggestions,
+        suggestionQuery: '2025',
+        suggestionContextMatchedIds: new Set([1]),
+      }).map(item => item.term),
+    ).toEqual(['2025/10'])
+  })
 })
