@@ -348,7 +348,7 @@ const CommissionSearch = () => {
 
           <ComboboxOptions
             modal={false}
-            className="absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 max-h-72 overflow-y-auto rounded-lg border border-gray-300/80 bg-white/95 py-1 text-sm shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm empty:hidden dark:border-gray-700 dark:bg-black/90"
+            className="absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain rounded-lg border border-gray-300/80 bg-white/95 py-1 text-sm shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm empty:hidden dark:border-gray-700 dark:bg-black/90"
           >
             {filteredSuggestions.map(suggestion => (
               <ComboboxOption

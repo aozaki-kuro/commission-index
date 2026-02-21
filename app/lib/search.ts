@@ -1,7 +1,8 @@
 import Fuse from 'fuse.js'
+import { normalizeDateQueryToken, parseDateSearchInput } from '#lib/dateSearch'
 import { getBaseFileName } from '#lib/strings'
 
-export type SuggestionSource = 'Character' | 'Creator' | 'Keyword'
+export type SuggestionSource = 'Character' | 'Creator' | 'Keyword' | 'Date'
 
 export type Suggestion = {
   term: string
@@ -142,7 +143,12 @@ const getContextTermCounts = (entries: SuggestionEntryLike[], matchedIds: Set<nu
 }
 
 const toSuggestionSource = (rawSource: string): SuggestionSource => {
-  if (rawSource === 'Character' || rawSource === 'Creator' || rawSource === 'Keyword') {
+  if (
+    rawSource === 'Character' ||
+    rawSource === 'Creator' ||
+    rawSource === 'Keyword' ||
+    rawSource === 'Date'
+  ) {
     return rawSource
   }
   return 'Keyword'
@@ -211,11 +217,30 @@ const matchesMaskedSuggestion = (
   return null
 }
 
-const toFuseOperatorQuery = (rawQuery: string) =>
-  normalize(rawQuery)
+const trimWrappingQuotes = (value: string) =>
+  value.startsWith('"') && value.endsWith('"') && value.length >= 2 ? value.slice(1, -1) : value
+
+const normalizeDateTokenInQuery = (token: string) => {
+  if (!token || token === '|' || token === '!') return token
+
+  const isNegated = token.startsWith('!')
+  const candidate = trimWrappingQuotes(isNegated ? token.slice(1) : token)
+  if (!candidate) return token
+
+  const normalizedDate = normalizeDateQueryToken(candidate)
+  if (!normalizedDate) return token
+
+  return `${isNegated ? '!' : ''}${normalizedDate}`
+}
+
+const toFuseOperatorQuery = (rawQuery: string) => {
+  const normalizedQuery = normalize(rawQuery)
     .replace(/\s*\|\s*/g, ' | ')
     .replace(/\s*!\s*/g, ' !')
     .replace(/\s+/g, ' ')
+  const tokens = normalizedQuery.match(/"[^"]*"|\S+/g) ?? []
+  return tokens.map(normalizeDateTokenInQuery).join(' ')
+}
 
 export const normalizeSuggestionTerm = (term: string) => getBaseFileName(term).trim()
 export const normalizeQuotedTokenBoundary = (rawQuery: string) =>
@@ -313,7 +338,7 @@ export const collectSuggestions = (entries: SuggestionEntryLike[]) => {
     }
   }
 
-  const sourceOrder = { Character: 0, Keyword: 1, Creator: 2 } satisfies Record<
+  const sourceOrder = { Character: 0, Date: 1, Keyword: 2, Creator: 3 } satisfies Record<
     SuggestionSource,
     number
   >
@@ -324,6 +349,17 @@ export const collectSuggestions = (entries: SuggestionEntryLike[]) => {
       sources: [...item.sources].sort((a, b) => sourceOrder[a] - sourceOrder[b]),
     }))
     .sort((a, b) => b.count - a.count || a.term.localeCompare(b.term))
+}
+
+const isLikelyDateNumericQuery = (query: string) => {
+  const trimmed = query.trim()
+  return /\d/.test(trimmed) && /^[\d./-]+$/.test(trimmed)
+}
+
+const getMonthSortKey = (term: string) => {
+  const parsed = parseDateSearchInput(term)
+  if (!parsed?.month) return null
+  return Number(`${parsed.year}${parsed.month}`)
 }
 
 export const filterSuggestions = ({
@@ -343,6 +379,7 @@ export const filterSuggestions = ({
   const normalizedSuggestionQuery = normalizeSuggestionMatchToken(suggestionQuery)
   if (!normalizedSuggestionQuery) return []
   if (suggestions.length === 0) return []
+  const showDateSuggestions = isLikelyDateNumericQuery(suggestionQuery)
 
   const useGlobalCounts = suggestionContextMatchedIds.size === entries.length
   const contextTermCounts = useGlobalCounts
@@ -353,6 +390,8 @@ export const filterSuggestions = ({
 
   for (const preparedSuggestion of preparedSuggestions) {
     const { suggestion, normalizedMatchToken, normalizedTerm } = preparedSuggestion
+    if (suggestion.sources.includes('Date') && !showDateSuggestions) continue
+
     const matchType = matchesMaskedSuggestion(normalizedMatchToken, normalizedSuggestionQuery)
     if (!matchType) continue
 
@@ -366,11 +405,25 @@ export const filterSuggestions = ({
   const byPriority = (
     a: { suggestion: Suggestion; contextCount: number; rank: 0 | 1 | 2 },
     b: { suggestion: Suggestion; contextCount: number; rank: 0 | 1 | 2 },
-  ) =>
-    a.rank - b.rank ||
-    b.contextCount - a.contextCount ||
-    b.suggestion.count - a.suggestion.count ||
-    a.suggestion.term.localeCompare(b.suggestion.term)
+  ) => {
+    const aIsDate = a.suggestion.sources.includes('Date')
+    const bIsDate = b.suggestion.sources.includes('Date')
+
+    if (aIsDate && bIsDate) {
+      const aMonthSortKey = getMonthSortKey(a.suggestion.term)
+      const bMonthSortKey = getMonthSortKey(b.suggestion.term)
+      if (aMonthSortKey !== null && bMonthSortKey !== null && aMonthSortKey !== bMonthSortKey) {
+        return bMonthSortKey - aMonthSortKey
+      }
+    }
+
+    return (
+      a.rank - b.rank ||
+      b.contextCount - a.contextCount ||
+      b.suggestion.count - a.suggestion.count ||
+      a.suggestion.term.localeCompare(b.suggestion.term)
+    )
+  }
 
   return matches
     .sort(byPriority)

@@ -1,5 +1,6 @@
 export * from './characters'
 export * from './date'
+export * from './dateSearch'
 export * from './strings'
 export * from './commissions'
 export * from './search'

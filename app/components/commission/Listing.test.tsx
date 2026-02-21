@@ -62,10 +62,12 @@ describe('Listing', () => {
     const searchText = entry?.getAttribute('data-search-text') ?? ''
     expect(searchText).toContain('test character')
     expect(searchText).toContain('20240203')
-    expect(searchText).toContain('2024/02/03')
+    expect(searchText).toContain('date_y_2024')
+    expect(searchText).toContain('date_ym_2024_02')
 
     const searchSuggest = entry?.getAttribute('data-search-suggest') ?? ''
     expect(searchSuggest).toContain('Character\tTest Character')
+    expect(searchSuggest).toContain('Date\t2024/02')
     expect(searchSuggest.match(/Keyword\t/gu)).toHaveLength(1)
 
     expect(screen.getByRole('img', { name: '©️ 2024 Anonymous & Crystallize' })).toBeInTheDocument()

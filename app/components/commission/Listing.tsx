@@ -2,6 +2,7 @@ import Title from '#components/Title'
 import { imageImports } from '#data/imageImports'
 import { getCharacterSectionId } from '#lib/characters'
 import { parseCommissionFileName } from '#lib/commissions'
+import { buildDateSearchTokensFromCompactDate } from '#lib/dateSearch'
 import type { CharacterCommissions } from '#data/types'
 import IllustratorInfo from './IllustratorInfo'
 import ProtectedCommissionImage from './ProtectedCommissionImage'
@@ -39,15 +40,7 @@ const Listing = ({ Character, status, commissionMap }: ListingProps) => {
         commissions.map(commission => {
           const { date, year, creator } = parseCommissionFileName(commission.fileName)
           const month = date.slice(4, 6)
-          const day = date.slice(6, 8)
-          const searchableDateTerms = [
-            date,
-            `${year}/${month}/${day}`,
-            `${year}-${month}-${day}`,
-            `${year} ${month} ${day}`,
-            `${year}/${month}`,
-            `${year}-${month}`,
-          ]
+          const searchableDateTerms = [date, ...buildDateSearchTokensFromCompactDate(date)]
           const altText = `©️ ${year} ${creator || 'Anonymous'} & Crystallize`
           const mappedImage = imageImports[commission.fileName as keyof typeof imageImports]
           const fallbackImageSrc = `/images/webp/${encodeURIComponent(commission.fileName)}.webp`
@@ -59,6 +52,7 @@ const Listing = ({ Character, status, commissionMap }: ListingProps) => {
           const keywordSearchText = keywordTerms.join(' ')
           const suggestionEntries = [
             { source: 'Character', term: Character },
+            { source: 'Date', term: `${year}/${month}` },
             ...(creator ? [{ source: 'Creator', term: creator }] : []),
             ...keywordTerms.map(keyword => ({ source: 'Keyword', term: keyword })),
           ]
