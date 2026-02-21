@@ -1,4 +1,4 @@
-import { generateRssFeed } from '#lib/rss'
+import { generateRssFeed } from '#lib/rss/feed'
 
 export const generateStaticParams = async () => []
 

@@ -1,4 +1,4 @@
-import Listing from '#components/commission/Listing'
+import Listing from '#components/home/commission/Listing'
 import type { CharacterCommissions } from '#data/types'
 
 interface CommissionProps {

@@ -1,4 +1,4 @@
-import { getCharacterSectionHash, getCharacterTitleId } from '#lib/characters'
+import { getCharacterSectionHash, getCharacterTitleId } from '#lib/characters/nav'
 import Link from 'next/link'
 
 type TitleProps = {

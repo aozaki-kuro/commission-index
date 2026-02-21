@@ -36,7 +36,7 @@
     "paths": {
       "#components/*": ["app/components/*"],
       "#images/*": ["public/images/*"],
-      "#commission/*": ["components/commission/*"],
+      "#commission/*": ["app/components/home/commission/*"],
       "#admin/actions": ["app/(dev)/admin/actions.stub.ts"],
       "#admin/*": ["app/(dev)/admin/*"],
       "#data/*": ["data/*"],

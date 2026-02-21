@@ -1,18 +1,18 @@
 import type { NextPage } from 'next'
 
 // Main content
-import Commission from '#components/commission'
-import CommissionDescription from '#components/main/Description'
-import Footer from '#components/main/Footer'
+import Commission from '#components/home/commission'
+import CommissionDescription from '#components/home/blocks/Description'
+import Footer from '#components/home/blocks/Footer'
 
-import CharacterList from '#components/main/CharacterList'
-import CommissionSearch from '#components/main/CommissionSearch'
-import DevLiveRefresh from '#components/main/DevLiveRefresh'
+import CharacterList from '#components/home/nav/CharacterList'
+import CommissionSearch from '#components/home/search/CommissionSearch'
+import DevLiveRefresh from '#components/home/dev/DevLiveRefresh'
 
-import Hamburger from '#components/main/Hamburger'
-import Warning from '#components/main/Warning'
+import Hamburger from '#components/home/nav/Hamburger'
+import Warning from '#components/home/warning/Warning'
 import { getCommissionDataMap } from '#data/commissionData'
-import { getCharacterStatus } from '#lib/characterStatus'
+import { getCharacterStatus } from '#lib/characters/status'
 
 const Home: NextPage = () => {
   const status = getCharacterStatus()

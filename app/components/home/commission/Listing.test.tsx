@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import Listing from './Listing'
 
-vi.mock('#components/Title', () => ({
+vi.mock('#components/shared/Title', () => ({
   default: ({ Content }: { Content: string }) => <h2>{Content}</h2>,
 }))
 

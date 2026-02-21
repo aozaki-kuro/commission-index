@@ -8,7 +8,7 @@ import {
   type SuggestionEntryLike,
   type SearchEntryLike,
   type SearchIndexLike,
-} from './search'
+} from './index'
 
 type Entry = SearchEntryLike
 

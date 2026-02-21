@@ -6,7 +6,7 @@ import {
   getCharacterSlug,
   getCharacterTitleHash,
   getCharacterTitleId,
-} from './characters'
+} from './nav'
 
 describe('characters utils', () => {
   it('creates stable slug/id/hash values', () => {

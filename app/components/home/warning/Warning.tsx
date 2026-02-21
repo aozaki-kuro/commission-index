@@ -7,7 +7,7 @@ const CONFIRMED_AGE_KEY = 'hasConfirmedAge'
 const AGE_CONFIRM_DURATION = 30 * 24 * 60 * 60 * 1000
 const AGE_CONFIRM_EVENT = 'age-confirm-changed'
 
-const WarningModal = dynamic(() => import('#components/main/WarningModal'))
+const WarningModal = dynamic(() => import('#components/home/warning/WarningModal'))
 
 /** 读取当前是否应该显示弹窗 */
 function getSnapshot(): boolean {

@@ -1,6 +1,6 @@
-// #components/commission/IllustratorInfo.tsx
-import { parseAndFormatDate } from '#lib/date'
-import { parseCommissionFileName } from '#lib/commissions'
+// #components/home/commission/IllustratorInfo.tsx
+import { parseAndFormatDate } from '#lib/date/format'
+import { parseCommissionFileName } from '#lib/commissions/index'
 import { Commission } from '#data/types'
 import Link from 'next/link'
 import { createLinks } from './CreateLinks'

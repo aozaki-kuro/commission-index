@@ -7,7 +7,7 @@ import {
   mergePartsAndPreviews,
   parseCommissionFileName,
   sortCommissionsByDate,
-} from './commissions'
+} from './index'
 
 describe('commissions utils', () => {
   it('filters hidden commissions while preserving visible entries', () => {

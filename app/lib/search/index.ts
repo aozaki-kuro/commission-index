@@ -1,6 +1,6 @@
 import Fuse from 'fuse.js'
-import { normalizeDateQueryToken, parseDateSearchInput } from '#lib/dateSearch'
-import { getBaseFileName } from '#lib/strings'
+import { normalizeDateQueryToken, parseDateSearchInput } from '#lib/date/search'
+import { getBaseFileName } from '#lib/utils/strings'
 
 export type SuggestionSource = 'Character' | 'Creator' | 'Keyword' | 'Date'
 

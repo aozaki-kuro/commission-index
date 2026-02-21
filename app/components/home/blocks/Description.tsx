@@ -1,7 +1,7 @@
 import Link from 'next/link'
 
-import Update from '#components/main/Update'
-import Title from '#components/Title'
+import Update from '#components/home/blocks/Update'
+import Title from '#components/shared/Title'
 
 const CommissionDescription = () => {
   return (

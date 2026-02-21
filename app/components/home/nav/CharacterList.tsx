@@ -1,8 +1,8 @@
 'use client'
-import DevAdminLink from '#components/main/DevAdminLink'
-import { buildCharacterNavItems } from '#lib/characters'
-import { jumpToCommissionSearch } from '#lib/jumpToCommissionSearch'
-import { useCharacterScrollSpy } from '#lib/useCharacterScrollSpy'
+import DevAdminLink from '#components/home/nav/DevAdminLink'
+import { buildCharacterNavItems } from '#lib/characters/nav'
+import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
+import { useCharacterScrollSpy } from '#lib/characters/useCharacterScrollSpy'
 import { useCallback, useMemo } from 'react'
 
 interface CharacterListProps {

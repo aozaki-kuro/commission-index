@@ -4,7 +4,7 @@ import {
   normalizeDateQueryToken,
   parseDateSearchInput,
   toDateSearchTokens,
-} from './dateSearch'
+} from './search'
 
 describe('dateSearch utils', () => {
   it('parses supported query date formats into normalized parts', () => {

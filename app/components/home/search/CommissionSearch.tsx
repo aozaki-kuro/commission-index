@@ -13,7 +13,7 @@ import {
 } from '@headlessui/react'
 import Fuse from 'fuse.js'
 import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { jumpToCommissionSearch } from '#lib/jumpToCommissionSearch'
+import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import {
   applySuggestionToQuery,
   buildStrictTermIndex,
@@ -29,7 +29,7 @@ import {
   type SearchIndexLike,
   type Suggestion,
   type SuggestionEntryLike,
-} from '#lib/search'
+} from '#lib/search/index'
 
 type Entry = SearchEntryLike &
   SuggestionEntryLike & {

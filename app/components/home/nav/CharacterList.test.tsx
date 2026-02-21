@@ -4,15 +4,15 @@ import CharacterList from './CharacterList'
 
 const mockJumpToCommissionSearch = vi.fn()
 
-vi.mock('#components/main/DevAdminLink', () => ({
+vi.mock('#components/home/nav/DevAdminLink', () => ({
   default: () => <a href="/admin">Admin</a>,
 }))
 
-vi.mock('#lib/useCharacterScrollSpy', () => ({
+vi.mock('#lib/characters/useCharacterScrollSpy', () => ({
   useCharacterScrollSpy: () => 'title-artoria-pendragon',
 }))
 
-vi.mock('#lib/jumpToCommissionSearch', () => ({
+vi.mock('#lib/navigation/jumpToCommissionSearch', () => ({
   jumpToCommissionSearch: () => mockJumpToCommissionSearch(),
 }))
 
