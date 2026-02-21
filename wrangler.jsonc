@@ -7,4 +7,11 @@
     "directory": "./out",
   },
   "preview_urls": false,
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "crystallize.cc",
+      "custom_domain": true,
+    },
+  ],
 }
