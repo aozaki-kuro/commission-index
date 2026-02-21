@@ -3,8 +3,8 @@ import { imageImports } from '#data/imageImports'
 import { getCharacterSectionId } from '#lib/characters'
 import { parseCommissionFileName } from '#lib/commissions'
 import type { CharacterCommissions } from '#data/types'
-import Image from 'next/image'
 import IllustratorInfo from './IllustratorInfo'
+import ProtectedCommissionImage from './ProtectedCommissionImage'
 
 type ListingProps = {
   Character: string
@@ -48,10 +48,9 @@ const Listing = ({ Character, status, commissionMap }: ListingProps) => {
             `${year}/${month}`,
             `${year}-${month}`,
           ]
-          const altText = `Copyright ©️ ${year} ${creator || 'Anonymous'} & Crystallize`
+          const altText = `©️ ${year} ${creator || 'Anonymous'} & Crystallize`
           const mappedImage = imageImports[commission.fileName as keyof typeof imageImports]
           const fallbackImageSrc = `/images/webp/${encodeURIComponent(commission.fileName)}.webp`
-          const resolvedImageSrc = mappedImage ?? fallbackImageSrc
           const elementId = `${sectionId}-${date}`
           const keywordTerms = (commission.Keyword ?? '')
             .split(/[,\n，、;；]/)
@@ -94,25 +93,11 @@ const Listing = ({ Character, status, commissionMap }: ListingProps) => {
               data-search-suggest={searchSuggestionText}
             >
               {/* 如果有图片资源，显示图片 */}
-              {mappedImage ? (
-                <Image
-                  src={mappedImage}
-                  alt={altText}
-                  placeholder="blur"
-                  className="pointer-events-none select-none"
-                  loading="lazy"
-                />
-              ) : (
-                <Image
-                  src={resolvedImageSrc}
-                  alt={altText}
-                  className="pointer-events-none select-none"
-                  loading="lazy"
-                  width={1200}
-                  height={900}
-                  style={{ width: '100%', height: 'auto' }}
-                />
-              )}
+              <ProtectedCommissionImage
+                altText={altText}
+                mappedImage={mappedImage}
+                resolvedImageSrc={fallbackImageSrc}
+              />
               {/* 显示委托作品的详细信息 */}
               <div className="mt-6 mb-2 md:mt-8 md:mb-4">
                 <IllustratorInfo commission={commission} kebabName={sectionId} />
