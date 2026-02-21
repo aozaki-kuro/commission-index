@@ -30,19 +30,17 @@ vi.mock('./AdminDashboard', () => ({
 }))
 
 describe('AdminPage', () => {
-  const originalNodeEnv = process.env.NODE_ENV
-
   beforeEach(() => {
     mockNotFound.mockClear()
     mockGetAdminData.mockClear()
   })
 
   afterEach(() => {
-    process.env.NODE_ENV = originalNodeEnv
+    vi.unstubAllEnvs()
   })
 
   it('calls notFound in production', async () => {
-    process.env.NODE_ENV = 'production'
+    vi.stubEnv('NODE_ENV', 'production')
 
     await expect(AdminPage()).rejects.toThrow('NEXT_NOT_FOUND')
     expect(mockNotFound).toHaveBeenCalledTimes(1)
@@ -50,7 +48,7 @@ describe('AdminPage', () => {
   })
 
   it('renders admin dashboard in development', async () => {
-    process.env.NODE_ENV = 'development'
+    vi.stubEnv('NODE_ENV', 'development')
 
     const element = await AdminPage()
     render(element)

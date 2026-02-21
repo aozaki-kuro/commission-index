@@ -1,12 +1,12 @@
 'use client'
 
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react'
-import { useCallback, useSyncExternalStore } from 'react'
 import type { CharacterRow, CommissionRow } from '#lib/admin/db'
 import Link from 'next/link'
 import AddCharacterForm from './AddCharacterForm'
 import AddCommissionForm from './AddCommissionForm'
 import CommissionManager from './CommissionManager'
+import useStoredTabIndex from './hooks/useStoredTabIndex'
 
 interface AdminDashboardProps {
   characters: CharacterRow[]
@@ -16,50 +16,8 @@ interface AdminDashboardProps {
 const tabs = ['Create', 'Existing'] as const
 const tabStorageKey = 'admin-dashboard-tab-index'
 
-// ---- 小型 localStorage store（客户端）----
-const LOCAL_EVENT = 'localstorage:' + tabStorageKey
-
-function readTabIndex(): number {
-  const raw = typeof window !== 'undefined' ? window.localStorage.getItem(tabStorageKey) : null
-  const n = Number(raw)
-  return Number.isFinite(n) && n >= 0 && n < tabs.length ? n : 0
-}
-
-function useStoredTabIndex() {
-  const subscribe = useCallback((onStoreChange: () => void) => {
-    // 1) 其他标签页改动：原生 storage 事件
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === tabStorageKey) onStoreChange()
-    }
-    // 2) 本标签页改动：自定义事件
-    const onLocal = () => onStoreChange()
-
-    window.addEventListener('storage', onStorage)
-    window.addEventListener(LOCAL_EVENT, onLocal)
-    return () => {
-      window.removeEventListener('storage', onStorage)
-      window.removeEventListener(LOCAL_EVENT, onLocal)
-    }
-  }, [])
-
-  const getSnapshot = useCallback(() => readTabIndex(), [])
-  const getServerSnapshot = useCallback(() => null, [])
-
-  // hydration 前返回 null，避免首帧先渲染 Create 再闪到 Existing
-  const index = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
-
-  const set = useCallback((next: number) => {
-    // 写 localStorage
-    window.localStorage.setItem(tabStorageKey, String(next))
-    // 通知本标签页的订阅者刷新（storage 事件只在跨标签页触发）
-    window.dispatchEvent(new Event(LOCAL_EVENT))
-  }, [])
-
-  return [index, set] as const
-}
-
 const AdminDashboard = ({ characters, commissions }: AdminDashboardProps) => {
-  const [selectedIndex, setSelectedIndex] = useStoredTabIndex()
+  const [selectedIndex, setSelectedIndex] = useStoredTabIndex(tabStorageKey, tabs.length)
 
   const characterOptions = characters.map(c => ({
     id: c.id,

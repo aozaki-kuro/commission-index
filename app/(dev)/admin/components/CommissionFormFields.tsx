@@ -13,10 +13,37 @@ import {
   Textarea,
   Transition,
 } from '@headlessui/react'
-import { Fragment, type ChangeEvent } from 'react'
+import { Fragment, type ChangeEvent, type ComponentPropsWithoutRef } from 'react'
+import { formControlStyles } from '../uiStyles'
 
-const controlStyles =
-  'w-full rounded-lg border border-gray-200 bg-white/80 px-3 py-2.5 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-100 dark:focus-visible:ring-offset-gray-900'
+const fieldLabelStyles =
+  'text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300'
+const fieldDescriptionStyles = 'text-xs text-gray-500 dark:text-gray-400'
+
+type InputBinding = Pick<ComponentPropsWithoutRef<'input'>, 'value' | 'onChange'>
+type TextareaBinding = Pick<ComponentPropsWithoutRef<'textarea'>, 'value' | 'onChange'>
+
+const bindInputValue = (
+  value?: string,
+  onChange?: (value: string) => void,
+): InputBinding | undefined => {
+  if (value === undefined || !onChange) return undefined
+  return {
+    value,
+    onChange: (event: ChangeEvent<HTMLInputElement>) => onChange(event.target.value),
+  }
+}
+
+const bindTextareaValue = (
+  value?: string,
+  onChange?: (value: string) => void,
+): TextareaBinding | undefined => {
+  if (value === undefined || !onChange) return undefined
+  return {
+    value,
+    onChange: (event: ChangeEvent<HTMLTextAreaElement>) => onChange(event.target.value),
+  }
+}
 
 interface CharacterSelectOption {
   id: number
@@ -46,13 +73,11 @@ export const CommissionCharacterField = ({
 
   return (
     <Field className="space-y-1">
-      <Label className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
-        Character
-      </Label>
+      <Label className={fieldLabelStyles}>Character</Label>
       <Listbox value={selectedCharacterId} onChange={onChange} disabled={isDisabled}>
         <div className="relative">
           <ListboxButton
-            className={`${controlStyles} flex items-center justify-between ${isDisabled ? 'cursor-not-allowed opacity-70' : ''}`}
+            className={`${formControlStyles} flex items-center justify-between ${isDisabled ? 'cursor-not-allowed opacity-70' : ''}`}
           >
             <span
               className={`truncate ${selectedCharacter ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}`}
@@ -126,7 +151,7 @@ export const CommissionCharacterField = ({
           )}
         </div>
       </Listbox>
-      <Description className="text-xs text-gray-500 dark:text-gray-400">
+      <Description className={fieldDescriptionStyles}>
         Choose the character this commission belongs to.
       </Description>
     </Field>
@@ -144,25 +169,16 @@ export const CommissionFileNameField = ({
   onChange,
   placeholder,
 }: CommissionFileNameFieldProps) => {
-  const controlled = value !== undefined && onChange
-
   return (
     <Field className="space-y-1">
-      <Label className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
-        File name
-      </Label>
+      <Label className={fieldLabelStyles}>File name</Label>
       <Input
         type="text"
         name="fileName"
         required
         placeholder={placeholder}
-        className={controlStyles}
-        {...(controlled
-          ? {
-              value,
-              onChange: (event: ChangeEvent<HTMLInputElement>) => onChange(event.target.value),
-            }
-          : {})}
+        className={formControlStyles}
+        {...(bindInputValue(value, onChange) ?? {})}
       />
     </Field>
   )
@@ -175,26 +191,17 @@ interface CommissionLinksFieldProps {
 }
 
 export const CommissionLinksField = ({ value, onChange, rows = 4 }: CommissionLinksFieldProps) => {
-  const controlled = value !== undefined && onChange
-
   return (
     <Field className="space-y-1">
-      <Label className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
-        Links (optional, one per line)
-      </Label>
+      <Label className={fieldLabelStyles}>Links (optional, one per line)</Label>
       <Textarea
         name="links"
         rows={rows}
         placeholder="https://example.com"
-        className={controlStyles}
-        {...(controlled
-          ? {
-              value,
-              onChange: (event: ChangeEvent<HTMLTextAreaElement>) => onChange(event.target.value),
-            }
-          : {})}
+        className={formControlStyles}
+        {...(bindTextareaValue(value, onChange) ?? {})}
       />
-      <Description className="text-xs text-gray-500 dark:text-gray-400">
+      <Description className={fieldDescriptionStyles}>
         Paste each URL on a separate line, or leave blank if none.
       </Description>
     </Field>
@@ -218,46 +225,27 @@ export const CommissionDesignDescriptionFields = ({
   designPlaceholder,
   descriptionPlaceholder,
 }: CommissionDesignDescriptionFieldsProps) => {
-  const hasControlledDesign = designValue !== undefined && onDesignChange
-  const hasControlledDescription = descriptionValue !== undefined && onDescriptionChange
-
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Field className="space-y-1">
-        <Label className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
-          Design (optional)
-        </Label>
+        <Label className={fieldLabelStyles}>Design (optional)</Label>
         <Input
           type="text"
           name="design"
           placeholder={designPlaceholder}
-          className={controlStyles}
-          {...(hasControlledDesign
-            ? {
-                value: designValue,
-                onChange: (event: ChangeEvent<HTMLInputElement>) =>
-                  onDesignChange(event.target.value),
-              }
-            : {})}
+          className={formControlStyles}
+          {...(bindInputValue(designValue, onDesignChange) ?? {})}
         />
       </Field>
 
       <Field className="space-y-1">
-        <Label className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
-          Description (optional)
-        </Label>
+        <Label className={fieldLabelStyles}>Description (optional)</Label>
         <Input
           type="text"
           name="description"
           placeholder={descriptionPlaceholder}
-          className={controlStyles}
-          {...(hasControlledDescription
-            ? {
-                value: descriptionValue,
-                onChange: (event: ChangeEvent<HTMLInputElement>) =>
-                  onDescriptionChange(event.target.value),
-              }
-            : {})}
+          className={formControlStyles}
+          {...(bindInputValue(descriptionValue, onDescriptionChange) ?? {})}
         />
       </Field>
     </div>
@@ -270,26 +258,17 @@ interface CommissionKeywordFieldProps {
 }
 
 export const CommissionKeywordField = ({ value, onChange }: CommissionKeywordFieldProps) => {
-  const controlled = value !== undefined && onChange
-
   return (
     <Field className="space-y-1">
-      <Label className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
-        Keywords (optional, comma-separated, search-only)
-      </Label>
+      <Label className={fieldLabelStyles}>Keywords (optional, comma-separated, search-only)</Label>
       <Input
         type="text"
         name="keyword"
         placeholder="e.g. studio k, skeb, private tag"
-        className={controlStyles}
-        {...(controlled
-          ? {
-              value,
-              onChange: (event: ChangeEvent<HTMLInputElement>) => onChange(event.target.value),
-            }
-          : {})}
+        className={formControlStyles}
+        {...(bindInputValue(value, onChange) ?? {})}
       />
-      <Description className="text-xs text-gray-500 dark:text-gray-400">
+      <Description className={fieldDescriptionStyles}>
         Separate keywords with commas. They are searchable but never rendered publicly.
       </Description>
     </Field>

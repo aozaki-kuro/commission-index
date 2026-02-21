@@ -9,7 +9,7 @@ import {
   CommissionLinksField,
 } from './components/CommissionFormFields'
 import Image from 'next/image'
-import { useActionState, useEffect, useMemo, useState, useTransition } from 'react'
+import { useActionState, useEffect, useTransition } from 'react'
 
 import type { CharacterRow } from '#lib/admin/db'
 
@@ -18,67 +18,41 @@ import { notifyDataUpdate } from './dataUpdateSignal'
 import FormStatusIndicator from './FormStatusIndicator'
 import SubmitButton from './SubmitButton'
 import { INITIAL_FORM_STATE } from './types'
+import { adminSurfaceStyles } from './uiStyles'
+import useCommissionEditState, { type EditableCommission } from './hooks/useCommissionEditState'
 
 interface CommissionEditFormProps {
-  commission: {
-    id: number
-    characterId: number
-    fileName: string
-    links: string[]
-    design?: string | null
-    description?: string | null
-    keyword?: string | null
-    hidden: boolean
-  }
+  commission: EditableCommission
   characters: CharacterRow[]
   onDelete?: () => void
 }
 
-const buildImageSrc = (fileName: string) => `/images/webp/${encodeURIComponent(fileName)}.webp`
-
-const surfaceStyles =
-  'space-y-5 rounded-2xl border border-gray-200 bg-white/90 p-6 text-sm shadow-sm ring-1 ring-gray-900/5 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10'
-
 const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEditFormProps) => {
   const [state, formAction] = useActionState(updateCommissionAction, INITIAL_FORM_STATE)
-
-  // ✅ 改为记录“出错的那一张 src”，避免在 effect 中同步 setState
-  const [errorSrc, setErrorSrc] = useState<string | null>(null)
-
   const [isDeleting, startDelete] = useTransition()
-  const [deleteStatus, setDeleteStatus] = useState<{
-    type: 'success' | 'error'
-    text: string
-  } | null>(null)
-
-  const sortedCharacters = useMemo(
-    () => [...characters].sort((a, b) => a.sortOrder - b.sortOrder),
-    [characters],
-  )
-
-  const initialCharacterId = useMemo(() => {
-    const exists = characters.some(character => character.id === commission.characterId)
-    return exists ? commission.characterId : (sortedCharacters[0]?.id ?? commission.characterId)
-  }, [characters, commission.characterId, sortedCharacters])
-
-  const [selectedCharacterId, setSelectedCharacterId] = useState<number>(initialCharacterId)
-  const [isHidden, setIsHidden] = useState<boolean>(commission.hidden)
-  const [fileName, setFileName] = useState(commission.fileName)
-  const initialLinks = useMemo(() => commission.links.join('\n'), [commission.links])
-  const [linksValue, setLinksValue] = useState(initialLinks)
-  const [designValue, setDesignValue] = useState(commission.design ?? '')
-  const [descriptionValue, setDescriptionValue] = useState(commission.description ?? '')
-  const [keywordValue, setKeywordValue] = useState(commission.keyword ?? '')
-
-  const imageSrc = useMemo(() => buildImageSrc(fileName), [fileName])
-
-  // ❌ 移除了 setImageError(false) 的 effect
-  // ✅ 仅保留与“外部系统/副作用”相关的定时清除提示
-  useEffect(() => {
-    if (!deleteStatus) return
-    const timer = setTimeout(() => setDeleteStatus(null), 2000)
-    return () => clearTimeout(timer)
-  }, [deleteStatus])
+  const {
+    sortedCharacters,
+    initialCharacterId,
+    selectedCharacterId,
+    setSelectedCharacterId,
+    isHidden,
+    setIsHidden,
+    fileName,
+    setFileName,
+    linksValue,
+    setLinksValue,
+    designValue,
+    setDesignValue,
+    descriptionValue,
+    setDescriptionValue,
+    keywordValue,
+    setKeywordValue,
+    imageSrc,
+    errorSrc,
+    setErrorSrc,
+    deleteStatus,
+    setDeleteStatus,
+  } = useCommissionEditState({ commission, characters })
 
   useEffect(() => {
     if (state.status === 'success') notifyDataUpdate()
@@ -105,7 +79,7 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
   }
 
   return (
-    <form action={formAction} className={surfaceStyles}>
+    <form action={formAction} className={adminSurfaceStyles}>
       <input type="hidden" name="id" value={commission.id} />
       <input type="hidden" name="characterId" value={selectedCharacterId} />
       {isHidden && <input type="hidden" name="hidden" value="on" />}

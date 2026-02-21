@@ -18,6 +18,7 @@ import { notifyDataUpdate } from './dataUpdateSignal'
 import FormStatusIndicator from './FormStatusIndicator'
 import SubmitButton from './SubmitButton'
 import { INITIAL_FORM_STATE } from './types'
+import { formControlStyles } from './uiStyles'
 
 type StatusValue = 'active' | 'stale'
 
@@ -31,9 +32,6 @@ const statusOptions: Array<{ value: StatusValue; label: string }> = [
     label: 'Stale',
   },
 ]
-
-const controlStyles =
-  'w-full rounded-lg border border-gray-200 bg-white/80 px-3 py-2.5 text-sm text-gray-900 shadow-sm transition placeholder:text-gray-400 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-100 dark:focus-visible:ring-offset-gray-900'
 
 const AddCharacterForm = () => {
   const [state, formAction] = useActionState(addCharacterAction, INITIAL_FORM_STATE)
@@ -70,7 +68,7 @@ const AddCharacterForm = () => {
             name="name"
             placeholder="Character name"
             required
-            className={controlStyles}
+            className={formControlStyles}
           />
         </Field>
 
@@ -80,7 +78,7 @@ const AddCharacterForm = () => {
           </Label>
           <Listbox value={status} onChange={setStatus}>
             <div className="relative">
-              <ListboxButton className={`${controlStyles} flex items-center justify-between`}>
+              <ListboxButton className={`${formControlStyles} flex items-center justify-between`}>
                 <span className="truncate text-gray-900 dark:text-gray-100">
                   {currentStatus.label}
                 </span>
