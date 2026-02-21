@@ -216,12 +216,14 @@ const CommissionSearch = () => {
       entries: index.entries,
       suggestions: index.suggestions,
       suggestionQuery,
+      suggestionContextQuery,
       suggestionContextMatchedIds,
       isExclusionSuggestion: suggestionIsExclusion,
     })
   }, [
     index.entries,
     index.suggestions,
+    suggestionContextQuery,
     suggestionContextMatchedIds,
     suggestionIsExclusion,
     suggestionQuery,

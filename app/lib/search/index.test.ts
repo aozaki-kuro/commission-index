@@ -305,4 +305,30 @@ describe('search date suggestions', () => {
     expect(result?.count).toBeGreaterThanOrEqual(2)
     expect(result?.matchedCount).toBe(0)
   })
+
+  it('deduplicates suggestions already present in context query', () => {
+    const entries: SuggestionEntryLike[] = [
+      {
+        id: 1,
+        suggestionRows: new Map([
+          ['l*cia', { source: 'Character', term: 'L*cia' }],
+          ['lucia', { source: 'Character', term: 'Lucia' }],
+        ]),
+      },
+    ]
+    const suggestions: Suggestion[] = [
+      { term: 'L*cia', count: 1, sources: ['Character'] },
+      { term: 'Lucia', count: 1, sources: ['Character'] },
+    ]
+
+    expect(
+      filterSuggestions({
+        entries,
+        suggestions,
+        suggestionQuery: 'L',
+        suggestionContextQuery: 'L*cia |',
+        suggestionContextMatchedIds: new Set([1]),
+      }).map(item => item.term),
+    ).toEqual(['Lucia'])
+  })
 })

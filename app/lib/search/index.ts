@@ -147,6 +147,30 @@ const includeInverseInPlace = (source: Set<number>, allIds: Set<number>, exclude
 
 const tokenizeQuery = (query: string) => query.match(/"[^"]*"|\S+/g) ?? []
 
+const collectExcludedSuggestionTerms = (rawQuery: string) => {
+  if (!rawQuery.trim()) return new Set<string>()
+
+  const excludedTerms = new Set<string>()
+  const tokens = tokenizeQuery(normalizeQuotedTokenBoundary(rawQuery))
+
+  for (const token of tokens) {
+    if (token === '|') continue
+
+    const isNegated = token.startsWith('!')
+    const rawTerm = trimWrappingQuotes(isNegated ? token.slice(1) : token)
+    if (!rawTerm) continue
+
+    excludedTerms.add(normalizeSuggestionMatchToken(rawTerm))
+
+    const normalizedDateTerm = normalizeDateQueryToken(rawTerm)
+    if (normalizedDateTerm) {
+      excludedTerms.add(normalizeSuggestionMatchToken(normalizedDateTerm))
+    }
+  }
+
+  return excludedTerms
+}
+
 const evaluateStrictQuery = <T extends SearchEntryLike>(
   index: SearchIndexLike<T>,
   tokens: string[],
@@ -495,6 +519,7 @@ export const filterSuggestions = ({
   entries,
   suggestions,
   suggestionQuery,
+  suggestionContextQuery = '',
   suggestionContextMatchedIds,
   isExclusionSuggestion = false,
   limit = 8,
@@ -502,6 +527,7 @@ export const filterSuggestions = ({
   entries: SuggestionEntryLike[]
   suggestions: Suggestion[]
   suggestionQuery: string
+  suggestionContextQuery?: string
   suggestionContextMatchedIds: Set<number>
   isExclusionSuggestion?: boolean
   limit?: number
@@ -519,11 +545,13 @@ export const filterSuggestions = ({
     : getContextTermCounts(entries, suggestionContextMatchedIds)
   const topMatches: SuggestionMatch[] = []
   const preparedSuggestions = getPreparedSuggestions(suggestions)
+  const excludedSuggestionTerms = collectExcludedSuggestionTerms(suggestionContextQuery)
 
   for (const preparedSuggestion of preparedSuggestions) {
     const { suggestion, normalizedMatchToken, normalizedTerm, isDateSuggestion, monthSortKey } =
       preparedSuggestion
     if (isDateSuggestion && !showDateSuggestions) continue
+    if (excludedSuggestionTerms.has(normalizedMatchToken)) continue
 
     const matchType = matchesMaskedSuggestion(normalizedMatchToken, normalizedSuggestionQuery)
     if (!matchType) continue
