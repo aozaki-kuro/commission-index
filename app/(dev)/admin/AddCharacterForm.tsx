@@ -112,9 +112,9 @@ const AddCharacterForm = () => {
                     <ListboxOption
                       key={option.value}
                       value={option.value}
-                      className={({ active, selected }) =>
+                      className={({ focus, selected }) =>
                         `flex cursor-pointer items-start justify-between gap-3 rounded-md px-3 py-2 text-sm transition ${
-                          active
+                          focus
                             ? 'bg-gray-900/5 text-gray-900 dark:bg-white/10 dark:text-gray-100'
                             : 'text-gray-700 dark:text-gray-100'
                         } ${selected ? 'ring-1 ring-gray-400/60 ring-inset' : ''}`

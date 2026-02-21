@@ -121,9 +121,9 @@ export const CommissionCharacterField = ({
                   <ListboxOption
                     key={option.id}
                     value={option.id}
-                    className={({ active, selected }) =>
+                    className={({ focus, selected }) =>
                       `flex cursor-pointer items-center justify-between gap-3 rounded-md px-3 py-2 text-sm transition ${
-                        active
+                        focus
                           ? 'bg-gray-900/5 text-gray-900 dark:bg-white/10 dark:text-gray-100'
                           : 'text-gray-700 dark:text-gray-100'
                       } ${selected ? 'ring-1 ring-gray-400/60 ring-inset' : ''}`
@@ -282,7 +282,7 @@ interface CommissionHiddenSwitchProps {
 
 export const CommissionHiddenSwitch = ({ isHidden, onChange }: CommissionHiddenSwitchProps) => {
   return (
-    <Switch.Group as="div" className="flex items-center gap-3">
+    <Field as="div" className="flex items-center gap-3">
       <Switch
         checked={isHidden}
         onChange={onChange}
@@ -298,9 +298,7 @@ export const CommissionHiddenSwitch = ({ isHidden, onChange }: CommissionHiddenS
           } group-data-checked:translate-x-7 dark:bg-gray-900/80`}
         />
       </Switch>
-      <Switch.Label className="text-sm font-medium text-gray-700 dark:text-gray-200">
-        Hidden
-      </Switch.Label>
-    </Switch.Group>
+      <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">Hidden</Label>
+    </Field>
   )
 }
