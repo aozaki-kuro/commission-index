@@ -25,6 +25,7 @@ import {
   getMatchedEntryIds,
   normalizeQuery,
   normalizeQuotedTokenBoundary,
+  resolveSuggestionContextMatchedIds,
   type FilteredSuggestion,
   parseSuggestionRows,
   type SearchEntryLike,
@@ -182,11 +183,14 @@ const CommissionSearch = () => {
   const matchedIds = useMemo(() => getMatchedEntryIds(query, index), [index, query])
 
   const suggestionContextMatchedIds = useMemo(() => {
-    if (!suggestionQuery) return index.allIds
-    if (suggestionOperator === 'or') return index.allIds
-    if (suggestionContextQuery === query) return matchedIds
-    return getMatchedEntryIds(suggestionContextQuery, index)
-  }, [index, matchedIds, query, suggestionContextQuery, suggestionOperator, suggestionQuery])
+    return resolveSuggestionContextMatchedIds({
+      rawQuery: query,
+      suggestionQuery,
+      suggestionContextQuery,
+      matchedIds,
+      index,
+    })
+  }, [index, matchedIds, query, suggestionContextQuery, suggestionQuery])
 
   const filteredSuggestions = useMemo<FilteredSuggestion[]>(() => {
     return filterSuggestions({

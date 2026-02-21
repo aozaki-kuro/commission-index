@@ -127,34 +127,22 @@ const getStrictTermMatches = <T extends SearchEntryLike>(
   return matches
 }
 
-const intersectInto = (source: Set<number>, filter: Set<number>) => {
-  if (source.size > filter.size) {
-    const next = new Set<number>()
-    for (const id of filter) {
-      if (source.has(id)) next.add(id)
-    }
-    return next
-  }
-
-  const next = new Set<number>()
+const intersectInPlace = (source: Set<number>, filter: Set<number>) => {
   for (const id of source) {
-    if (filter.has(id)) next.add(id)
+    if (!filter.has(id)) source.delete(id)
   }
-  return next
 }
 
-const unionInto = (source: Set<number>, other: Set<number>) => {
-  const next = new Set(source)
-  for (const id of other) next.add(id)
-  return next
+const excludeInPlace = (source: Set<number>, excluded: Set<number>) => {
+  for (const id of excluded) {
+    source.delete(id)
+  }
 }
 
-const subtractFromAll = (allIds: Set<number>, excluded: Set<number>) => {
-  const next = new Set<number>()
+const includeInverseInPlace = (source: Set<number>, allIds: Set<number>, excluded: Set<number>) => {
   for (const id of allIds) {
-    if (!excluded.has(id)) next.add(id)
+    if (!excluded.has(id)) source.add(id)
   }
-  return next
 }
 
 const tokenizeQuery = (query: string) => query.match(/"[^"]*"|\S+/g) ?? []
@@ -179,14 +167,17 @@ const evaluateStrictQuery = <T extends SearchEntryLike>(
 
     hasTerm = true
     const termMatches = getStrictTermMatches(index, rawTerm)
-    const tokenSet = isNegated ? subtractFromAll(index.allIds, termMatches) : new Set(termMatches)
-
     if (!current) {
-      current = tokenSet
+      current = isNegated ? new Set(index.allIds) : new Set(termMatches)
+      if (isNegated) excludeInPlace(current, termMatches)
     } else if (pendingOperator === 'or') {
-      current = unionInto(current, tokenSet)
+      if (isNegated) includeInverseInPlace(current, index.allIds, termMatches)
+      else {
+        for (const id of termMatches) current.add(id)
+      }
     } else {
-      current = intersectInto(current, tokenSet)
+      if (isNegated) excludeInPlace(current, termMatches)
+      else intersectInPlace(current, termMatches)
     }
 
     pendingOperator = 'and'
