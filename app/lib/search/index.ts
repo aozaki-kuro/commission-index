@@ -152,14 +152,36 @@ const collectExcludedSuggestionTerms = (rawQuery: string) => {
 
   const excludedTerms = new Set<string>()
   const tokens = tokenizeQuery(normalizeQuotedTokenBoundary(rawQuery))
+  let segmentTerms: string[] = []
+
+  const flushSegmentTerms = () => {
+    if (segmentTerms.length <= 1) {
+      segmentTerms = []
+      return
+    }
+
+    for (let start = 0; start < segmentTerms.length - 1; start += 1) {
+      let phrase = segmentTerms[start]
+      for (let end = start + 1; end < segmentTerms.length; end += 1) {
+        phrase = `${phrase} ${segmentTerms[end]}`
+        excludedTerms.add(normalizeSuggestionMatchToken(phrase))
+      }
+    }
+
+    segmentTerms = []
+  }
 
   for (const token of tokens) {
-    if (token === '|') continue
+    if (token === '|') {
+      flushSegmentTerms()
+      continue
+    }
 
     const isNegated = token.startsWith('!')
     const rawTerm = trimWrappingQuotes(isNegated ? token.slice(1) : token)
     if (!rawTerm) continue
 
+    segmentTerms.push(rawTerm)
     excludedTerms.add(normalizeSuggestionMatchToken(rawTerm))
 
     const normalizedDateTerm = normalizeDateQueryToken(rawTerm)
@@ -168,6 +190,7 @@ const collectExcludedSuggestionTerms = (rawQuery: string) => {
     }
   }
 
+  flushSegmentTerms()
   return excludedTerms
 }
 

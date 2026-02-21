@@ -331,4 +331,30 @@ describe('search date suggestions', () => {
       }).map(item => item.term),
     ).toEqual(['Lucia'])
   })
+
+  it('deduplicates unquoted multi-word suggestions present in context query', () => {
+    const entries: SuggestionEntryLike[] = [
+      {
+        id: 1,
+        suggestionRows: new Map([
+          ['kanaut nishe', { source: 'Character', term: 'Kanaut Nishe' }],
+          ['kanaut', { source: 'Character', term: 'Kanaut' }],
+        ]),
+      },
+    ]
+    const suggestions: Suggestion[] = [
+      { term: 'Kanaut Nishe', count: 1, sources: ['Character'] },
+      { term: 'Kanaut', count: 1, sources: ['Character'] },
+    ]
+
+    expect(
+      filterSuggestions({
+        entries,
+        suggestions,
+        suggestionQuery: 'K',
+        suggestionContextQuery: 'Kanaut Nishe ',
+        suggestionContextMatchedIds: new Set([1]),
+      }).map(item => item.term),
+    ).toEqual([])
+  })
 })
