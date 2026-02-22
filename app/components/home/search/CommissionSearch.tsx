@@ -3,6 +3,8 @@
 import { Combobox, ComboboxInput, ComboboxOption, ComboboxOptions } from '@headlessui/react'
 import dynamic from 'next/dynamic'
 import { useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { trackRybbitEvent } from '#lib/analytics/track'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import {
   applySuggestionToQuery,
@@ -51,10 +53,6 @@ export interface CommissionSearchEntrySource {
   searchSuggest?: string
 }
 
-type RybbitAnalytics = {
-  event?: (name: string, properties?: Record<string, string | number | boolean>) => void
-}
-
 const suggestionSourceLabels = {
   Character: 'character',
   Creator: 'creator',
@@ -85,13 +83,6 @@ const clearSearchQueryParamInAddress = () => {
 const getUrlQuerySnapshot = () => {
   if (typeof window === 'undefined') return ''
   return new URLSearchParams(window.location.search).get('q') ?? ''
-}
-
-const trackSearchUsed = (properties: Record<string, string | number | boolean>) => {
-  if (typeof window === 'undefined') return
-  const tracker = (window as Window & { rybbit?: RybbitAnalytics }).rybbit
-  if (!tracker?.event) return
-  tracker.event('search_used', properties)
 }
 
 const getTrackableQueryLength = (query: string) => {
@@ -320,7 +311,7 @@ const CommissionSearch = ({
     if (trackableQueryLength < MIN_TRACK_QUERY_LENGTH || hasTrackedSearchUsageRef.current) return
     hasTrackedSearchUsageRef.current = true
 
-    trackSearchUsed({
+    trackRybbitEvent(ANALYTICS_EVENTS.searchUsed, {
       query_length: normalizedDeferredQuery.length,
       trackable_query_length: trackableQueryLength,
       result_count: matchedIds.size,

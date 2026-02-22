@@ -1,5 +1,7 @@
 'use client'
 
+import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { trackRybbitEvent } from '#lib/analytics/track'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MenuContent from './hamburger/MenuContent'
@@ -17,6 +19,7 @@ const Hamburger = ({ active, stale }: HamburgerProps) => {
   const [mounted, setMounted] = useState(false)
   const closeTimerRef = useRef<number | null>(null)
   const openRafRef = useRef<number | null>(null)
+  const hasTrackedUsageRef = useRef(false)
 
   const clearCloseTimer = useCallback(() => {
     if (closeTimerRef.current !== null) {
@@ -33,6 +36,13 @@ const Hamburger = ({ active, stale }: HamburgerProps) => {
   }, [])
 
   const openMenu = useCallback(() => {
+    if (!hasTrackedUsageRef.current) {
+      hasTrackedUsageRef.current = true
+      trackRybbitEvent(ANALYTICS_EVENTS.hamburgerMenuUsed, {
+        active_count: active.length,
+        stale_count: stale.length,
+      })
+    }
     clearCloseTimer()
     clearOpenRaf()
     setMounted(true)
@@ -40,7 +50,7 @@ const Hamburger = ({ active, stale }: HamburgerProps) => {
       setOpen(true)
       openRafRef.current = null
     })
-  }, [clearCloseTimer, clearOpenRaf])
+  }, [active.length, clearCloseTimer, clearOpenRaf, stale.length])
 
   const close = useCallback(() => {
     clearOpenRaf()

@@ -1,9 +1,11 @@
 'use client'
 import DevAdminLink from '#components/home/nav/DevAdminLink'
+import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { trackRybbitEvent } from '#lib/analytics/track'
 import { buildCharacterNavItems } from '#lib/characters/nav'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import { useCharacterScrollSpy } from '#lib/characters/useCharacterScrollSpy'
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 
 interface CharacterListProps {
   characters: { DisplayName: string }[]
@@ -13,9 +15,22 @@ const CharacterList = ({ characters }: CharacterListProps) => {
   const navItems = useMemo(() => buildCharacterNavItems(characters), [characters])
   const titleIds = useMemo(() => navItems.map(item => item.titleId), [navItems])
   const activeId = useCharacterScrollSpy(titleIds)
+  const hasTrackedSidebarUsageRef = useRef(false)
 
   const showAdminLink = process.env.NODE_ENV === 'development'
   const jumpToSearch = useCallback(() => jumpToCommissionSearch(), [])
+  const trackSidebarUsage = useCallback(
+    (source: 'character_link' | 'search_link') => {
+      if (hasTrackedSidebarUsageRef.current) return
+      hasTrackedSidebarUsageRef.current = true
+
+      trackRybbitEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
+        source,
+        item_count: navItems.length,
+      })
+    },
+    [navItems.length],
+  )
 
   return (
     <aside
@@ -40,6 +55,7 @@ const CharacterList = ({ characters }: CharacterListProps) => {
                   />
                   <a
                     href={sectionHash}
+                    onClick={() => trackSidebarUsage('character_link')}
                     className="font-mono text-sm no-underline transition-colors duration-200"
                   >
                     {displayName}
@@ -65,6 +81,7 @@ const CharacterList = ({ characters }: CharacterListProps) => {
             href="#commission-search"
             onClick={event => {
               event.preventDefault()
+              trackSidebarUsage('search_link')
               jumpToSearch()
             }}
             className="font-mono text-sm font-bold no-underline transition-colors duration-200"
