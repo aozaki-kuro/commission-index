@@ -4,12 +4,11 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Transition, TransitionChild } from '@headlessui/react'
 import dynamic from 'next/dynamic'
-import { type KeyboardEvent, type MouseEvent, useMemo } from 'react'
+import { type KeyboardEvent, type MouseEvent } from 'react'
 
 import type { CharacterRow, CommissionRow } from '#lib/admin/db'
 
 import type { CharacterItem } from '../hooks/useCommissionManager'
-import { buildAdminCommissionSearchMetadata } from '../search/commissionSearchMetadata'
 
 const CommissionEditForm = dynamic(() => import('../CommissionEditForm'), {
   ssr: false,
@@ -27,8 +26,6 @@ interface SortableCharacterCardProps {
   item: CharacterItem
   isActive: boolean
   commissionList: CommissionRow[]
-  searchIndexCommissionList?: CommissionRow[]
-  creatorAliasesMap: Map<string, string[]>
   isOpen: boolean
   onToggle: () => void
   onDeleteCommission: (commissionId: number) => void
@@ -44,14 +41,13 @@ interface SortableCharacterCardProps {
   onRequestDelete: () => void
   isDeleting: boolean
   disableDrag?: boolean
+  reduceMotion?: boolean
 }
 
 const SortableCharacterCard = ({
   item,
   isActive,
   commissionList,
-  searchIndexCommissionList,
-  creatorAliasesMap,
   isOpen,
   onToggle,
   onDeleteCommission,
@@ -67,18 +63,10 @@ const SortableCharacterCard = ({
   onRequestDelete,
   isDeleting,
   disableDrag = false,
+  reduceMotion = false,
 }: SortableCharacterCardProps) => {
   const character = item.data
   const sectionId = `admin-character-${character.id}`
-  const searchSourceCommissions = searchIndexCommissionList ?? commissionList
-  const hiddenSearchEntries = useMemo(
-    () =>
-      searchSourceCommissions.map(commission => ({
-        commissionId: commission.id,
-        ...buildAdminCommissionSearchMetadata(character.name, commission, creatorAliasesMap),
-      })),
-    [character.name, creatorAliasesMap, searchSourceCommissions],
-  )
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: character.id,
     disabled: disableDrag || isDeleting,
@@ -117,18 +105,6 @@ const SortableCharacterCard = ({
       data-character-status={isActive ? 'active' : 'stale'}
       data-total-commissions={commissionList.length}
     >
-      <div className="hidden" aria-hidden="true">
-        {hiddenSearchEntries.map(entry => (
-          <div
-            key={`search-entry-${entry.commissionId}`}
-            data-commission-entry="true"
-            data-character-section-id={sectionId}
-            data-search-text={entry.searchText}
-            data-search-suggest={entry.searchSuggestionText}
-          />
-        ))}
-      </div>
-
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white/95 shadow-sm ring-1 ring-gray-900/5 transition dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10">
         <div
           className="flex items-center gap-3 bg-white/90 px-5 py-3 dark:bg-gray-900/40"
@@ -277,22 +253,22 @@ const SortableCharacterCard = ({
           unmount
           as="div"
           className="grid"
-          enter="transition-[grid-template-rows] duration-200 ease-in-out"
-          enterFrom="grid-rows-[0fr]"
-          enterTo="grid-rows-[1fr]"
-          leave="transition-[grid-template-rows] duration-200 ease-in-out"
-          leaveFrom="grid-rows-[1fr]"
-          leaveTo="grid-rows-[0fr]"
+          enter={reduceMotion ? '' : 'transition-[grid-template-rows] duration-200 ease-in-out'}
+          enterFrom={reduceMotion ? '' : 'grid-rows-[0fr]'}
+          enterTo={reduceMotion ? '' : 'grid-rows-[1fr]'}
+          leave={reduceMotion ? '' : 'transition-[grid-template-rows] duration-200 ease-in-out'}
+          leaveFrom={reduceMotion ? '' : 'grid-rows-[1fr]'}
+          leaveTo={reduceMotion ? '' : 'grid-rows-[0fr]'}
         >
           <div className="overflow-hidden">
             <TransitionChild
               as="div"
-              enter="transition-all duration-200 ease-out"
-              enterFrom="-translate-y-1 opacity-0"
-              enterTo="translate-y-0 opacity-100"
-              leave="transition-all duration-150 ease-in"
-              leaveFrom="translate-y-0 opacity-100"
-              leaveTo="-translate-y-1 opacity-0"
+              enter={reduceMotion ? '' : 'transition-all duration-200 ease-out'}
+              enterFrom={reduceMotion ? '' : '-translate-y-1 opacity-0'}
+              enterTo={reduceMotion ? '' : 'translate-y-0 opacity-100'}
+              leave={reduceMotion ? '' : 'transition-all duration-150 ease-in'}
+              leaveFrom={reduceMotion ? '' : 'translate-y-0 opacity-100'}
+              leaveTo={reduceMotion ? '' : '-translate-y-1 opacity-0'}
               className="space-y-4 border-t border-gray-200 bg-white/85 px-5 py-4 dark:border-gray-700 dark:bg-gray-900/30"
             >
               {commissionList.length === 0 ? (

@@ -36,7 +36,7 @@ import {
 
 type Entry = SearchEntryLike &
   SuggestionEntryLike & {
-    element: HTMLElement
+    element?: HTMLElement
     sectionId?: string
   }
 
@@ -51,6 +51,12 @@ type SearchIndex = SearchIndexLike<Entry> & {
   sections: Section[]
   staleDivider: HTMLElement | null
   suggestions: Suggestion[]
+}
+
+export interface CommissionSearchEntrySource {
+  id: number
+  searchText: string
+  searchSuggest?: string
 }
 
 type RybbitAnalytics = {
@@ -120,7 +126,7 @@ const getTrackableQueryLength = (query: string) => {
   return normalized.replace(/["|!]/g, '').trim().length
 }
 
-const buildSearchIndex = (): SearchIndex => {
+const buildSearchIndex = (externalEntries?: CommissionSearchEntrySource[]): SearchIndex => {
   if (typeof window === 'undefined') {
     return {
       entries: [],
@@ -130,6 +136,32 @@ const buildSearchIndex = (): SearchIndex => {
       allIds: new Set<number>(),
       suggestions: [],
       fuse: null,
+    }
+  }
+
+  if (externalEntries) {
+    const entries = externalEntries.map(entry => ({
+      id: entry.id,
+      searchText: entry.searchText.toLowerCase(),
+      suggestionRows: parseSuggestionRows(entry.searchSuggest ?? ''),
+    }))
+
+    return {
+      entries,
+      entryById: new Map(entries.map(entry => [entry.id, entry])),
+      strictTermIndex: buildStrictTermIndex(entries),
+      sections: [],
+      staleDivider: null,
+      allIds: new Set(entries.map(entry => entry.id)),
+      suggestions: collectSuggestions(entries),
+      fuse: new Fuse(entries, {
+        keys: ['searchText'],
+        threshold: 0.33,
+        ignoreLocation: true,
+        includeScore: false,
+        minMatchCharLength: 1,
+        useExtendedSearch: true,
+      }),
     }
   }
 
@@ -206,11 +238,13 @@ const buildRelatedCreatorTermsMap = (entries: SuggestionEntryLike[]) => {
 interface CommissionSearchProps {
   disableDomFiltering?: boolean
   onQueryChange?: (query: string) => void
+  externalEntries?: CommissionSearchEntrySource[]
 }
 
 const CommissionSearch = ({
   disableDomFiltering = false,
   onQueryChange,
+  externalEntries,
 }: CommissionSearchProps = {}) => {
   const initialUrlQuery = useSyncExternalStore(
     () => () => {},
@@ -237,7 +271,7 @@ const CommissionSearch = ({
   const [isHelpOpen, setIsHelpOpen] = useState(false)
   const [copyState, setCopyState] = useState<'idle' | 'success'>('idle')
 
-  const index = useMemo(() => buildSearchIndex(), [])
+  const index = useMemo(() => buildSearchIndex(externalEntries), [externalEntries])
 
   const matchedIds = useMemo(() => getMatchedEntryIds(query, index), [index, query])
 

@@ -4,16 +4,17 @@ import { DndContext, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import Fuse from 'fuse.js'
 import dynamic from 'next/dynamic'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react'
 
 import type { CharacterRow, CommissionRow, CreatorAliasRow } from '#lib/admin/db'
+import type { CommissionSearchEntrySource } from '#components/home/search/CommissionSearch'
 import { buildStrictTermIndex, getMatchedEntryIds, normalizeQuery } from '#lib/search/index'
 
 import CharacterDeleteDialog from './components/CharacterDeleteDialog'
 import SortableCharacterCard from './components/SortableCharacterCard'
 import SortableDivider from './components/SortableDivider'
 import useCommissionManager, { DIVIDER_ID } from './hooks/useCommissionManager'
-import { buildAdminCommissionSearchText } from './search/commissionSearchMetadata'
+import { buildAdminCommissionSearchMetadata } from './search/commissionSearchMetadata'
 
 const AdminCommissionSearch = dynamic(() => import('#components/home/search/CommissionSearch'), {
   ssr: false,
@@ -57,8 +58,9 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
   const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({})
   const confirmDeleteButtonRef = useRef<HTMLButtonElement | null>(null)
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('')
+  const deferredSearchQuery = useDeferredValue(appliedSearchQuery)
   const dividerIndex = list.findIndex(i => i.type === 'divider')
-  const normalizedAppliedSearchQuery = normalizeQuery(appliedSearchQuery)
+  const normalizedAppliedSearchQuery = normalizeQuery(deferredSearchQuery)
   const hasAppliedSearchQuery = normalizedAppliedSearchQuery.length > 0
   const creatorAliasesMap = useMemo(
     () => new Map(creatorAliases.map(row => [row.creatorName, row.aliases] as const)),
@@ -87,17 +89,23 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
     [list],
   )
 
-  const commissionSearchEntries = useMemo(() => {
-    const entries: Array<{ id: number; searchText: string }> = []
+  const commissionSearchEntries = useMemo<CommissionSearchEntrySource[]>(() => {
+    const entries: CommissionSearchEntrySource[] = []
 
     for (const [characterId, rows] of sortedCommissionsByCharacter) {
       const characterName = characterNameById.get(characterId)
       if (!characterName) continue
 
       for (const commission of rows) {
+        const metadata = buildAdminCommissionSearchMetadata(
+          characterName,
+          commission,
+          creatorAliasesMap,
+        )
         entries.push({
           id: commission.id,
-          searchText: buildAdminCommissionSearchText(characterName, commission, creatorAliasesMap),
+          searchText: metadata.searchText,
+          searchSuggest: metadata.searchSuggestionText,
         })
       }
     }
@@ -123,9 +131,9 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
   const matchedCommissionIds = useMemo(
     () =>
       hasAppliedSearchQuery
-        ? getMatchedEntryIds(appliedSearchQuery, commissionSearchIndex)
+        ? getMatchedEntryIds(deferredSearchQuery, commissionSearchIndex)
         : commissionSearchIndex.allIds,
-    [appliedSearchQuery, commissionSearchIndex, hasAppliedSearchQuery],
+    [commissionSearchIndex, deferredSearchQuery, hasAppliedSearchQuery],
   )
   const visibleCommissionsByCharacter = useMemo(() => {
     if (!hasAppliedSearchQuery) return sortedCommissionsByCharacter
@@ -170,12 +178,12 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
           button.scrollIntoView({
             block: 'nearest',
             inline: 'nearest',
-            behavior: 'smooth',
+            behavior: hasAppliedSearchQuery ? 'auto' : 'smooth',
           })
         }
       })
     },
-    [toggleCharacterOpen],
+    [hasAppliedSearchQuery, toggleCharacterOpen],
   )
 
   return (
@@ -201,7 +209,11 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
         </p>
       )}
 
-      <AdminCommissionSearch disableDomFiltering onQueryChange={handleSearchQueryChange} />
+      <AdminCommissionSearch
+        disableDomFiltering
+        externalEntries={commissionSearchEntries}
+        onQueryChange={handleSearchQueryChange}
+      />
 
       <div className="space-y-4">
         <DndContext
@@ -219,7 +231,6 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
               }
 
               const character = item.data
-              const allCharacterCommissions = sortedCommissionsByCharacter.get(character.id) ?? []
               const visibleCharacterCommissions =
                 visibleCommissionsByCharacter.get(character.id) ?? []
 
@@ -232,8 +243,6 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
                   item={item}
                   isActive={isActive}
                   commissionList={visibleCharacterCommissions}
-                  searchIndexCommissionList={allCharacterCommissions}
-                  creatorAliasesMap={creatorAliasesMap}
                   isOpen={shouldAutoOpen || openIds.has(character.id)}
                   onToggle={() => handleToggle(character.id)}
                   onDeleteCommission={commissionId =>
@@ -251,6 +260,7 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
                   onRequestDelete={() => handleRequestDelete(character)}
                   isDeleting={deletingId === character.id || isDeletePending}
                   disableDrag={hasAppliedSearchQuery}
+                  reduceMotion={hasAppliedSearchQuery}
                 />
               )
             })}
