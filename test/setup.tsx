@@ -9,7 +9,16 @@ afterEach(() => {
 })
 
 vi.mock('next/image', () => ({
-  default: ({ src, alt, ...props }: ComponentProps<'img'> & { src?: string | { src: string } }) => {
+  default: ({
+    src,
+    alt,
+    unoptimized,
+    ...props
+  }: ComponentProps<'img'> & {
+    src?: string | { src: string }
+    unoptimized?: boolean
+  }) => {
+    void unoptimized
     const resolvedSrc = typeof src === 'string' ? src : (src?.src ?? '')
     return <img {...props} src={resolvedSrc} alt={alt ?? ''} />
   },
