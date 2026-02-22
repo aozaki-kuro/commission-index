@@ -10,6 +10,7 @@ const mockGetAdminData = vi.fn(() => ({
   characters: [{ id: 1, DisplayName: 'Test Character', Status: 'active' }],
   commissions: [{ id: 1, CharacterID: 1, FileName: '20240203' }],
 }))
+const mockGetCreatorAliasesAdminData = vi.fn(() => [])
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
@@ -17,6 +18,7 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('#lib/admin/db', () => ({
   getAdminData: () => mockGetAdminData(),
+  getCreatorAliasesAdminData: () => mockGetCreatorAliasesAdminData(),
 }))
 
 vi.mock('./AdminDashboard', () => ({
@@ -26,6 +28,7 @@ vi.mock('./AdminDashboard', () => ({
   }: {
     characters: Array<{ id: number }>
     commissions: Array<{ id: number }>
+    creatorAliases: Array<unknown>
   }) => <div data-testid="admin-dashboard">{`${characters.length}:${commissions.length}`}</div>,
 }))
 
@@ -33,6 +36,7 @@ describe('AdminPage', () => {
   beforeEach(() => {
     mockNotFound.mockClear()
     mockGetAdminData.mockClear()
+    mockGetCreatorAliasesAdminData.mockClear()
   })
 
   afterEach(() => {
@@ -55,5 +59,6 @@ describe('AdminPage', () => {
 
     expect(screen.getByTestId('admin-dashboard')).toHaveTextContent('1:1')
     expect(mockGetAdminData).toHaveBeenCalledTimes(1)
+    expect(mockGetCreatorAliasesAdminData).toHaveBeenCalledTimes(1)
   })
 })
