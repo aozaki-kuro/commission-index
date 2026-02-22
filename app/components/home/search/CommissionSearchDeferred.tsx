@@ -13,12 +13,14 @@ const hasSearchQueryParam = () => {
 export default function CommissionSearchDeferred() {
   const [isEnabled, setIsEnabled] = useState(false)
   const [shouldFocusOnMount, setShouldFocusOnMount] = useState(false)
+  const [shouldOpenHelpOnMount, setShouldOpenHelpOnMount] = useState(false)
   const [shellQuery, setShellQuery] = useState('')
 
-  const enableSearch = useCallback((focusOnMount = false) => {
+  const enableSearch = useCallback((focusOnMount = false, openHelpOnMount = false) => {
     startTransition(() => {
       setIsEnabled(true)
       if (focusOnMount) setShouldFocusOnMount(true)
+      if (openHelpOnMount) setShouldOpenHelpOnMount(true)
     })
   }, [])
 
@@ -33,6 +35,7 @@ export default function CommissionSearchDeferred() {
         autoFocusOnMount={shouldFocusOnMount}
         deferIndexInit
         initialQuery={shellQuery || undefined}
+        openHelpOnMount={shouldOpenHelpOnMount}
       />
     )
   }
@@ -74,9 +77,9 @@ export default function CommissionSearchDeferred() {
 
           <button
             type="button"
-            onClick={() => enableSearch(true)}
+            onClick={() => enableSearch(true, true)}
             className="absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300"
-            aria-label="Enable search"
+            aria-label="Search help"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
               <circle cx="12" cy="12" r="9" strokeWidth="2" />

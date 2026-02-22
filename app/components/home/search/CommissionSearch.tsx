@@ -207,6 +207,7 @@ interface CommissionSearchProps {
   initialQuery?: string
   autoFocusOnMount?: boolean
   deferIndexInit?: boolean
+  openHelpOnMount?: boolean
 }
 
 const CommissionSearch = ({
@@ -217,6 +218,7 @@ const CommissionSearch = ({
   initialQuery,
   autoFocusOnMount = false,
   deferIndexInit = false,
+  openHelpOnMount = false,
 }: CommissionSearchProps = {}) => {
   const initialUrlQuery = useSyncExternalStore(
     () => () => {},
@@ -250,7 +252,7 @@ const CommissionSearch = ({
   const sectionVisibilityRef = useRef(new Map<string, boolean>())
   const staleDividerVisibilityRef = useRef(true)
   const hasTrackedSearchUsageRef = useRef(false)
-  const [isHelpOpen, setIsHelpOpen] = useState(false)
+  const [isHelpOpen, setIsHelpOpen] = useState(openHelpOnMount)
   const [copyState, setCopyState] = useState<'idle' | 'success'>('idle')
   const [isIndexReady, setIsIndexReady] = useState(
     () => !deferIndexInit || !!initialQuery || !!initialUrlQuery,
