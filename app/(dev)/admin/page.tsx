@@ -5,14 +5,19 @@ const AdminPage = async () => {
     notFound()
   }
 
-  const [{ default: AdminDashboard }, { getAdminData }] = await Promise.all([
-    import('./AdminDashboard'),
-    import('#lib/admin/db'),
-  ])
+  const [{ default: AdminDashboard }, { getAdminData, getCreatorAliasesAdminData }] =
+    await Promise.all([import('./AdminDashboard'), import('#lib/admin/db')])
 
   const { characters, commissions } = getAdminData()
+  const creatorAliases = getCreatorAliasesAdminData()
 
-  return <AdminDashboard characters={characters} commissions={commissions} />
+  return (
+    <AdminDashboard
+      characters={characters}
+      commissions={commissions}
+      creatorAliases={creatorAliases}
+    />
+  )
 }
 
 export default AdminPage

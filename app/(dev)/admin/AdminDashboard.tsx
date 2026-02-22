@@ -1,7 +1,7 @@
 'use client'
 
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react'
-import type { CharacterRow, CommissionRow } from '#lib/admin/db'
+import type { CharacterRow, CommissionRow, CreatorAliasRow } from '#lib/admin/db'
 import AddCharacterForm from './AddCharacterForm'
 import AddCommissionForm from './AddCommissionForm'
 import AdminLiveRefresh from './AdminLiveRefresh'
@@ -12,12 +12,13 @@ import useStoredTabIndex from './hooks/useStoredTabIndex'
 interface AdminDashboardProps {
   characters: CharacterRow[]
   commissions: CommissionRow[]
+  creatorAliases: CreatorAliasRow[]
 }
 
 const tabs = ['Create', 'Existing'] as const
 const tabStorageKey = 'admin-dashboard-tab-index'
 
-const AdminDashboard = ({ characters, commissions }: AdminDashboardProps) => {
+const AdminDashboard = ({ characters, commissions, creatorAliases }: AdminDashboardProps) => {
   const [selectedIndex, setSelectedIndex] = useStoredTabIndex(tabStorageKey, tabs.length)
 
   const characterOptions = characters.map(c => ({
@@ -74,7 +75,11 @@ const AdminDashboard = ({ characters, commissions }: AdminDashboardProps) => {
             </TabPanel>
 
             <TabPanel className="animate-[tabFade_260ms_ease-out] focus:outline-none">
-              <CommissionManager characters={characters} commissions={commissions} />
+              <CommissionManager
+                characters={characters}
+                commissions={commissions}
+                creatorAliases={creatorAliases}
+              />
             </TabPanel>
           </TabPanels>
         </TabGroup>

@@ -203,7 +203,15 @@ const buildRelatedCreatorTermsMap = (entries: SuggestionEntryLike[]) => {
   )
 }
 
-const CommissionSearch = () => {
+interface CommissionSearchProps {
+  disableDomFiltering?: boolean
+  onQueryChange?: (query: string) => void
+}
+
+const CommissionSearch = ({
+  disableDomFiltering = false,
+  onQueryChange,
+}: CommissionSearchProps = {}) => {
   const initialUrlQuery = useSyncExternalStore(
     () => () => {},
     getUrlQuerySnapshot,
@@ -267,6 +275,10 @@ const CommissionSearch = () => {
   )
 
   useEffect(() => {
+    onQueryChange?.(query)
+  }, [onQueryChange, query])
+
+  useEffect(() => {
     const trackableQueryLength = getTrackableQueryLength(query)
     if (trackableQueryLength < MIN_TRACK_QUERY_LENGTH || hasTrackedSearchUsageRef.current) return
     hasTrackedSearchUsageRef.current = true
@@ -280,6 +292,17 @@ const CommissionSearch = () => {
   }, [inputQuery, matchedIds.size, normalizedQuery.length, query])
 
   useEffect(() => {
+    const entriesCount = index.entries.length
+
+    if (disableDomFiltering) {
+      if (liveRef.current && entriesCount > 0) {
+        liveRef.current.textContent = hasQuery
+          ? `Search results: ${matchedIds.size} of ${entriesCount} commissions shown.`
+          : `Search cleared. Showing all ${entriesCount} commissions.`
+      }
+      return
+    }
+
     const { entryById, sections, staleDivider } = index
     const previousMatchedIds = previousMatchedIdsRef.current
     const visibleBySection = new Map<string, number>()
@@ -300,7 +323,6 @@ const CommissionSearch = () => {
     }
     previousMatchedIdsRef.current = matchedIds
 
-    const entriesCount = index.entries.length
     if (entriesCount === 0) return
 
     let visibleActiveSections = 0
@@ -333,7 +355,7 @@ const CommissionSearch = () => {
         ? `Search results: ${matchedIds.size} of ${entriesCount} commissions shown.`
         : `Search cleared. Showing all ${entriesCount} commissions.`
     }
-  }, [hasQuery, index, matchedIds])
+  }, [disableDomFiltering, hasQuery, index, matchedIds])
 
   useEffect(() => {
     if (didAutoJumpRef.current || !initialUrlQuery) return

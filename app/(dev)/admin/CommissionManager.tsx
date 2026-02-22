@@ -6,8 +6,9 @@ import Fuse from 'fuse.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import CommissionSearch from '#components/home/search/CommissionSearch'
-import type { CharacterRow, CommissionRow } from '#lib/admin/db'
+import type { CharacterRow, CommissionRow, CreatorAliasRow } from '#lib/admin/db'
 import { parseCommissionFileName } from '#lib/commissions/index'
+import { normalizeCreatorName } from '#lib/creatorAliases/shared'
 import { buildDateSearchTokensFromCompactDate } from '#lib/date/search'
 import { buildStrictTermIndex, getMatchedEntryIds, normalizeQuery } from '#lib/search/index'
 
@@ -19,19 +20,28 @@ import useCommissionManager, { DIVIDER_ID } from './hooks/useCommissionManager'
 interface CommissionManagerProps {
   characters: CharacterRow[]
   commissions: CommissionRow[]
+  creatorAliases: CreatorAliasRow[]
 }
 
-const buildAdminCommissionSearchText = (commission: CommissionRow) => {
+const buildAdminCommissionSearchText = (
+  commission: CommissionRow,
+  creatorAliasesMap: Map<string, string[]>,
+) => {
   const { date, creator } = parseCommissionFileName(commission.fileName)
   const searchableDateTerms = [date, ...buildDateSearchTokensFromCompactDate(date)]
   const keywordTerms = (commission.keyword ?? '')
     .split(/[,\n，、;；]/)
     .map(keyword => keyword.trim())
     .filter(Boolean)
+  const normalizedCreatorName = creator ? normalizeCreatorName(creator) : null
+  const creatorAliases = normalizedCreatorName
+    ? (creatorAliasesMap.get(normalizedCreatorName) ?? [])
+    : []
 
   return [
     commission.characterName,
     creator ?? '',
+    ...creatorAliases,
     ...searchableDateTerms,
     commission.fileName,
     commission.design ?? '',
@@ -42,7 +52,7 @@ const buildAdminCommissionSearchText = (commission: CommissionRow) => {
     .toLowerCase()
 }
 
-const CommissionManager = ({ characters, commissions }: CommissionManagerProps) => {
+const CommissionManager = ({ characters, commissions, creatorAliases }: CommissionManagerProps) => {
   const {
     list,
     commissionMap,
@@ -72,18 +82,23 @@ const CommissionManager = ({ characters, commissions }: CommissionManagerProps) 
 
   const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({})
   const confirmDeleteButtonRef = useRef<HTMLButtonElement | null>(null)
+  const [isSearchReady, setIsSearchReady] = useState(false)
   const [appliedSearchQuery, setAppliedSearchQuery] = useState('')
   const dividerIndex = list.findIndex(i => i.type === 'divider')
   const normalizedAppliedSearchQuery = normalizeQuery(appliedSearchQuery)
   const hasAppliedSearchQuery = normalizedAppliedSearchQuery.length > 0
+  const creatorAliasesMap = useMemo(
+    () => new Map(creatorAliases.map(row => [row.creatorName, row.aliases] as const)),
+    [creatorAliases],
+  )
 
   const commissionSearchEntries = useMemo(
     () =>
       commissions.map(commission => ({
         id: commission.id,
-        searchText: buildAdminCommissionSearchText(commission),
+        searchText: buildAdminCommissionSearchText(commission, creatorAliasesMap),
       })),
-    [commissions],
+    [commissions, creatorAliasesMap],
   )
   const commissionSearchIndex = useMemo(
     () => ({
@@ -110,31 +125,22 @@ const CommissionManager = ({ characters, commissions }: CommissionManagerProps) 
   )
 
   useEffect(() => {
-    const handleKeyUp = (event: KeyboardEvent) => {
-      const target = event.target
-      if (!(target instanceof HTMLInputElement)) return
-      if (target.id !== 'commission-search-input') return
-      if (event.key !== 'Enter') return
-      setAppliedSearchQuery(target.value)
-    }
+    const frame = requestAnimationFrame(() => {
+      setIsSearchReady(true)
+    })
 
-    const handleInput = (event: Event) => {
-      const target = event.target
-      if (!(target instanceof HTMLInputElement)) return
-      if (target.id !== 'commission-search-input') return
-      if (normalizeQuery(target.value)) return
-      setAppliedSearchQuery('')
-      closeAllCharacterOpen()
-    }
+    return () => cancelAnimationFrame(frame)
+  }, [])
 
-    document.addEventListener('keyup', handleKeyUp)
-    document.addEventListener('input', handleInput)
-
-    return () => {
-      document.removeEventListener('keyup', handleKeyUp)
-      document.removeEventListener('input', handleInput)
-    }
-  }, [closeAllCharacterOpen])
+  const handleSearchQueryChange = useCallback(
+    (query: string) => {
+      setAppliedSearchQuery(query)
+      if (!normalizeQuery(query)) {
+        closeAllCharacterOpen()
+      }
+    },
+    [closeAllCharacterOpen],
+  )
 
   const buttonRefFor = useCallback(
     (characterId: number) => (el: HTMLButtonElement | null) => {
@@ -187,7 +193,11 @@ const CommissionManager = ({ characters, commissions }: CommissionManagerProps) 
         </p>
       )}
 
-      <CommissionSearch />
+      {isSearchReady ? (
+        <CommissionSearch disableDomFiltering onQueryChange={handleSearchQueryChange} />
+      ) : (
+        <div className="mb-6 h-12" aria-hidden="true" />
+      )}
 
       <div className="space-y-4">
         <DndContext
@@ -224,6 +234,7 @@ const CommissionManager = ({ characters, commissions }: CommissionManagerProps) 
                   isActive={isActive}
                   commissionList={visibleCharacterCommissions}
                   searchIndexCommissionList={allCharacterCommissions}
+                  creatorAliasesMap={creatorAliasesMap}
                   isOpen={shouldAutoOpen || openIds.has(character.id)}
                   onToggle={() => handleToggle(character.id)}
                   onDeleteCommission={commissionId =>

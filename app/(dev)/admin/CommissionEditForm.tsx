@@ -104,25 +104,14 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
             )}
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <p className="text-xs font-medium tracking-wide text-gray-500 uppercase dark:text-gray-300">
-                File
-              </p>
-              <p className="mt-1 truncate font-medium text-gray-900 dark:text-gray-100">
-                {commission.fileName}
-              </p>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <CommissionCharacterField
-                options={sortedCharacters}
-                selectedCharacterId={selectedCharacterId}
-                onChange={id => setSelectedCharacterId(id ?? initialCharacterId)}
-                dropdownZIndexClassName="z-20"
-              />
-              <CommissionFileNameField value={fileName} onChange={setFileName} />
-            </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <CommissionCharacterField
+              options={sortedCharacters}
+              selectedCharacterId={selectedCharacterId}
+              onChange={id => setSelectedCharacterId(id ?? initialCharacterId)}
+              dropdownZIndexClassName="z-20"
+            />
+            <CommissionFileNameField value={fileName} onChange={setFileName} />
           </div>
         </div>
 

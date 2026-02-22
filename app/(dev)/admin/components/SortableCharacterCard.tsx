@@ -7,6 +7,7 @@ import { type KeyboardEvent, type MouseEvent } from 'react'
 
 import type { CharacterRow, CommissionRow } from '#lib/admin/db'
 import { parseCommissionFileName } from '#lib/commissions/index'
+import { normalizeCreatorName } from '#lib/creatorAliases/shared'
 import { buildDateSearchTokensFromCompactDate } from '#lib/date/search'
 
 import CommissionEditForm from '../CommissionEditForm'
@@ -17,10 +18,18 @@ const inlineEditStyles =
 
 const normalizeSuggestionKey = (term: string) => term.trim().toLowerCase()
 
-const buildCommissionSearchMetadata = (characterName: string, commission: CommissionRow) => {
+const buildCommissionSearchMetadata = (
+  characterName: string,
+  commission: CommissionRow,
+  creatorAliasesMap: Map<string, string[]>,
+) => {
   const { date, year, creator } = parseCommissionFileName(commission.fileName)
   const month = date.slice(4, 6)
   const searchableDateTerms = [date, ...buildDateSearchTokensFromCompactDate(date)]
+  const normalizedCreatorName = creator ? normalizeCreatorName(creator) : null
+  const creatorAliases = normalizedCreatorName
+    ? (creatorAliasesMap.get(normalizedCreatorName) ?? [])
+    : []
   const keywordTerms = (commission.keyword ?? '')
     .split(/[,\n，、;；]/)
     .map(keyword => keyword.trim())
@@ -31,6 +40,7 @@ const buildCommissionSearchMetadata = (characterName: string, commission: Commis
     { source: 'Character', term: characterName },
     ...(year && month ? [{ source: 'Date', term: `${year}/${month}` }] : []),
     ...(creator ? [{ source: 'Creator', term: creator }] : []),
+    ...creatorAliases.map(alias => ({ source: 'Creator' as const, term: alias })),
     ...keywordTerms.map(keyword => ({ source: 'Keyword' as const, term: keyword })),
   ]
 
@@ -48,6 +58,7 @@ const buildCommissionSearchMetadata = (characterName: string, commission: Commis
   const searchText = [
     characterName,
     creator ?? '',
+    ...creatorAliases,
     ...searchableDateTerms,
     commission.fileName,
     commission.design ?? '',
@@ -65,6 +76,7 @@ interface SortableCharacterCardProps {
   isActive: boolean
   commissionList: CommissionRow[]
   searchIndexCommissionList?: CommissionRow[]
+  creatorAliasesMap: Map<string, string[]>
   isOpen: boolean
   onToggle: () => void
   onDeleteCommission: (commissionId: number) => void
@@ -87,6 +99,7 @@ const SortableCharacterCard = ({
   isActive,
   commissionList,
   searchIndexCommissionList,
+  creatorAliasesMap,
   isOpen,
   onToggle,
   onDeleteCommission,
@@ -149,6 +162,7 @@ const SortableCharacterCard = ({
           const { searchText, searchSuggestionText } = buildCommissionSearchMetadata(
             character.name,
             commission,
+            creatorAliasesMap,
           )
 
           return (
