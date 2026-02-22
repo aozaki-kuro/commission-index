@@ -82,7 +82,7 @@ describe('Listing', () => {
     expect(searchSuggest).toContain('Date\t2024/02')
     expect(searchSuggest.match(/Keyword\t/gu)).toHaveLength(1)
 
-    expect(screen.getByRole('img', { name: '©️ 2024 Anonymous & Crystallize' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: '© 2024 Anonymous & Crystallize' })).toBeInTheDocument()
   })
 
   it('includes creator aliases in searchable metadata and creator suggestions', async () => {
@@ -133,6 +133,6 @@ describe('Listing', () => {
     expect(searchText).not.toContain('part')
     expect(searchSuggest).toContain('Creator\tQ')
     expect(searchSuggest).not.toContain('Creator\tQ (part 2)')
-    expect(screen.getByRole('img', { name: '©️ 2024 Q & Crystallize' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: '© 2024 Q & Crystallize' })).toBeInTheDocument()
   })
 })

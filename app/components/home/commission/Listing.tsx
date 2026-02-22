@@ -63,7 +63,7 @@ const Listing = async ({ Character, status, commissionMap, creatorAliasesMap }: 
           const copyrightCreator = creator
             ? getBaseFileName(creator).trim() || creator
             : 'Anonymous'
-          const altText = `©️ ${year} ${copyrightCreator} & Crystallize`
+          const altText = `© ${year} ${copyrightCreator} & Crystallize`
           const mappedImage = imageImports[commission.fileName]
           const fallbackImageSrc = `/images/webp/${encodeURIComponent(commission.fileName)}.webp`
           const elementId = `${sectionId}-${date}`
