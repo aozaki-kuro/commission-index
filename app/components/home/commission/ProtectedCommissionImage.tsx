@@ -1,7 +1,7 @@
 'use client'
 
 import Image, { type StaticImageData } from 'next/image'
-import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type MouseEvent } from 'react'
 
 type ProtectedCommissionImageProps = {
   altText: string
@@ -28,6 +28,7 @@ const ProtectedCommissionImage = ({
 }: ProtectedCommissionImageProps) => {
   const [notice, setNotice] = useState<NoticeState | null>(null)
   const [isNoticeVisible, setIsNoticeVisible] = useState(false)
+  const cacheBustId = useId()
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const removeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const animationFrameRef = useRef<number | null>(null)
@@ -40,6 +41,11 @@ const ProtectedCommissionImage = ({
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current)
     }
   }, [])
+
+  const fallbackSrc =
+    process.env.NODE_ENV === 'development'
+      ? `${resolvedImageSrc}${resolvedImageSrc.includes('?') ? '&' : '?'}v=${encodeURIComponent(cacheBustId)}`
+      : resolvedImageSrc
 
   const closeNotice = useCallback(() => {
     if (!noticeRef.current) {
@@ -121,10 +127,11 @@ const ProtectedCommissionImage = ({
           />
         ) : (
           <Image
-            src={resolvedImageSrc}
+            src={fallbackSrc}
             alt={altText}
             className="pointer-events-none select-none"
             loading="lazy"
+            unoptimized
             width={1200}
             height={900}
             style={{ width: '100%', height: 'auto' }}

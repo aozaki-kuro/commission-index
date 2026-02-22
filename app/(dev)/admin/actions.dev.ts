@@ -13,7 +13,7 @@ import {
   type CharacterStatus,
 } from '#lib/admin/db'
 import type { FormState } from './types'
-import { runImageImportPipeline } from './imagePipeline'
+import { runImageImportPipeline, runImagePipeline } from './imagePipeline'
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
 
@@ -140,7 +140,7 @@ export const addCommissionAction = async (
       hidden: fields.hidden,
     })
     if (imageMapChanged) {
-      await runImageImportPipeline()
+      await runImagePipeline()
     }
     revalidatePublicViews()
     revalidatePath('/admin')

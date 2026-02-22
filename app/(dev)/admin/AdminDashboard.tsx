@@ -5,6 +5,7 @@ import type { CharacterRow, CommissionRow } from '#lib/admin/db'
 import Link from 'next/link'
 import AddCharacterForm from './AddCharacterForm'
 import AddCommissionForm from './AddCommissionForm'
+import AdminLiveRefresh from './AdminLiveRefresh'
 import CommissionManager from './CommissionManager'
 import useStoredTabIndex from './hooks/useStoredTabIndex'
 
@@ -28,6 +29,7 @@ const AdminDashboard = ({ characters, commissions }: AdminDashboardProps) => {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 pt-6 pb-10 lg:px-0">
+      <AdminLiveRefresh />
       <header className="space-y-2">
         <h1 className="text-2xl leading-tight font-semibold text-gray-900 dark:text-gray-100">
           Commission Index Admin

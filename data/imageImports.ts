@@ -53,6 +53,7 @@ import A20231204B from '#images/webp/20231204_UnoRyoku.webp'
 import A20231215 from '#images/webp/20231215.webp'
 import A20231231 from '#images/webp/20231231_Naga4mangan.webp'
 import A20240102 from '#images/webp/20240102_UnoRyoku.webp'
+import A20240106 from '#images/webp/20240106_Momomo.webp'
 import A20240113 from '#images/webp/20240113_中村六翅.webp'
 import A20240114 from '#images/webp/20240114_Nanashi.webp'
 import A20240223 from '#images/webp/20240223_AOS.webp'
@@ -73,6 +74,7 @@ import A20240729 from '#images/webp/20240729.webp'
 import A20240819A from '#images/webp/20240819_Q (part 1).webp'
 import A20240819B from '#images/webp/20240819_Q (part 2).webp'
 import A20240906 from '#images/webp/20240906_Nanashi.webp'
+import A20240911 from '#images/webp/20240911_MINK.webp'
 import A20240918 from '#images/webp/20240918_AsuMi.webp'
 import A20241027A from '#images/webp/20241027_Q (part 1).webp'
 import A20241027B from '#images/webp/20241027_Q (part 2).webp'
@@ -172,6 +174,7 @@ export const imageImports = {
   '20231215': A20231215,
   '20231231_Naga4mangan': A20231231,
   '20240102_UnoRyoku': A20240102,
+  '20240106_Momomo': A20240106,
   '20240113_中村六翅': A20240113,
   '20240114_Nanashi': A20240114,
   '20240223_AOS': A20240223,
@@ -192,6 +195,7 @@ export const imageImports = {
   '20240819_Q (part 1)': A20240819A,
   '20240819_Q (part 2)': A20240819B,
   '20240906_Nanashi': A20240906,
+  '20240911_MINK': A20240911,
   '20240918_AsuMi': A20240918,
   '20241027_Q (part 1)': A20241027A,
   '20241027_Q (part 2)': A20241027B,

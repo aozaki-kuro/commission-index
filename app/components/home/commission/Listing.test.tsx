@@ -34,27 +34,33 @@ const createMap = (commissions: CharacterCommissions['Commissions']) =>
   ])
 
 describe('Listing', () => {
-  it('renders empty state when character has no commissions', () => {
-    render(<Listing Character="Test Character" status="active" commissionMap={createMap([])} />)
+  it('renders empty state when character has no commissions', async () => {
+    render(
+      await Listing({
+        Character: 'Test Character',
+        status: 'active',
+        commissionMap: createMap([]),
+      }),
+    )
 
     expect(screen.getByText('To be announced ...')).toBeInTheDocument()
     expect(document.getElementById('test-character')).toHaveAttribute('data-total-commissions', '0')
   })
 
-  it('builds searchable metadata and anonymous alt text for commission entries', () => {
+  it('builds searchable metadata and anonymous alt text for commission entries', async () => {
     render(
-      <Listing
-        Character="Test Character"
-        status="stale"
-        commissionMap={createMap([
+      await Listing({
+        Character: 'Test Character',
+        status: 'stale',
+        commissionMap: createMap([
           {
             fileName: '20240203',
             Links: [],
             Description: 'Sample description',
             Keyword: 'tag,Tag',
           },
-        ])}
-      />,
+        ]),
+      }),
     )
 
     const entry = document.querySelector('[data-commission-entry="true"]')

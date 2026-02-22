@@ -1,9 +1,9 @@
 import Title from '#components/shared/Title'
-import { imageImports } from '#data/imageImports'
 import { getCharacterSectionId } from '#lib/characters/nav'
 import { parseCommissionFileName } from '#lib/commissions/index'
 import { buildDateSearchTokensFromCompactDate } from '#lib/date/search'
 import type { CharacterCommissions } from '#data/types'
+import type { StaticImageData } from 'next/image'
 import IllustratorInfo from './IllustratorInfo'
 import ProtectedCommissionImage from './ProtectedCommissionImage'
 
@@ -15,11 +15,23 @@ type ListingProps = {
 
 const normalizeSuggestionKey = (term: string) => term.trim().toLowerCase()
 
+type ImageImportMap = Record<string, StaticImageData>
+
+const getImageImports = async (): Promise<ImageImportMap> => {
+  if (process.env.NODE_ENV === 'development') {
+    return {}
+  }
+
+  const { imageImports } = await import('#data/imageImports')
+  return imageImports as ImageImportMap
+}
+
 /**
  * Listing 组件显示特定角色的所有委托作品，包括图片、信息和链接。
  * @param Character - 角色名称。
  */
-const Listing = ({ Character, status, commissionMap }: ListingProps) => {
+const Listing = async ({ Character, status, commissionMap }: ListingProps) => {
+  const imageImports = await getImageImports()
   const sectionId = getCharacterSectionId(Character)
   const characterData = commissionMap.get(Character)
   const commissions = characterData?.Commissions ?? []
@@ -42,7 +54,7 @@ const Listing = ({ Character, status, commissionMap }: ListingProps) => {
           const month = date.slice(4, 6)
           const searchableDateTerms = [date, ...buildDateSearchTokensFromCompactDate(date)]
           const altText = `©️ ${year} ${creator || 'Anonymous'} & Crystallize`
-          const mappedImage = imageImports[commission.fileName as keyof typeof imageImports]
+          const mappedImage = imageImports[commission.fileName]
           const fallbackImageSrc = `/images/webp/${encodeURIComponent(commission.fileName)}.webp`
           const elementId = `${sectionId}-${date}`
           const keywordTerms = (commission.Keyword ?? '')
