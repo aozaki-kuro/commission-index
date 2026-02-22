@@ -1,6 +1,11 @@
 import Database from 'better-sqlite3'
 import fs from 'node:fs'
 import path from 'node:path'
+import {
+  normalizeAliases,
+  normalizeCreatorName,
+  parseAliasesJson,
+} from '#lib/creatorAliases/shared'
 
 export type CharacterStatus = 'active' | 'stale'
 
@@ -134,39 +139,11 @@ const withReadOnlyDatabase = <TReturn>(handler: (db: BetterSqlite3Database) => T
 const withWritableDatabase = <TReturn>(handler: (db: BetterSqlite3Database) => TReturn) =>
   withDatabase({ readonly: false }, handler)
 
-const normalizeCreatorName = (value: string): string | null => {
-  const trimmed = value.trim()
-  if (!trimmed) return null
-
-  // Collapse split-file suffixes like "Q (part 1)" into a single creator key.
-  const withoutPartSuffix = trimmed.replace(/\s+\(part\s+\d+\)$/i, '').trim()
-  return withoutPartSuffix || null
-}
-
 const extractCreatorNameFromFileName = (fileName: string): string | null => {
   const separatorIndex = fileName.indexOf('_')
   if (separatorIndex < 0) return null
 
   return normalizeCreatorName(fileName.slice(separatorIndex + 1))
-}
-
-const normalizeAliases = (aliases: string[] | string): string[] => {
-  const values = Array.isArray(aliases) ? aliases : aliases.split(/[,\n，、;；]/)
-  const normalized = values.map(alias => alias.trim()).filter(Boolean)
-  return Array.from(new Set(normalized))
-}
-
-const parseAliasesJson = (value: string): string[] => {
-  try {
-    const parsed = JSON.parse(value) as unknown
-    if (Array.isArray(parsed)) {
-      return normalizeAliases(parsed.filter(alias => typeof alias === 'string') as string[])
-    }
-  } catch {
-    // Fall back to delimiter-based parsing for legacy/manual values.
-  }
-
-  return normalizeAliases(value)
 }
 
 export const getAdminData = (): AdminData =>
@@ -520,25 +497,68 @@ export const saveCreatorAliases = (input: { creatorName: string; aliases: string
   const aliases = normalizeAliases(input.aliases)
 
   withWritableDatabase(db => {
-    ensureCreatorAliasesTable(db)
+    saveCreatorAliasesRowsInDatabase(db, [{ creatorName, aliases }])
+  })
+}
 
-    if (aliases.length === 0) {
-      db.prepare('DELETE FROM creator_aliases WHERE creator_name = @creatorName').run({
+const saveCreatorAliasesRowsInDatabase = (
+  db: BetterSqlite3Database,
+  rows: Array<{ creatorName: string; aliases: string[] }>,
+) => {
+  ensureCreatorAliasesTable(db)
+
+  const deleteStatement = db.prepare(
+    'DELETE FROM creator_aliases WHERE creator_name = @creatorName',
+  )
+  const upsertStatement = db.prepare(
+    `
+      INSERT INTO creator_aliases (creator_name, aliases)
+      VALUES (@creatorName, @aliases)
+      ON CONFLICT(creator_name) DO UPDATE SET aliases = excluded.aliases
+    `,
+  )
+
+  const transaction = db.transaction(() => {
+    rows.forEach(({ creatorName, aliases }) => {
+      if (aliases.length === 0) {
+        deleteStatement.run({ creatorName })
+        return
+      }
+
+      upsertStatement.run({
         creatorName,
+        aliases: JSON.stringify(aliases),
       })
-      return
-    }
-
-    db.prepare(
-      `
-        INSERT INTO creator_aliases (creator_name, aliases)
-        VALUES (@creatorName, @aliases)
-        ON CONFLICT(creator_name) DO UPDATE SET aliases = excluded.aliases
-      `,
-    ).run({
-      creatorName,
-      aliases: JSON.stringify(aliases),
     })
+  })
+
+  transaction()
+}
+
+export const saveCreatorAliasesBatch = (
+  rows: Array<{ creatorName: string; aliases: string[] | string }>,
+) => {
+  ensureWritable()
+
+  const mergedRows = new Map<string, string[]>()
+
+  rows.forEach(row => {
+    const creatorName = normalizeCreatorName(row.creatorName)
+    if (!creatorName) return
+    const aliases = normalizeAliases(row.aliases)
+    mergedRows.set(
+      creatorName,
+      normalizeAliases([...(mergedRows.get(creatorName) ?? []), ...aliases]),
+    )
+  })
+
+  const normalizedRows = [...mergedRows.entries()].map(([creatorName, aliases]) => ({
+    creatorName,
+    aliases,
+  }))
+
+  withWritableDatabase(db => {
+    saveCreatorAliasesRowsInDatabase(db, normalizedRows)
   })
 }
 

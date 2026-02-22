@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useActionState, useDeferredValue, useMemo, useState } from 'react'
 
 import { saveCreatorAliasesBatchAction } from '#admin/actions'
+import { hasCjkCharacter } from '#lib/creatorAliases/shared'
 import type { CreatorAliasRow } from '#lib/admin/db'
 import FormStatusIndicator from '../FormStatusIndicator'
 import SubmitButton from '../SubmitButton'
@@ -13,8 +14,6 @@ import { adminSurfaceStyles, formControlStyles } from '../uiStyles'
 interface AliasesDashboardProps {
   creators: CreatorAliasRow[]
 }
-
-const cjkCharacterPattern = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u
 
 const buildInitialDrafts = (creators: CreatorAliasRow[]) =>
   Object.fromEntries(creators.map(row => [row.creatorName, row.aliases[0] ?? ''])) as Record<
@@ -28,7 +27,7 @@ const AliasesDashboard = ({ creators }: AliasesDashboardProps) => {
   const [drafts, setDrafts] = useState<Record<string, string>>(() => buildInitialDrafts(creators))
   const deferredQuery = useDeferredValue(query)
   const visibleCreators = useMemo(
-    () => creators.filter(row => cjkCharacterPattern.test(row.creatorName)),
+    () => creators.filter(row => hasCjkCharacter(row.creatorName)),
     [creators],
   )
 

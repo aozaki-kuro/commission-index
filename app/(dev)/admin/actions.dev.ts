@@ -8,7 +8,7 @@ import {
   updateCharacter,
   updateCharactersOrder,
   updateCommission,
-  saveCreatorAliases,
+  saveCreatorAliasesBatch,
   deleteCharacter,
   deleteCommission,
   type CharacterStatus,
@@ -284,37 +284,6 @@ export async function deleteCharacterAction(id: number): Promise<FormState> {
   }
 }
 
-export const saveCreatorAliasesAction = async (
-  _prevState: FormState,
-  formData: FormData,
-): Promise<FormState> => {
-  const guard = devGuard()
-  if (guard) return guard
-
-  const creatorName = formData.get('creatorName')?.toString().trim() ?? ''
-  const aliases = formData.get('aliases')?.toString() ?? ''
-
-  if (!creatorName) {
-    return { status: 'error', message: 'Creator name is required.' }
-  }
-
-  try {
-    saveCreatorAliases({ creatorName, aliases })
-    revalidatePath('/admin/aliases')
-    return {
-      status: 'success',
-      message: aliases.trim()
-        ? `Aliases saved for "${creatorName}".`
-        : `Aliases cleared for "${creatorName}".`,
-    }
-  } catch (error) {
-    return {
-      status: 'error',
-      message: error instanceof Error ? error.message : 'Failed to save aliases.',
-    }
-  }
-}
-
 export const saveCreatorAliasesBatchAction = async (
   _prevState: FormState,
   formData: FormData,
@@ -333,14 +302,16 @@ export const saveCreatorAliasesBatchAction = async (
       return { status: 'error', message: 'Invalid alias payload.' }
     }
 
-    for (const row of parsed) {
-      if (!row || typeof row !== 'object') continue
+    const rows = parsed.flatMap(row => {
+      if (!row || typeof row !== 'object') return []
       const creatorName =
         'creatorName' in row && typeof row.creatorName === 'string' ? row.creatorName : ''
       const alias = 'alias' in row && typeof row.alias === 'string' ? row.alias : ''
-      if (!creatorName.trim()) continue
-      saveCreatorAliases({ creatorName, aliases: alias ? [alias] : [] })
-    }
+      if (!creatorName.trim()) return []
+      return [{ creatorName, aliases: alias ? [alias] : [] }]
+    })
+
+    saveCreatorAliasesBatch(rows)
 
     revalidatePath('/admin/aliases')
     return { status: 'success', message: 'Aliases saved.' }
