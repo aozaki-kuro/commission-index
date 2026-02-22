@@ -39,7 +39,8 @@ const AdminDashboard = ({ characters, commissions }: AdminDashboardProps) => {
         </p>
       </header>
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-4">
+        <Link href="/admin/aliases">Aliases</Link>
         <Link href="/">Home</Link>
       </div>
 

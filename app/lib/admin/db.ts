@@ -24,6 +24,12 @@ interface CommissionRow {
   hidden: boolean
 }
 
+export interface CreatorAliasRow {
+  creatorName: string
+  aliases: string[]
+  commissionCount: number
+}
+
 export interface AdminData {
   characters: CharacterRow[]
   commissions: CommissionRow[]
@@ -52,6 +58,27 @@ const hasCommissionKeywordColumn = (db: BetterSqlite3Database): boolean => {
 const ensureCommissionKeywordColumn = (db: BetterSqlite3Database) => {
   if (hasCommissionKeywordColumn(db)) return
   db.prepare('ALTER TABLE commissions ADD COLUMN keyword TEXT').run()
+}
+
+const hasCreatorAliasesTable = (db: BetterSqlite3Database): boolean => {
+  const row = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'creator_aliases' LIMIT 1",
+    )
+    .get() as { name?: string } | undefined
+
+  return row?.name === 'creator_aliases'
+}
+
+const ensureCreatorAliasesTable = (db: BetterSqlite3Database) => {
+  db.prepare(
+    `
+      CREATE TABLE IF NOT EXISTS creator_aliases (
+        creator_name TEXT PRIMARY KEY,
+        aliases TEXT NOT NULL
+      )
+    `,
+  ).run()
 }
 
 const normalizeKeyword = (value?: string | null): string | null => {
@@ -83,6 +110,7 @@ const openDatabase = (readonly: boolean) => {
     db.pragma('foreign_keys = ON')
     db.pragma('journal_mode = DELETE')
     ensureCommissionKeywordColumn(db)
+    ensureCreatorAliasesTable(db)
   }
 
   return db
@@ -105,6 +133,41 @@ const withReadOnlyDatabase = <TReturn>(handler: (db: BetterSqlite3Database) => T
 
 const withWritableDatabase = <TReturn>(handler: (db: BetterSqlite3Database) => TReturn) =>
   withDatabase({ readonly: false }, handler)
+
+const normalizeCreatorName = (value: string): string | null => {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+
+  // Collapse split-file suffixes like "Q (part 1)" into a single creator key.
+  const withoutPartSuffix = trimmed.replace(/\s+\(part\s+\d+\)$/i, '').trim()
+  return withoutPartSuffix || null
+}
+
+const extractCreatorNameFromFileName = (fileName: string): string | null => {
+  const separatorIndex = fileName.indexOf('_')
+  if (separatorIndex < 0) return null
+
+  return normalizeCreatorName(fileName.slice(separatorIndex + 1))
+}
+
+const normalizeAliases = (aliases: string[] | string): string[] => {
+  const values = Array.isArray(aliases) ? aliases : aliases.split(/[,\n，、;；]/)
+  const normalized = values.map(alias => alias.trim()).filter(Boolean)
+  return Array.from(new Set(normalized))
+}
+
+const parseAliasesJson = (value: string): string[] => {
+  try {
+    const parsed = JSON.parse(value) as unknown
+    if (Array.isArray(parsed)) {
+      return normalizeAliases(parsed.filter(alias => typeof alias === 'string') as string[])
+    }
+  } catch {
+    // Fall back to delimiter-based parsing for legacy/manual values.
+  }
+
+  return normalizeAliases(value)
+}
 
 export const getAdminData = (): AdminData =>
   withReadOnlyDatabase(db => {
@@ -182,6 +245,51 @@ export const getAdminData = (): AdminData =>
     }))
 
     return { characters, commissions }
+  })
+
+export const getCreatorAliasesAdminData = (): CreatorAliasRow[] =>
+  withReadOnlyDatabase(db => {
+    const rawFileNames = db
+      .prepare('SELECT file_name as fileName FROM commissions')
+      .all() as Array<{ fileName: string }>
+
+    const creatorCounts = new Map<string, number>()
+    rawFileNames.forEach(({ fileName }) => {
+      const creatorName = extractCreatorNameFromFileName(fileName)
+      if (!creatorName) return
+      creatorCounts.set(creatorName, (creatorCounts.get(creatorName) ?? 0) + 1)
+    })
+
+    const aliasMap = new Map<string, string[]>()
+    if (hasCreatorAliasesTable(db)) {
+      const aliasRows = db
+        .prepare(
+          'SELECT creator_name as creatorName, aliases as aliasesJson FROM creator_aliases ORDER BY creator_name ASC',
+        )
+        .all() as Array<{ creatorName: string; aliasesJson: string }>
+
+      aliasRows.forEach(row => {
+        const normalizedCreatorName = normalizeCreatorName(row.creatorName)
+        if (!normalizedCreatorName) return
+
+        const mergedAliases = normalizeAliases([
+          ...(aliasMap.get(normalizedCreatorName) ?? []),
+          ...parseAliasesJson(row.aliasesJson),
+        ])
+
+        aliasMap.set(normalizedCreatorName, mergedAliases)
+      })
+    }
+
+    const allCreatorNames = new Set<string>([...creatorCounts.keys(), ...aliasMap.keys()])
+
+    return [...allCreatorNames]
+      .map(creatorName => ({
+        creatorName,
+        aliases: aliasMap.get(creatorName) ?? [],
+        commissionCount: creatorCounts.get(creatorName) ?? 0,
+      }))
+      .sort((a, b) => a.creatorName.localeCompare(b.creatorName, 'ja'))
   })
 
 const ensureWritable = () => {
@@ -398,6 +506,39 @@ export const updateCommission = (input: {
     })
 
     return { imageMapChanged }
+  })
+}
+
+export const saveCreatorAliases = (input: { creatorName: string; aliases: string[] | string }) => {
+  ensureWritable()
+
+  const creatorName = normalizeCreatorName(input.creatorName)
+  if (!creatorName) {
+    throw new Error('Creator name is required.')
+  }
+
+  const aliases = normalizeAliases(input.aliases)
+
+  withWritableDatabase(db => {
+    ensureCreatorAliasesTable(db)
+
+    if (aliases.length === 0) {
+      db.prepare('DELETE FROM creator_aliases WHERE creator_name = @creatorName').run({
+        creatorName,
+      })
+      return
+    }
+
+    db.prepare(
+      `
+        INSERT INTO creator_aliases (creator_name, aliases)
+        VALUES (@creatorName, @aliases)
+        ON CONFLICT(creator_name) DO UPDATE SET aliases = excluded.aliases
+      `,
+    ).run({
+      creatorName,
+      aliases: JSON.stringify(aliases),
+    })
   })
 }
 

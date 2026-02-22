@@ -22,6 +22,10 @@ vi.mock('#data/imageImports', () => ({
   imageImports: {},
 }))
 
+vi.mock('#data/creatorAliases', () => ({
+  normalizeCreatorSearchName: (value: string) => value.replace(/\s+\(part\s+\d+\)$/i, '').trim(),
+}))
+
 const createMap = (commissions: CharacterCommissions['Commissions']) =>
   new Map<string, CharacterCommissions>([
     [
@@ -40,6 +44,7 @@ describe('Listing', () => {
         Character: 'Test Character',
         status: 'active',
         commissionMap: createMap([]),
+        creatorAliasesMap: new Map(),
       }),
     )
 
@@ -60,6 +65,7 @@ describe('Listing', () => {
             Keyword: 'tag,Tag',
           },
         ]),
+        creatorAliasesMap: new Map(),
       }),
     )
 
@@ -77,5 +83,30 @@ describe('Listing', () => {
     expect(searchSuggest.match(/Keyword\t/gu)).toHaveLength(1)
 
     expect(screen.getByRole('img', { name: '©️ 2024 Anonymous & Crystallize' })).toBeInTheDocument()
+  })
+
+  it('includes creator aliases in searchable metadata and creator suggestions', async () => {
+    render(
+      await Listing({
+        Character: 'Test Character',
+        status: 'active',
+        commissionMap: createMap([
+          {
+            fileName: '20240203_七市',
+            Links: [],
+          },
+        ]),
+        creatorAliasesMap: new Map([['七市', ['Nanashi', 'nanashi']]]),
+      }),
+    )
+
+    const entry = document.querySelector('[data-commission-entry="true"]')
+    const searchText = entry?.getAttribute('data-search-text') ?? ''
+    expect(searchText).toContain('七市')
+    expect(searchText).toContain('nanashi')
+
+    const searchSuggest = entry?.getAttribute('data-search-suggest') ?? ''
+    expect(searchSuggest).toContain('Creator\t七市')
+    expect(searchSuggest).toContain('Creator\tNanashi')
   })
 })

@@ -2,6 +2,7 @@ import Title from '#components/shared/Title'
 import { getCharacterSectionId } from '#lib/characters/nav'
 import { parseCommissionFileName } from '#lib/commissions/index'
 import { buildDateSearchTokensFromCompactDate } from '#lib/date/search'
+import { normalizeCreatorSearchName } from '#data/creatorAliases'
 import type { CharacterCommissions } from '#data/types'
 import type { StaticImageData } from 'next/image'
 import IllustratorInfo from './IllustratorInfo'
@@ -11,6 +12,7 @@ type ListingProps = {
   Character: string
   status: 'active' | 'stale'
   commissionMap: Map<string, CharacterCommissions>
+  creatorAliasesMap: Map<string, string[]>
 }
 
 const normalizeSuggestionKey = (term: string) => term.trim().toLowerCase()
@@ -30,7 +32,7 @@ const getImageImports = async (): Promise<ImageImportMap> => {
  * Listing 组件显示特定角色的所有委托作品，包括图片、信息和链接。
  * @param Character - 角色名称。
  */
-const Listing = async ({ Character, status, commissionMap }: ListingProps) => {
+const Listing = async ({ Character, status, commissionMap, creatorAliasesMap }: ListingProps) => {
   const imageImports = await getImageImports()
   const sectionId = getCharacterSectionId(Character)
   const characterData = commissionMap.get(Character)
@@ -51,6 +53,10 @@ const Listing = async ({ Character, status, commissionMap }: ListingProps) => {
       ) : (
         commissions.map(commission => {
           const { date, year, creator } = parseCommissionFileName(commission.fileName)
+          const normalizedCreatorName = creator ? normalizeCreatorSearchName(creator) : null
+          const creatorAliases = normalizedCreatorName
+            ? (creatorAliasesMap.get(normalizedCreatorName) ?? [])
+            : []
           const month = date.slice(4, 6)
           const searchableDateTerms = [date, ...buildDateSearchTokensFromCompactDate(date)]
           const altText = `©️ ${year} ${creator || 'Anonymous'} & Crystallize`
@@ -66,6 +72,7 @@ const Listing = async ({ Character, status, commissionMap }: ListingProps) => {
             { source: 'Character', term: Character },
             { source: 'Date', term: `${year}/${month}` },
             ...(creator ? [{ source: 'Creator', term: creator }] : []),
+            ...creatorAliases.map(alias => ({ source: 'Creator' as const, term: alias })),
             ...keywordTerms.map(keyword => ({ source: 'Keyword', term: keyword })),
           ]
           const uniqueSuggestions = new Map<string, { source: string; term: string }>()
@@ -80,6 +87,7 @@ const Listing = async ({ Character, status, commissionMap }: ListingProps) => {
           const searchText = [
             Character,
             creator,
+            ...creatorAliases,
             ...searchableDateTerms,
             commission.Design ?? '',
             commission.Description ?? '',

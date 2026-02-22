@@ -1,4 +1,5 @@
 import Listing from '#components/home/commission/Listing'
+import { getCreatorAliasesMap } from '#data/creatorAliases'
 import type { CharacterCommissions } from '#data/types'
 
 interface CommissionProps {
@@ -7,7 +8,9 @@ interface CommissionProps {
   commissionMap: Map<string, CharacterCommissions>
 }
 
-const Commission = ({ activeChars, staleChars, commissionMap }: CommissionProps) => {
+const Commission = async ({ activeChars, staleChars, commissionMap }: CommissionProps) => {
+  const creatorAliasesMap = getCreatorAliasesMap()
+
   return (
     <div id="--------Commissions--------">
       {/* Display Active Commissions */}
@@ -16,6 +19,7 @@ const Commission = ({ activeChars, staleChars, commissionMap }: CommissionProps)
           Character={chara.DisplayName}
           status="active"
           commissionMap={commissionMap}
+          creatorAliasesMap={creatorAliasesMap}
           key={chara.DisplayName}
         />
       ))}
@@ -33,6 +37,7 @@ const Commission = ({ activeChars, staleChars, commissionMap }: CommissionProps)
           Character={chara.DisplayName}
           status="stale"
           commissionMap={commissionMap}
+          creatorAliasesMap={creatorAliasesMap}
           key={chara.DisplayName}
         />
       ))}

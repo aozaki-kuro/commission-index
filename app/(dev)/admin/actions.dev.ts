@@ -8,6 +8,7 @@ import {
   updateCharacter,
   updateCharactersOrder,
   updateCommission,
+  saveCreatorAliases,
   deleteCharacter,
   deleteCommission,
   type CharacterStatus,
@@ -279,6 +280,74 @@ export async function deleteCharacterAction(id: number): Promise<FormState> {
     return {
       status: 'error',
       message: error instanceof Error ? error.message : 'Failed to delete character.',
+    }
+  }
+}
+
+export const saveCreatorAliasesAction = async (
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> => {
+  const guard = devGuard()
+  if (guard) return guard
+
+  const creatorName = formData.get('creatorName')?.toString().trim() ?? ''
+  const aliases = formData.get('aliases')?.toString() ?? ''
+
+  if (!creatorName) {
+    return { status: 'error', message: 'Creator name is required.' }
+  }
+
+  try {
+    saveCreatorAliases({ creatorName, aliases })
+    revalidatePath('/admin/aliases')
+    return {
+      status: 'success',
+      message: aliases.trim()
+        ? `Aliases saved for "${creatorName}".`
+        : `Aliases cleared for "${creatorName}".`,
+    }
+  } catch (error) {
+    return {
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Failed to save aliases.',
+    }
+  }
+}
+
+export const saveCreatorAliasesBatchAction = async (
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> => {
+  const guard = devGuard()
+  if (guard) return guard
+
+  const rowsJson = formData.get('rowsJson')?.toString() ?? ''
+  if (!rowsJson.trim()) {
+    return { status: 'error', message: 'No alias data submitted.' }
+  }
+
+  try {
+    const parsed = JSON.parse(rowsJson) as unknown
+    if (!Array.isArray(parsed)) {
+      return { status: 'error', message: 'Invalid alias payload.' }
+    }
+
+    for (const row of parsed) {
+      if (!row || typeof row !== 'object') continue
+      const creatorName =
+        'creatorName' in row && typeof row.creatorName === 'string' ? row.creatorName : ''
+      const alias = 'alias' in row && typeof row.alias === 'string' ? row.alias : ''
+      if (!creatorName.trim()) continue
+      saveCreatorAliases({ creatorName, aliases: alias ? [alias] : [] })
+    }
+
+    revalidatePath('/admin/aliases')
+    return { status: 'success', message: 'Aliases saved.' }
+  } catch (error) {
+    return {
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Failed to save aliases.',
     }
   }
 }

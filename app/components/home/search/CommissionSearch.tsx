@@ -86,6 +86,7 @@ const formatSuggestionMatchCount = (count: number) =>
   `${count} ${count === 1 ? 'match' : 'matches'}`
 const formatSuggestionSources = (sources: Suggestion['sources']) =>
   sources.map(source => suggestionSourceLabels[source]).join(' / ')
+const normalizeSuggestionTermKey = (term: string) => term.trim().toLowerCase()
 const MIN_TRACK_QUERY_LENGTH = 2
 
 const buildSearchUrl = (rawQuery: string) => {
@@ -171,6 +172,37 @@ const buildSearchIndex = (): SearchIndex => {
   }
 }
 
+const buildRelatedCreatorTermsMap = (entries: SuggestionEntryLike[]) => {
+  const related = new Map<string, Set<string>>()
+
+  for (const entry of entries) {
+    const creatorTerms = [...entry.suggestionRows.values()]
+      .filter(row => row.source === 'Creator')
+      .map(row => row.term.trim())
+      .filter(Boolean)
+
+    if (creatorTerms.length < 2) continue
+
+    for (const term of creatorTerms) {
+      const key = normalizeSuggestionTermKey(term)
+      if (!key) continue
+      const bucket = related.get(key) ?? new Set<string>()
+      for (const other of creatorTerms) {
+        if (normalizeSuggestionTermKey(other) === key) continue
+        bucket.add(other)
+      }
+      related.set(key, bucket)
+    }
+  }
+
+  return new Map(
+    [...related.entries()].map(([key, terms]) => [
+      key,
+      [...terms].sort((a, b) => a.localeCompare(b, 'ja')),
+    ]),
+  )
+}
+
 const CommissionSearch = () => {
   const initialUrlQuery = useSyncExternalStore(
     () => () => {},
@@ -228,6 +260,11 @@ const CommissionSearch = () => {
     suggestionIsExclusion,
     suggestionQuery,
   ])
+
+  const relatedCreatorTermsMap = useMemo(
+    () => buildRelatedCreatorTermsMap(index.entries),
+    [index.entries],
+  )
 
   useEffect(() => {
     const trackableQueryLength = getTrackableQueryLength(query)
@@ -412,40 +449,55 @@ const CommissionSearch = () => {
             modal={false}
             className="absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain rounded-lg border border-gray-300/80 bg-white/95 py-1 text-sm shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm empty:hidden dark:border-gray-700 dark:bg-black/90"
           >
-            {filteredSuggestions.map(suggestion => (
-              <ComboboxOption
-                key={suggestion.term}
-                value={suggestion.term}
-                className="cursor-pointer px-3 py-1.5 font-mono text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 dark:text-gray-300 dark:data-focus:bg-gray-800 dark:data-focus:text-gray-100"
-              >
-                <div className="grid min-w-0 gap-0.5">
-                  <div className="flex min-w-0 items-center justify-between gap-2">
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      {suggestionIsExclusion ? (
-                        <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                          NOT
+            {filteredSuggestions.map(suggestion =>
+              (() => {
+                const relatedCreatorTerms = suggestion.sources.includes('Creator')
+                  ? (relatedCreatorTermsMap.get(normalizeSuggestionTermKey(suggestion.term)) ?? [])
+                  : []
+
+                return (
+                  <ComboboxOption
+                    key={suggestion.term}
+                    value={suggestion.term}
+                    className="cursor-pointer px-3 py-1.5 font-mono text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 dark:text-gray-300 dark:data-focus:bg-gray-800 dark:data-focus:text-gray-100"
+                  >
+                    <div className="grid min-w-0 gap-0.5">
+                      <div className="flex min-w-0 items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          {suggestionIsExclusion ? (
+                            <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                              NOT
+                            </span>
+                          ) : suggestionOperator === 'or' ? (
+                            <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                              OR
+                            </span>
+                          ) : suggestionOperator === 'and' ? (
+                            <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                              AND
+                            </span>
+                          ) : null}
+                          <span className="flex min-w-0 items-baseline gap-1 truncate">
+                            <span className="truncate">{suggestion.term}</span>
+                            {relatedCreatorTerms.length > 0 ? (
+                              <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
+                                ({relatedCreatorTerms.join(' / ')})
+                              </span>
+                            ) : null}
+                          </span>
                         </span>
-                      ) : suggestionOperator === 'or' ? (
-                        <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                          OR
+                        <span className="shrink-0 rounded-full border border-gray-300/90 bg-gray-100/85 px-1.5 py-0.5 text-[10px] leading-none text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                          {formatSuggestionMatchCount(suggestion.matchedCount)}
                         </span>
-                      ) : suggestionOperator === 'and' ? (
-                        <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                          AND
-                        </span>
-                      ) : null}
-                      <span className="truncate">{suggestion.term}</span>
-                    </span>
-                    <span className="shrink-0 rounded-full border border-gray-300/90 bg-gray-100/85 px-1.5 py-0.5 text-[10px] leading-none text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                      {formatSuggestionMatchCount(suggestion.matchedCount)}
-                    </span>
-                  </div>
-                  <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
-                    in {formatSuggestionSources(suggestion.sources)}
-                  </span>
-                </div>
-              </ComboboxOption>
-            ))}
+                      </div>
+                      <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
+                        in {formatSuggestionSources(suggestion.sources)}
+                      </span>
+                    </div>
+                  </ComboboxOption>
+                )
+              })(),
+            )}
           </ComboboxOptions>
 
           <button
@@ -593,6 +645,9 @@ const CommissionSearch = () => {
                     <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 md:text-xs dark:bg-gray-800 dark:text-gray-300">
                       blue hair | silver !sketch
                     </code>
+                  </p>
+                  <p className="text-[11px] wrap-break-word text-gray-500 sm:text-xs md:text-sm dark:text-gray-400">
+                    Creator search also matches registered aliases (for example, romanized names).
                   </p>
                 </div>
 

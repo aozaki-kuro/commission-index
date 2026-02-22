@@ -58,3 +58,21 @@ export async function deleteCharacterAction(_id: number): Promise<FormState> {
   void _id
   return disabledState
 }
+
+export const saveCreatorAliasesAction = async (
+  _prev: FormState,
+  _formData: FormData,
+): Promise<FormState> => {
+  void _prev
+  void _formData
+  return disabledState
+}
+
+export const saveCreatorAliasesBatchAction = async (
+  _prev: FormState,
+  _formData: FormData,
+): Promise<FormState> => {
+  void _prev
+  void _formData
+  return disabledState
+}
