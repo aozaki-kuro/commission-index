@@ -343,13 +343,14 @@ const CommissionSearch = ({
 
     for (const id of previousMatchedIds) {
       if (matchedIds.has(id)) continue
-      entryById.get(id)?.element.classList.add('hidden')
+      const previousEntry = entryById.get(id)
+      previousEntry?.element?.classList.add('hidden')
     }
     for (const id of matchedIds) {
       const entry = entryById.get(id)
       if (!entry) continue
       if (!previousMatchedIds.has(id)) {
-        entry.element.classList.remove('hidden')
+        entry.element?.classList.remove('hidden')
       }
       if (entry.sectionId) {
         visibleBySection.set(entry.sectionId, (visibleBySection.get(entry.sectionId) ?? 0) + 1)
