@@ -3,73 +3,25 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Transition, TransitionChild } from '@headlessui/react'
-import { type KeyboardEvent, type MouseEvent } from 'react'
+import dynamic from 'next/dynamic'
+import { type KeyboardEvent, type MouseEvent, useMemo } from 'react'
 
 import type { CharacterRow, CommissionRow } from '#lib/admin/db'
-import { parseCommissionFileName } from '#lib/commissions/index'
-import { normalizeCreatorName } from '#lib/creatorAliases/shared'
-import { buildDateSearchTokensFromCompactDate } from '#lib/date/search'
 
-import CommissionEditForm from '../CommissionEditForm'
 import type { CharacterItem } from '../hooks/useCommissionManager'
+import { buildAdminCommissionSearchMetadata } from '../search/commissionSearchMetadata'
+
+const CommissionEditForm = dynamic(() => import('../CommissionEditForm'), {
+  ssr: false,
+  loading: () => (
+    <div className="rounded-xl border border-gray-200/80 bg-white/80 px-4 py-3 text-sm text-gray-500 dark:border-gray-700/80 dark:bg-gray-900/30 dark:text-gray-300">
+      Loading editor...
+    </div>
+  ),
+})
 
 const inlineEditStyles =
   'flex-1 min-w-0 text-base font-semibold text-gray-900 dark:text-gray-100 bg-transparent border-none outline-none px-0 py-0'
-
-const normalizeSuggestionKey = (term: string) => term.trim().toLowerCase()
-
-const buildCommissionSearchMetadata = (
-  characterName: string,
-  commission: CommissionRow,
-  creatorAliasesMap: Map<string, string[]>,
-) => {
-  const { date, year, creator } = parseCommissionFileName(commission.fileName)
-  const month = date.slice(4, 6)
-  const searchableDateTerms = [date, ...buildDateSearchTokensFromCompactDate(date)]
-  const normalizedCreatorName = creator ? normalizeCreatorName(creator) : null
-  const creatorAliases = normalizedCreatorName
-    ? (creatorAliasesMap.get(normalizedCreatorName) ?? [])
-    : []
-  const keywordTerms = (commission.keyword ?? '')
-    .split(/[,\n，、;；]/)
-    .map(keyword => keyword.trim())
-    .filter(Boolean)
-  const keywordSearchText = keywordTerms.join(' ')
-
-  const suggestionEntries = [
-    { source: 'Character', term: characterName },
-    ...(year && month ? [{ source: 'Date', term: `${year}/${month}` }] : []),
-    ...(creator ? [{ source: 'Creator', term: creator }] : []),
-    ...creatorAliases.map(alias => ({ source: 'Creator' as const, term: alias })),
-    ...keywordTerms.map(keyword => ({ source: 'Keyword' as const, term: keyword })),
-  ]
-
-  const uniqueSuggestions = new Map<string, { source: string; term: string }>()
-  for (const entry of suggestionEntries) {
-    const normalizedTerm = normalizeSuggestionKey(entry.term)
-    if (!normalizedTerm || uniqueSuggestions.has(normalizedTerm)) continue
-    uniqueSuggestions.set(normalizedTerm, entry)
-  }
-
-  const searchSuggestionText = [...uniqueSuggestions.values()]
-    .map(entry => `${entry.source}\t${entry.term}`)
-    .join('\n')
-
-  const searchText = [
-    characterName,
-    creator ?? '',
-    ...creatorAliases,
-    ...searchableDateTerms,
-    commission.fileName,
-    commission.design ?? '',
-    commission.description ?? '',
-    keywordSearchText,
-  ]
-    .join(' ')
-    .toLowerCase()
-
-  return { searchText, searchSuggestionText }
-}
 
 interface SortableCharacterCardProps {
   item: CharacterItem
@@ -119,6 +71,14 @@ const SortableCharacterCard = ({
   const character = item.data
   const sectionId = `admin-character-${character.id}`
   const searchSourceCommissions = searchIndexCommissionList ?? commissionList
+  const hiddenSearchEntries = useMemo(
+    () =>
+      searchSourceCommissions.map(commission => ({
+        commissionId: commission.id,
+        ...buildAdminCommissionSearchMetadata(character.name, commission, creatorAliasesMap),
+      })),
+    [character.name, creatorAliasesMap, searchSourceCommissions],
+  )
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: character.id,
     disabled: disableDrag || isDeleting,
@@ -158,23 +118,15 @@ const SortableCharacterCard = ({
       data-total-commissions={commissionList.length}
     >
       <div className="hidden" aria-hidden="true">
-        {searchSourceCommissions.map(commission => {
-          const { searchText, searchSuggestionText } = buildCommissionSearchMetadata(
-            character.name,
-            commission,
-            creatorAliasesMap,
-          )
-
-          return (
-            <div
-              key={`search-entry-${commission.id}`}
-              data-commission-entry="true"
-              data-character-section-id={sectionId}
-              data-search-text={searchText}
-              data-search-suggest={searchSuggestionText}
-            />
-          )
-        })}
+        {hiddenSearchEntries.map(entry => (
+          <div
+            key={`search-entry-${entry.commissionId}`}
+            data-commission-entry="true"
+            data-character-section-id={sectionId}
+            data-search-text={entry.searchText}
+            data-search-suggest={entry.searchSuggestionText}
+          />
+        ))}
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white/95 shadow-sm ring-1 ring-gray-900/5 transition dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10">
