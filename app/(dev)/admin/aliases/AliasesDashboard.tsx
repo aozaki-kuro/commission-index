@@ -1,13 +1,13 @@
 'use client'
 
-import Link from 'next/link'
-import { useActionState, useDeferredValue, useMemo, useState } from 'react'
+import { useActionState, useMemo, useState } from 'react'
+import { useFormStatus } from 'react-dom'
 
 import { saveCreatorAliasesBatchAction } from '#admin/actions'
 import { hasCjkCharacter } from '#lib/creatorAliases/shared'
 import type { CreatorAliasRow } from '#lib/admin/db'
+import AdminSectionNav from '../AdminSectionNav'
 import FormStatusIndicator from '../FormStatusIndicator'
-import SubmitButton from '../SubmitButton'
 import { INITIAL_FORM_STATE } from '../types'
 import { adminSurfaceStyles, formControlStyles } from '../uiStyles'
 
@@ -21,26 +21,27 @@ const buildInitialDrafts = (creators: CreatorAliasRow[]) =>
     string
   >
 
+const AliasesSaveButton = () => {
+  const { pending } = useFormStatus()
+
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="inline-flex h-9 items-center justify-center rounded-md bg-gray-900 px-4 text-sm font-medium text-white transition hover:bg-gray-700 focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200 dark:focus-visible:ring-offset-gray-900"
+    >
+      {pending ? 'Saving...' : 'Save aliases'}
+    </button>
+  )
+}
+
 const AliasesDashboard = ({ creators }: AliasesDashboardProps) => {
   const [state, formAction] = useActionState(saveCreatorAliasesBatchAction, INITIAL_FORM_STATE)
-  const [query, setQuery] = useState('')
   const [drafts, setDrafts] = useState<Record<string, string>>(() => buildInitialDrafts(creators))
-  const deferredQuery = useDeferredValue(query)
   const visibleCreators = useMemo(
     () => creators.filter(row => hasCjkCharacter(row.creatorName)),
     [creators],
   )
-
-  const filteredCreators = useMemo(() => {
-    const needle = deferredQuery.trim().toLowerCase()
-    if (!needle) return visibleCreators
-
-    return visibleCreators.filter(row => {
-      if (row.creatorName.toLowerCase().includes(needle)) return true
-      const alias = (drafts[row.creatorName] ?? row.aliases[0] ?? '').toLowerCase()
-      return alias.includes(needle)
-    })
-  }, [deferredQuery, drafts, visibleCreators])
 
   const rowsPayload = useMemo(
     () =>
@@ -64,51 +65,21 @@ const AliasesDashboard = ({ creators }: AliasesDashboardProps) => {
         </p>
       </header>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-gray-600 dark:text-gray-300">
-          {filteredCreators.length} / {visibleCreators.length} creators
-        </div>
-        <div className="flex justify-end gap-4">
-          <Link href="/admin">Admin</Link>
-          <Link href="/">Home</Link>
-        </div>
-      </div>
-
-      <section className={adminSurfaceStyles}>
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-          <div className="space-y-1">
-            <label
-              htmlFor="creator-alias-filter"
-              className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300"
-            >
-              Filter
-            </label>
-            <input
-              id="creator-alias-filter"
-              type="search"
-              value={query}
-              onChange={event => setQuery(event.target.value)}
-              placeholder="Search creator or alias"
-              className={formControlStyles}
-            />
-          </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Creator aliases are matched as creator search terms.
-          </p>
-        </div>
-      </section>
+      <AdminSectionNav current="aliases" />
 
       <form action={formAction} className={adminSurfaceStyles}>
         <input type="hidden" name="rowsJson" value={rowsPayload} />
 
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <SubmitButton pendingLabel="Saving...">Save</SubmitButton>
-          <FormStatusIndicator
-            status={state.status}
-            message={state.message}
-            successLabel="Saved"
-            errorFallback="Unable to save aliases."
-          />
+        <div className="mb-4 flex justify-end">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <FormStatusIndicator
+              status={state.status}
+              message={state.message}
+              successLabel="Saved"
+              errorFallback="Unable to save aliases."
+            />
+            <AliasesSaveButton />
+          </div>
         </div>
 
         <div className="mb-4 hidden grid-cols-[minmax(12rem,18rem)_minmax(0,1fr)] gap-4 text-xs font-semibold tracking-wide text-gray-500 uppercase md:grid dark:text-gray-300">
@@ -116,13 +87,13 @@ const AliasesDashboard = ({ creators }: AliasesDashboardProps) => {
           <div>Alias</div>
         </div>
 
-        {filteredCreators.length === 0 ? (
+        {visibleCreators.length === 0 ? (
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            No creators matched your filter.
+            No creators available for alias editing.
           </p>
         ) : (
           <div className="space-y-0">
-            {filteredCreators.map(row => (
+            {visibleCreators.map(row => (
               <div
                 key={row.creatorName}
                 className="grid gap-4 border-t border-gray-200/80 py-4 first:border-t-0 first:pt-0 md:grid-cols-[minmax(12rem,18rem)_minmax(0,1fr)] md:items-center dark:border-gray-700/80"

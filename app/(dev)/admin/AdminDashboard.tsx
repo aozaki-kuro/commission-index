@@ -2,11 +2,11 @@
 
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react'
 import type { CharacterRow, CommissionRow } from '#lib/admin/db'
-import Link from 'next/link'
 import AddCharacterForm from './AddCharacterForm'
 import AddCommissionForm from './AddCommissionForm'
 import AdminLiveRefresh from './AdminLiveRefresh'
 import CommissionManager from './CommissionManager'
+import AdminSectionNav from './AdminSectionNav'
 import useStoredTabIndex from './hooks/useStoredTabIndex'
 
 interface AdminDashboardProps {
@@ -39,10 +39,7 @@ const AdminDashboard = ({ characters, commissions }: AdminDashboardProps) => {
         </p>
       </header>
 
-      <div className="flex justify-end gap-4">
-        <Link href="/admin/aliases">Aliases</Link>
-        <Link href="/">Home</Link>
-      </div>
+      <AdminSectionNav current="admin" />
 
       {selectedIndex === null ? (
         <div className="mt-2 space-y-6" aria-hidden="true">
