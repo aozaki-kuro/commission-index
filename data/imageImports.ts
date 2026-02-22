@@ -102,7 +102,6 @@ import A20250403 from '#images/webp/20250403_七市.webp'
 import A20250429 from '#images/webp/20250429.webp'
 import A20250602 from '#images/webp/20250602.webp'
 import A20250608 from '#images/webp/20250608_七市.webp'
-import A20250714 from '#images/webp/20250714_Rman.webp'
 import A20250802 from '#images/webp/20250802.webp'
 import A20250820 from '#images/webp/20250820_Bailikoi.webp'
 import A20250907 from '#images/webp/20250907_七市.webp'
@@ -223,7 +222,6 @@ export const imageImports = {
   '20250429': A20250429,
   '20250602': A20250602,
   '20250608_七市': A20250608,
-  '20250714_Rman': A20250714,
   '20250802': A20250802,
   '20250820_Bailikoi': A20250820,
   '20250907_七市': A20250907,
