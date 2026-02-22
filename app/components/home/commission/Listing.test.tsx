@@ -125,6 +125,14 @@ describe('Listing', () => {
       }),
     )
 
+    const entry = document.querySelector('[data-commission-entry="true"]')
+    const searchText = entry?.getAttribute('data-search-text') ?? ''
+    const searchSuggest = entry?.getAttribute('data-search-suggest') ?? ''
+
+    expect(searchText).toContain('q')
+    expect(searchText).not.toContain('part')
+    expect(searchSuggest).toContain('Creator\tQ')
+    expect(searchSuggest).not.toContain('Creator\tQ (part 2)')
     expect(screen.getByRole('img', { name: '©️ 2024 Q & Crystallize' })).toBeInTheDocument()
   })
 })

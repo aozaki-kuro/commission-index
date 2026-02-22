@@ -75,7 +75,7 @@ const Listing = async ({ Character, status, commissionMap, creatorAliasesMap }: 
           const suggestionEntries = [
             { source: 'Character', term: Character },
             { source: 'Date', term: `${year}/${month}` },
-            ...(creator ? [{ source: 'Creator', term: creator }] : []),
+            ...(normalizedCreatorName ? [{ source: 'Creator', term: normalizedCreatorName }] : []),
             ...creatorAliases.map(alias => ({ source: 'Creator' as const, term: alias })),
             ...keywordTerms.map(keyword => ({ source: 'Keyword', term: keyword })),
           ]
@@ -90,7 +90,7 @@ const Listing = async ({ Character, status, commissionMap, creatorAliasesMap }: 
             .join('\n')
           const searchText = [
             Character,
-            creator,
+            normalizedCreatorName,
             ...creatorAliases,
             ...searchableDateTerms,
             commission.Design ?? '',
