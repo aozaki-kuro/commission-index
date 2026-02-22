@@ -109,4 +109,22 @@ describe('Listing', () => {
     expect(searchSuggest).toContain('Creator\t七市')
     expect(searchSuggest).toContain('Creator\tNanashi')
   })
+
+  it('strips part suffix from creator name in copyright alt text', async () => {
+    render(
+      await Listing({
+        Character: 'Test Character',
+        status: 'active',
+        commissionMap: createMap([
+          {
+            fileName: '20240819_Q (part 2)',
+            Links: [],
+          },
+        ]),
+        creatorAliasesMap: new Map(),
+      }),
+    )
+
+    expect(screen.getByRole('img', { name: '©️ 2024 Q & Crystallize' })).toBeInTheDocument()
+  })
 })

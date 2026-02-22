@@ -2,6 +2,7 @@ import Title from '#components/shared/Title'
 import { getCharacterSectionId } from '#lib/characters/nav'
 import { parseCommissionFileName } from '#lib/commissions/index'
 import { buildDateSearchTokensFromCompactDate } from '#lib/date/search'
+import { getBaseFileName } from '#lib/utils/strings'
 import { normalizeCreatorSearchName } from '#data/creatorAliases'
 import type { CharacterCommissions } from '#data/types'
 import type { StaticImageData } from 'next/image'
@@ -59,7 +60,10 @@ const Listing = async ({ Character, status, commissionMap, creatorAliasesMap }: 
             : []
           const month = date.slice(4, 6)
           const searchableDateTerms = [date, ...buildDateSearchTokensFromCompactDate(date)]
-          const altText = `©️ ${year} ${creator || 'Anonymous'} & Crystallize`
+          const copyrightCreator = creator
+            ? getBaseFileName(creator).trim() || creator
+            : 'Anonymous'
+          const altText = `©️ ${year} ${copyrightCreator} & Crystallize`
           const mappedImage = imageImports[commission.fileName]
           const fallbackImageSrc = `/images/webp/${encodeURIComponent(commission.fileName)}.webp`
           const elementId = `${sectionId}-${date}`
