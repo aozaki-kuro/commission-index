@@ -3,11 +3,12 @@
 import { DndContext, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import Fuse from 'fuse.js'
-import dynamic from 'next/dynamic'
 import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react'
 
 import type { CharacterRow, CommissionRow, CreatorAliasRow } from '#lib/admin/db'
-import type { CommissionSearchEntrySource } from '#components/home/search/CommissionSearch'
+import CommissionSearch, {
+  type CommissionSearchEntrySource,
+} from '#components/home/search/CommissionSearch'
 import { buildStrictTermIndex, getMatchedEntryIds, normalizeQuery } from '#lib/search/index'
 
 import CharacterDeleteDialog from './components/CharacterDeleteDialog'
@@ -15,11 +16,6 @@ import SortableCharacterCard from './components/SortableCharacterCard'
 import SortableDivider from './components/SortableDivider'
 import useCommissionManager, { DIVIDER_ID } from './hooks/useCommissionManager'
 import { buildAdminCommissionSearchMetadata } from './search/commissionSearchMetadata'
-
-const AdminCommissionSearch = dynamic(() => import('#components/home/search/CommissionSearch'), {
-  ssr: false,
-  loading: () => <div className="mb-6 h-12" aria-hidden="true" />,
-})
 
 interface CommissionManagerProps {
   characters: CharacterRow[]
@@ -209,13 +205,13 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
         </p>
       )}
 
-      <AdminCommissionSearch
+      <CommissionSearch
         disableDomFiltering
         externalEntries={commissionSearchEntries}
         onQueryChange={handleSearchQueryChange}
       />
 
-      <div className="space-y-4">
+      <div className="animate-[tabFade_260ms_ease-out] space-y-4">
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}

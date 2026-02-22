@@ -44,8 +44,8 @@ const AdminDashboard = ({ characters, commissions, creatorAliases }: AdminDashbo
 
       {selectedIndex === null ? (
         <div className="mt-2 space-y-6" aria-hidden="true">
-          <div className="h-11 w-full animate-pulse rounded-xl border border-gray-200 bg-gray-100/80 dark:border-gray-700 dark:bg-gray-800/60" />
-          <div className="h-56 w-full animate-pulse rounded-2xl border border-gray-200 bg-gray-100/70 dark:border-gray-700 dark:bg-gray-800/40" />
+          <div className="h-11 w-full rounded-xl opacity-0" />
+          <div className="h-56 w-full rounded-2xl opacity-0" />
         </div>
       ) : (
         <TabGroup selectedIndex={selectedIndex} onChange={setSelectedIndex}>
@@ -74,7 +74,7 @@ const AdminDashboard = ({ characters, commissions, creatorAliases }: AdminDashbo
               </div>
             </TabPanel>
 
-            <TabPanel className="animate-[tabFade_260ms_ease-out] focus:outline-none">
+            <TabPanel className="focus:outline-none">
               <CommissionManager
                 characters={characters}
                 commissions={commissions}
