@@ -14,6 +14,8 @@ export type FilteredSuggestion = Suggestion & {
   matchedCount: number
 }
 
+export type SuggestionTokenOperator = 'exclude' | 'or' | 'and' | null
+
 export type SearchEntryLike = {
   id: number
   searchText: string
@@ -37,6 +39,7 @@ type PreparedSuggestion = {
   suggestion: Suggestion
   normalizedTerm: string
   normalizedMatchToken: string
+  hasMaskWildcard: boolean
   isDateSuggestion: boolean
   monthSortKey: number | null
 }
@@ -49,6 +52,18 @@ type SuggestionMatch = {
   monthSortKey: number | null
 }
 
+type ParsedFuseQuery = {
+  normalizedRawQuery: string
+  tokens: string[]
+}
+
+type ParsedSuggestionInputState = {
+  suggestionQuery: string
+  suggestionContextQuery: string
+  suggestionOperator: SuggestionTokenOperator
+  suggestionIsExclusion: boolean
+}
+
 const normalize = (s: string) => s.trim().toLowerCase()
 const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const normalizeSuggestionMatchToken = (term: string) => normalize(term).replace(/[\s"'`]+/g, '')
@@ -56,14 +71,41 @@ const trailingTokenSeparatorPattern = /(?:\s|\||!)$/
 const replaceLastTokenPattern = /(.*)([\s|!]+)(.*$)/
 const indexedTermPattern = /^[a-z0-9_]+$/
 const MAX_QUERY_CACHE_SIZE = 300
+const MAX_PARSED_QUERY_CACHE_SIZE = 300
+const MAX_EXCLUDED_SUGGESTION_TERMS_CACHE_SIZE = 200
+const BASE_SEARCH_FUSE_OPTIONS = {
+  threshold: 0.33,
+  ignoreLocation: true,
+  includeScore: false,
+  minMatchCharLength: 1,
+  useExtendedSearch: true,
+} as const
 const EMPTY_IDS = new Set<number>()
+const EMPTY_STRING_SET = new Set<string>()
 const matchedIdsCache = new WeakMap<object, Map<string, Set<number>>>()
 const strictTermMatchesCache = new WeakMap<object, Map<string, Set<number>>>()
 const preparedSuggestionsCache = new WeakMap<Suggestion[], PreparedSuggestion[]>()
+const parsedFuseQueryCache = new Map<string, ParsedFuseQuery>()
+const excludedSuggestionTermsCache = new Map<string, Set<string>>()
+const parsedSuggestionInputStateCache = new Map<string, ParsedSuggestionInputState>()
+const suggestionEntriesByIdCache = new WeakMap<
+  SuggestionEntryLike[],
+  Map<number, SuggestionEntryLike>
+>()
 const contextTermCountsCache = new WeakMap<
   SuggestionEntryLike[],
   WeakMap<Set<number>, Map<string, number>>
 >()
+
+const setLruCacheEntry = <K, V>(cache: Map<K, V>, key: K, value: V, limit: number) => {
+  if (cache.has(key)) cache.delete(key)
+  cache.set(key, value)
+  if (cache.size > limit) {
+    const oldestKey = cache.keys().next().value as K | undefined
+    if (oldestKey !== undefined) cache.delete(oldestKey)
+  }
+  return value
+}
 
 const getQueryCache = <T extends SearchEntryLike>(index: SearchIndexLike<T>) => {
   const cached = matchedIdsCache.get(index as object)
@@ -79,11 +121,14 @@ const getPreparedSuggestions = (suggestions: Suggestion[]) => {
   const next = suggestions.map(suggestion => {
     const isDateSuggestion = suggestion.sources.includes('Date')
     const parsed = isDateSuggestion ? parseDateSearchInput(suggestion.term) : null
+    const normalizedTerm = normalize(suggestion.term)
+    const normalizedMatchToken = normalizeSuggestionMatchToken(suggestion.term)
 
     return {
       suggestion,
-      normalizedTerm: normalize(suggestion.term),
-      normalizedMatchToken: normalizeSuggestionMatchToken(suggestion.term),
+      normalizedTerm,
+      normalizedMatchToken,
+      hasMaskWildcard: normalizedMatchToken.includes('*'),
       isDateSuggestion,
       monthSortKey:
         isDateSuggestion && parsed?.month ? Number(`${parsed.year}${parsed.month}`) : null,
@@ -146,8 +191,118 @@ const includeInverseInPlace = (source: Set<number>, allIds: Set<number>, exclude
 }
 
 const tokenizeQuery = (query: string) => query.match(/"[^"]*"|\S+/g) ?? []
+const suggestionTokenTailPattern = /^(.*?)(!?)(?:"([^"]*)"|"([^"]*)|([^\s|!]*))$/
 
-const collectExcludedSuggestionTerms = (rawQuery: string) => {
+const getParsedFuseQuery = (rawQuery: string): ParsedFuseQuery => {
+  const cached = parsedFuseQueryCache.get(rawQuery)
+  if (cached) return cached
+
+  const normalizedRawQuery = toFuseOperatorQuery(rawQuery)
+  const parsed = {
+    normalizedRawQuery,
+    tokens: normalizedRawQuery ? tokenizeQuery(normalizedRawQuery) : [],
+  }
+
+  return setLruCacheEntry(parsedFuseQueryCache, rawQuery, parsed, MAX_PARSED_QUERY_CACHE_SIZE)
+}
+
+export const parseSuggestionInputState = (rawQuery: string): ParsedSuggestionInputState => {
+  const cached = parsedSuggestionInputStateCache.get(rawQuery)
+  if (cached) return cached
+
+  const trimmedQuery = rawQuery.trim()
+  if (!trimmedQuery) {
+    return setLruCacheEntry(
+      parsedSuggestionInputStateCache,
+      rawQuery,
+      {
+        suggestionQuery: '',
+        suggestionContextQuery: '',
+        suggestionOperator: null,
+        suggestionIsExclusion: false,
+      },
+      MAX_PARSED_QUERY_CACHE_SIZE,
+    )
+  }
+
+  if (trailingTokenSeparatorPattern.test(rawQuery)) {
+    return setLruCacheEntry(
+      parsedSuggestionInputStateCache,
+      rawQuery,
+      {
+        suggestionQuery: '',
+        suggestionContextQuery: rawQuery,
+        suggestionOperator: null,
+        suggestionIsExclusion: false,
+      },
+      MAX_PARSED_QUERY_CACHE_SIZE,
+    )
+  }
+
+  const match = rawQuery.match(suggestionTokenTailPattern)
+  if (!match) {
+    return setLruCacheEntry(
+      parsedSuggestionInputStateCache,
+      rawQuery,
+      {
+        suggestionQuery: '',
+        suggestionContextQuery: rawQuery,
+        suggestionOperator: null,
+        suggestionIsExclusion: false,
+      },
+      MAX_PARSED_QUERY_CACHE_SIZE,
+    )
+  }
+
+  const prefix = match[1] ?? ''
+  const negation = match[2] ?? ''
+  const closedQuotedToken = match[3]
+  const openQuotedToken = match[4]
+  const unquotedToken = match[5]
+  const tokenBody = (closedQuotedToken ?? openQuotedToken ?? unquotedToken ?? '').trim()
+  let suggestionOperator: SuggestionTokenOperator = null
+
+  if (tokenBody) {
+    if (negation === '!') {
+      suggestionOperator = 'exclude'
+    } else {
+      const trimmedPrefix = prefix.replace(/\s+$/g, '')
+      if (trimmedPrefix.at(-1) === '|') {
+        suggestionOperator = 'or'
+      } else if (
+        closedQuotedToken === undefined &&
+        /\s+$/.test(prefix) &&
+        trimmedPrefix.length > 0
+      ) {
+        suggestionOperator = 'and'
+      }
+    }
+  }
+
+  return setLruCacheEntry(
+    parsedSuggestionInputStateCache,
+    rawQuery,
+    {
+      suggestionQuery: tokenBody,
+      suggestionContextQuery: prefix.trimEnd(),
+      suggestionOperator,
+      suggestionIsExclusion: suggestionOperator === 'exclude',
+    },
+    MAX_PARSED_QUERY_CACHE_SIZE,
+  )
+}
+
+const parseQueryTermToken = (token: string) => {
+  if (!token || token === '|') return null
+
+  const isNegated = token.startsWith('!')
+  const rawTerm = trimWrappingQuotes(isNegated ? token.slice(1) : token)
+  if (!rawTerm) return null
+
+  return { isNegated, rawTerm }
+}
+
+const collectExcludedSuggestionTermsUncached = (rawQuery: string) => {
   if (!rawQuery.trim()) return new Set<string>()
 
   const excludedTerms = new Set<string>()
@@ -177,9 +332,9 @@ const collectExcludedSuggestionTerms = (rawQuery: string) => {
       continue
     }
 
-    const isNegated = token.startsWith('!')
-    const rawTerm = trimWrappingQuotes(isNegated ? token.slice(1) : token)
-    if (!rawTerm) continue
+    const parsedToken = parseQueryTermToken(token)
+    if (!parsedToken) continue
+    const { rawTerm } = parsedToken
 
     segmentTerms.push(rawTerm)
     excludedTerms.add(normalizeSuggestionMatchToken(rawTerm))
@@ -192,6 +347,20 @@ const collectExcludedSuggestionTerms = (rawQuery: string) => {
 
   flushSegmentTerms()
   return excludedTerms
+}
+
+const collectExcludedSuggestionTerms = (rawQuery: string) => {
+  if (!rawQuery.trim()) return EMPTY_STRING_SET
+
+  const cached = excludedSuggestionTermsCache.get(rawQuery)
+  if (cached) return cached
+
+  return setLruCacheEntry(
+    excludedSuggestionTermsCache,
+    rawQuery,
+    collectExcludedSuggestionTermsUncached(rawQuery),
+    MAX_EXCLUDED_SUGGESTION_TERMS_CACHE_SIZE,
+  )
 }
 
 const evaluateStrictQuery = <T extends SearchEntryLike>(
@@ -208,9 +377,9 @@ const evaluateStrictQuery = <T extends SearchEntryLike>(
       continue
     }
 
-    const isNegated = token.startsWith('!')
-    const rawTerm = trimWrappingQuotes(isNegated ? token.slice(1) : token)
-    if (!rawTerm) continue
+    const parsedToken = parseQueryTermToken(token)
+    if (!parsedToken) continue
+    const { isNegated, rawTerm } = parsedToken
 
     hasTerm = true
     const termMatches = getStrictTermMatches(index, rawTerm)
@@ -233,6 +402,25 @@ const evaluateStrictQuery = <T extends SearchEntryLike>(
   return hasTerm ? current : null
 }
 
+const getSuggestionEntriesById = (entries: SuggestionEntryLike[]) => {
+  const cached = suggestionEntriesByIdCache.get(entries)
+  if (cached) return cached
+
+  const next = new Map(entries.map(entry => [entry.id, entry]))
+  suggestionEntriesByIdCache.set(entries, next)
+  return next
+}
+
+const addSuggestionRowTermsToCounts = (
+  counts: Map<string, number>,
+  entry: SuggestionEntryLike | undefined,
+) => {
+  if (!entry) return
+  for (const term of entry.suggestionRows.keys()) {
+    counts.set(term, (counts.get(term) ?? 0) + 1)
+  }
+}
+
 const getContextTermCounts = (entries: SuggestionEntryLike[], matchedIds: Set<number>) => {
   let byMatchedSet = contextTermCountsCache.get(entries)
   if (!byMatchedSet) {
@@ -243,10 +431,22 @@ const getContextTermCounts = (entries: SuggestionEntryLike[], matchedIds: Set<nu
   if (cached) return cached
 
   const counts = new Map<string, number>()
-  for (const entry of entries) {
-    if (!matchedIds.has(entry.id)) continue
-    for (const term of entry.suggestionRows.keys()) {
-      counts.set(term, (counts.get(term) ?? 0) + 1)
+
+  if (matchedIds.size === 0) {
+    byMatchedSet.set(matchedIds, counts)
+    return counts
+  }
+
+  // For narrow contexts, iterating the matched id set avoids scanning every entry.
+  if (matchedIds.size * 3 <= entries.length) {
+    const entryById = getSuggestionEntriesById(entries)
+    for (const id of matchedIds) {
+      addSuggestionRowTermsToCounts(counts, entryById.get(id))
+    }
+  } else {
+    for (const entry of entries) {
+      if (!matchedIds.has(entry.id)) continue
+      addSuggestionRowTermsToCounts(counts, entry)
     }
   }
   byMatchedSet.set(matchedIds, counts)
@@ -303,6 +503,19 @@ export const buildStrictTermIndex = <T extends SearchEntryLike>(entries: T[]) =>
   return index
 }
 
+export const createSearchFuse = <T extends SearchEntryLike>(entries: T[]) =>
+  new Fuse(entries, {
+    keys: ['searchText'],
+    ...BASE_SEARCH_FUSE_OPTIONS,
+  })
+
+export const createSearchIndex = <T extends SearchEntryLike>(entries: T[]): SearchIndexLike<T> => ({
+  entries,
+  allIds: new Set(entries.map(entry => entry.id)),
+  strictTermIndex: buildStrictTermIndex(entries),
+  fuse: createSearchFuse(entries),
+})
+
 const matchesMaskedAt = (pattern: string, query: string, startIndex: number) => {
   for (let i = 0; i < query.length; i += 1) {
     const patternChar = pattern[startIndex + i]
@@ -312,6 +525,17 @@ const matchesMaskedAt = (pattern: string, query: string, startIndex: number) => 
   }
   return true
 }
+
+const matchesPlainSuggestion = (
+  pattern: string,
+  query: string,
+): 'exact' | 'startsWith' | 'includes' | null => {
+  if (!pattern || !query || query.length > pattern.length) return null
+  if (pattern === query) return 'exact'
+  if (pattern.startsWith(query)) return 'startsWith'
+  return pattern.includes(query) ? 'includes' : null
+}
+
 const matchesMaskedSuggestion = (
   pattern: string,
   query: string,
@@ -332,16 +556,13 @@ const trimWrappingQuotes = (value: string) =>
   value.startsWith('"') && value.endsWith('"') && value.length >= 2 ? value.slice(1, -1) : value
 
 const normalizeDateTokenInQuery = (token: string) => {
-  if (!token || token === '|' || token === '!') return token
+  const parsedToken = parseQueryTermToken(token)
+  if (!parsedToken) return token
 
-  const isNegated = token.startsWith('!')
-  const candidate = trimWrappingQuotes(isNegated ? token.slice(1) : token)
-  if (!candidate) return token
-
-  const normalizedDate = normalizeDateQueryToken(candidate)
+  const normalizedDate = normalizeDateQueryToken(parsedToken.rawTerm)
   if (!normalizedDate) return token
 
-  return `${isNegated ? '!' : ''}${normalizedDate}`
+  return `${parsedToken.isNegated ? '!' : ''}${normalizedDate}`
 }
 
 const toFuseOperatorQuery = (rawQuery: string) => {
@@ -371,50 +592,19 @@ export const applySuggestionToQuery = (rawQuery: string, suggestion: string) => 
 }
 
 export const extractSuggestionQuery = (rawQuery: string) => {
-  const tokenMatch = rawQuery.match(/(?:^|[\s|])!?(?:"([^"]*)|([^\s|!]*))$/)
-  if (!tokenMatch) return ''
-  return tokenMatch[1] ?? tokenMatch[2] ?? ''
+  return parseSuggestionInputState(rawQuery).suggestionQuery
 }
 
 export const isSuggestionExclusionToken = (rawQuery: string) => {
-  const tokenMatch = rawQuery.match(/(?:^|[\s|])(!?)(?:"([^"]*)|([^\s|!]*))$/)
-  if (!tokenMatch) return false
-  const tokenBody = tokenMatch[2] ?? tokenMatch[3] ?? ''
-  if (!tokenBody) return false
-  return tokenMatch[1] === '!'
+  return parseSuggestionInputState(rawQuery).suggestionIsExclusion
 }
 
-export const getSuggestionTokenOperator = (rawQuery: string): 'exclude' | 'or' | 'and' | null => {
-  const tokenMatch = rawQuery.match(/^(.*?)(!?)(?:"([^"]*)"|([^\s|!]*))$/)
-  if (!tokenMatch) return null
-
-  const prefix = tokenMatch[1]
-  const negation = tokenMatch[2]
-  const quotedToken = tokenMatch[3]
-  const unquotedToken = tokenMatch[4]
-  const tokenBody = (quotedToken ?? unquotedToken ?? '').trim()
-
-  if (!tokenBody) return null
-  if (negation === '!') return 'exclude'
-  const trimmedPrefix = prefix.replace(/\s+$/g, '')
-  const trailingOperator = trimmedPrefix.at(-1)
-  if (trailingOperator === '|') return 'or'
-
-  const hasWhitespaceSeparator = /\s+$/.test(prefix) && trimmedPrefix.length > 0
-  if (hasWhitespaceSeparator && quotedToken === undefined) return 'and'
-
-  return null
+export const getSuggestionTokenOperator = (rawQuery: string): SuggestionTokenOperator => {
+  return parseSuggestionInputState(rawQuery).suggestionOperator
 }
 
 export const extractSuggestionContextQuery = (rawQuery: string) => {
-  if (!rawQuery.trim()) return ''
-  if (/(?:\s|\||!)$/.test(rawQuery)) return rawQuery
-
-  const tokenMatch = rawQuery.match(/(!?)(?:"[^"]*"|"[^"]*|[^\s|!]+)$/)
-  if (!tokenMatch) return rawQuery
-
-  const [fullToken] = tokenMatch
-  return rawQuery.slice(0, rawQuery.length - fullToken.length).trimEnd()
+  return parseSuggestionInputState(rawQuery).suggestionContextQuery
 }
 
 export const getMatchedEntryIds = <T extends SearchEntryLike>(
@@ -422,7 +612,7 @@ export const getMatchedEntryIds = <T extends SearchEntryLike>(
   index: SearchIndexLike<T>,
 ) => {
   const { entries, allIds, fuse } = index
-  const normalizedRawQuery = toFuseOperatorQuery(rawQuery)
+  const { normalizedRawQuery, tokens } = getParsedFuseQuery(rawQuery)
   if (!entries.length || !fuse) return EMPTY_IDS
   if (!normalizedRawQuery) return allIds
 
@@ -430,19 +620,13 @@ export const getMatchedEntryIds = <T extends SearchEntryLike>(
   const cached = queryCache.get(normalizedRawQuery)
   if (cached) return cached
 
-  const tokens = tokenizeQuery(normalizedRawQuery)
   const strictMatchIds = tokens.length ? evaluateStrictQuery(index, tokens) : null
 
   const matched =
     strictMatchIds && strictMatchIds.size > 0
       ? strictMatchIds
       : new Set(fuse.search(normalizedRawQuery).map(result => result.item.id))
-  if (queryCache.size >= MAX_QUERY_CACHE_SIZE) {
-    const oldestKey = queryCache.keys().next().value
-    if (oldestKey) queryCache.delete(oldestKey)
-  }
-  queryCache.set(normalizedRawQuery, matched)
-  return matched
+  return setLruCacheEntry(queryCache, normalizedRawQuery, matched, MAX_QUERY_CACHE_SIZE)
 }
 
 export const resolveSuggestionContextMatchedIds = <T extends SearchEntryLike>({
@@ -451,15 +635,17 @@ export const resolveSuggestionContextMatchedIds = <T extends SearchEntryLike>({
   suggestionContextQuery,
   matchedIds,
   index,
+  suggestionOperator,
 }: {
   rawQuery: string
   suggestionQuery: string
   suggestionContextQuery: string
   matchedIds: Set<number>
   index: SearchIndexLike<T>
+  suggestionOperator?: SuggestionTokenOperator
 }) => {
   if (!suggestionQuery) return index.allIds
-  if (getSuggestionTokenOperator(rawQuery) === 'or') return index.allIds
+  if ((suggestionOperator ?? getSuggestionTokenOperator(rawQuery)) === 'or') return index.allIds
   if (suggestionContextQuery === rawQuery) return matchedIds
   return getMatchedEntryIds(suggestionContextQuery, index)
 }
@@ -571,12 +757,20 @@ export const filterSuggestions = ({
   const excludedSuggestionTerms = collectExcludedSuggestionTerms(suggestionContextQuery)
 
   for (const preparedSuggestion of preparedSuggestions) {
-    const { suggestion, normalizedMatchToken, normalizedTerm, isDateSuggestion, monthSortKey } =
-      preparedSuggestion
+    const {
+      suggestion,
+      normalizedMatchToken,
+      normalizedTerm,
+      hasMaskWildcard,
+      isDateSuggestion,
+      monthSortKey,
+    } = preparedSuggestion
     if (isDateSuggestion && !showDateSuggestions) continue
     if (excludedSuggestionTerms.has(normalizedMatchToken)) continue
 
-    const matchType = matchesMaskedSuggestion(normalizedMatchToken, normalizedSuggestionQuery)
+    const matchType = hasMaskWildcard
+      ? matchesMaskedSuggestion(normalizedMatchToken, normalizedSuggestionQuery)
+      : matchesPlainSuggestion(normalizedMatchToken, normalizedSuggestionQuery)
     if (!matchType) continue
 
     const rank = matchType === 'exact' ? 0 : matchType === 'startsWith' ? 1 : 2

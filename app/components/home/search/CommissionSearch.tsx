@@ -11,20 +11,25 @@ import {
   Transition,
   TransitionChild,
 } from '@headlessui/react'
-import Fuse from 'fuse.js'
-import { Fragment, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import {
+  Fragment,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import {
   applySuggestionToQuery,
-  buildStrictTermIndex,
   collectSuggestions,
-  extractSuggestionContextQuery,
-  extractSuggestionQuery,
+  createSearchIndex,
   filterSuggestions,
-  getSuggestionTokenOperator,
   getMatchedEntryIds,
   normalizeQuery,
   normalizeQuotedTokenBoundary,
+  parseSuggestionInputState,
   resolveSuggestionContextMatchedIds,
   type FilteredSuggestion,
   parseSuggestionRows,
@@ -126,18 +131,35 @@ const getTrackableQueryLength = (query: string) => {
   return normalized.replace(/["|!]/g, '').trim().length
 }
 
+const createEmptySearchIndex = (): SearchIndex => ({
+  entries: [],
+  entryById: new Map(),
+  sections: [],
+  staleDivider: null,
+  allIds: new Set<number>(),
+  suggestions: [],
+  fuse: null,
+})
+
+const finalizeSearchIndex = (
+  entries: Entry[],
+  {
+    sections = [],
+    staleDivider = null,
+  }: {
+    sections?: Section[]
+    staleDivider?: HTMLElement | null
+  } = {},
+): SearchIndex => ({
+  ...createSearchIndex(entries),
+  entryById: new Map(entries.map(entry => [entry.id, entry])),
+  sections,
+  staleDivider,
+  suggestions: collectSuggestions(entries),
+})
+
 const buildSearchIndex = (externalEntries?: CommissionSearchEntrySource[]): SearchIndex => {
-  if (typeof window === 'undefined') {
-    return {
-      entries: [],
-      entryById: new Map(),
-      sections: [],
-      staleDivider: null,
-      allIds: new Set<number>(),
-      suggestions: [],
-      fuse: null,
-    }
-  }
+  if (typeof window === 'undefined') return createEmptySearchIndex()
 
   if (externalEntries) {
     const entries = externalEntries.map(entry => ({
@@ -146,23 +168,7 @@ const buildSearchIndex = (externalEntries?: CommissionSearchEntrySource[]): Sear
       suggestionRows: parseSuggestionRows(entry.searchSuggest ?? ''),
     }))
 
-    return {
-      entries,
-      entryById: new Map(entries.map(entry => [entry.id, entry])),
-      strictTermIndex: buildStrictTermIndex(entries),
-      sections: [],
-      staleDivider: null,
-      allIds: new Set(entries.map(entry => entry.id)),
-      suggestions: collectSuggestions(entries),
-      fuse: new Fuse(entries, {
-        keys: ['searchText'],
-        threshold: 0.33,
-        ignoreLocation: true,
-        includeScore: false,
-        minMatchCharLength: 1,
-        useExtendedSearch: true,
-      }),
-    }
+    return finalizeSearchIndex(entries)
   }
 
   const entries = Array.from(
@@ -179,10 +185,7 @@ const buildSearchIndex = (externalEntries?: CommissionSearchEntrySource[]): Sear
     }
   })
 
-  return {
-    entries,
-    entryById: new Map(entries.map(entry => [entry.id, entry])),
-    strictTermIndex: buildStrictTermIndex(entries),
+  return finalizeSearchIndex(entries, {
     sections: Array.from(
       document.querySelectorAll<HTMLElement>('[data-character-section="true"]'),
     ).map(element => ({
@@ -191,39 +194,31 @@ const buildSearchIndex = (externalEntries?: CommissionSearchEntrySource[]): Sear
       status: element.dataset.characterStatus as 'active' | 'stale' | undefined,
     })),
     staleDivider: document.querySelector<HTMLElement>('[data-stale-divider="true"]'),
-    allIds: new Set(entries.map(entry => entry.id)),
-    suggestions: collectSuggestions(entries),
-    fuse: new Fuse(entries, {
-      keys: ['searchText'],
-      threshold: 0.33,
-      ignoreLocation: true,
-      includeScore: false,
-      minMatchCharLength: 1,
-      useExtendedSearch: true,
-    }),
-  }
+  })
 }
 
 const buildRelatedCreatorTermsMap = (entries: SuggestionEntryLike[]) => {
   const related = new Map<string, Set<string>>()
 
   for (const entry of entries) {
-    const creatorTerms = [...entry.suggestionRows.values()]
-      .filter(row => row.source === 'Creator')
-      .map(row => row.term.trim())
-      .filter(Boolean)
+    const creatorTerms: Array<{ key: string; term: string }> = []
+    for (const row of entry.suggestionRows.values()) {
+      if (row.source !== 'Creator') continue
+      const term = row.term.trim()
+      const key = normalizeSuggestionTermKey(term)
+      if (!key) continue
+      creatorTerms.push({ key, term })
+    }
 
     if (creatorTerms.length < 2) continue
 
-    for (const term of creatorTerms) {
-      const key = normalizeSuggestionTermKey(term)
-      if (!key) continue
-      const bucket = related.get(key) ?? new Set<string>()
+    for (const creator of creatorTerms) {
+      const bucket = related.get(creator.key) ?? new Set<string>()
       for (const other of creatorTerms) {
-        if (normalizeSuggestionTermKey(other) === key) continue
-        bucket.add(other)
+        if (other.key === creator.key) continue
+        bucket.add(other.term)
       }
-      related.set(key, bucket)
+      related.set(creator.key, bucket)
     }
   }
 
@@ -238,12 +233,14 @@ const buildRelatedCreatorTermsMap = (entries: SuggestionEntryLike[]) => {
 interface CommissionSearchProps {
   disableDomFiltering?: boolean
   onQueryChange?: (query: string) => void
+  onMatchedIdsChange?: (matchedIds: Set<number>) => void
   externalEntries?: CommissionSearchEntrySource[]
 }
 
 const CommissionSearch = ({
   disableDomFiltering = false,
   onQueryChange,
+  onMatchedIdsChange,
   externalEntries,
 }: CommissionSearchProps = {}) => {
   const initialUrlQuery = useSyncExternalStore(
@@ -253,12 +250,22 @@ const CommissionSearch = ({
   )
   const [inputQuery, setInputQuery] = useState<string | null>(null)
   const query = inputQuery ?? initialUrlQuery
+  const deferredQuery = useDeferredValue(query)
   const normalizedQuery = normalizeQuery(query)
   const hasQuery = !!normalizedQuery
-  const suggestionQuery = normalizeQuery(extractSuggestionQuery(query))
-  const suggestionContextQuery = extractSuggestionContextQuery(query)
-  const suggestionOperator = getSuggestionTokenOperator(query)
-  const suggestionIsExclusion = suggestionOperator === 'exclude'
+  const normalizedDeferredQuery = normalizeQuery(deferredQuery)
+  const hasDeferredQuery = !!normalizedDeferredQuery
+  const { suggestionQuery, suggestionContextQuery, suggestionOperator, suggestionIsExclusion } =
+    useMemo(() => {
+      const parsed = parseSuggestionInputState(deferredQuery)
+
+      return {
+        suggestionQuery: normalizeQuery(parsed.suggestionQuery),
+        suggestionContextQuery: parsed.suggestionContextQuery,
+        suggestionOperator: parsed.suggestionOperator,
+        suggestionIsExclusion: parsed.suggestionIsExclusion,
+      }
+    }, [deferredQuery])
 
   const inputRef = useRef<HTMLInputElement>(null)
   const liveRef = useRef<HTMLParagraphElement>(null)
@@ -273,17 +280,25 @@ const CommissionSearch = ({
 
   const index = useMemo(() => buildSearchIndex(externalEntries), [externalEntries])
 
-  const matchedIds = useMemo(() => getMatchedEntryIds(query, index), [index, query])
+  const matchedIds = useMemo(() => getMatchedEntryIds(deferredQuery, index), [deferredQuery, index])
 
   const suggestionContextMatchedIds = useMemo(() => {
     return resolveSuggestionContextMatchedIds({
-      rawQuery: query,
+      rawQuery: deferredQuery,
       suggestionQuery,
       suggestionContextQuery,
       matchedIds,
       index,
+      suggestionOperator,
     })
-  }, [index, matchedIds, query, suggestionContextQuery, suggestionQuery])
+  }, [
+    deferredQuery,
+    index,
+    matchedIds,
+    suggestionContextQuery,
+    suggestionOperator,
+    suggestionQuery,
+  ])
 
   const filteredSuggestions = useMemo<FilteredSuggestion[]>(() => {
     return filterSuggestions({
@@ -313,24 +328,28 @@ const CommissionSearch = ({
   }, [onQueryChange, query])
 
   useEffect(() => {
-    const trackableQueryLength = getTrackableQueryLength(query)
+    onMatchedIdsChange?.(matchedIds)
+  }, [matchedIds, onMatchedIdsChange])
+
+  useEffect(() => {
+    const trackableQueryLength = getTrackableQueryLength(deferredQuery)
     if (trackableQueryLength < MIN_TRACK_QUERY_LENGTH || hasTrackedSearchUsageRef.current) return
     hasTrackedSearchUsageRef.current = true
 
     trackSearchUsed({
-      query_length: normalizedQuery.length,
+      query_length: normalizedDeferredQuery.length,
       trackable_query_length: trackableQueryLength,
       result_count: matchedIds.size,
       source: inputQuery === null ? 'url_query' : 'input',
     })
-  }, [inputQuery, matchedIds.size, normalizedQuery.length, query])
+  }, [deferredQuery, inputQuery, matchedIds.size, normalizedDeferredQuery.length])
 
   useEffect(() => {
     const entriesCount = index.entries.length
 
     if (disableDomFiltering) {
       if (liveRef.current && entriesCount > 0) {
-        liveRef.current.textContent = hasQuery
+        liveRef.current.textContent = hasDeferredQuery
           ? `Search results: ${matchedIds.size} of ${entriesCount} commissions shown.`
           : `Search cleared. Showing all ${entriesCount} commissions.`
       }
@@ -365,7 +384,7 @@ const CommissionSearch = ({
 
     for (const section of sections) {
       const shown = visibleBySection.get(section.id) ?? 0
-      const visible = !hasQuery || shown > 0
+      const visible = !hasDeferredQuery || shown > 0
       if (sectionVisibilityRef.current.get(section.id) !== visible) {
         sectionVisibilityRef.current.set(section.id, visible)
         section.element.classList.toggle('hidden', !visible)
@@ -378,7 +397,8 @@ const CommissionSearch = ({
     }
 
     if (staleDivider) {
-      const shouldShowDivider = !hasQuery || (visibleActiveSections > 0 && visibleStaleSections > 0)
+      const shouldShowDivider =
+        !hasDeferredQuery || (visibleActiveSections > 0 && visibleStaleSections > 0)
       if (staleDividerVisibilityRef.current !== shouldShowDivider) {
         staleDividerVisibilityRef.current = shouldShowDivider
         staleDivider.classList.toggle('hidden', !shouldShowDivider)
@@ -386,11 +406,11 @@ const CommissionSearch = ({
     }
 
     if (liveRef.current) {
-      liveRef.current.textContent = hasQuery
+      liveRef.current.textContent = hasDeferredQuery
         ? `Search results: ${matchedIds.size} of ${entriesCount} commissions shown.`
         : `Search cleared. Showing all ${entriesCount} commissions.`
     }
-  }, [disableDomFiltering, hasQuery, index, matchedIds])
+  }, [disableDomFiltering, hasDeferredQuery, index, matchedIds])
 
   useEffect(() => {
     if (didAutoJumpRef.current || !initialUrlQuery) return

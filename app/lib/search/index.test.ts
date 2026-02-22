@@ -135,6 +135,14 @@ describe('search suggestion token operator', () => {
   it('returns null when token has no operator', () => {
     expect(getSuggestionTokenOperator('Albemuth')).toBeNull()
   })
+
+  it('keeps unfinished quoted token behavior for query/operator parsing', () => {
+    const rawQuery = 'Albemuth "BEMA'
+
+    expect(extractSuggestionQuery(rawQuery)).toBe('BEMA')
+    expect(extractSuggestionContextQuery(rawQuery)).toBe('Albemuth')
+    expect(getSuggestionTokenOperator(rawQuery)).toBe('and')
+  })
 })
 
 describe('search suggestion context scope', () => {

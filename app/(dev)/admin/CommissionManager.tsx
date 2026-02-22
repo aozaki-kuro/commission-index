@@ -2,14 +2,13 @@
 
 import { DndContext, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import Fuse from 'fuse.js'
-import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 
 import type { CharacterRow, CommissionRow, CreatorAliasRow } from '#lib/admin/db'
 import CommissionSearch, {
   type CommissionSearchEntrySource,
 } from '#components/home/search/CommissionSearch'
-import { buildStrictTermIndex, getMatchedEntryIds, normalizeQuery } from '#lib/search/index'
+import { normalizeQuery } from '#lib/search/index'
 
 import CharacterDeleteDialog from './components/CharacterDeleteDialog'
 import SortableCharacterCard from './components/SortableCharacterCard'
@@ -53,11 +52,8 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
 
   const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({})
   const confirmDeleteButtonRef = useRef<HTMLButtonElement | null>(null)
-  const [appliedSearchQuery, setAppliedSearchQuery] = useState('')
-  const deferredSearchQuery = useDeferredValue(appliedSearchQuery)
+  const [hasAppliedSearchQuery, setHasAppliedSearchQuery] = useState(false)
   const dividerIndex = list.findIndex(i => i.type === 'divider')
-  const normalizedAppliedSearchQuery = normalizeQuery(deferredSearchQuery)
-  const hasAppliedSearchQuery = normalizedAppliedSearchQuery.length > 0
   const creatorAliasesMap = useMemo(
     () => new Map(creatorAliases.map(row => [row.creatorName, row.aliases] as const)),
     [creatorAliases],
@@ -108,29 +104,17 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
 
     return entries
   }, [characterNameById, creatorAliasesMap, sortedCommissionsByCharacter])
-  const commissionSearchIndex = useMemo(
-    () => ({
-      entries: commissionSearchEntries,
-      allIds: new Set(commissionSearchEntries.map(entry => entry.id)),
-      strictTermIndex: buildStrictTermIndex(commissionSearchEntries),
-      fuse: new Fuse(commissionSearchEntries, {
-        keys: ['searchText'],
-        threshold: 0.33,
-        ignoreLocation: true,
-        includeScore: false,
-        minMatchCharLength: 1,
-        useExtendedSearch: true,
-      }),
-    }),
+  const allCommissionIds = useMemo(
+    () => new Set(commissionSearchEntries.map(entry => entry.id)),
     [commissionSearchEntries],
   )
-  const matchedCommissionIds = useMemo(
-    () =>
-      hasAppliedSearchQuery
-        ? getMatchedEntryIds(deferredSearchQuery, commissionSearchIndex)
-        : commissionSearchIndex.allIds,
-    [commissionSearchIndex, deferredSearchQuery, hasAppliedSearchQuery],
+  const [matchedCommissionIds, setMatchedCommissionIds] = useState<Set<number>>(
+    () => allCommissionIds,
   )
+  const effectiveMatchedCommissionIds = hasAppliedSearchQuery
+    ? matchedCommissionIds
+    : allCommissionIds
+
   const visibleCommissionsByCharacter = useMemo(() => {
     if (!hasAppliedSearchQuery) return sortedCommissionsByCharacter
 
@@ -138,16 +122,17 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
     for (const [characterId, rows] of sortedCommissionsByCharacter) {
       next.set(
         characterId,
-        rows.filter(commission => matchedCommissionIds.has(commission.id)),
+        rows.filter(commission => effectiveMatchedCommissionIds.has(commission.id)),
       )
     }
     return next
-  }, [hasAppliedSearchQuery, matchedCommissionIds, sortedCommissionsByCharacter])
+  }, [effectiveMatchedCommissionIds, hasAppliedSearchQuery, sortedCommissionsByCharacter])
 
   const handleSearchQueryChange = useCallback(
     (query: string) => {
-      setAppliedSearchQuery(query)
-      if (!normalizeQuery(query)) {
+      const nextHasQuery = normalizeQuery(query).length > 0
+      setHasAppliedSearchQuery(prev => (prev === nextHasQuery ? prev : nextHasQuery))
+      if (!nextHasQuery) {
         closeAllCharacterOpen()
       }
     },
@@ -209,6 +194,7 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
         disableDomFiltering
         externalEntries={commissionSearchEntries}
         onQueryChange={handleSearchQueryChange}
+        onMatchedIdsChange={setMatchedCommissionIds}
       />
 
       <div className="animate-[tabFade_260ms_ease-out] space-y-4">
