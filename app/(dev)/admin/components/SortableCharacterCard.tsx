@@ -6,6 +6,8 @@ import { Transition, TransitionChild } from '@headlessui/react'
 import { type KeyboardEvent, type MouseEvent } from 'react'
 
 import type { CharacterRow, CommissionRow } from '#lib/admin/db'
+import { parseCommissionFileName } from '#lib/commissions/index'
+import { buildDateSearchTokensFromCompactDate } from '#lib/date/search'
 
 import CommissionEditForm from '../CommissionEditForm'
 import type { CharacterItem } from '../hooks/useCommissionManager'
@@ -13,10 +15,56 @@ import type { CharacterItem } from '../hooks/useCommissionManager'
 const inlineEditStyles =
   'flex-1 min-w-0 text-base font-semibold text-gray-900 dark:text-gray-100 bg-transparent border-none outline-none px-0 py-0'
 
+const normalizeSuggestionKey = (term: string) => term.trim().toLowerCase()
+
+const buildCommissionSearchMetadata = (characterName: string, commission: CommissionRow) => {
+  const { date, year, creator } = parseCommissionFileName(commission.fileName)
+  const month = date.slice(4, 6)
+  const searchableDateTerms = [date, ...buildDateSearchTokensFromCompactDate(date)]
+  const keywordTerms = (commission.keyword ?? '')
+    .split(/[,\n，、;；]/)
+    .map(keyword => keyword.trim())
+    .filter(Boolean)
+  const keywordSearchText = keywordTerms.join(' ')
+
+  const suggestionEntries = [
+    { source: 'Character', term: characterName },
+    ...(year && month ? [{ source: 'Date', term: `${year}/${month}` }] : []),
+    ...(creator ? [{ source: 'Creator', term: creator }] : []),
+    ...keywordTerms.map(keyword => ({ source: 'Keyword' as const, term: keyword })),
+  ]
+
+  const uniqueSuggestions = new Map<string, { source: string; term: string }>()
+  for (const entry of suggestionEntries) {
+    const normalizedTerm = normalizeSuggestionKey(entry.term)
+    if (!normalizedTerm || uniqueSuggestions.has(normalizedTerm)) continue
+    uniqueSuggestions.set(normalizedTerm, entry)
+  }
+
+  const searchSuggestionText = [...uniqueSuggestions.values()]
+    .map(entry => `${entry.source}\t${entry.term}`)
+    .join('\n')
+
+  const searchText = [
+    characterName,
+    creator ?? '',
+    ...searchableDateTerms,
+    commission.fileName,
+    commission.design ?? '',
+    commission.description ?? '',
+    keywordSearchText,
+  ]
+    .join(' ')
+    .toLowerCase()
+
+  return { searchText, searchSuggestionText }
+}
+
 interface SortableCharacterCardProps {
   item: CharacterItem
   isActive: boolean
   commissionList: CommissionRow[]
+  searchIndexCommissionList?: CommissionRow[]
   isOpen: boolean
   onToggle: () => void
   onDeleteCommission: (commissionId: number) => void
@@ -31,12 +79,14 @@ interface SortableCharacterCardProps {
   onSubmitRename: () => void
   onRequestDelete: () => void
   isDeleting: boolean
+  disableDrag?: boolean
 }
 
 const SortableCharacterCard = ({
   item,
   isActive,
   commissionList,
+  searchIndexCommissionList,
   isOpen,
   onToggle,
   onDeleteCommission,
@@ -51,10 +101,14 @@ const SortableCharacterCard = ({
   onSubmitRename,
   onRequestDelete,
   isDeleting,
+  disableDrag = false,
 }: SortableCharacterCardProps) => {
   const character = item.data
+  const sectionId = `admin-character-${character.id}`
+  const searchSourceCommissions = searchIndexCommissionList ?? commissionList
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: character.id,
+    disabled: disableDrag || isDeleting,
   })
 
   const style = {
@@ -82,7 +136,33 @@ const SortableCharacterCard = ({
   }
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      id={sectionId}
+      data-character-section="true"
+      data-character-status={isActive ? 'active' : 'stale'}
+      data-total-commissions={commissionList.length}
+    >
+      <div className="hidden" aria-hidden="true">
+        {searchSourceCommissions.map(commission => {
+          const { searchText, searchSuggestionText } = buildCommissionSearchMetadata(
+            character.name,
+            commission,
+          )
+
+          return (
+            <div
+              key={`search-entry-${commission.id}`}
+              data-commission-entry="true"
+              data-character-section-id={sectionId}
+              data-search-text={searchText}
+              data-search-suggest={searchSuggestionText}
+            />
+          )
+        })}
+      </div>
+
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white/95 shadow-sm ring-1 ring-gray-900/5 transition dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10">
         <div
           className="flex items-center gap-3 bg-white/90 px-5 py-3 dark:bg-gray-900/40"
@@ -93,12 +173,20 @@ const SortableCharacterCard = ({
         >
           <button
             type="button"
-            className="inline-flex h-8 w-8 shrink-0 cursor-grab items-center justify-center rounded-lg border border-transparent text-gray-400 transition hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:cursor-grabbing dark:hover:text-gray-200 dark:focus-visible:ring-offset-gray-900"
+            className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-transparent text-gray-400 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900 ${
+              disableDrag || isDeleting
+                ? 'cursor-not-allowed opacity-50'
+                : 'cursor-grab hover:text-gray-600 active:cursor-grabbing dark:hover:text-gray-200'
+            }`}
             {...attributes}
             {...listeners}
             onClick={event => event.stopPropagation()}
-            aria-label={`Drag ${character.name}`}
-            disabled={isDeleting}
+            aria-label={
+              disableDrag
+                ? `Drag disabled while search is applied for ${character.name}`
+                : `Drag ${character.name}`
+            }
+            disabled={isDeleting || disableDrag}
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path

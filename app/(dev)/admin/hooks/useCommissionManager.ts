@@ -373,6 +373,10 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
     })
   }, [])
 
+  const closeAllCharacterOpen = useCallback(() => {
+    setOpenIds(new Set())
+  }, [])
+
   return {
     list,
     commissionMap,
@@ -397,6 +401,7 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
     submitRename,
     performDeleteCharacter,
     toggleCharacterOpen,
+    closeAllCharacterOpen,
   }
 }
 

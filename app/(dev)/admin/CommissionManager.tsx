@@ -2,9 +2,14 @@
 
 import { DndContext, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { useCallback, useRef } from 'react'
+import Fuse from 'fuse.js'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import CommissionSearch from '#components/home/search/CommissionSearch'
 import type { CharacterRow, CommissionRow } from '#lib/admin/db'
+import { parseCommissionFileName } from '#lib/commissions/index'
+import { buildDateSearchTokensFromCompactDate } from '#lib/date/search'
+import { buildStrictTermIndex, getMatchedEntryIds, normalizeQuery } from '#lib/search/index'
 
 import CharacterDeleteDialog from './components/CharacterDeleteDialog'
 import SortableCharacterCard from './components/SortableCharacterCard'
@@ -14,6 +19,27 @@ import useCommissionManager, { DIVIDER_ID } from './hooks/useCommissionManager'
 interface CommissionManagerProps {
   characters: CharacterRow[]
   commissions: CommissionRow[]
+}
+
+const buildAdminCommissionSearchText = (commission: CommissionRow) => {
+  const { date, creator } = parseCommissionFileName(commission.fileName)
+  const searchableDateTerms = [date, ...buildDateSearchTokensFromCompactDate(date)]
+  const keywordTerms = (commission.keyword ?? '')
+    .split(/[,\n，、;；]/)
+    .map(keyword => keyword.trim())
+    .filter(Boolean)
+
+  return [
+    commission.characterName,
+    creator ?? '',
+    ...searchableDateTerms,
+    commission.fileName,
+    commission.design ?? '',
+    commission.description ?? '',
+    keywordTerms.join(' '),
+  ]
+    .join(' ')
+    .toLowerCase()
 }
 
 const CommissionManager = ({ characters, commissions }: CommissionManagerProps) => {
@@ -41,11 +67,75 @@ const CommissionManager = ({ characters, commissions }: CommissionManagerProps) 
     submitRename,
     performDeleteCharacter,
     toggleCharacterOpen,
+    closeAllCharacterOpen,
   } = useCommissionManager({ characters, commissions })
 
   const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({})
   const confirmDeleteButtonRef = useRef<HTMLButtonElement | null>(null)
+  const [appliedSearchQuery, setAppliedSearchQuery] = useState('')
   const dividerIndex = list.findIndex(i => i.type === 'divider')
+  const normalizedAppliedSearchQuery = normalizeQuery(appliedSearchQuery)
+  const hasAppliedSearchQuery = normalizedAppliedSearchQuery.length > 0
+
+  const commissionSearchEntries = useMemo(
+    () =>
+      commissions.map(commission => ({
+        id: commission.id,
+        searchText: buildAdminCommissionSearchText(commission),
+      })),
+    [commissions],
+  )
+  const commissionSearchIndex = useMemo(
+    () => ({
+      entries: commissionSearchEntries,
+      allIds: new Set(commissionSearchEntries.map(entry => entry.id)),
+      strictTermIndex: buildStrictTermIndex(commissionSearchEntries),
+      fuse: new Fuse(commissionSearchEntries, {
+        keys: ['searchText'],
+        threshold: 0.33,
+        ignoreLocation: true,
+        includeScore: false,
+        minMatchCharLength: 1,
+        useExtendedSearch: true,
+      }),
+    }),
+    [commissionSearchEntries],
+  )
+  const matchedCommissionIds = useMemo(
+    () =>
+      hasAppliedSearchQuery
+        ? getMatchedEntryIds(appliedSearchQuery, commissionSearchIndex)
+        : commissionSearchIndex.allIds,
+    [appliedSearchQuery, commissionSearchIndex, hasAppliedSearchQuery],
+  )
+
+  useEffect(() => {
+    const handleKeyUp = (event: KeyboardEvent) => {
+      const target = event.target
+      if (!(target instanceof HTMLInputElement)) return
+      if (target.id !== 'commission-search-input') return
+      if (event.key !== 'Enter') return
+      setAppliedSearchQuery(target.value)
+    }
+
+    const handleInput = (event: Event) => {
+      const target = event.target
+      if (!(target instanceof HTMLInputElement)) return
+      if (target.id !== 'commission-search-input') return
+      if (normalizeQuery(target.value)) return
+      setAppliedSearchQuery('')
+      closeAllCharacterOpen()
+    }
+
+    document.addEventListener('keyup', handleKeyUp)
+    document.addEventListener('input', handleInput)
+
+    return () => {
+      document.removeEventListener('keyup', handleKeyUp)
+      document.removeEventListener('input', handleInput)
+    }
+  }, [closeAllCharacterOpen])
+
   const buttonRefFor = useCallback(
     (characterId: number) => (el: HTMLButtonElement | null) => {
       buttonRefs.current[characterId] = el
@@ -97,6 +187,8 @@ const CommissionManager = ({ characters, commissions }: CommissionManagerProps) 
         </p>
       )}
 
+      <CommissionSearch />
+
       <div className="space-y-4">
         <DndContext
           sensors={sensors}
@@ -113,19 +205,26 @@ const CommissionManager = ({ characters, commissions }: CommissionManagerProps) 
               }
 
               const character = item.data
-              const characterCommissions = [...(commissionMap.get(character.id) ?? [])].sort(
+              const allCharacterCommissions = [...(commissionMap.get(character.id) ?? [])].sort(
                 (a, b) => b.fileName.localeCompare(a.fileName),
               )
+              const visibleCharacterCommissions = hasAppliedSearchQuery
+                ? allCharacterCommissions.filter(commission =>
+                    matchedCommissionIds.has(commission.id),
+                  )
+                : allCharacterCommissions
 
               const isActive = dividerIndex === -1 ? true : index < dividerIndex
+              const shouldAutoOpen = hasAppliedSearchQuery && visibleCharacterCommissions.length > 0
 
               return (
                 <SortableCharacterCard
                   key={character.id}
                   item={item}
                   isActive={isActive}
-                  commissionList={characterCommissions}
-                  isOpen={openIds.has(character.id)}
+                  commissionList={visibleCharacterCommissions}
+                  searchIndexCommissionList={allCharacterCommissions}
+                  isOpen={shouldAutoOpen || openIds.has(character.id)}
                   onToggle={() => handleToggle(character.id)}
                   onDeleteCommission={commissionId =>
                     handleDeleteCommission(character.id, commissionId)
@@ -141,6 +240,7 @@ const CommissionManager = ({ characters, commissions }: CommissionManagerProps) 
                   onSubmitRename={submitRename}
                   onRequestDelete={() => handleRequestDelete(character)}
                   isDeleting={deletingId === character.id || isDeletePending}
+                  disableDrag={hasAppliedSearchQuery}
                 />
               )
             })}
