@@ -1,25 +1,8 @@
 'use client'
 
-import {
-  Combobox,
-  ComboboxInput,
-  ComboboxOption,
-  ComboboxOptions,
-  Dialog,
-  DialogPanel,
-  DialogTitle,
-  Transition,
-  TransitionChild,
-} from '@headlessui/react'
-import {
-  Fragment,
-  useDeferredValue,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react'
+import { Combobox, ComboboxInput, ComboboxOption, ComboboxOptions } from '@headlessui/react'
+import dynamic from 'next/dynamic'
+import { useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import {
   applySuggestionToQuery,
@@ -38,6 +21,10 @@ import {
   type Suggestion,
   type SuggestionEntryLike,
 } from '#lib/search/index'
+
+const CommissionSearchHelpModal = dynamic(
+  () => import('#components/home/search/CommissionSearchHelpModal'),
+)
 
 type Entry = SearchEntryLike &
   SuggestionEntryLike & {
@@ -67,24 +54,6 @@ export interface CommissionSearchEntrySource {
 type RybbitAnalytics = {
   event?: (name: string, properties?: Record<string, string | number | boolean>) => void
 }
-
-const searchSyntaxRows = [
-  {
-    syntax: 'space',
-    description: 'All terms must match',
-    example: 'blue hair',
-  },
-  {
-    syntax: '|',
-    description: 'Either side can match',
-    example: 'blue | silver',
-  },
-  {
-    syntax: '!',
-    description: 'Exclude a term',
-    example: '!sketch',
-  },
-]
 
 const suggestionSourceLabels = {
   Character: 'character',
@@ -235,6 +204,9 @@ interface CommissionSearchProps {
   onQueryChange?: (query: string) => void
   onMatchedIdsChange?: (matchedIds: Set<number>) => void
   externalEntries?: CommissionSearchEntrySource[]
+  initialQuery?: string
+  autoFocusOnMount?: boolean
+  deferIndexInit?: boolean
 }
 
 const CommissionSearch = ({
@@ -242,13 +214,16 @@ const CommissionSearch = ({
   onQueryChange,
   onMatchedIdsChange,
   externalEntries,
+  initialQuery,
+  autoFocusOnMount = false,
+  deferIndexInit = false,
 }: CommissionSearchProps = {}) => {
   const initialUrlQuery = useSyncExternalStore(
     () => () => {},
     getUrlQuerySnapshot,
     () => '',
   )
-  const [inputQuery, setInputQuery] = useState<string | null>(null)
+  const [inputQuery, setInputQuery] = useState<string | null>(initialQuery ?? null)
   const query = inputQuery ?? initialUrlQuery
   const deferredQuery = useDeferredValue(query)
   const normalizedQuery = normalizeQuery(query)
@@ -277,8 +252,15 @@ const CommissionSearch = ({
   const hasTrackedSearchUsageRef = useRef(false)
   const [isHelpOpen, setIsHelpOpen] = useState(false)
   const [copyState, setCopyState] = useState<'idle' | 'success'>('idle')
+  const [isIndexReady, setIsIndexReady] = useState(
+    () => !deferIndexInit || !!initialQuery || !!initialUrlQuery,
+  )
+  const shouldBuildIndex = isIndexReady || !deferIndexInit || !!query || !!initialUrlQuery
 
-  const index = useMemo(() => buildSearchIndex(externalEntries), [externalEntries])
+  const index = useMemo(() => {
+    if (!shouldBuildIndex) return createEmptySearchIndex()
+    return buildSearchIndex(externalEntries)
+  }, [externalEntries, shouldBuildIndex])
 
   const matchedIds = useMemo(() => getMatchedEntryIds(deferredQuery, index), [deferredQuery, index])
 
@@ -421,6 +403,19 @@ const CommissionSearch = ({
     })
   }, [initialUrlQuery])
 
+  useEffect(() => {
+    if (!autoFocusOnMount) return
+
+    requestAnimationFrame(() => {
+      const input = inputRef.current
+      if (!input) return
+
+      input.focus()
+      const cursor = input.value.length
+      input.setSelectionRange(cursor, cursor)
+    })
+  }, [autoFocusOnMount])
+
   useEffect(
     () => () => {
       if (!copyResetTimerRef.current) return
@@ -512,7 +507,11 @@ const CommissionSearch = ({
             id="commission-search-input"
             type="search"
             value={query}
+            onFocus={() => {
+              if (deferIndexInit) setIsIndexReady(true)
+            }}
             onChange={e => {
+              if (deferIndexInit) setIsIndexReady(true)
               setInputQuery(normalizeQuotedTokenBoundary(e.target.value))
               setCopyState('idle')
             }}
@@ -577,7 +576,10 @@ const CommissionSearch = ({
 
           <button
             type="button"
-            onClick={() => setIsHelpOpen(true)}
+            onClick={() => {
+              if (deferIndexInit) setIsIndexReady(true)
+              setIsHelpOpen(true)
+            }}
             className={`absolute inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[right,color] duration-200 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
               hasQuery ? 'right-16' : 'right-0'
             }`}
@@ -647,99 +649,9 @@ const CommissionSearch = ({
 
       <p ref={liveRef} aria-live="polite" className="sr-only" />
 
-      <Transition appear show={isHelpOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-20" onClose={setIsHelpOpen}>
-          <TransitionChild
-            as={Fragment}
-            enter="ease-out duration-200"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="ease-in duration-150"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-          >
-            <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-[2px] dark:bg-black/55" />
-          </TransitionChild>
-
-          <div className="fixed inset-0 flex items-center justify-center p-4">
-            <TransitionChild
-              as={Fragment}
-              enter="ease-out duration-200"
-              enterFrom="opacity-0 scale-95"
-              enterTo="opacity-100 scale-100"
-              leave="ease-in duration-150"
-              leaveFrom="opacity-100 scale-100"
-              leaveTo="opacity-0 scale-95"
-            >
-              <DialogPanel className="w-full max-w-md rounded-2xl border border-gray-300/80 bg-white/95 p-5 text-sm text-gray-700 shadow-[0_16px_50px_rgba(0,0,0,0.16)] backdrop-blur-sm md:text-base dark:border-gray-700 dark:bg-black/90 dark:text-gray-300">
-                <DialogTitle className="text-base font-bold text-gray-900 md:text-lg dark:text-gray-100">
-                  Search Help
-                </DialogTitle>
-
-                <div className="mt-3 space-y-3 text-gray-700 dark:text-gray-300">
-                  <p className="text-xs md:text-sm">
-                    Type one or more keywords to filter commissions.
-                  </p>
-
-                  <div className="overflow-hidden rounded-lg border border-gray-200/90 dark:border-gray-700/90">
-                    <div className="max-w-full overflow-x-auto">
-                      <table className="w-full min-w-[18rem] border-separate border-spacing-0 text-left text-xs leading-relaxed md:text-sm">
-                        <thead className="bg-gray-100/80 text-gray-600 dark:bg-gray-800/70 dark:text-gray-300">
-                          <tr>
-                            <th className="px-3 py-2 font-semibold">Syntax</th>
-                            <th className="px-3 py-2 font-semibold">Meaning</th>
-                          </tr>
-                        </thead>
-
-                        <tbody className="divide-y divide-gray-200/80 dark:divide-gray-700/80">
-                          {searchSyntaxRows.map(row => (
-                            <tr key={row.syntax} className="align-top">
-                              <td className="w-20 px-3 py-2.5">
-                                <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-gray-700 md:text-xs dark:bg-gray-800 dark:text-gray-200">
-                                  {row.syntax}
-                                </code>
-                              </td>
-                              <td className="px-3 py-2.5 text-[11px] sm:text-xs md:text-sm">
-                                <p>{row.description}.</p>
-                                <p className="mt-0.5 wrap-break-word text-gray-500 dark:text-gray-400">
-                                  Example:{' '}
-                                  <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 md:text-xs dark:bg-gray-800 dark:text-gray-300">
-                                    {row.example}
-                                  </code>
-                                </p>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-
-                  <p className="text-[11px] wrap-break-word text-gray-500 sm:text-xs md:text-sm dark:text-gray-400">
-                    Combined example:{' '}
-                    <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[11px] text-gray-600 md:text-xs dark:bg-gray-800 dark:text-gray-300">
-                      blue hair | silver !sketch
-                    </code>
-                  </p>
-                  <p className="text-[11px] wrap-break-word text-gray-500 sm:text-xs md:text-sm dark:text-gray-400">
-                    Creator search also matches registered aliases (for example, romanized names).
-                  </p>
-                </div>
-
-                <div className="mt-4 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => setIsHelpOpen(false)}
-                    className="rounded-md border border-gray-300/80 bg-gray-100/85 px-3 py-1.5 text-xs font-semibold text-gray-800 transition-colors hover:bg-gray-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:border-gray-600 dark:bg-gray-800/90 dark:text-gray-100 dark:hover:bg-gray-700 dark:focus-visible:outline-gray-300"
-                  >
-                    Close
-                  </button>
-                </div>
-              </DialogPanel>
-            </TransitionChild>
-          </div>
-        </Dialog>
-      </Transition>
+      {isHelpOpen ? (
+        <CommissionSearchHelpModal isOpen={isHelpOpen} onClose={setIsHelpOpen} />
+      ) : null}
     </section>
   )
 }
