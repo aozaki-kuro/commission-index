@@ -20,6 +20,8 @@ const NOTICE_OFFSET = 14
 const NOTICE_MIN_OFFSET = 12
 const NOTICE_WIDTH = 356
 const NOTICE_HEIGHT = 120
+const COMMISSION_IMAGE_WIDTH = 1280
+const COMMISSION_IMAGE_HEIGHT = 525
 
 const ProtectedCommissionImage = ({
   altText,
@@ -132,8 +134,8 @@ const ProtectedCommissionImage = ({
             className="pointer-events-none select-none"
             loading="lazy"
             unoptimized
-            width={1200}
-            height={900}
+            width={COMMISSION_IMAGE_WIDTH}
+            height={COMMISSION_IMAGE_HEIGHT}
             style={{ width: '100%', height: 'auto' }}
           />
         )}
