@@ -73,11 +73,7 @@ const CharacterList = ({ characters }: CharacterListProps) => {
           </a>
         </div>
 
-        {showAdminLink ? (
-          <div className="flex pl-4 font-mono text-sm font-bold">
-            <DevAdminLink />
-          </div>
-        ) : null}
+        {showAdminLink ? <DevAdminLink /> : null}
       </div>
     </aside>
   )
