@@ -2,6 +2,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import CharacterList from './CharacterList'
 
 const mockJumpToCommissionSearch = vi.fn()
@@ -94,5 +95,30 @@ describe('CharacterList', () => {
       expect(activeDot).toHaveClass('scale-100', 'opacity-100')
       expect(activeDot).not.toHaveClass('scale-0', 'opacity-0')
     })
+  })
+
+  it('disables sidebar character links whose sections are hidden during search', () => {
+    process.env.NODE_ENV = 'production'
+
+    render(
+      <>
+        <div id="artoria-pendragon" />
+        <div id="nero-claudius" className="hidden" />
+        <CharacterList characters={characters} />
+      </>,
+    )
+
+    const artoriaLink = screen.getByRole('link', { name: 'Artoria Pendragon' })
+    const neroLink = screen.getByRole('link', { name: 'Nero Claudius' })
+
+    window.dispatchEvent(new Event(SIDEBAR_SEARCH_STATE_EVENT))
+
+    expect(artoriaLink).not.toHaveAttribute('aria-disabled')
+    expect(neroLink).toHaveAttribute('aria-disabled', 'true')
+    expect(neroLink).toHaveAttribute('tabindex', '-1')
+    expect(neroLink).toHaveClass('pointer-events-none', 'cursor-not-allowed')
+
+    fireEvent.click(neroLink)
+    expect(mockRybbitEvent).not.toHaveBeenCalled()
   })
 })
