@@ -16,34 +16,30 @@ const isElementAtThreshold = (element: HTMLElement, threshold: number) => {
   return rect.top <= threshold && rect.bottom >= threshold
 }
 
-const getActiveSectionIdAtThreshold = (elements: HTMLElement[], threshold: number): string => {
-  let activeId = ''
+const isRectInViewport = (rect: DOMRect) => rect.bottom > 0 && rect.top < window.innerHeight
+
+const getActiveSectionId = (elements: HTMLElement[], threshold: number): string => {
+  let thresholdActiveId = ''
+  let firstVisibleInViewportId = ''
 
   for (const element of elements) {
     if (!isElementVisible(element)) continue
 
-    if (element.getBoundingClientRect().top <= threshold) {
-      activeId = element.id
+    const rect = element.getBoundingClientRect()
+
+    if (!firstVisibleInViewportId && isRectInViewport(rect)) {
+      firstVisibleInViewportId = element.id
+    }
+
+    if (rect.top <= threshold) {
+      thresholdActiveId = element.id
       continue
     }
 
     break
   }
 
-  return activeId
-}
-
-const getFirstVisibleSectionIdInViewport = (elements: HTMLElement[]): string => {
-  for (const element of elements) {
-    if (!isElementVisible(element)) continue
-
-    const rect = element.getBoundingClientRect()
-    if (rect.bottom <= 0 || rect.top >= window.innerHeight) continue
-
-    return element.id
-  }
-
-  return ''
+  return thresholdActiveId || firstVisibleInViewportId
 }
 
 const getHashTarget = (hash: string): HTMLElement | null => {
@@ -118,11 +114,7 @@ export const useCharacterScrollSpy = (
         return
       }
 
-      const nextActiveId = getActiveSectionIdAtThreshold(sectionElementsRef.current, threshold)
-      const fallbackActiveId = nextActiveId
-        ? nextActiveId
-        : getFirstVisibleSectionIdInViewport(sectionElementsRef.current)
-      setActiveId(fallbackActiveId)
+      setActiveId(getActiveSectionId(sectionElementsRef.current, threshold))
       resetStaleHash()
     }
 
