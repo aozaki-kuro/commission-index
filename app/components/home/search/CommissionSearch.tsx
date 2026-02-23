@@ -6,6 +6,7 @@ import { useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternal
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
+import { dispatchSidebarSearchState } from '#lib/navigation/sidebarSearchState'
 import {
   applySuggestionToQuery,
   collectSuggestions,
@@ -66,15 +67,6 @@ const formatSuggestionSources = (sources: Suggestion['sources']) =>
   sources.map(source => suggestionSourceLabels[source]).join(' / ')
 const normalizeSuggestionTermKey = (term: string) => term.trim().toLowerCase()
 const MIN_TRACK_QUERY_LENGTH = 2
-const SIDEBAR_SEARCH_STATE_EVENT = 'sidebar-search-state-change'
-
-const dispatchSidebarSearchState = (active: boolean, visibleSectionIds?: string[]) => {
-  window.dispatchEvent(
-    new CustomEvent(SIDEBAR_SEARCH_STATE_EVENT, {
-      detail: { active, visibleSectionIds },
-    }),
-  )
-}
 
 const buildSearchUrl = (rawQuery: string) => {
   const url = new URL(window.location.href)

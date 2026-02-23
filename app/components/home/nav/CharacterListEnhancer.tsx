@@ -3,6 +3,10 @@
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
+import {
+  getSidebarSearchStateDetail,
+  SIDEBAR_SEARCH_STATE_EVENT,
+} from '#lib/navigation/sidebarSearchState'
 import { useCharacterScrollSpy } from '#lib/characters/useCharacterScrollSpy'
 import { useEffect, useRef, useState } from 'react'
 
@@ -14,7 +18,6 @@ interface CharacterListEnhancerProps {
 
 const ACTIVE_DOT_CLASSES = ['scale-100', 'opacity-100']
 const INACTIVE_DOT_CLASSES = ['scale-0', 'opacity-0']
-const SIDEBAR_SEARCH_STATE_EVENT = 'sidebar-search-state-change'
 
 type SidebarSearchState = {
   active: boolean
@@ -28,15 +31,19 @@ const CharacterListEnhancer = ({
 }: CharacterListEnhancerProps) => {
   const activeId = useCharacterScrollSpy(titleIds)
   const hasTrackedSidebarUsageRef = useRef(false)
+  const dotsRef = useRef<HTMLElement[]>([])
   const [searchState, setSearchState] = useState<SidebarSearchState>({
     active: false,
     visibleSectionIds: null,
   })
 
   useEffect(() => {
+    dotsRef.current = Array.from(document.querySelectorAll<HTMLElement>('[data-sidebar-dot-for]'))
+  }, [])
+
+  useEffect(() => {
     const onSearchStateChange = (event: Event) => {
-      const detail = (event as CustomEvent<{ active?: boolean; visibleSectionIds?: string[] }>)
-        .detail
+      const detail = getSidebarSearchStateDetail(event)
       setSearchState({
         active: Boolean(detail?.active),
         visibleSectionIds: detail?.visibleSectionIds
@@ -55,9 +62,7 @@ const CharacterListEnhancer = ({
   }, [])
 
   useEffect(() => {
-    const dots = document.querySelectorAll<HTMLElement>('[data-sidebar-dot-for]')
-
-    dots.forEach(dot => {
+    dotsRef.current.forEach(dot => {
       const dotTitleId = dot.dataset.sidebarDotFor
       const sectionId = dotTitleId ? sectionIdByTitleId[dotTitleId] : undefined
       const isEligibleDuringSearch = Boolean(

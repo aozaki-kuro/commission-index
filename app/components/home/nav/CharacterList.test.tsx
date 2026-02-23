@@ -2,6 +2,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import CharacterList from './CharacterList'
 
 const mockJumpToCommissionSearch = vi.fn()
@@ -86,7 +87,7 @@ describe('CharacterList', () => {
 
     const { container } = render(<CharacterList characters={characters} />)
     window.dispatchEvent(
-      new CustomEvent('sidebar-search-state-change', {
+      new CustomEvent(SIDEBAR_SEARCH_STATE_EVENT, {
         detail: { active: true, visibleSectionIds: ['nero-claudius'] },
       }),
     )
@@ -112,7 +113,17 @@ describe('CharacterList', () => {
     expect(activeDot).toBeTruthy()
 
     window.dispatchEvent(
-      new CustomEvent('sidebar-search-state-change', {
+      new CustomEvent(SIDEBAR_SEARCH_STATE_EVENT, {
+        detail: { active: true, visibleSectionIds: ['nero-claudius'] },
+      }),
+    )
+
+    await waitFor(() => {
+      expect(activeDot).toHaveClass('scale-0', 'opacity-0')
+    })
+
+    window.dispatchEvent(
+      new CustomEvent(SIDEBAR_SEARCH_STATE_EVENT, {
         detail: { active: true, visibleSectionIds: ['artoria-pendragon'] },
       }),
     )
@@ -134,7 +145,7 @@ describe('CharacterList', () => {
     expect(activeDot).toBeTruthy()
 
     window.dispatchEvent(
-      new CustomEvent('sidebar-search-state-change', {
+      new CustomEvent(SIDEBAR_SEARCH_STATE_EVENT, {
         detail: { active: true, visibleSectionIds: ['nero-claudius'] },
       }),
     )
@@ -144,7 +155,7 @@ describe('CharacterList', () => {
     })
 
     window.dispatchEvent(
-      new CustomEvent('sidebar-search-state-change', {
+      new CustomEvent(SIDEBAR_SEARCH_STATE_EVENT, {
         detail: { active: false },
       }),
     )

@@ -1,8 +1,7 @@
 'use client'
 
+import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { useEffect, useRef, useState } from 'react'
-
-const SIDEBAR_SEARCH_STATE_EVENT = 'sidebar-search-state-change'
 
 const getScrollThreshold = () => {
   const viewportRatio = window.innerWidth < 768 ? 0.2 : 0.25
