@@ -33,6 +33,19 @@ const getActiveSectionIdAtThreshold = (elements: HTMLElement[], threshold: numbe
   return activeId
 }
 
+const getFirstVisibleSectionIdInViewport = (elements: HTMLElement[]): string => {
+  for (const element of elements) {
+    if (!isElementVisible(element)) continue
+
+    const rect = element.getBoundingClientRect()
+    if (rect.bottom <= 0 || rect.top >= window.innerHeight) continue
+
+    return element.id
+  }
+
+  return ''
+}
+
 const getHashTarget = (hash: string): HTMLElement | null => {
   if (!hash || !hash.startsWith('#')) return null
 
@@ -106,7 +119,10 @@ export const useCharacterScrollSpy = (
       }
 
       const nextActiveId = getActiveSectionIdAtThreshold(sectionElementsRef.current, threshold)
-      setActiveId(nextActiveId)
+      const fallbackActiveId = nextActiveId
+        ? nextActiveId
+        : getFirstVisibleSectionIdInViewport(sectionElementsRef.current)
+      setActiveId(fallbackActiveId)
       resetStaleHash()
     }
 
