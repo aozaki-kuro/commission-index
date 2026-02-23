@@ -5,6 +5,7 @@
   "author": "Crystallize",
   "scripts": {
     "build": "bun run pre-build ; next build",
+    "build:offline": "NEXT_FONT_GOOGLE_MOCKED_RESPONSES=./scripts/nextFontGoogleMock.ts bun run build",
     "clean": "rm -rf .next node_modules out .wrangler ; bun i",
     "deploy": "bun run build ; wrangler deploy",
     "dev": "bun run pre-build ; next dev --turbo",

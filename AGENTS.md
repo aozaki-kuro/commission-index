@@ -35,6 +35,21 @@ Additional guidance:
   - Rendering/component logic in `app/components/*` and `app/*/page.tsx`
   - Search/filter/date parsing logic or other user-visible behavior in `app/lib/*` and `data/*`
 
+## Offline Build (Google Fonts)
+
+- This project uses `next/font/google` (currently in `app/layout.tsx`), so `bun run build` may fail in offline/restricted-network environments when Next.js tries to fetch Google Fonts CSS/font files.
+- Next.js supports a mock hook via `NEXT_FONT_GOOGLE_MOCKED_RESPONSES` (path to a module export). Use it to bypass live Google requests during local/offline builds/tests.
+- Example build command:
+  - `NEXT_FONT_GOOGLE_MOCKED_RESPONSES=./scripts/nextFontGoogleMock.ts bun run build`
+- Mock file shape (minimal):
+  - Export an object keyed by the exact Google Fonts CSS URL that Next requests.
+  - Value is the mocked CSS string (`@font-face ... src: url(...) format('woff2')`).
+  - For mocked font file fetches, use absolute local file paths in `url(...)` so Next can read them from disk.
+  - In this Bun + ESM TypeScript repo, prefer a `.ts` file with `module.exports = mockedResponses` (do not use `export =`).
+- Practical note:
+  - The key must match the exact URL Next generates (including query params). The quickest way to get it is from the build error output, then paste it into the mock file.
+  - This is a build/test workaround. The durable fix for fully offline builds is migrating that font to `next/font/local` and checking the `.woff2` files into the repo.
+
 ## Code Style
 
 - Format code with Prettier: single quotes, no semicolons, trailing commas, `arrowParens: avoid`, width 100.
