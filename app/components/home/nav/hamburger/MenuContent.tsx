@@ -1,8 +1,32 @@
-import { memo, useEffect } from 'react'
-import CharacterMenuList from './CharacterMenuList'
+import { memo, useEffect, useState, type ComponentType } from 'react'
 import { STYLES } from './constants'
 import { MenuIcon } from './Icons'
 import type { CharacterEntry } from './types'
+
+type CharacterMenuListProps = {
+  active: CharacterEntry[]
+  stale: CharacterEntry[]
+  close: () => void
+}
+
+let cachedCharacterMenuList: ComponentType<CharacterMenuListProps> | null = null
+let characterMenuListPromise: Promise<ComponentType<CharacterMenuListProps>> | null = null
+
+const loadCharacterMenuList = async (): Promise<ComponentType<CharacterMenuListProps>> => {
+  if (cachedCharacterMenuList) return cachedCharacterMenuList
+  if (!characterMenuListPromise) {
+    characterMenuListPromise = import('./CharacterMenuList').then(mod => {
+      cachedCharacterMenuList = mod.default
+      return mod.default
+    })
+  }
+
+  return characterMenuListPromise
+}
+
+export const preloadCharacterMenuList = () => {
+  void loadCharacterMenuList()
+}
 
 interface MenuContentProps {
   mounted: boolean
@@ -14,6 +38,9 @@ interface MenuContentProps {
 }
 
 const MenuContent = memo(({ mounted, open, close, toggle, active, stale }: MenuContentProps) => {
+  const [CharacterMenuListComponent, setCharacterMenuListComponent] =
+    useState<ComponentType<CharacterMenuListProps> | null>(() => cachedCharacterMenuList)
+
   useEffect(() => {
     const html = document.documentElement
     if (open) {
@@ -23,6 +50,13 @@ const MenuContent = memo(({ mounted, open, close, toggle, active, stale }: MenuC
     }
     return () => html.classList.remove('overflow-hidden', 'touch-none')
   }, [open])
+
+  useEffect(() => {
+    if (!mounted || CharacterMenuListComponent) return
+    void loadCharacterMenuList().then(component => {
+      setCharacterMenuListComponent(() => component)
+    })
+  }, [CharacterMenuListComponent, mounted])
 
   const backdropStyle = {
     WebkitBackdropFilter: STYLES.backdrop,
@@ -67,7 +101,13 @@ const MenuContent = memo(({ mounted, open, close, toggle, active, stale }: MenuC
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">Characters</h2>
           </div>
           <div className="p-2">
-            <CharacterMenuList active={active} stale={stale} close={close} />
+            {CharacterMenuListComponent ? (
+              <CharacterMenuListComponent active={active} stale={stale} close={close} />
+            ) : (
+              <div className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                Loading characters...
+              </div>
+            )}
           </div>
         </div>
       ) : null}

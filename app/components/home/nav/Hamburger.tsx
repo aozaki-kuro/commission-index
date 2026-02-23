@@ -4,10 +4,15 @@ import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import MenuContent from './hamburger/MenuContent'
+import MenuContent, { preloadCharacterMenuList } from './hamburger/MenuContent'
 import { MENU_TRANSITION_MS } from './hamburger/constants'
 import SearchJumpButton from './hamburger/SearchJumpButton'
 import type { CharacterEntry } from './hamburger/types'
+
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+  cancelIdleCallback?: (handle: number) => void
+}
 
 interface HamburgerProps {
   active: CharacterEntry[]
@@ -36,6 +41,8 @@ const Hamburger = ({ active, stale }: HamburgerProps) => {
   }, [])
 
   const openMenu = useCallback(() => {
+    preloadCharacterMenuList()
+
     if (!hasTrackedUsageRef.current) {
       hasTrackedUsageRef.current = true
       trackRybbitEvent(ANALYTICS_EVENTS.hamburgerMenuUsed, {
@@ -71,7 +78,27 @@ const Hamburger = ({ active, stale }: HamburgerProps) => {
   }, [close, open, openMenu])
 
   useEffect(() => {
+    let timeoutId: number | null = null
+    let idleId: number | null = null
+
+    const preload = () => {
+      preloadCharacterMenuList()
+    }
+
+    const idleWindow = window as IdleWindow
+    if (idleWindow.requestIdleCallback) {
+      idleId = idleWindow.requestIdleCallback(preload, { timeout: 1200 })
+    } else {
+      timeoutId = window.setTimeout(preload, 300)
+    }
+
     return () => {
+      if (idleId !== null && idleWindow.cancelIdleCallback) {
+        idleWindow.cancelIdleCallback(idleId)
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
       clearCloseTimer()
       clearOpenRaf()
     }

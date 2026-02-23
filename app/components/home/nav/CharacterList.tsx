@@ -1,36 +1,17 @@
-'use client'
 import DevAdminLink from '#components/home/nav/DevAdminLink'
-import { ANALYTICS_EVENTS } from '#lib/analytics/events'
-import { trackRybbitEvent } from '#lib/analytics/track'
 import { buildCharacterNavItems } from '#lib/characters/nav'
-import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
-import { useCharacterScrollSpy } from '#lib/characters/useCharacterScrollSpy'
-import { useCallback, useMemo, useRef } from 'react'
+import CharacterListEnhancer from './CharacterListEnhancer'
 
 interface CharacterListProps {
   characters: { DisplayName: string }[]
 }
 
+const HIDDEN_DOT_CLASSES = 'scale-0 opacity-0'
+
 const CharacterList = ({ characters }: CharacterListProps) => {
-  const navItems = useMemo(() => buildCharacterNavItems(characters), [characters])
-  const titleIds = useMemo(() => navItems.map(item => item.titleId), [navItems])
-  const activeId = useCharacterScrollSpy(titleIds)
-  const hasTrackedSidebarUsageRef = useRef(false)
-
+  const navItems = buildCharacterNavItems(characters)
+  const titleIds = navItems.map(item => item.titleId)
   const showAdminLink = process.env.NODE_ENV === 'development'
-  const jumpToSearch = useCallback(() => jumpToCommissionSearch(), [])
-  const trackSidebarUsage = useCallback(
-    (source: 'character_link' | 'search_link') => {
-      if (hasTrackedSidebarUsageRef.current) return
-      hasTrackedSidebarUsageRef.current = true
-
-      trackRybbitEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
-        source,
-        item_count: navItems.length,
-      })
-    },
-    [navItems.length],
-  )
 
   return (
     <aside
@@ -40,29 +21,24 @@ const CharacterList = ({ characters }: CharacterListProps) => {
       <div className="sticky top-4 ml-8 space-y-4">
         <nav>
           <ul className="space-y-2">
-            {navItems.map(({ displayName, sectionId, sectionHash, titleId }) => {
-              const isActive = activeId === titleId
-
-              return (
-                <li
-                  key={sectionId}
-                  className="relative pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
+            {navItems.map(({ displayName, sectionId, sectionHash, titleId }) => (
+              <li
+                key={sectionId}
+                className="relative pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
+              >
+                <div
+                  data-sidebar-dot-for={titleId}
+                  className={`absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-400 transition-all duration-300 ${HIDDEN_DOT_CLASSES}`}
+                />
+                <a
+                  href={sectionHash}
+                  data-sidebar-character-link="true"
+                  className="font-mono text-sm no-underline transition-colors duration-200"
                 >
-                  <div
-                    className={`absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-400 transition-all duration-300 ${
-                      isActive ? 'scale-100 opacity-100' : 'scale-0 opacity-0'
-                    }`}
-                  />
-                  <a
-                    href={sectionHash}
-                    onClick={() => trackSidebarUsage('character_link')}
-                    className="font-mono text-sm no-underline transition-colors duration-200"
-                  >
-                    {displayName}
-                  </a>
-                </li>
-              )
-            })}
+                  {displayName}
+                </a>
+              </li>
+            ))}
           </ul>
         </nav>
 
@@ -79,11 +55,7 @@ const CharacterList = ({ characters }: CharacterListProps) => {
           </svg>
           <a
             href="#commission-search"
-            onClick={event => {
-              event.preventDefault()
-              trackSidebarUsage('search_link')
-              jumpToSearch()
-            }}
+            data-sidebar-search-link="true"
             className="font-mono text-sm font-bold no-underline transition-colors duration-200"
           >
             Search
@@ -92,6 +64,8 @@ const CharacterList = ({ characters }: CharacterListProps) => {
 
         {showAdminLink ? <DevAdminLink /> : null}
       </div>
+
+      <CharacterListEnhancer titleIds={titleIds} itemCount={navItems.length} />
     </aside>
   )
 }

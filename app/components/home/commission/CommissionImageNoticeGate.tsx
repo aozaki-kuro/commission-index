@@ -1,7 +1,6 @@
 'use client'
 
-import dynamic from 'next/dynamic'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ComponentType } from 'react'
 
 type InitialNotice = {
   left: number
@@ -14,13 +13,34 @@ const NOTICE_MIN_OFFSET = 12
 const NOTICE_WIDTH = 356
 const NOTICE_HEIGHT = 120
 
-const CommissionImageNoticeClient = dynamic(
-  () => import('#components/home/commission/CommissionImageNoticeClient'),
-)
+type CommissionImageNoticeClientProps = {
+  initialNotice?: InitialNotice
+}
+
+let cachedNoticeClient: ComponentType<CommissionImageNoticeClientProps> | null = null
+let noticeClientPromise: Promise<ComponentType<CommissionImageNoticeClientProps>> | null = null
+
+const loadCommissionImageNoticeClient = async (): Promise<
+  ComponentType<CommissionImageNoticeClientProps>
+> => {
+  if (cachedNoticeClient) return cachedNoticeClient
+  if (!noticeClientPromise) {
+    noticeClientPromise = import('#components/home/commission/CommissionImageNoticeClient').then(
+      mod => {
+        cachedNoticeClient = mod.default
+        return mod.default
+      },
+    )
+  }
+
+  return noticeClientPromise
+}
 
 export default function CommissionImageNoticeGate() {
   const [enabled, setEnabled] = useState(false)
   const [initialNotice, setInitialNotice] = useState<InitialNotice>(null)
+  const [NoticeClient, setNoticeClient] =
+    useState<ComponentType<CommissionImageNoticeClientProps> | null>(() => cachedNoticeClient)
 
   useEffect(() => {
     if (enabled) return
@@ -47,6 +67,9 @@ export default function CommissionImageNoticeGate() {
         ),
         text: altText,
       })
+      void loadCommissionImageNoticeClient().then(component => {
+        setNoticeClient(() => component)
+      })
       setEnabled(true)
     }
 
@@ -56,7 +79,7 @@ export default function CommissionImageNoticeGate() {
     }
   }, [enabled])
 
-  if (!enabled) return null
+  if (!enabled || !NoticeClient) return null
 
-  return <CommissionImageNoticeClient initialNotice={initialNotice} />
+  return <NoticeClient initialNotice={initialNotice} />
 }
