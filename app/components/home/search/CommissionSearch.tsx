@@ -81,6 +81,17 @@ const clearSearchQueryParamInAddress = () => {
   window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
 }
 
+const areSetsEqual = <T,>(left: Set<T>, right: Set<T>) => {
+  if (left === right) return true
+  if (left.size !== right.size) return false
+
+  for (const value of left) {
+    if (!right.has(value)) return false
+  }
+
+  return true
+}
+
 const getUrlQuerySnapshot = () => {
   if (typeof window === 'undefined') return ''
   return new URLSearchParams(window.location.search).get('q') ?? ''
@@ -348,7 +359,6 @@ const CommissionSearch = ({
     const entriesCount = index.entries.length
 
     if (disableDomFiltering) {
-      dispatchSidebarSearchState()
       if (liveRef.current && entriesCount > 0) {
         liveRef.current.textContent = hasDeferredQuery
           ? `Search results: ${matchedIds.size} of ${entriesCount} commissions shown.`
@@ -359,27 +369,40 @@ const CommissionSearch = ({
 
     const { entryById, sections, staleDivider } = index
     const previousMatchedIds = previousMatchedIdsRef.current
-    const visibleBySection = new Map<string, number>()
+    const matchedIdsChanged = !areSetsEqual(previousMatchedIds, matchedIds)
+    const visibleSectionIds = hasDeferredQuery ? new Set<string>() : null
+    let didLayoutChange = false
 
-    for (const id of previousMatchedIds) {
-      if (matchedIds.has(id)) continue
-      const previousEntry = entryById.get(id)
-      previousEntry?.element?.classList.add('hidden')
-    }
-    for (const id of matchedIds) {
-      const entry = entryById.get(id)
-      if (!entry) continue
-      if (!previousMatchedIds.has(id)) {
-        entry.element?.classList.remove('hidden')
+    if (matchedIdsChanged) {
+      for (const id of previousMatchedIds) {
+        if (matchedIds.has(id)) continue
+        const previousEntry = entryById.get(id)
+        if (previousEntry?.element) {
+          previousEntry.element.classList.add('hidden')
+          didLayoutChange = true
+        }
       }
-      if (entry.sectionId) {
-        visibleBySection.set(entry.sectionId, (visibleBySection.get(entry.sectionId) ?? 0) + 1)
+
+      for (const id of matchedIds) {
+        if (previousMatchedIds.has(id)) continue
+        const nextEntry = entryById.get(id)
+        if (nextEntry?.element) {
+          nextEntry.element.classList.remove('hidden')
+          didLayoutChange = true
+        }
       }
     }
+
+    if (visibleSectionIds) {
+      for (const id of matchedIds) {
+        const entry = entryById.get(id)
+        if (entry?.sectionId) visibleSectionIds.add(entry.sectionId)
+      }
+    }
+
     previousMatchedIdsRef.current = matchedIds
 
     if (entriesCount === 0) {
-      dispatchSidebarSearchState()
       return
     }
 
@@ -387,14 +410,14 @@ const CommissionSearch = ({
     let visibleStaleSections = 0
 
     for (const section of sections) {
-      const shown = visibleBySection.get(section.id) ?? 0
-      const visible = !hasDeferredQuery || shown > 0
+      const visible = !hasDeferredQuery || Boolean(visibleSectionIds?.has(section.id))
       if (sectionVisibilityRef.current.get(section.id) !== visible) {
         sectionVisibilityRef.current.set(section.id, visible)
         section.element.classList.toggle('hidden', !visible)
+        didLayoutChange = true
       }
 
-      if (shown > 0) {
+      if (visible && hasDeferredQuery) {
         if (section.status === 'active') visibleActiveSections += 1
         if (section.status === 'stale') visibleStaleSections += 1
       }
@@ -406,6 +429,7 @@ const CommissionSearch = ({
       if (staleDividerVisibilityRef.current !== shouldShowDivider) {
         staleDividerVisibilityRef.current = shouldShowDivider
         staleDivider.classList.toggle('hidden', !shouldShowDivider)
+        didLayoutChange = true
       }
     }
 
@@ -414,7 +438,10 @@ const CommissionSearch = ({
         ? `Search results: ${matchedIds.size} of ${entriesCount} commissions shown.`
         : `Search cleared. Showing all ${entriesCount} commissions.`
     }
-    dispatchSidebarSearchState()
+
+    if (didLayoutChange) {
+      dispatchSidebarSearchState()
+    }
   }, [disableDomFiltering, hasDeferredQuery, index, matchedIds])
 
   useEffect(() => {
