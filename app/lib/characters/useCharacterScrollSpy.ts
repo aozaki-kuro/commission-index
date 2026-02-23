@@ -118,18 +118,26 @@ export const useCharacterScrollSpy = (
       resetStaleHash()
     }
 
-    const handleScroll = () => {
-      if (rafId.current !== null) cancelAnimationFrame(rafId.current)
-      rafId.current = requestAnimationFrame(updateActiveId)
+    const scheduleUpdate = () => {
+      if (rafId.current !== null) return
+
+      let completedSynchronously = false
+      const nextRafId = requestAnimationFrame(() => {
+        completedSynchronously = true
+        rafId.current = null
+        updateActiveId()
+      })
+
+      rafId.current = completedSynchronously ? null : nextRafId
     }
 
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    window.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, handleScroll)
-    handleScroll()
+    window.addEventListener('scroll', scheduleUpdate, { passive: true })
+    window.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleUpdate)
+    scheduleUpdate()
 
     return () => {
-      window.removeEventListener('scroll', handleScroll)
-      window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, handleScroll)
+      window.removeEventListener('scroll', scheduleUpdate)
+      window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleUpdate)
       if (rafId.current !== null) {
         cancelAnimationFrame(rafId.current)
       }
