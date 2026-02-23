@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /* eslint-disable @next/next/no-img-element */
 import type { CharacterCommissions } from '#data/types'
 import { render, screen } from '@testing-library/react'
