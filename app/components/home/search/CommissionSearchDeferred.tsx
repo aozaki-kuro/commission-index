@@ -5,6 +5,10 @@ import type { CommissionSearchEntrySource } from '#components/home/search/Commis
 import { startTransition, useCallback, useEffect, useState } from 'react'
 
 const CommissionSearch = dynamic(() => import('#components/home/search/CommissionSearch'))
+const HOME_SEARCH_INDEX_URL = '/search/home-search-entries.json'
+
+let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
+let homeSearchEntriesPromise: Promise<CommissionSearchEntrySource[]> | null = null
 
 const hasSearchQueryParam = () => {
   if (typeof window === 'undefined') return false
@@ -22,13 +26,30 @@ export default function CommissionSearchDeferred() {
   const shouldLoadExternalEntries = process.env.NODE_ENV === 'production'
 
   const loadExternalEntries = useCallback(async () => {
-    if (!shouldLoadExternalEntries || externalEntries) return externalEntries
+    if (!shouldLoadExternalEntries) return externalEntries
+    if (externalEntries) return externalEntries
+    if (cachedHomeSearchEntries) {
+      setExternalEntries(cachedHomeSearchEntries)
+      return cachedHomeSearchEntries
+    }
 
     setIsLoadingEntries(true)
     try {
-      const searchEntriesModule =
-        await import('#components/home/search/homeSearchEntries.generated')
-      const entries = searchEntriesModule.homeSearchEntries as CommissionSearchEntrySource[]
+      if (!homeSearchEntriesPromise) {
+        homeSearchEntriesPromise = fetch(HOME_SEARCH_INDEX_URL)
+          .then(async response => {
+            if (!response.ok) {
+              throw new Error(`Failed to load search index: ${response.status}`)
+            }
+            return (await response.json()) as CommissionSearchEntrySource[]
+          })
+          .then(entries => {
+            cachedHomeSearchEntries = entries
+            return entries
+          })
+      }
+
+      const entries = await homeSearchEntriesPromise
       setExternalEntries(entries)
       return entries
     } finally {
