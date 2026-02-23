@@ -68,6 +68,14 @@ const normalizeSuggestionTermKey = (term: string) => term.trim().toLowerCase()
 const MIN_TRACK_QUERY_LENGTH = 2
 const SIDEBAR_SEARCH_STATE_EVENT = 'sidebar-search-state-change'
 
+const dispatchSidebarSearchState = (active: boolean, visibleSectionIds?: string[]) => {
+  window.dispatchEvent(
+    new CustomEvent(SIDEBAR_SEARCH_STATE_EVENT, {
+      detail: { active, visibleSectionIds },
+    }),
+  )
+}
+
 const buildSearchUrl = (rawQuery: string) => {
   const url = new URL(window.location.href)
   if (normalizeQuery(rawQuery)) url.searchParams.set('q', rawQuery)
@@ -332,14 +340,6 @@ const CommissionSearch = ({
   }, [matchedIds, onMatchedIdsChange])
 
   useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent(SIDEBAR_SEARCH_STATE_EVENT, {
-        detail: { active: hasDeferredQuery },
-      }),
-    )
-  }, [hasDeferredQuery])
-
-  useEffect(() => {
     const trackableQueryLength = getTrackableQueryLength(deferredQuery)
     if (trackableQueryLength < MIN_TRACK_QUERY_LENGTH || hasTrackedSearchUsageRef.current) return
     hasTrackedSearchUsageRef.current = true
@@ -356,6 +356,7 @@ const CommissionSearch = ({
     const entriesCount = index.entries.length
 
     if (disableDomFiltering) {
+      dispatchSidebarSearchState(hasDeferredQuery)
       if (liveRef.current && entriesCount > 0) {
         liveRef.current.textContent = hasDeferredQuery
           ? `Search results: ${matchedIds.size} of ${entriesCount} commissions shown.`
@@ -385,10 +386,14 @@ const CommissionSearch = ({
     }
     previousMatchedIdsRef.current = matchedIds
 
-    if (entriesCount === 0) return
+    if (entriesCount === 0) {
+      dispatchSidebarSearchState(hasDeferredQuery, [])
+      return
+    }
 
     let visibleActiveSections = 0
     let visibleStaleSections = 0
+    const visibleSectionIds: string[] = []
 
     for (const section of sections) {
       const shown = visibleBySection.get(section.id) ?? 0
@@ -399,6 +404,7 @@ const CommissionSearch = ({
       }
 
       if (shown > 0) {
+        visibleSectionIds.push(section.id)
         if (section.status === 'active') visibleActiveSections += 1
         if (section.status === 'stale') visibleStaleSections += 1
       }
@@ -418,6 +424,11 @@ const CommissionSearch = ({
         ? `Search results: ${matchedIds.size} of ${entriesCount} commissions shown.`
         : `Search cleared. Showing all ${entriesCount} commissions.`
     }
+
+    dispatchSidebarSearchState(
+      hasDeferredQuery,
+      hasDeferredQuery ? visibleSectionIds : sections.map(section => section.id),
+    )
   }, [disableDomFiltering, hasDeferredQuery, index, matchedIds])
 
   useEffect(() => {

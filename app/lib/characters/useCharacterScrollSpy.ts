@@ -2,12 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react'
 
+const SIDEBAR_SEARCH_STATE_EVENT = 'sidebar-search-state-change'
+
 const getScrollThreshold = () => {
   const viewportRatio = window.innerWidth < 768 ? 0.2 : 0.25
   return Math.max(80, window.innerHeight * viewportRatio)
 }
 
+const isElementVisible = (element: HTMLElement) => element.getClientRects().length > 0
+
 const isElementAtThreshold = (element: HTMLElement, threshold: number) => {
+  if (!isElementVisible(element)) return false
   const rect = element.getBoundingClientRect()
   return rect.top <= threshold && rect.bottom >= threshold
 }
@@ -16,6 +21,8 @@ const getActiveSectionIdAtThreshold = (elements: HTMLElement[], threshold: numbe
   let activeId = ''
 
   for (const element of elements) {
+    if (!isElementVisible(element)) continue
+
     if (element.getBoundingClientRect().top <= threshold) {
       activeId = element.id
       continue
@@ -110,10 +117,12 @@ export const useCharacterScrollSpy = (
     }
 
     window.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, handleScroll)
     handleScroll()
 
     return () => {
       window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, handleScroll)
       if (rafId.current !== null) {
         cancelAnimationFrame(rafId.current)
       }

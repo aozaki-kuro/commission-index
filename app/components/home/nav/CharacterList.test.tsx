@@ -87,7 +87,7 @@ describe('CharacterList', () => {
     const { container } = render(<CharacterList characters={characters} />)
     window.dispatchEvent(
       new CustomEvent('sidebar-search-state-change', {
-        detail: { active: true },
+        detail: { active: true, visibleSectionIds: ['nero-claudius'] },
       }),
     )
     const activeDot = container.querySelector<HTMLElement>(
@@ -98,6 +98,28 @@ describe('CharacterList', () => {
     await waitFor(() => {
       expect(activeDot).toHaveClass('scale-0', 'opacity-0')
       expect(activeDot).not.toHaveClass('scale-100', 'opacity-100')
+    })
+  })
+
+  it('keeps sidebar active dot when active character remains in filtered results', async () => {
+    process.env.NODE_ENV = 'production'
+
+    const { container } = render(<CharacterList characters={characters} />)
+    const activeDot = container.querySelector<HTMLElement>(
+      '[data-sidebar-dot-for="title-artoria-pendragon"]',
+    )
+
+    expect(activeDot).toBeTruthy()
+
+    window.dispatchEvent(
+      new CustomEvent('sidebar-search-state-change', {
+        detail: { active: true, visibleSectionIds: ['artoria-pendragon'] },
+      }),
+    )
+
+    await waitFor(() => {
+      expect(activeDot).toHaveClass('scale-100', 'opacity-100')
+      expect(activeDot).not.toHaveClass('scale-0', 'opacity-0')
     })
   })
 
@@ -113,7 +135,7 @@ describe('CharacterList', () => {
 
     window.dispatchEvent(
       new CustomEvent('sidebar-search-state-change', {
-        detail: { active: true },
+        detail: { active: true, visibleSectionIds: ['nero-claudius'] },
       }),
     )
 

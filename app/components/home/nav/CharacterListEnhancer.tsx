@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 
 interface CharacterListEnhancerProps {
   titleIds: string[]
+  sectionIdByTitleId: Record<string, string>
   itemCount: number
 }
 
@@ -15,15 +16,35 @@ const ACTIVE_DOT_CLASSES = ['scale-100', 'opacity-100']
 const INACTIVE_DOT_CLASSES = ['scale-0', 'opacity-0']
 const SIDEBAR_SEARCH_STATE_EVENT = 'sidebar-search-state-change'
 
-const CharacterListEnhancer = ({ titleIds, itemCount }: CharacterListEnhancerProps) => {
+type SidebarSearchState = {
+  active: boolean
+  visibleSectionIds: Set<string> | null
+}
+
+const CharacterListEnhancer = ({
+  titleIds,
+  sectionIdByTitleId,
+  itemCount,
+}: CharacterListEnhancerProps) => {
   const activeId = useCharacterScrollSpy(titleIds)
   const hasTrackedSidebarUsageRef = useRef(false)
-  const [isSearchActive, setIsSearchActive] = useState(false)
+  const [searchState, setSearchState] = useState<SidebarSearchState>({
+    active: false,
+    visibleSectionIds: null,
+  })
 
   useEffect(() => {
     const onSearchStateChange = (event: Event) => {
-      const detail = (event as CustomEvent<{ active?: boolean }>).detail
-      setIsSearchActive(Boolean(detail?.active))
+      const detail = (event as CustomEvent<{ active?: boolean; visibleSectionIds?: string[] }>)
+        .detail
+      setSearchState({
+        active: Boolean(detail?.active),
+        visibleSectionIds: detail?.visibleSectionIds
+          ? new Set(detail.visibleSectionIds)
+          : Boolean(detail?.active)
+            ? new Set()
+            : null,
+      })
     }
 
     window.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSearchStateChange)
@@ -38,13 +59,18 @@ const CharacterListEnhancer = ({ titleIds, itemCount }: CharacterListEnhancerPro
 
     dots.forEach(dot => {
       const dotTitleId = dot.dataset.sidebarDotFor
-      const isActive = !isSearchActive && dotTitleId === activeId
+      const sectionId = dotTitleId ? sectionIdByTitleId[dotTitleId] : undefined
+      const isEligibleDuringSearch = Boolean(
+        sectionId && searchState.visibleSectionIds?.has(sectionId),
+      )
+      const shouldShowForDot = !searchState.active || isEligibleDuringSearch
+      const isActive = shouldShowForDot && dotTitleId === activeId
       dot.classList.toggle(ACTIVE_DOT_CLASSES[0], isActive)
       dot.classList.toggle(ACTIVE_DOT_CLASSES[1], isActive)
       dot.classList.toggle(INACTIVE_DOT_CLASSES[0], !isActive)
       dot.classList.toggle(INACTIVE_DOT_CLASSES[1], !isActive)
     })
-  }, [activeId, isSearchActive])
+  }, [activeId, searchState, sectionIdByTitleId])
 
   useEffect(() => {
     const root = document.getElementById('Character List')
