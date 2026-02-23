@@ -11,15 +11,33 @@ type RawCreatorAliasRow = {
   aliasesJson: string
 }
 
+const isDevelopment = process.env.NODE_ENV === 'development'
+let cachedHasCreatorAliasesTable: boolean | null = null
+let cachedCreatorAliases: CreatorAliasRow[] | null = null
+
 const hasCreatorAliasesTable = (): boolean => {
+  if (!isDevelopment && cachedHasCreatorAliasesTable !== null) {
+    return cachedHasCreatorAliasesTable
+  }
+
   const rows = queryAll<{ name?: string }>(
     "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
     ['creator_aliases'],
   )
-  return rows[0]?.name === 'creator_aliases'
+  const exists = rows[0]?.name === 'creator_aliases'
+
+  if (!isDevelopment) {
+    cachedHasCreatorAliasesTable = exists
+  }
+
+  return exists
 }
 
 export const getCreatorAliases = (): CreatorAliasRow[] => {
+  if (!isDevelopment && cachedCreatorAliases) {
+    return cachedCreatorAliases
+  }
+
   if (!hasCreatorAliasesTable()) return []
 
   const rows = queryAll<RawCreatorAliasRow>(
@@ -44,7 +62,13 @@ export const getCreatorAliases = (): CreatorAliasRow[] => {
     )
   })
 
-  return [...aliasMap.entries()].map(([creatorName, aliases]) => ({ creatorName, aliases }))
+  const result = [...aliasMap.entries()].map(([creatorName, aliases]) => ({ creatorName, aliases }))
+
+  if (!isDevelopment) {
+    cachedCreatorAliases = result
+  }
+
+  return result
 }
 
 export const getCreatorAliasesMap = () =>

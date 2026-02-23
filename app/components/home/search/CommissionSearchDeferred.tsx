@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import type { CommissionSearchEntrySource } from '#components/home/search/CommissionSearch'
 import { startTransition, useCallback, useEffect, useState } from 'react'
 
 const CommissionSearch = dynamic(() => import('#components/home/search/CommissionSearch'))
@@ -15,25 +16,52 @@ export default function CommissionSearchDeferred() {
   const [shouldFocusOnMount, setShouldFocusOnMount] = useState(false)
   const [shouldOpenHelpOnMount, setShouldOpenHelpOnMount] = useState(false)
   const [shellQuery, setShellQuery] = useState('')
+  const [externalEntries, setExternalEntries] = useState<CommissionSearchEntrySource[] | null>(null)
+  const [isLoadingEntries, setIsLoadingEntries] = useState(false)
 
-  const enableSearch = useCallback((focusOnMount = false, openHelpOnMount = false) => {
-    startTransition(() => {
-      setIsEnabled(true)
-      if (focusOnMount) setShouldFocusOnMount(true)
-      if (openHelpOnMount) setShouldOpenHelpOnMount(true)
-    })
-  }, [])
+  const shouldLoadExternalEntries = process.env.NODE_ENV === 'production'
+
+  const loadExternalEntries = useCallback(async () => {
+    if (!shouldLoadExternalEntries || externalEntries) return externalEntries
+
+    setIsLoadingEntries(true)
+    try {
+      const searchEntriesModule =
+        await import('#components/home/search/homeSearchEntries.generated')
+      const entries = searchEntriesModule.homeSearchEntries as CommissionSearchEntrySource[]
+      setExternalEntries(entries)
+      return entries
+    } finally {
+      setIsLoadingEntries(false)
+    }
+  }, [externalEntries, shouldLoadExternalEntries])
+
+  const enableSearch = useCallback(
+    (focusOnMount = false, openHelpOnMount = false) => {
+      startTransition(() => {
+        setIsEnabled(true)
+        if (focusOnMount) setShouldFocusOnMount(true)
+        if (openHelpOnMount) setShouldOpenHelpOnMount(true)
+      })
+
+      void loadExternalEntries()
+    },
+    [loadExternalEntries],
+  )
 
   useEffect(() => {
     if (isEnabled || !hasSearchQueryParam()) return
     enableSearch(false)
   }, [enableSearch, isEnabled])
 
-  if (isEnabled) {
+  const isSearchReady = !shouldLoadExternalEntries || !!externalEntries
+
+  if (isEnabled && isSearchReady) {
     return (
       <CommissionSearch
         autoFocusOnMount={shouldFocusOnMount}
         deferIndexInit
+        externalEntries={externalEntries ?? undefined}
         initialQuery={shellQuery || undefined}
         openHelpOnMount={shouldOpenHelpOnMount}
       />
@@ -74,6 +102,9 @@ export default function CommissionSearchDeferred() {
             aria-label="Search commissions"
             className="w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-24 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
           />
+          {isEnabled && isLoadingEntries ? (
+            <span className="absolute right-9 text-xs text-gray-400 dark:text-gray-500">...</span>
+          ) : null}
 
           <button
             type="button"

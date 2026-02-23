@@ -41,6 +41,8 @@ type BetterSqlite3Constructor = new (
   options?: { readonly?: boolean; fileMustExist?: boolean },
 ) => BetterSqlite3Database
 
+let cachedDatabaseHandle: DatabaseHandle | null = null
+
 const openDatabase = (): DatabaseHandle => {
   if (typeof Bun !== 'undefined') {
     const { Database } = require('bun:sqlite') as BunSqliteModule
@@ -61,11 +63,13 @@ const openDatabase = (): DatabaseHandle => {
   }
 }
 
-export const queryAll = <T = unknown>(sql: string, params: QueryParams = []): T[] => {
-  const { queryAll, close } = openDatabase()
-  try {
-    return queryAll<T>(sql, params)
-  } finally {
-    close()
+const getDatabaseHandle = (): DatabaseHandle => {
+  if (!cachedDatabaseHandle) {
+    cachedDatabaseHandle = openDatabase()
   }
+
+  return cachedDatabaseHandle
 }
+
+export const queryAll = <T = unknown>(sql: string, params: QueryParams = []): T[] =>
+  getDatabaseHandle().queryAll<T>(sql, params)

@@ -12,7 +12,7 @@
     "dev": "bun run pre-build ; next dev --turbo",
     "images:prune-unused": "IMAGE_CLEAN_UNUSED=1 bun run scripts/imageImport.ts",
     "lint": "eslint --fix",
-    "pre-build": "bun run scripts/images.ts",
+    "pre-build": "bun run scripts/images.ts && bun run scripts/homeSearchEntries.ts",
     "prepare": "husky",
     "start": "next start",
     "test": "vitest run",

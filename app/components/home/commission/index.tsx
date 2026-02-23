@@ -1,4 +1,5 @@
 import Listing from '#components/home/commission/Listing'
+import CommissionImageNoticeGate from '#components/home/commission/CommissionImageNoticeGate'
 import { getCreatorAliasesMap } from '#data/creatorAliases'
 import type { CharacterCommissions } from '#data/types'
 
@@ -9,7 +10,7 @@ interface CommissionProps {
 }
 
 const Commission = async ({ activeChars, staleChars, commissionMap }: CommissionProps) => {
-  const creatorAliasesMap = getCreatorAliasesMap()
+  const creatorAliasesMap = process.env.NODE_ENV === 'production' ? null : getCreatorAliasesMap()
 
   return (
     <div id="--------Commissions--------">
@@ -41,6 +42,7 @@ const Commission = async ({ activeChars, staleChars, commissionMap }: Commission
           key={chara.DisplayName}
         />
       ))}
+      <CommissionImageNoticeGate />
     </div>
   )
 }

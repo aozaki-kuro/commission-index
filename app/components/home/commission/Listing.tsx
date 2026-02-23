@@ -13,7 +13,7 @@ type ListingProps = {
   Character: string
   status: 'active' | 'stale'
   commissionMap: Map<string, CharacterCommissions>
-  creatorAliasesMap: Map<string, string[]>
+  creatorAliasesMap: Map<string, string[]> | null
 }
 
 const normalizeSuggestionKey = (term: string) => term.trim().toLowerCase()
@@ -35,6 +35,7 @@ const getImageImports = async (): Promise<ImageImportMap> => {
  */
 const Listing = async ({ Character, status, commissionMap, creatorAliasesMap }: ListingProps) => {
   const imageImports = await getImageImports()
+  const shouldEmbedSearchMetadata = process.env.NODE_ENV !== 'production'
   const sectionId = getCharacterSectionId(Character)
   const characterData = commissionMap.get(Character)
   const commissions = characterData?.Commissions ?? []
@@ -54,12 +55,13 @@ const Listing = async ({ Character, status, commissionMap, creatorAliasesMap }: 
       ) : (
         commissions.map(commission => {
           const { date, year, creator } = parseCommissionFileName(commission.fileName)
-          const normalizedCreatorName = creator ? normalizeCreatorSearchName(creator) : null
-          const creatorAliases = normalizedCreatorName
-            ? (creatorAliasesMap.get(normalizedCreatorName) ?? [])
-            : []
+          const normalizedCreatorName =
+            shouldEmbedSearchMetadata && creator ? normalizeCreatorSearchName(creator) : null
+          const creatorAliases =
+            shouldEmbedSearchMetadata && normalizedCreatorName && creatorAliasesMap
+              ? (creatorAliasesMap.get(normalizedCreatorName) ?? [])
+              : []
           const month = date.slice(4, 6)
-          const searchableDateTerms = [date, ...buildDateSearchTokensFromCompactDate(date)]
           const copyrightCreator = creator
             ? getBaseFileName(creator).trim() || creator
             : 'Anonymous'
@@ -71,34 +73,46 @@ const Listing = async ({ Character, status, commissionMap, creatorAliasesMap }: 
             .split(/[,\n，、;；]/)
             .map(keyword => keyword.trim())
             .filter(Boolean)
-          const keywordSearchText = keywordTerms.join(' ')
-          const suggestionEntries = [
-            { source: 'Character', term: Character },
-            { source: 'Date', term: `${year}/${month}` },
-            ...(normalizedCreatorName ? [{ source: 'Creator', term: normalizedCreatorName }] : []),
-            ...creatorAliases.map(alias => ({ source: 'Creator' as const, term: alias })),
-            ...keywordTerms.map(keyword => ({ source: 'Keyword', term: keyword })),
-          ]
-          const uniqueSuggestions = new Map<string, { source: string; term: string }>()
-          for (const entry of suggestionEntries) {
-            const normalizedTerm = normalizeSuggestionKey(entry.term)
-            if (!normalizedTerm || uniqueSuggestions.has(normalizedTerm)) continue
-            uniqueSuggestions.set(normalizedTerm, entry)
-          }
-          const searchSuggestionText = [...uniqueSuggestions.values()]
-            .map(entry => `${entry.source}\t${entry.term}`)
-            .join('\n')
-          const searchText = [
-            Character,
-            normalizedCreatorName,
-            ...creatorAliases,
-            ...searchableDateTerms,
-            commission.Design ?? '',
-            commission.Description ?? '',
-            keywordSearchText,
-          ]
-            .join(' ')
-            .toLowerCase()
+          const searchAttributes = shouldEmbedSearchMetadata
+            ? (() => {
+                const searchableDateTerms = [date, ...buildDateSearchTokensFromCompactDate(date)]
+                const keywordSearchText = keywordTerms.join(' ')
+                const suggestionEntries = [
+                  { source: 'Character', term: Character },
+                  { source: 'Date', term: `${year}/${month}` },
+                  ...(normalizedCreatorName
+                    ? [{ source: 'Creator' as const, term: normalizedCreatorName }]
+                    : []),
+                  ...creatorAliases.map(alias => ({ source: 'Creator' as const, term: alias })),
+                  ...keywordTerms.map(keyword => ({ source: 'Keyword' as const, term: keyword })),
+                ]
+                const uniqueSuggestions = new Map<string, { source: string; term: string }>()
+                for (const entry of suggestionEntries) {
+                  const normalizedTerm = normalizeSuggestionKey(entry.term)
+                  if (!normalizedTerm || uniqueSuggestions.has(normalizedTerm)) continue
+                  uniqueSuggestions.set(normalizedTerm, entry)
+                }
+                const searchSuggestionText = [...uniqueSuggestions.values()]
+                  .map(entry => `${entry.source}\t${entry.term}`)
+                  .join('\n')
+                const searchText = [
+                  Character,
+                  normalizedCreatorName,
+                  ...creatorAliases,
+                  ...searchableDateTerms,
+                  commission.Design ?? '',
+                  commission.Description ?? '',
+                  keywordSearchText,
+                ]
+                  .join(' ')
+                  .toLowerCase()
+
+                return {
+                  'data-search-text': searchText,
+                  'data-search-suggest': searchSuggestionText,
+                }
+              })()
+            : null
 
           return (
             <div
@@ -107,8 +121,7 @@ const Listing = async ({ Character, status, commissionMap, creatorAliasesMap }: 
               className="pt-4"
               data-commission-entry="true"
               data-character-section-id={sectionId}
-              data-search-text={searchText}
-              data-search-suggest={searchSuggestionText}
+              {...(searchAttributes ?? {})}
             >
               {/* 如果有图片资源，显示图片 */}
               <ProtectedCommissionImage

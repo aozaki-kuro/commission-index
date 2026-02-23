@@ -118,43 +118,67 @@ const finalizeSearchIndex = (
   suggestions: collectSuggestions(entries),
 })
 
+const getDomSearchContext = () => {
+  if (typeof window === 'undefined') {
+    return {
+      domEntries: [] as Array<{ element: HTMLElement; sectionId?: string }>,
+      sections: [] as Section[],
+      staleDivider: null as HTMLElement | null,
+    }
+  }
+
+  const domEntries = Array.from(
+    document.querySelectorAll<HTMLElement>('[data-commission-entry="true"]'),
+  ).map(element => ({
+    element,
+    sectionId: element.dataset.characterSectionId,
+  }))
+
+  const sections = Array.from(
+    document.querySelectorAll<HTMLElement>('[data-character-section="true"]'),
+  ).map(element => ({
+    id: element.id,
+    element,
+    status: element.dataset.characterStatus as 'active' | 'stale' | undefined,
+  }))
+
+  const staleDivider = document.querySelector<HTMLElement>('[data-stale-divider="true"]')
+
+  return { domEntries, sections, staleDivider }
+}
+
 const buildSearchIndex = (externalEntries?: CommissionSearchEntrySource[]): SearchIndex => {
   if (typeof window === 'undefined') return createEmptySearchIndex()
 
   if (externalEntries) {
+    const { domEntries, sections, staleDivider } = getDomSearchContext()
+
     const entries = externalEntries.map(entry => ({
       id: entry.id,
       searchText: entry.searchText.toLowerCase(),
       suggestionRows: parseSuggestionRows(entry.searchSuggest ?? ''),
+      element: domEntries[entry.id]?.element,
+      sectionId: domEntries[entry.id]?.sectionId,
     }))
 
-    return finalizeSearchIndex(entries)
+    return finalizeSearchIndex(entries, { sections, staleDivider })
   }
 
-  const entries = Array.from(
-    document.querySelectorAll<HTMLElement>('[data-commission-entry="true"]'),
-  ).map((element, id) => {
+  const { domEntries, sections, staleDivider } = getDomSearchContext()
+
+  const entries = domEntries.map(({ element, sectionId }, id) => {
     const suggestText = element.dataset.searchSuggest ?? ''
     const suggestionRows = parseSuggestionRows(suggestText)
     return {
       suggestionRows,
       id,
       element,
-      sectionId: element.dataset.characterSectionId,
+      sectionId,
       searchText: (element.dataset.searchText ?? '').toLowerCase(),
     }
   })
 
-  return finalizeSearchIndex(entries, {
-    sections: Array.from(
-      document.querySelectorAll<HTMLElement>('[data-character-section="true"]'),
-    ).map(element => ({
-      id: element.id,
-      element,
-      status: element.dataset.characterStatus as 'active' | 'stale' | undefined,
-    })),
-    staleDivider: document.querySelector<HTMLElement>('[data-stale-divider="true"]'),
-  })
+  return finalizeSearchIndex(entries, { sections, staleDivider })
 }
 
 const buildRelatedCreatorTermsMap = (entries: SuggestionEntryLike[]) => {
