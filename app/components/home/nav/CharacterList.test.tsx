@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import CharacterList from './CharacterList'
@@ -33,6 +33,7 @@ describe('CharacterList', () => {
 
   afterEach(() => {
     process.env.NODE_ENV = originalNodeEnv
+    window.history.replaceState(null, '', '/')
     delete (window as Window & { rybbit?: { event?: typeof mockRybbitEvent } }).rybbit
   })
 
@@ -78,5 +79,57 @@ describe('CharacterList', () => {
         item_count: 2,
       }),
     )
+  })
+
+  it('hides sidebar dots while search query is active', async () => {
+    process.env.NODE_ENV = 'production'
+
+    const { container } = render(<CharacterList characters={characters} />)
+    window.dispatchEvent(
+      new CustomEvent('sidebar-search-state-change', {
+        detail: { active: true },
+      }),
+    )
+    const activeDot = container.querySelector<HTMLElement>(
+      '[data-sidebar-dot-for="title-artoria-pendragon"]',
+    )
+
+    expect(activeDot).toBeTruthy()
+    await waitFor(() => {
+      expect(activeDot).toHaveClass('scale-0', 'opacity-0')
+      expect(activeDot).not.toHaveClass('scale-100', 'opacity-100')
+    })
+  })
+
+  it('restores sidebar active dot after search filter is cleared', async () => {
+    process.env.NODE_ENV = 'production'
+
+    const { container } = render(<CharacterList characters={characters} />)
+    const activeDot = container.querySelector<HTMLElement>(
+      '[data-sidebar-dot-for="title-artoria-pendragon"]',
+    )
+
+    expect(activeDot).toBeTruthy()
+
+    window.dispatchEvent(
+      new CustomEvent('sidebar-search-state-change', {
+        detail: { active: true },
+      }),
+    )
+
+    await waitFor(() => {
+      expect(activeDot).toHaveClass('scale-0', 'opacity-0')
+    })
+
+    window.dispatchEvent(
+      new CustomEvent('sidebar-search-state-change', {
+        detail: { active: false },
+      }),
+    )
+
+    await waitFor(() => {
+      expect(activeDot).toHaveClass('scale-100', 'opacity-100')
+      expect(activeDot).not.toHaveClass('scale-0', 'opacity-0')
+    })
   })
 })

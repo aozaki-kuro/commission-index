@@ -66,6 +66,7 @@ const formatSuggestionSources = (sources: Suggestion['sources']) =>
   sources.map(source => suggestionSourceLabels[source]).join(' / ')
 const normalizeSuggestionTermKey = (term: string) => term.trim().toLowerCase()
 const MIN_TRACK_QUERY_LENGTH = 2
+const SIDEBAR_SEARCH_STATE_EVENT = 'sidebar-search-state-change'
 
 const buildSearchUrl = (rawQuery: string) => {
   const url = new URL(window.location.href)
@@ -329,6 +330,14 @@ const CommissionSearch = ({
   useEffect(() => {
     onMatchedIdsChange?.(matchedIds)
   }, [matchedIds, onMatchedIdsChange])
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent(SIDEBAR_SEARCH_STATE_EVENT, {
+        detail: { active: hasDeferredQuery },
+      }),
+    )
+  }, [hasDeferredQuery])
 
   useEffect(() => {
     const trackableQueryLength = getTrackableQueryLength(deferredQuery)

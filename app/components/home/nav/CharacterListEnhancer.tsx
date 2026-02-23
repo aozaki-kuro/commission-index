@@ -4,7 +4,7 @@ import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import { useCharacterScrollSpy } from '#lib/characters/useCharacterScrollSpy'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface CharacterListEnhancerProps {
   titleIds: string[]
@@ -13,23 +13,38 @@ interface CharacterListEnhancerProps {
 
 const ACTIVE_DOT_CLASSES = ['scale-100', 'opacity-100']
 const INACTIVE_DOT_CLASSES = ['scale-0', 'opacity-0']
+const SIDEBAR_SEARCH_STATE_EVENT = 'sidebar-search-state-change'
 
 const CharacterListEnhancer = ({ titleIds, itemCount }: CharacterListEnhancerProps) => {
   const activeId = useCharacterScrollSpy(titleIds)
   const hasTrackedSidebarUsageRef = useRef(false)
+  const [isSearchActive, setIsSearchActive] = useState(false)
+
+  useEffect(() => {
+    const onSearchStateChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ active?: boolean }>).detail
+      setIsSearchActive(Boolean(detail?.active))
+    }
+
+    window.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSearchStateChange)
+
+    return () => {
+      window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSearchStateChange)
+    }
+  }, [])
 
   useEffect(() => {
     const dots = document.querySelectorAll<HTMLElement>('[data-sidebar-dot-for]')
 
     dots.forEach(dot => {
       const dotTitleId = dot.dataset.sidebarDotFor
-      const isActive = dotTitleId === activeId
+      const isActive = !isSearchActive && dotTitleId === activeId
       dot.classList.toggle(ACTIVE_DOT_CLASSES[0], isActive)
       dot.classList.toggle(ACTIVE_DOT_CLASSES[1], isActive)
       dot.classList.toggle(INACTIVE_DOT_CLASSES[0], !isActive)
       dot.classList.toggle(INACTIVE_DOT_CLASSES[1], !isActive)
     })
-  }, [activeId])
+  }, [activeId, isSearchActive])
 
   useEffect(() => {
     const root = document.getElementById('Character List')
