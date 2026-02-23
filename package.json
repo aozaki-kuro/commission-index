@@ -3,6 +3,7 @@
   "version": "1.3.0",
   "private": true,
   "author": "Crystallize",
+  "type": "module",
   "scripts": {
     "build": "bun run pre-build ; next build",
     "build:offline": "NEXT_FONT_GOOGLE_MOCKED_RESPONSES=./scripts/nextFontGoogleMock.ts bun run build",
