@@ -92,6 +92,20 @@ const areSetsEqual = <T,>(left: Set<T>, right: Set<T>) => {
   return true
 }
 
+const buildSearchLiveStatusMessage = (
+  hasDeferredQuery: boolean,
+  matchedCount: number,
+  entriesCount: number,
+) =>
+  hasDeferredQuery
+    ? `Search results: ${matchedCount} of ${entriesCount} commissions shown.`
+    : `Search cleared. Showing all ${entriesCount} commissions.`
+
+const setTextContentIfChanged = (element: HTMLElement | null, message: string) => {
+  if (!element || element.textContent === message) return
+  element.textContent = message
+}
+
 const getUrlQuerySnapshot = () => {
   if (typeof window === 'undefined') return ''
   return new URLSearchParams(window.location.search).get('q') ?? ''
@@ -276,6 +290,7 @@ const CommissionSearch = ({
   const didAutoJumpRef = useRef(false)
   const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const previousMatchedIdsRef = useRef<Set<number>>(new Set())
+  const previousFilterIndexRef = useRef<SearchIndex | null>(null)
   const sectionVisibilityRef = useRef(new Map<string, boolean>())
   const staleDividerVisibilityRef = useRef(true)
   const hasTrackedSearchUsageRef = useRef(false)
@@ -360,9 +375,10 @@ const CommissionSearch = ({
 
     if (disableDomFiltering) {
       if (liveRef.current && entriesCount > 0) {
-        liveRef.current.textContent = hasDeferredQuery
-          ? `Search results: ${matchedIds.size} of ${entriesCount} commissions shown.`
-          : `Search cleared. Showing all ${entriesCount} commissions.`
+        setTextContentIfChanged(
+          liveRef.current,
+          buildSearchLiveStatusMessage(hasDeferredQuery, matchedIds.size, entriesCount),
+        )
       }
       return
     }
@@ -370,37 +386,51 @@ const CommissionSearch = ({
     const { entryById, sections, staleDivider } = index
     const previousMatchedIds = previousMatchedIdsRef.current
     const matchedIdsChanged = !areSetsEqual(previousMatchedIds, matchedIds)
+    const indexChanged = previousFilterIndexRef.current !== index
     const visibleSectionIds = hasDeferredQuery ? new Set<string>() : null
     let didLayoutChange = false
+
+    if (!matchedIdsChanged && !indexChanged) {
+      setTextContentIfChanged(
+        liveRef.current,
+        buildSearchLiveStatusMessage(hasDeferredQuery, matchedIds.size, entriesCount),
+      )
+      return
+    }
 
     if (matchedIdsChanged) {
       for (const id of previousMatchedIds) {
         if (matchedIds.has(id)) continue
         const previousEntry = entryById.get(id)
         if (previousEntry?.element) {
-          previousEntry.element.classList.add('hidden')
-          didLayoutChange = true
-        }
-      }
-
-      for (const id of matchedIds) {
-        if (previousMatchedIds.has(id)) continue
-        const nextEntry = entryById.get(id)
-        if (nextEntry?.element) {
-          nextEntry.element.classList.remove('hidden')
-          didLayoutChange = true
+          if (!previousEntry.element.classList.contains('hidden')) {
+            previousEntry.element.classList.add('hidden')
+            didLayoutChange = true
+          }
         }
       }
     }
 
-    if (visibleSectionIds) {
+    if (matchedIdsChanged || visibleSectionIds) {
       for (const id of matchedIds) {
         const entry = entryById.get(id)
-        if (entry?.sectionId) visibleSectionIds.add(entry.sectionId)
+        if (!entry) continue
+
+        if (matchedIdsChanged && !previousMatchedIds.has(id) && entry.element) {
+          if (entry.element.classList.contains('hidden')) {
+            entry.element.classList.remove('hidden')
+            didLayoutChange = true
+          }
+        }
+
+        if (visibleSectionIds && entry.sectionId) {
+          visibleSectionIds.add(entry.sectionId)
+        }
       }
     }
 
     previousMatchedIdsRef.current = matchedIds
+    previousFilterIndexRef.current = index
 
     if (entriesCount === 0) {
       return
@@ -433,11 +463,10 @@ const CommissionSearch = ({
       }
     }
 
-    if (liveRef.current) {
-      liveRef.current.textContent = hasDeferredQuery
-        ? `Search results: ${matchedIds.size} of ${entriesCount} commissions shown.`
-        : `Search cleared. Showing all ${entriesCount} commissions.`
-    }
+    setTextContentIfChanged(
+      liveRef.current,
+      buildSearchLiveStatusMessage(hasDeferredQuery, matchedIds.size, entriesCount),
+    )
 
     if (didLayoutChange) {
       dispatchSidebarSearchState()
