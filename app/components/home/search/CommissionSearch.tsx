@@ -348,7 +348,7 @@ const CommissionSearch = ({
     const entriesCount = index.entries.length
 
     if (disableDomFiltering) {
-      dispatchSidebarSearchState(hasDeferredQuery)
+      dispatchSidebarSearchState()
       if (liveRef.current && entriesCount > 0) {
         liveRef.current.textContent = hasDeferredQuery
           ? `Search results: ${matchedIds.size} of ${entriesCount} commissions shown.`
@@ -379,13 +379,12 @@ const CommissionSearch = ({
     previousMatchedIdsRef.current = matchedIds
 
     if (entriesCount === 0) {
-      dispatchSidebarSearchState(hasDeferredQuery, [])
+      dispatchSidebarSearchState()
       return
     }
 
     let visibleActiveSections = 0
     let visibleStaleSections = 0
-    const visibleSectionIds: string[] = []
 
     for (const section of sections) {
       const shown = visibleBySection.get(section.id) ?? 0
@@ -396,7 +395,6 @@ const CommissionSearch = ({
       }
 
       if (shown > 0) {
-        visibleSectionIds.push(section.id)
         if (section.status === 'active') visibleActiveSections += 1
         if (section.status === 'stale') visibleStaleSections += 1
       }
@@ -416,11 +414,7 @@ const CommissionSearch = ({
         ? `Search results: ${matchedIds.size} of ${entriesCount} commissions shown.`
         : `Search cleared. Showing all ${entriesCount} commissions.`
     }
-
-    dispatchSidebarSearchState(
-      hasDeferredQuery,
-      hasDeferredQuery ? visibleSectionIds : sections.map(section => section.id),
-    )
+    dispatchSidebarSearchState()
   }, [disableDomFiltering, hasDeferredQuery, index, matchedIds])
 
   useEffect(() => {

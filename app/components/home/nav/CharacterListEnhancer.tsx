@@ -3,79 +3,46 @@
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
-import {
-  getSidebarSearchStateDetail,
-  SIDEBAR_SEARCH_STATE_EVENT,
-} from '#lib/navigation/sidebarSearchState'
 import { useCharacterScrollSpy } from '#lib/characters/useCharacterScrollSpy'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 
 interface CharacterListEnhancerProps {
   titleIds: string[]
-  sectionIdByTitleId: Record<string, string>
   itemCount: number
 }
 
 const ACTIVE_DOT_CLASSES = ['scale-100', 'opacity-100']
 const INACTIVE_DOT_CLASSES = ['scale-0', 'opacity-0']
-
-type SidebarSearchState = {
-  active: boolean
-  visibleSectionIds: Set<string> | null
-}
-
-const CharacterListEnhancer = ({
-  titleIds,
-  sectionIdByTitleId,
-  itemCount,
-}: CharacterListEnhancerProps) => {
+const CharacterListEnhancer = ({ titleIds, itemCount }: CharacterListEnhancerProps) => {
   const activeId = useCharacterScrollSpy(titleIds)
   const hasTrackedSidebarUsageRef = useRef(false)
-  const dotsRef = useRef<HTMLElement[]>([])
-  const [searchState, setSearchState] = useState<SidebarSearchState>({
-    active: false,
-    visibleSectionIds: null,
-  })
+  const dotByTitleIdRef = useRef<Map<string, HTMLElement>>(new Map())
+  const activeDotRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
-    dotsRef.current = Array.from(document.querySelectorAll<HTMLElement>('[data-sidebar-dot-for]'))
+    dotByTitleIdRef.current = new Map(
+      Array.from(document.querySelectorAll<HTMLElement>('[data-sidebar-dot-for]'))
+        .map(dot => [dot.dataset.sidebarDotFor, dot] as const)
+        .filter(([titleId]) => Boolean(titleId)) as Array<[string, HTMLElement]>,
+    )
   }, [])
 
   useEffect(() => {
-    const onSearchStateChange = (event: Event) => {
-      const detail = getSidebarSearchStateDetail(event)
-      setSearchState({
-        active: Boolean(detail?.active),
-        visibleSectionIds: detail?.visibleSectionIds
-          ? new Set(detail.visibleSectionIds)
-          : Boolean(detail?.active)
-            ? new Set()
-            : null,
-      })
+    const previousDot = activeDotRef.current
+    const nextDot = activeId ? (dotByTitleIdRef.current.get(activeId) ?? null) : null
+
+    if (previousDot && previousDot !== nextDot) {
+      previousDot.classList.remove(...ACTIVE_DOT_CLASSES)
+      previousDot.classList.add(...INACTIVE_DOT_CLASSES)
     }
 
-    window.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSearchStateChange)
-
-    return () => {
-      window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSearchStateChange)
+    if (nextDot && nextDot !== previousDot) {
+      nextDot.classList.remove(...INACTIVE_DOT_CLASSES)
+      nextDot.classList.add(...ACTIVE_DOT_CLASSES)
     }
-  }, [])
 
-  useEffect(() => {
-    dotsRef.current.forEach(dot => {
-      const dotTitleId = dot.dataset.sidebarDotFor
-      const sectionId = dotTitleId ? sectionIdByTitleId[dotTitleId] : undefined
-      const isEligibleDuringSearch = Boolean(
-        sectionId && searchState.visibleSectionIds?.has(sectionId),
-      )
-      const shouldShowForDot = !searchState.active || isEligibleDuringSearch
-      const isActive = shouldShowForDot && dotTitleId === activeId
-      dot.classList.toggle(ACTIVE_DOT_CLASSES[0], isActive)
-      dot.classList.toggle(ACTIVE_DOT_CLASSES[1], isActive)
-      dot.classList.toggle(INACTIVE_DOT_CLASSES[0], !isActive)
-      dot.classList.toggle(INACTIVE_DOT_CLASSES[1], !isActive)
-    })
-  }, [activeId, searchState, sectionIdByTitleId])
+    activeDotRef.current = nextDot
+  }, [activeId])
 
   useEffect(() => {
     const root = document.getElementById('Character List')

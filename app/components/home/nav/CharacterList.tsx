@@ -11,9 +11,6 @@ const HIDDEN_DOT_CLASSES = 'scale-0 opacity-0'
 const CharacterList = ({ characters }: CharacterListProps) => {
   const navItems = buildCharacterNavItems(characters)
   const titleIds = navItems.map(item => item.titleId)
-  const sectionIdByTitleId = Object.fromEntries(
-    navItems.map(item => [item.titleId, item.sectionId]),
-  )
   const showAdminLink = process.env.NODE_ENV === 'development'
 
   return (
@@ -68,11 +65,7 @@ const CharacterList = ({ characters }: CharacterListProps) => {
         {showAdminLink ? <DevAdminLink /> : null}
       </div>
 
-      <CharacterListEnhancer
-        titleIds={titleIds}
-        sectionIdByTitleId={sectionIdByTitleId}
-        itemCount={navItems.length}
-      />
+      <CharacterListEnhancer titleIds={titleIds} itemCount={navItems.length} />
     </aside>
   )
 }

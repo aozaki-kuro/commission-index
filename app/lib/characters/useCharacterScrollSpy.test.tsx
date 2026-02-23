@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { useCharacterScrollSpy } from './useCharacterScrollSpy'
 
 const HookProbe = ({ titleIds }: { titleIds: string[] }) => {
@@ -63,6 +64,47 @@ describe('useCharacterScrollSpy', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('active-id')).toHaveTextContent('title-artoria-pendragon')
+    })
+  })
+
+  it('recomputes active title when filtered visibility changes', async () => {
+    document.body.innerHTML = `
+      <h2 id="title-artoria-pendragon"></h2>
+      <h2 id="title-nero-claudius"></h2>
+    `
+
+    let artoriaVisible = true
+    const artoria = document.getElementById('title-artoria-pendragon') as HTMLElement
+    const nero = document.getElementById('title-nero-claudius') as HTMLElement
+
+    vi.spyOn(artoria, 'getClientRects').mockImplementation(
+      () =>
+        ({
+          length: artoriaVisible ? 1 : 0,
+          item: () => null,
+          [Symbol.iterator]: function* () {},
+        }) as unknown as DOMRectList,
+    )
+    vi.spyOn(nero, 'getClientRects').mockReturnValue({
+      length: 1,
+      item: () => null,
+      [Symbol.iterator]: function* () {},
+    } as unknown as DOMRectList)
+
+    vi.spyOn(artoria, 'getBoundingClientRect').mockReturnValue(createRect(120))
+    vi.spyOn(nero, 'getBoundingClientRect').mockReturnValue(createRect(320))
+
+    render(<HookProbe titleIds={['title-artoria-pendragon', 'title-nero-claudius']} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('active-id')).toHaveTextContent('title-artoria-pendragon')
+    })
+
+    artoriaVisible = false
+    window.dispatchEvent(new Event(SIDEBAR_SEARCH_STATE_EVENT))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('active-id')).toHaveTextContent('title-nero-claudius')
     })
   })
 })
