@@ -191,7 +191,24 @@ const includeInverseInPlace = (source: Set<number>, allIds: Set<number>, exclude
 }
 
 const tokenizeQuery = (query: string) => query.match(/"[^"]*"|\S+/g) ?? []
-const suggestionTokenTailPattern = /^(.*?)(!?)(?:"([^"]*)"|"([^"]*)|([^\s|!]*))$/
+const getSuggestionTokenTailStart = (rawQuery: string) => {
+  let inQuote = false
+  let tokenStart: number | null = null
+
+  for (let i = 0; i < rawQuery.length; i += 1) {
+    const char = rawQuery[i]
+
+    if (!inQuote && (char === ' ' || char === '|' || char === '!')) {
+      tokenStart = null
+      continue
+    }
+
+    if (tokenStart === null) tokenStart = i
+    if (char === '"') inQuote = !inQuote
+  }
+
+  return tokenStart
+}
 
 const getParsedFuseQuery = (rawQuery: string): ParsedFuseQuery => {
   const cached = parsedFuseQueryCache.get(rawQuery)
@@ -239,8 +256,8 @@ export const parseSuggestionInputState = (rawQuery: string): ParsedSuggestionInp
     )
   }
 
-  const match = rawQuery.match(suggestionTokenTailPattern)
-  if (!match) {
+  const tokenStart = getSuggestionTokenTailStart(rawQuery)
+  if (tokenStart === null) {
     return setLruCacheEntry(
       parsedSuggestionInputStateCache,
       rawQuery,
@@ -254,29 +271,44 @@ export const parseSuggestionInputState = (rawQuery: string): ParsedSuggestionInp
     )
   }
 
-  const prefix = match[1] ?? ''
-  const negation = match[2] ?? ''
-  const closedQuotedToken = match[3]
-  const openQuotedToken = match[4]
-  const unquotedToken = match[5]
-  const tokenBody = (closedQuotedToken ?? openQuotedToken ?? unquotedToken ?? '').trim()
+  const prefix = rawQuery.slice(0, tokenStart)
+  const rawToken = rawQuery.slice(tokenStart)
+  const hasNegationPrefix = rawToken.startsWith('!')
+  const tokenWithPossibleQuotes = hasNegationPrefix ? rawToken.slice(1) : rawToken
+  const hasOpeningQuote = tokenWithPossibleQuotes.startsWith('"')
+  const hasClosedQuote =
+    hasOpeningQuote && tokenWithPossibleQuotes.length >= 2 && tokenWithPossibleQuotes.endsWith('"')
+  const tokenBody = hasOpeningQuote
+    ? (hasClosedQuote
+        ? tokenWithPossibleQuotes.slice(1, -1)
+        : tokenWithPossibleQuotes.slice(1)
+      ).trim()
+    : tokenWithPossibleQuotes.trim()
   let suggestionOperator: SuggestionTokenOperator = null
 
   if (tokenBody) {
-    if (negation === '!') {
+    const trimmedPrefix = prefix.replace(/\s+$/g, '')
+    const prefixEndsWithNegation = trimmedPrefix.at(-1) === '!'
+
+    if (hasNegationPrefix || prefixEndsWithNegation) {
       suggestionOperator = 'exclude'
     } else {
-      const trimmedPrefix = prefix.replace(/\s+$/g, '')
       if (trimmedPrefix.at(-1) === '|') {
         suggestionOperator = 'or'
-      } else if (
-        closedQuotedToken === undefined &&
-        /\s+$/.test(prefix) &&
-        trimmedPrefix.length > 0
-      ) {
+      } else if (!hasClosedQuote && /\s+$/.test(prefix) && trimmedPrefix.length > 0) {
         suggestionOperator = 'and'
       }
     }
+  }
+
+  let suggestionContextQuery = prefix.trimEnd()
+  if (
+    tokenBody &&
+    suggestionOperator === 'exclude' &&
+    !hasNegationPrefix &&
+    suggestionContextQuery.endsWith('!')
+  ) {
+    suggestionContextQuery = suggestionContextQuery.slice(0, -1).trimEnd()
   }
 
   return setLruCacheEntry(
@@ -284,7 +316,7 @@ export const parseSuggestionInputState = (rawQuery: string): ParsedSuggestionInp
     rawQuery,
     {
       suggestionQuery: tokenBody,
-      suggestionContextQuery: prefix.trimEnd(),
+      suggestionContextQuery,
       suggestionOperator,
       suggestionIsExclusion: suggestionOperator === 'exclude',
     },

@@ -143,6 +143,16 @@ describe('search suggestion token operator', () => {
     expect(extractSuggestionContextQuery(rawQuery)).toBe('Albemuth')
     expect(getSuggestionTokenOperator(rawQuery)).toBe('and')
   })
+
+  it('parses token/operator correctly after a quoted multi-word token', () => {
+    expect(extractSuggestionQuery('"Kanaut Nishe" | N')).toBe('N')
+    expect(extractSuggestionContextQuery('"Kanaut Nishe" | N')).toBe('"Kanaut Nishe" |')
+    expect(getSuggestionTokenOperator('"Kanaut Nishe" | N')).toBe('or')
+
+    expect(extractSuggestionQuery('"Kanaut Nishe" !N')).toBe('N')
+    expect(extractSuggestionContextQuery('"Kanaut Nishe" !N')).toBe('"Kanaut Nishe"')
+    expect(getSuggestionTokenOperator('"Kanaut Nishe" !N')).toBe('exclude')
+  })
 })
 
 describe('search suggestion context scope', () => {
@@ -364,5 +374,45 @@ describe('search date suggestions', () => {
         suggestionContextMatchedIds: new Set([1]),
       }).map(item => item.term),
     ).toEqual([])
+  })
+
+  it('keeps suggestions working after quoted multi-word token with logical operator', () => {
+    const entries: SuggestionEntryLike[] = [
+      {
+        id: 1,
+        suggestionRows: new Map([
+          ['kanaut nishe', { source: 'Character', term: 'Kanaut Nishe' }],
+          ['q', { source: 'Creator', term: 'Q' }],
+        ]),
+      },
+      {
+        id: 2,
+        suggestionRows: new Map([
+          ['nanashi', { source: 'Creator', term: 'Nanashi' }],
+          ['nakamura rohane', { source: 'Creator', term: 'Nakamura Rohane' }],
+        ]),
+      },
+    ]
+    const suggestions: Suggestion[] = [
+      { term: 'Kanaut Nishe', count: 1, sources: ['Character'] },
+      { term: 'Q', count: 1, sources: ['Creator'] },
+      { term: 'Nanashi', count: 1, sources: ['Creator'] },
+      { term: 'Nakamura Rohane', count: 1, sources: ['Creator'] },
+    ]
+
+    const rawQuery = '"Kanaut Nishe" | N'
+
+    expect(getSuggestionTokenOperator(rawQuery)).toBe('or')
+    expect(extractSuggestionQuery(rawQuery)).toBe('N')
+
+    expect(
+      filterSuggestions({
+        entries,
+        suggestions,
+        suggestionQuery: extractSuggestionQuery(rawQuery),
+        suggestionContextQuery: extractSuggestionContextQuery(rawQuery),
+        suggestionContextMatchedIds: new Set([1, 2]),
+      }).map(item => item.term),
+    ).toEqual(['Nakamura Rohane', 'Nanashi'])
   })
 })
