@@ -148,8 +148,14 @@ const finalizeSearchIndex = (
 const getActiveCommissionViewRoot = (viewMode: 'character' | 'timeline'): ParentNode | Document => {
   if (typeof window === 'undefined') return document
 
-  const selector = `[data-commission-view-panel="${viewMode}"][data-commission-view-active="true"]`
-  return document.querySelector<HTMLElement>(selector) ?? document
+  const activeSelector = `[data-commission-view-panel="${viewMode}"][data-commission-view-active="true"]`
+  const panelSelector = `[data-commission-view-panel="${viewMode}"]`
+
+  return (
+    document.querySelector<HTMLElement>(activeSelector) ??
+    document.querySelector<HTMLElement>(panelSelector) ??
+    document
+  )
 }
 
 const getDomSearchContext = (viewMode: 'character' | 'timeline') => {
@@ -412,7 +418,18 @@ const CommissionSearch = ({
       return
     }
 
-    if (matchedIdsChanged) {
+    if (indexChanged) {
+      for (const entry of entryById.values()) {
+        if (!entry.element) continue
+
+        const shouldHide = hasDeferredQuery ? !matchedIds.has(entry.id) : false
+        const isHidden = entry.element.classList.contains('hidden')
+        if (shouldHide === isHidden) continue
+
+        entry.element.classList.toggle('hidden', shouldHide)
+        didLayoutChange = true
+      }
+    } else if (matchedIdsChanged) {
       for (const id of previousMatchedIds) {
         if (matchedIds.has(id)) continue
         const previousEntry = entryById.get(id)
@@ -430,7 +447,7 @@ const CommissionSearch = ({
         const entry = entryById.get(id)
         if (!entry) continue
 
-        if (matchedIdsChanged && !previousMatchedIds.has(id) && entry.element) {
+        if ((indexChanged || (matchedIdsChanged && !previousMatchedIds.has(id))) && entry.element) {
           if (entry.element.classList.contains('hidden')) {
             entry.element.classList.remove('hidden')
             didLayoutChange = true
