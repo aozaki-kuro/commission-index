@@ -4,8 +4,7 @@ import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { useEffect, useRef, useState } from 'react'
 
 const getScrollThreshold = () => {
-  const viewportRatio = window.innerWidth < 768 ? 0.2 : 0.25
-  return Math.max(80, window.innerHeight * viewportRatio)
+  return window.innerHeight / 2
 }
 
 const isElementVisible = (element: HTMLElement) => element.getClientRects().length > 0

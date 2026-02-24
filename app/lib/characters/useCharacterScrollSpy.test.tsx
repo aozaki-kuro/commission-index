@@ -92,7 +92,7 @@ describe('useCharacterScrollSpy', () => {
     } as unknown as DOMRectList)
 
     vi.spyOn(artoria, 'getBoundingClientRect').mockReturnValue(createRect(120))
-    vi.spyOn(nero, 'getBoundingClientRect').mockReturnValue(createRect(320))
+    vi.spyOn(nero, 'getBoundingClientRect').mockReturnValue(createRect(620))
 
     render(<HookProbe titleIds={['title-artoria-pendragon', 'title-nero-claudius']} />)
 
@@ -128,6 +128,44 @@ describe('useCharacterScrollSpy', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('active-id')).toHaveTextContent('title-l-cia')
+    })
+  })
+
+  it('switches active title when the next title crosses the viewport midpoint', async () => {
+    document.body.innerHTML = `
+      <h2 id="title-artoria-pendragon"></h2>
+      <h2 id="title-nero-claudius"></h2>
+    `
+
+    const artoria = document.getElementById('title-artoria-pendragon') as HTMLElement
+    const nero = document.getElementById('title-nero-claudius') as HTMLElement
+
+    vi.spyOn(artoria, 'getClientRects').mockReturnValue({
+      length: 1,
+      item: () => null,
+      [Symbol.iterator]: function* () {},
+    } as unknown as DOMRectList)
+    vi.spyOn(nero, 'getClientRects').mockReturnValue({
+      length: 1,
+      item: () => null,
+      [Symbol.iterator]: function* () {},
+    } as unknown as DOMRectList)
+
+    let neroTop = 520
+    vi.spyOn(artoria, 'getBoundingClientRect').mockReturnValue(createRect(120))
+    vi.spyOn(nero, 'getBoundingClientRect').mockImplementation(() => createRect(neroTop))
+
+    render(<HookProbe titleIds={['title-artoria-pendragon', 'title-nero-claudius']} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('active-id')).toHaveTextContent('title-artoria-pendragon')
+    })
+
+    neroTop = 480
+    window.dispatchEvent(new Event('scroll'))
+
+    await waitFor(() => {
+      expect(screen.getByTestId('active-id')).toHaveTextContent('title-nero-claudius')
     })
   })
 
