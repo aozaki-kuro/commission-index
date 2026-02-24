@@ -91,6 +91,35 @@ export const CommissionViewTabs = () => {
   return <CommissionViewModeToggle className="mb-6 lg:hidden" />
 }
 
+const ViewModeTabButton = ({
+  label,
+  active,
+  onClick,
+}: {
+  label: string
+  active: boolean
+  onClick: () => void
+}) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={active}
+    className={`relative z-10 px-0 pt-1 pb-2 font-mono text-sm leading-5 no-underline transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 ${
+      active
+        ? 'text-gray-700 dark:text-gray-300'
+        : 'text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300'
+    }`.trim()}
+  >
+    <span>{label}</span>
+    <span
+      aria-hidden="true"
+      className={`absolute bottom-0 left-0 h-px rounded-full bg-current transition-[width,opacity] duration-200 ${
+        active ? 'w-full opacity-100' : 'w-0 opacity-0'
+      }`}
+    />
+  </button>
+)
+
 export const CommissionViewModeToggle = ({
   className = '',
   compact = false,
@@ -101,37 +130,27 @@ export const CommissionViewModeToggle = ({
   const { mode, setMode } = useCommissionViewMode()
 
   return (
-    <div
-      className={`${className} ${
-        compact ? 'space-y-2' : 'border-b border-gray-300/80 pb-2 dark:border-gray-700'
-      }`.trim()}
-    >
+    <div className={`${className} ${compact ? 'space-y-2' : 'pb-2'}`.trim()}>
       {compact ? (
         <div className="pl-4 font-mono text-[11px] tracking-[0.08em] text-gray-500 uppercase dark:text-gray-400">
           View
         </div>
       ) : null}
-      <div
-        className={`flex gap-2 font-mono text-xs tracking-[0.08em] text-gray-700 uppercase md:text-sm dark:text-gray-300 ${
-          compact ? 'pl-4' : ''
-        }`}
-      >
-        <button
-          type="button"
+      <div className={`relative flex items-end gap-4 ${compact ? 'pr-2 pl-4' : ''}`}>
+        <span
+          aria-hidden="true"
+          className="absolute right-0 bottom-0 left-0 h-px bg-gray-300/80 dark:bg-gray-700"
+        />
+        <ViewModeTabButton
+          label="By Character"
+          active={mode === 'character'}
           onClick={() => setMode('character')}
-          aria-pressed={mode === 'character'}
-          className="rounded-full px-3 py-1.5 no-underline outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 aria-pressed:bg-gray-900 aria-pressed:text-white dark:aria-pressed:bg-gray-100 dark:aria-pressed:text-black"
-        >
-          by character
-        </button>
-        <button
-          type="button"
+        />
+        <ViewModeTabButton
+          label="By Date"
+          active={mode === 'timeline'}
           onClick={() => setMode('timeline')}
-          aria-pressed={mode === 'timeline'}
-          className="rounded-full px-3 py-1.5 no-underline outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 aria-pressed:bg-gray-900 aria-pressed:text-white dark:aria-pressed:bg-gray-100 dark:aria-pressed:text-black"
-        >
-          by date
-        </button>
+        />
       </div>
     </div>
   )

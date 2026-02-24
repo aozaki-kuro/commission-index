@@ -106,6 +106,31 @@ describe('CharacterList', () => {
     })
   })
 
+  it('does not render sidebar dots in timeline mode', () => {
+    process.env.NODE_ENV = 'production'
+    window.history.replaceState(null, '', '/?view=timeline')
+
+    const monthNavItems = [
+      {
+        displayName: '2026',
+        sectionId: 'timeline-year-2026',
+        titleId: 'title-timeline-year-2026',
+        sectionHash: '#timeline-year-2026',
+        titleHash: '#title-timeline-year-2026',
+      },
+    ]
+
+    const { container } = renderCharacterList(
+      <CharacterList characters={characters} monthNavItems={monthNavItems} />,
+    )
+
+    expect(screen.getByRole('link', { name: '2026' })).toHaveAttribute(
+      'href',
+      '#timeline-year-2026',
+    )
+    expect(container.querySelector('[data-sidebar-dot-for]')).toBeNull()
+  })
+
   it('disables sidebar character links whose sections are hidden during search', () => {
     process.env.NODE_ENV = 'production'
 

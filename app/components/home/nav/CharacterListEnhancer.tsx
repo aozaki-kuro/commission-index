@@ -10,6 +10,7 @@ import { useEffect, useRef } from 'react'
 interface CharacterListEnhancerProps {
   titleIds: string[]
   itemCount: number
+  enableActiveDots?: boolean
 }
 
 const ACTIVE_DOT_CLASSES = ['scale-100', 'opacity-100']
@@ -21,22 +22,37 @@ const DISABLED_LINK_CLASSES = [
   'text-gray-500',
   'dark:text-gray-400',
 ]
-const CharacterListEnhancer = ({ titleIds, itemCount }: CharacterListEnhancerProps) => {
+const CharacterListEnhancer = ({
+  titleIds,
+  itemCount,
+  enableActiveDots = true,
+}: CharacterListEnhancerProps) => {
   const activeId = useCharacterScrollSpy(titleIds)
   const hasTrackedSidebarUsageRef = useRef(false)
   const dotByTitleIdRef = useRef<Map<string, HTMLElement>>(new Map())
   const activeDotRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
+    if (!enableActiveDots) {
+      dotByTitleIdRef.current = new Map()
+      activeDotRef.current = null
+      return
+    }
+
     dotByTitleIdRef.current = new Map(
       Array.from(document.querySelectorAll<HTMLElement>('[data-sidebar-dot-for]'))
         .map(dot => [dot.dataset.sidebarDotFor, dot] as const)
         .filter(([titleId]) => Boolean(titleId)) as Array<[string, HTMLElement]>,
     )
     activeDotRef.current = null
-  }, [titleIds])
+  }, [enableActiveDots, titleIds])
 
   useEffect(() => {
+    if (!enableActiveDots) {
+      activeDotRef.current = null
+      return
+    }
+
     const previousDot = activeDotRef.current
     const nextDot = activeId ? (dotByTitleIdRef.current.get(activeId) ?? null) : null
 
@@ -51,7 +67,7 @@ const CharacterListEnhancer = ({ titleIds, itemCount }: CharacterListEnhancerPro
     }
 
     activeDotRef.current = nextDot
-  }, [activeId, titleIds])
+  }, [activeId, enableActiveDots, titleIds])
 
   useEffect(() => {
     const root = document.getElementById('Character List')

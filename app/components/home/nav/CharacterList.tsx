@@ -47,6 +47,7 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
   const characterNavItems = useMemo(() => buildCharacterNavItems(characters), [characters])
   const navItems = mode === 'timeline' ? monthNavItems : characterNavItems
   const titleIds = navItems.map(item => item.titleId)
+  const showActiveDots = mode === 'character'
   const showAdminLink = process.env.NODE_ENV === 'development'
 
   return (
@@ -62,10 +63,12 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
                 key={sectionId}
                 className="relative pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
               >
-                <div
-                  data-sidebar-dot-for={titleId}
-                  className={`absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-400 transition-all duration-300 ${HIDDEN_DOT_CLASSES}`}
-                />
+                {showActiveDots ? (
+                  <div
+                    data-sidebar-dot-for={titleId}
+                    className={`absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-400 transition-all duration-300 ${HIDDEN_DOT_CLASSES}`}
+                  />
+                ) : null}
                 <a
                   href={sectionHash}
                   data-sidebar-character-link="true"
@@ -127,7 +130,11 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
         </div>
       </div>
 
-      <CharacterListEnhancer titleIds={titleIds} itemCount={navItems.length} />
+      <CharacterListEnhancer
+        titleIds={showActiveDots ? titleIds : []}
+        itemCount={navItems.length}
+        enableActiveDots={showActiveDots}
+      />
     </aside>
   )
 }
