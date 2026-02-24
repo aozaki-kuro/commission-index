@@ -78,7 +78,7 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
           </ul>
         </nav>
 
-        <div className="space-y-2">
+        <div className="space-y-4 pt-2">
           <div className={UTILITY_ROW_WRAPPER_CLASSES}>
             <svg
               viewBox="0 0 24 24"
@@ -104,22 +104,24 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
             </a>
           </div>
 
-          <ModeToggleButton
-            label="By Character"
-            active={mode === 'character'}
-            onClick={() => {
-              if (mode === 'character') return
-              setMode('character')
-            }}
-          />
-          <ModeToggleButton
-            label="By Date"
-            active={mode === 'timeline'}
-            onClick={() => {
-              if (mode === 'timeline') return
-              setMode('timeline')
-            }}
-          />
+          <div className="space-y-2">
+            <ModeToggleButton
+              label="By Character"
+              active={mode === 'character'}
+              onClick={() => {
+                if (mode === 'character') return
+                setMode('character')
+              }}
+            />
+            <ModeToggleButton
+              label="By Date"
+              active={mode === 'timeline'}
+              onClick={() => {
+                if (mode === 'timeline') return
+                setMode('timeline')
+              }}
+            />
+          </div>
 
           {showAdminLink ? <DevAdminLink /> : null}
         </div>
