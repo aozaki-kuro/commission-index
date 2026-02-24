@@ -55,6 +55,11 @@ const getHashTarget = (hash: string): HTMLElement | null => {
   return document.getElementById(id)
 }
 
+const hasSearchQueryInUrl = () => {
+  const query = new URLSearchParams(window.location.search).get('q')
+  return Boolean(query?.trim())
+}
+
 const clearHash = () => {
   const { pathname, search, hash } = window.location
   if (!hash) return
@@ -111,8 +116,9 @@ export const useCharacterScrollSpy = (
       const threshold = thresholdRef.current
       const isAtIntroduction =
         introductionElement && isElementAtThreshold(introductionElement, threshold)
+      const hasUrlSearchQuery = hasSearchQueryInUrl()
 
-      if (window.scrollY === 0 || isAtIntroduction) {
+      if (!hasUrlSearchQuery && (window.scrollY === 0 || isAtIntroduction)) {
         setActiveId('')
         resetStaleHash()
         return

@@ -107,4 +107,27 @@ describe('useCharacterScrollSpy', () => {
       expect(screen.getByTestId('active-id')).toHaveTextContent('title-nero-claudius')
     })
   })
+
+  it('keeps an active title at top when a search query is present in the url', async () => {
+    document.body.innerHTML = `
+      <h2 id="title-l-cia"></h2>
+    `
+
+    window.history.replaceState(null, '', '/?q=L*cia+')
+    Object.defineProperty(window, 'scrollY', { value: 0, writable: true, configurable: true })
+
+    const title = document.getElementById('title-l-cia') as HTMLElement
+    vi.spyOn(title, 'getClientRects').mockReturnValue({
+      length: 1,
+      item: () => null,
+      [Symbol.iterator]: function* () {},
+    } as unknown as DOMRectList)
+    vi.spyOn(title, 'getBoundingClientRect').mockReturnValue(createRect(320))
+
+    render(<HookProbe titleIds={['title-l-cia']} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('active-id')).toHaveTextContent('title-l-cia')
+    })
+  })
 })
