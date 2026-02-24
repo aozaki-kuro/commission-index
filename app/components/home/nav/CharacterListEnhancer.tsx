@@ -119,7 +119,7 @@ const CharacterListEnhancer = ({
       root.removeEventListener('click', onClick)
       window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, syncCharacterLinkAvailability)
     }
-  }, [itemCount])
+  }, [itemCount, titleIds])
 
   return null
 }

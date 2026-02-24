@@ -190,6 +190,12 @@ const CharacterMenuList = memo(
   ({ active, stale, timelineNavItems, close }: CharacterMenuListProps) => {
     const { mode } = useCommissionViewMode()
     const rootRef = useRef<HTMLDivElement>(null)
+    const activeItemsKey = useMemo(() => active.map(item => item.DisplayName).join('\n'), [active])
+    const staleItemsKey = useMemo(() => stale.map(item => item.DisplayName).join('\n'), [stale])
+    const timelineItemsKey = useMemo(
+      () => timelineNavItems.map(item => item.sectionId).join('\n'),
+      [timelineNavItems],
+    )
 
     useEffect(() => {
       const syncLinkAvailability = () => {
@@ -206,7 +212,7 @@ const CharacterMenuList = memo(
       syncLinkAvailability()
       window.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, syncLinkAvailability)
       return () => window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, syncLinkAvailability)
-    }, [active.length, mode, stale.length, timelineNavItems.length])
+    }, [activeItemsKey, mode, staleItemsKey, timelineItemsKey])
 
     return (
       <div ref={rootRef} className="relative">
