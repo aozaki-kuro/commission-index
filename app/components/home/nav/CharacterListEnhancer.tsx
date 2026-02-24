@@ -51,7 +51,7 @@ const CharacterListEnhancer = ({ titleIds, itemCount }: CharacterListEnhancerPro
     }
 
     activeDotRef.current = nextDot
-  }, [activeId])
+  }, [activeId, titleIds])
 
   useEffect(() => {
     const root = document.getElementById('Character List')
