@@ -47,6 +47,10 @@ export default function CommissionSearchDeferred() {
             cachedHomeSearchEntries = entries
             return entries
           })
+          .catch(error => {
+            homeSearchEntriesPromise = null
+            throw error
+          })
       }
 
       const entries = await homeSearchEntriesPromise
@@ -59,15 +63,36 @@ export default function CommissionSearchDeferred() {
 
   const enableSearch = useCallback(
     (focusOnMount = false, openHelpOnMount = false) => {
-      startTransition(() => {
-        setIsEnabled(true)
-        if (focusOnMount) setShouldFocusOnMount(true)
-        if (openHelpOnMount) setShouldOpenHelpOnMount(true)
-      })
+      const shouldEnable = !isEnabled
+      const shouldMarkFocusOnMount = focusOnMount && !shouldFocusOnMount
+      const shouldMarkHelpOnMount = openHelpOnMount && !shouldOpenHelpOnMount
 
-      void loadExternalEntries()
+      if (shouldEnable || shouldMarkFocusOnMount || shouldMarkHelpOnMount) {
+        startTransition(() => {
+          if (shouldEnable) setIsEnabled(true)
+          if (shouldMarkFocusOnMount) setShouldFocusOnMount(true)
+          if (shouldMarkHelpOnMount) setShouldOpenHelpOnMount(true)
+        })
+      }
+
+      const shouldRequestEntries =
+        shouldLoadExternalEntries &&
+        !externalEntries &&
+        !cachedHomeSearchEntries &&
+        !homeSearchEntriesPromise
+
+      if (shouldEnable || shouldRequestEntries) {
+        void loadExternalEntries()
+      }
     },
-    [loadExternalEntries],
+    [
+      externalEntries,
+      isEnabled,
+      loadExternalEntries,
+      shouldFocusOnMount,
+      shouldLoadExternalEntries,
+      shouldOpenHelpOnMount,
+    ],
   )
 
   useEffect(() => {
