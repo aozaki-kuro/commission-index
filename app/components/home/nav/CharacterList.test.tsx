@@ -2,7 +2,9 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { CommissionViewModeProvider } from '#components/home/commission/CommissionViewMode'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
+import type { ReactNode } from 'react'
 import CharacterList from './CharacterList'
 
 const mockJumpToCommissionSearch = vi.fn()
@@ -24,6 +26,9 @@ describe('CharacterList', () => {
   const characters = [{ DisplayName: 'Artoria Pendragon' }, { DisplayName: 'Nero Claudius' }]
   const mockRybbitEvent = vi.fn()
 
+  const renderCharacterList = (ui: ReactNode) =>
+    render(<CommissionViewModeProvider>{ui}</CommissionViewModeProvider>)
+
   beforeEach(() => {
     mockJumpToCommissionSearch.mockClear()
     mockRybbitEvent.mockClear()
@@ -40,7 +45,7 @@ describe('CharacterList', () => {
 
   it('renders character navigation links and triggers search jump', () => {
     process.env.NODE_ENV = 'development'
-    render(<CharacterList characters={characters} />)
+    renderCharacterList(<CharacterList characters={characters} />)
 
     expect(screen.getByRole('link', { name: 'Artoria Pendragon' })).toHaveAttribute(
       'href',
@@ -57,17 +62,21 @@ describe('CharacterList', () => {
 
   it('shows admin link only in development mode', () => {
     process.env.NODE_ENV = 'development'
-    const { rerender } = render(<CharacterList characters={characters} />)
+    const { rerender } = renderCharacterList(<CharacterList characters={characters} />)
     expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument()
 
     process.env.NODE_ENV = 'production'
-    rerender(<CharacterList characters={characters} />)
+    rerender(
+      <CommissionViewModeProvider>
+        <CharacterList characters={characters} />
+      </CommissionViewModeProvider>,
+    )
     expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument()
   })
 
   it('tracks sidebar usage once across sidebar interactions', () => {
     process.env.NODE_ENV = 'production'
-    render(<CharacterList characters={characters} />)
+    renderCharacterList(<CharacterList characters={characters} />)
 
     fireEvent.click(screen.getByRole('link', { name: 'Artoria Pendragon' }))
     fireEvent.click(screen.getByRole('link', { name: 'Search' }))
@@ -85,7 +94,7 @@ describe('CharacterList', () => {
   it('shows active sidebar dot for scroll-spy active character', async () => {
     process.env.NODE_ENV = 'production'
 
-    const { container } = render(<CharacterList characters={characters} />)
+    const { container } = renderCharacterList(<CharacterList characters={characters} />)
     const activeDot = container.querySelector<HTMLElement>(
       '[data-sidebar-dot-for="title-artoria-pendragon"]',
     )
@@ -101,11 +110,11 @@ describe('CharacterList', () => {
     process.env.NODE_ENV = 'production'
 
     render(
-      <>
+      <CommissionViewModeProvider>
         <div id="artoria-pendragon" />
         <div id="nero-claudius" className="hidden" />
         <CharacterList characters={characters} />
-      </>,
+      </CommissionViewModeProvider>,
     )
 
     const artoriaLink = screen.getByRole('link', { name: 'Artoria Pendragon' })

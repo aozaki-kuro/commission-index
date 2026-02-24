@@ -1,6 +1,7 @@
 'use client'
 
 import { Combobox, ComboboxInput, ComboboxOption, ComboboxOptions } from '@headlessui/react'
+import { useCommissionViewMode } from '#components/home/commission/CommissionViewMode'
 import dynamic from 'next/dynamic'
 import { useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
@@ -144,7 +145,14 @@ const finalizeSearchIndex = (
   suggestions: collectSuggestions(entries),
 })
 
-const getDomSearchContext = () => {
+const getActiveCommissionViewRoot = (viewMode: 'character' | 'timeline'): ParentNode | Document => {
+  if (typeof window === 'undefined') return document
+
+  const selector = `[data-commission-view-panel="${viewMode}"][data-commission-view-active="true"]`
+  return document.querySelector<HTMLElement>(selector) ?? document
+}
+
+const getDomSearchContext = (viewMode: 'character' | 'timeline') => {
   if (typeof window === 'undefined') {
     return {
       domEntries: [] as Array<{ element: HTMLElement; sectionId?: string }>,
@@ -153,31 +161,35 @@ const getDomSearchContext = () => {
     }
   }
 
+  const root = getActiveCommissionViewRoot(viewMode)
   const domEntries = Array.from(
-    document.querySelectorAll<HTMLElement>('[data-commission-entry="true"]'),
+    root.querySelectorAll<HTMLElement>('[data-commission-entry="true"]'),
   ).map(element => ({
     element,
     sectionId: element.dataset.characterSectionId,
   }))
 
   const sections = Array.from(
-    document.querySelectorAll<HTMLElement>('[data-character-section="true"]'),
+    root.querySelectorAll<HTMLElement>('[data-character-section="true"]'),
   ).map(element => ({
     id: element.id,
     element,
     status: element.dataset.characterStatus as 'active' | 'stale' | undefined,
   }))
 
-  const staleDivider = document.querySelector<HTMLElement>('[data-stale-divider="true"]')
+  const staleDivider = root.querySelector<HTMLElement>('[data-stale-divider="true"]')
 
   return { domEntries, sections, staleDivider }
 }
 
-const buildSearchIndex = (externalEntries?: CommissionSearchEntrySource[]): SearchIndex => {
+const buildSearchIndex = (
+  viewMode: 'character' | 'timeline',
+  externalEntries?: CommissionSearchEntrySource[],
+): SearchIndex => {
   if (typeof window === 'undefined') return createEmptySearchIndex()
 
   if (externalEntries) {
-    const { domEntries, sections, staleDivider } = getDomSearchContext()
+    const { domEntries, sections, staleDivider } = getDomSearchContext(viewMode)
 
     const entries = externalEntries.map(entry => ({
       id: entry.id,
@@ -190,7 +202,7 @@ const buildSearchIndex = (externalEntries?: CommissionSearchEntrySource[]): Sear
     return finalizeSearchIndex(entries, { sections, staleDivider })
   }
 
-  const { domEntries, sections, staleDivider } = getDomSearchContext()
+  const { domEntries, sections, staleDivider } = getDomSearchContext(viewMode)
 
   const entries = domEntries.map(({ element, sectionId }, id) => {
     const suggestText = element.dataset.searchSuggest ?? ''
@@ -261,6 +273,7 @@ const CommissionSearch = ({
   deferIndexInit = false,
   openHelpOnMount = false,
 }: CommissionSearchProps = {}) => {
+  const { mode } = useCommissionViewMode()
   const initialUrlQuery = useSyncExternalStore(
     () => () => {},
     getUrlQuerySnapshot,
@@ -300,11 +313,12 @@ const CommissionSearch = ({
     () => !deferIndexInit || !!initialQuery || !!initialUrlQuery,
   )
   const shouldBuildIndex = isIndexReady || !deferIndexInit || !!query || !!initialUrlQuery
+  const activeExternalEntries = mode === 'character' ? externalEntries : undefined
 
   const index = useMemo(() => {
     if (!shouldBuildIndex) return createEmptySearchIndex()
-    return buildSearchIndex(externalEntries)
-  }, [externalEntries, shouldBuildIndex])
+    return buildSearchIndex(mode, activeExternalEntries)
+  }, [activeExternalEntries, mode, shouldBuildIndex])
 
   const matchedIds = useMemo(() => getMatchedEntryIds(deferredQuery, index), [deferredQuery, index])
 

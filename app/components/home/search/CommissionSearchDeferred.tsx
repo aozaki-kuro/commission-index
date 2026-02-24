@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import { useCommissionViewMode } from '#components/home/commission/CommissionViewMode'
 import type { CommissionSearchEntrySource } from '#components/home/search/CommissionSearch'
 import { startTransition, useCallback, useEffect, useState } from 'react'
 
@@ -16,6 +17,7 @@ const hasSearchQueryParam = () => {
 }
 
 export default function CommissionSearchDeferred() {
+  const { setMode } = useCommissionViewMode()
   const [isEnabled, setIsEnabled] = useState(false)
   const [shouldFocusOnMount, setShouldFocusOnMount] = useState(false)
   const [shouldOpenHelpOnMount, setShouldOpenHelpOnMount] = useState(false)
@@ -59,6 +61,7 @@ export default function CommissionSearchDeferred() {
 
   const enableSearch = useCallback(
     (focusOnMount = false, openHelpOnMount = false) => {
+      setMode('character')
       startTransition(() => {
         setIsEnabled(true)
         if (focusOnMount) setShouldFocusOnMount(true)
@@ -67,7 +70,7 @@ export default function CommissionSearchDeferred() {
 
       void loadExternalEntries()
     },
-    [loadExternalEntries],
+    [loadExternalEntries, setMode],
   )
 
   useEffect(() => {

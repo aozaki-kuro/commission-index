@@ -33,7 +33,8 @@ const CharacterListEnhancer = ({ titleIds, itemCount }: CharacterListEnhancerPro
         .map(dot => [dot.dataset.sidebarDotFor, dot] as const)
         .filter(([titleId]) => Boolean(titleId)) as Array<[string, HTMLElement]>,
     )
-  }, [])
+    activeDotRef.current = null
+  }, [titleIds])
 
   useEffect(() => {
     const previousDot = activeDotRef.current
