@@ -32,7 +32,8 @@ const ModeToggleButton = ({ label, active, onClick }: ModeToggleButtonProps) => 
     type="button"
     onClick={onClick}
     aria-pressed={active}
-    className={`${UTILITY_ROW_WRAPPER_CLASSES} w-full appearance-none border-0 bg-transparent p-0 text-left ${
+    data-link-style="true"
+    className={`${UTILITY_ROW_WRAPPER_CLASSES} w-full cursor-pointer appearance-none border-0 bg-transparent p-0 text-left no-underline ${
       active ? 'text-gray-900 dark:text-white' : ''
     }`.trim()}
   >
