@@ -16,6 +16,10 @@ const UTILITY_ROW_WRAPPER_CLASSES =
   'relative flex min-h-5 items-center pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white'
 const UTILITY_ROW_TEXT_CLASSES =
   'font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200'
+const VIEW_MODE_TOGGLE_ITEMS = [
+  { mode: 'character', label: 'By Character' },
+  { mode: 'timeline', label: 'By Date' },
+] as const
 
 interface ModeToggleButtonProps {
   label: string
@@ -44,9 +48,12 @@ const ModeToggleButton = ({ label, active, onClick }: ModeToggleButtonProps) => 
 
 const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) => {
   const { mode, setMode } = useCommissionViewMode()
-  const characterNavItems = useMemo(() => buildCharacterNavItems(characters), [characters])
+  const characterNavItems = useMemo(
+    () => (mode === 'character' ? buildCharacterNavItems(characters) : []),
+    [characters, mode],
+  )
   const navItems = mode === 'timeline' ? monthNavItems : characterNavItems
-  const titleIds = navItems.map(item => item.titleId)
+  const titleIds = useMemo(() => navItems.map(item => item.titleId), [navItems])
   const showActiveDots = mode === 'character'
   const showAdminLink = process.env.NODE_ENV === 'development'
 
@@ -108,22 +115,14 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
           </div>
 
           <div className="space-y-2">
-            <ModeToggleButton
-              label="By Character"
-              active={mode === 'character'}
-              onClick={() => {
-                if (mode === 'character') return
-                setMode('character')
-              }}
-            />
-            <ModeToggleButton
-              label="By Date"
-              active={mode === 'timeline'}
-              onClick={() => {
-                if (mode === 'timeline') return
-                setMode('timeline')
-              }}
-            />
+            {VIEW_MODE_TOGGLE_ITEMS.map(item => (
+              <ModeToggleButton
+                key={item.mode}
+                label={item.label}
+                active={mode === item.mode}
+                onClick={() => setMode(item.mode)}
+              />
+            ))}
           </div>
 
           {showAdminLink ? <DevAdminLink /> : null}

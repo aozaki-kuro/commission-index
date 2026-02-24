@@ -21,7 +21,7 @@ const CharacterListEnhancer = ({
   itemCount,
   enableActiveDots = true,
 }: CharacterListEnhancerProps) => {
-  const activeId = useCharacterScrollSpy(titleIds)
+  const activeId = useCharacterScrollSpy(titleIds, { enabled: enableActiveDots })
   const hasTrackedSidebarUsageRef = useRef(false)
   const dotByTitleIdRef = useRef<Map<string, HTMLElement>>(new Map())
   const activeDotRef = useRef<HTMLElement | null>(null)

@@ -82,9 +82,14 @@ const resetStaleHash = () => {
   if (isOffscreen) clearHash()
 }
 
+interface UseCharacterScrollSpyOptions {
+  enabled?: boolean
+  introductionId?: string
+}
+
 export const useCharacterScrollSpy = (
   titleIds: string[],
-  introductionId = 'title-introduction',
+  { enabled = true, introductionId = 'title-introduction' }: UseCharacterScrollSpyOptions = {},
 ) => {
   const [activeId, setActiveId] = useState<string>('')
   const rafId = useRef<number | null>(null)
@@ -93,13 +98,21 @@ export const useCharacterScrollSpy = (
   const introductionElementRef = useRef<HTMLElement | null>(null)
 
   useEffect(() => {
+    if (!enabled) {
+      introductionElementRef.current = null
+      sectionElementsRef.current = []
+      return
+    }
+
     introductionElementRef.current = document.getElementById(introductionId)
     sectionElementsRef.current = titleIds
       .map(id => document.getElementById(id))
       .filter((element): element is HTMLElement => Boolean(element))
-  }, [introductionId, titleIds])
+  }, [enabled, introductionId, titleIds])
 
   useEffect(() => {
+    if (!enabled) return
+
     const updateThreshold = () => {
       thresholdRef.current = getScrollThreshold()
     }
@@ -108,9 +121,17 @@ export const useCharacterScrollSpy = (
     window.addEventListener('resize', updateThreshold)
 
     return () => window.removeEventListener('resize', updateThreshold)
-  }, [])
+  }, [enabled])
 
   useEffect(() => {
+    if (!enabled) {
+      if (rafId.current !== null) {
+        cancelAnimationFrame(rafId.current)
+        rafId.current = null
+      }
+      return
+    }
+
     const updateActiveId = () => {
       const introductionElement = introductionElementRef.current
       const threshold = thresholdRef.current
@@ -152,7 +173,7 @@ export const useCharacterScrollSpy = (
         cancelAnimationFrame(rafId.current)
       }
     }
-  }, [introductionId, titleIds])
+  }, [enabled, introductionId, titleIds])
 
-  return activeId
+  return enabled ? activeId : ''
 }

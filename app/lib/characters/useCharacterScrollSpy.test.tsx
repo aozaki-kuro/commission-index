@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { useCharacterScrollSpy } from './useCharacterScrollSpy'
 
-const HookProbe = ({ titleIds }: { titleIds: string[] }) => {
-  const activeId = useCharacterScrollSpy(titleIds)
+const HookProbe = ({ titleIds, enabled = true }: { titleIds: string[]; enabled?: boolean }) => {
+  const activeId = useCharacterScrollSpy(titleIds, { enabled })
   return <output data-testid="active-id">{activeId}</output>
 }
 
@@ -128,6 +128,26 @@ describe('useCharacterScrollSpy', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('active-id')).toHaveTextContent('title-l-cia')
+    })
+  })
+
+  it('skips activation when disabled', async () => {
+    document.body.innerHTML = `
+      <h2 id="title-mordred"></h2>
+    `
+
+    const title = document.getElementById('title-mordred') as HTMLElement
+    vi.spyOn(title, 'getClientRects').mockReturnValue({
+      length: 1,
+      item: () => null,
+      [Symbol.iterator]: function* () {},
+    } as unknown as DOMRectList)
+    vi.spyOn(title, 'getBoundingClientRect').mockReturnValue(createRect(120))
+
+    render(<HookProbe titleIds={['title-mordred']} enabled={false} />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('active-id')).toHaveTextContent('')
     })
   })
 })
