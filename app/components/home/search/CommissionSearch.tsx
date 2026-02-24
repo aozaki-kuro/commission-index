@@ -267,6 +267,147 @@ const buildRelatedCreatorTermsMap = (entries: SuggestionEntryLike[]) => {
   )
 }
 
+const toggleHiddenClass = (element: HTMLElement, shouldHide: boolean) => {
+  const isHidden = element.classList.contains('hidden')
+  if (isHidden === shouldHide) return false
+  element.classList.toggle('hidden', shouldHide)
+  return true
+}
+
+const syncEntryVisibilityForIndexChange = ({
+  entryById,
+  matchedIds,
+  hasDeferredQuery,
+  visibleSectionIds,
+}: {
+  entryById: SearchIndex['entryById']
+  matchedIds: Set<number>
+  hasDeferredQuery: boolean
+  visibleSectionIds: Set<string> | null
+}) => {
+  let didLayoutChange = false
+
+  for (const entry of entryById.values()) {
+    const isMatched = !hasDeferredQuery || matchedIds.has(entry.id)
+
+    if (isMatched && visibleSectionIds && entry.sectionId) {
+      visibleSectionIds.add(entry.sectionId)
+    }
+
+    if (!entry.element) continue
+    if (toggleHiddenClass(entry.element, !isMatched)) {
+      didLayoutChange = true
+    }
+  }
+
+  return didLayoutChange
+}
+
+const syncEntryVisibilityForMatchedDiff = ({
+  entryById,
+  matchedIds,
+  previousMatchedIds,
+  indexChanged,
+  visibleSectionIds,
+}: {
+  entryById: SearchIndex['entryById']
+  matchedIds: Set<number>
+  previousMatchedIds: Set<number>
+  indexChanged: boolean
+  visibleSectionIds: Set<string> | null
+}) => {
+  let didLayoutChange = false
+
+  for (const id of previousMatchedIds) {
+    if (matchedIds.has(id)) continue
+
+    const previousEntry = entryById.get(id)
+    if (!previousEntry?.element) continue
+    if (toggleHiddenClass(previousEntry.element, true)) {
+      didLayoutChange = true
+    }
+  }
+
+  for (const id of matchedIds) {
+    const entry = entryById.get(id)
+    if (!entry) continue
+
+    if (visibleSectionIds && entry.sectionId) {
+      visibleSectionIds.add(entry.sectionId)
+    }
+
+    const shouldEnsureVisible = indexChanged || !previousMatchedIds.has(id)
+    if (!shouldEnsureVisible || !entry.element) continue
+
+    if (toggleHiddenClass(entry.element, false)) {
+      didLayoutChange = true
+    }
+  }
+
+  return didLayoutChange
+}
+
+const syncSectionVisibility = ({
+  sections,
+  hasDeferredQuery,
+  visibleSectionIds,
+  sectionVisibilityById,
+}: {
+  sections: SearchIndex['sections']
+  hasDeferredQuery: boolean
+  visibleSectionIds: Set<string> | null
+  sectionVisibilityById: Map<string, boolean>
+}) => {
+  let didLayoutChange = false
+  let visibleActiveSections = 0
+  let visibleStaleSections = 0
+
+  for (const section of sections) {
+    const visible = !hasDeferredQuery || Boolean(visibleSectionIds?.has(section.id))
+
+    if (sectionVisibilityById.get(section.id) !== visible) {
+      sectionVisibilityById.set(section.id, visible)
+      if (toggleHiddenClass(section.element, !visible)) {
+        didLayoutChange = true
+      }
+    }
+
+    if (!visible || !hasDeferredQuery) continue
+    if (section.status === 'active') visibleActiveSections += 1
+    if (section.status === 'stale') visibleStaleSections += 1
+  }
+
+  return { didLayoutChange, visibleActiveSections, visibleStaleSections }
+}
+
+const syncStaleDividerVisibility = ({
+  staleDivider,
+  hasDeferredQuery,
+  visibleActiveSections,
+  visibleStaleSections,
+  previousVisible,
+}: {
+  staleDivider: HTMLElement | null
+  hasDeferredQuery: boolean
+  visibleActiveSections: number
+  visibleStaleSections: number
+  previousVisible: boolean
+}) => {
+  if (!staleDivider) {
+    return { didLayoutChange: false, nextVisible: previousVisible }
+  }
+
+  const shouldShowDivider =
+    !hasDeferredQuery || (visibleActiveSections > 0 && visibleStaleSections > 0)
+
+  if (shouldShowDivider === previousVisible) {
+    return { didLayoutChange: false, nextVisible: previousVisible }
+  }
+
+  const didLayoutChange = toggleHiddenClass(staleDivider, !shouldShowDivider)
+  return { didLayoutChange, nextVisible: shouldShowDivider }
+}
+
 interface CommissionSearchProps {
   disableDomFiltering?: boolean
   onQueryChange?: (query: string) => void
@@ -401,13 +542,15 @@ const CommissionSearch = ({
 
   useEffect(() => {
     const entriesCount = index.entries.length
+    const statusMessage = buildSearchLiveStatusMessage(
+      hasDeferredQuery,
+      matchedIds.size,
+      entriesCount,
+    )
 
     if (disableDomFiltering) {
       if (liveRef.current && entriesCount > 0) {
-        setTextContentIfChanged(
-          liveRef.current,
-          buildSearchLiveStatusMessage(hasDeferredQuery, matchedIds.size, entriesCount),
-        )
+        setTextContentIfChanged(liveRef.current, statusMessage)
       }
       return
     }
@@ -420,53 +563,27 @@ const CommissionSearch = ({
     let didLayoutChange = false
 
     if (!matchedIdsChanged && !indexChanged) {
-      setTextContentIfChanged(
-        liveRef.current,
-        buildSearchLiveStatusMessage(hasDeferredQuery, matchedIds.size, entriesCount),
-      )
+      setTextContentIfChanged(liveRef.current, statusMessage)
       return
     }
 
     if (indexChanged) {
-      for (const entry of entryById.values()) {
-        if (!entry.element) continue
-
-        const shouldHide = hasDeferredQuery ? !matchedIds.has(entry.id) : false
-        const isHidden = entry.element.classList.contains('hidden')
-        if (shouldHide === isHidden) continue
-
-        entry.element.classList.toggle('hidden', shouldHide)
-        didLayoutChange = true
-      }
+      didLayoutChange =
+        syncEntryVisibilityForIndexChange({
+          entryById,
+          matchedIds,
+          hasDeferredQuery,
+          visibleSectionIds,
+        }) || didLayoutChange
     } else if (matchedIdsChanged) {
-      for (const id of previousMatchedIds) {
-        if (matchedIds.has(id)) continue
-        const previousEntry = entryById.get(id)
-        if (previousEntry?.element) {
-          if (!previousEntry.element.classList.contains('hidden')) {
-            previousEntry.element.classList.add('hidden')
-            didLayoutChange = true
-          }
-        }
-      }
-    }
-
-    if (matchedIdsChanged || visibleSectionIds) {
-      for (const id of matchedIds) {
-        const entry = entryById.get(id)
-        if (!entry) continue
-
-        if ((indexChanged || (matchedIdsChanged && !previousMatchedIds.has(id))) && entry.element) {
-          if (entry.element.classList.contains('hidden')) {
-            entry.element.classList.remove('hidden')
-            didLayoutChange = true
-          }
-        }
-
-        if (visibleSectionIds && entry.sectionId) {
-          visibleSectionIds.add(entry.sectionId)
-        }
-      }
+      didLayoutChange =
+        syncEntryVisibilityForMatchedDiff({
+          entryById,
+          matchedIds,
+          previousMatchedIds,
+          indexChanged,
+          visibleSectionIds,
+        }) || didLayoutChange
     }
 
     previousMatchedIdsRef.current = matchedIds
@@ -476,37 +593,25 @@ const CommissionSearch = ({
       return
     }
 
-    let visibleActiveSections = 0
-    let visibleStaleSections = 0
+    const sectionSyncResult = syncSectionVisibility({
+      sections,
+      hasDeferredQuery,
+      visibleSectionIds,
+      sectionVisibilityById: sectionVisibilityRef.current,
+    })
+    didLayoutChange = sectionSyncResult.didLayoutChange || didLayoutChange
 
-    for (const section of sections) {
-      const visible = !hasDeferredQuery || Boolean(visibleSectionIds?.has(section.id))
-      if (sectionVisibilityRef.current.get(section.id) !== visible) {
-        sectionVisibilityRef.current.set(section.id, visible)
-        section.element.classList.toggle('hidden', !visible)
-        didLayoutChange = true
-      }
+    const dividerSyncResult = syncStaleDividerVisibility({
+      staleDivider,
+      hasDeferredQuery,
+      visibleActiveSections: sectionSyncResult.visibleActiveSections,
+      visibleStaleSections: sectionSyncResult.visibleStaleSections,
+      previousVisible: staleDividerVisibilityRef.current,
+    })
+    staleDividerVisibilityRef.current = dividerSyncResult.nextVisible
+    didLayoutChange = dividerSyncResult.didLayoutChange || didLayoutChange
 
-      if (visible && hasDeferredQuery) {
-        if (section.status === 'active') visibleActiveSections += 1
-        if (section.status === 'stale') visibleStaleSections += 1
-      }
-    }
-
-    if (staleDivider) {
-      const shouldShowDivider =
-        !hasDeferredQuery || (visibleActiveSections > 0 && visibleStaleSections > 0)
-      if (staleDividerVisibilityRef.current !== shouldShowDivider) {
-        staleDividerVisibilityRef.current = shouldShowDivider
-        staleDivider.classList.toggle('hidden', !shouldShowDivider)
-        didLayoutChange = true
-      }
-    }
-
-    setTextContentIfChanged(
-      liveRef.current,
-      buildSearchLiveStatusMessage(hasDeferredQuery, matchedIds.size, entriesCount),
-    )
+    setTextContentIfChanged(liveRef.current, statusMessage)
 
     if (didLayoutChange) {
       dispatchSidebarSearchState()
