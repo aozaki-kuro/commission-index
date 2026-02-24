@@ -1,9 +1,5 @@
-// Main content
 import Commission from '#components/home/commission'
-import {
-  CommissionViewModeProvider,
-  parseCommissionViewModeFromQueryValue,
-} from '#components/home/commission/CommissionViewMode'
+import { CommissionViewModeProvider } from '#components/home/commission/CommissionViewMode'
 import CommissionDescription from '#components/home/blocks/Description'
 import Footer from '#components/home/blocks/Footer'
 
@@ -17,22 +13,14 @@ import { getCommissionDataMap } from '#data/commissionData'
 import { getCharacterStatus } from '#lib/characters/status'
 import { buildCommissionTimeline } from '#lib/commissions/timeline'
 
-interface HomePageProps {
-  searchParams?:
-    | Promise<Record<string, string | string[] | undefined>>
-    | Record<string, string | string[] | undefined>
-}
-
-const Home = async ({ searchParams }: HomePageProps) => {
-  const resolvedSearchParams = (await Promise.resolve(searchParams)) ?? {}
-  const initialViewMode = parseCommissionViewModeFromQueryValue(resolvedSearchParams.view)
+const Home = () => {
   const status = getCharacterStatus()
   const commissionMap = getCommissionDataMap()
   const characters = [...status.active, ...status.stale]
   const { groups: timelineGroups, navItems: monthNavItems } = buildCommissionTimeline(commissionMap)
 
   return (
-    <CommissionViewModeProvider initialMode={initialViewMode}>
+    <CommissionViewModeProvider>
       <>
         <Warning />
         <div className="relative mx-auto flex justify-center">

@@ -1,6 +1,13 @@
 'use client'
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useSyncExternalStore,
+  type ReactNode,
+} from 'react'
 
 export type CommissionViewMode = 'character' | 'timeline'
 
@@ -10,17 +17,11 @@ type CommissionViewModeContextValue = {
 }
 
 const VIEW_MODE_QUERY_PARAM = 'view'
+const VIEW_MODE_URL_CHANGE_EVENT = 'commission-view-mode-change'
 
 export const parseCommissionViewModeFromSearch = (search: string): CommissionViewMode => {
   const view = new URLSearchParams(search).get(VIEW_MODE_QUERY_PARAM)
   return view === 'timeline' ? 'timeline' : 'character'
-}
-
-export const parseCommissionViewModeFromQueryValue = (
-  value: string | string[] | undefined,
-): CommissionViewMode => {
-  if (Array.isArray(value)) return value.includes('timeline') ? 'timeline' : 'character'
-  return value === 'timeline' ? 'timeline' : 'character'
 }
 
 const replaceCommissionViewModeInAddress = (mode: CommissionViewMode) => {
@@ -34,6 +35,17 @@ const replaceCommissionViewModeInAddress = (mode: CommissionViewMode) => {
   }
 
   window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+  window.dispatchEvent(new Event(VIEW_MODE_URL_CHANGE_EVENT))
+}
+
+const subscribeToCommissionViewMode = (onStoreChange: () => void) => {
+  window.addEventListener('popstate', onStoreChange)
+  window.addEventListener(VIEW_MODE_URL_CHANGE_EVENT, onStoreChange)
+
+  return () => {
+    window.removeEventListener('popstate', onStoreChange)
+    window.removeEventListener(VIEW_MODE_URL_CHANGE_EVENT, onStoreChange)
+  }
 }
 
 const CommissionViewModeContext = createContext<CommissionViewModeContextValue | null>(null)
@@ -45,17 +57,15 @@ export const CommissionViewModeProvider = ({
   children: ReactNode
   initialMode?: CommissionViewMode
 }) => {
-  const [mode, setMode] = useState<CommissionViewMode>(() =>
-    typeof window === 'undefined'
-      ? initialMode
-      : parseCommissionViewModeFromSearch(window.location.search),
+  const mode = useSyncExternalStore(
+    subscribeToCommissionViewMode,
+    () => parseCommissionViewModeFromSearch(window.location.search),
+    () => initialMode,
   )
-
-  useEffect(() => {
-    replaceCommissionViewModeInAddress(mode)
-  }, [mode])
-
-  const value = useMemo(() => ({ mode, setMode }), [mode])
+  const setMode = useCallback((nextMode: CommissionViewMode) => {
+    replaceCommissionViewModeInAddress(nextMode)
+  }, [])
+  const value = useMemo(() => ({ mode, setMode }), [mode, setMode])
 
   return (
     <CommissionViewModeContext.Provider value={value}>

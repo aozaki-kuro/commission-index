@@ -4,7 +4,7 @@ import Link from 'next/link'
 
 const DevAdminLink = () => {
   return (
-    <div className="relative flex pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
+    <div className="relative flex min-h-5 items-center pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
       <svg
         viewBox="0 0 24 24"
         className="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-all duration-300"
@@ -21,7 +21,7 @@ const DevAdminLink = () => {
       </svg>
       <Link
         href="/admin"
-        className="font-mono text-sm font-bold no-underline transition-colors duration-200"
+        className="font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200"
       >
         Admin
       </Link>
