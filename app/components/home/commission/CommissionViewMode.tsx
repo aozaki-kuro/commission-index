@@ -11,9 +11,16 @@ type CommissionViewModeContextValue = {
 
 const VIEW_MODE_QUERY_PARAM = 'view'
 
-const parseCommissionViewModeFromSearch = (search: string): CommissionViewMode => {
+export const parseCommissionViewModeFromSearch = (search: string): CommissionViewMode => {
   const view = new URLSearchParams(search).get(VIEW_MODE_QUERY_PARAM)
   return view === 'timeline' ? 'timeline' : 'character'
+}
+
+export const parseCommissionViewModeFromQueryValue = (
+  value: string | string[] | undefined,
+): CommissionViewMode => {
+  if (Array.isArray(value)) return value.includes('timeline') ? 'timeline' : 'character'
+  return value === 'timeline' ? 'timeline' : 'character'
 }
 
 const replaceCommissionViewModeInAddress = (mode: CommissionViewMode) => {
@@ -31,10 +38,16 @@ const replaceCommissionViewModeInAddress = (mode: CommissionViewMode) => {
 
 const CommissionViewModeContext = createContext<CommissionViewModeContextValue | null>(null)
 
-export const CommissionViewModeProvider = ({ children }: { children: ReactNode }) => {
+export const CommissionViewModeProvider = ({
+  children,
+  initialMode = 'character',
+}: {
+  children: ReactNode
+  initialMode?: CommissionViewMode
+}) => {
   const [mode, setMode] = useState<CommissionViewMode>(() =>
     typeof window === 'undefined'
-      ? 'character'
+      ? initialMode
       : parseCommissionViewModeFromSearch(window.location.search),
   )
 
