@@ -21,9 +21,13 @@ const isRectInViewport = (rect: DOMRect) => rect.bottom > 0 && rect.top < window
 const getActiveSectionId = (elements: HTMLElement[], threshold: number): string => {
   let thresholdActiveId = ''
   let firstVisibleInViewportId = ''
+  let firstVisibleId = ''
 
   for (const element of elements) {
     if (!isElementVisible(element)) continue
+    if (!firstVisibleId) {
+      firstVisibleId = element.id
+    }
 
     const rect = element.getBoundingClientRect()
 
@@ -39,7 +43,7 @@ const getActiveSectionId = (elements: HTMLElement[], threshold: number): string 
     break
   }
 
-  return thresholdActiveId || firstVisibleInViewportId
+  return thresholdActiveId || firstVisibleInViewportId || firstVisibleId
 }
 
 const getHashTarget = (hash: string): HTMLElement | null => {
