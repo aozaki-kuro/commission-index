@@ -37,7 +37,7 @@ const Home = () => {
           </div>
           <CharacterList characters={characters} monthNavItems={monthNavItems} />
         </div>
-        <Hamburger active={status.active} stale={status.stale} />
+        <Hamburger active={status.active} stale={status.stale} timelineNavItems={monthNavItems} />
         {process.env.NODE_ENV === 'development' ? <DevLiveRefresh /> : null}
       </>
     </CommissionViewModeProvider>

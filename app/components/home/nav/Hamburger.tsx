@@ -2,6 +2,7 @@
 
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
+import type { CharacterNavItem } from '#lib/characters/nav'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MenuContent, { preloadCharacterMenuList } from './hamburger/MenuContent'
@@ -17,9 +18,10 @@ type IdleWindow = Window & {
 interface HamburgerProps {
   active: CharacterEntry[]
   stale: CharacterEntry[]
+  timelineNavItems: CharacterNavItem[]
 }
 
-const Hamburger = ({ active, stale }: HamburgerProps) => {
+const Hamburger = ({ active, stale, timelineNavItems }: HamburgerProps) => {
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const closeTimerRef = useRef<number | null>(null)
@@ -118,6 +120,7 @@ const Hamburger = ({ active, stale }: HamburgerProps) => {
         toggle={toggle}
         active={active}
         stale={stale}
+        timelineNavItems={timelineNavItems}
       />
     </div>
   )
