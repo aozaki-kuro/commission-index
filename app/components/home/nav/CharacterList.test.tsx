@@ -22,7 +22,6 @@ vi.mock('#lib/navigation/jumpToCommissionSearch', () => ({
 }))
 
 describe('CharacterList', () => {
-  const originalNodeEnv = process.env.NODE_ENV
   const characters = [{ DisplayName: 'Artoria Pendragon' }, { DisplayName: 'Nero Claudius' }]
   const mockRybbitEvent = vi.fn()
 
@@ -38,13 +37,13 @@ describe('CharacterList', () => {
   })
 
   afterEach(() => {
-    process.env.NODE_ENV = originalNodeEnv
+    vi.unstubAllEnvs()
     window.history.replaceState(null, '', '/')
     delete (window as Window & { rybbit?: { event?: typeof mockRybbitEvent } }).rybbit
   })
 
   it('renders character navigation links and triggers search jump', () => {
-    process.env.NODE_ENV = 'development'
+    vi.stubEnv('NODE_ENV', 'development')
     renderCharacterList(<CharacterList characters={characters} />)
 
     expect(screen.getByRole('link', { name: 'Artoria Pendragon' })).toHaveAttribute(
@@ -61,11 +60,11 @@ describe('CharacterList', () => {
   })
 
   it('shows admin link only in development mode', () => {
-    process.env.NODE_ENV = 'development'
+    vi.stubEnv('NODE_ENV', 'development')
     const { rerender } = renderCharacterList(<CharacterList characters={characters} />)
     expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument()
 
-    process.env.NODE_ENV = 'production'
+    vi.stubEnv('NODE_ENV', 'production')
     rerender(
       <CommissionViewModeProvider>
         <CharacterList characters={characters} />
@@ -75,7 +74,7 @@ describe('CharacterList', () => {
   })
 
   it('tracks sidebar usage once across sidebar interactions', () => {
-    process.env.NODE_ENV = 'production'
+    vi.stubEnv('NODE_ENV', 'production')
     renderCharacterList(<CharacterList characters={characters} />)
 
     fireEvent.click(screen.getByRole('link', { name: 'Artoria Pendragon' }))
@@ -91,8 +90,24 @@ describe('CharacterList', () => {
     )
   })
 
+  it('tracks sidebar view mode toggle clicks with target mode', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    renderCharacterList(<CharacterList characters={characters} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'By Date' }))
+
+    expect(mockRybbitEvent).toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.sidebarViewModeToggleUsed,
+      expect.objectContaining({
+        from_mode: 'character',
+        to_mode: 'timeline',
+        already_active: false,
+      }),
+    )
+  })
+
   it('shows active sidebar dot for scroll-spy active character', async () => {
-    process.env.NODE_ENV = 'production'
+    vi.stubEnv('NODE_ENV', 'production')
 
     const { container } = renderCharacterList(<CharacterList characters={characters} />)
     const activeDot = container.querySelector<HTMLElement>(
@@ -107,7 +122,7 @@ describe('CharacterList', () => {
   })
 
   it('does not render sidebar dots in timeline mode', () => {
-    process.env.NODE_ENV = 'production'
+    vi.stubEnv('NODE_ENV', 'production')
     window.history.replaceState(null, '', '/?view=timeline')
 
     const monthNavItems = [
@@ -132,7 +147,7 @@ describe('CharacterList', () => {
   })
 
   it('disables sidebar character links whose sections are hidden during search', () => {
-    process.env.NODE_ENV = 'production'
+    vi.stubEnv('NODE_ENV', 'production')
 
     render(
       <CommissionViewModeProvider>

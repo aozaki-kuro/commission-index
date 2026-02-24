@@ -1,6 +1,8 @@
 'use client'
 
 import DevAdminLink from '#components/home/nav/DevAdminLink'
+import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { trackRybbitEvent } from '#lib/analytics/track'
 import { useCommissionViewMode } from '#components/home/commission/CommissionViewMode'
 import { buildCharacterNavItems, type CharacterNavItem } from '#lib/characters/nav'
 import { useMemo } from 'react'
@@ -64,32 +66,7 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
       className="hidden md:top-52 md:left-[calc(50%+22rem)] md:h-screen md:w-full md:max-w-50 lg:fixed lg:block"
     >
       <div className="sticky top-4 ml-8 space-y-2">
-        <nav>
-          <ul className="space-y-2">
-            {navItems.map(({ displayName, sectionId, sectionHash, titleId }) => (
-              <li
-                key={sectionId}
-                className="relative pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
-              >
-                {showActiveDots ? (
-                  <div
-                    data-sidebar-dot-for={titleId}
-                    className={`absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-400 transition-all duration-300 ${HIDDEN_DOT_CLASSES}`}
-                  />
-                ) : null}
-                <a
-                  href={sectionHash}
-                  data-sidebar-character-link="true"
-                  className="font-mono text-sm no-underline transition-colors duration-200"
-                >
-                  {displayName}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        <div className="space-y-4 pt-2">
+        <div className="space-y-4 pb-2">
           <div className={UTILITY_ROW_WRAPPER_CLASSES}>
             <svg
               viewBox="0 0 24 24"
@@ -121,13 +98,45 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
                 key={item.mode}
                 label={item.label}
                 active={mode === item.mode}
-                onClick={() => setMode(item.mode)}
+                onClick={() => {
+                  trackRybbitEvent(ANALYTICS_EVENTS.sidebarViewModeToggleUsed, {
+                    from_mode: mode,
+                    to_mode: item.mode,
+                    already_active: mode === item.mode,
+                  })
+                  setMode(item.mode)
+                }}
               />
             ))}
           </div>
 
           {showAdminLink ? <DevAdminLink /> : null}
         </div>
+
+        <nav>
+          <ul className="space-y-2">
+            {navItems.map(({ displayName, sectionId, sectionHash, titleId }) => (
+              <li
+                key={sectionId}
+                className="relative pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
+              >
+                {showActiveDots ? (
+                  <div
+                    data-sidebar-dot-for={titleId}
+                    className={`absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-400 transition-all duration-300 ${HIDDEN_DOT_CLASSES}`}
+                  />
+                ) : null}
+                <a
+                  href={sectionHash}
+                  data-sidebar-character-link="true"
+                  className="font-mono text-sm no-underline transition-colors duration-200"
+                >
+                  {displayName}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </div>
 
       <CharacterListEnhancer
