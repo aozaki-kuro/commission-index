@@ -37,6 +37,7 @@ const TimelineView = async ({ groups, creatorAliasesMap }: TimelineViewProps) =>
             entryAnchorPrefix: `${group.sectionId}-${index + 1}`,
           })),
           creatorAliasesMap,
+          embedSearchMetadata: true,
         })}
       </section>
     )),

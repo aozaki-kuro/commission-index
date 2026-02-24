@@ -19,6 +19,7 @@ interface CommissionEntriesProps {
   entries: CommissionRenderEntry[]
   creatorAliasesMap: Map<string, string[]> | null
   showCharacterLabel?: boolean
+  embedSearchMetadata?: boolean
 }
 
 const normalizeSuggestionKey = (term: string) => term.trim().toLowerCase()
@@ -38,9 +39,10 @@ const renderCommissionEntries = async ({
   entries,
   creatorAliasesMap,
   showCharacterLabel = false,
+  embedSearchMetadata,
 }: CommissionEntriesProps) => {
   const imageImports = await getImageImports()
-  const shouldEmbedSearchMetadata = process.env.NODE_ENV !== 'production'
+  const shouldEmbedSearchMetadata = embedSearchMetadata ?? process.env.NODE_ENV !== 'production'
 
   return entries.map(({ character, commission, sectionId, entryKey, entryAnchorPrefix }) => {
     const { date, year, creator } = parseCommissionFileName(commission.fileName)

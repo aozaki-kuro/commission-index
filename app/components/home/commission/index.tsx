@@ -22,7 +22,7 @@ const Commission = async ({
   commissionMap,
   timelineGroups,
 }: CommissionProps) => {
-  const creatorAliasesMap = process.env.NODE_ENV === 'production' ? null : getCreatorAliasesMap()
+  const creatorAliasesMap = getCreatorAliasesMap()
 
   return (
     <div id="--------Commissions--------">
