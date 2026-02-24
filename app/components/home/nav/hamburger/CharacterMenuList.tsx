@@ -1,19 +1,41 @@
 import { useCommissionViewMode } from '#components/home/commission/CommissionViewMode'
 import { buildCharacterNavItems, type CharacterNavItem } from '#lib/characters/nav'
+import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { LIST_TRANSITION_MS, STYLES } from './constants'
 import { ChevronIcon } from './Icons'
 import type { CharacterEntry } from './types'
 
+const DISABLED_LINK_CLASSES = [
+  'pointer-events-none',
+  'cursor-not-allowed',
+  'opacity-70',
+  'text-gray-500',
+  'dark:text-gray-400',
+]
+
 interface ListItemProps {
   item: CharacterNavItem
   href?: string
+  sectionId?: string
   close: () => void
 }
 
-const ListItem = memo(({ item, href, close }: ListItemProps) => {
+const ListItem = memo(({ item, href, sectionId, close }: ListItemProps) => {
   return (
-    <a href={href ?? `/${item.titleHash}`} onClick={close} className={STYLES.listItem}>
+    <a
+      href={href ?? `/${item.titleHash}`}
+      data-mobile-nav-link="true"
+      data-mobile-nav-section-id={sectionId ?? item.sectionId}
+      onClick={event => {
+        if (event.currentTarget.getAttribute('aria-disabled') === 'true') {
+          event.preventDefault()
+          return
+        }
+        close()
+      }}
+      className={STYLES.listItem}
+    >
       {item.displayName}
     </a>
   )
@@ -94,7 +116,7 @@ const CharacterMenuList = memo(
       () =>
         activeNavItems.map(item => (
           <li key={item.sectionId}>
-            <ListItem item={item} close={close} />
+            <ListItem item={item} sectionId={item.sectionId} close={close} />
           </li>
         )),
       [activeNavItems, close],
@@ -104,16 +126,22 @@ const CharacterMenuList = memo(
       () =>
         staleNavItems.map(item => (
           <li key={item.sectionId}>
-            <ListItem item={item} close={close} />
+            <ListItem item={item} sectionId={item.sectionId} close={close} />
           </li>
         )),
       [staleNavItems, close],
     )
+
     const timelineItems = useMemo(
       () =>
         timelineNavItems.map(item => (
           <li key={item.sectionId}>
-            <ListItem item={item} href={`/?view=timeline${item.sectionHash}`} close={close} />
+            <ListItem
+              item={item}
+              sectionId={item.sectionId}
+              href={`/?view=timeline${item.sectionHash}`}
+              close={close}
+            />
           </li>
         )),
       [close, timelineNavItems],
@@ -138,6 +166,35 @@ const CharacterMenuList = memo(
     }
 
     const transitionClasses = isInitialRender ? '' : 'transition-all duration-300 ease-out'
+
+    useEffect(() => {
+      const syncLinkAvailability = () => {
+        const links = document.querySelectorAll<HTMLAnchorElement>('[data-mobile-nav-link="true"]')
+
+        for (const link of links) {
+          const sectionId = link.dataset.mobileNavSectionId
+          const section = sectionId ? document.getElementById(sectionId) : null
+          const isDisabled = Boolean(section?.classList.contains('hidden'))
+
+          if (isDisabled) {
+            link.setAttribute('aria-disabled', 'true')
+            link.tabIndex = -1
+            link.classList.add(...DISABLED_LINK_CLASSES)
+            continue
+          }
+
+          link.removeAttribute('aria-disabled')
+          link.removeAttribute('tabindex')
+          link.classList.remove(...DISABLED_LINK_CLASSES)
+        }
+      }
+
+      syncLinkAvailability()
+      window.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, syncLinkAvailability)
+      return () => {
+        window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, syncLinkAvailability)
+      }
+    }, [active.length, mode, stale.length, timelineNavItems.length])
 
     if (mode === 'timeline') {
       return (
