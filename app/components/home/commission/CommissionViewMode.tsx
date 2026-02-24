@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 export type CommissionViewMode = 'character' | 'timeline'
 
@@ -9,10 +9,39 @@ type CommissionViewModeContextValue = {
   setMode: (mode: CommissionViewMode) => void
 }
 
+const VIEW_MODE_QUERY_PARAM = 'view'
+
+const parseCommissionViewModeFromSearch = (search: string): CommissionViewMode => {
+  const view = new URLSearchParams(search).get(VIEW_MODE_QUERY_PARAM)
+  return view === 'timeline' ? 'timeline' : 'character'
+}
+
+const replaceCommissionViewModeInAddress = (mode: CommissionViewMode) => {
+  if (typeof window === 'undefined') return
+
+  const url = new URL(window.location.href)
+  if (mode === 'timeline') {
+    url.searchParams.set(VIEW_MODE_QUERY_PARAM, 'timeline')
+  } else {
+    url.searchParams.delete(VIEW_MODE_QUERY_PARAM)
+  }
+
+  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+}
+
 const CommissionViewModeContext = createContext<CommissionViewModeContextValue | null>(null)
 
 export const CommissionViewModeProvider = ({ children }: { children: ReactNode }) => {
-  const [mode, setMode] = useState<CommissionViewMode>('character')
+  const [mode, setMode] = useState<CommissionViewMode>(() =>
+    typeof window === 'undefined'
+      ? 'character'
+      : parseCommissionViewModeFromSearch(window.location.search),
+  )
+
+  useEffect(() => {
+    replaceCommissionViewModeInAddress(mode)
+  }, [mode])
+
   const value = useMemo(() => ({ mode, setMode }), [mode])
 
   return (
