@@ -4,7 +4,6 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useSyncExternalStore,
   type ReactNode,
@@ -63,9 +62,6 @@ export const CommissionViewModeProvider = ({
     () => parseCommissionViewModeFromSearch(window.location.search),
     () => initialMode,
   )
-  useEffect(() => {
-    window.dispatchEvent(new Event(VIEW_MODE_URL_CHANGE_EVENT))
-  }, [])
   const setMode = useCallback((nextMode: CommissionViewMode) => {
     if (nextMode === parseCommissionViewModeFromSearch(window.location.search)) return
     replaceCommissionViewModeInAddress(nextMode)

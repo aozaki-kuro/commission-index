@@ -118,6 +118,17 @@ const getTrackableQueryLength = (query: string) => {
   return normalized.replace(/["|!]/g, '').trim().length
 }
 
+const parsedSuggestionRowsCache = new Map<string, ReturnType<typeof parseSuggestionRows>>()
+
+const getParsedSuggestionRows = (searchSuggest = '') => {
+  const cached = parsedSuggestionRowsCache.get(searchSuggest)
+  if (cached) return cached
+
+  const parsed = parseSuggestionRows(searchSuggest)
+  parsedSuggestionRowsCache.set(searchSuggest, parsed)
+  return parsed
+}
+
 const createEmptySearchIndex = (): SearchIndex => ({
   entries: [],
   entryById: new Map(),
@@ -194,13 +205,13 @@ const buildSearchIndex = (
 ): SearchIndex => {
   if (typeof window === 'undefined') return createEmptySearchIndex()
 
-  if (externalEntries) {
-    const { domEntries, sections, staleDivider } = getDomSearchContext(viewMode)
+  const { domEntries, sections, staleDivider } = getDomSearchContext(viewMode)
 
+  if (externalEntries) {
     const entries = externalEntries.map(entry => ({
       id: entry.id,
       searchText: entry.searchText.toLowerCase(),
-      suggestionRows: parseSuggestionRows(entry.searchSuggest ?? ''),
+      suggestionRows: getParsedSuggestionRows(entry.searchSuggest ?? ''),
       element: domEntries[entry.id]?.element,
       sectionId: domEntries[entry.id]?.sectionId,
     }))
@@ -208,11 +219,9 @@ const buildSearchIndex = (
     return finalizeSearchIndex(entries, { sections, staleDivider })
   }
 
-  const { domEntries, sections, staleDivider } = getDomSearchContext(viewMode)
-
   const entries = domEntries.map(({ element, sectionId }, id) => {
     const suggestText = element.dataset.searchSuggest ?? ''
-    const suggestionRows = parseSuggestionRows(suggestText)
+    const suggestionRows = getParsedSuggestionRows(suggestText)
     return {
       suggestionRows,
       id,
