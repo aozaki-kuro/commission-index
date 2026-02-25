@@ -118,6 +118,7 @@ import A20260125 from '#images/webp/20260125_Gisyu.webp'
 import A20260208 from '#images/webp/20260208_Dorei.webp'
 import A20260220 from '#images/webp/20260220_月.webp'
 import A20260221 from '#images/webp/20260221_七市.webp'
+import A20260225 from '#images/webp/20260225_cityboy.webp'
 
 export const imageImports = {
   '20201220_病ん太廊': A20201220,
@@ -238,4 +239,5 @@ export const imageImports = {
   '20260208_Dorei': A20260208,
   '20260220_月': A20260220,
   '20260221_七市': A20260221,
+  '20260225_cityboy': A20260225,
 }
