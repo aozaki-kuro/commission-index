@@ -146,6 +146,81 @@ describe('CharacterList', () => {
     expect(container.querySelector('[data-sidebar-dot-for]')).toBeNull()
   })
 
+  it('keeps timeline sidebar anchor clicks from writing hash to url', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    window.history.replaceState(null, '', '/?view=timeline')
+
+    const monthNavItems = [
+      {
+        displayName: '2026',
+        sectionId: 'timeline-year-2026',
+        titleId: 'title-timeline-year-2026',
+        sectionHash: '#timeline-year-2026',
+        titleHash: '#title-timeline-year-2026',
+      },
+    ]
+
+    const scrollIntoView = vi.fn()
+    const target = document.createElement('div')
+    target.id = 'timeline-year-2026'
+    target.scrollIntoView = scrollIntoView
+    document.body.appendChild(target)
+
+    renderCharacterList(<CharacterList characters={characters} monthNavItems={monthNavItems} />)
+
+    fireEvent.click(screen.getByRole('link', { name: '2026' }))
+
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(window.location.pathname + window.location.search + window.location.hash).toBe(
+      '/?view=timeline',
+    )
+
+    target.remove()
+  })
+
+  it('removes hash from url after timeline anchor target scrolls out of viewport', async () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    window.history.replaceState(null, '', '/?view=timeline#timeline-year-2026')
+
+    const monthNavItems = [
+      {
+        displayName: '2026',
+        sectionId: 'timeline-year-2026',
+        titleId: 'title-timeline-year-2026',
+        sectionHash: '#timeline-year-2026',
+        titleHash: '#title-timeline-year-2026',
+      },
+    ]
+
+    const target = document.createElement('div')
+    target.id = 'timeline-year-2026'
+    target.getBoundingClientRect = () =>
+      ({
+        top: window.innerHeight + 10,
+        bottom: window.innerHeight + 20,
+        left: 0,
+        right: 0,
+        width: 0,
+        height: 10,
+        x: 0,
+        y: window.innerHeight + 10,
+        toJSON: () => ({}),
+      }) as DOMRect
+    document.body.appendChild(target)
+
+    renderCharacterList(<CharacterList characters={characters} monthNavItems={monthNavItems} />)
+
+    window.dispatchEvent(new Event('scroll'))
+
+    await waitFor(() => {
+      expect(window.location.pathname + window.location.search + window.location.hash).toBe(
+        '/?view=timeline',
+      )
+    })
+
+    target.remove()
+  })
+
   it('disables sidebar character links whose sections are hidden during search', () => {
     vi.stubEnv('NODE_ENV', 'production')
 

@@ -3,6 +3,10 @@
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
+import {
+  clearHashIfTargetIsStale,
+  scrollToHashTargetFromHrefWithoutHash,
+} from '#lib/navigation/hashAnchor'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '#lib/navigation/syncHiddenSectionLinkAvailability'
 import { useCharacterScrollSpy } from '#lib/characters/useCharacterScrollSpy'
@@ -12,14 +16,17 @@ interface CharacterListEnhancerProps {
   titleIds: string[]
   itemCount: number
   enableActiveDots?: boolean
+  mode?: 'character' | 'timeline'
 }
 
 const ACTIVE_DOT_CLASSES = ['scale-100', 'opacity-100']
 const INACTIVE_DOT_CLASSES = ['scale-0', 'opacity-0']
+
 const CharacterListEnhancer = ({
   titleIds,
   itemCount,
   enableActiveDots = true,
+  mode = 'character',
 }: CharacterListEnhancerProps) => {
   const activeId = useCharacterScrollSpy(titleIds, { enabled: enableActiveDots })
   const hasTrackedSidebarUsageRef = useRef(false)
@@ -62,6 +69,30 @@ const CharacterListEnhancer = ({
 
     activeDotRef.current = nextDot
   }, [activeId, enableActiveDots, titleIds])
+
+  useEffect(() => {
+    let rafId: number | null = null
+
+    const run = () => {
+      rafId = null
+      clearHashIfTargetIsStale()
+    }
+
+    const schedule = () => {
+      if (rafId !== null) return
+      rafId = requestAnimationFrame(run)
+    }
+
+    window.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, schedule)
+    schedule()
+
+    return () => {
+      window.removeEventListener('scroll', schedule)
+      window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, schedule)
+      if (rafId !== null) cancelAnimationFrame(rafId)
+    }
+  }, [])
 
   useEffect(() => {
     const root = document.getElementById('Character List')
@@ -108,6 +139,12 @@ const CharacterListEnhancer = ({
           event.preventDefault()
           return
         }
+
+        if (mode === 'timeline') {
+          event.preventDefault()
+          scrollToHashTargetFromHrefWithoutHash(characterLink.getAttribute('href'))
+        }
+
         trackSidebarUsage('character_link')
       }
     }
@@ -119,7 +156,7 @@ const CharacterListEnhancer = ({
       root.removeEventListener('click', onClick)
       window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, syncCharacterLinkAvailability)
     }
-  }, [itemCount, titleIds])
+  }, [itemCount, mode, titleIds])
 
   return null
 }

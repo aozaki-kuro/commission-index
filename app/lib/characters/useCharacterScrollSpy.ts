@@ -1,6 +1,7 @@
 'use client'
 
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
+import { clearHashIfTargetIsStale } from '#lib/navigation/hashAnchor'
 import { useEffect, useRef, useState } from 'react'
 
 const getScrollThreshold = () => {
@@ -45,40 +46,9 @@ const getActiveSectionId = (elements: HTMLElement[], threshold: number): string 
   return thresholdActiveId || firstVisibleInViewportId || firstVisibleId
 }
 
-const getHashTarget = (hash: string): HTMLElement | null => {
-  if (!hash || !hash.startsWith('#')) return null
-
-  const id = decodeURIComponent(hash.slice(1))
-  if (!id) return null
-
-  return document.getElementById(id)
-}
-
 const hasSearchQueryInUrl = () => {
   const query = new URLSearchParams(window.location.search).get('q')
   return Boolean(query?.trim())
-}
-
-const clearHash = () => {
-  const { pathname, search, hash } = window.location
-  if (!hash) return
-
-  history.replaceState(null, '', `${pathname}${search}`)
-}
-
-const resetStaleHash = () => {
-  const hash = window.location.hash
-  if (!hash) return
-
-  const element = getHashTarget(hash)
-  if (!element) {
-    clearHash()
-    return
-  }
-
-  const rect = element.getBoundingClientRect()
-  const isOffscreen = rect.bottom < 0 || rect.top > window.innerHeight
-  if (isOffscreen) clearHash()
 }
 
 interface UseCharacterScrollSpyOptions {
@@ -140,12 +110,12 @@ export const useCharacterScrollSpy = (
 
       if (!hasUrlSearchQuery && (window.scrollY === 0 || isAtIntroduction)) {
         setActiveId('')
-        resetStaleHash()
+        clearHashIfTargetIsStale()
         return
       }
 
       setActiveId(getActiveSectionId(sectionElementsRef.current, threshold))
-      resetStaleHash()
+      clearHashIfTargetIsStale()
     }
 
     const scheduleUpdate = () => {

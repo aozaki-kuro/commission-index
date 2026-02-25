@@ -1,5 +1,6 @@
 import { useCommissionViewMode } from '#components/home/commission/CommissionViewMode'
 import { buildCharacterNavItems, type CharacterNavItem } from '#lib/characters/nav'
+import { scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '#lib/navigation/syncHiddenSectionLinkAvailability'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -11,9 +12,10 @@ interface ListItemProps {
   item: CharacterNavItem
   href?: string
   close: () => void
+  preventHashWrite?: boolean
 }
 
-const ListItem = memo(({ item, href, close }: ListItemProps) => {
+const ListItem = memo(({ item, href, close, preventHashWrite = false }: ListItemProps) => {
   return (
     <a
       href={href ?? `/${item.titleHash}`}
@@ -24,6 +26,14 @@ const ListItem = memo(({ item, href, close }: ListItemProps) => {
           event.preventDefault()
           return
         }
+
+        if (preventHashWrite) {
+          const didScroll = scrollToHashTargetFromHrefWithoutHash(
+            event.currentTarget.getAttribute('href'),
+          )
+          if (didScroll) event.preventDefault()
+        }
+
         close()
       }}
       className={STYLES.listItem}
@@ -38,21 +48,25 @@ interface NavItemsListProps {
   items: CharacterNavItem[]
   close: () => void
   useTimelineHref?: boolean
+  preventHashWrite?: boolean
 }
 
-const NavItemsList = memo(({ items, close, useTimelineHref = false }: NavItemsListProps) => (
-  <ul>
-    {items.map(item => (
-      <li key={item.sectionId}>
-        <ListItem
-          item={item}
-          href={useTimelineHref ? `/?view=timeline${item.sectionHash}` : undefined}
-          close={close}
-        />
-      </li>
-    ))}
-  </ul>
-))
+const NavItemsList = memo(
+  ({ items, close, useTimelineHref = false, preventHashWrite = false }: NavItemsListProps) => (
+    <ul>
+      {items.map(item => (
+        <li key={item.sectionId}>
+          <ListItem
+            item={item}
+            href={useTimelineHref ? `/?view=timeline${item.sectionHash}` : undefined}
+            close={close}
+            preventHashWrite={preventHashWrite}
+          />
+        </li>
+      ))}
+    </ul>
+  ),
+)
 NavItemsList.displayName = 'NavItemsList'
 
 interface CharacterMenuListProps {
@@ -217,7 +231,7 @@ const CharacterMenuList = memo(
     return (
       <div ref={rootRef} className="relative">
         {mode === 'timeline' ? (
-          <NavItemsList items={timelineNavItems} close={close} useTimelineHref />
+          <NavItemsList items={timelineNavItems} close={close} useTimelineHref preventHashWrite />
         ) : (
           <CharacterStatusListBody active={active} stale={stale} close={close} />
         )}

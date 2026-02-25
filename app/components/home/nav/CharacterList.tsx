@@ -143,6 +143,7 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
         titleIds={showActiveDots ? titleIds : []}
         itemCount={navItems.length}
         enableActiveDots={showActiveDots}
+        mode={mode}
       />
     </aside>
   )
