@@ -71,10 +71,17 @@ const UnpublishedInterestButton = ({ commissionKey }: UnpublishedInterestButtonP
       disabled={isNotified}
       aria-pressed={isNotified}
       data-link-style={isNotified ? undefined : 'true'}
-      className={`${COMMISSION_LINK_TEXT_CLASS} cursor-pointer appearance-none border-0 bg-transparent p-0 ${isNotified ? 'text-inherit' : ''}disabled:cursor-default disabled:no-underline`}
+      className={`${COMMISSION_LINK_TEXT_CLASS} inline-flex cursor-pointer appearance-none items-center gap-2.5 border-0 bg-transparent p-0 ${isNotified ? 'text-inherit' : ''} disabled:cursor-default disabled:no-underline`}
       title={isNotified ? 'Already recorded' : 'Record interest in this unpublished commission'}
     >
-      {isNotified ? '✔ Notified' : 'Want this'}
+      {isNotified ? (
+        '✔ Notified'
+      ) : (
+        <>
+          <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-current opacity-80" />
+          <span>Want this</span>
+        </>
+      )}
     </button>
   )
 }
