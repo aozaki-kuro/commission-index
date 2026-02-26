@@ -5,6 +5,8 @@ interface CreateLinksProps {
   designLink?: string
 }
 
+export const COMMISSION_LINK_TEXT_CLASS = 'select-none underline underline-offset-2'
+
 /**
  * 对 URL 进行清理和标准化处理。
  * @param url 要清理的链接字符串
@@ -24,21 +26,10 @@ const LINK_PRIORITY = [
   { type: 'Hedao', patterns: ['hedaoapp.com'] },
 ]
 
-/**
- * 根据提供的链接数组和可选 designLink 生成链接的 React 元素数组。
- *
- * 功能与规则：
- * 1. 优先从 links 中选取主要链接（Twitter、Pixiv、Patreon等），最多取3个。
- *    如果有 designLink，则主要链接的数量限制为2个（因为需要给 designLink 预留一个名额）。
- * 2. 渲染时，第一个链接不加左边距，后续链接通过添加 `ml-2 md:ml-3` 来分隔。
- * 3. 如果没有任何链接匹配（mainLinks为空且无designLink），则返回 'N/A'。
- * 4. 设计链接（Design）如果存在，始终在最后显示，并同样根据是否为第一个显示的链接决定是否添加间距。
- */
-export const createLinks = ({ links, designLink }: CreateLinksProps) => {
+const selectDisplayLinks = ({ links, designLink }: CreateLinksProps) => {
   const hasDesign = Boolean(designLink)
   const maxLinks = hasDesign ? 2 : 3
 
-  // 单次遍历选取符合优先级的链接
   const selected: Record<string, string> = {}
   for (const raw of links) {
     const url = sanitizeUrl(raw)
@@ -50,23 +41,44 @@ export const createLinks = ({ links, designLink }: CreateLinksProps) => {
     }
   }
 
-  const mainLinkElements = LINK_PRIORITY.filter(p => p.type in selected)
-    .slice(0, maxLinks)
-    .map(({ type }, index) => (
-      <span key={type} className={index > 0 ? 'ml-2 md:ml-3' : ''}>
-        <Link href={selected[type]} className="underline-offset-2 select-none" target="_blank">
-          {type}
-        </Link>
-      </span>
-    ))
+  return {
+    hasDesign,
+    mainLinks: LINK_PRIORITY.filter(p => p.type in selected)
+      .slice(0, maxLinks)
+      .map(({ type }) => ({ type, url: selected[type] })),
+    designLink: hasDesign ? sanitizeUrl(designLink!) : null,
+  }
+}
 
-  const designElement = hasDesign ? (
+export const hasDisplayableLinks = (props: CreateLinksProps) => {
+  const { mainLinks, designLink } = selectDisplayLinks(props)
+  return mainLinks.length > 0 || Boolean(designLink)
+}
+
+/**
+ * 根据提供的链接数组和可选 designLink 生成链接的 React 元素数组。
+ *
+ * 功能与规则：
+ * 1. 优先从 links 中选取主要链接（Twitter、Pixiv、Patreon等），最多取3个。
+ *    如果有 designLink，则主要链接的数量限制为2个（因为需要给 designLink 预留一个名额）。
+ * 2. 渲染时，第一个链接不加左边距，后续链接通过添加 `ml-2 md:ml-3` 来分隔。
+ * 3. 如果没有任何链接匹配（mainLinks为空且无designLink），则返回 'N/A'。
+ * 4. 设计链接（Design）如果存在，始终在最后显示，并同样根据是否为第一个显示的链接决定是否添加间距。
+ */
+export const createLinks = ({ links, designLink }: CreateLinksProps) => {
+  const { mainLinks, designLink: normalizedDesignLink } = selectDisplayLinks({ links, designLink })
+
+  const mainLinkElements = mainLinks.map(({ type, url }, index) => (
+    <span key={type} className={index > 0 ? 'ml-2 md:ml-3' : ''}>
+      <Link href={url} className={COMMISSION_LINK_TEXT_CLASS} target="_blank">
+        {type}
+      </Link>
+    </span>
+  ))
+
+  const designElement = normalizedDesignLink ? (
     <span key="Design" className={mainLinkElements.length > 0 ? 'ml-2 md:ml-3' : ''}>
-      <Link
-        href={sanitizeUrl(designLink!)}
-        className="underline-offset-2 select-none"
-        target="_blank"
-      >
+      <Link href={normalizedDesignLink} className={COMMISSION_LINK_TEXT_CLASS} target="_blank">
         Design
       </Link>
     </span>

@@ -3,7 +3,8 @@ import { parseAndFormatDate } from '#lib/date/format'
 import { parseCommissionFileName } from '#lib/commissions/index'
 import { Commission } from '#data/types'
 import Link from 'next/link'
-import { createLinks } from './CreateLinks'
+import { createLinks, hasDisplayableLinks } from './CreateLinks'
+import UnpublishedInterestButton from './UnpublishedInterestButton'
 
 type IllustratorInfoProps = {
   commission: Commission
@@ -21,8 +22,10 @@ const IllustratorInfo = ({ commission, kebabName }: IllustratorInfoProps) => {
   const { fileName, Description: description, Links: links, Design: designLink } = commission
   const { date, creator } = parseCommissionFileName(fileName)
   const linkId = `#${kebabName}-${date}`
+  const interestKey = `${kebabName}-${date}`
   const formattedDate = parseAndFormatDate(date, 'yyyy/MM/dd')
   const quotedDescription = `"${description}"`
+  const hasDisplayLinks = hasDisplayableLinks({ links, designLink })
 
   const hasCreator = Boolean(creator)
   const hasDescription = Boolean(description)
@@ -61,7 +64,13 @@ const IllustratorInfo = ({ commission, kebabName }: IllustratorInfoProps) => {
          使用 ml-auto 将其推到右侧，如果在同一行时可与左侧分开对齐。
          当内容不足放一行时自动换行，flex-grow确保新行独占宽度，justify-end保证右对齐。
       */}
-      <div className="ml-auto flex grow justify-end">{createLinks({ links, designLink })}</div>
+      <div className="ml-auto flex grow justify-end">
+        {hasDisplayLinks ? (
+          createLinks({ links, designLink })
+        ) : (
+          <UnpublishedInterestButton key={interestKey} commissionKey={interestKey} />
+        )}
+      </div>
     </div>
   )
 }
