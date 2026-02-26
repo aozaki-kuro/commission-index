@@ -2,7 +2,7 @@
 
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
-import { useState } from 'react'
+import { useSyncExternalStore } from 'react'
 import { COMMISSION_LINK_TEXT_CLASS } from './CreateLinks'
 
 type UnpublishedInterestButtonProps = {
@@ -10,10 +10,13 @@ type UnpublishedInterestButtonProps = {
 }
 
 const STORAGE_KEY_PREFIX = 'commission-index:unpublished-interest:'
+const INTEREST_CHANGED_EVENT = 'unpublished-interest-changed'
 
 const getStorageKey = (commissionKey: string) => `${STORAGE_KEY_PREFIX}${commissionKey}`
 
 const readNotifiedState = (commissionKey: string) => {
+  if (typeof window === 'undefined') return false
+
   try {
     return localStorage.getItem(getStorageKey(commissionKey)) === '1'
   } catch {
@@ -21,17 +24,40 @@ const readNotifiedState = (commissionKey: string) => {
   }
 }
 
+const subscribeNotifiedState = (commissionKey: string, callback: () => void) => {
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === getStorageKey(commissionKey)) callback()
+  }
+
+  const onCustom = (event: Event) => {
+    const customEvent = event as CustomEvent<string>
+    if (customEvent.detail === commissionKey) callback()
+  }
+
+  window.addEventListener('storage', onStorage)
+  window.addEventListener(INTEREST_CHANGED_EVENT, onCustom)
+
+  return () => {
+    window.removeEventListener('storage', onStorage)
+    window.removeEventListener(INTEREST_CHANGED_EVENT, onCustom)
+  }
+}
+
 const UnpublishedInterestButton = ({ commissionKey }: UnpublishedInterestButtonProps) => {
-  const [isNotified, setIsNotified] = useState(() => readNotifiedState(commissionKey))
+  const isNotified = useSyncExternalStore(
+    callback => subscribeNotifiedState(commissionKey, callback),
+    () => readNotifiedState(commissionKey),
+    () => false,
+  )
 
   const handleClick = () => {
     if (isNotified) return
 
-    setIsNotified(true)
-
     try {
       localStorage.setItem(getStorageKey(commissionKey), '1')
     } catch {}
+
+    window.dispatchEvent(new CustomEvent<string>(INTEREST_CHANGED_EVENT, { detail: commissionKey }))
 
     trackRybbitEvent(ANALYTICS_EVENTS.iWantToSeeIt, {
       sub_event: commissionKey,

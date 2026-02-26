@@ -100,7 +100,7 @@ const ViewModeTabButton = ({
     type="button"
     onClick={onClick}
     aria-pressed={active}
-    className={`relative px-2 pt-1 pb-2 font-mono text-sm leading-5 no-underline transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 ${
+    className={`relative px-2 pt-1 pb-2 text-sm leading-5 no-underline transition-colors outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 ${
       active
         ? 'text-gray-700 dark:text-gray-300'
         : 'text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300'
