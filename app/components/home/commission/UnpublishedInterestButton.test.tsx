@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import UnpublishedInterestButton from './UnpublishedInterestButton'
@@ -38,8 +38,6 @@ describe('UnpublishedInterestButton', () => {
 
     unmount()
     render(<UnpublishedInterestButton commissionKey="artoria-pendragon-20240203" />)
-    return waitFor(() => {
-      expect(screen.getByRole('button', { name: '✔ Notified' })).toBeDisabled()
-    })
+    expect(screen.getByRole('button', { name: '✔ Notified' })).toBeDisabled()
   })
 })

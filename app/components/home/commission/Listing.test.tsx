@@ -39,6 +39,9 @@ const createMap = (commissions: CharacterCommissions['Commissions']) =>
   ])
 
 describe('Listing', () => {
+  const getEntryByImageAlt = (altText: string) =>
+    screen.getByRole('img', { name: altText }).closest('[data-commission-entry="true"]')
+
   it('renders empty state when character has no commissions', async () => {
     render(
       await Listing({
@@ -53,7 +56,7 @@ describe('Listing', () => {
     expect(document.getElementById('test-character')).toHaveAttribute('data-total-commissions', '0')
   })
 
-  it('builds searchable metadata and anonymous alt text for commission entries', async () => {
+  it('builds searchable metadata, aliases, and normalized creator labels for commission entries', async () => {
     render(
       await Listing({
         Character: 'Test Character',
@@ -65,12 +68,20 @@ describe('Listing', () => {
             Description: 'Sample description',
             Keyword: 'tag,Tag',
           },
+          {
+            fileName: '20240204_七市',
+            Links: [],
+          },
+          {
+            fileName: '20240819_Q (part 2)',
+            Links: [],
+          },
         ]),
-        creatorAliasesMap: new Map(),
+        creatorAliasesMap: new Map([['七市', ['Nanashi', 'nanashi']]]),
       }),
     )
 
-    const entry = document.querySelector('[data-commission-entry="true"]')
+    const entry = getEntryByImageAlt('© 2024 Anonymous & Crystallize')
     expect(entry).toBeInTheDocument()
     const searchText = entry?.getAttribute('data-search-text') ?? ''
     expect(searchText).toContain('test character')
@@ -84,56 +95,24 @@ describe('Listing', () => {
     expect(searchSuggest.match(/Keyword\t/gu)).toHaveLength(1)
 
     expect(screen.getByRole('img', { name: '© 2024 Anonymous & Crystallize' })).toBeInTheDocument()
-  })
 
-  it('includes creator aliases in searchable metadata and creator suggestions', async () => {
-    render(
-      await Listing({
-        Character: 'Test Character',
-        status: 'active',
-        commissionMap: createMap([
-          {
-            fileName: '20240203_七市',
-            Links: [],
-          },
-        ]),
-        creatorAliasesMap: new Map([['七市', ['Nanashi', 'nanashi']]]),
-      }),
-    )
+    const aliasEntry = getEntryByImageAlt('© 2024 七市 & Crystallize')
+    const aliasSearchText = aliasEntry?.getAttribute('data-search-text') ?? ''
+    expect(aliasSearchText).toContain('七市')
+    expect(aliasSearchText).toContain('nanashi')
 
-    const entry = document.querySelector('[data-commission-entry="true"]')
-    const searchText = entry?.getAttribute('data-search-text') ?? ''
-    expect(searchText).toContain('七市')
-    expect(searchText).toContain('nanashi')
+    const aliasSearchSuggest = aliasEntry?.getAttribute('data-search-suggest') ?? ''
+    expect(aliasSearchSuggest).toContain('Creator\t七市')
+    expect(aliasSearchSuggest).toContain('Creator\tNanashi')
 
-    const searchSuggest = entry?.getAttribute('data-search-suggest') ?? ''
-    expect(searchSuggest).toContain('Creator\t七市')
-    expect(searchSuggest).toContain('Creator\tNanashi')
-  })
+    const partEntry = getEntryByImageAlt('© 2024 Q & Crystallize')
+    const partSearchText = partEntry?.getAttribute('data-search-text') ?? ''
+    const partSearchSuggest = partEntry?.getAttribute('data-search-suggest') ?? ''
 
-  it('strips part suffix from creator name in copyright alt text', async () => {
-    render(
-      await Listing({
-        Character: 'Test Character',
-        status: 'active',
-        commissionMap: createMap([
-          {
-            fileName: '20240819_Q (part 2)',
-            Links: [],
-          },
-        ]),
-        creatorAliasesMap: new Map(),
-      }),
-    )
-
-    const entry = document.querySelector('[data-commission-entry="true"]')
-    const searchText = entry?.getAttribute('data-search-text') ?? ''
-    const searchSuggest = entry?.getAttribute('data-search-suggest') ?? ''
-
-    expect(searchText).toContain('q')
-    expect(searchText).not.toContain('part')
-    expect(searchSuggest).toContain('Creator\tQ')
-    expect(searchSuggest).not.toContain('Creator\tQ (part 2)')
+    expect(partSearchText).toContain('q')
+    expect(partSearchText).not.toContain('part')
+    expect(partSearchSuggest).toContain('Creator\tQ')
+    expect(partSearchSuggest).not.toContain('Creator\tQ (part 2)')
     expect(screen.getByRole('img', { name: '© 2024 Q & Crystallize' })).toBeInTheDocument()
   })
 })

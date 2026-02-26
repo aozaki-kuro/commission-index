@@ -14,7 +14,7 @@ describe('CommissionImageNoticeClient', () => {
     vi.useRealTimers()
   })
 
-  it('shows and dismisses notice when right clicked and then clicking outside', () => {
+  const renderNoticeHost = () => {
     render(
       <>
         <ProtectedCommissionImage
@@ -24,11 +24,18 @@ describe('CommissionImageNoticeClient', () => {
         <CommissionImageNoticeClient />
       </>,
     )
+  }
 
+  const openNotice = () => {
     const image = screen.getByRole('img', { name: 'sample alt' })
     fireEvent.contextMenu(image.parentElement as HTMLDivElement, { clientX: 30, clientY: 40 })
-
     expect(screen.getByRole('status')).toHaveTextContent('sample alt')
+  }
+
+  it('shows notice and dismisses it via outside click or timeout', () => {
+    renderNoticeHost()
+
+    openNotice()
 
     fireEvent.pointerDown(document.body, { button: 0 })
     act(() => {
@@ -36,23 +43,8 @@ describe('CommissionImageNoticeClient', () => {
     })
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
-  })
 
-  it('auto-hides the notice after timeout', () => {
-    render(
-      <>
-        <ProtectedCommissionImage
-          altText="sample alt"
-          resolvedImageSrc="/images/webp/sample.webp"
-        />
-        <CommissionImageNoticeClient />
-      </>,
-    )
-
-    const image = screen.getByRole('img', { name: 'sample alt' })
-    fireEvent.contextMenu(image.parentElement as HTMLDivElement, { clientX: 30, clientY: 40 })
-
-    expect(screen.getByRole('status')).toBeInTheDocument()
+    openNotice()
 
     act(() => {
       vi.advanceTimersByTime(2380)

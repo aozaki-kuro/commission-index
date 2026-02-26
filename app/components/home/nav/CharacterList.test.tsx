@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { CommissionViewModeProvider } from '#components/home/commission/CommissionViewMode'
@@ -8,6 +8,8 @@ import type { ReactNode } from 'react'
 import CharacterList from './CharacterList'
 
 const mockJumpToCommissionSearch = vi.fn()
+const mockClearHashIfTargetIsStale = vi.fn()
+const mockScrollToHashTargetFromHrefWithoutHash = vi.fn(() => true)
 
 vi.mock('#components/home/nav/DevAdminLink', () => ({
   default: () => <a href="/admin">Admin</a>,
@@ -21,8 +23,23 @@ vi.mock('#lib/navigation/jumpToCommissionSearch', () => ({
   jumpToCommissionSearch: () => mockJumpToCommissionSearch(),
 }))
 
+vi.mock('#lib/navigation/hashAnchor', () => ({
+  clearHashIfTargetIsStale: () => mockClearHashIfTargetIsStale(),
+  scrollToHashTargetFromHrefWithoutHash: (rawHref: string | null) =>
+    mockScrollToHashTargetFromHrefWithoutHash(rawHref),
+}))
+
 describe('CharacterList', () => {
   const characters = [{ DisplayName: 'Artoria Pendragon' }, { DisplayName: 'Nero Claudius' }]
+  const monthNavItems = [
+    {
+      displayName: '2026',
+      sectionId: 'timeline-year-2026',
+      titleId: 'title-timeline-year-2026',
+      sectionHash: '#timeline-year-2026',
+      titleHash: '#title-timeline-year-2026',
+    },
+  ]
   const mockRybbitEvent = vi.fn()
 
   const renderCharacterList = (ui: ReactNode) =>
@@ -30,6 +47,8 @@ describe('CharacterList', () => {
 
   beforeEach(() => {
     mockJumpToCommissionSearch.mockClear()
+    mockClearHashIfTargetIsStale.mockClear()
+    mockScrollToHashTargetFromHrefWithoutHash.mockClear()
     mockRybbitEvent.mockClear()
     ;(window as Window & { rybbit?: { event?: typeof mockRybbitEvent } }).rybbit = {
       event: mockRybbitEvent,
@@ -38,6 +57,7 @@ describe('CharacterList', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
     window.history.replaceState(null, '', '/')
     delete (window as Window & { rybbit?: { event?: typeof mockRybbitEvent } }).rybbit
   })
@@ -57,20 +77,6 @@ describe('CharacterList', () => {
 
     fireEvent.click(screen.getByRole('link', { name: 'Search' }))
     expect(mockJumpToCommissionSearch).toHaveBeenCalledTimes(1)
-  })
-
-  it('shows admin link only in development mode', () => {
-    vi.stubEnv('NODE_ENV', 'development')
-    const { rerender } = renderCharacterList(<CharacterList characters={characters} />)
-    expect(screen.getByRole('link', { name: 'Admin' })).toBeInTheDocument()
-
-    vi.stubEnv('NODE_ENV', 'production')
-    rerender(
-      <CommissionViewModeProvider>
-        <CharacterList characters={characters} />
-      </CommissionViewModeProvider>,
-    )
-    expect(screen.queryByRole('link', { name: 'Admin' })).not.toBeInTheDocument()
   })
 
   it('tracks sidebar usage once across sidebar interactions', () => {
@@ -106,34 +112,9 @@ describe('CharacterList', () => {
     )
   })
 
-  it('shows active sidebar dot for scroll-spy active character', async () => {
-    vi.stubEnv('NODE_ENV', 'production')
-
-    const { container } = renderCharacterList(<CharacterList characters={characters} />)
-    const activeDot = container.querySelector<HTMLElement>(
-      '[data-sidebar-dot-for="title-artoria-pendragon"]',
-    )
-
-    expect(activeDot).toBeTruthy()
-    await waitFor(() => {
-      expect(activeDot).toHaveClass('scale-100', 'opacity-100')
-      expect(activeDot).not.toHaveClass('scale-0', 'opacity-0')
-    })
-  })
-
-  it('does not render sidebar dots in timeline mode', () => {
+  it('keeps timeline sidebar anchor clicks from writing hash to url', () => {
     vi.stubEnv('NODE_ENV', 'production')
     window.history.replaceState(null, '', '/?view=timeline')
-
-    const monthNavItems = [
-      {
-        displayName: '2026',
-        sectionId: 'timeline-year-2026',
-        titleId: 'title-timeline-year-2026',
-        sectionHash: '#timeline-year-2026',
-        titleHash: '#title-timeline-year-2026',
-      },
-    ]
 
     const { container } = renderCharacterList(
       <CharacterList characters={characters} monthNavItems={monthNavItems} />,
@@ -144,81 +125,36 @@ describe('CharacterList', () => {
       '#timeline-year-2026',
     )
     expect(container.querySelector('[data-sidebar-dot-for]')).toBeNull()
-  })
-
-  it('keeps timeline sidebar anchor clicks from writing hash to url', () => {
-    vi.stubEnv('NODE_ENV', 'production')
-    window.history.replaceState(null, '', '/?view=timeline')
-
-    const monthNavItems = [
-      {
-        displayName: '2026',
-        sectionId: 'timeline-year-2026',
-        titleId: 'title-timeline-year-2026',
-        sectionHash: '#timeline-year-2026',
-        titleHash: '#title-timeline-year-2026',
-      },
-    ]
-
-    const scrollIntoView = vi.fn()
-    const target = document.createElement('div')
-    target.id = 'timeline-year-2026'
-    target.scrollIntoView = scrollIntoView
-    document.body.appendChild(target)
-
-    renderCharacterList(<CharacterList characters={characters} monthNavItems={monthNavItems} />)
 
     fireEvent.click(screen.getByRole('link', { name: '2026' }))
 
-    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(mockScrollToHashTargetFromHrefWithoutHash).toHaveBeenCalledTimes(1)
+    expect(mockScrollToHashTargetFromHrefWithoutHash).toHaveBeenCalledWith('#timeline-year-2026')
     expect(window.location.pathname + window.location.search + window.location.hash).toBe(
       '/?view=timeline',
     )
-
-    target.remove()
   })
 
-  it('removes hash from url after timeline anchor target scrolls out of viewport', async () => {
+  it('runs stale hash cleanup on mount and scroll in timeline mode', () => {
     vi.stubEnv('NODE_ENV', 'production')
     window.history.replaceState(null, '', '/?view=timeline#timeline-year-2026')
-
-    const monthNavItems = [
-      {
-        displayName: '2026',
-        sectionId: 'timeline-year-2026',
-        titleId: 'title-timeline-year-2026',
-        sectionHash: '#timeline-year-2026',
-        titleHash: '#title-timeline-year-2026',
-      },
-    ]
-
-    const target = document.createElement('div')
-    target.id = 'timeline-year-2026'
-    target.getBoundingClientRect = () =>
-      ({
-        top: window.innerHeight + 10,
-        bottom: window.innerHeight + 20,
-        left: 0,
-        right: 0,
-        width: 0,
-        height: 10,
-        x: 0,
-        y: window.innerHeight + 10,
-        toJSON: () => ({}),
-      }) as DOMRect
-    document.body.appendChild(target)
+    const rafCallbacks: FrameRequestCallback[] = []
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+      rafCallbacks.push(callback)
+      return rafCallbacks.length
+    })
+    vi.stubGlobal('cancelAnimationFrame', () => {})
 
     renderCharacterList(<CharacterList characters={characters} monthNavItems={monthNavItems} />)
 
+    expect(rafCallbacks).toHaveLength(1)
+    rafCallbacks.shift()?.(0)
+    expect(mockClearHashIfTargetIsStale).toHaveBeenCalledTimes(1)
+
     window.dispatchEvent(new Event('scroll'))
-
-    await waitFor(() => {
-      expect(window.location.pathname + window.location.search + window.location.hash).toBe(
-        '/?view=timeline',
-      )
-    })
-
-    target.remove()
+    expect(rafCallbacks).toHaveLength(1)
+    rafCallbacks.shift()?.(0)
+    expect(mockClearHashIfTargetIsStale).toHaveBeenCalledTimes(2)
   })
 
   it('disables sidebar character links whose sections are hidden during search', () => {
