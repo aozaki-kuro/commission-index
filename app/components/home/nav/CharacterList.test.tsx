@@ -16,7 +16,11 @@ vi.mock('#components/home/nav/DevAdminLink', () => ({
 }))
 
 vi.mock('#lib/characters/useCharacterScrollSpy', () => ({
-  useCharacterScrollSpy: () => 'title-artoria-pendragon',
+  useCharacterScrollSpy: (titleIds: string[]) => titleIds[0] ?? '',
+}))
+
+vi.mock('#lib/characters/useTimelineScrollSpy', () => ({
+  useTimelineScrollSpy: (titleIds: string[]) => titleIds[0] ?? '',
 }))
 
 vi.mock('#lib/navigation/jumpToCommissionSearch', () => ({
@@ -112,6 +116,17 @@ describe('CharacterList', () => {
     )
   })
 
+  it('marks the active character dot based on scroll spy result', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    const { container } = renderCharacterList(<CharacterList characters={characters} />)
+
+    const activeDot = container.querySelector('[data-sidebar-dot-for="title-artoria-pendragon"]')
+    const inactiveDot = container.querySelector('[data-sidebar-dot-for="title-nero-claudius"]')
+
+    expect(activeDot).toHaveClass('scale-100', 'opacity-100')
+    expect(inactiveDot).toHaveClass('scale-0', 'opacity-0')
+  })
+
   it('keeps timeline sidebar anchor clicks from writing hash to url', () => {
     vi.stubEnv('NODE_ENV', 'production')
     window.history.replaceState(null, '', '/?view=timeline')
@@ -124,7 +139,9 @@ describe('CharacterList', () => {
       'href',
       '#timeline-year-2026',
     )
-    expect(container.querySelector('[data-sidebar-dot-for]')).toBeNull()
+    const timelineDot = container.querySelector('[data-sidebar-dot-for="title-timeline-year-2026"]')
+    expect(timelineDot).not.toBeNull()
+    expect(timelineDot).toHaveClass('scale-100', 'opacity-100')
 
     fireEvent.click(screen.getByRole('link', { name: '2026' }))
 

@@ -9,66 +9,20 @@ import {
 } from '#lib/navigation/hashAnchor'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '#lib/navigation/syncHiddenSectionLinkAvailability'
-import { useCharacterScrollSpy } from '#lib/characters/useCharacterScrollSpy'
 import { useEffect, useRef } from 'react'
 
 interface CharacterListEnhancerProps {
-  titleIds: string[]
   itemCount: number
-  enableActiveDots?: boolean
+  navItemsKey?: string
   mode?: 'character' | 'timeline'
 }
 
-const ACTIVE_DOT_CLASSES = ['scale-100', 'opacity-100']
-const INACTIVE_DOT_CLASSES = ['scale-0', 'opacity-0']
-
 const CharacterListEnhancer = ({
-  titleIds,
   itemCount,
-  enableActiveDots = true,
+  navItemsKey = '',
   mode = 'character',
 }: CharacterListEnhancerProps) => {
-  const activeId = useCharacterScrollSpy(titleIds, { enabled: enableActiveDots })
   const hasTrackedSidebarUsageRef = useRef(false)
-  const dotByTitleIdRef = useRef<Map<string, HTMLElement>>(new Map())
-  const activeDotRef = useRef<HTMLElement | null>(null)
-
-  useEffect(() => {
-    if (!enableActiveDots) {
-      dotByTitleIdRef.current = new Map()
-      activeDotRef.current = null
-      return
-    }
-
-    dotByTitleIdRef.current = new Map(
-      Array.from(document.querySelectorAll<HTMLElement>('[data-sidebar-dot-for]'))
-        .map(dot => [dot.dataset.sidebarDotFor, dot] as const)
-        .filter(([titleId]) => Boolean(titleId)) as Array<[string, HTMLElement]>,
-    )
-    activeDotRef.current = null
-  }, [enableActiveDots, titleIds])
-
-  useEffect(() => {
-    if (!enableActiveDots) {
-      activeDotRef.current = null
-      return
-    }
-
-    const previousDot = activeDotRef.current
-    const nextDot = activeId ? (dotByTitleIdRef.current.get(activeId) ?? null) : null
-
-    if (previousDot && previousDot !== nextDot) {
-      previousDot.classList.remove(...ACTIVE_DOT_CLASSES)
-      previousDot.classList.add(...INACTIVE_DOT_CLASSES)
-    }
-
-    if (nextDot && nextDot !== previousDot) {
-      nextDot.classList.remove(...INACTIVE_DOT_CLASSES)
-      nextDot.classList.add(...ACTIVE_DOT_CLASSES)
-    }
-
-    activeDotRef.current = nextDot
-  }, [activeId, enableActiveDots, titleIds])
 
   useEffect(() => {
     let rafId: number | null = null
@@ -156,7 +110,7 @@ const CharacterListEnhancer = ({
       root.removeEventListener('click', onClick)
       window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, syncCharacterLinkAvailability)
     }
-  }, [itemCount, mode, titleIds])
+  }, [itemCount, mode, navItemsKey])
 
   return null
 }

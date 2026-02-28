@@ -2,49 +2,13 @@
 
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { clearHashIfTargetIsStale } from '#lib/navigation/hashAnchor'
+import {
+  getActiveSectionId,
+  getScrollThreshold,
+  isElementAtThreshold,
+  resolveElementsByIds,
+} from './scrollSpy'
 import { useEffect, useRef, useState } from 'react'
-
-const getScrollThreshold = () => {
-  return window.innerHeight / 2
-}
-
-const isElementVisible = (element: HTMLElement) => element.getClientRects().length > 0
-
-const isElementAtThreshold = (element: HTMLElement, threshold: number) => {
-  if (!isElementVisible(element)) return false
-  const rect = element.getBoundingClientRect()
-  return rect.top <= threshold && rect.bottom >= threshold
-}
-
-const isRectInViewport = (rect: DOMRect) => rect.bottom > 0 && rect.top < window.innerHeight
-
-const getActiveSectionId = (elements: HTMLElement[], threshold: number): string => {
-  let thresholdActiveId = ''
-  let firstVisibleInViewportId = ''
-  let firstVisibleId = ''
-
-  for (const element of elements) {
-    if (!isElementVisible(element)) continue
-    if (!firstVisibleId) {
-      firstVisibleId = element.id
-    }
-
-    const rect = element.getBoundingClientRect()
-
-    if (!firstVisibleInViewportId && isRectInViewport(rect)) {
-      firstVisibleInViewportId = element.id
-    }
-
-    if (rect.top <= threshold) {
-      thresholdActiveId = element.id
-      continue
-    }
-
-    break
-  }
-
-  return thresholdActiveId || firstVisibleInViewportId || firstVisibleId
-}
 
 const hasSearchQueryInUrl = () => {
   const query = new URLSearchParams(window.location.search).get('q')
@@ -74,9 +38,7 @@ export const useCharacterScrollSpy = (
     }
 
     introductionElementRef.current = document.getElementById(introductionId)
-    sectionElementsRef.current = titleIds
-      .map(id => document.getElementById(id))
-      .filter((element): element is HTMLElement => Boolean(element))
+    sectionElementsRef.current = resolveElementsByIds(titleIds)
   }, [enabled, introductionId, titleIds])
 
   useEffect(() => {
@@ -133,6 +95,7 @@ export const useCharacterScrollSpy = (
 
     window.addEventListener('scroll', scheduleUpdate, { passive: true })
     window.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleUpdate)
+
     scheduleUpdate()
 
     return () => {

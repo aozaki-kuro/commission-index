@@ -5,6 +5,8 @@ import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import { useCommissionViewMode } from '#components/home/commission/CommissionViewMode'
 import { buildCharacterNavItems, type CharacterNavItem } from '#lib/characters/nav'
+import { useCharacterScrollSpy } from '#lib/characters/useCharacterScrollSpy'
+import { useTimelineScrollSpy } from '#lib/characters/useTimelineScrollSpy'
 import { useMemo } from 'react'
 import CharacterListEnhancer from './CharacterListEnhancer'
 
@@ -14,6 +16,7 @@ interface CharacterListProps {
 }
 
 const HIDDEN_DOT_CLASSES = 'scale-0 opacity-0'
+const ACTIVE_DOT_CLASSES = 'scale-100 opacity-100'
 const UTILITY_ROW_WRAPPER_CLASSES =
   'relative flex min-h-5 items-center pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white'
 const UTILITY_ROW_TEXT_CLASSES =
@@ -57,7 +60,15 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
   )
   const navItems = mode === 'timeline' ? monthNavItems : characterNavItems
   const titleIds = useMemo(() => navItems.map(item => item.titleId), [navItems])
-  const showActiveDots = mode === 'character'
+  const showActiveDots = navItems.length > 0
+  const activeCharacterTitleId = useCharacterScrollSpy(mode === 'character' ? titleIds : [], {
+    enabled: mode === 'character',
+  })
+  const activeTimelineTitleId = useTimelineScrollSpy(mode === 'timeline' ? titleIds : [], {
+    enabled: mode === 'timeline',
+  })
+  const activeTitleId = mode === 'timeline' ? activeTimelineTitleId : activeCharacterTitleId
+  const navItemsKey = useMemo(() => navItems.map(item => item.sectionId).join('\n'), [navItems])
   const showAdminLink = process.env.NODE_ENV === 'development'
 
   return (
@@ -123,7 +134,9 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
                 {showActiveDots ? (
                   <div
                     data-sidebar-dot-for={titleId}
-                    className={`absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-400 transition-all duration-300 ${HIDDEN_DOT_CLASSES}`}
+                    className={`absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-400 transition-all duration-300 ${
+                      titleId === activeTitleId ? ACTIVE_DOT_CLASSES : HIDDEN_DOT_CLASSES
+                    }`}
                   />
                 ) : null}
                 <a
@@ -139,12 +152,7 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
         </nav>
       </div>
 
-      <CharacterListEnhancer
-        titleIds={showActiveDots ? titleIds : []}
-        itemCount={navItems.length}
-        enableActiveDots={showActiveDots}
-        mode={mode}
-      />
+      <CharacterListEnhancer itemCount={navItems.length} navItemsKey={navItemsKey} mode={mode} />
     </aside>
   )
 }
