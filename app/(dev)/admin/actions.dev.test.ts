@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   deleteCommission: vi.fn(),
   runImagePipeline: vi.fn(),
   runImageImportPipeline: vi.fn(),
+  saveUploadedSourceImage: vi.fn(),
+  removeSourceImageFile: vi.fn(),
 }))
 
 vi.mock('next/cache', () => ({
@@ -35,6 +37,11 @@ vi.mock('./imagePipeline', () => ({
   runImageImportPipeline: (...args: unknown[]) => mocks.runImageImportPipeline(...args),
 }))
 
+vi.mock('./imageUpload', () => ({
+  saveUploadedSourceImage: (...args: unknown[]) => mocks.saveUploadedSourceImage(...args),
+  removeSourceImageFile: (...args: unknown[]) => mocks.removeSourceImageFile(...args),
+}))
+
 const loadActions = async (nodeEnv: 'development' | 'production' = 'development') => {
   vi.stubEnv('NODE_ENV', nodeEnv)
   vi.resetModules()
@@ -50,6 +57,11 @@ describe('admin actions.dev', () => {
     mocks.deleteCharacter.mockReturnValue({ imageMapChanged: false })
     mocks.runImagePipeline.mockResolvedValue(undefined)
     mocks.runImageImportPipeline.mockResolvedValue(undefined)
+    mocks.saveUploadedSourceImage.mockResolvedValue({
+      targetPath: '/tmp/test-upload.jpg',
+      targetFileName: '20991231_Vitest.jpg',
+    })
+    mocks.removeSourceImageFile.mockResolvedValue(undefined)
   })
 
   afterEach(() => {
@@ -166,6 +178,73 @@ describe('admin actions.dev', () => {
       }),
     )
     expect(mocks.runImageImportPipeline).toHaveBeenCalledTimes(1)
+  })
+
+  it('uploads source image and runs image pipeline when image map is unchanged', async () => {
+    const actions = await loadActions('development')
+    const prev: FormState = { status: 'idle', message: '' }
+    const formData = new FormData()
+    formData.set('characterId', '3')
+    formData.set('fileName', '20991231_Vitest')
+    formData.set('links', '')
+    formData.set('sourceImage', new File([new Uint8Array([1, 2, 3])], 'source.png'))
+
+    const result = await actions.addCommissionAction(prev, formData)
+
+    expect(result).toEqual({
+      status: 'success',
+      message: 'Commission "20991231_Vitest" added to L*cia.',
+    })
+    expect(mocks.saveUploadedSourceImage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        commissionFileName: '20991231_Vitest',
+      }),
+    )
+    expect(mocks.runImagePipeline).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns upload errors without creating a commission', async () => {
+    const actions = await loadActions('development')
+    const prev: FormState = { status: 'idle', message: '' }
+    const formData = new FormData()
+    formData.set('characterId', '3')
+    formData.set('fileName', '20991231_Vitest')
+    formData.set('sourceImage', new File([new Uint8Array([1])], 'source.gif'))
+    mocks.saveUploadedSourceImage.mockRejectedValueOnce(
+      new Error('Only JPG and PNG uploads are supported.'),
+    )
+
+    const result = await actions.addCommissionAction(prev, formData)
+
+    expect(result).toEqual({
+      status: 'error',
+      message: 'Only JPG and PNG uploads are supported.',
+    })
+    expect(mocks.createCommission).not.toHaveBeenCalled()
+  })
+
+  it('rolls back uploaded source image when commission creation fails', async () => {
+    const actions = await loadActions('development')
+    const prev: FormState = { status: 'idle', message: '' }
+    const formData = new FormData()
+    formData.set('characterId', '3')
+    formData.set('fileName', '20991231_Vitest')
+    formData.set('sourceImage', new File([new Uint8Array([1, 2, 3])], 'source.jpg'))
+    mocks.saveUploadedSourceImage.mockResolvedValueOnce({
+      targetPath: '/tmp/rollback.jpg',
+      targetFileName: '20991231_Vitest.jpg',
+    })
+    mocks.createCommission.mockImplementationOnce(() => {
+      throw new Error('database write failed')
+    })
+
+    const result = await actions.addCommissionAction(prev, formData)
+
+    expect(result).toEqual({
+      status: 'error',
+      message: 'database write failed',
+    })
+    expect(mocks.removeSourceImageFile).toHaveBeenCalledWith('/tmp/rollback.jpg')
   })
 
   it('save/delete mutation actions enforce dev mode and surface success when enabled', async () => {

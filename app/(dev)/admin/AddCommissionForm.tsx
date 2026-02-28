@@ -7,11 +7,13 @@ import {
   CommissionHiddenSwitch,
   CommissionKeywordField,
   CommissionLinksField,
+  CommissionSourceImageField,
 } from './components/CommissionFormFields'
-import { useActionState, useEffect, useMemo, useState } from 'react'
+import { useActionState, useEffect, useMemo, useState, type ChangeEvent } from 'react'
 
 import type { CharacterStatus } from '#lib/admin/db'
 import { addCommissionAction } from '#admin/actions'
+import { isValidCommissionFileName } from './commissionFileName'
 import { notifyDataUpdate } from './dataUpdateSignal'
 import FormStatusIndicator from './FormStatusIndicator'
 import SubmitButton from './SubmitButton'
@@ -28,10 +30,24 @@ interface AddCommissionFormProps {
   characters: CharacterOption[]
 }
 
+type SourceImageHintTone = 'default' | 'success' | 'error'
+const DEFAULT_SOURCE_IMAGE_HINT =
+  'Upload JPG/PNG. It will be saved to data/images using this file name and then imported automatically.'
+
+const extractFileNameStem = (fileName: string) => {
+  const trimmed = fileName.trim()
+  const extIndex = trimmed.lastIndexOf('.')
+  if (extIndex <= 0) return trimmed
+  return trimmed.slice(0, extIndex)
+}
+
 const AddCommissionForm = ({ characters }: AddCommissionFormProps) => {
   const [state, formAction] = useActionState(addCommissionAction, INITIAL_FORM_STATE)
   const [characterId, setCharacterId] = useState<number | null>(null)
   const [isHidden, setIsHidden] = useState(false)
+  const [fileName, setFileName] = useState('')
+  const [sourceImageHint, setSourceImageHint] = useState(DEFAULT_SOURCE_IMAGE_HINT)
+  const [sourceImageHintTone, setSourceImageHintTone] = useState<SourceImageHintTone>('default')
 
   useEffect(() => {
     if (state.status === 'success') notifyDataUpdate()
@@ -41,6 +57,38 @@ const AddCommissionForm = ({ characters }: AddCommissionFormProps) => {
     () => [...characters].sort((a, b) => a.sortOrder - b.sortOrder),
     [characters],
   )
+
+  const handleFileNameChange = (nextValue: string) => {
+    setFileName(nextValue)
+    if (sourceImageHintTone === 'error' && nextValue.trim()) {
+      setSourceImageHint(
+        'Uploaded file name does not match pattern. Manual value will be validated when saving.',
+      )
+      setSourceImageHintTone('default')
+    }
+  }
+
+  const handleSourceImageChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) {
+      setSourceImageHint(DEFAULT_SOURCE_IMAGE_HINT)
+      setSourceImageHintTone('default')
+      return
+    }
+
+    const stem = extractFileNameStem(file.name)
+    if (isValidCommissionFileName(stem)) {
+      setFileName(stem)
+      setSourceImageHint(`Detected "${stem}" from uploaded file name and auto-filled File name.`)
+      setSourceImageHintTone('success')
+      return
+    }
+
+    setSourceImageHint(
+      'Uploaded file name does not match YYYYMMDD or YYYYMMDD_creator. Please fill File name manually.',
+    )
+    setSourceImageHintTone('error')
+  }
 
   return (
     <form
@@ -63,8 +111,18 @@ const AddCommissionForm = ({ characters }: AddCommissionFormProps) => {
           onChange={setCharacterId}
           showCheckmark
         />
-        <CommissionFileNameField placeholder="20250302_Artist" />
+        <CommissionFileNameField
+          placeholder="20250302_Artist"
+          value={fileName}
+          onChange={handleFileNameChange}
+        />
       </div>
+
+      <CommissionSourceImageField
+        onChange={handleSourceImageChange}
+        helperMessage={sourceImageHint}
+        helperTone={sourceImageHintTone}
+      />
 
       <CommissionLinksField rows={4} />
 

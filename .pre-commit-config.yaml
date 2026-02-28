@@ -16,7 +16,7 @@ repos:
 
       - id: image-import
         name: image import
-        entry: bun run scripts/imageImport.ts
+        entry: bun run scripts/images.ts --import-only
         language: system
         pass_filenames: false
         stages:

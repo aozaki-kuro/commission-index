@@ -100,8 +100,8 @@ When a task is not fully covered here, contributors/automation may reference ext
 
 ### Image Pipeline: Steps
 
-1. For new/updated assets, run the conversion/import scripts as needed:
-   `bun run scripts/convert.ts` and `bun run scripts/imageImport.ts`.
+1. For new/updated assets, run the unified pipeline as needed:
+   `bun run scripts/images.ts` (or `--convert-only` / `--import-only`).
 2. Remember that normal dev/build flows run `bun run pre-build`, which executes
    `scripts/images.ts`.
 3. If cleaning stale image references, use `bun run images:prune-unused`.

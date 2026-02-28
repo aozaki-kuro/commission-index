@@ -15,6 +15,7 @@ import {
 } from '#lib/admin/db'
 import type { FormState } from './types'
 import { runImageImportPipeline, runImagePipeline } from './imagePipeline'
+import { removeSourceImageFile, saveUploadedSourceImage } from './imageUpload'
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
 
@@ -75,6 +76,13 @@ const parseCommissionFields = (formData: FormData): ParsedCommissionFields => {
   }
 }
 
+const getUploadedSourceImage = (formData: FormData): File | null => {
+  const entry = formData.get('sourceImage')
+  if (!(entry instanceof File)) return null
+  if (!entry.name.trim() || entry.size <= 0) return null
+  return entry
+}
+
 const validateCommissionFields = (
   fields: Pick<ParsedCommissionFields, 'characterId' | 'fileName'>,
 ): FormState | null => {
@@ -127,8 +135,27 @@ export const addCommissionAction = async (
   if (guard) return guard
 
   const fields = parseCommissionFields(formData)
+  const sourceImage = getUploadedSourceImage(formData)
   const validation = validateCommissionFields(fields)
   if (validation) return validation
+
+  let uploadedSourceImagePath: string | null = null
+
+  if (sourceImage) {
+    try {
+      const uploaded = await saveUploadedSourceImage({
+        commissionFileName: fields.fileName,
+        file: sourceImage,
+      })
+      uploadedSourceImagePath = uploaded.targetPath
+    } catch (error) {
+      return {
+        status: 'error',
+        message:
+          error instanceof Error ? error.message : 'Failed to save source image. Please try again.',
+      }
+    }
+  }
 
   try {
     const { characterName, imageMapChanged } = createCommission({
@@ -140,7 +167,7 @@ export const addCommissionAction = async (
       keyword: fields.keyword,
       hidden: fields.hidden,
     })
-    if (imageMapChanged) {
+    if (imageMapChanged || uploadedSourceImagePath) {
       await runImagePipeline()
     }
     revalidatePublicViews()
@@ -150,6 +177,9 @@ export const addCommissionAction = async (
       message: `Commission "${fields.fileName}" added to ${characterName}.`,
     }
   } catch (error) {
+    if (uploadedSourceImagePath) {
+      await removeSourceImageFile(uploadedSourceImagePath)
+    }
     return {
       status: 'error',
       message:

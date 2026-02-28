@@ -164,6 +164,41 @@ interface CommissionFileNameFieldProps {
   placeholder?: string
 }
 
+interface CommissionSourceImageFieldProps {
+  accept?: string
+  helperMessage?: string
+  helperTone?: 'default' | 'success' | 'error'
+  onChange?: (event: ChangeEvent<HTMLInputElement>) => void
+}
+
+export const CommissionSourceImageField = ({
+  accept = 'image/jpeg,image/png,.jpg,.jpeg,.png',
+  helperMessage = 'Upload JPG/PNG. It will be saved to data/images using this file name and then imported automatically.',
+  helperTone = 'default',
+  onChange,
+}: CommissionSourceImageFieldProps) => {
+  const helperMessageClassName =
+    helperTone === 'error'
+      ? 'text-red-600 dark:text-red-400'
+      : helperTone === 'success'
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : fieldDescriptionStyles
+
+  return (
+    <Field className="space-y-1">
+      <Label className={fieldLabelStyles}>Source image (optional)</Label>
+      <Input
+        type="file"
+        name="sourceImage"
+        accept={accept}
+        onChange={onChange}
+        className={`${formControlStyles} cursor-pointer file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200 dark:file:bg-gray-800 dark:file:text-gray-200 dark:hover:file:bg-gray-700`}
+      />
+      <Description className={helperMessageClassName}>{helperMessage}</Description>
+    </Field>
+  )
+}
+
 export const CommissionFileNameField = ({
   value,
   onChange,

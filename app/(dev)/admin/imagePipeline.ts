@@ -2,7 +2,7 @@
 
 import path from 'node:path'
 
-import { runImageImportWorkflow, runImageWorkflow } from '#scripts/images'
+import { runImageImportWorkflow, runImageWorkflow } from '#lib/pipeline/images'
 
 // Runs image conversion + import regeneration in development.
 export const runImagePipeline = async () => {
