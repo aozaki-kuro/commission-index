@@ -147,8 +147,10 @@ describe('CharacterList', () => {
 
     renderCharacterList(<CharacterList characters={characters} monthNavItems={monthNavItems} />)
 
-    expect(rafCallbacks).toHaveLength(1)
-    rafCallbacks.shift()?.(0)
+    expect(rafCallbacks.length).toBeGreaterThan(0)
+    while (rafCallbacks.length > 0) {
+      rafCallbacks.shift()?.(0)
+    }
     expect(mockClearHashIfTargetIsStale).toHaveBeenCalledTimes(1)
 
     window.dispatchEvent(new Event('scroll'))

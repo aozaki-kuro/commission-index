@@ -7,7 +7,7 @@ import {
 } from '#lib/commissions/index'
 import { parseAndFormatDate } from '#lib/date/format'
 import { getCommissionData } from '#data/commissionData'
-import Link from 'next/link'
+import HashLink from '#components/shared/HashLink'
 
 const isMilestone = (num: number): boolean => num > 0 && num % 50 === 0
 
@@ -61,9 +61,9 @@ const Update = () => {
               <p key={fileName} className="mr-2">
                 {/* 显示格式化日期并创建指向对应角色的链接 */}
                 {formattedDate} {'[ '}
-                <Link href={linkId} className="underline-offset-2">
+                <HashLink href={linkId} className="underline-offset-2">
                   {character}
-                </Link>
+                </HashLink>
                 {' ]'}
               </p>
             )

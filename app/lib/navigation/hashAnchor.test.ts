@@ -26,6 +26,33 @@ describe('hashAnchor utils', () => {
     expect(scrollToHashTargetFromHrefWithoutHash(null)).toBe(false)
   })
 
+  it('prefers visible target when duplicate ids exist across view panels', () => {
+    const hiddenPanel = document.createElement('div')
+    hiddenPanel.dataset.commissionViewPanel = 'character'
+    hiddenPanel.dataset.commissionViewActive = 'false'
+    const hiddenTarget = document.createElement('div')
+    hiddenTarget.id = 'l-cia-20260226'
+    hiddenTarget.scrollIntoView = vi.fn()
+    hiddenPanel.appendChild(hiddenTarget)
+
+    const visiblePanel = document.createElement('div')
+    visiblePanel.dataset.commissionViewPanel = 'timeline'
+    visiblePanel.dataset.commissionViewActive = 'true'
+    const visibleTarget = document.createElement('div')
+    visibleTarget.id = 'l-cia-20260226'
+    visibleTarget.scrollIntoView = vi.fn()
+    visiblePanel.appendChild(visibleTarget)
+
+    document.body.appendChild(hiddenPanel)
+    document.body.appendChild(visiblePanel)
+
+    const didScroll = scrollToHashTargetFromHrefWithoutHash('/?view=timeline#l-cia-20260226')
+
+    expect(didScroll).toBe(true)
+    expect(visibleTarget.scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(hiddenTarget.scrollIntoView).not.toHaveBeenCalled()
+  })
+
   it('clears hash when target is missing or offscreen', () => {
     window.history.replaceState(null, '', '/?view=timeline#missing')
     clearHashIfTargetIsStale()

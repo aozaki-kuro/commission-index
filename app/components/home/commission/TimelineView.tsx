@@ -1,4 +1,5 @@
 import type { TimelineYearGroup } from '#lib/commissions/timeline'
+import { getCharacterSectionId } from '#lib/characters/nav'
 import Link from 'next/link'
 import CommissionEntries from './CommissionEntries'
 
@@ -29,12 +30,12 @@ const TimelineView = async ({ groups, creatorAliasesMap }: TimelineViewProps) =>
           </h2>
         </div>
         {await CommissionEntries({
-          entries: group.entries.map((entry, index) => ({
+          entries: group.entries.map(entry => ({
             character: entry.character,
             commission: entry.commission,
             sectionId: group.sectionId,
             entryKey: `${group.yearKey}:${entry.character}:${entry.commission.fileName}`,
-            entryAnchorPrefix: `${group.sectionId}-${index + 1}`,
+            entryAnchorPrefix: getCharacterSectionId(entry.character),
           })),
           creatorAliasesMap,
           embedSearchMetadata: true,

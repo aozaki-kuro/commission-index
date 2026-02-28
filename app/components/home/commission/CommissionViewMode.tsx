@@ -4,10 +4,12 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useSyncExternalStore,
   type ReactNode,
 } from 'react'
+import { scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 
 export type CommissionViewMode = 'character' | 'timeline'
 
@@ -66,6 +68,18 @@ export const CommissionViewModeProvider = ({
     if (nextMode === parseCommissionViewModeFromSearch(window.location.search)) return
     replaceCommissionViewModeInAddress(nextMode)
   }, [])
+
+  useEffect(() => {
+    const hash = window.location.hash
+    if (!hash) return
+
+    const rafId = requestAnimationFrame(() => {
+      scrollToHashTargetFromHrefWithoutHash(hash)
+    })
+
+    return () => cancelAnimationFrame(rafId)
+  }, [mode])
+
   const value = useMemo(() => ({ mode, setMode }), [mode, setMode])
 
   return (

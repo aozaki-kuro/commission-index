@@ -6,7 +6,19 @@ export const getHashTarget = (hash: string): HTMLElement | null => {
   const id = decodeURIComponent(hash.slice(1))
   if (!id) return null
 
-  return document.getElementById(id)
+  const candidates = Array.from(document.querySelectorAll<HTMLElement>('[id]')).filter(
+    element => element.id === id,
+  )
+  if (candidates.length === 0) return null
+
+  // Same entry can exist in both "character" and "timeline" panels.
+  // Prefer targets inside the active view panel to avoid scrolling hidden content.
+  return (
+    candidates.find(
+      element =>
+        !element.closest('[data-commission-view-panel][data-commission-view-active="false"]'),
+    ) ?? candidates[0]
+  )
 }
 
 export const getHashFromHref = (rawHref: string | null): string => {

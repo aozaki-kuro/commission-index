@@ -12,7 +12,6 @@ import Warning from '#components/home/warning/Warning'
 import { getCommissionDataMap } from '#data/commissionData'
 import { getCharacterStatus } from '#lib/characters/status'
 import { buildCommissionTimeline } from '#lib/commissions/timeline'
-
 const Home = () => {
   const status = getCharacterStatus()
   const commissionMap = getCommissionDataMap()
