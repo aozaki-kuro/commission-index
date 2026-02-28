@@ -26,6 +26,13 @@ const nextConfig = (phase: string): NextConfig => {
     cleanDistDir: true,
     images: { unoptimized: true, minimumCacheTTL: 604800 },
     output: 'export',
+    experimental: isDev
+      ? {
+          serverActions: {
+            bodySizeLimit: '8mb',
+          },
+        }
+      : undefined,
 
     turbopack: {
       resolveAlias: {

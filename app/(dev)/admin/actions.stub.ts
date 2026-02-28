@@ -32,6 +32,13 @@ export const updateCommissionAction = async (
   return disabledState
 }
 
+export const replaceCommissionSourceImageAction = async (
+  _formData: FormData,
+): Promise<FormState> => {
+  void _formData
+  return disabledState
+}
+
 export async function saveCharacterOrder(_payload: {
   active: number[]
   stale: number[]

@@ -4,6 +4,7 @@ import {
   addCommissionAction,
   deleteCharacterAction,
   deleteCommissionAction,
+  replaceCommissionSourceImageAction,
   renameCharacter,
   saveCharacterOrder,
   updateCommissionAction,
@@ -22,6 +23,9 @@ describe('admin actions stub', () => {
     await expect(addCharacterAction(prev, formData)).resolves.toEqual(expectedDisabledState)
     await expect(addCommissionAction(prev, formData)).resolves.toEqual(expectedDisabledState)
     await expect(updateCommissionAction(prev, formData)).resolves.toEqual(expectedDisabledState)
+    await expect(replaceCommissionSourceImageAction(formData)).resolves.toEqual(
+      expectedDisabledState,
+    )
   })
 
   it('returns disabled state for mutation actions', async () => {

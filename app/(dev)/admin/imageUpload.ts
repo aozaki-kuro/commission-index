@@ -40,10 +40,7 @@ export interface SavedSourceImage {
   targetFileName: string
 }
 
-export const saveUploadedSourceImage = async (input: {
-  commissionFileName: string
-  file: File
-}): Promise<SavedSourceImage> => {
+const resolveTargetFromInput = async (input: { commissionFileName: string; file: File }) => {
   const fileName = validateCommissionFileName(input.commissionFileName)
   if (input.file.size <= 0) {
     throw new Error('Uploaded image is empty.')
@@ -57,12 +54,51 @@ export const saveUploadedSourceImage = async (input: {
   await fs.mkdir(SOURCE_IMAGES_DIR, { recursive: true })
   const targetFileName = `${fileName}${ext}`
   const targetPath = path.join(SOURCE_IMAGES_DIR, targetFileName)
-  await ensureTargetNotExists(targetPath)
+
+  return { ext, targetPath, targetFileName }
+}
+
+const writeUploadedSourceImage = async (input: {
+  commissionFileName: string
+  file: File
+  overwrite: boolean
+}): Promise<SavedSourceImage> => {
+  const { ext, targetPath, targetFileName } = await resolveTargetFromInput(input)
+  if (!input.overwrite) {
+    await ensureTargetNotExists(targetPath)
+  }
 
   const bytes = new Uint8Array(await input.file.arrayBuffer())
   await fs.writeFile(targetPath, bytes)
 
+  if (input.overwrite) {
+    const normalizedStem = path.parse(targetFileName).name
+    const alternateExt = ext === '.jpg' ? '.png' : '.jpg'
+    const alternatePath = path.join(SOURCE_IMAGES_DIR, `${normalizedStem}${alternateExt}`)
+    await removeSourceImageFile(alternatePath)
+  }
+
   return { targetPath, targetFileName }
+}
+
+export const saveUploadedSourceImage = async (input: {
+  commissionFileName: string
+  file: File
+}): Promise<SavedSourceImage> => {
+  return writeUploadedSourceImage({
+    ...input,
+    overwrite: false,
+  })
+}
+
+export const replaceUploadedSourceImage = async (input: {
+  commissionFileName: string
+  file: File
+}): Promise<SavedSourceImage> => {
+  return writeUploadedSourceImage({
+    ...input,
+    overwrite: true,
+  })
 }
 
 export const removeSourceImageFile = async (targetPath: string) => {

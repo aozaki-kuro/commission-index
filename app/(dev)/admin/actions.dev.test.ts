@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   runImagePipeline: vi.fn(),
   runImageImportPipeline: vi.fn(),
   saveUploadedSourceImage: vi.fn(),
+  replaceUploadedSourceImage: vi.fn(),
   removeSourceImageFile: vi.fn(),
 }))
 
@@ -39,6 +40,7 @@ vi.mock('./imagePipeline', () => ({
 
 vi.mock('./imageUpload', () => ({
   saveUploadedSourceImage: (...args: unknown[]) => mocks.saveUploadedSourceImage(...args),
+  replaceUploadedSourceImage: (...args: unknown[]) => mocks.replaceUploadedSourceImage(...args),
   removeSourceImageFile: (...args: unknown[]) => mocks.removeSourceImageFile(...args),
 }))
 
@@ -59,6 +61,10 @@ describe('admin actions.dev', () => {
     mocks.runImageImportPipeline.mockResolvedValue(undefined)
     mocks.saveUploadedSourceImage.mockResolvedValue({
       targetPath: '/tmp/test-upload.jpg',
+      targetFileName: '20991231_Vitest.jpg',
+    })
+    mocks.replaceUploadedSourceImage.mockResolvedValue({
+      targetPath: '/tmp/test-reupload.jpg',
       targetFileName: '20991231_Vitest.jpg',
     })
     mocks.removeSourceImageFile.mockResolvedValue(undefined)
@@ -82,6 +88,10 @@ describe('admin actions.dev', () => {
       message: 'Writable actions are only available in development mode.',
     })
     await expect(actions.updateCommissionAction(prev, formData)).resolves.toEqual({
+      status: 'error',
+      message: 'Writable actions are only available in development mode.',
+    })
+    await expect(actions.replaceCommissionSourceImageAction(formData)).resolves.toEqual({
       status: 'error',
       message: 'Writable actions are only available in development mode.',
     })
@@ -245,6 +255,79 @@ describe('admin actions.dev', () => {
       message: 'database write failed',
     })
     expect(mocks.removeSourceImageFile).toHaveBeenCalledWith('/tmp/rollback.jpg')
+  })
+
+  it('validates replace source image payload before upload', async () => {
+    const actions = await loadActions('development')
+    const invalidIdData = new FormData()
+    invalidIdData.set('id', '0')
+    invalidIdData.set('commissionFileName', '20991231_Vitest')
+    invalidIdData.set('sourceImage', new File([new Uint8Array([1])], 'source.png'))
+
+    await expect(actions.replaceCommissionSourceImageAction(invalidIdData)).resolves.toEqual({
+      status: 'error',
+      message: 'Invalid commission identifier.',
+    })
+    expect(mocks.replaceUploadedSourceImage).not.toHaveBeenCalled()
+
+    const missingFileNameData = new FormData()
+    missingFileNameData.set('id', '17')
+    missingFileNameData.set('sourceImage', new File([new Uint8Array([1])], 'source.png'))
+
+    await expect(actions.replaceCommissionSourceImageAction(missingFileNameData)).resolves.toEqual({
+      status: 'error',
+      message: 'File name is required.',
+    })
+    expect(mocks.replaceUploadedSourceImage).not.toHaveBeenCalled()
+
+    const missingImageData = new FormData()
+    missingImageData.set('id', '17')
+    missingImageData.set('commissionFileName', '20991231_Vitest')
+
+    await expect(actions.replaceCommissionSourceImageAction(missingImageData)).resolves.toEqual({
+      status: 'error',
+      message: 'Source image is required.',
+    })
+  })
+
+  it('replaces source image and runs image pipeline', async () => {
+    const actions = await loadActions('development')
+    const formData = new FormData()
+    formData.set('id', '17')
+    formData.set('commissionFileName', '20991231_Vitest')
+    formData.set('sourceImage', new File([new Uint8Array([1, 2, 3])], 'source.png'))
+
+    const result = await actions.replaceCommissionSourceImageAction(formData)
+
+    expect(result).toEqual({
+      status: 'success',
+      message: 'Source image for "20991231_Vitest" replaced.',
+    })
+    expect(mocks.replaceUploadedSourceImage).toHaveBeenCalledWith({
+      commissionFileName: '20991231_Vitest',
+      file: expect.any(File),
+    })
+    expect(mocks.runImagePipeline).toHaveBeenCalledTimes(1)
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/')
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/rss.xml')
+    expect(mocks.revalidatePath).toHaveBeenCalledWith('/admin')
+  })
+
+  it('surfaces replace source image upload errors', async () => {
+    const actions = await loadActions('development')
+    const formData = new FormData()
+    formData.set('id', '17')
+    formData.set('commissionFileName', '20991231_Vitest')
+    formData.set('sourceImage', new File([new Uint8Array([1, 2, 3])], 'source.png'))
+    mocks.replaceUploadedSourceImage.mockRejectedValueOnce(
+      new Error('Only JPG and PNG uploads are supported.'),
+    )
+
+    await expect(actions.replaceCommissionSourceImageAction(formData)).resolves.toEqual({
+      status: 'error',
+      message: 'Only JPG and PNG uploads are supported.',
+    })
+    expect(mocks.runImagePipeline).not.toHaveBeenCalled()
   })
 
   it('save/delete mutation actions enforce dev mode and surface success when enabled', async () => {

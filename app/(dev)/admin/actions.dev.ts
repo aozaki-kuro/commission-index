@@ -15,7 +15,11 @@ import {
 } from '#lib/admin/db'
 import type { FormState } from './types'
 import { runImageImportPipeline, runImagePipeline } from './imagePipeline'
-import { removeSourceImageFile, saveUploadedSourceImage } from './imageUpload'
+import {
+  removeSourceImageFile,
+  replaceUploadedSourceImage,
+  saveUploadedSourceImage,
+} from './imageUpload'
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
 
@@ -272,6 +276,46 @@ export const updateCommissionAction = async (
       status: 'error',
       message:
         error instanceof Error ? error.message : 'Failed to update commission. Please try again.',
+    }
+  }
+}
+
+export async function replaceCommissionSourceImageAction(formData: FormData): Promise<FormState> {
+  const guard = devGuard()
+  if (guard) return guard
+
+  const id = Number(formData.get('id'))
+  const commissionFileName = formData.get('commissionFileName')?.toString().trim() ?? ''
+  const sourceImage = getUploadedSourceImage(formData)
+
+  if (!Number.isFinite(id) || id <= 0) {
+    return { status: 'error', message: 'Invalid commission identifier.' }
+  }
+
+  if (!commissionFileName) {
+    return { status: 'error', message: 'File name is required.' }
+  }
+
+  if (!sourceImage) {
+    return { status: 'error', message: 'Source image is required.' }
+  }
+
+  try {
+    await replaceUploadedSourceImage({
+      commissionFileName,
+      file: sourceImage,
+    })
+    await runImagePipeline()
+    revalidatePublicViews()
+    revalidatePath('/admin')
+    return { status: 'success', message: `Source image for "${commissionFileName}" replaced.` }
+  } catch (error) {
+    return {
+      status: 'error',
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Failed to replace source image. Please try again.',
     }
   }
 }
