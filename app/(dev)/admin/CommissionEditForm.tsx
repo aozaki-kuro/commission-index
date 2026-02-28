@@ -36,13 +36,24 @@ type OperationStatus = {
   text: string
 }
 
+const buildPreviewVersionStorageKey = (commissionId: number) =>
+  `admin-preview-image-version:${commissionId}`
+
 const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEditFormProps) => {
   const [state, formAction] = useActionState(updateCommissionAction, INITIAL_FORM_STATE)
   const [isDeleting, startDelete] = useTransition()
   const [isUploading, startUpload] = useTransition()
   const sourceImageInputRef = useRef<HTMLInputElement | null>(null)
   const [uploadStatus, setUploadStatus] = useState<OperationStatus | null>(null)
-  const [imageVersion, setImageVersion] = useState(0)
+  const [imageVersion, setImageVersion] = useState(() => {
+    if (typeof window === 'undefined') return 0
+
+    const stored = window.sessionStorage.getItem(buildPreviewVersionStorageKey(commission.id))
+    if (!stored) return 0
+
+    const parsed = Number(stored)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+  })
   const {
     sortedCharacters,
     initialCharacterId,
@@ -138,8 +149,14 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
               text: result.message ?? `Source image for "${commission.fileName}" replaced.`,
             })
             setErrorSrc(null)
-            setImageVersion(Date.now())
-            notifyDataUpdate()
+            const nextVersion = Date.now()
+            setImageVersion(nextVersion)
+            if (typeof window !== 'undefined') {
+              window.sessionStorage.setItem(
+                buildPreviewVersionStorageKey(commission.id),
+                String(nextVersion),
+              )
+            }
             return
           }
 
