@@ -55,6 +55,6 @@ export const clearHashIfTargetIsStale = () => {
   }
 
   const rect = element.getBoundingClientRect()
-  const isOffscreen = rect.bottom < 0 || rect.top > window.innerHeight
+  const isOffscreen = rect.bottom <= 0 || rect.top >= window.innerHeight
   if (isOffscreen) clearLocationHash()
 }

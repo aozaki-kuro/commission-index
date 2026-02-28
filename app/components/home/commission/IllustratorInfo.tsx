@@ -2,7 +2,7 @@
 import { parseAndFormatDate } from '#lib/date/format'
 import { parseCommissionFileName } from '#lib/commissions/index'
 import { Commission } from '#data/types'
-import Link from 'next/link'
+import HashLink from '#components/shared/HashLink'
 import { createLinks, hasDisplayableLinks } from './CreateLinks'
 import UnpublishedInterestButton from './UnpublishedInterestButton'
 
@@ -36,9 +36,9 @@ const IllustratorInfo = ({ commission, kebabName }: IllustratorInfoProps) => {
       {/* 左侧信息块：包含日期、创作者、描述 */}
       <div className="flex items-center">
         <span className="mr-6 select-none md:mr-16">
-          <Link href={linkId} className="text-gray-800 no-underline dark:text-gray-300!">
+          <HashLink href={linkId} className="text-gray-800 no-underline dark:text-gray-300!">
             <time>{formattedDate}</time>
-          </Link>
+          </HashLink>
         </span>
 
         <div className="flex items-center">

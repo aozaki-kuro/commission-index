@@ -108,4 +108,29 @@ describe('hashAnchor utils', () => {
       '/?view=timeline#timeline-year-2026',
     )
   })
+
+  it('clears hash when target sits exactly at viewport boundary', () => {
+    const target = document.createElement('div')
+    target.id = 'timeline-year-2026'
+    target.getBoundingClientRect = () =>
+      ({
+        top: window.innerHeight,
+        bottom: window.innerHeight + 20,
+        left: 0,
+        right: 0,
+        width: 10,
+        height: 20,
+        x: 0,
+        y: window.innerHeight,
+        toJSON: () => ({}),
+      }) as DOMRect
+    document.body.appendChild(target)
+    window.history.replaceState(null, '', '/?view=timeline#timeline-year-2026')
+
+    clearHashIfTargetIsStale()
+
+    expect(window.location.pathname + window.location.search + window.location.hash).toBe(
+      '/?view=timeline',
+    )
+  })
 })
