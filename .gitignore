@@ -51,3 +51,5 @@ data/commissions.db-shm
 
 # wrangler
 /.wrangler/
+
+public/rss.xml
