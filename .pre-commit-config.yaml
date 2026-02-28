@@ -1,0 +1,42 @@
+default_install_hook_types:
+  - pre-commit
+  - pre-push
+
+repos:
+  - repo: local
+    hooks:
+      - id: bun-install
+        name: bun install
+        entry: bun i
+        language: system
+        pass_filenames: false
+        stages:
+          - pre-commit
+        always_run: true
+
+      - id: image-import
+        name: image import
+        entry: bun run scripts/imageImport.ts
+        language: system
+        pass_filenames: false
+        stages:
+          - pre-commit
+        always_run: true
+
+      - id: lint-staged
+        name: lint staged
+        entry: bun lint-staged
+        language: system
+        pass_filenames: false
+        stages:
+          - pre-commit
+        always_run: true
+
+      - id: tests
+        name: vitest
+        entry: bun run test
+        language: system
+        pass_filenames: false
+        stages:
+          - pre-push
+        always_run: true

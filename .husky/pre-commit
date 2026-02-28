@@ -1,3 +1,0 @@
-bun i
-bun run scripts/imageImport.ts
-bun lint-staged

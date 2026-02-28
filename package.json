@@ -13,7 +13,7 @@
     "images:prune-unused": "IMAGE_CLEAN_UNUSED=1 bun run scripts/imageImport.ts",
     "lint": "eslint --fix",
     "pre-build": "bun run scripts/images.ts && bun run scripts/homeSearchEntries.ts",
-    "prepare": "husky",
+    "prepare": "prek install",
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -55,7 +55,7 @@
     "eslint-config-next": "^16.1.6",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
-    "husky": "^9.1.7",
+    "@j178/prek": "^0.3.2",
     "jsdom": "^28.1.0",
     "lint-staged": "^16.2.7",
     "postcss": "^8.5.6",
