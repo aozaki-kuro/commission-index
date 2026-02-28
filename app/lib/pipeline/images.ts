@@ -108,12 +108,12 @@ const convertImage = async (fileName: string) => {
       return 'processed'
     }
 
-    if (await needsUpdate(png, jpg)) {
-      await sharp(png).jpeg(JPG_CONFIG).withMetadata().toFile(jpg)
-      await fsp.unlink(png)
-      return 'processed'
-    }
-    return 'skipped'
+    if (!(await needsUpdate(png, jpg))) return 'skipped'
+
+    await sharp(png).jpeg(JPG_CONFIG).withMetadata().toFile(jpg)
+    await sharp(jpg).webp(WEBP_CONFIG).toFile(webp)
+    await fsp.unlink(png)
+    return 'processed'
   } catch {
     return 'failed'
   }
