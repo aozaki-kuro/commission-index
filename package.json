@@ -16,6 +16,7 @@
     "prepare": "prek install",
     "start": "next start",
     "test": "vitest run",
+    "test:changed": "vitest run --changed",
     "test:watch": "vitest"
   },
   "lint-staged": {
