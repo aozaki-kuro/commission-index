@@ -53,3 +53,4 @@ data/commissions.db-shm
 /.wrangler/
 
 public/rss.xml
+public/search/home-search-entries.json
