@@ -6,8 +6,8 @@ repos:
   - repo: local
     hooks:
       - id: bun-install
-        name: bun install
-        entry: bun i
+        name: bun install (frozen)
+        entry: bun install --frozen-lockfile
         language: system
         pass_filenames: false
         stages:
