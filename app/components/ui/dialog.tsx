@@ -10,13 +10,13 @@ const DialogPortal = DialogPrimitive.Portal
 const DialogClose = DialogPrimitive.Close
 
 const DialogOverlay = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Overlay>,
+  React.ComponentRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 z-[70] bg-black/25 backdrop-blur-sm data-[state=closed]:animate-[dialog-overlay-out_150ms_ease-in] data-[state=open]:animate-[dialog-overlay-in_200ms_ease-out] dark:bg-white/5',
+      'fixed inset-0 z-70 bg-black/25 backdrop-blur-sm data-[state=closed]:animate-[dialog-overlay-out_150ms_ease-in] data-[state=open]:animate-[dialog-overlay-in_200ms_ease-out] dark:bg-white/5',
       className,
     )}
     {...props}
@@ -25,7 +25,7 @@ const DialogOverlay = React.forwardRef<
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const DialogContent = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Content>,
+  React.ComponentRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { overlayClassName?: string }
 >(({ className, children, overlayClassName, ...props }, ref) => (
   <DialogPortal>
@@ -33,7 +33,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed inset-0 z-[80] m-auto grid h-fit w-[calc(100%-2rem)] max-w-lg origin-center gap-4 rounded-2xl border border-transparent bg-white p-6 shadow-xl data-[state=closed]:animate-[dialog-content-out_150ms_ease-in] data-[state=open]:animate-[dialog-content-in_200ms_ease-out] dark:bg-gray-950',
+        'fixed inset-0 z-80 m-auto grid h-fit w-[calc(100%-2rem)] max-w-lg origin-center gap-4 rounded-2xl border border-transparent bg-white p-6 shadow-xl data-[state=closed]:animate-[dialog-content-out_150ms_ease-in] data-[state=open]:animate-[dialog-content-in_200ms_ease-out] dark:bg-gray-950',
         className,
       )}
       {...props}
@@ -58,7 +58,7 @@ const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
 DialogFooter.displayName = 'DialogFooter'
 
 const DialogTitle = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Title>,
+  React.ComponentRef<typeof DialogPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title ref={ref} className={cn('text-lg font-semibold', className)} {...props} />
@@ -66,7 +66,7 @@ const DialogTitle = React.forwardRef<
 DialogTitle.displayName = DialogPrimitive.Title.displayName
 
 const DialogDescription = React.forwardRef<
-  React.ElementRef<typeof DialogPrimitive.Description>,
+  React.ComponentRef<typeof DialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description

@@ -33,7 +33,7 @@ const SelectGroup = SelectPrimitive.Group
 const SelectValue = SelectPrimitive.Value
 
 const SelectTrigger = React.forwardRef<
-  React.ElementRef<typeof SelectPrimitive.Trigger>,
+  React.ComponentRef<typeof SelectPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
 >(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Trigger
@@ -53,14 +53,14 @@ const SelectTrigger = React.forwardRef<
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName
 
 const SelectContent = React.forwardRef<
-  React.ElementRef<typeof SelectPrimitive.Content>,
+  React.ComponentRef<typeof SelectPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content>
 >(({ className, children, position = 'popper', ...props }, ref) => (
   <SelectPrimitive.Portal>
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        'relative z-50 max-h-64 min-w-[8rem] overflow-hidden rounded-lg border border-gray-200 bg-white/95 p-1 text-gray-900 shadow-lg ring-1 ring-black/5 dark:border-gray-700 dark:bg-gray-900/90 dark:text-gray-100 dark:ring-white/10',
+        'relative z-50 max-h-64 min-w-32 overflow-hidden rounded-lg border border-gray-200 bg-white/95 p-1 text-gray-900 shadow-lg ring-1 ring-black/5 dark:border-gray-700 dark:bg-gray-900/90 dark:text-gray-100 dark:ring-white/10',
         className,
       )}
       position={position}
@@ -70,7 +70,7 @@ const SelectContent = React.forwardRef<
         className={cn(
           'p-0',
           position === 'popper' &&
-            'h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]',
+            'h-(--radix-select-trigger-height) w-full min-w-(--radix-select-trigger-width)',
         )}
       >
         {children}
@@ -81,7 +81,7 @@ const SelectContent = React.forwardRef<
 SelectContent.displayName = SelectPrimitive.Content.displayName
 
 const SelectLabel = React.forwardRef<
-  React.ElementRef<typeof SelectPrimitive.Label>,
+  React.ComponentRef<typeof SelectPrimitive.Label>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label>
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Label
@@ -93,13 +93,13 @@ const SelectLabel = React.forwardRef<
 SelectLabel.displayName = SelectPrimitive.Label.displayName
 
 const SelectItem = React.forwardRef<
-  React.ElementRef<typeof SelectPrimitive.Item>,
+  React.ComponentRef<typeof SelectPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
 >(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex w-full cursor-pointer items-center justify-between gap-3 rounded-md px-3 py-2 text-sm text-gray-700 transition outline-none select-none focus:bg-gray-900/5 focus:text-gray-900 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 dark:text-gray-100 dark:focus:bg-white/10 dark:focus:text-gray-100',
+      'relative flex w-full cursor-pointer items-center justify-between gap-3 rounded-md px-3 py-2 text-sm text-gray-700 transition outline-none select-none focus:bg-gray-900/5 focus:text-gray-900 data-disabled:pointer-events-none data-disabled:opacity-50 dark:text-gray-100 dark:focus:bg-white/10 dark:focus:text-gray-100',
       className,
     )}
     {...props}
@@ -113,7 +113,7 @@ const SelectItem = React.forwardRef<
 SelectItem.displayName = SelectPrimitive.Item.displayName
 
 const SelectSeparator = React.forwardRef<
-  React.ElementRef<typeof SelectPrimitive.Separator>,
+  React.ComponentRef<typeof SelectPrimitive.Separator>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator>
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Separator
