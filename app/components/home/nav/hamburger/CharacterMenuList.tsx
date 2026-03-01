@@ -1,4 +1,6 @@
 import { useCommissionViewMode } from '#components/home/commission/CommissionViewMode'
+import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { trackRybbitEvent } from '#lib/analytics/track'
 import { buildCharacterNavItems, type CharacterNavItem } from '#lib/characters/nav'
 import { scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
@@ -14,35 +16,48 @@ interface ListItemProps {
   href?: string
   close: () => void
   preventHashWrite?: boolean
+  itemCount: number
+  viewMode: 'character' | 'timeline'
 }
 
-const ListItem = memo(({ item, href, close, preventHashWrite = false }: ListItemProps) => {
-  return (
-    <a
-      href={href ?? `/${item.titleHash}`}
-      data-mobile-nav-link="true"
-      data-mobile-nav-section-id={item.sectionId}
-      onClick={event => {
-        if (event.currentTarget.getAttribute('aria-disabled') === 'true') {
-          event.preventDefault()
-          return
-        }
+const ListItem = memo(
+  ({ item, href, close, preventHashWrite = false, itemCount, viewMode }: ListItemProps) => {
+    return (
+      <a
+        href={href ?? `/${item.titleHash}`}
+        data-mobile-nav-link="true"
+        data-mobile-nav-section-id={item.sectionId}
+        onClick={event => {
+          if (event.currentTarget.getAttribute('aria-disabled') === 'true') {
+            event.preventDefault()
+            return
+          }
 
-        if (preventHashWrite) {
-          const didScroll = scrollToHashTargetFromHrefWithoutHash(
-            event.currentTarget.getAttribute('href'),
-          )
-          if (didScroll) event.preventDefault()
-        }
+          if (preventHashWrite) {
+            const didScroll = scrollToHashTargetFromHrefWithoutHash(
+              event.currentTarget.getAttribute('href'),
+            )
+            if (didScroll) event.preventDefault()
+          }
 
-        close()
-      }}
-      className={STYLES.listItem}
-    >
-      {item.displayName}
-    </a>
-  )
-})
+          trackRybbitEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
+            source: 'character_link',
+            nav_surface: 'hamburger',
+            view_mode: viewMode,
+            item_count: itemCount,
+            character_name: item.displayName,
+            section_id: item.sectionId,
+          })
+
+          close()
+        }}
+        className={STYLES.listItem}
+      >
+        {item.displayName}
+      </a>
+    )
+  },
+)
 ListItem.displayName = 'ListItem'
 
 interface NavItemsListProps {
@@ -50,10 +65,19 @@ interface NavItemsListProps {
   close: () => void
   useTimelineHref?: boolean
   preventHashWrite?: boolean
+  itemCount: number
+  viewMode: 'character' | 'timeline'
 }
 
 const NavItemsList = memo(
-  ({ items, close, useTimelineHref = false, preventHashWrite = false }: NavItemsListProps) => (
+  ({
+    items,
+    close,
+    useTimelineHref = false,
+    preventHashWrite = false,
+    itemCount,
+    viewMode,
+  }: NavItemsListProps) => (
     <SidebarMenu>
       {items.map(item => (
         <SidebarMenuItem key={item.sectionId}>
@@ -62,6 +86,8 @@ const NavItemsList = memo(
             href={useTimelineHref ? `/?view=timeline${item.sectionHash}` : undefined}
             close={close}
             preventHashWrite={preventHashWrite}
+            itemCount={itemCount}
+            viewMode={viewMode}
           />
         </SidebarMenuItem>
       ))}
@@ -80,10 +106,22 @@ interface CharacterSectionProps {
   emptyLabel: string
   items: CharacterNavItem[]
   close: () => void
+  itemCount: number
+  viewMode: 'character' | 'timeline'
 }
 
 const CharacterSection = memo(
-  ({ id, label, expanded, onExpand, emptyLabel, items, close }: CharacterSectionProps) => {
+  ({
+    id,
+    label,
+    expanded,
+    onExpand,
+    emptyLabel,
+    items,
+    close,
+    itemCount,
+    viewMode,
+  }: CharacterSectionProps) => {
     return (
       <section className="mt-1.5 first:mt-0">
         <button
@@ -98,7 +136,7 @@ const CharacterSection = memo(
         </button>
         <div id={id} hidden={!expanded} className="mt-1">
           {items.length > 0 ? (
-            <NavItemsList items={items} close={close} />
+            <NavItemsList items={items} close={close} itemCount={itemCount} viewMode={viewMode} />
           ) : (
             <p className="px-4 py-2 font-mono text-sm text-gray-500 dark:text-gray-400">
               {emptyLabel}
@@ -139,6 +177,8 @@ const CharacterMenuList = memo(
       () => timelineNavItems.map(item => item.sectionId).join('\n'),
       [timelineNavItems],
     )
+    const totalNavItemsCount =
+      mode === 'timeline' ? timelineNavItems.length : active.length + stale.length
 
     const syncLinkAvailability = useCallback(() => {
       const root = rootRef.current
@@ -167,7 +207,14 @@ const CharacterMenuList = memo(
     return (
       <div ref={rootRef} className="relative">
         {mode === 'timeline' ? (
-          <NavItemsList items={timelineNavItems} close={close} useTimelineHref preventHashWrite />
+          <NavItemsList
+            items={timelineNavItems}
+            close={close}
+            useTimelineHref
+            preventHashWrite
+            itemCount={totalNavItemsCount}
+            viewMode={mode}
+          />
         ) : (
           <>
             <CharacterSection
@@ -178,6 +225,8 @@ const CharacterMenuList = memo(
               emptyLabel="No active characters."
               items={activeNavItems}
               close={close}
+              itemCount={totalNavItemsCount}
+              viewMode={mode}
             />
             <CharacterSection
               id="mobile-stale-characters"
@@ -187,6 +236,8 @@ const CharacterMenuList = memo(
               emptyLabel="No stale characters."
               items={staleNavItems}
               close={close}
+              itemCount={totalNavItemsCount}
+              viewMode={mode}
             />
           </>
         )}

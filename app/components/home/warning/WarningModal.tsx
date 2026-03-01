@@ -38,6 +38,7 @@ export default function WarningModal({
           alt="Commission Index"
           quality={80}
           placeholder="blur"
+          fetchPriority="high"
           className="mb-4 select-none"
           priority
         />

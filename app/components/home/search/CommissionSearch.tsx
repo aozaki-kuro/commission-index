@@ -123,12 +123,6 @@ const getUrlQuerySnapshot = () => {
   return new URLSearchParams(window.location.search).get('q') ?? ''
 }
 
-const getTrackableQueryLength = (query: string) => {
-  const normalized = normalizeQuery(query)
-  if (!normalized) return 0
-  return normalized.replace(/["|!]/g, '').trim().length
-}
-
 const parsedSuggestionRowsCache = new Map<string, ReturnType<typeof parseSuggestionRows>>()
 
 const getParsedSuggestionRows = (searchSuggest = '') => {
@@ -582,13 +576,11 @@ const CommissionSearch = ({
   }, [matchedIds, onMatchedIdsChange])
 
   useEffect(() => {
-    const trackableQueryLength = getTrackableQueryLength(deferredQuery)
-    if (trackableQueryLength < MIN_TRACK_QUERY_LENGTH || hasTrackedSearchUsageRef.current) return
+    if (normalizedDeferredQuery.length < MIN_TRACK_QUERY_LENGTH || hasTrackedSearchUsageRef.current)
+      return
     hasTrackedSearchUsageRef.current = true
 
     trackRybbitEvent(ANALYTICS_EVENTS.searchUsed, {
-      query_length: normalizedDeferredQuery.length,
-      trackable_query_length: trackableQueryLength,
       result_count: matchedIds.size,
       source: inputQuery === null ? 'url_query' : 'input',
     })

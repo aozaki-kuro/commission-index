@@ -2,7 +2,16 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { CommissionViewModeProvider } from '#components/home/commission/CommissionViewMode'
+import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import CommissionSearch, { type CommissionSearchEntrySource } from './CommissionSearch'
+
+const { mockTrackRybbitEvent } = vi.hoisted(() => ({
+  mockTrackRybbitEvent: vi.fn(),
+}))
+
+vi.mock('#lib/analytics/track', () => ({
+  trackRybbitEvent: (...args: unknown[]) => mockTrackRybbitEvent(...args),
+}))
 
 const renderSearch = (externalEntries: CommissionSearchEntrySource[]) =>
   render(
@@ -24,6 +33,7 @@ describe('CommissionSearch', () => {
   })
 
   it('applies suggestion from command list', () => {
+    mockTrackRybbitEvent.mockClear()
     const entries: CommissionSearchEntrySource[] = [
       {
         id: 1,
@@ -42,6 +52,19 @@ describe('CommissionSearch', () => {
     fireEvent.click(screen.getByText('Alice'))
 
     expect(input.value).toContain('Alice')
+    expect(mockTrackRybbitEvent).toHaveBeenCalledWith(
+      ANALYTICS_EVENTS.searchUsed,
+      expect.objectContaining({
+        source: 'input',
+        result_count: 1,
+      }),
+    )
+    const searchEventPayload = mockTrackRybbitEvent.mock.calls.find(
+      ([eventName]) => eventName === ANALYTICS_EVENTS.searchUsed,
+    )?.[1] as Record<string, unknown> | undefined
+    expect(searchEventPayload).toBeDefined()
+    expect(searchEventPayload).not.toHaveProperty('query_length')
+    expect(searchEventPayload).not.toHaveProperty('trackable_query_length')
   })
 
   it('copies search url when copy button clicked', () => {

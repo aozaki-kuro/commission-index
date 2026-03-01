@@ -2,6 +2,8 @@
 /* eslint-disable @next/next/no-img-element */
 
 import { Skeleton } from '#components/ui/skeleton'
+import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { trackRybbitEvent } from '#lib/analytics/track'
 import { useCallback, useId, useRef, useState } from 'react'
 
 type ProtectedCommissionImageProps = {
@@ -11,6 +13,37 @@ type ProtectedCommissionImageProps = {
 
 const COMMISSION_IMAGE_WIDTH = 1280
 const COMMISSION_IMAGE_HEIGHT = 525
+const COMMISSION_IMAGE_SIZES = '(max-width: 768px) 92vw, 640px'
+const trackedVariantKeys = new Set<string>()
+
+const buildResponsiveSrcSet = (src: string) => {
+  const queryIndex = src.indexOf('?')
+  const pathPart = queryIndex === -1 ? src : src.slice(0, queryIndex)
+  const queryPart = queryIndex === -1 ? '' : src.slice(queryIndex)
+  const extensionIndex = pathPart.lastIndexOf('.')
+
+  if (extensionIndex === -1) {
+    return ''
+  }
+
+  const stem = pathPart.slice(0, extensionIndex)
+  const extension = pathPart.slice(extensionIndex)
+
+  return [
+    `${stem}-960${extension}${queryPart} 960w`,
+    `${stem}-1280${extension}${queryPart} 1280w`,
+  ].join(', ')
+}
+
+const detectLoadedVariant = (currentSrc: string): '960' | '1280' | 'base' | 'unknown' => {
+  if (!currentSrc) return 'unknown'
+
+  const normalized = currentSrc.toLowerCase()
+  if (normalized.includes('-960.webp')) return '960'
+  if (normalized.includes('-1280.webp')) return '1280'
+  if (normalized.includes('.webp')) return 'base'
+  return 'unknown'
+}
 
 const ProtectedCommissionImage = ({ altText, resolvedImageSrc }: ProtectedCommissionImageProps) => {
   const cacheBustId = useId()
@@ -48,6 +81,16 @@ const ProtectedCommissionImage = ({ altText, resolvedImageSrc }: ProtectedCommis
 
       if (node.naturalWidth > 0) {
         markLoaded(src)
+        const variant = detectLoadedVariant(node.currentSrc || node.src)
+        const trackKey = `${variant}:${Math.round(window.devicePixelRatio || 1)}`
+        if (!trackedVariantKeys.has(trackKey)) {
+          trackedVariantKeys.add(trackKey)
+          trackRybbitEvent(ANALYTICS_EVENTS.commissionImageVariantLoaded, {
+            variant,
+            dpr: Number((window.devicePixelRatio || 1).toFixed(2)),
+            viewport_width: window.innerWidth,
+          })
+        }
       } else {
         markError(src)
       }
@@ -67,6 +110,7 @@ const ProtectedCommissionImage = ({ altText, resolvedImageSrc }: ProtectedCommis
   )
   const hasError = erroredSrc === fallbackSrc
   const isLoaded = loadedSrc === fallbackSrc && !hasError
+  const srcSet = buildResponsiveSrcSet(fallbackSrc)
 
   return (
     <div data-commission-image="true" data-commission-alt={altText} className="relative">
@@ -84,6 +128,8 @@ const ProtectedCommissionImage = ({ altText, resolvedImageSrc }: ProtectedCommis
       <img
         ref={attachImageRef}
         src={fallbackSrc}
+        srcSet={srcSet || undefined}
+        sizes={srcSet ? COMMISSION_IMAGE_SIZES : undefined}
         alt={altText}
         className={`pointer-events-none relative z-10 transition-opacity duration-300 select-none motion-reduce:transition-none ${
           isLoaded && !hasError ? 'opacity-100' : 'opacity-0'

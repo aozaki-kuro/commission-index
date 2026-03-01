@@ -19,6 +19,8 @@ const DIRS = {
 const JPG_CONFIG = { quality: 95, progressive: true, chromaSubsampling: '4:4:4', mozjpeg: true }
 const WEBP_CONFIG = { quality: 80 }
 const SUPPORTED_EXTS = new Set(['.jpg', '.png'])
+const RESPONSIVE_WIDTHS = [960, 1280] as const
+const LEGACY_RESPONSIVE_WIDTHS = [640] as const
 
 type ResolveMode = 'exact' | 'normalized' | 'same-date' | 'same-date-creator'
 
@@ -91,26 +93,74 @@ const needsUpdate = async (src: string, dest: string) => {
   }
 }
 
+const buildResponsiveWebpPath = (stem: string, width: (typeof RESPONSIVE_WIDTHS)[number]) =>
+  path.join(DIRS.webp, `${stem}-${width}.webp`)
+
+const stripResponsiveWidthSuffix = (stem: string): string | null => {
+  for (const width of [...RESPONSIVE_WIDTHS, ...LEGACY_RESPONSIVE_WIDTHS]) {
+    const suffix = `-${width}`
+    if (stem.endsWith(suffix)) {
+      return stem.slice(0, -suffix.length)
+    }
+  }
+
+  return null
+}
+
+const needsAnyUpdate = async (src: string, outputs: string[]) => {
+  for (const output of outputs) {
+    if (await needsUpdate(src, output)) return true
+  }
+
+  return false
+}
+
+const convertJpgToWebpSet = async (jpg: string, stem: string) => {
+  const baseWebp = path.join(DIRS.webp, `${stem}.webp`)
+  const responsiveWebps = RESPONSIVE_WIDTHS.map(width => buildResponsiveWebpPath(stem, width))
+  const outputs = [baseWebp, ...responsiveWebps]
+
+  if (!(await needsAnyUpdate(jpg, outputs))) {
+    return 'skipped'
+  }
+
+  await Promise.all([
+    sharp(jpg).webp(WEBP_CONFIG).toFile(baseWebp),
+    ...RESPONSIVE_WIDTHS.map(width =>
+      sharp(jpg)
+        .resize({ width, withoutEnlargement: true })
+        .webp(WEBP_CONFIG)
+        .toFile(buildResponsiveWebpPath(stem, width)),
+    ),
+  ])
+
+  return 'processed'
+}
+
 const convertImage = async (fileName: string) => {
   const { name, ext } = path.parse(fileName)
   const jpg = path.join(DIRS.input, `${name}.jpg`)
   const png = path.join(DIRS.input, `${name}.png`)
-  const webp = path.join(DIRS.webp, `${name}.webp`)
 
   try {
     if (ext === '.jpg') {
       if (await fileExists(png)) return 'skipped'
-      if (!(await needsUpdate(jpg, webp))) return 'skipped'
-      await sharp(jpg).webp(WEBP_CONFIG).toFile(webp)
-      return 'processed'
+      return convertJpgToWebpSet(jpg, name)
     }
 
-    if (!(await needsUpdate(png, jpg))) return 'skipped'
+    const shouldRefreshJpg = await needsUpdate(png, jpg)
 
-    await sharp(png).jpeg(JPG_CONFIG).withMetadata().toFile(jpg)
-    await sharp(jpg).webp(WEBP_CONFIG).toFile(webp)
-    await fsp.unlink(png)
-    return 'processed'
+    if (shouldRefreshJpg) {
+      await sharp(png).jpeg(JPG_CONFIG).withMetadata().toFile(jpg)
+    }
+
+    const conversionResult = await convertJpgToWebpSet(jpg, name)
+
+    if (shouldRefreshJpg) {
+      await fsp.unlink(png)
+    }
+
+    return conversionResult
   } catch {
     return 'failed'
   }
@@ -216,7 +266,27 @@ export const runImageAudit = (options: ImageAuditOptions = {}): ImageAuditResult
   const strictMode = options.strict ?? process.env.IMAGE_IMPORT_STRICT === '1'
   const cleanUnused = options.cleanUnused ?? process.env.IMAGE_CLEAN_UNUSED === '1'
   const commissionFileNames = collectCommissionFileNames()
-  const availableStems = loadAvailableWebpStems()
+  const commissionStemSet = new Set(commissionFileNames)
+  const allAvailableStems = loadAvailableWebpStems()
+  const allAvailableStemSet = new Set(allAvailableStems)
+  const variantStemsByBase = new Map<string, string[]>()
+  const availableStems: string[] = []
+
+  for (const stem of allAvailableStems) {
+    const baseStem = stripResponsiveWidthSuffix(stem)
+    const isResponsiveVariant =
+      baseStem !== null && (allAvailableStemSet.has(baseStem) || commissionStemSet.has(baseStem))
+
+    if (isResponsiveVariant && baseStem) {
+      const variants = variantStemsByBase.get(baseStem)
+      if (variants) variants.push(stem)
+      else variantStemsByBase.set(baseStem, [stem])
+      continue
+    }
+
+    availableStems.push(stem)
+  }
+
   const exactSet = new Set(availableStems)
 
   const normalizedMap = new Map<string, string[]>()
@@ -279,9 +349,18 @@ export const runImageAudit = (options: ImageAuditOptions = {}): ImageAuditResult
       if (cleanUnused) {
         for (const stem of unused) {
           const target = path.join(DIRS.webp, `${stem}.webp`)
-          if (!fs.existsSync(target)) continue
-          fs.unlinkSync(target)
-          cleaned.push(stem)
+          if (fs.existsSync(target)) {
+            fs.unlinkSync(target)
+            cleaned.push(stem)
+          }
+
+          const variants = variantStemsByBase.get(stem) ?? []
+          for (const variantStem of variants) {
+            const variantPath = path.join(DIRS.webp, `${variantStem}.webp`)
+            if (!fs.existsSync(variantPath)) continue
+            fs.unlinkSync(variantPath)
+            cleaned.push(variantStem)
+          }
         }
         console.warn(`${MSG.WARN} Removed ${cleaned.length} unused webp files`)
       } else {

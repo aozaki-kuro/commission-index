@@ -19,6 +19,8 @@ const printHelp = () => {
     [
       'Usage: bun run scripts/images.ts [options]',
       '',
+      'Conversion output: <name>.webp + <name>-960.webp + <name>-1280.webp',
+      '',
       'Options:',
       '  --all             Run conversion + image audit (default)',
       '  --convert-only    Run conversion only',

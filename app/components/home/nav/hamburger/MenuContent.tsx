@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useState, type ComponentType, type ReactNode } from 'react'
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from 'react'
 import {
   useCommissionViewMode,
   type CommissionViewMode,
@@ -91,6 +99,7 @@ const UtilityActionButton = ({ label, icon, active, onClick }: UtilityActionButt
 const MenuContent = memo(
   ({ mounted, open, close, toggle, active, stale, timelineNavItems }: MenuContentProps) => {
     const { mode, setMode } = useCommissionViewMode()
+    const hasTrackedHamburgerSearchUsageRef = useRef(false)
     const [CharacterMenuListComponent, setCharacterMenuListComponent] =
       useState<ComponentType<CharacterMenuListProps> | null>(() => cachedCharacterMenuList)
 
@@ -112,9 +121,18 @@ const MenuContent = memo(
     }, [CharacterMenuListComponent, mounted])
 
     const handleSearchClick = useCallback(() => {
+      if (!hasTrackedHamburgerSearchUsageRef.current) {
+        hasTrackedHamburgerSearchUsageRef.current = true
+        trackRybbitEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
+          source: 'search_link',
+          nav_surface: 'hamburger',
+          view_mode: mode,
+          item_count: mode === 'timeline' ? timelineNavItems.length : active.length + stale.length,
+        })
+      }
       jumpToCommissionSearch({ topGap: 40, focusMode: 'immediate' })
       close()
-    }, [close])
+    }, [active.length, close, mode, stale.length, timelineNavItems.length])
 
     const handleModeChange = useCallback(
       (nextMode: CommissionViewMode) => {

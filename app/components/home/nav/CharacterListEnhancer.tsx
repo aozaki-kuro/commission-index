@@ -22,7 +22,7 @@ const CharacterListEnhancer = ({
   navItemsKey = '',
   mode = 'character',
 }: CharacterListEnhancerProps) => {
-  const hasTrackedSidebarUsageRef = useRef(false)
+  const hasTrackedSidebarSearchUsageRef = useRef(false)
 
   useEffect(() => {
     let rafId: number | null = null
@@ -63,13 +63,25 @@ const CharacterListEnhancer = ({
       })
     }
 
-    const trackSidebarUsage = (source: 'character_link' | 'search_link') => {
-      if (hasTrackedSidebarUsageRef.current) return
-      hasTrackedSidebarUsageRef.current = true
-
+    const trackSidebarSearchUsage = () => {
+      if (hasTrackedSidebarSearchUsageRef.current) return
+      hasTrackedSidebarSearchUsageRef.current = true
       trackRybbitEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
-        source,
+        source: 'search_link',
+        nav_surface: 'sidebar',
+        view_mode: mode,
         item_count: itemCount,
+      })
+    }
+
+    const trackSidebarCharacterClick = (link: HTMLAnchorElement) => {
+      trackRybbitEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
+        source: 'character_link',
+        nav_surface: 'sidebar',
+        view_mode: mode,
+        item_count: itemCount,
+        character_name: link.textContent?.trim() || 'unknown',
+        section_id: link.getAttribute('href')?.replace(/^#/, '') || 'unknown',
       })
     }
 
@@ -80,7 +92,7 @@ const CharacterListEnhancer = ({
       const searchLink = target.closest<HTMLAnchorElement>('[data-sidebar-search-link="true"]')
       if (searchLink) {
         event.preventDefault()
-        trackSidebarUsage('search_link')
+        trackSidebarSearchUsage()
         jumpToCommissionSearch()
         return
       }
@@ -99,7 +111,7 @@ const CharacterListEnhancer = ({
           scrollToHashTargetFromHrefWithoutHash(characterLink.getAttribute('href'))
         }
 
-        trackSidebarUsage('character_link')
+        trackSidebarCharacterClick(characterLink)
       }
     }
 

@@ -1,15 +1,23 @@
 // @vitest-environment jsdom
 import { CommissionViewModeProvider } from '#components/home/commission/CommissionViewMode'
+import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { CharacterNavItem } from '#lib/characters/nav'
 import CharacterMenuList from './CharacterMenuList'
 
 const mockScrollToHashTargetFromHrefWithoutHash = vi.fn(() => true)
+const { mockTrackRybbitEvent } = vi.hoisted(() => ({
+  mockTrackRybbitEvent: vi.fn(),
+}))
 
 vi.mock('#lib/navigation/hashAnchor', () => ({
   scrollToHashTargetFromHrefWithoutHash: (rawHref: string | null) =>
     mockScrollToHashTargetFromHrefWithoutHash(rawHref),
+}))
+
+vi.mock('#lib/analytics/track', () => ({
+  trackRybbitEvent: (...args: unknown[]) => mockTrackRybbitEvent(...args),
 }))
 
 describe('CharacterMenuList', () => {
@@ -25,6 +33,7 @@ describe('CharacterMenuList', () => {
 
   beforeEach(() => {
     mockScrollToHashTargetFromHrefWithoutHash.mockClear()
+    mockTrackRybbitEvent.mockClear()
     window.history.replaceState(null, '', '/?view=timeline')
   })
 
@@ -58,5 +67,13 @@ describe('CharacterMenuList', () => {
     expect(window.location.pathname + window.location.search + window.location.hash).toBe(
       '/?view=timeline',
     )
+    expect(mockTrackRybbitEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.sidebarNavUsed, {
+      source: 'character_link',
+      nav_surface: 'hamburger',
+      view_mode: 'timeline',
+      item_count: 1,
+      character_name: '2026',
+      section_id: 'timeline-year-2026',
+    })
   })
 })
