@@ -1,13 +1,7 @@
 'use client'
 
-import {
-  CommissionCharacterField,
-  CommissionDesignDescriptionFields,
-  CommissionFileNameField,
-  CommissionHiddenSwitch,
-  CommissionKeywordField,
-  CommissionLinksField,
-} from './components/CommissionFormFields'
+import { CommissionHiddenSwitch } from './components/CommissionFormFields'
+import CommissionSharedFields from './components/CommissionSharedFields'
 import Image from 'next/image'
 import { useActionState, useEffect, useRef, useState, useTransition, type ChangeEvent } from 'react'
 
@@ -18,6 +12,7 @@ import {
   deleteCommissionAction,
   replaceCommissionSourceImageAction,
 } from '#admin/actions'
+import { Button } from '#components/ui/button'
 import { notifyDataUpdate } from './dataUpdateSignal'
 import FormStatusIndicator from './FormStatusIndicator'
 import SubmitButton from './SubmitButton'
@@ -242,27 +237,24 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
             </p>
           )}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <CommissionCharacterField
-              options={sortedCharacters}
-              selectedCharacterId={selectedCharacterId}
-              onChange={id => setSelectedCharacterId(id ?? initialCharacterId)}
-              dropdownZIndexClassName="z-20"
-            />
-            <CommissionFileNameField value={fileName} onChange={setFileName} />
-          </div>
+          <CommissionSharedFields
+            characterOptions={sortedCharacters}
+            selectedCharacterId={selectedCharacterId}
+            onCharacterChange={id => setSelectedCharacterId(id ?? initialCharacterId)}
+            dropdownZIndexClassName="z-20"
+            fileName={fileName}
+            onFileNameChange={setFileName}
+            linksValue={linksValue}
+            onLinksChange={setLinksValue}
+            linksRows={3}
+            designValue={designValue}
+            onDesignChange={setDesignValue}
+            descriptionValue={descriptionValue}
+            onDescriptionChange={setDescriptionValue}
+            keywordValue={keywordValue}
+            onKeywordChange={setKeywordValue}
+          />
         </div>
-
-        <CommissionLinksField value={linksValue} onChange={setLinksValue} rows={3} />
-
-        <CommissionDesignDescriptionFields
-          designValue={designValue}
-          onDesignChange={setDesignValue}
-          descriptionValue={descriptionValue}
-          onDescriptionChange={setDescriptionValue}
-        />
-
-        <CommissionKeywordField value={keywordValue} onChange={setKeywordValue} />
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
@@ -278,14 +270,15 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
         <div className="ml-auto flex flex-wrap items-center gap-4">
           <CommissionHiddenSwitch isHidden={isHidden} onChange={setIsHidden} />
 
-          <button
+          <Button
             type="button"
             onClick={handleDelete}
+            variant="outline"
             disabled={isDeleting}
-            className="inline-flex h-10 items-center justify-center rounded-lg border border-red-200/70 px-4 text-sm font-medium text-red-600 transition hover:bg-red-50 focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:outline-none disabled:opacity-60 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10 dark:focus-visible:ring-offset-gray-900"
+            className="border-red-200/70 text-red-600 hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10"
           >
             {isDeleting ? 'Deleting…' : 'Delete'}
-          </button>
+          </Button>
         </div>
       </div>
 

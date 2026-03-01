@@ -142,22 +142,23 @@ export const addCommissionAction = async (
   const sourceImage = getUploadedSourceImage(formData)
   const validation = validateCommissionFields(fields)
   if (validation) return validation
+  if (!sourceImage) {
+    return { status: 'error', message: 'Source image is required for new commission entries.' }
+  }
 
   let uploadedSourceImagePath: string | null = null
 
-  if (sourceImage) {
-    try {
-      const uploaded = await saveUploadedSourceImage({
-        commissionFileName: fields.fileName,
-        file: sourceImage,
-      })
-      uploadedSourceImagePath = uploaded.targetPath
-    } catch (error) {
-      return {
-        status: 'error',
-        message:
-          error instanceof Error ? error.message : 'Failed to save source image. Please try again.',
-      }
+  try {
+    const uploaded = await saveUploadedSourceImage({
+      commissionFileName: fields.fileName,
+      file: sourceImage,
+    })
+    uploadedSourceImagePath = uploaded.targetPath
+  } catch (error) {
+    return {
+      status: 'error',
+      message:
+        error instanceof Error ? error.message : 'Failed to save source image. Please try again.',
     }
   }
 

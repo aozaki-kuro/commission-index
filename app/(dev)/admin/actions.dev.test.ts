@@ -115,38 +115,22 @@ describe('admin actions.dev', () => {
     expect(mocks.createCommission).not.toHaveBeenCalled()
   })
 
-  it('parses commission form fields without triggering pipeline when no source upload exists', async () => {
+  it('requires source image for new commission entries', async () => {
     const actions = await loadActions('development')
     const prev: FormState = { status: 'idle', message: '' }
     const formData = new FormData()
     formData.set('characterId', '3')
-    formData.set('fileName', ' 20991231_Vitest ')
-    formData.set('links', 'https://a.example\n\nhttps://b.example  \n')
-    formData.set('design', '  concept ')
-    formData.set('description', '  desc ')
-    formData.set('keyword', ' foo, bar ')
-    formData.set('hidden', 'on')
-    mocks.createCommission.mockReturnValueOnce({ characterName: 'AZKi' })
+    formData.set('fileName', '20991231_Vitest')
 
     const result = await actions.addCommissionAction(prev, formData)
 
     expect(result).toEqual({
-      status: 'success',
-      message: 'Commission "20991231_Vitest" added to AZKi.',
+      status: 'error',
+      message: 'Source image is required for new commission entries.',
     })
-    expect(mocks.createCommission).toHaveBeenCalledWith({
-      characterId: 3,
-      fileName: '20991231_Vitest',
-      links: ['https://a.example', 'https://b.example'],
-      design: 'concept',
-      description: 'desc',
-      keyword: 'foo, bar',
-      hidden: true,
-    })
+    expect(mocks.createCommission).not.toHaveBeenCalled()
+    expect(mocks.saveUploadedSourceImage).not.toHaveBeenCalled()
     expect(mocks.runImagePipeline).not.toHaveBeenCalled()
-    expect(mocks.revalidatePath).toHaveBeenCalledWith('/')
-    expect(mocks.revalidatePath).toHaveBeenCalledWith('/rss.xml')
-    expect(mocks.revalidatePath).toHaveBeenCalledWith('/admin')
   })
 
   it('validates update commission id and updates commission successfully', async () => {

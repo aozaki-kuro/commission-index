@@ -1,5 +1,6 @@
 'use client'
 
+import { Button } from '#components/ui/button'
 import { Command, CommandInput, CommandItem, CommandList } from '#components/ui/command'
 import { useCommissionViewMode } from '#components/home/commission/CommissionViewMode'
 import dynamic from 'next/dynamic'
@@ -827,12 +828,14 @@ const CommissionSearch = ({
             ) : null}
           </Command>
 
-          <button
+          <Button
             type="button"
             onClick={() => {
               if (deferIndexInit) setIsIndexReady(true)
               setIsHelpOpen(true)
             }}
+            variant="ghost"
+            size="icon"
             className={`absolute inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[right,color] duration-200 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
               hasQuery ? 'right-16' : 'right-0'
             }`}
@@ -848,11 +851,13 @@ const CommissionSearch = ({
               />
               <circle cx="12" cy="17.3" r="0.8" fill="currentColor" stroke="none" />
             </svg>
-          </button>
+          </Button>
 
-          <button
+          <Button
             type="button"
             onClick={copySearchUrl}
+            variant="ghost"
+            size="icon"
             className={`absolute right-8 inline-flex h-7 w-7 items-center justify-center rounded-full transition-[opacity,color] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:focus-visible:outline-gray-300 ${
               copyState === 'success'
                 ? 'text-emerald-600 dark:text-emerald-400'
@@ -882,11 +887,13 @@ const CommissionSearch = ({
                 />
               </svg>
             )}
-          </button>
+          </Button>
 
-          <button
+          <Button
             type="button"
             onClick={clearSearch}
+            variant="ghost"
+            size="icon"
             className={`absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[opacity,color] hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
               hasQuery ? '' : 'pointer-events-none opacity-0'
             }`}
@@ -896,7 +903,7 @@ const CommissionSearch = ({
               <path strokeWidth="2.2" strokeLinecap="round" d="M6 6l12 12" />
               <path strokeWidth="2.2" strokeLinecap="round" d="M18 6L6 18" />
             </svg>
-          </button>
+          </Button>
         </div>
       </div>
 

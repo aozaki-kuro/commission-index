@@ -1,3 +1,4 @@
+import { Button } from '#components/ui/button'
 import { memo, useEffect, useState, type ComponentType } from 'react'
 import { useCommissionViewMode } from '#components/home/commission/CommissionViewMode'
 import type { CharacterNavItem } from '#lib/characters/nav'
@@ -74,27 +75,31 @@ const MenuContent = memo(
     return (
       <>
         {mounted && (
-          <button
+          <Button
             type="button"
             aria-label="Close navigation menu"
             className={`fixed inset-0 z-20 bg-gray-200/10 backdrop-blur-xs transition-opacity duration-200 dark:bg-gray-900/10 ${
               open ? 'opacity-100' : 'pointer-events-none opacity-0'
             }`}
+            variant="ghost"
+            size="icon"
             onClick={close}
           />
         )}
 
-        <button
+        <Button
           type="button"
           className={STYLES.floatingButton}
           style={backdropStyle}
           aria-expanded={open}
           aria-controls="mobile-character-menu"
+          variant="ghost"
+          size="icon"
           onClick={toggle}
         >
           <span className="sr-only">Open navigation menu</span>
           <MenuIcon isOpen={open} />
-        </button>
+        </Button>
 
         {mounted ? (
           <div

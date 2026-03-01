@@ -1,14 +1,10 @@
 'use client'
 
 import {
-  CommissionCharacterField,
-  CommissionDesignDescriptionFields,
-  CommissionFileNameField,
   CommissionHiddenSwitch,
-  CommissionKeywordField,
-  CommissionLinksField,
   CommissionSourceImageField,
 } from './components/CommissionFormFields'
+import CommissionSharedFields from './components/CommissionSharedFields'
 import { useActionState, useEffect, useMemo, useState, type ChangeEvent } from 'react'
 
 import type { CharacterStatus } from '#lib/admin/db'
@@ -32,7 +28,7 @@ interface AddCommissionFormProps {
 
 type SourceImageHintTone = 'default' | 'success' | 'error'
 const DEFAULT_SOURCE_IMAGE_HINT =
-  'Upload JPG/PNG. It will be saved to data/images using this file name and then imported automatically.'
+  'Upload JPG/PNG. Source image is required and will be saved to data/images using this file name.'
 
 const extractFileNameStem = (fileName: string) => {
   const trimmed = fileName.trim()
@@ -104,34 +100,24 @@ const AddCommissionForm = ({ characters }: AddCommissionFormProps) => {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <CommissionCharacterField
-          options={options}
-          selectedCharacterId={characterId}
-          onChange={setCharacterId}
-          showCheckmark
-        />
-        <CommissionFileNameField
-          placeholder="20250302_Artist"
-          value={fileName}
-          onChange={handleFileNameChange}
-        />
-      </div>
-
       <CommissionSourceImageField
+        required
         onChange={handleSourceImageChange}
         helperMessage={sourceImageHint}
         helperTone={sourceImageHintTone}
       />
 
-      <CommissionLinksField rows={4} />
-
-      <CommissionDesignDescriptionFields
+      <CommissionSharedFields
+        characterOptions={options}
+        selectedCharacterId={characterId}
+        onCharacterChange={setCharacterId}
+        fileName={fileName}
+        onFileNameChange={handleFileNameChange}
+        fileNamePlaceholder="20250302_Artist"
+        linksRows={3}
         designPlaceholder="Design reference"
         descriptionPlaceholder="Short description"
       />
-
-      <CommissionKeywordField />
 
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-3">

@@ -1,5 +1,6 @@
 'use client'
 
+import { Button } from '#components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '#components/ui/dialog'
 import { type RefObject } from 'react'
 
@@ -46,23 +47,19 @@ const CharacterDeleteDialog = ({
           </p>
         </div>
         <div className="mt-5 flex justify-end gap-3">
-          <button
-            type="button"
-            className="inline-flex justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-900"
-            onClick={onClose}
-            disabled={isDeletePending}
-          >
+          <Button type="button" variant="outline" onClick={onClose} disabled={isDeletePending}>
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             ref={confirmButtonRef}
             type="button"
-            className="inline-flex justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:opacity-70 dark:bg-red-500 dark:hover:bg-red-400 dark:focus-visible:ring-offset-gray-900"
+            variant="destructive"
+            className="font-semibold disabled:opacity-70"
             onClick={onConfirm}
             disabled={isDeletePending}
           >
             Delete
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

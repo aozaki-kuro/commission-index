@@ -1,5 +1,6 @@
 'use client'
 
+import { Button } from '#components/ui/button'
 import dynamic from 'next/dynamic'
 import type { CommissionSearchEntrySource } from '#components/home/search/CommissionSearch'
 import { startTransition, useCallback, useEffect, useState } from 'react'
@@ -152,9 +153,11 @@ export default function CommissionSearchDeferred() {
             <span className="absolute right-9 text-xs text-gray-400 dark:text-gray-500">...</span>
           ) : null}
 
-          <button
+          <Button
             type="button"
             onClick={() => enableSearch(true, true)}
+            variant="ghost"
+            size="icon"
             className="absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300"
             aria-label="Search help"
           >
@@ -168,7 +171,7 @@ export default function CommissionSearchDeferred() {
               />
               <circle cx="12" cy="17.3" r="0.8" fill="currentColor" stroke="none" />
             </svg>
-          </button>
+          </Button>
         </div>
       </div>
     </section>

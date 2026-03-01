@@ -1,13 +1,5 @@
 @import 'tailwindcss';
 
-body[data-scroll-locked] {
-  /* Radix/RemoveScroll injects padding-right compensation; in this layout it overcompensates and squeezes content. */
-  --removed-body-scroll-bar-size: 0px !important;
-  margin-right: 0 !important;
-  padding-right: 0 !important;
-  width: 100% !important;
-}
-
 /*
   The default border color has changed to `currentColor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still

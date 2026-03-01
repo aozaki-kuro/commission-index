@@ -2,6 +2,7 @@
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { Button } from '#components/ui/button'
 import { Skeleton } from '#components/ui/skeleton'
 import dynamic from 'next/dynamic'
 import { type KeyboardEvent, type MouseEvent } from 'react'
@@ -118,8 +119,10 @@ const SortableCharacterCard = ({
           onClick={handleHeaderClick}
           onKeyDown={handleHeaderKeyDown}
         >
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-transparent text-gray-400 transition focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900 ${
               disableDrag || isDeleting
                 ? 'cursor-not-allowed opacity-50'
@@ -143,7 +146,7 @@ const SortableCharacterCard = ({
                 d="M4 8h16M4 16h16"
               />
             </svg>
-          </button>
+          </Button>
 
           {isEditing ? (
             <div className="flex flex-1 items-center gap-3">
@@ -230,8 +233,10 @@ const SortableCharacterCard = ({
                 </span>
               </button>
 
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-transparent text-gray-400 transition hover:text-red-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:text-gray-300 dark:text-gray-400 dark:hover:text-red-300 dark:focus-visible:ring-red-300 dark:focus-visible:ring-offset-gray-900 dark:disabled:text-gray-600"
                 onClick={event => {
                   event.stopPropagation()
@@ -248,7 +253,7 @@ const SortableCharacterCard = ({
                     strokeLinejoin="round"
                   />
                 </svg>
-              </button>
+              </Button>
             </>
           )}
         </div>

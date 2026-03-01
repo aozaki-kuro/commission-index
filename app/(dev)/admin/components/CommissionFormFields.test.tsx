@@ -9,7 +9,7 @@ describe('CommissionHiddenSwitch', () => {
 
     render(<CommissionHiddenSwitch isHidden={false} onChange={onChange} />)
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Hide commission from public list' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Hide commission from public list' }))
     expect(onChange).toHaveBeenCalledWith(true)
   })
 })

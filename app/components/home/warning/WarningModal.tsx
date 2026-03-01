@@ -1,5 +1,6 @@
 'use client'
 
+import { Button } from '#components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '#components/ui/dialog'
 import Image from 'next/image'
 import { type RefObject } from 'react'
@@ -54,22 +55,26 @@ export default function WarningModal({
           </p>
         </div>
         <div className="mt-4 flex items-center justify-center">
-          <button
+          <Button
             ref={confirmButtonRef}
             type="button"
-            className="inline-flex justify-center rounded-md border border-transparent bg-blue-100 px-4 py-2 font-mono text-xs font-medium text-blue-900 select-none hover:bg-blue-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2"
+            variant="outline"
+            size="sm"
+            className="border-transparent bg-blue-100 px-4 font-mono text-xs font-medium text-blue-900 select-none hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-900/55"
             onClick={onConfirm}
           >
             I am over 18
-          </button>
+          </Button>
           <div className="mx-3" />
-          <button
+          <Button
             type="button"
-            className="inline-flex justify-center rounded-md border border-transparent bg-red-100 px-4 py-2 font-mono text-xs font-medium text-red-900 hover:bg-red-200 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:ring-offset-2"
+            variant="outline"
+            size="sm"
+            className="border-transparent bg-red-100 px-4 font-mono text-xs font-medium text-red-900 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-100 dark:hover:bg-red-900/55"
             onClick={onLeave}
           >
             Leave Now
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

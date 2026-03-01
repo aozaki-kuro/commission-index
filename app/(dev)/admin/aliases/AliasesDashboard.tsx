@@ -4,6 +4,7 @@ import { useActionState, useMemo, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
 import { saveCreatorAliasesBatchAction } from '#admin/actions'
+import { Button } from '#components/ui/button'
 import { hasCjkCharacter } from '#lib/creatorAliases/shared'
 import type { CreatorAliasRow } from '#lib/admin/db'
 import AdminSectionNav from '../AdminSectionNav'
@@ -25,13 +26,9 @@ const AliasesSaveButton = () => {
   const { pending } = useFormStatus()
 
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="inline-flex h-9 items-center justify-center rounded-md bg-gray-900 px-4 text-sm font-medium text-white transition hover:bg-gray-700 focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200 dark:focus-visible:ring-offset-gray-900"
-    >
+    <Button type="submit" size="sm" disabled={pending}>
       {pending ? 'Saving...' : 'Save aliases'}
-    </button>
+    </Button>
   )
 }
 

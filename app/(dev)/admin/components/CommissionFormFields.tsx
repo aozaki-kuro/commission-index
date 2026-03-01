@@ -7,7 +7,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '#components/ui/select'
-import { Switch } from '#components/ui/switch'
 import { type ChangeEvent, type ComponentPropsWithoutRef } from 'react'
 import { formControlStyles } from '../uiStyles'
 
@@ -51,7 +50,6 @@ interface CommissionCharacterFieldProps {
   onChange: (id: number | null) => void
   disabled?: boolean
   dropdownZIndexClassName?: string
-  showCheckmark?: boolean
 }
 
 export const CommissionCharacterField = ({
@@ -60,7 +58,6 @@ export const CommissionCharacterField = ({
   onChange,
   disabled = false,
   dropdownZIndexClassName = 'z-10',
-  showCheckmark = false,
 }: CommissionCharacterFieldProps) => {
   const selectedCharacter = options.find(option => option.id === selectedCharacterId) ?? null
   const hasCharacters = options.length > 0
@@ -88,10 +85,7 @@ export const CommissionCharacterField = ({
           <SelectContent className={dropdownZIndexClassName}>
             {options.map(option => (
               <SelectItem key={option.id} value={String(option.id)}>
-                <div className="flex w-full items-center justify-between gap-6">
-                  <p className="font-medium">{option.name}</p>
-                  {showCheckmark ? <span aria-hidden="true">✓</span> : null}
-                </div>
+                <p className="font-medium">{option.name}</p>
               </SelectItem>
             ))}
           </SelectContent>
@@ -112,6 +106,7 @@ interface CommissionSourceImageFieldProps {
   accept?: string
   helperMessage?: string
   helperTone?: 'default' | 'success' | 'error'
+  required?: boolean
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void
 }
 
@@ -119,6 +114,7 @@ export const CommissionSourceImageField = ({
   accept = 'image/jpeg,image/png,.jpg,.jpeg,.png',
   helperMessage = 'Upload JPG/PNG. It will be saved to data/images using this file name and then imported automatically.',
   helperTone = 'default',
+  required = false,
   onChange,
 }: CommissionSourceImageFieldProps) => {
   const helperMessageClassName =
@@ -130,13 +126,16 @@ export const CommissionSourceImageField = ({
 
   return (
     <div className="space-y-1">
-      <label className={fieldLabelStyles}>Source image (optional)</label>
+      <label className={fieldLabelStyles}>
+        {required ? 'Source image' : 'Source image (optional)'}
+      </label>
       <input
         type="file"
         name="sourceImage"
         accept={accept}
+        required={required}
         onChange={onChange}
-        className={`${formControlStyles} cursor-pointer file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200 dark:file:bg-gray-800 dark:file:text-gray-200 dark:hover:file:bg-gray-700`}
+        className={`${formControlStyles} pointer-events-none cursor-pointer file:pointer-events-auto file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200 dark:file:bg-gray-800 dark:file:text-gray-200 dark:hover:file:bg-gray-700`}
       />
       <p className={helperMessageClassName}>{helperMessage}</p>
     </div>
@@ -262,10 +261,20 @@ interface CommissionHiddenSwitchProps {
 export const CommissionHiddenSwitch = ({ isHidden, onChange }: CommissionHiddenSwitchProps) => {
   return (
     <div className="flex items-center gap-3">
-      <Switch checked={isHidden} onCheckedChange={onChange}>
-        <span className="sr-only">Hide commission from public list</span>
-      </Switch>
-      <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Hidden</label>
+      <input
+        id="commission-hidden"
+        type="checkbox"
+        checked={isHidden}
+        onChange={event => onChange(event.target.checked)}
+        aria-label="Hide commission from public list"
+        className="h-4 w-4 accent-gray-900 dark:accent-gray-100"
+      />
+      <label
+        htmlFor="commission-hidden"
+        className="text-sm font-medium text-gray-700 dark:text-gray-200"
+      >
+        Hidden
+      </label>
     </div>
   )
 }

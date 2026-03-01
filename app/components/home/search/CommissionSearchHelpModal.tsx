@@ -1,5 +1,6 @@
 'use client'
 
+import { Button } from '#components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '#components/ui/dialog'
 
 type CommissionSearchHelpModalProps = {
@@ -91,13 +92,15 @@ export default function CommissionSearchHelpModal({
         </div>
 
         <div className="mt-4 flex justify-end">
-          <button
+          <Button
             type="button"
             onClick={() => onClose(false)}
+            variant="outline"
+            size="sm"
             className="rounded-md border border-gray-300/80 bg-gray-100/85 px-3 py-1.5 text-xs font-semibold text-gray-800 transition-colors hover:bg-gray-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:border-gray-600 dark:bg-gray-800/90 dark:text-gray-100 dark:hover:bg-gray-700 dark:focus-visible:outline-gray-300"
           >
             Close
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
