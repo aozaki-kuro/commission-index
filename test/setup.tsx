@@ -17,14 +17,17 @@ if (isJsdom) {
       src,
       alt,
       unoptimized,
+      priority,
       ...props
     }: {
       src?: string | { src: string }
       alt?: string
       unoptimized?: boolean
+      priority?: boolean
       [key: string]: unknown
     }) => {
       void unoptimized
+      void priority
       const resolvedSrc = typeof src === 'string' ? src : (src?.src ?? '')
       return <img {...props} src={resolvedSrc} alt={alt ?? ''} />
     },

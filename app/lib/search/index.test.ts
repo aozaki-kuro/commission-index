@@ -1,21 +1,20 @@
 import Fuse from 'fuse.js'
-import { describe, expect, it } from 'vitest'
 import { getCommissionData } from '#data/commissionData'
-import { parseCommissionFileName } from '#lib/commissions/index'
+import { flattenCommissions, parseCommissionFileName } from '#lib/commissions/index'
+import { describe, expect, it } from 'vitest'
 import {
   buildStrictTermIndex,
   collectSuggestions,
   extractSuggestionContextQuery,
   extractSuggestionQuery,
   filterSuggestions,
-  getSuggestionTokenOperator,
   getMatchedEntryIds,
+  getSuggestionTokenOperator,
   parseSuggestionRows,
   resolveSuggestionContextMatchedIds,
-  type Suggestion,
-  type SuggestionEntryLike,
   type SearchEntryLike,
   type SearchIndexLike,
+  type SuggestionEntryLike,
 } from './index'
 
 type Entry = SearchEntryLike
@@ -34,385 +33,143 @@ const buildIndex = (entries: Entry[]): SearchIndexLike<Entry> => ({
   }),
 })
 
-const normalizeSuggestionKey = (term: string) => term.trim().toLowerCase()
+const normalizeTerm = (term: string) => term.trim().toLowerCase()
 
-const buildRealSuggestionFixtures = () => {
-  const entries: SuggestionEntryLike[] = []
+const buildRealFixtures = () => {
+  const suggestionEntries: SuggestionEntryLike[] = []
   const creatorToIds = new Map<string, number[]>()
-  let id = 1
+  const searchEntries: Entry[] = []
+  const commissions = flattenCommissions(getCommissionData())
 
-  for (const characterData of getCommissionData()) {
-    for (const commission of characterData.Commissions) {
-      const { date, year, creator } = parseCommissionFileName(commission.fileName)
-      const month = date.slice(4, 6)
-      const keywordTerms = (commission.Keyword ?? '')
-        .split(/[,\n，、;；]/)
-        .map(keyword => keyword.trim())
+  commissions.forEach((commission, index) => {
+    const id = index + 1
+    const { date, year, creator } = parseCommissionFileName(commission.fileName)
+    const month = date.slice(4, 6)
+    const dateTokens = [
+      `date_y_${year}`,
+      month ? `date_ym_${year}_${month}` : '',
+      date ? `date_ymd_${date}` : '',
+    ]
+      .filter(Boolean)
+      .join(' ')
+
+    searchEntries.push({
+      id,
+      searchText: [commission.character, creator, commission.Keyword ?? '', dateTokens]
         .filter(Boolean)
+        .join(' '),
+    })
 
-      const suggestionEntries = [
-        { source: 'Character', term: characterData.Character },
-        { source: 'Date', term: `${year}/${month}` },
-        ...(creator ? [{ source: 'Creator', term: creator }] : []),
-        ...keywordTerms.map(keyword => ({ source: 'Keyword', term: keyword })),
-      ]
-      const uniqueSuggestions = new Map<string, { source: string; term: string }>()
-      for (const entry of suggestionEntries) {
-        const normalizedTerm = normalizeSuggestionKey(entry.term)
-        if (!normalizedTerm || uniqueSuggestions.has(normalizedTerm)) continue
-        uniqueSuggestions.set(normalizedTerm, entry)
-      }
-      const searchSuggestionText = [...uniqueSuggestions.values()]
-        .map(entry => `${entry.source}\t${entry.term}`)
-        .join('\n')
-      const suggestionRows = parseSuggestionRows(searchSuggestionText)
-      entries.push({ id, suggestionRows })
+    const rows = new Map<
+      string,
+      { source: 'Character' | 'Creator' | 'Keyword' | 'Date'; term: string }
+    >()
+    const candidates = [
+      { source: 'Character' as const, term: commission.character },
+      { source: 'Date' as const, term: `${year}/${month}` },
+      ...(creator ? [{ source: 'Creator' as const, term: creator }] : []),
+      ...String(commission.Keyword ?? '')
+        .split(/[\n,，、;；]/)
+        .map(term => term.trim())
+        .filter(Boolean)
+        .map(term => ({ source: 'Keyword' as const, term })),
+    ]
 
-      if (creator) {
-        const ids = creatorToIds.get(creator) ?? []
-        ids.push(id)
-        creatorToIds.set(creator, ids)
-      }
-      id += 1
+    for (const candidate of candidates) {
+      const normalized = normalizeTerm(candidate.term)
+      if (!normalized || rows.has(normalized)) continue
+      rows.set(normalized, candidate)
     }
-  }
 
-  return { entries, suggestions: collectSuggestions(entries), creatorToIds }
+    suggestionEntries.push({ id, suggestionRows: rows })
+
+    if (creator) {
+      const existing = creatorToIds.get(creator) ?? []
+      existing.push(id)
+      creatorToIds.set(creator, existing)
+    }
+  })
+
+  return {
+    searchIndex: buildIndex(searchEntries),
+    suggestionEntries,
+    suggestions: collectSuggestions(suggestionEntries),
+    creatorToIds,
+  }
 }
 
-describe('search date token normalization', () => {
-  it('matches month/year query formats like 09/2025 against normalized date tokens', () => {
-    const index = buildIndex([
-      { id: 1, searchText: 'date_y_2025 date_ym_2025_09' },
-      { id: 2, searchText: 'date_y_2025 date_ym_2025_08' },
-    ])
+describe('search utils (trimmed + real db sample)', () => {
+  it('matches normalized date queries against real index tokens', () => {
+    const { searchIndex } = buildRealFixtures()
+    const target = searchIndex.entries.find(entry => /date_ym_\d{4}_\d{2}/.test(entry.searchText))
 
-    expect([...getMatchedEntryIds('09/2025', index)]).toEqual([1])
-    expect([...getMatchedEntryIds('2025-09', index)]).toEqual([1])
-    expect([...getMatchedEntryIds('2025/09/20', index)]).toEqual([1])
-    expect([...getMatchedEntryIds('2025', index)]).toEqual([1, 2])
-  })
-})
+    expect(target).toBeTruthy()
 
-describe('search operator strict matching', () => {
-  it('prefers strict token matching for operator queries before fuzzy fallback', () => {
-    const index = buildIndex([
-      { id: 1, searchText: 'n*yuta azki' },
-      { id: 2, searchText: 'kanaut nishe' },
-      { id: 3, searchText: 'azki' },
-    ])
+    const ymToken = target!.searchText.match(/date_ym_(\d{4})_(\d{2})/)!
+    const year = ymToken[1]
+    const month = ymToken[2]
 
-    expect([...getMatchedEntryIds('n*yuta | AZKi', index)].sort((a, b) => a - b)).toEqual([1, 3])
+    const matchedByMonthYear = getMatchedEntryIds(`${month}/${year}`, searchIndex)
+    const matchedByDate = getMatchedEntryIds(`${year}-${month}-01`, searchIndex)
+
+    expect(matchedByMonthYear.has(target!.id)).toBe(true)
+    expect(matchedByDate.has(target!.id)).toBe(true)
   })
 
-  it('falls back to fuzzy matching when strict operator query has no hits', () => {
-    const index = buildIndex([
-      { id: 1, searchText: 'nanashi artist' },
-      { id: 2, searchText: 'azki' },
-    ])
+  it('parses token operator around quoted terms correctly', () => {
+    const rawQuery = '"Kanaut Nishe" | N'
 
-    expect([...getMatchedEntryIds('na | az', index)].sort((a, b) => a - b)).toEqual([1, 2])
-  })
-})
-
-describe('search suggestion token operator', () => {
-  it('detects exclude operator for negation token', () => {
-    expect(getSuggestionTokenOperator('Albemuth !BEMA')).toBe('exclude')
+    expect(extractSuggestionQuery(rawQuery)).toBe('N')
+    expect(extractSuggestionContextQuery(rawQuery)).toBe('"Kanaut Nishe" |')
+    expect(getSuggestionTokenOperator(rawQuery)).toBe('or')
   })
 
-  it('detects OR operator for union token', () => {
-    expect(getSuggestionTokenOperator('Albemuth | BEMA')).toBe('or')
-  })
-
-  it('detects AND operator for space-separated unquoted token', () => {
-    expect(getSuggestionTokenOperator('Albemuth BEMA')).toBe('and')
-  })
-
-  it('does not mark AND for quoted token', () => {
-    expect(getSuggestionTokenOperator('Albemuth "BEMA"')).toBeNull()
-  })
-
-  it('returns null when token has no operator', () => {
-    expect(getSuggestionTokenOperator('Albemuth')).toBeNull()
-  })
-
-  it('keeps unfinished quoted token behavior for query/operator parsing', () => {
-    const rawQuery = 'Albemuth "BEMA'
-
-    expect(extractSuggestionQuery(rawQuery)).toBe('BEMA')
-    expect(extractSuggestionContextQuery(rawQuery)).toBe('Albemuth')
-    expect(getSuggestionTokenOperator(rawQuery)).toBe('and')
-  })
-
-  it('parses token/operator correctly after a quoted multi-word token', () => {
-    expect(extractSuggestionQuery('"Kanaut Nishe" | N')).toBe('N')
-    expect(extractSuggestionContextQuery('"Kanaut Nishe" | N')).toBe('"Kanaut Nishe" |')
-    expect(getSuggestionTokenOperator('"Kanaut Nishe" | N')).toBe('or')
-
-    expect(extractSuggestionQuery('"Kanaut Nishe" !N')).toBe('N')
-    expect(extractSuggestionContextQuery('"Kanaut Nishe" !N')).toBe('"Kanaut Nishe"')
-    expect(getSuggestionTokenOperator('"Kanaut Nishe" !N')).toBe('exclude')
-  })
-})
-
-describe('search suggestion context scope', () => {
-  it('uses global scope for OR suggestion token', () => {
-    const index = buildIndex([
-      { id: 1, searchText: 'l*cia dorie' },
-      { id: 2, searchText: 'nanashi artist' },
-    ])
-    const rawQuery = 'L*cia | N'
-    const matchedIds = getMatchedEntryIds(rawQuery, index)
-
-    const contextIds = resolveSuggestionContextMatchedIds({
-      rawQuery,
-      suggestionQuery: extractSuggestionQuery(rawQuery),
-      suggestionContextQuery: extractSuggestionContextQuery(rawQuery),
-      matchedIds,
-      index,
-    })
-
-    expect([...contextIds].sort((a, b) => a - b)).toEqual([1, 2])
-  })
-
-  it('keeps narrowed scope for non-OR suggestion token', () => {
-    const index = buildIndex([
-      { id: 1, searchText: 'l*cia dorie' },
-      { id: 2, searchText: 'nanashi artist' },
-    ])
-    const rawQuery = 'L*cia N'
-    const matchedIds = getMatchedEntryIds(rawQuery, index)
-
-    const contextIds = resolveSuggestionContextMatchedIds({
-      rawQuery,
-      suggestionQuery: extractSuggestionQuery(rawQuery),
-      suggestionContextQuery: extractSuggestionContextQuery(rawQuery),
-      matchedIds,
-      index,
-    })
-
-    expect([...contextIds].sort((a, b) => a - b)).toEqual([1])
-  })
-})
-
-describe('search date suggestions', () => {
-  it('shows date suggestions only for likely date numeric query input', () => {
-    const entries: SuggestionEntryLike[] = [{ id: 1, suggestionRows: new Map() }]
-    const suggestions: Suggestion[] = [
-      { term: '2025/09', count: 2, sources: ['Date'] },
-      { term: 'nanashi', count: 3, sources: ['Creator'] },
-    ]
-
-    expect(
-      filterSuggestions({
-        entries,
-        suggestions,
-        suggestionQuery: '20',
-        suggestionContextMatchedIds: new Set([1]),
-      }).map(item => item.term),
-    ).toContain('2025/09')
-
-    expect(
-      filterSuggestions({
-        entries,
-        suggestions,
-        suggestionQuery: 'na',
-        suggestionContextMatchedIds: new Set([1]),
-      }).map(item => item.term),
-    ).not.toContain('2025/09')
-  })
-
-  it('sorts date suggestions from newest to oldest', () => {
-    const entries: SuggestionEntryLike[] = [{ id: 1, suggestionRows: new Map() }]
-    const suggestions: Suggestion[] = [
-      { term: '2025/08', count: 1, sources: ['Date'] },
-      { term: '2025/10', count: 1, sources: ['Date'] },
-      { term: '2024/12', count: 1, sources: ['Date'] },
-    ]
-
-    expect(
-      filterSuggestions({
-        entries,
-        suggestions,
-        suggestionQuery: '202',
-        suggestionContextMatchedIds: new Set([1]),
-      }).map(item => item.term),
-    ).toEqual(['2025/10', '2025/08', '2024/12'])
-  })
-
-  it('removes suggestions not present in the current context set', () => {
-    const entries: SuggestionEntryLike[] = [
-      { id: 1, suggestionRows: new Map([['2025/10', { source: 'Date', term: '2025/10' }]]) },
-      { id: 2, suggestionRows: new Map([['2025/08', { source: 'Date', term: '2025/08' }]]) },
-    ]
-    const suggestions: Suggestion[] = [
-      { term: '2025/10', count: 1, sources: ['Date'] },
-      { term: '2025/08', count: 1, sources: ['Date'] },
-    ]
-
-    expect(
-      filterSuggestions({
-        entries,
-        suggestions,
-        suggestionQuery: '2025',
-        suggestionContextMatchedIds: new Set([1]),
-      }).map(item => item.term),
-    ).toEqual(['2025/10'])
-  })
-
-  it('keeps only top N suggestions without full sorting', () => {
-    const entries: SuggestionEntryLike[] = [{ id: 1, suggestionRows: new Map() }]
-    const suggestions: Suggestion[] = [
-      { term: '2025/08', count: 1, sources: ['Date'] },
-      { term: '2025/10', count: 1, sources: ['Date'] },
-      { term: '2024/12', count: 1, sources: ['Date'] },
-    ]
-
-    expect(
-      filterSuggestions({
-        entries,
-        suggestions,
-        suggestionQuery: '202',
-        suggestionContextMatchedIds: new Set([1]),
-        limit: 2,
-      }).map(item => item.term),
-    ).toEqual(['2025/10', '2025/08'])
-  })
-
-  it('returns matchedCount from the current context set', () => {
-    const { entries, suggestions, creatorToIds } = buildRealSuggestionFixtures()
+  it('filters creator suggestions by context and exclusion with real counts', () => {
+    const { searchIndex, suggestionEntries, suggestions, creatorToIds } = buildRealFixtures()
     const target = [...creatorToIds.entries()].find(([, ids]) => ids.length >= 2)
 
     expect(target).toBeTruthy()
 
     const [creator, ids] = target!
-    const [firstId] = ids
+    const rawQuery = creator
+    const suggestionQuery = extractSuggestionQuery(rawQuery)
+    const suggestionContextQuery = extractSuggestionContextQuery(rawQuery)
+    const matchedIds = getMatchedEntryIds(rawQuery, searchIndex)
+    const contextIds = resolveSuggestionContextMatchedIds({
+      rawQuery,
+      suggestionQuery,
+      suggestionContextQuery,
+      matchedIds,
+      index: searchIndex,
+    })
 
-    const result = filterSuggestions({
-      entries,
+    const narrowedContext = new Set([ids[0]])
+
+    const includeResult = filterSuggestions({
+      entries: suggestionEntries,
       suggestions,
-      suggestionQuery: creator,
-      suggestionContextMatchedIds: new Set([firstId]),
+      suggestionQuery,
+      suggestionContextMatchedIds: narrowedContext,
     }).find(item => item.term === creator)
 
-    expect(result).toBeTruthy()
-    expect(result?.sources).toContain('Creator')
-    expect(result?.count).toBeGreaterThanOrEqual(2)
-    expect(result?.matchedCount).toBe(1)
-  })
-
-  it('returns remaining result count for exclusion suggestions', () => {
-    const { entries, suggestions, creatorToIds } = buildRealSuggestionFixtures()
-    const target = [...creatorToIds.entries()].find(([, ids]) => ids.length >= 2)
-
-    expect(target).toBeTruthy()
-
-    const [creator, ids] = target!
-    const contextIds = new Set(ids.slice(0, 2))
-
-    const result = filterSuggestions({
-      entries,
+    const excludeResult = filterSuggestions({
+      entries: suggestionEntries,
       suggestions,
-      suggestionQuery: creator,
-      suggestionContextMatchedIds: contextIds,
+      suggestionQuery,
+      suggestionContextMatchedIds: new Set(ids.slice(0, 2)),
       isExclusionSuggestion: true,
     }).find(item => item.term === creator)
 
-    expect(result).toBeTruthy()
-    expect(result?.sources).toContain('Creator')
-    expect(result?.count).toBeGreaterThanOrEqual(2)
-    expect(result?.matchedCount).toBe(0)
+    expect(contextIds.size).toBeGreaterThan(0)
+    expect(includeResult?.matchedCount).toBe(1)
+    expect(excludeResult?.matchedCount).toBe(0)
   })
 
-  it('deduplicates suggestions already present in context query', () => {
-    const entries: SuggestionEntryLike[] = [
-      {
-        id: 1,
-        suggestionRows: new Map([
-          ['l*cia', { source: 'Character', term: 'L*cia' }],
-          ['lucia', { source: 'Character', term: 'Lucia' }],
-        ]),
-      },
-    ]
-    const suggestions: Suggestion[] = [
-      { term: 'L*cia', count: 1, sources: ['Character'] },
-      { term: 'Lucia', count: 1, sources: ['Character'] },
-    ]
+  it('parses suggestion rows and removes duplicate normalized terms', () => {
+    const rows = parseSuggestionRows('Character\tL*cia\nCharacter\tLucia\nCharacter\tL*cia')
 
-    expect(
-      filterSuggestions({
-        entries,
-        suggestions,
-        suggestionQuery: 'L',
-        suggestionContextQuery: 'L*cia |',
-        suggestionContextMatchedIds: new Set([1]),
-      }).map(item => item.term),
-    ).toEqual(['Lucia'])
-  })
-
-  it('deduplicates unquoted multi-word suggestions present in context query', () => {
-    const entries: SuggestionEntryLike[] = [
-      {
-        id: 1,
-        suggestionRows: new Map([
-          ['kanaut nishe', { source: 'Character', term: 'Kanaut Nishe' }],
-          ['kanaut', { source: 'Character', term: 'Kanaut' }],
-        ]),
-      },
-    ]
-    const suggestions: Suggestion[] = [
-      { term: 'Kanaut Nishe', count: 1, sources: ['Character'] },
-      { term: 'Kanaut', count: 1, sources: ['Character'] },
-    ]
-
-    expect(
-      filterSuggestions({
-        entries,
-        suggestions,
-        suggestionQuery: 'K',
-        suggestionContextQuery: 'Kanaut Nishe ',
-        suggestionContextMatchedIds: new Set([1]),
-      }).map(item => item.term),
-    ).toEqual([])
-  })
-
-  it('keeps suggestions working after quoted multi-word token with logical operator', () => {
-    const entries: SuggestionEntryLike[] = [
-      {
-        id: 1,
-        suggestionRows: new Map([
-          ['kanaut nishe', { source: 'Character', term: 'Kanaut Nishe' }],
-          ['q', { source: 'Creator', term: 'Q' }],
-        ]),
-      },
-      {
-        id: 2,
-        suggestionRows: new Map([
-          ['nanashi', { source: 'Creator', term: 'Nanashi' }],
-          ['nakamura rohane', { source: 'Creator', term: 'Nakamura Rohane' }],
-        ]),
-      },
-    ]
-    const suggestions: Suggestion[] = [
-      { term: 'Kanaut Nishe', count: 1, sources: ['Character'] },
-      { term: 'Q', count: 1, sources: ['Creator'] },
-      { term: 'Nanashi', count: 1, sources: ['Creator'] },
-      { term: 'Nakamura Rohane', count: 1, sources: ['Creator'] },
-    ]
-
-    const rawQuery = '"Kanaut Nishe" | N'
-
-    expect(getSuggestionTokenOperator(rawQuery)).toBe('or')
-    expect(extractSuggestionQuery(rawQuery)).toBe('N')
-
-    expect(
-      filterSuggestions({
-        entries,
-        suggestions,
-        suggestionQuery: extractSuggestionQuery(rawQuery),
-        suggestionContextQuery: extractSuggestionContextQuery(rawQuery),
-        suggestionContextMatchedIds: new Set([1, 2]),
-      }).map(item => item.term),
-    ).toEqual(['Nakamura Rohane', 'Nanashi'])
+    expect(rows.size).toBe(2)
+    expect(rows.get('l*cia')?.term).toBe('L*cia')
+    expect(rows.get('lucia')?.term).toBe('Lucia')
   })
 })

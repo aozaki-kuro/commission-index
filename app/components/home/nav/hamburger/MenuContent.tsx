@@ -140,7 +140,7 @@ const MenuContent = memo(
           <button
             type="button"
             aria-label="Close navigation menu"
-            className={`fixed inset-0 z-[60] bg-gray-200/10 backdrop-blur-xs transition-opacity duration-200 dark:bg-gray-900/10 ${
+            className={`fixed inset-0 z-60 bg-gray-200/10 backdrop-blur-xs transition-opacity duration-200 dark:bg-gray-900/10 ${
               open ? 'opacity-100' : 'pointer-events-none opacity-0'
             }`}
             onClick={close}
@@ -163,7 +163,7 @@ const MenuContent = memo(
           <div
             id="mobile-character-menu"
             aria-hidden={!open}
-            className={`absolute right-4 bottom-full z-[80] mb-4 max-h-[calc(100vh-8rem)] w-64 origin-bottom-right overflow-y-auto rounded-xl border border-white/20 bg-white/80 font-mono shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-lg transition-[opacity,transform] duration-220 ease-out focus:outline-hidden dark:bg-black/80 ${
+            className={`absolute right-4 bottom-full z-80 mb-4 max-h-[calc(100vh-8rem)] w-64 origin-bottom-right overflow-y-auto rounded-xl border border-white/20 bg-white/80 font-mono shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-lg transition-[opacity,transform] duration-220 ease-out focus:outline-hidden dark:bg-black/80 ${
               open ? 'translate-y-0 opacity-100' : 'pointer-events-none opacity-0'
             }`}
             style={backdropStyle}
