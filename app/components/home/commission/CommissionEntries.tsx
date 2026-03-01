@@ -3,7 +3,6 @@ import type { Commission } from '#data/types'
 import { parseCommissionFileName } from '#lib/commissions'
 import { buildDateSearchTokensFromCompactDate } from '#lib/date/search'
 import { getBaseFileName } from '#lib/utils/strings'
-import type { StaticImageData } from 'next/image'
 import IllustratorInfo from './IllustratorInfo'
 import ProtectedCommissionImage from './ProtectedCommissionImage'
 
@@ -24,24 +23,12 @@ interface CommissionEntriesProps {
 
 const normalizeSuggestionKey = (term: string) => term.trim().toLowerCase()
 
-type ImageImportMap = Record<string, StaticImageData>
-
-const getImageImports = async (): Promise<ImageImportMap> => {
-  if (process.env.NODE_ENV === 'development') {
-    return {}
-  }
-
-  const { imageImports } = await import('#data/imageImports')
-  return imageImports as ImageImportMap
-}
-
-const renderCommissionEntries = async ({
+const renderCommissionEntries = ({
   entries,
   creatorAliasesMap,
   showCharacterLabel = false,
   embedSearchMetadata,
 }: CommissionEntriesProps) => {
-  const imageImports = await getImageImports()
   const shouldEmbedSearchMetadata = embedSearchMetadata ?? process.env.NODE_ENV !== 'production'
 
   return entries.map(({ character, commission, sectionId, entryKey, entryAnchorPrefix }) => {
@@ -55,8 +42,7 @@ const renderCommissionEntries = async ({
     const month = date.slice(4, 6)
     const copyrightCreator = creator ? getBaseFileName(creator).trim() || creator : 'Anonymous'
     const altText = `© ${year} ${copyrightCreator} & Crystallize`
-    const mappedImage = imageImports[commission.fileName]
-    const fallbackImageSrc = `/images/webp/${encodeURIComponent(commission.fileName)}.webp`
+    const imageSrc = `/images/webp/${encodeURIComponent(commission.fileName)}.webp`
     const elementId = `${entryAnchorPrefix}-${date}`
     const keywordTerms = (commission.Keyword ?? '')
       .split(/[,\n，、;；]/)
@@ -112,11 +98,7 @@ const renderCommissionEntries = async ({
         data-character-section-id={sectionId}
         {...(searchAttributes ?? {})}
       >
-        <ProtectedCommissionImage
-          altText={altText}
-          mappedImage={mappedImage}
-          resolvedImageSrc={fallbackImageSrc}
-        />
+        <ProtectedCommissionImage altText={altText} resolvedImageSrc={imageSrc} />
         <div className="mt-6 mb-2 md:mt-8 md:mb-4">
           {showCharacterLabel ? (
             <div className="mb-2 font-mono text-xs text-gray-600 md:text-sm dark:text-gray-400">

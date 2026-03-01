@@ -32,7 +32,6 @@ describe('admin db commission and character operations (sqlite integration)', ()
 
     expect(created).toEqual({
       characterName: targetCharacter!.name,
-      imageMapChanged: true,
     })
 
     const writableDb = new Database(dbPath)
@@ -63,7 +62,7 @@ describe('admin db commission and character operations (sqlite integration)', ()
     expect(inserted?.keyword).toBe('foo, bar, baz')
     expect(inserted?.hidden).toBe(1)
 
-    const sameNameUpdate = adminDb.updateCommission({
+    adminDb.updateCommission({
       id: inserted!.id,
       characterId: targetCharacter!.id,
       fileName: originalFileName,
@@ -74,9 +73,7 @@ describe('admin db commission and character operations (sqlite integration)', ()
       hidden: false,
     })
 
-    expect(sameNameUpdate.imageMapChanged).toBe(false)
-
-    const renamedUpdate = adminDb.updateCommission({
+    adminDb.updateCommission({
       id: inserted!.id,
       characterId: targetCharacter!.id,
       fileName: renamedFileName,
@@ -86,8 +83,6 @@ describe('admin db commission and character operations (sqlite integration)', ()
       keyword: 'alpha; alpha；beta',
       hidden: false,
     })
-
-    expect(renamedUpdate.imageMapChanged).toBe(true)
 
     const updated = writableDb
       .prepare(
@@ -112,8 +107,8 @@ describe('admin db commission and character operations (sqlite integration)', ()
     expect(updated?.keyword).toBe('alpha, beta')
     expect(updated?.hidden).toBe(0)
 
-    expect(adminDb.deleteCommission(999999999)).toEqual({ imageMapChanged: false })
-    expect(adminDb.deleteCommission(inserted!.id)).toEqual({ imageMapChanged: true })
+    expect(adminDb.deleteCommission(999999999)).toBeUndefined()
+    expect(adminDb.deleteCommission(inserted!.id)).toBeUndefined()
 
     const deleted = writableDb
       .prepare('SELECT id FROM commissions WHERE id = ?')

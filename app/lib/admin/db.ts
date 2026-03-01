@@ -360,7 +360,7 @@ export const createCommission = (input: {
   description?: string | null
   keyword?: string | null
   hidden?: boolean
-}): { characterName: string; imageMapChanged: boolean } => {
+}): { characterName: string } => {
   ensureWritable()
 
   return withWritableDatabase(db => {
@@ -372,10 +372,6 @@ export const createCommission = (input: {
     if (!characterRecord) {
       throw new Error('Selected character does not exist.')
     }
-
-    const existingFileName = db
-      .prepare('SELECT 1 FROM commissions WHERE file_name = @fileName LIMIT 1')
-      .get({ fileName }) as { 1: number } | undefined
 
     db.prepare(
       `
@@ -409,7 +405,6 @@ export const createCommission = (input: {
 
     return {
       characterName: characterRecord.name,
-      imageMapChanged: !existingFileName,
     }
   })
 }
@@ -423,7 +418,7 @@ export const updateCommission = (input: {
   description?: string | null
   keyword?: string | null
   hidden?: boolean
-}): { imageMapChanged: boolean } => {
+}) => {
   ensureWritable()
 
   return withWritableDatabase(db => {
@@ -442,20 +437,6 @@ export const updateCommission = (input: {
 
     if (!characterRecord) {
       throw new Error('Selected character does not exist.')
-    }
-
-    const oldFileName = currentCommission.fileName
-    let imageMapChanged = false
-    if (oldFileName !== fileName) {
-      const oldCountRow = db
-        .prepare('SELECT COUNT(*) as count FROM commissions WHERE file_name = @fileName')
-        .get({ fileName: oldFileName }) as { count: number }
-      const newCountRow = db
-        .prepare(
-          'SELECT COUNT(*) as count FROM commissions WHERE file_name = @fileName AND id != @id',
-        )
-        .get({ fileName, id: input.id }) as { count: number }
-      imageMapChanged = Number(oldCountRow.count) === 1 || Number(newCountRow.count) === 0
     }
 
     db.prepare(
@@ -481,8 +462,6 @@ export const updateCommission = (input: {
       keyword: normalizeKeyword(input.keyword),
       hidden: input.hidden ? 1 : 0,
     })
-
-    return { imageMapChanged }
   })
 }
 
@@ -564,7 +543,7 @@ export const saveCreatorAliasesBatch = (
 
 export type { CharacterRow, CommissionRow }
 
-export const deleteCharacter = (id: number): { imageMapChanged: boolean } => {
+export const deleteCharacter = (id: number) => {
   ensureWritable()
 
   return withWritableDatabase(db => {
@@ -576,30 +555,6 @@ export const deleteCharacter = (id: number): { imageMapChanged: boolean } => {
       throw new Error('Character not found.')
     }
 
-    const deletedFileNames = db
-      .prepare(
-        'SELECT DISTINCT file_name as fileName FROM commissions WHERE character_id = @characterId',
-      )
-      .all({ characterId: id }) as Array<{ fileName: string }>
-
-    let imageMapChanged = false
-    if (deletedFileNames.length > 0) {
-      const placeholders = deletedFileNames.map((_, index) => `@f${index}`).join(', ')
-      const bindings = deletedFileNames.reduce<Record<string, string>>((acc, row, index) => {
-        acc[`f${index}`] = row.fileName
-        return acc
-      }, {})
-
-      const remainingRows = db
-        .prepare(
-          `SELECT DISTINCT file_name as fileName FROM commissions WHERE character_id != @characterId AND file_name IN (${placeholders})`,
-        )
-        .all({ characterId: id, ...bindings }) as Array<{ fileName: string }>
-
-      const remaining = new Set(remainingRows.map(row => row.fileName))
-      imageMapChanged = deletedFileNames.some(row => !remaining.has(row.fileName))
-    }
-
     const transaction = db.transaction(() => {
       db.prepare('DELETE FROM commissions WHERE character_id = @characterId').run({
         characterId: id,
@@ -608,12 +563,10 @@ export const deleteCharacter = (id: number): { imageMapChanged: boolean } => {
     })
 
     transaction()
-
-    return { imageMapChanged }
   })
 }
 
-export const deleteCommission = (id: number): { imageMapChanged: boolean } => {
+export const deleteCommission = (id: number) => {
   ensureWritable()
 
   return withWritableDatabase(db => {
@@ -622,14 +575,9 @@ export const deleteCommission = (id: number): { imageMapChanged: boolean } => {
       .get({ id }) as { fileName: string } | undefined
 
     if (!existing) {
-      return { imageMapChanged: false }
+      return
     }
 
-    const countRow = db
-      .prepare('SELECT COUNT(*) as count FROM commissions WHERE file_name = @fileName')
-      .get({ fileName: existing.fileName }) as { count: number }
-
     db.prepare('DELETE FROM commissions WHERE id = @id').run({ id })
-    return { imageMapChanged: Number(countRow.count) === 1 }
   })
 }

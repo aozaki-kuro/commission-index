@@ -1,8 +1,8 @@
 import path from 'node:path'
 
-import { runImageConversion, runImageImportWorkflow, runImageWorkflow } from '#lib/pipeline/images'
+import { runImageConversion, runImageWorkflow } from '#lib/pipeline/images'
 
-type CliMode = 'all' | 'convert-only' | 'import-only'
+type CliMode = 'all' | 'convert-only'
 
 type ImageCliArgs = {
   mode: CliMode
@@ -20,11 +20,10 @@ const printHelp = () => {
       'Usage: bun run scripts/images.ts [options]',
       '',
       'Options:',
-      '  --all             Run conversion + import generation (default)',
+      '  --all             Run conversion + image audit (default)',
       '  --convert-only    Run conversion only',
-      '  --import-only     Run import generation only',
-      '  --prune-unused    Remove unused webp files while generating imports',
-      '  --strict          Fail if unresolved image mappings exist',
+      '  --prune-unused    Remove unused webp files during image audit',
+      '  --strict          Fail if unresolved images exist',
       '  --help            Show this message',
     ].join('\n'),
   )
@@ -38,7 +37,6 @@ const parseCliArgs = (argv: string[]): ImageCliArgs => {
   for (const arg of argv) {
     if (arg === '--all') mode = 'all'
     else if (arg === '--convert-only') mode = 'convert-only'
-    else if (arg === '--import-only') mode = 'import-only'
     else if (arg === '--prune-unused') cleanUnused = true
     else if (arg === '--strict') strict = true
     else if (arg === '--help') {
@@ -58,14 +56,6 @@ if (process.argv[1] && path.basename(process.argv[1]).startsWith('images')) {
 
     if (cliArgs.mode === 'convert-only') {
       await runImageConversion()
-      return
-    }
-
-    if (cliArgs.mode === 'import-only') {
-      runImageImportWorkflow({
-        strict: cliArgs.strict,
-        cleanUnused: cliArgs.cleanUnused,
-      })
       return
     }
 

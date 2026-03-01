@@ -14,7 +14,7 @@ import {
   type CharacterStatus,
 } from '#lib/admin/db'
 import type { FormState } from './types'
-import { runImageImportPipeline, runImagePipeline } from './imagePipeline'
+import { runImagePipeline } from './imagePipeline'
 import {
   removeSourceImageFile,
   replaceUploadedSourceImage,
@@ -162,7 +162,7 @@ export const addCommissionAction = async (
   }
 
   try {
-    const { characterName, imageMapChanged } = createCommission({
+    const { characterName } = createCommission({
       characterId: fields.characterId,
       fileName: fields.fileName,
       links: fields.links,
@@ -171,7 +171,7 @@ export const addCommissionAction = async (
       keyword: fields.keyword,
       hidden: fields.hidden,
     })
-    if (imageMapChanged || uploadedSourceImagePath) {
+    if (uploadedSourceImagePath) {
       await runImagePipeline()
     }
     revalidatePublicViews()
@@ -255,7 +255,7 @@ export const updateCommissionAction = async (
   if (validation) return validation
 
   try {
-    const { imageMapChanged } = updateCommission({
+    updateCommission({
       id,
       characterId: fields.characterId,
       fileName: fields.fileName,
@@ -265,9 +265,6 @@ export const updateCommissionAction = async (
       keyword: fields.keyword,
       hidden: fields.hidden,
     })
-    if (imageMapChanged) {
-      await runImageImportPipeline()
-    }
     revalidatePublicViews()
     revalidatePath('/admin')
     return { status: 'success', message: `Commission "${fields.fileName}" updated.` }
@@ -324,12 +321,9 @@ export async function deleteCommissionAction(id: number): Promise<FormState> {
   ensureWritable()
 
   try {
-    const { imageMapChanged } = deleteCommission(id)
+    deleteCommission(id)
     revalidatePublicViews()
     revalidatePath('/admin')
-    if (imageMapChanged) {
-      await runImageImportPipeline()
-    }
     return { status: 'success', message: 'Commission deleted.' }
   } catch (error) {
     return {
@@ -343,12 +337,9 @@ export async function deleteCharacterAction(id: number): Promise<FormState> {
   ensureWritable()
 
   try {
-    const { imageMapChanged } = deleteCharacter(id)
+    deleteCharacter(id)
     revalidatePublicViews()
     revalidatePath('/admin')
-    if (imageMapChanged) {
-      await runImageImportPipeline()
-    }
     return { status: 'success', message: 'Character deleted.' }
   } catch (error) {
     return {

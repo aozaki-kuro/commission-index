@@ -59,8 +59,6 @@ Additional guidance:
 
 - To add or update images, run:
   - `bun run scripts/images.ts`
-- To regenerate import mapping only:
-  - `bun run scripts/images.ts --import-only`
 - To clean stale webp files:
   - `bun run images:prune-unused`
 

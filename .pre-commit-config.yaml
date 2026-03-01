@@ -14,9 +14,9 @@ repos:
           - pre-commit
         always_run: true
 
-      - id: image-import
-        name: image import
-        entry: bun run scripts/images.ts --import-only
+      - id: image-audit
+        name: image audit
+        entry: bun run scripts/images.ts
         language: system
         pass_filenames: false
         stages:

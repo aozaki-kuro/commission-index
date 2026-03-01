@@ -12,7 +12,6 @@ const mocks = vi.hoisted(() => ({
   deleteCharacter: vi.fn(),
   deleteCommission: vi.fn(),
   runImagePipeline: vi.fn(),
-  runImageImportPipeline: vi.fn(),
   saveUploadedSourceImage: vi.fn(),
   replaceUploadedSourceImage: vi.fn(),
   removeSourceImageFile: vi.fn(),
@@ -35,7 +34,6 @@ vi.mock('#lib/admin/db', () => ({
 
 vi.mock('./imagePipeline', () => ({
   runImagePipeline: (...args: unknown[]) => mocks.runImagePipeline(...args),
-  runImageImportPipeline: (...args: unknown[]) => mocks.runImageImportPipeline(...args),
 }))
 
 vi.mock('./imageUpload', () => ({
@@ -53,12 +51,11 @@ const loadActions = async (nodeEnv: 'development' | 'production' = 'development'
 describe('admin actions.dev', () => {
   beforeEach(() => {
     Object.values(mocks).forEach(mock => mock.mockReset())
-    mocks.createCommission.mockReturnValue({ characterName: 'L*cia', imageMapChanged: false })
-    mocks.updateCommission.mockReturnValue({ imageMapChanged: false })
-    mocks.deleteCommission.mockReturnValue({ imageMapChanged: false })
-    mocks.deleteCharacter.mockReturnValue({ imageMapChanged: false })
+    mocks.createCommission.mockReturnValue({ characterName: 'L*cia' })
+    mocks.updateCommission.mockReturnValue(undefined)
+    mocks.deleteCommission.mockReturnValue(undefined)
+    mocks.deleteCharacter.mockReturnValue(undefined)
     mocks.runImagePipeline.mockResolvedValue(undefined)
-    mocks.runImageImportPipeline.mockResolvedValue(undefined)
     mocks.saveUploadedSourceImage.mockResolvedValue({
       targetPath: '/tmp/test-upload.jpg',
       targetFileName: '20991231_Vitest.jpg',
@@ -118,7 +115,7 @@ describe('admin actions.dev', () => {
     expect(mocks.createCommission).not.toHaveBeenCalled()
   })
 
-  it('parses commission form fields and triggers image pipeline when image map changes', async () => {
+  it('parses commission form fields without triggering pipeline when no source upload exists', async () => {
     const actions = await loadActions('development')
     const prev: FormState = { status: 'idle', message: '' }
     const formData = new FormData()
@@ -129,7 +126,7 @@ describe('admin actions.dev', () => {
     formData.set('description', '  desc ')
     formData.set('keyword', ' foo, bar ')
     formData.set('hidden', 'on')
-    mocks.createCommission.mockReturnValueOnce({ characterName: 'AZKi', imageMapChanged: true })
+    mocks.createCommission.mockReturnValueOnce({ characterName: 'AZKi' })
 
     const result = await actions.addCommissionAction(prev, formData)
 
@@ -146,13 +143,13 @@ describe('admin actions.dev', () => {
       keyword: 'foo, bar',
       hidden: true,
     })
-    expect(mocks.runImagePipeline).toHaveBeenCalledTimes(1)
+    expect(mocks.runImagePipeline).not.toHaveBeenCalled()
     expect(mocks.revalidatePath).toHaveBeenCalledWith('/')
     expect(mocks.revalidatePath).toHaveBeenCalledWith('/rss.xml')
     expect(mocks.revalidatePath).toHaveBeenCalledWith('/admin')
   })
 
-  it('validates update commission id and runs import pipeline when file mapping changes', async () => {
+  it('validates update commission id and updates commission successfully', async () => {
     const actions = await loadActions('development')
     const prev: FormState = { status: 'idle', message: '' }
     const invalidFormData = new FormData()
@@ -171,8 +168,6 @@ describe('admin actions.dev', () => {
     validFormData.set('characterId', '1')
     validFormData.set('fileName', '20990101_Test')
     validFormData.set('links', 'https://example.com')
-    mocks.updateCommission.mockReturnValueOnce({ imageMapChanged: true })
-
     const result = await actions.updateCommissionAction(prev, validFormData)
 
     expect(result).toEqual({
@@ -187,10 +182,10 @@ describe('admin actions.dev', () => {
         links: ['https://example.com'],
       }),
     )
-    expect(mocks.runImageImportPipeline).toHaveBeenCalledTimes(1)
+    expect(mocks.runImagePipeline).not.toHaveBeenCalled()
   })
 
-  it('uploads source image and runs image pipeline when image map is unchanged', async () => {
+  it('uploads source image and runs image pipeline', async () => {
     const actions = await loadActions('development')
     const prev: FormState = { status: 'idle', message: '' }
     const formData = new FormData()
@@ -343,11 +338,11 @@ describe('admin actions.dev', () => {
     })
     expect(mocks.updateCharactersOrder).toHaveBeenCalledWith({ active: [3, 1], stale: [2] })
 
-    mocks.deleteCommission.mockReturnValueOnce({ imageMapChanged: true })
+    mocks.deleteCommission.mockReturnValueOnce(undefined)
     expect(await actions.deleteCommissionAction(7)).toEqual({
       status: 'success',
       message: 'Commission deleted.',
     })
-    expect(mocks.runImageImportPipeline).toHaveBeenCalledTimes(1)
+    expect(mocks.runImagePipeline).not.toHaveBeenCalled()
   })
 })

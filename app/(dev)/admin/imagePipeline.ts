@@ -2,7 +2,7 @@
 
 import path from 'node:path'
 
-import { runImageImportWorkflow, runImageWorkflow } from '#lib/pipeline/images'
+import { runImageWorkflow } from '#lib/pipeline/images'
 
 // Runs image conversion + import regeneration in development.
 export const runImagePipeline = async () => {
@@ -13,17 +13,6 @@ export const runImagePipeline = async () => {
     await runImageWorkflow()
     console.log('[image-pipeline] source images in', imagesDir)
     console.log('[image-pipeline] updated images in', path.join(cwd, 'public', 'images', 'webp'))
-  } catch (error) {
-    console.error('[image-pipeline] failed:', error)
-  }
-}
-
-export const runImageImportPipeline = async () => {
-  try {
-    const cwd = process.cwd()
-    const imageImportsFile = path.join(cwd, 'data', 'imageImports.ts')
-    runImageImportWorkflow()
-    console.log('[image-pipeline] updated import map in', imageImportsFile)
   } catch (error) {
     console.error('[image-pipeline] failed:', error)
   }

@@ -14,7 +14,7 @@ type ListingProps = {
  * Listing 组件显示特定角色的所有委托作品，包括图片、信息和链接。
  * @param Character - 角色名称。
  */
-const Listing = async ({ Character, status, commissionMap, creatorAliasesMap }: ListingProps) => {
+const Listing = ({ Character, status, commissionMap, creatorAliasesMap }: ListingProps) => {
   const sectionId = getCharacterSectionId(Character)
   const characterData = commissionMap.get(Character)
   const commissions = characterData?.Commissions ?? []
@@ -32,7 +32,7 @@ const Listing = async ({ Character, status, commissionMap, creatorAliasesMap }: 
       {commissions.length === 0 ? (
         <p className="my-4">To be announced ...</p>
       ) : (
-        await CommissionEntries({
+        CommissionEntries({
           entries: commissions.map(commission => ({
             character: Character,
             commission,

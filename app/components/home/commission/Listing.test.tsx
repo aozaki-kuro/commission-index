@@ -19,10 +19,6 @@ vi.mock('./ProtectedCommissionImage', () => ({
   default: ({ altText }: { altText: string }) => <img alt={altText} />,
 }))
 
-vi.mock('#data/imageImports', () => ({
-  imageImports: {},
-}))
-
 vi.mock('#data/creatorAliases', () => ({
   normalizeCreatorSearchName: (value: string) => value.replace(/\s+\(part\s+\d+\)$/i, '').trim(),
 }))
