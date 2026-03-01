@@ -1,6 +1,10 @@
 import { memo, useEffect, useState, type ComponentType } from 'react'
 import { useCommissionViewMode } from '#components/home/commission/CommissionViewMode'
+import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { trackRybbitEvent } from '#lib/analytics/track'
 import type { CharacterNavItem } from '#lib/characters/nav'
+import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
+import { SidebarContent, SidebarGroup, SidebarMenu, SidebarMenuItem } from '#components/ui/sidebar'
 import { STYLES } from './constants'
 import { MenuIcon } from './Icons'
 import type { CharacterEntry } from './types'
@@ -41,9 +45,44 @@ interface MenuContentProps {
   timelineNavItems: CharacterNavItem[]
 }
 
+const UTILITY_ROW_WRAPPER_CLASSES =
+  'flex w-full items-center justify-between rounded-lg px-4 py-1 text-gray-700 transition-colors duration-150 hover:bg-white/70 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-white/10 dark:hover:text-white'
+const UTILITY_ROW_TEXT_CLASSES =
+  'font-mono text-base leading-6 font-bold no-underline transition-colors duration-200'
+const VIEW_MODE_TOGGLE_ITEMS = [
+  { mode: 'character', label: 'By Character' },
+  { mode: 'timeline', label: 'By Date' },
+] as const
+
+interface ModeToggleButtonProps {
+  label: string
+  active: boolean
+  onClick: () => void
+}
+
+const ModeToggleButton = ({ label, active, onClick }: ModeToggleButtonProps) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-pressed={active}
+    data-link-style="true"
+    className={`${UTILITY_ROW_WRAPPER_CLASSES} cursor-pointer appearance-none border-0 bg-transparent p-0 text-left no-underline ${
+      active ? 'text-gray-900 dark:text-white' : ''
+    }`.trim()}
+  >
+    <span className={UTILITY_ROW_TEXT_CLASSES}>{label}</span>
+    <span
+      className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${
+        active ? 'scale-100 bg-gray-500 opacity-100' : 'scale-0 opacity-0'
+      }`}
+      aria-hidden="true"
+    />
+  </button>
+)
+
 const MenuContent = memo(
   ({ mounted, open, close, toggle, active, stale, timelineNavItems }: MenuContentProps) => {
-    const { mode } = useCommissionViewMode()
+    const { mode, setMode } = useCommissionViewMode()
     const [CharacterMenuListComponent, setCharacterMenuListComponent] =
       useState<ComponentType<CharacterMenuListProps> | null>(() => cachedCharacterMenuList)
 
@@ -68,7 +107,6 @@ const MenuContent = memo(
       WebkitBackdropFilter: STYLES.backdrop,
       backdropFilter: STYLES.backdrop,
     } as const
-    const menuTitle = mode === 'timeline' ? 'Years' : 'Characters'
     const loadingLabel = mode === 'timeline' ? 'years' : 'characters'
 
     return (
@@ -105,23 +143,71 @@ const MenuContent = memo(
             }`}
             style={backdropStyle}
           >
-            <div className="border-b border-gray-300/50 p-4 dark:border-white/10">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">{menuTitle}</h2>
-            </div>
-            <div className="p-2">
-              {CharacterMenuListComponent ? (
-                <CharacterMenuListComponent
-                  active={active}
-                  stale={stale}
-                  timelineNavItems={timelineNavItems}
-                  close={close}
-                />
-              ) : (
-                <div className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                  {`Loading ${loadingLabel}...`}
-                </div>
-              )}
-            </div>
+            <SidebarContent className="space-y-0">
+              <SidebarGroup className="space-y-1.5 border-b border-gray-300/50 px-2 py-3 dark:border-white/10">
+                <SidebarMenu className="space-y-1.5">
+                  <SidebarMenuItem>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        jumpToCommissionSearch({ topGap: 40, focusMode: 'immediate' })
+                        close()
+                      }}
+                      className={`${UTILITY_ROW_WRAPPER_CLASSES} cursor-pointer appearance-none border-0 bg-transparent p-0 text-left no-underline`}
+                    >
+                      <span className={UTILITY_ROW_TEXT_CLASSES}>Search</span>
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-3.5 w-3.5 text-gray-500 transition-colors"
+                        fill="none"
+                        stroke="currentColor"
+                        aria-hidden="true"
+                      >
+                        <path
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="m21 21-4.4-4.4"
+                        />
+                        <circle cx="11" cy="11" r="6" strokeWidth="2" />
+                      </svg>
+                    </button>
+                  </SidebarMenuItem>
+
+                  {VIEW_MODE_TOGGLE_ITEMS.map(item => (
+                    <SidebarMenuItem key={item.mode}>
+                      <ModeToggleButton
+                        label={item.label}
+                        active={mode === item.mode}
+                        onClick={() => {
+                          trackRybbitEvent(ANALYTICS_EVENTS.sidebarViewModeToggleUsed, {
+                            from_mode: mode,
+                            to_mode: item.mode,
+                            already_active: mode === item.mode,
+                          })
+                          setMode(item.mode)
+                        }}
+                      />
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroup>
+
+              <div className="p-2">
+                {CharacterMenuListComponent ? (
+                  <CharacterMenuListComponent
+                    active={active}
+                    stale={stale}
+                    timelineNavItems={timelineNavItems}
+                    close={close}
+                  />
+                ) : (
+                  <div className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
+                    {`Loading ${loadingLabel}...`}
+                  </div>
+                )}
+              </div>
+            </SidebarContent>
           </div>
         ) : null}
       </>

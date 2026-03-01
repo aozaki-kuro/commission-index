@@ -3,13 +3,10 @@
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import type { CharacterNavItem } from '#lib/characters/nav'
-import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MenuContent, { preloadCharacterMenuList } from './hamburger/MenuContent'
 import { MENU_TRANSITION_MS } from './hamburger/constants'
-import SearchJumpButton from './hamburger/SearchJumpButton'
 import type { CharacterEntry } from './hamburger/types'
-import ViewModeSwitchButton from './hamburger/ViewModeSwitchButton'
 
 type IdleWindow = Window & {
   requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
@@ -107,14 +104,8 @@ const Hamburger = ({ active, stale, timelineNavItems }: HamburgerProps) => {
     }
   }, [clearCloseTimer, clearOpenRaf])
 
-  const jumpToSearch = useCallback(() => {
-    jumpToCommissionSearch({ topGap: 40, focusMode: 'immediate' })
-  }, [])
-
   return (
     <div className="fixed right-8 bottom-8 z-[90] flex flex-col items-end gap-3 md:hidden">
-      {!mounted ? <ViewModeSwitchButton /> : null}
-      {!mounted ? <SearchJumpButton onClick={jumpToSearch} /> : null}
       <MenuContent
         mounted={mounted}
         open={open}

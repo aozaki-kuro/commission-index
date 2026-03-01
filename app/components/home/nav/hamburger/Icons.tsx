@@ -35,10 +35,3 @@ export const ChevronIcon = memo(({ isExpanded }: { isExpanded: boolean }) => (
   </svg>
 ))
 ChevronIcon.displayName = 'ChevronIcon'
-
-export const SearchIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
-    <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.4-4.4" />
-    <circle cx="11" cy="11" r="6" strokeWidth="2" />
-  </svg>
-)

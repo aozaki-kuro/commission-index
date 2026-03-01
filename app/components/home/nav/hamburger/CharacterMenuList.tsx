@@ -3,8 +3,9 @@ import { buildCharacterNavItems, type CharacterNavItem } from '#lib/characters/n
 import { scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '#lib/navigation/syncHiddenSectionLinkAvailability'
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { LIST_TRANSITION_MS, STYLES } from './constants'
+import { SidebarMenu, SidebarMenuItem } from '#components/ui/sidebar'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { STYLES } from './constants'
 import { ChevronIcon } from './Icons'
 import type { CharacterEntry } from './types'
 
@@ -53,21 +54,62 @@ interface NavItemsListProps {
 
 const NavItemsList = memo(
   ({ items, close, useTimelineHref = false, preventHashWrite = false }: NavItemsListProps) => (
-    <ul>
+    <SidebarMenu>
       {items.map(item => (
-        <li key={item.sectionId}>
+        <SidebarMenuItem key={item.sectionId}>
           <ListItem
             item={item}
             href={useTimelineHref ? `/?view=timeline${item.sectionHash}` : undefined}
             close={close}
             preventHashWrite={preventHashWrite}
           />
-        </li>
+        </SidebarMenuItem>
       ))}
-    </ul>
+    </SidebarMenu>
   ),
 )
 NavItemsList.displayName = 'NavItemsList'
+
+type ExpandedSection = 'active' | 'stale'
+
+interface CharacterSectionProps {
+  id: string
+  label: string
+  expanded: boolean
+  onExpand: () => void
+  emptyLabel: string
+  items: CharacterNavItem[]
+  close: () => void
+}
+
+const CharacterSection = memo(
+  ({ id, label, expanded, onExpand, emptyLabel, items, close }: CharacterSectionProps) => {
+    return (
+      <section className="mt-1.5 first:mt-0">
+        <button
+          type="button"
+          onClick={onExpand}
+          aria-expanded={expanded}
+          aria-controls={id}
+          className="flex w-full cursor-pointer items-center justify-between rounded-lg px-4 py-2 text-left font-mono transition-colors duration-150 hover:bg-white/70 dark:hover:bg-white/10"
+        >
+          <p className="text-base leading-6 font-bold text-gray-700 dark:text-gray-200">{label}</p>
+          <ChevronIcon isExpanded={expanded} />
+        </button>
+        <div id={id} hidden={!expanded} className="mt-1">
+          {items.length > 0 ? (
+            <NavItemsList items={items} close={close} />
+          ) : (
+            <p className="px-4 py-2 font-mono text-sm text-gray-500 dark:text-gray-400">
+              {emptyLabel}
+            </p>
+          )}
+        </div>
+      </section>
+    )
+  },
+)
+CharacterSection.displayName = 'CharacterSection'
 
 interface CharacterMenuListProps {
   active: CharacterEntry[]
@@ -76,134 +118,15 @@ interface CharacterMenuListProps {
   close: () => void
 }
 
-interface CharacterStatusListBodyProps {
-  active: CharacterEntry[]
-  stale: CharacterEntry[]
-  close: () => void
-}
-
-const CharacterStatusListBody = memo(({ active, stale, close }: CharacterStatusListBodyProps) => {
-  const [isStaleExpanded, setIsStaleExpanded] = useState(false)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [isInitialRender, setIsInitialRender] = useState(true)
-  const [containerHeight, setContainerHeight] = useState(0)
-
-  const activeListRef = useRef<HTMLDivElement>(null)
-  const staleListRef = useRef<HTMLDivElement>(null)
-  const expandedRef = useRef(isStaleExpanded)
-
-  useEffect(() => {
-    expandedRef.current = isStaleExpanded
-  }, [isStaleExpanded])
-
-  const measureContainer = useCallback(() => {
-    const target = (expandedRef.current ? staleListRef : activeListRef).current
-    setContainerHeight(target?.scrollHeight ?? 0)
-  }, [])
-
-  useEffect(() => {
-    const activeList = activeListRef.current
-    const staleList = staleListRef.current
-    if (!activeList || !staleList) return
-
-    const resizeObserver = new ResizeObserver(() => measureContainer())
-    resizeObserver.observe(activeList)
-    resizeObserver.observe(staleList)
-
-    const rafId = requestAnimationFrame(measureContainer)
-
-    return () => {
-      resizeObserver.disconnect()
-      cancelAnimationFrame(rafId)
-    }
-  }, [measureContainer, active.length, stale.length])
-
-  useEffect(() => {
-    const rafId = requestAnimationFrame(measureContainer)
-    return () => cancelAnimationFrame(rafId)
-  }, [isStaleExpanded, measureContainer])
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setIsInitialRender(false))
-    return () => cancelAnimationFrame(id)
-  }, [])
-
-  const toggleStaleList = useCallback(() => {
-    if (isAnimating) return
-    setIsAnimating(true)
-    setIsStaleExpanded(prev => !prev)
-  }, [isAnimating])
-
-  useEffect(() => {
-    if (!isAnimating) return
-    const id = window.setTimeout(() => setIsAnimating(false), LIST_TRANSITION_MS)
-    return () => window.clearTimeout(id)
-  }, [isAnimating])
-
-  const activeNavItems = useMemo(() => buildCharacterNavItems(active), [active])
-  const staleNavItems = useMemo(() => buildCharacterNavItems(stale), [stale])
-
-  const getListTransform = (isStaleList: boolean) => {
-    if (isInitialRender) return isStaleList ? 'translate-y-full' : 'translate-y-0'
-    if (isStaleExpanded) return isStaleList ? 'translate-y-0' : '-translate-y-full'
-    return isStaleList ? 'translate-y-full' : 'translate-y-0'
-  }
-
-  const getListOpacity = (isStaleList: boolean) => {
-    if (isInitialRender) return isStaleList ? 'opacity-0' : 'opacity-100'
-    if (isAnimating) return 'opacity-100'
-    return isStaleExpanded
-      ? isStaleList
-        ? 'opacity-100'
-        : 'opacity-0'
-      : isStaleList
-        ? 'opacity-0'
-        : 'opacity-100'
-  }
-
-  const transitionClasses = isInitialRender ? '' : 'transition-all duration-300 ease-out'
-
-  return (
-    <>
-      <div
-        className={`relative overflow-hidden will-change-[height] ${
-          isInitialRender ? '' : 'transition-[height] duration-300 ease-out'
-        }`}
-        style={{ height: containerHeight ? `${containerHeight}px` : undefined }}
-      >
-        <div
-          ref={activeListRef}
-          className={`absolute inset-x-0 w-full will-change-transform ${transitionClasses} ${getListTransform(false)} ${getListOpacity(false)}`}
-        >
-          <NavItemsList items={activeNavItems} close={close} />
-        </div>
-
-        <div
-          ref={staleListRef}
-          className={`absolute inset-x-0 w-full will-change-transform ${transitionClasses} ${getListTransform(true)} ${getListOpacity(true)}`}
-        >
-          <NavItemsList items={staleNavItems} close={close} />
-        </div>
-      </div>
-
-      <button
-        onClick={toggleStaleList}
-        className={STYLES.toggleButton}
-        type="button"
-        disabled={isAnimating}
-      >
-        <p className="font-bold text-gray-600 dark:text-gray-300">Stale Characters</p>
-        <ChevronIcon isExpanded={isStaleExpanded} />
-      </button>
-    </>
-  )
-})
-CharacterStatusListBody.displayName = 'CharacterStatusListBody'
-
 const CharacterMenuList = memo(
   ({ active, stale, timelineNavItems, close }: CharacterMenuListProps) => {
     const { mode } = useCommissionViewMode()
+    const [expandedSection, setExpandedSection] = useState<ExpandedSection>('active')
     const rootRef = useRef<HTMLDivElement>(null)
+
+    const activeNavItems = useMemo(() => buildCharacterNavItems(active), [active])
+    const staleNavItems = useMemo(() => buildCharacterNavItems(stale), [stale])
+
     const activeItemsKey = useMemo(() => active.map(item => item.DisplayName).join('\n'), [active])
     const staleItemsKey = useMemo(() => stale.map(item => item.DisplayName).join('\n'), [stale])
     const timelineItemsKey = useMemo(
@@ -226,14 +149,33 @@ const CharacterMenuList = memo(
       syncLinkAvailability()
       window.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, syncLinkAvailability)
       return () => window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, syncLinkAvailability)
-    }, [activeItemsKey, mode, staleItemsKey, timelineItemsKey])
+    }, [activeItemsKey, expandedSection, mode, staleItemsKey, timelineItemsKey])
 
     return (
       <div ref={rootRef} className="relative">
         {mode === 'timeline' ? (
           <NavItemsList items={timelineNavItems} close={close} useTimelineHref preventHashWrite />
         ) : (
-          <CharacterStatusListBody active={active} stale={stale} close={close} />
+          <>
+            <CharacterSection
+              id="mobile-active-characters"
+              label="Active Characters"
+              expanded={expandedSection === 'active'}
+              onExpand={() => setExpandedSection('active')}
+              emptyLabel="No active characters."
+              items={activeNavItems}
+              close={close}
+            />
+            <CharacterSection
+              id="mobile-stale-characters"
+              label="Stale Characters"
+              expanded={expandedSection === 'stale'}
+              onExpand={() => setExpandedSection('stale')}
+              emptyLabel="No stale characters."
+              items={staleNavItems}
+              close={close}
+            />
+          </>
         )}
       </div>
     )
