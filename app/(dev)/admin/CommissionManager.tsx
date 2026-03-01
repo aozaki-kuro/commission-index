@@ -5,6 +5,8 @@ import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { useCallback, useMemo, useRef, useState } from 'react'
 
 import type { CharacterRow, CommissionRow, CreatorAliasRow } from '#lib/admin/db'
+import { getCharacterSectionId } from '#lib/characters/nav'
+import { buildCommissionSearchDomKey } from '#lib/search/commissionSearchMetadata'
 import CommissionSearch, {
   type CommissionSearchEntrySource,
 } from '#components/home/search/CommissionSearch'
@@ -96,6 +98,10 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
         )
         entries.push({
           id: commission.id,
+          domKey: buildCommissionSearchDomKey(
+            getCharacterSectionId(characterName),
+            commission.fileName,
+          ),
           searchText: metadata.searchText,
           searchSuggest: metadata.searchSuggestionText,
         })

@@ -1,19 +1,22 @@
-import { mkdir, writeFile } from 'node:fs/promises'
+import { getCharacterSectionId } from '#lib/characters/nav'
+import {
+  buildCommissionSearchDomKey,
+  buildCommissionSearchMetadata,
+} from '#lib/search/commissionSearchMetadata'
+import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
 import { getCommissionDataMap } from '#data/commissionData'
 import { getCharacterRecords } from '#data/commissionRecords'
-import { getCreatorAliasesMap, normalizeCreatorSearchName } from '#data/creatorAliases'
-import { parseCommissionFileName } from '#lib/commissions/index'
-import { buildDateSearchTokensFromCompactDate } from '#lib/date/search'
+import { getCreatorAliasesMap } from '#data/creatorAliases'
+import { writeFileIfChanged } from './writeFileIfChanged'
 
 type SearchEntry = {
   id: number
+  domKey: string
   searchText: string
   searchSuggest: string
 }
-
-const normalizeSuggestionKey = (term: string) => term.trim().toLowerCase()
 
 const buildHomeSearchEntries = (): SearchEntry[] => {
   const records = getCharacterRecords()
@@ -28,58 +31,25 @@ const buildHomeSearchEntries = (): SearchEntry[] => {
 
   for (const characterName of orderedCharacters) {
     const commissions = commissionMap.get(characterName)?.Commissions ?? []
+    const sectionId = getCharacterSectionId(characterName)
 
     for (const commission of commissions) {
-      const { date, year, creator } = parseCommissionFileName(commission.fileName)
-      const month = date.slice(4, 6)
-      const normalizedCreatorName = creator ? normalizeCreatorSearchName(creator) : null
-      const creatorAliases = normalizedCreatorName
-        ? (creatorAliasesMap.get(normalizedCreatorName) ?? [])
-        : []
-      const searchableDateTerms = [date, ...buildDateSearchTokensFromCompactDate(date)]
-      const keywordTerms = (commission.Keyword ?? '')
-        .split(/[,\n，、;；]/)
-        .map(keyword => keyword.trim())
-        .filter(Boolean)
-      const keywordSearchText = keywordTerms.join(' ')
-
-      const suggestionEntries = [
-        { source: 'Character', term: characterName },
-        { source: 'Date', term: `${year}/${month}` },
-        ...(normalizedCreatorName
-          ? [{ source: 'Creator' as const, term: normalizedCreatorName }]
-          : []),
-        ...creatorAliases.map(alias => ({ source: 'Creator' as const, term: alias })),
-        ...keywordTerms.map(keyword => ({ source: 'Keyword' as const, term: keyword })),
-      ]
-
-      const uniqueSuggestions = new Map<string, { source: string; term: string }>()
-      for (const entry of suggestionEntries) {
-        const normalizedTerm = normalizeSuggestionKey(entry.term)
-        if (!normalizedTerm || uniqueSuggestions.has(normalizedTerm)) continue
-        uniqueSuggestions.set(normalizedTerm, entry)
-      }
-
-      const searchSuggest = [...uniqueSuggestions.values()]
-        .map(entry => `${entry.source}\t${entry.term}`)
-        .join('\n')
-
-      const searchText = [
+      const metadata = buildCommissionSearchMetadata({
         characterName,
-        normalizedCreatorName,
-        ...creatorAliases,
-        ...searchableDateTerms,
-        commission.Design ?? '',
-        commission.Description ?? '',
-        keywordSearchText,
-      ]
-        .join(' ')
-        .toLowerCase()
+        fileName: commission.fileName,
+        design: commission.Design,
+        description: commission.Description,
+        keyword: commission.Keyword,
+        creatorAliasesMap,
+        creatorSuggestionMode: 'normalized',
+        creatorSearchTextMode: 'normalized',
+      })
 
       entries.push({
         id: nextId,
-        searchText,
-        searchSuggest,
+        domKey: buildCommissionSearchDomKey(sectionId, commission.fileName),
+        searchText: metadata.searchText,
+        searchSuggest: metadata.searchSuggestionText,
       })
       nextId += 1
     }
@@ -92,7 +62,12 @@ const outputPath = path.join(process.cwd(), 'public', 'search', 'home-search-ent
 
 const entries = buildHomeSearchEntries()
 await mkdir(path.dirname(outputPath), { recursive: true })
-await writeFile(outputPath, `${JSON.stringify(entries, null, 2)}\n`)
-console.log(
-  `Generated ${entries.length} home search entries -> ${path.relative(process.cwd(), outputPath)}`,
-)
+const payload = `${JSON.stringify(entries, null, 2)}\n`
+const result = await writeFileIfChanged(outputPath, payload)
+const relativeOutputPath = path.relative(process.cwd(), outputPath)
+
+if (result === 'unchanged') {
+  console.log(`Home search entries unchanged (${entries.length}) -> ${relativeOutputPath}`)
+} else {
+  console.log(`Generated ${entries.length} home search entries -> ${relativeOutputPath}`)
+}

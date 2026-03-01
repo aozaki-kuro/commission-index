@@ -27,6 +27,7 @@ describe('CommissionSearch', () => {
     const entries: CommissionSearchEntrySource[] = [
       {
         id: 1,
+        domKey: 'test-character::20240101_sample',
         searchText: 'alice sample tag',
         searchSuggest: 'Character\tAlice\nKeyword\ttag',
       },
@@ -48,6 +49,7 @@ describe('CommissionSearch', () => {
     const entries: CommissionSearchEntrySource[] = [
       {
         id: 1,
+        domKey: 'test-character::20240101_blue',
         searchText: 'blue sample',
         searchSuggest: 'Keyword\tblue',
       },
@@ -74,6 +76,7 @@ describe('CommissionSearch', () => {
     const entries: CommissionSearchEntrySource[] = [
       {
         id: 1,
+        domKey: 'test-character::20240101_alice',
         searchText: 'alice sample',
         searchSuggest: 'Character\tAlice',
       },
@@ -87,5 +90,31 @@ describe('CommissionSearch', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copy search URL' }))
 
     expect(writeText).toHaveBeenCalledTimes(1)
+  })
+
+  it('selects the first suggestion by default when suggestions appear', () => {
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'test-character::20240101_kanaut_nishe',
+        searchText: 'kanaut nishe',
+        searchSuggest: 'Character\tKanaut Nishe',
+      },
+      {
+        id: 2,
+        domKey: 'test-character::20240102_ninomae',
+        searchText: "ninomae ina'nis",
+        searchSuggest: "Character\tNinomae Ina'nis",
+      },
+    ]
+
+    renderSearch(entries)
+
+    const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+    fireEvent.focus(input)
+    fireEvent.input(input, { target: { value: 'nis' } })
+
+    const firstSuggestion = screen.getByText('Kanaut Nishe').closest('[cmdk-item]')
+    expect(firstSuggestion).toHaveAttribute('data-selected', 'true')
   })
 })

@@ -43,6 +43,7 @@ type Entry = SearchEntryLike &
   SuggestionEntryLike & {
     element?: HTMLElement
     sectionId?: string
+    domKey?: string
   }
 
 type Section = {
@@ -60,6 +61,7 @@ type SearchIndex = SearchIndexLike<Entry> & {
 
 export interface CommissionSearchEntrySource {
   id: number
+  domKey: string
   searchText: string
   searchSuggest?: string
 }
@@ -181,7 +183,7 @@ const getActiveCommissionViewRoot = (viewMode: 'character' | 'timeline'): Parent
 const getDomSearchContext = (viewMode: 'character' | 'timeline') => {
   if (typeof window === 'undefined') {
     return {
-      domEntries: [] as Array<{ element: HTMLElement; sectionId?: string }>,
+      domEntries: [] as Array<{ element: HTMLElement; sectionId?: string; domKey?: string }>,
       sections: [] as Section[],
       staleDivider: null as HTMLElement | null,
     }
@@ -193,6 +195,7 @@ const getDomSearchContext = (viewMode: 'character' | 'timeline') => {
   ).map(element => ({
     element,
     sectionId: element.dataset.characterSectionId,
+    domKey: element.dataset.commissionSearchKey,
   }))
 
   const sections = Array.from(
@@ -217,18 +220,28 @@ const buildSearchIndex = (
   const { domEntries, sections, staleDivider } = getDomSearchContext(viewMode)
 
   if (externalEntries) {
-    const entries = externalEntries.map(entry => ({
-      id: entry.id,
-      searchText: entry.searchText.toLowerCase(),
-      suggestionRows: getParsedSuggestionRows(entry.searchSuggest ?? ''),
-      element: domEntries[entry.id]?.element,
-      sectionId: domEntries[entry.id]?.sectionId,
-    }))
+    const domEntryByKey = new Map(
+      domEntries
+        .filter(entry => Boolean(entry.domKey))
+        .map(entry => [entry.domKey as string, entry] as const),
+    )
+
+    const entries = externalEntries.map(entry => {
+      const domEntry = domEntryByKey.get(entry.domKey)
+      return {
+        id: entry.id,
+        domKey: entry.domKey,
+        searchText: entry.searchText.toLowerCase(),
+        suggestionRows: getParsedSuggestionRows(entry.searchSuggest ?? ''),
+        element: domEntry?.element,
+        sectionId: domEntry?.sectionId,
+      }
+    })
 
     return finalizeSearchIndex(entries, { sections, staleDivider })
   }
 
-  const entries = domEntries.map(({ element, sectionId }, id) => {
+  const entries = domEntries.map(({ element, sectionId, domKey }, id) => {
     const suggestText = element.dataset.searchSuggest ?? ''
     const suggestionRows = getParsedSuggestionRows(suggestText)
     return {
@@ -236,6 +249,7 @@ const buildSearchIndex = (
       id,
       element,
       sectionId,
+      domKey,
       searchText: (element.dataset.searchText ?? '').toLowerCase(),
     }
   })
@@ -481,16 +495,16 @@ const CommissionSearch = ({
   const hasTrackedSearchUsageRef = useRef(false)
   const [isHelpOpen, setIsHelpOpen] = useState(openHelpOnMount)
   const [copyState, setCopyState] = useState<'idle' | 'success'>('idle')
+  const [activeSuggestionTerm, setActiveSuggestionTerm] = useState('')
   const [isIndexReady, setIsIndexReady] = useState(
     () => !deferIndexInit || !!initialQuery || !!initialUrlQuery,
   )
   const shouldBuildIndex = isIndexReady || !deferIndexInit || !!query || !!initialUrlQuery
-  const activeExternalEntries = mode === 'character' ? externalEntries : undefined
 
   const index = useMemo(() => {
     if (!shouldBuildIndex) return createEmptySearchIndex()
-    return buildSearchIndex(mode, activeExternalEntries)
-  }, [activeExternalEntries, mode, shouldBuildIndex])
+    return buildSearchIndex(mode, externalEntries)
+  }, [externalEntries, mode, shouldBuildIndex])
 
   const matchedIds = useMemo(() => getMatchedEntryIds(deferredQuery, index), [deferredQuery, index])
 
@@ -550,6 +564,14 @@ const CommissionSearch = ({
         : [],
     }))
   }, [filteredSuggestions, relatedCreatorTermsMap])
+
+  const resolvedActiveSuggestionTerm = useMemo(() => {
+    if (suggestionViewModels.length === 0) return ''
+    if (suggestionViewModels.some(item => item.term === activeSuggestionTerm)) {
+      return activeSuggestionTerm
+    }
+    return suggestionViewModels[0].term
+  }, [activeSuggestionTerm, suggestionViewModels])
 
   useEffect(() => {
     onQueryChange?.(query)
@@ -754,6 +776,8 @@ const CommissionSearch = ({
         <div className="absolute inset-y-0 right-2 left-8 flex items-center gap-2">
           <Command
             shouldFilter={false}
+            value={resolvedActiveSuggestionTerm}
+            onValueChange={setActiveSuggestionTerm}
             className="relative h-full w-full overflow-visible bg-transparent"
           >
             <label htmlFor="commission-search-input" className="sr-only">
@@ -788,35 +812,33 @@ const CommissionSearch = ({
                       onSelect={() => applySuggestion(suggestion.term)}
                       className="cursor-pointer px-3 py-1.5 font-mono text-gray-700 data-[selected=true]:bg-gray-100 data-[selected=true]:text-gray-900 dark:text-gray-300 dark:data-[selected=true]:bg-gray-800 dark:data-[selected=true]:text-gray-100"
                     >
-                      <div className="grid min-w-0 gap-0.5">
-                        <div className="flex min-w-0 items-center justify-between gap-2">
-                          <span className="flex min-w-0 items-center gap-1.5">
-                            {suggestionIsExclusion ? (
-                              <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                                NOT
-                              </span>
-                            ) : suggestionOperator === 'or' ? (
-                              <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                                OR
-                              </span>
-                            ) : suggestionOperator === 'and' ? (
-                              <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                                AND
+                      <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-0.5">
+                        <span className="flex min-w-0 items-center gap-1.5">
+                          {suggestionIsExclusion ? (
+                            <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                              NOT
+                            </span>
+                          ) : suggestionOperator === 'or' ? (
+                            <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                              OR
+                            </span>
+                          ) : suggestionOperator === 'and' ? (
+                            <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                              AND
+                            </span>
+                          ) : null}
+                          <span className="flex min-w-0 items-baseline gap-1 truncate">
+                            <span className="truncate">{suggestion.term}</span>
+                            {suggestion.relatedCreatorTerms.length > 0 ? (
+                              <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
+                                ({suggestion.relatedCreatorTerms.join(' / ')})
                               </span>
                             ) : null}
-                            <span className="flex min-w-0 items-baseline gap-1 truncate">
-                              <span className="truncate">{suggestion.term}</span>
-                              {suggestion.relatedCreatorTerms.length > 0 ? (
-                                <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
-                                  ({suggestion.relatedCreatorTerms.join(' / ')})
-                                </span>
-                              ) : null}
-                            </span>
                           </span>
-                          <span className="shrink-0 rounded-full border border-gray-300/90 bg-gray-100/85 px-1.5 py-0.5 text-[10px] leading-none text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                            {suggestion.matchCountLabel}
-                          </span>
-                        </div>
+                        </span>
+                        <span className="col-start-2 row-span-2 self-center text-right text-[11px] leading-4 text-gray-500 tabular-nums dark:text-gray-400">
+                          {suggestion.matchCountLabel}
+                        </span>
                         <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
                           in {suggestion.sourcesLabel}
                         </span>

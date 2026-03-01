@@ -4,13 +4,9 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import TimelineView from './TimelineView'
 
-const mockCommissionEntries = vi.fn(
-  async ({ entries }: { entries: { entryAnchorPrefix: string }[] }) => (
-    <div data-testid="entry-prefixes">
-      {entries.map(entry => entry.entryAnchorPrefix).join(',')}
-    </div>
-  ),
-)
+const mockCommissionEntries = vi.fn(({ entries }: { entries: { entryAnchorPrefix: string }[] }) => (
+  <div data-testid="entry-prefixes">{entries.map(entry => entry.entryAnchorPrefix).join(',')}</div>
+))
 
 vi.mock('./CommissionEntries', () => ({
   default: (...args: Parameters<typeof mockCommissionEntries>) => mockCommissionEntries(...args),
@@ -42,7 +38,7 @@ describe('TimelineView', () => {
       },
     ]
 
-    render(await TimelineView({ groups, creatorAliasesMap: new Map() }))
+    render(TimelineView({ groups, creatorAliasesMap: new Map() }))
 
     expect(screen.getByTestId('entry-prefixes')).toHaveTextContent('test-character')
     expect(mockCommissionEntries).toHaveBeenCalledTimes(1)

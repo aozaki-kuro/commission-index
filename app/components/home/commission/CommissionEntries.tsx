@@ -1,7 +1,9 @@
-import { normalizeCreatorSearchName } from '#data/creatorAliases'
 import type { Commission } from '#data/types'
 import { parseCommissionFileName } from '#lib/commissions'
-import { buildDateSearchTokensFromCompactDate } from '#lib/date/search'
+import {
+  buildCommissionSearchDomKey,
+  buildCommissionSearchMetadata,
+} from '#lib/search/commissionSearchMetadata'
 import { getBaseFileName } from '#lib/utils/strings'
 import IllustratorInfo from './IllustratorInfo'
 import ProtectedCommissionImage from './ProtectedCommissionImage'
@@ -21,8 +23,6 @@ interface CommissionEntriesProps {
   embedSearchMetadata?: boolean
 }
 
-const normalizeSuggestionKey = (term: string) => term.trim().toLowerCase()
-
 const renderCommissionEntries = ({
   entries,
   creatorAliasesMap,
@@ -33,58 +33,28 @@ const renderCommissionEntries = ({
 
   return entries.map(({ character, commission, sectionId, entryKey, entryAnchorPrefix }) => {
     const { date, year, creator } = parseCommissionFileName(commission.fileName)
-    const normalizedCreatorName =
-      shouldEmbedSearchMetadata && creator ? normalizeCreatorSearchName(creator) : null
-    const creatorAliases =
-      shouldEmbedSearchMetadata && normalizedCreatorName && creatorAliasesMap
-        ? (creatorAliasesMap.get(normalizedCreatorName) ?? [])
-        : []
-    const month = date.slice(4, 6)
     const copyrightCreator = creator ? getBaseFileName(creator).trim() || creator : 'Anonymous'
     const altText = `© ${year} ${copyrightCreator} & Crystallize`
     const imageSrc = `/images/webp/${encodeURIComponent(commission.fileName)}.webp`
     const elementId = `${entryAnchorPrefix}-${date}`
-    const keywordTerms = (commission.Keyword ?? '')
-      .split(/[,\n，、;；]/)
-      .map(keyword => keyword.trim())
-      .filter(Boolean)
+    const searchKey = buildCommissionSearchDomKey(entryAnchorPrefix, commission.fileName)
+
     const searchAttributes = shouldEmbedSearchMetadata
       ? (() => {
-          const searchableDateTerms = [date, ...buildDateSearchTokensFromCompactDate(date)]
-          const keywordSearchText = keywordTerms.join(' ')
-          const suggestionEntries = [
-            { source: 'Character', term: character },
-            { source: 'Date', term: `${year}/${month}` },
-            ...(normalizedCreatorName
-              ? [{ source: 'Creator' as const, term: normalizedCreatorName }]
-              : []),
-            ...creatorAliases.map(alias => ({ source: 'Creator' as const, term: alias })),
-            ...keywordTerms.map(keyword => ({ source: 'Keyword' as const, term: keyword })),
-          ]
-          const uniqueSuggestions = new Map<string, { source: string; term: string }>()
-          for (const entry of suggestionEntries) {
-            const normalizedTerm = normalizeSuggestionKey(entry.term)
-            if (!normalizedTerm || uniqueSuggestions.has(normalizedTerm)) continue
-            uniqueSuggestions.set(normalizedTerm, entry)
-          }
-          const searchSuggestionText = [...uniqueSuggestions.values()]
-            .map(entry => `${entry.source}\t${entry.term}`)
-            .join('\n')
-          const searchText = [
-            character,
-            normalizedCreatorName,
-            ...creatorAliases,
-            ...searchableDateTerms,
-            commission.Design ?? '',
-            commission.Description ?? '',
-            keywordSearchText,
-          ]
-            .join(' ')
-            .toLowerCase()
+          const metadata = buildCommissionSearchMetadata({
+            characterName: character,
+            fileName: commission.fileName,
+            design: commission.Design,
+            description: commission.Description,
+            keyword: commission.Keyword,
+            creatorAliasesMap: creatorAliasesMap ?? undefined,
+            creatorSuggestionMode: 'normalized',
+            creatorSearchTextMode: 'normalized',
+          })
 
           return {
-            'data-search-text': searchText,
-            'data-search-suggest': searchSuggestionText,
+            'data-search-text': metadata.searchText,
+            'data-search-suggest': metadata.searchSuggestionText,
           }
         })()
       : null
@@ -96,6 +66,7 @@ const renderCommissionEntries = ({
         className="pt-4"
         data-commission-entry="true"
         data-character-section-id={sectionId}
+        data-commission-search-key={searchKey}
         {...(searchAttributes ?? {})}
       >
         <ProtectedCommissionImage altText={altText} resolvedImageSrc={imageSrc} />

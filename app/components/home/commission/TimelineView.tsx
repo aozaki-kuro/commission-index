@@ -8,41 +8,38 @@ interface TimelineViewProps {
   creatorAliasesMap: Map<string, string[]> | null
 }
 
-const TimelineView = async ({ groups, creatorAliasesMap }: TimelineViewProps) => {
-  const monthSections = await Promise.all(
-    groups.map(async group => (
-      <section
-        key={group.yearKey}
-        id={group.sectionId}
-        data-character-section="true"
-        data-total-commissions={group.entries.length}
-        className="pb-6"
-      >
-        <div id={group.titleId} className="mb-2 pt-4">
-          <h2 className="group relative">
-            {group.yearKey}
-            <Link
-              href={group.navItem.sectionHash}
-              className="ml-2 font-bold text-gray-400 no-underline opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-gray-600"
-            >
-              #
-            </Link>
-          </h2>
-        </div>
-        {await CommissionEntries({
-          entries: group.entries.map(entry => ({
-            character: entry.character,
-            commission: entry.commission,
-            sectionId: group.sectionId,
-            entryKey: `${group.yearKey}:${entry.character}:${entry.commission.fileName}`,
-            entryAnchorPrefix: getCharacterSectionId(entry.character),
-          })),
-          creatorAliasesMap,
-          embedSearchMetadata: true,
-        })}
-      </section>
-    )),
-  )
+const TimelineView = ({ groups, creatorAliasesMap }: TimelineViewProps) => {
+  const monthSections = groups.map(group => (
+    <section
+      key={group.yearKey}
+      id={group.sectionId}
+      data-character-section="true"
+      data-total-commissions={group.entries.length}
+      className="pb-6"
+    >
+      <div id={group.titleId} className="mb-2 pt-4">
+        <h2 className="group relative">
+          {group.yearKey}
+          <Link
+            href={group.navItem.sectionHash}
+            className="ml-2 font-bold text-gray-400 no-underline opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-gray-600"
+          >
+            #
+          </Link>
+        </h2>
+      </div>
+      {CommissionEntries({
+        entries: group.entries.map(entry => ({
+          character: entry.character,
+          commission: entry.commission,
+          sectionId: group.sectionId,
+          entryKey: `${group.yearKey}:${entry.character}:${entry.commission.fileName}`,
+          entryAnchorPrefix: getCharacterSectionId(entry.character),
+        })),
+        creatorAliasesMap,
+      })}
+    </section>
+  ))
 
   return <div>{monthSections}</div>
 }

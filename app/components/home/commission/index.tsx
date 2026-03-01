@@ -16,7 +16,7 @@ interface CommissionProps {
   timelineGroups: TimelineYearGroup[]
 }
 
-const Commission = async ({
+const Commission = ({
   activeChars,
   staleChars,
   commissionMap,
