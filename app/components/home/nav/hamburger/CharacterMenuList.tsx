@@ -4,7 +4,7 @@ import { scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAncho
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '#lib/navigation/syncHiddenSectionLinkAvailability'
 import { SidebarMenu, SidebarMenuItem } from '#components/ui/sidebar'
-import { memo, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { STYLES } from './constants'
 import { ChevronIcon } from './Icons'
 import type { CharacterEntry } from './types'
@@ -127,29 +127,42 @@ const CharacterMenuList = memo(
     const activeNavItems = useMemo(() => buildCharacterNavItems(active), [active])
     const staleNavItems = useMemo(() => buildCharacterNavItems(stale), [stale])
 
-    const activeItemsKey = useMemo(() => active.map(item => item.DisplayName).join('\n'), [active])
-    const staleItemsKey = useMemo(() => stale.map(item => item.DisplayName).join('\n'), [stale])
-    const timelineItemsKey = useMemo(
+    const activeSectionIds = useMemo(
+      () => activeNavItems.map(item => item.sectionId).join('\n'),
+      [activeNavItems],
+    )
+    const staleSectionIds = useMemo(
+      () => staleNavItems.map(item => item.sectionId).join('\n'),
+      [staleNavItems],
+    )
+    const timelineSectionIds = useMemo(
       () => timelineNavItems.map(item => item.sectionId).join('\n'),
       [timelineNavItems],
     )
 
+    const syncLinkAvailability = useCallback(() => {
+      const root = rootRef.current
+      if (!root) return
+
+      syncHiddenSectionLinkAvailability({
+        root,
+        linkSelector: '[data-mobile-nav-link="true"]',
+        getSectionId: link => link.dataset.mobileNavSectionId ?? null,
+      })
+    }, [])
+
     useEffect(() => {
-      const syncLinkAvailability = () => {
-        const root = rootRef.current
-        if (!root) return
-
-        syncHiddenSectionLinkAvailability({
-          root,
-          linkSelector: '[data-mobile-nav-link="true"]',
-          getSectionId: link => link.dataset.mobileNavSectionId ?? null,
-        })
-      }
-
       syncLinkAvailability()
       window.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, syncLinkAvailability)
       return () => window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, syncLinkAvailability)
-    }, [activeItemsKey, expandedSection, mode, staleItemsKey, timelineItemsKey])
+    }, [
+      activeSectionIds,
+      expandedSection,
+      mode,
+      staleSectionIds,
+      syncLinkAvailability,
+      timelineSectionIds,
+    ])
 
     return (
       <div ref={rootRef} className="relative">

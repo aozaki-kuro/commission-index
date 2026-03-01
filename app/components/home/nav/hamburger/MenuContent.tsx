@@ -1,5 +1,8 @@
-import { memo, useEffect, useState, type ComponentType } from 'react'
-import { useCommissionViewMode } from '#components/home/commission/CommissionViewMode'
+import { memo, useCallback, useEffect, useState, type ComponentType, type ReactNode } from 'react'
+import {
+  useCommissionViewMode,
+  type CommissionViewMode,
+} from '#components/home/commission/CommissionViewMode'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import type { CharacterNavItem } from '#lib/characters/nav'
@@ -50,17 +53,18 @@ const UTILITY_ROW_WRAPPER_CLASSES =
 const UTILITY_ROW_TEXT_CLASSES =
   'font-mono text-base leading-6 font-bold no-underline transition-colors duration-200'
 const VIEW_MODE_TOGGLE_ITEMS = [
-  { mode: 'character', label: 'By Character' },
-  { mode: 'timeline', label: 'By Date' },
+  { mode: 'character' as CommissionViewMode, label: 'By Character' },
+  { mode: 'timeline' as CommissionViewMode, label: 'By Date' },
 ] as const
 
-interface ModeToggleButtonProps {
+interface UtilityActionButtonProps {
   label: string
+  icon?: ReactNode
   active: boolean
   onClick: () => void
 }
 
-const ModeToggleButton = ({ label, active, onClick }: ModeToggleButtonProps) => (
+const UtilityActionButton = ({ label, icon, active, onClick }: UtilityActionButtonProps) => (
   <button
     type="button"
     onClick={onClick}
@@ -71,12 +75,16 @@ const ModeToggleButton = ({ label, active, onClick }: ModeToggleButtonProps) => 
     }`.trim()}
   >
     <span className={UTILITY_ROW_TEXT_CLASSES}>{label}</span>
-    <span
-      className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${
-        active ? 'scale-100 bg-gray-500 opacity-100' : 'scale-0 opacity-0'
-      }`}
-      aria-hidden="true"
-    />
+    {icon ? (
+      icon
+    ) : (
+      <span
+        className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${
+          active ? 'scale-100 bg-gray-500 opacity-100' : 'scale-0 opacity-0'
+        }`}
+        aria-hidden="true"
+      />
+    )}
   </button>
 )
 
@@ -102,6 +110,23 @@ const MenuContent = memo(
         setCharacterMenuListComponent(() => component)
       })
     }, [CharacterMenuListComponent, mounted])
+
+    const handleSearchClick = useCallback(() => {
+      jumpToCommissionSearch({ topGap: 40, focusMode: 'immediate' })
+      close()
+    }, [close])
+
+    const handleModeChange = useCallback(
+      (nextMode: CommissionViewMode) => {
+        trackRybbitEvent(ANALYTICS_EVENTS.sidebarViewModeToggleUsed, {
+          from_mode: mode,
+          to_mode: nextMode,
+          already_active: mode === nextMode,
+        })
+        setMode(nextMode)
+      },
+      [mode, setMode],
+    )
 
     const backdropStyle = {
       WebkitBackdropFilter: STYLES.backdrop,
@@ -147,46 +172,36 @@ const MenuContent = memo(
               <SidebarGroup className="space-y-1.5 border-b border-gray-300/50 px-2 py-3 dark:border-white/10">
                 <SidebarMenu className="space-y-1.5">
                   <SidebarMenuItem>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        jumpToCommissionSearch({ topGap: 40, focusMode: 'immediate' })
-                        close()
-                      }}
-                      className={`${UTILITY_ROW_WRAPPER_CLASSES} cursor-pointer appearance-none border-0 bg-transparent p-0 text-left no-underline`}
-                    >
-                      <span className={UTILITY_ROW_TEXT_CLASSES}>Search</span>
-                      <svg
-                        viewBox="0 0 24 24"
-                        className="h-3.5 w-3.5 text-gray-500 transition-colors"
-                        fill="none"
-                        stroke="currentColor"
-                        aria-hidden="true"
-                      >
-                        <path
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="m21 21-4.4-4.4"
-                        />
-                        <circle cx="11" cy="11" r="6" strokeWidth="2" />
-                      </svg>
-                    </button>
+                    <UtilityActionButton
+                      label="Search"
+                      active
+                      onClick={handleSearchClick}
+                      icon={
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="h-3.5 w-3.5 text-gray-500 transition-colors"
+                          fill="none"
+                          stroke="currentColor"
+                          aria-hidden="true"
+                        >
+                          <path
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="m21 21-4.4-4.4"
+                          />
+                          <circle cx="11" cy="11" r="6" strokeWidth="2" />
+                        </svg>
+                      }
+                    />
                   </SidebarMenuItem>
 
                   {VIEW_MODE_TOGGLE_ITEMS.map(item => (
                     <SidebarMenuItem key={item.mode}>
-                      <ModeToggleButton
+                      <UtilityActionButton
                         label={item.label}
                         active={mode === item.mode}
-                        onClick={() => {
-                          trackRybbitEvent(ANALYTICS_EVENTS.sidebarViewModeToggleUsed, {
-                            from_mode: mode,
-                            to_mode: item.mode,
-                            already_active: mode === item.mode,
-                          })
-                          setMode(item.mode)
-                        }}
+                        onClick={() => handleModeChange(item.mode)}
                       />
                     </SidebarMenuItem>
                   ))}
