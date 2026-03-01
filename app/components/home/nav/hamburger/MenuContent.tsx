@@ -1,4 +1,3 @@
-import { Button } from '#components/ui/button'
 import { memo, useEffect, useState, type ComponentType } from 'react'
 import { useCommissionViewMode } from '#components/home/commission/CommissionViewMode'
 import type { CharacterNavItem } from '#lib/characters/nav'
@@ -75,37 +74,33 @@ const MenuContent = memo(
     return (
       <>
         {mounted && (
-          <Button
+          <button
             type="button"
             aria-label="Close navigation menu"
-            className={`fixed inset-0 z-20 bg-gray-200/10 backdrop-blur-xs transition-opacity duration-200 dark:bg-gray-900/10 ${
+            className={`fixed inset-0 z-[60] bg-gray-200/10 backdrop-blur-xs transition-opacity duration-200 dark:bg-gray-900/10 ${
               open ? 'opacity-100' : 'pointer-events-none opacity-0'
             }`}
-            variant="ghost"
-            size="icon"
             onClick={close}
           />
         )}
 
-        <Button
+        <button
           type="button"
           className={STYLES.floatingButton}
           style={backdropStyle}
           aria-expanded={open}
           aria-controls="mobile-character-menu"
-          variant="ghost"
-          size="icon"
           onClick={toggle}
         >
           <span className="sr-only">Open navigation menu</span>
           <MenuIcon isOpen={open} />
-        </Button>
+        </button>
 
         {mounted ? (
           <div
             id="mobile-character-menu"
             aria-hidden={!open}
-            className={`absolute right-4 bottom-full z-40 mb-4 max-h-[calc(100vh-8rem)] w-64 origin-bottom-right overflow-y-auto rounded-xl border border-white/20 bg-white/80 font-mono shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-lg transition-[opacity,transform] duration-220 ease-out focus:outline-hidden dark:bg-black/80 ${
+            className={`absolute right-4 bottom-full z-[80] mb-4 max-h-[calc(100vh-8rem)] w-64 origin-bottom-right overflow-y-auto rounded-xl border border-white/20 bg-white/80 font-mono shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-lg transition-[opacity,transform] duration-220 ease-out focus:outline-hidden dark:bg-black/80 ${
               open ? 'translate-y-0 opacity-100' : 'pointer-events-none opacity-0'
             }`}
             style={backdropStyle}

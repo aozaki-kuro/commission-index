@@ -111,7 +111,7 @@ const Hamburger = ({ active, stale, timelineNavItems }: HamburgerProps) => {
   }, [])
 
   return (
-    <div className="fixed right-8 bottom-8 flex flex-col items-end gap-3 md:hidden">
+    <div className="fixed right-8 bottom-8 z-50 flex flex-col items-end gap-3 md:hidden">
       {!mounted ? <SearchJumpButton onClick={jumpToSearch} /> : null}
       <MenuContent
         mounted={mounted}
