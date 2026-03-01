@@ -1,6 +1,13 @@
 'use client'
 
 import DevAdminLink from '#components/home/nav/DevAdminLink'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarMenu,
+  SidebarMenuItem,
+} from '#components/ui/sidebar'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import { useCommissionViewMode } from '#components/home/commission/CommissionViewMode'
@@ -72,13 +79,13 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
   const showAdminLink = process.env.NODE_ENV === 'development'
 
   return (
-    <aside
+    <Sidebar
       id="Character List"
-      className="hidden md:top-52 md:left-[calc(50%+22rem)] md:h-screen md:w-full md:max-w-50 lg:fixed lg:block"
+      className="md:top-52 md:left-[calc(50%+22rem)] md:h-screen md:w-full md:max-w-50 lg:fixed"
     >
-      <div className="sticky top-4 ml-8 space-y-2">
-        <div className="space-y-4 pb-2">
-          <div className={UTILITY_ROW_WRAPPER_CLASSES}>
+      <SidebarContent className="sticky top-4 ml-8 space-y-2">
+        <SidebarGroup className="space-y-4 pb-2">
+          <SidebarMenuItem className={UTILITY_ROW_WRAPPER_CLASSES}>
             <svg
               viewBox="0 0 24 24"
               className="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-all duration-300"
@@ -101,7 +108,7 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
             >
               Search
             </a>
-          </div>
+          </SidebarMenuItem>
 
           <div className="space-y-2">
             {VIEW_MODE_TOGGLE_ITEMS.map(item => (
@@ -122,12 +129,12 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
           </div>
 
           {showAdminLink ? <DevAdminLink /> : null}
-        </div>
+        </SidebarGroup>
 
         <nav>
-          <ul className="space-y-2">
+          <SidebarMenu>
             {navItems.map(({ displayName, sectionId, sectionHash, titleId }) => (
-              <li
+              <SidebarMenuItem
                 key={sectionId}
                 className="relative pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
               >
@@ -146,14 +153,14 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
                 >
                   {displayName}
                 </a>
-              </li>
+              </SidebarMenuItem>
             ))}
-          </ul>
+          </SidebarMenu>
         </nav>
-      </div>
+      </SidebarContent>
 
       <CharacterListEnhancer itemCount={navItems.length} navItemsKey={navItemsKey} mode={mode} />
-    </aside>
+    </Sidebar>
   )
 }
 

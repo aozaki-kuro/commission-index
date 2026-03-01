@@ -1,5 +1,13 @@
 @import 'tailwindcss';
 
+body[data-scroll-locked] {
+  /* Radix/RemoveScroll injects padding-right compensation; in this layout it overcompensates and squeezes content. */
+  --removed-body-scroll-bar-size: 0px !important;
+  margin-right: 0 !important;
+  padding-right: 0 !important;
+  width: 100% !important;
+}
+
 /*
   The default border color has changed to `currentColor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still
@@ -71,6 +79,46 @@
 }
 
 @layer utilities {
+  @keyframes dialog-overlay-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes dialog-overlay-out {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes dialog-content-in {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes dialog-content-out {
+    from {
+      opacity: 1;
+      transform: scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+  }
+
   @keyframes fadeInOut {
     0%,
     100% {

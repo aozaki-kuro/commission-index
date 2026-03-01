@@ -1,17 +1,13 @@
 'use client'
 
 import {
-  Description,
-  Field,
-  Input,
-  Label,
-  Listbox,
-  ListboxButton,
-  ListboxOption,
-  ListboxOptions,
-  Transition,
-} from '@headlessui/react'
-import { Fragment, useActionState, useEffect, useMemo, useState } from 'react'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '#components/ui/select'
+import { useActionState, useEffect, useMemo, useState } from 'react'
 
 import { addCharacterAction } from '#admin/actions'
 import { notifyDataUpdate } from './dataUpdateSignal'
@@ -59,78 +55,45 @@ const AddCharacterForm = () => {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_14rem]">
-        <Field className="space-y-1">
-          <Label className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
+        <div className="space-y-1">
+          <label
+            htmlFor="add-character-name"
+            className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300"
+          >
             Name
-          </Label>
-          <Input
+          </label>
+          <input
+            id="add-character-name"
             type="text"
             name="name"
             placeholder="Character name"
             required
             className={formControlStyles}
           />
-        </Field>
+        </div>
 
-        <Field className="space-y-1">
-          <Label className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
+        <div className="space-y-1">
+          <label className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
             Status
-          </Label>
-          <Listbox value={status} onChange={setStatus}>
-            <div className="relative">
-              <ListboxButton className={`${formControlStyles} flex items-center justify-between`}>
-                <span className="truncate text-gray-900 dark:text-gray-100">
-                  {currentStatus.label}
-                </span>
-                <svg
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  aria-hidden="true"
-                  className="h-4 w-4 text-gray-400"
-                >
-                  <path
-                    d="M6 8l4 4 4-4"
-                    stroke="currentColor"
-                    strokeWidth={1.5}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </ListboxButton>
-
-              <Transition
-                as={Fragment}
-                enter="transition ease-out duration-150"
-                enterFrom="opacity-0 translate-y-1"
-                enterTo="opacity-100 translate-y-0"
-                leave="transition ease-in duration-100"
-                leaveFrom="opacity-100 translate-y-0"
-                leaveTo="opacity-0 -translate-y-1"
-              >
-                <ListboxOptions className="absolute z-10 mt-2 w-full rounded-lg border border-gray-200 bg-white/95 p-1 shadow-lg ring-1 ring-black/5 focus:outline-none dark:border-gray-700 dark:bg-gray-900/90 dark:ring-white/10">
-                  {statusOptions.map(option => (
-                    <ListboxOption
-                      key={option.value}
-                      value={option.value}
-                      className={({ focus, selected }) =>
-                        `flex cursor-pointer items-start justify-between gap-3 rounded-md px-3 py-2 text-sm transition ${
-                          focus
-                            ? 'bg-gray-900/5 text-gray-900 dark:bg-white/10 dark:text-gray-100'
-                            : 'text-gray-700 dark:text-gray-100'
-                        } ${selected ? 'ring-1 ring-gray-400/60 ring-inset' : ''}`
-                      }
-                    >
-                      <p className="font-medium">{option.label}</p>
-                    </ListboxOption>
-                  ))}
-                </ListboxOptions>
-              </Transition>
-            </div>
-          </Listbox>
-          <Description className="text-xs text-gray-500 dark:text-gray-400">
+          </label>
+          <Select value={status} onValueChange={value => setStatus(value as StatusValue)}>
+            <SelectTrigger className={`${formControlStyles} h-auto py-2.5`}>
+              <SelectValue aria-label={currentStatus.value} placeholder="Select status">
+                {currentStatus.label}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {statusOptions.map(option => (
+                <SelectItem key={option.value} value={option.value}>
+                  <p className="font-medium">{option.label}</p>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             This controls where the character appears on the public roster.
-          </Description>
-        </Field>
+          </p>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

@@ -1,9 +1,17 @@
 'use client'
 
-import { Combobox, ComboboxInput, ComboboxOption, ComboboxOptions } from '@headlessui/react'
+import { Command, CommandInput, CommandItem, CommandList } from '#components/ui/command'
 import { useCommissionViewMode } from '#components/home/commission/CommissionViewMode'
 import dynamic from 'next/dynamic'
-import { useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
@@ -267,6 +275,13 @@ const buildRelatedCreatorTermsMap = (entries: SuggestionEntryLike[]) => {
   )
 }
 
+type SuggestionViewModel = {
+  term: string
+  matchCountLabel: string
+  sourcesLabel: string
+  relatedCreatorTerms: string[]
+}
+
 const toggleHiddenClass = (element: HTMLElement, shouldHide: boolean) => {
   const isHidden = element.classList.contains('hidden')
   if (isHidden === shouldHide) return false
@@ -514,10 +529,26 @@ const CommissionSearch = ({
     suggestionQuery,
   ])
 
-  const relatedCreatorTermsMap = useMemo(
-    () => buildRelatedCreatorTermsMap(index.entries),
-    [index.entries],
+  const shouldResolveRelatedCreatorTerms = useMemo(
+    () => filteredSuggestions.some(suggestion => suggestion.sources.includes('Creator')),
+    [filteredSuggestions],
   )
+
+  const relatedCreatorTermsMap = useMemo(() => {
+    if (!shouldResolveRelatedCreatorTerms) return new Map<string, string[]>()
+    return buildRelatedCreatorTermsMap(index.entries)
+  }, [index.entries, shouldResolveRelatedCreatorTerms])
+
+  const suggestionViewModels = useMemo<SuggestionViewModel[]>(() => {
+    return filteredSuggestions.map(suggestion => ({
+      term: suggestion.term,
+      matchCountLabel: formatSuggestionMatchCount(suggestion.matchedCount),
+      sourcesLabel: formatSuggestionSources(suggestion.sources),
+      relatedCreatorTerms: suggestion.sources.includes('Creator')
+        ? (relatedCreatorTermsMap.get(normalizeSuggestionTermKey(suggestion.term)) ?? [])
+        : [],
+    }))
+  }, [filteredSuggestions, relatedCreatorTermsMap])
 
   useEffect(() => {
     onQueryChange?.(query)
@@ -648,7 +679,7 @@ const CommissionSearch = ({
     [],
   )
 
-  const setCopyFeedback = () => {
+  const setCopyFeedback = useCallback(() => {
     setCopyState('success')
 
     if (copyResetTimerRef.current) {
@@ -659,9 +690,9 @@ const CommissionSearch = ({
       setCopyState('idle')
       copyResetTimerRef.current = null
     }, 1200)
-  }
+  }, [])
 
-  const copySearchUrl = async () => {
+  const copySearchUrl = useCallback(async () => {
     if (!hasQuery) return
 
     try {
@@ -672,36 +703,39 @@ const CommissionSearch = ({
       setCopyState('idle')
       if (liveRef.current) liveRef.current.textContent = 'Failed to copy search URL.'
     }
-  }
+  }, [hasQuery, query, setCopyFeedback])
 
-  const clearSearch = () => {
+  const clearSearch = useCallback(() => {
     setInputQuery('')
     setCopyState('idle')
     clearSearchQueryParamInAddress()
     inputRef.current?.focus()
-  }
+  }, [])
 
-  const applySuggestion = (suggestion: string | null) => {
-    if (!suggestion) return
+  const applySuggestion = useCallback(
+    (suggestion: string | null) => {
+      if (!suggestion) return
 
-    const nextQueryWithSeparator = applySuggestionToQuery(query, suggestion)
+      const nextQueryWithSeparator = applySuggestionToQuery(query, suggestion)
 
-    setInputQuery(nextQueryWithSeparator)
-    setCopyState('idle')
+      setInputQuery(nextQueryWithSeparator)
+      setCopyState('idle')
 
-    const cursor = nextQueryWithSeparator.length
-    if (inputRef.current) {
-      inputRef.current.value = nextQueryWithSeparator
-      inputRef.current.setSelectionRange(cursor, cursor)
-    }
+      const cursor = nextQueryWithSeparator.length
+      if (inputRef.current) {
+        inputRef.current.value = nextQueryWithSeparator
+        inputRef.current.setSelectionRange(cursor, cursor)
+      }
 
-    requestAnimationFrame(() => {
-      if (!inputRef.current) return
-      inputRef.current.focus()
-      const rafCursor = nextQueryWithSeparator.length
-      inputRef.current.setSelectionRange(rafCursor, rafCursor)
-    })
-  }
+      requestAnimationFrame(() => {
+        if (!inputRef.current) return
+        inputRef.current.focus()
+        const rafCursor = nextQueryWithSeparator.length
+        inputRef.current.setSelectionRange(rafCursor, rafCursor)
+      })
+    },
+    [query],
+  )
 
   return (
     <section id="commission-search" className="mt-8 mb-6 flex h-12 items-center justify-end">
@@ -716,87 +750,82 @@ const CommissionSearch = ({
           <circle cx="11" cy="11" r="6" strokeWidth="2" />
         </svg>
 
-        <Combobox
-          as="div"
-          value={null}
-          onChange={applySuggestion}
-          className="absolute inset-y-0 right-2 left-8 flex items-center gap-2"
-        >
-          <label htmlFor="commission-search-input" className="sr-only">
-            Search commissions
-          </label>
-
-          <ComboboxInput
-            ref={inputRef}
-            id="commission-search-input"
-            type="search"
-            value={query}
-            onFocus={() => {
-              if (deferIndexInit) setIsIndexReady(true)
-            }}
-            onChange={e => {
-              if (deferIndexInit) setIsIndexReady(true)
-              setInputQuery(normalizeQuotedTokenBoundary(e.target.value))
-              setCopyState('idle')
-            }}
-            placeholder="Search"
-            autoComplete="off"
-            aria-label="Search commissions"
-            className="peer w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-24 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
-          />
-
-          <ComboboxOptions
-            modal={false}
-            className="absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain rounded-lg border border-gray-300/80 bg-white/95 py-1 text-sm shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm empty:hidden dark:border-gray-700 dark:bg-black/90"
+        <div className="absolute inset-y-0 right-2 left-8 flex items-center gap-2">
+          <Command
+            shouldFilter={false}
+            className="relative h-full w-full overflow-visible bg-transparent"
           >
-            {filteredSuggestions.map(suggestion => {
-              const relatedCreatorTerms = suggestion.sources.includes('Creator')
-                ? (relatedCreatorTermsMap.get(normalizeSuggestionTermKey(suggestion.term)) ?? [])
-                : []
+            <label htmlFor="commission-search-input" className="sr-only">
+              Search commissions
+            </label>
 
-              return (
-                <ComboboxOption
-                  key={suggestion.term}
-                  value={suggestion.term}
-                  className="cursor-pointer px-3 py-1.5 font-mono text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 dark:text-gray-300 dark:data-focus:bg-gray-800 dark:data-focus:text-gray-100"
-                >
-                  <div className="grid min-w-0 gap-0.5">
-                    <div className="flex min-w-0 items-center justify-between gap-2">
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        {suggestionIsExclusion ? (
-                          <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                            NOT
-                          </span>
-                        ) : suggestionOperator === 'or' ? (
-                          <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                            OR
-                          </span>
-                        ) : suggestionOperator === 'and' ? (
-                          <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                            AND
-                          </span>
-                        ) : null}
-                        <span className="flex min-w-0 items-baseline gap-1 truncate">
-                          <span className="truncate">{suggestion.term}</span>
-                          {relatedCreatorTerms.length > 0 ? (
-                            <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
-                              ({relatedCreatorTerms.join(' / ')})
+            <CommandInput
+              ref={inputRef}
+              id="commission-search-input"
+              value={query}
+              onFocus={() => {
+                if (deferIndexInit) setIsIndexReady(true)
+              }}
+              onValueChange={value => {
+                if (deferIndexInit) setIsIndexReady(true)
+                setInputQuery(normalizeQuotedTokenBoundary(value))
+                setCopyState('idle')
+              }}
+              placeholder="Search"
+              autoComplete="off"
+              aria-label="Search commissions"
+              className="peer w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-24 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
+            />
+
+            {hasQuery && suggestionViewModels.length > 0 ? (
+              <CommandList className="absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain rounded-lg border border-gray-300/80 bg-white/95 py-1 text-sm shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm dark:border-gray-700 dark:bg-black/90">
+                {suggestionViewModels.map(suggestion => {
+                  return (
+                    <CommandItem
+                      key={suggestion.term}
+                      value={suggestion.term}
+                      onSelect={() => applySuggestion(suggestion.term)}
+                      className="cursor-pointer px-3 py-1.5 font-mono text-gray-700 data-[selected=true]:bg-gray-100 data-[selected=true]:text-gray-900 dark:text-gray-300 dark:data-[selected=true]:bg-gray-800 dark:data-[selected=true]:text-gray-100"
+                    >
+                      <div className="grid min-w-0 gap-0.5">
+                        <div className="flex min-w-0 items-center justify-between gap-2">
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            {suggestionIsExclusion ? (
+                              <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                NOT
+                              </span>
+                            ) : suggestionOperator === 'or' ? (
+                              <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                OR
+                              </span>
+                            ) : suggestionOperator === 'and' ? (
+                              <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                AND
+                              </span>
+                            ) : null}
+                            <span className="flex min-w-0 items-baseline gap-1 truncate">
+                              <span className="truncate">{suggestion.term}</span>
+                              {suggestion.relatedCreatorTerms.length > 0 ? (
+                                <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
+                                  ({suggestion.relatedCreatorTerms.join(' / ')})
+                                </span>
+                              ) : null}
                             </span>
-                          ) : null}
+                          </span>
+                          <span className="shrink-0 rounded-full border border-gray-300/90 bg-gray-100/85 px-1.5 py-0.5 text-[10px] leading-none text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                            {suggestion.matchCountLabel}
+                          </span>
+                        </div>
+                        <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
+                          in {suggestion.sourcesLabel}
                         </span>
-                      </span>
-                      <span className="shrink-0 rounded-full border border-gray-300/90 bg-gray-100/85 px-1.5 py-0.5 text-[10px] leading-none text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                        {formatSuggestionMatchCount(suggestion.matchedCount)}
-                      </span>
-                    </div>
-                    <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
-                      in {formatSuggestionSources(suggestion.sources)}
-                    </span>
-                  </div>
-                </ComboboxOption>
-              )
-            })}
-          </ComboboxOptions>
+                      </div>
+                    </CommandItem>
+                  )
+                })}
+              </CommandList>
+            ) : null}
+          </Command>
 
           <button
             type="button"
@@ -868,14 +897,12 @@ const CommissionSearch = ({
               <path strokeWidth="2.2" strokeLinecap="round" d="M18 6L6 18" />
             </svg>
           </button>
-        </Combobox>
+        </div>
       </div>
 
       <p ref={liveRef} aria-live="polite" className="sr-only" />
 
-      {isHelpOpen ? (
-        <CommissionSearchHelpModal isOpen={isHelpOpen} onClose={setIsHelpOpen} />
-      ) : null}
+      <CommissionSearchHelpModal isOpen={isHelpOpen} onClose={setIsHelpOpen} />
     </section>
   )
 }

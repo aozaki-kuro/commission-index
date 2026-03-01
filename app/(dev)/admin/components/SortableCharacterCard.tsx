@@ -2,7 +2,7 @@
 
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Transition, TransitionChild } from '@headlessui/react'
+import { Skeleton } from '#components/ui/skeleton'
 import dynamic from 'next/dynamic'
 import { type KeyboardEvent, type MouseEvent } from 'react'
 
@@ -13,8 +13,13 @@ import type { CharacterItem } from '../hooks/useCommissionManager'
 const CommissionEditForm = dynamic(() => import('../CommissionEditForm'), {
   ssr: false,
   loading: () => (
-    <div className="rounded-xl border border-gray-200/80 bg-white/80 px-4 py-3 text-sm text-gray-500 dark:border-gray-700/80 dark:bg-gray-900/30 dark:text-gray-300">
-      Loading editor...
+    <div className="space-y-4 rounded-xl border border-gray-200/80 bg-white/80 p-4 dark:border-gray-700/80 dark:bg-gray-900/30">
+      <Skeleton className="aspect-1280/525 w-full rounded-xl" />
+      <div className="grid gap-3 md:grid-cols-2">
+        <Skeleton className="h-14 w-full" />
+        <Skeleton className="h-14 w-full" />
+      </div>
+      <Skeleton className="h-24 w-full" />
     </div>
   ),
 })
@@ -248,46 +253,35 @@ const SortableCharacterCard = ({
           )}
         </div>
 
-        <Transition
-          show={isOpen}
-          unmount
-          as="div"
-          className="grid"
-          enter={reduceMotion ? '' : 'transition-[grid-template-rows] duration-200 ease-in-out'}
-          enterFrom={reduceMotion ? '' : 'grid-rows-[0fr]'}
-          enterTo={reduceMotion ? '' : 'grid-rows-[1fr]'}
-          leave={reduceMotion ? '' : 'transition-[grid-template-rows] duration-200 ease-in-out'}
-          leaveFrom={reduceMotion ? '' : 'grid-rows-[1fr]'}
-          leaveTo={reduceMotion ? '' : 'grid-rows-[0fr]'}
+        <div
+          className={`grid ${reduceMotion ? '' : 'transition-[grid-template-rows] duration-200 ease-in-out'} ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
         >
           <div className="overflow-hidden">
-            <TransitionChild
-              as="div"
-              enter={reduceMotion ? '' : 'transition-all duration-200 ease-out'}
-              enterFrom={reduceMotion ? '' : '-translate-y-1 opacity-0'}
-              enterTo={reduceMotion ? '' : 'translate-y-0 opacity-100'}
-              leave={reduceMotion ? '' : 'transition-all duration-150 ease-in'}
-              leaveFrom={reduceMotion ? '' : 'translate-y-0 opacity-100'}
-              leaveTo={reduceMotion ? '' : '-translate-y-1 opacity-0'}
-              className="space-y-4 border-t border-gray-200 bg-white/85 px-5 py-4 dark:border-gray-700 dark:bg-gray-900/30"
+            <div
+              className={`space-y-4 border-t border-gray-200 bg-white/85 px-5 py-4 dark:border-gray-700 dark:bg-gray-900/30 ${
+                reduceMotion ? '' : 'transition-all duration-200 ease-out'
+              } ${isOpen ? 'translate-y-0 opacity-100' : '-translate-y-1 opacity-0'}`}
+              aria-hidden={!isOpen}
             >
-              {commissionList.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-300">
-                  No commissions recorded yet.
-                </p>
-              ) : (
-                commissionList.map(commission => (
-                  <CommissionEditForm
-                    key={commission.id}
-                    commission={commission}
-                    characters={charactersForSelect}
-                    onDelete={() => onDeleteCommission(commission.id)}
-                  />
-                ))
-              )}
-            </TransitionChild>
+              {isOpen ? (
+                commissionList.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-300">
+                    No commissions recorded yet.
+                  </p>
+                ) : (
+                  commissionList.map(commission => (
+                    <CommissionEditForm
+                      key={commission.id}
+                      commission={commission}
+                      characters={charactersForSelect}
+                      onDelete={() => onDeleteCommission(commission.id)}
+                    />
+                  ))
+                )
+              ) : null}
+            </div>
           </div>
-        </Transition>
+        </div>
       </div>
     </div>
   )

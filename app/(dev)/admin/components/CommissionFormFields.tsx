@@ -1,19 +1,14 @@
 'use client'
 
 import {
-  Description,
-  Field,
-  Input,
-  Label,
-  Listbox,
-  ListboxButton,
-  ListboxOption,
-  ListboxOptions,
-  Switch,
-  Textarea,
-  Transition,
-} from '@headlessui/react'
-import { Fragment, type ChangeEvent, type ComponentPropsWithoutRef } from 'react'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '#components/ui/select'
+import { Switch } from '#components/ui/switch'
+import { type ChangeEvent, type ComponentPropsWithoutRef } from 'react'
 import { formControlStyles } from '../uiStyles'
 
 const fieldLabelStyles =
@@ -72,89 +67,38 @@ export const CommissionCharacterField = ({
   const isDisabled = disabled || !hasCharacters
 
   return (
-    <Field className="space-y-1">
-      <Label className={fieldLabelStyles}>Character</Label>
-      <Listbox value={selectedCharacterId} onChange={onChange} disabled={isDisabled}>
-        <div className="relative">
-          <ListboxButton
-            className={`${formControlStyles} flex items-center justify-between ${isDisabled ? 'cursor-not-allowed opacity-70' : ''}`}
+    <div className="space-y-1">
+      <label className={fieldLabelStyles}>Character</label>
+      <Select
+        value={selectedCharacterId === null ? undefined : String(selectedCharacterId)}
+        onValueChange={value => onChange(Number(value))}
+        disabled={isDisabled}
+      >
+        <SelectTrigger
+          className={`${formControlStyles} h-auto py-2.5 ${isDisabled ? 'cursor-not-allowed opacity-70' : ''}`}
+        >
+          <SelectValue
+            placeholder={hasCharacters ? 'Select character' : 'No characters available'}
+            aria-label={selectedCharacter?.name}
           >
-            <span
-              className={`truncate ${selectedCharacter ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}`}
-            >
-              {selectedCharacter
-                ? selectedCharacter.name
-                : hasCharacters
-                  ? 'Select character'
-                  : 'No characters available'}
-            </span>
-            <svg
-              viewBox="0 0 20 20"
-              fill="none"
-              aria-hidden="true"
-              className="h-4 w-4 text-gray-400"
-            >
-              <path
-                d="M6 8l4 4 4-4"
-                stroke="currentColor"
-                strokeWidth={1.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </ListboxButton>
-
-          {hasCharacters && (
-            <Transition
-              as={Fragment}
-              enter="transition ease-out duration-150"
-              enterFrom="opacity-0 translate-y-1"
-              enterTo="opacity-100 translate-y-0"
-              leave="transition ease-in duration-100"
-              leaveFrom="opacity-100 translate-y-0"
-              leaveTo="opacity-0 -translate-y-1"
-            >
-              <ListboxOptions
-                className={`absolute ${dropdownZIndexClassName} mt-2 max-h-64 w-full overflow-auto rounded-lg border border-gray-200 bg-white/95 p-1 shadow-lg ring-1 ring-black/5 focus:outline-none dark:border-gray-700 dark:bg-gray-900/90 dark:ring-white/10`}
-              >
-                {options.map(option => (
-                  <ListboxOption
-                    key={option.id}
-                    value={option.id}
-                    className={({ focus, selected }) =>
-                      `flex cursor-pointer items-center justify-between gap-3 rounded-md px-3 py-2 text-sm transition ${
-                        focus
-                          ? 'bg-gray-900/5 text-gray-900 dark:bg-white/10 dark:text-gray-100'
-                          : 'text-gray-700 dark:text-gray-100'
-                      } ${selected ? 'ring-1 ring-gray-400/60 ring-inset' : ''}`
-                    }
-                  >
-                    {({ selected }) => (
-                      <>
-                        <div className="flex w-full items-center justify-between gap-6">
-                          <p className="font-medium">{option.name}</p>
-                        </div>
-                        {showCheckmark ? (
-                          <span
-                            aria-hidden="true"
-                            className={`text-base ${selected ? 'text-gray-900 dark:text-gray-100' : 'text-transparent'}`}
-                          >
-                            ✓
-                          </span>
-                        ) : null}
-                      </>
-                    )}
-                  </ListboxOption>
-                ))}
-              </ListboxOptions>
-            </Transition>
-          )}
-        </div>
-      </Listbox>
-      <Description className={fieldDescriptionStyles}>
-        Choose the character this commission belongs to.
-      </Description>
-    </Field>
+            {selectedCharacter?.name}
+          </SelectValue>
+        </SelectTrigger>
+        {hasCharacters ? (
+          <SelectContent className={dropdownZIndexClassName}>
+            {options.map(option => (
+              <SelectItem key={option.id} value={String(option.id)}>
+                <div className="flex w-full items-center justify-between gap-6">
+                  <p className="font-medium">{option.name}</p>
+                  {showCheckmark ? <span aria-hidden="true">✓</span> : null}
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        ) : null}
+      </Select>
+      <p className={fieldDescriptionStyles}>Choose the character this commission belongs to.</p>
+    </div>
   )
 }
 
@@ -185,17 +129,17 @@ export const CommissionSourceImageField = ({
         : fieldDescriptionStyles
 
   return (
-    <Field className="space-y-1">
-      <Label className={fieldLabelStyles}>Source image (optional)</Label>
-      <Input
+    <div className="space-y-1">
+      <label className={fieldLabelStyles}>Source image (optional)</label>
+      <input
         type="file"
         name="sourceImage"
         accept={accept}
         onChange={onChange}
         className={`${formControlStyles} cursor-pointer file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200 dark:file:bg-gray-800 dark:file:text-gray-200 dark:hover:file:bg-gray-700`}
       />
-      <Description className={helperMessageClassName}>{helperMessage}</Description>
-    </Field>
+      <p className={helperMessageClassName}>{helperMessage}</p>
+    </div>
   )
 }
 
@@ -205,9 +149,9 @@ export const CommissionFileNameField = ({
   placeholder,
 }: CommissionFileNameFieldProps) => {
   return (
-    <Field className="space-y-1">
-      <Label className={fieldLabelStyles}>File name</Label>
-      <Input
+    <div className="space-y-1">
+      <label className={fieldLabelStyles}>File name</label>
+      <input
         type="text"
         name="fileName"
         required
@@ -215,7 +159,7 @@ export const CommissionFileNameField = ({
         className={formControlStyles}
         {...(bindInputValue(value, onChange) ?? {})}
       />
-    </Field>
+    </div>
   )
 }
 
@@ -227,19 +171,19 @@ interface CommissionLinksFieldProps {
 
 export const CommissionLinksField = ({ value, onChange, rows = 4 }: CommissionLinksFieldProps) => {
   return (
-    <Field className="space-y-1">
-      <Label className={fieldLabelStyles}>Links (optional, one per line)</Label>
-      <Textarea
+    <div className="space-y-1">
+      <label className={fieldLabelStyles}>Links (optional, one per line)</label>
+      <textarea
         name="links"
         rows={rows}
         placeholder="https://example.com"
         className={formControlStyles}
         {...(bindTextareaValue(value, onChange) ?? {})}
       />
-      <Description className={fieldDescriptionStyles}>
+      <p className={fieldDescriptionStyles}>
         Paste each URL on a separate line, or leave blank if none.
-      </Description>
-    </Field>
+      </p>
+    </div>
   )
 }
 
@@ -262,27 +206,27 @@ export const CommissionDesignDescriptionFields = ({
 }: CommissionDesignDescriptionFieldsProps) => {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <Field className="space-y-1">
-        <Label className={fieldLabelStyles}>Design (optional)</Label>
-        <Input
+      <div className="space-y-1">
+        <label className={fieldLabelStyles}>Design (optional)</label>
+        <input
           type="text"
           name="design"
           placeholder={designPlaceholder}
           className={formControlStyles}
           {...(bindInputValue(designValue, onDesignChange) ?? {})}
         />
-      </Field>
+      </div>
 
-      <Field className="space-y-1">
-        <Label className={fieldLabelStyles}>Description (optional)</Label>
-        <Input
+      <div className="space-y-1">
+        <label className={fieldLabelStyles}>Description (optional)</label>
+        <input
           type="text"
           name="description"
           placeholder={descriptionPlaceholder}
           className={formControlStyles}
           {...(bindInputValue(descriptionValue, onDescriptionChange) ?? {})}
         />
-      </Field>
+      </div>
     </div>
   )
 }
@@ -294,19 +238,19 @@ interface CommissionKeywordFieldProps {
 
 export const CommissionKeywordField = ({ value, onChange }: CommissionKeywordFieldProps) => {
   return (
-    <Field className="space-y-1">
-      <Label className={fieldLabelStyles}>Keywords (optional, comma-separated, search-only)</Label>
-      <Input
+    <div className="space-y-1">
+      <label className={fieldLabelStyles}>Keywords (optional, comma-separated, search-only)</label>
+      <input
         type="text"
         name="keyword"
         placeholder="e.g. studio k, skeb, private tag"
         className={formControlStyles}
         {...(bindInputValue(value, onChange) ?? {})}
       />
-      <Description className={fieldDescriptionStyles}>
+      <p className={fieldDescriptionStyles}>
         Separate keywords with commas. They are searchable but never rendered publicly.
-      </Description>
-    </Field>
+      </p>
+    </div>
   )
 }
 
@@ -317,23 +261,11 @@ interface CommissionHiddenSwitchProps {
 
 export const CommissionHiddenSwitch = ({ isHidden, onChange }: CommissionHiddenSwitchProps) => {
   return (
-    <Field as="div" className="flex items-center gap-3">
-      <Switch
-        checked={isHidden}
-        onChange={onChange}
-        className={`group relative inline-flex h-7 w-14 cursor-pointer items-center rounded-full p-1 transition-colors duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900 ${
-          isHidden ? 'bg-gray-900 dark:bg-gray-100' : 'bg-gray-300/70 dark:bg-gray-700/70'
-        }`}
-      >
+    <div className="flex items-center gap-3">
+      <Switch checked={isHidden} onCheckedChange={onChange}>
         <span className="sr-only">Hide commission from public list</span>
-        <span
-          aria-hidden="true"
-          className={`pointer-events-none inline-block h-5 w-5 translate-x-0 rounded-full bg-white shadow-lg transition duration-200 ease-out ${
-            isHidden ? 'translate-x-7' : 'translate-x-0'
-          } group-data-checked:translate-x-7 dark:bg-gray-900/80`}
-        />
       </Switch>
-      <Label className="text-sm font-medium text-gray-700 dark:text-gray-200">Hidden</Label>
-    </Field>
+      <label className="text-sm font-medium text-gray-700 dark:text-gray-200">Hidden</label>
+    </div>
   )
 }
