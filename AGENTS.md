@@ -61,6 +61,13 @@ Additional guidance:
   - `bun run scripts/images.ts`
 - To clean stale webp files:
   - `bun run images:prune-unused`
+- Keep static export image variants at:
+  - Base: `<name>.webp`
+  - Responsive: `<name>-960.webp`, `<name>-1280.webp`
+- `-640.webp` is intentionally not generated.
+- Listing image rendering should use `srcset` (`960w`, `1280w`) with:
+  - `sizes="(max-width: 768px) 92vw, 640px"`
+- When evaluating whether to add a sub-960 variant, use `commission_image_variant_loaded` distribution first.
 
 ## Commit Etiquette
 
