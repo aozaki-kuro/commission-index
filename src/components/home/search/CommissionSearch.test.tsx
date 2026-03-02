@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { CommissionViewModeProvider } from '#components/home/commission/CommissionViewMode'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
@@ -32,7 +32,7 @@ describe('CommissionSearch', () => {
     )
   })
 
-  it('applies suggestion from command list', () => {
+  it('applies suggestion from command list', async () => {
     mockTrackRybbitEvent.mockClear()
     const entries: CommissionSearchEntrySource[] = [
       {
@@ -52,13 +52,15 @@ describe('CommissionSearch', () => {
     fireEvent.click(screen.getByText('Alice'))
 
     expect(input.value).toContain('Alice')
-    expect(mockTrackRybbitEvent).toHaveBeenCalledWith(
-      ANALYTICS_EVENTS.searchUsed,
-      expect.objectContaining({
-        source: 'input',
-        result_count: 1,
-      }),
-    )
+    await waitFor(() => {
+      expect(mockTrackRybbitEvent).toHaveBeenCalledWith(
+        ANALYTICS_EVENTS.searchUsed,
+        expect.objectContaining({
+          source: 'input',
+          result_count: 1,
+        }),
+      )
+    })
     const searchEventPayload = mockTrackRybbitEvent.mock.calls.find(
       ([eventName]) => eventName === ANALYTICS_EVENTS.searchUsed,
     )?.[1] as Record<string, unknown> | undefined

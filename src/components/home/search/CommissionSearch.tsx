@@ -606,13 +606,21 @@ const CommissionSearch = ({
   useEffect(() => {
     if (normalizedDeferredQuery.length < MIN_TRACK_QUERY_LENGTH || hasTrackedSearchUsageRef.current)
       return
+    if (resolvedIndex.entries.length > 0 && !resolvedIndex.fuse) return
     hasTrackedSearchUsageRef.current = true
 
     trackRybbitEvent(ANALYTICS_EVENTS.searchUsed, {
       result_count: matchedIds.size,
       source: inputQuery === null ? 'url_query' : 'input',
     })
-  }, [deferredQuery, inputQuery, matchedIds.size, normalizedDeferredQuery.length])
+  }, [
+    deferredQuery,
+    inputQuery,
+    matchedIds.size,
+    normalizedDeferredQuery.length,
+    resolvedIndex.entries.length,
+    resolvedIndex.fuse,
+  ])
 
   useEffect(() => {
     const entriesCount = resolvedIndex.entries.length

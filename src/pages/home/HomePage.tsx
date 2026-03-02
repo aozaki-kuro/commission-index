@@ -19,6 +19,21 @@ const Warning = lazy(() => import('#components/home/warning/Warning'))
 
 const SITE_PAYLOAD_URL = '/data/site-payload.json'
 
+const CharacterListSkeleton = () => {
+  return (
+    <aside className="hidden lg:fixed lg:top-52 lg:left-[calc(50%+22rem)] lg:block lg:h-screen lg:w-full lg:max-w-50">
+      <div className="sticky top-4 ml-8 space-y-3 pt-4">
+        <Skeleton className="h-5 w-36" />
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-4 w-36" />
+        <Skeleton className="h-4 w-28" />
+      </div>
+    </aside>
+  )
+}
+
 const HomePageSkeleton = () => {
   return (
     <div className="relative mx-auto flex min-h-[1850px] justify-center md:min-h-[2100px]">
@@ -56,16 +71,7 @@ const HomePageSkeleton = () => {
           </div>
         </div>
       </div>
-      <aside className="hidden md:block md:w-[200px] md:pl-7 lg:w-[230px] xl:w-[260px]">
-        <div className="sticky top-4 space-y-3 pt-4">
-          <Skeleton className="h-5 w-36" />
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-4 w-28" />
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-4 w-36" />
-          <Skeleton className="h-4 w-28" />
-        </div>
-      </aside>
+      <CharacterListSkeleton />
     </div>
   )
 }
@@ -148,17 +154,7 @@ const Home = () => {
             />
             <Footer />
           </div>
-          <Suspense
-            fallback={
-              <aside className="hidden md:block md:w-[200px] md:pl-7 lg:w-[230px] xl:w-[260px]">
-                <div className="sticky top-4 space-y-3 pt-4">
-                  <Skeleton className="h-5 w-36" />
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-4 w-28" />
-                </div>
-              </aside>
-            }
-          >
+          <Suspense fallback={<CharacterListSkeleton />}>
             <CharacterList
               characters={computed.characters}
               monthNavItems={computed.monthNavItems}
