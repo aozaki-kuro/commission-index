@@ -1,3 +1,4 @@
+import { assetsWorkflowPlugin } from './vite.assets-workflow'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tsconfigPaths from 'vite-tsconfig-paths'
@@ -5,7 +6,7 @@ import tsconfigPaths from 'vite-tsconfig-paths'
 const adminApiPort = Number(process.env.VITE_ADMIN_API_PORT ?? 8788)
 
 export default defineConfig({
-  plugins: [react(), tsconfigPaths()],
+  plugins: [assetsWorkflowPlugin(), react(), tsconfigPaths()],
   build: {
     rollupOptions: {
       output: {
