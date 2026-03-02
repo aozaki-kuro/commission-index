@@ -22,6 +22,21 @@
     --font-mono:
       'Berkeley Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
       'Courier New', monospace;
+    color-scheme: light dark;
+    background-color: #fff;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      background-color: #171717;
+    }
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    background-color: inherit;
   }
 
   body {
