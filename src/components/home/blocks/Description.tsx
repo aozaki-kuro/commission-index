@@ -3,15 +3,18 @@ import AppLink from '#components/shared/AppLink'
 import Update from '#components/home/blocks/Update'
 import Title from '#components/shared/Title'
 import type { Props } from '#data/types'
+import type { HomeUpdateSummary } from '#lib/home/updateSummary'
 
 interface CommissionDescriptionProps {
   commissionData: Props
   activeCharacters: string[]
+  updateSummary?: HomeUpdateSummary
 }
 
 const CommissionDescription = ({
   commissionData,
   activeCharacters,
+  updateSummary,
 }: CommissionDescriptionProps) => {
   return (
     <div id="--------Description--------">
@@ -39,7 +42,11 @@ const CommissionDescription = ({
         <AppLink href="mailto:contact@crystallize.cc">Email</AppLink>. Please note, any requests
         regarding the release or distribution of the illustrations will be ignored.
       </p>
-      <Update commissionData={commissionData} activeCharacters={activeCharacters} />
+      <Update
+        commissionData={commissionData}
+        activeCharacters={activeCharacters}
+        summary={updateSummary}
+      />
     </div>
   )
 }

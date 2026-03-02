@@ -16,6 +16,7 @@ import {
 } from '#components/ui/sidebar'
 import { Skeleton } from '#components/ui/skeleton'
 import { buildCommissionTimeline } from '#lib/commissions/timeline'
+import { homeUpdateSummary } from '#lib/generated/homeUpdateSummary'
 import { useDocumentTitle } from '#lib/seo/useDocumentTitle'
 import { buildCommissionDataMap, buildCreatorAliasesMap, type SitePayload } from '#lib/sitePayload'
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
@@ -92,30 +93,27 @@ const CharacterListSkeleton = ({
   )
 }
 
-const HomePageSkeleton = () => {
+const HomePageLoadingShell = () => {
   return (
     <div className="relative mx-auto flex min-h-[1850px] justify-center md:min-h-[2100px]">
       <div id="Main Contents" className="w-full max-w-160">
-        <div className="mb-2 h-10 md:h-14">
-          <Skeleton className="h-full w-full rounded-xl" />
-        </div>
-        <div className="min-h-[330px] md:min-h-[380px]" />
-        <section className="mt-8 mb-6 h-12">
-          <Skeleton className="h-11 w-full rounded-none" />
-        </section>
-        <div className="mb-6 flex h-10 items-center gap-2">
-          <Skeleton className="h-full w-28 rounded-lg" />
-          <Skeleton className="h-full w-28 rounded-lg" />
-        </div>
-        <div className="min-h-[1050px] space-y-8 md:min-h-[1280px]">
-          <div>
-            <Skeleton className="aspect-1280/525 w-full" />
-          </div>
-          <div>
-            <Skeleton className="aspect-1280/525 w-full" />
-          </div>
-          <div>
-            <Skeleton className="aspect-1280/525 w-full" />
+        <CommissionDescription
+          commissionData={[]}
+          activeCharacters={[]}
+          updateSummary={homeUpdateSummary}
+        />
+        <CommissionSearchDeferred />
+        <div className="min-h-[1050px] md:min-h-[1280px]">
+          <div className="hidden space-y-8 md:block">
+            <div>
+              <Skeleton className="aspect-1280/525 w-full" />
+            </div>
+            <div>
+              <Skeleton className="aspect-1280/525 w-full" />
+            </div>
+            <div>
+              <Skeleton className="aspect-1280/525 w-full" />
+            </div>
           </div>
         </div>
       </div>
@@ -177,7 +175,7 @@ const Home = () => {
   }
 
   if (!payload || !computed) {
-    return <HomePageSkeleton />
+    return <HomePageLoadingShell />
   }
 
   return (

@@ -5,8 +5,8 @@
   "author": "Crystallize",
   "type": "module",
   "scripts": {
-    "assets:build": "bun run scripts/images.ts && bun run scripts/sitePayload.ts && bun run scripts/homeSearchEntries.ts && bun run scripts/rss.ts",
-    "assets:dev": "bun run scripts/sitePayload.ts && bun run scripts/homeSearchEntries.ts && bun run scripts/rss.ts",
+    "assets:build": "bun run scripts/images.ts && bun run scripts/sitePayload.ts && bun run scripts/homeUpdateSummary.ts && bun run scripts/homeSearchEntries.ts && bun run scripts/rss.ts",
+    "assets:dev": "bun run scripts/sitePayload.ts && bun run scripts/homeUpdateSummary.ts && bun run scripts/homeSearchEntries.ts && bun run scripts/rss.ts",
     "build": "bun run assets:build && vite build",
     "clean": "rm -rf dist node_modules .wrangler && bun i",
     "deploy": "bun run build && wrangler deploy",
