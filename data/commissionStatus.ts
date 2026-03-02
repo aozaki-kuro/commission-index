@@ -1,5 +1,3 @@
-import 'server-only'
-
 import { CharacterRecord, characterRecords, getCharacterRecords } from './commissionRecords'
 
 const isDevelopment = process.env.NODE_ENV === 'development'

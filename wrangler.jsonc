@@ -1,10 +1,11 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "commission-vault",
+  "main": "server/worker.ts",
   "compatibility_date": "2026-02-05",
   "vars": {},
   "assets": {
-    "directory": "./out",
+    "directory": "./dist",
   },
   "preview_urls": false,
   "workers_dev": false,

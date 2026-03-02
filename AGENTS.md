@@ -1,20 +1,20 @@
 # AGENTS
 
-This repository contains a Next.js 16 application written in TypeScript and managed with Bun.
+This repository contains a Vite + React 19 application written in TypeScript and managed with Bun.
 
 ## Development Notes
 
 - **Runtime & package manager:** Node 22 via [mise](https://mise.jdx.dev) and `bun` for all commands.
-- **Framework:** Next.js with the `app/` router and Tailwind CSS.
-- **Path aliases:** Prefer the `#components`, `#images`, `#commission`, `#data`, `#lib`, and `#admin/*` aliases (`#admin/actions` swaps between dev + stub automatically).
+- **Framework:** Vite + React Router + Tailwind CSS.
+- **Path aliases:** Prefer the `#app`, `#components`, `#images`, `#commission`, `#data`, `#lib`, and `#admin/*` aliases (`#admin/actions` points to the HTTP client action wrappers).
 - **Data source:** Commission content lives in `data/commissions.db`; access it through `data/sqlite.ts` (Bun uses `bun:sqlite`, Node falls back to `better-sqlite3`).
 
 ## Dev/Admin Responsibilities (must follow)
 
-- `app/(dev)/admin` is a **development-only data maintenance UI** served at `/admin`.
-- In production behavior, `/admin` should not expose editing and should fall through to `notFound()`.
+- `src/admin` is a **development-only data maintenance UI** served at `/admin`.
+- In production behavior, `/admin` should not expose editing and must return 404 via route guards + static redirect rules.
 - All write operations (`create*`, `update*`, `deleteCommission`) are valid only when `NODE_ENV=development`.
-- Always import actions from `#admin/actions` so environment routing (`actions.dev.ts` vs `actions.stub.ts`) remains intact.
+- Always import actions from `#admin/actions` so components stay on the HTTP API wrapper path.
 - Any admin edit that changes content must include the related `data/commissions.db` update in the same commit.
 
 ## Build Timing & Validation Gates
@@ -29,31 +29,16 @@ Run checks in this order before pushing:
 Additional guidance:
 
 - For docs-only edits, `bun run lint` is still recommended; `bun run build` can be skipped only when no runtime-related files changed.
-- If `data/commissions.db` or admin/data-access code changed, `bun run build` is mandatory.
+- If `data/commissions.db`, `server/admin-api.ts`, or admin/data-access code changed, `bun run build` is mandatory.
 - Run `bun run test` whenever you modify:
-  - `app/(dev)/admin/*`, `#admin/actions`, `app/lib/admin/db.ts`, `next.config.ts`
-  - Rendering/component logic in `app/components/*` and `app/*/page.tsx`
-  - Search/filter/date parsing logic or other user-visible behavior in `app/lib/*` and `data/*`
-
-## Offline Build (Google Fonts)
-
-- This project uses `next/font/google` (currently in `app/layout.tsx`), so `bun run build` may fail in offline/restricted-network environments when Next.js tries to fetch Google Fonts CSS/font files.
-- Next.js supports a mock hook via `NEXT_FONT_GOOGLE_MOCKED_RESPONSES` (path to a module export). Use it to bypass live Google requests during local/offline builds/tests.
-- Example build command:
-  - `NEXT_FONT_GOOGLE_MOCKED_RESPONSES=./scripts/nextFontGoogleMock.ts bun run build`
-- Mock file shape (minimal):
-  - Export an object keyed by the exact Google Fonts CSS URL that Next requests.
-  - Value is the mocked CSS string (`@font-face ... src: url(...) format('woff2')`).
-  - For mocked font file fetches, use absolute local file paths in `url(...)` so Next can read them from disk.
-  - In this Bun + ESM TypeScript repo, prefer a `.ts` file with `module.exports = mockedResponses` (do not use `export =`).
-- Practical note:
-  - The key must match the exact URL Next generates (including query params). The quickest way to get it is from the build error output, then paste it into the mock file.
-  - This is a build/test workaround. The durable fix for fully offline builds is migrating that font to `next/font/local` and checking the `.woff2` files into the repo.
+  - `src/admin/*`, `#admin/actions`, `server/admin-api.ts`, `src/lib/admin/db.ts`, `vite.config.ts`
+  - Rendering/component logic in `src/components/*` and `src/pages/*`
+  - Search/filter/date parsing logic or other user-visible behavior in `src/lib/*` and `data/*`
 
 ## Code Style
 
 - Format code with Prettier: single quotes, no semicolons, trailing commas, `arrowParens: avoid`, width 100.
-- ESLint follows Next.js recommendations with Prettier integration; keep the code free of lint errors.
+- ESLint uses a TypeScript + Prettier baseline; keep the code free of lint errors.
 
 ## Images
 
@@ -71,7 +56,7 @@ Additional guidance:
 
 ## Commit Etiquette
 
-- Commit only source files; exclude generated or build artifacts such as `.next/`, `dist/`, `out/`, etc.
+- Commit only source files; exclude generated or build artifacts such as `dist/`, `.next/`, `out/`, etc.
 - Keep each commit focused on one objective.
 - For data edits, include both code changes and the matching `data/commissions.db` update in one commit.
 - Use this commit message format: `type(scope): short summary`.

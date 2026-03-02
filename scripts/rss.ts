@@ -6,13 +6,19 @@ import { writeFileIfChanged } from './writeFileIfChanged'
 
 const outputPath = path.join(process.cwd(), 'public', 'rss.xml')
 
-await mkdir(path.dirname(outputPath), { recursive: true })
-const payload = `${generateRssFeed()}\n`
-const result = await writeFileIfChanged(outputPath, payload)
-const relativeOutputPath = path.relative(process.cwd(), outputPath)
+export const generateRssFile = async () => {
+  await mkdir(path.dirname(outputPath), { recursive: true })
+  const payload = `${generateRssFeed()}\n`
+  const result = await writeFileIfChanged(outputPath, payload)
+  const relativeOutputPath = path.relative(process.cwd(), outputPath)
 
-if (result === 'unchanged') {
-  console.log(`RSS feed unchanged -> ${relativeOutputPath}`)
-} else {
-  console.log(`Generated RSS feed -> ${relativeOutputPath}`)
+  if (result === 'unchanged') {
+    console.log(`RSS feed unchanged -> ${relativeOutputPath}`)
+  } else {
+    console.log(`Generated RSS feed -> ${relativeOutputPath}`)
+  }
+}
+
+if (import.meta.main) {
+  await generateRssFile()
 }

@@ -60,14 +60,20 @@ const buildHomeSearchEntries = (): SearchEntry[] => {
 
 const outputPath = path.join(process.cwd(), 'public', 'search', 'home-search-entries.json')
 
-const entries = buildHomeSearchEntries()
-await mkdir(path.dirname(outputPath), { recursive: true })
-const payload = `${JSON.stringify(entries, null, 2)}\n`
-const result = await writeFileIfChanged(outputPath, payload)
-const relativeOutputPath = path.relative(process.cwd(), outputPath)
+export const generateHomeSearchEntriesFile = async () => {
+  const entries = buildHomeSearchEntries()
+  await mkdir(path.dirname(outputPath), { recursive: true })
+  const payload = `${JSON.stringify(entries, null, 2)}\n`
+  const result = await writeFileIfChanged(outputPath, payload)
+  const relativeOutputPath = path.relative(process.cwd(), outputPath)
 
-if (result === 'unchanged') {
-  console.log(`Home search entries unchanged (${entries.length}) -> ${relativeOutputPath}`)
-} else {
-  console.log(`Generated ${entries.length} home search entries -> ${relativeOutputPath}`)
+  if (result === 'unchanged') {
+    console.log(`Home search entries unchanged (${entries.length}) -> ${relativeOutputPath}`)
+  } else {
+    console.log(`Generated ${entries.length} home search entries -> ${relativeOutputPath}`)
+  }
+}
+
+if (import.meta.main) {
+  await generateHomeSearchEntriesFile()
 }

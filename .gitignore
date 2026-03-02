@@ -8,9 +8,10 @@
 # testing
 /coverage
 
-# next.js
-/.next/
-/out/
+# build artifacts
+.next/
+out/
+dist/
 
 # production
 /build
@@ -32,7 +33,6 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
-next-env.d.ts
 
 # sitemap & rss
 public/feed.xml
@@ -54,3 +54,4 @@ data/commissions.db-shm
 
 public/rss.xml
 public/search/home-search-entries.json
+public/data/site-payload.json

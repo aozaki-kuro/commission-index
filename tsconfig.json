@@ -27,29 +27,21 @@
     "noEmit": true,
     "incremental": true,
     "importHelpers": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
     "baseUrl": ".",
     "paths": {
-      "#components/*": ["app/components/*"],
+      "#components/*": ["src/components/*"],
       "#images/*": ["public/images/*"],
-      "#commission/*": ["app/components/home/commission/*"],
-      "#admin/actions": ["app/(dev)/admin/actions.stub.ts"],
-      "#admin/*": ["app/(dev)/admin/*"],
+      "#commission/*": ["src/components/home/commission/*"],
+      "#admin/actions": ["src/admin/actions.client.ts"],
+      "#admin/*": ["src/admin/*"],
       "#data/*": ["data/*"],
-      "#lib/*": ["app/lib/*"],
+      "#lib/*": ["src/lib/*"],
+      "#pages/*": ["src/pages/*"],
+      "#styles/*": ["src/styles/*"],
+      "#config/*": ["src/config/*"],
       "#scripts/*": ["scripts/*"]
     }
   },
-  "include": [
-    "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
-    ".next/types/**/*.ts",
-    ".next/dev/types/**/*.ts"
-  ],
+  "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules"]
 }

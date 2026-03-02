@@ -24,12 +24,6 @@
       "automerge": true
     },
     {
-      "matchPackageNames": ["^next(?!ra)$"],
-      "excludePackageNames": ["^nextra$"],
-      "groupName": "Next.js",
-      "automerge": true
-    },
-    {
       "matchDepTypes": ["devDependencies"],
       "matchPackageNames": ["types", "tsx"],
       "groupName": "TypeScript",
