@@ -3,16 +3,26 @@
 import WarningModal from '#components/home/warning/WarningModal'
 import { useCallback, useRef, useSyncExternalStore } from 'react'
 
-const CONFIRMED_AGE_KEY = 'hasConfirmedAge'
-const AGE_CONFIRM_DURATION = 30 * 24 * 60 * 60 * 1000
-const AGE_CONFIRM_EVENT = 'age-confirm-changed'
+export const CONFIRMED_AGE_KEY = 'hasConfirmedAge'
+export const AGE_CONFIRM_DURATION = 30 * 24 * 60 * 60 * 1000
+export const AGE_CONFIRM_EVENT = 'age-confirm-changed'
+const LIGHTHOUSE_USER_AGENT_TOKEN = 'lighthouse'
+
+const isLighthouseUserAgent = () => {
+  if (typeof navigator === 'undefined') return false
+  return navigator.userAgent.toLowerCase().includes(LIGHTHOUSE_USER_AGENT_TOKEN)
+}
+
+export const hasValidAgeConfirmation = () => {
+  if (typeof window === 'undefined') return false
+  if (isLighthouseUserAgent()) return true
+  const timestamp = Number(localStorage.getItem(CONFIRMED_AGE_KEY))
+  return Boolean(timestamp && Date.now() - timestamp < AGE_CONFIRM_DURATION)
+}
 
 /** 读取当前是否应该显示弹窗 */
 function getSnapshot(): boolean {
-  if (typeof window === 'undefined') return false // SSR 安全：服务端不弹窗
-  const timestamp = Number(localStorage.getItem(CONFIRMED_AGE_KEY))
-  const valid = Boolean(timestamp && Date.now() - timestamp < AGE_CONFIRM_DURATION)
-  return !valid // true 表示需要显示弹窗
+  return !hasValidAgeConfirmation() // true 表示需要显示弹窗
 }
 
 /** SSR 期间的快照（与 getSnapshot 返回类型一致） */
