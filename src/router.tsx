@@ -1,10 +1,16 @@
 import AppShell from './AppShell'
 import { createBrowserRouter } from 'react-router-dom'
+import { Suspense, lazy, type ReactNode } from 'react'
 import Home from '#pages/home/HomePage'
-import Support from '#pages/support/SupportPage'
-import AdminPage from '#admin/AdminPage'
-import AdminAliasesPage from '#admin/aliases/AliasesPage'
 import NotFoundPage from '#components/shared/NotFoundPage'
+
+const Support = lazy(() => import('#pages/support/SupportPage'))
+const AdminPage = lazy(() => import('#admin/AdminPage'))
+const AdminAliasesPage = lazy(() => import('#admin/aliases/AliasesPage'))
+
+const withRouteSuspense = (element: ReactNode) => (
+  <Suspense fallback={<div className="h-8" />}>{element}</Suspense>
+)
 
 const router = createBrowserRouter([
   {
@@ -17,15 +23,15 @@ const router = createBrowserRouter([
       },
       {
         path: 'support',
-        element: <Support />,
+        element: withRouteSuspense(<Support />),
       },
       {
         path: 'admin',
-        element: <AdminPage />,
+        element: withRouteSuspense(<AdminPage />),
       },
       {
         path: 'admin/aliases',
-        element: <AdminAliasesPage />,
+        element: withRouteSuspense(<AdminAliasesPage />),
       },
       {
         path: '*',

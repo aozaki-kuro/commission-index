@@ -6,6 +6,19 @@ const adminApiPort = Number(process.env.VITE_ADMIN_API_PORT ?? 8788)
 
 export default defineConfig({
   plugins: [react(), tsconfigPaths()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: id => {
+          if (!id.includes('node_modules')) return
+          if (id.includes('fuse.js')) return 'vendor-search'
+          if (id.includes('@dnd-kit')) return 'vendor-admin'
+          if (id.includes('@radix-ui') || id.includes('cmdk')) return 'vendor-ui'
+          return 'vendor'
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     proxy: {

@@ -3,10 +3,15 @@ import {
   CommissionViewTabs,
 } from '#components/home/commission/CommissionViewMode'
 import Listing from '#components/home/commission/Listing'
-import CommissionImageNoticeGate from '#components/home/commission/CommissionImageNoticeGate'
-import TimelineView from '#components/home/commission/TimelineView'
+import { Skeleton } from '#components/ui/skeleton'
 import type { CharacterCommissions } from '#data/types'
 import type { TimelineYearGroup } from '#lib/commissions/timeline'
+import { Suspense, lazy } from 'react'
+
+const CommissionImageNoticeGate = lazy(
+  () => import('#components/home/commission/CommissionImageNoticeGate'),
+)
+const TimelineView = lazy(() => import('#components/home/commission/TimelineView'))
 
 interface CommissionProps {
   activeChars: { DisplayName: string }[]
@@ -57,9 +62,20 @@ const Commission = ({
         ))}
       </CommissionViewPanel>
       <CommissionViewPanel panel="timeline">
-        <TimelineView groups={timelineGroups} creatorAliasesMap={creatorAliasesMap} />
+        <Suspense
+          fallback={
+            <div className="space-y-6">
+              <Skeleton className="h-8 w-40" />
+              <Skeleton className="aspect-1280/525 w-full" />
+            </div>
+          }
+        >
+          <TimelineView groups={timelineGroups} creatorAliasesMap={creatorAliasesMap} />
+        </Suspense>
       </CommissionViewPanel>
-      <CommissionImageNoticeGate />
+      <Suspense fallback={null}>
+        <CommissionImageNoticeGate />
+      </Suspense>
     </div>
   )
 }

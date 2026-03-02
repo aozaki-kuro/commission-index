@@ -2,14 +2,13 @@
 
 import { DndContext, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useMemo, useRef, useState } from 'react'
 
 import type { CharacterRow, CommissionRow, CreatorAliasRow } from '#lib/admin/db'
 import { getCharacterSectionId } from '#lib/characters/nav'
 import { buildCommissionSearchDomKey } from '#lib/search/commissionSearchMetadata'
-import CommissionSearch, {
-  type CommissionSearchEntrySource,
-} from '#components/home/search/CommissionSearch'
+import type { CommissionSearchEntrySource } from '#components/home/search/CommissionSearch'
+import { Skeleton } from '#components/ui/skeleton'
 import { normalizeQuery } from '#lib/search/index'
 
 import CharacterDeleteDialog from './components/CharacterDeleteDialog'
@@ -17,6 +16,8 @@ import SortableCharacterCard from './components/SortableCharacterCard'
 import SortableDivider from './components/SortableDivider'
 import useCommissionManager, { DIVIDER_ID } from './hooks/useCommissionManager'
 import { buildAdminCommissionSearchMetadata } from './search/commissionSearchMetadata'
+
+const CommissionSearch = lazy(() => import('#components/home/search/CommissionSearch'))
 
 interface CommissionManagerProps {
   characters: CharacterRow[]
@@ -196,12 +197,20 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
         </p>
       )}
 
-      <CommissionSearch
-        disableDomFiltering
-        externalEntries={commissionSearchEntries}
-        onQueryChange={handleSearchQueryChange}
-        onMatchedIdsChange={setMatchedCommissionIds}
-      />
+      <Suspense
+        fallback={
+          <section id="commission-search" className="mt-8 mb-6 h-12">
+            <Skeleton className="h-11 w-full rounded-none" />
+          </section>
+        }
+      >
+        <CommissionSearch
+          disableDomFiltering
+          externalEntries={commissionSearchEntries}
+          onQueryChange={handleSearchQueryChange}
+          onMatchedIdsChange={setMatchedCommissionIds}
+        />
+      </Suspense>
 
       <div className="animate-[tabFade_260ms_ease-out] space-y-4">
         <DndContext

@@ -24,6 +24,7 @@ import {
   createSearchIndex,
   filterSuggestions,
   getMatchedEntryIds,
+  hydrateSearchIndexFuse,
   normalizeQuery,
   normalizeQuotedTokenBoundary,
   parseSuggestionInputState,
@@ -500,8 +501,34 @@ const CommissionSearch = ({
     if (!shouldBuildIndex) return createEmptySearchIndex()
     return buildSearchIndex(mode, externalEntries)
   }, [externalEntries, mode, shouldBuildIndex])
+  const [hydratedIndex, setHydratedIndex] = useState<SearchIndex | null>(null)
+  const resolvedIndex = useMemo(
+    () => (hydratedIndex && hydratedIndex.entries === index.entries ? hydratedIndex : index),
+    [hydratedIndex, index],
+  )
 
-  const matchedIds = useMemo(() => getMatchedEntryIds(deferredQuery, index), [deferredQuery, index])
+  useEffect(() => {
+    let active = true
+    if (!index.entries.length || resolvedIndex.fuse) {
+      return () => {
+        active = false
+      }
+    }
+
+    void hydrateSearchIndexFuse(index).then(nextIndex => {
+      if (!active) return
+      setHydratedIndex(nextIndex)
+    })
+
+    return () => {
+      active = false
+    }
+  }, [index, resolvedIndex.fuse])
+
+  const matchedIds = useMemo(
+    () => getMatchedEntryIds(deferredQuery, resolvedIndex),
+    [deferredQuery, resolvedIndex],
+  )
 
   const suggestionContextMatchedIds = useMemo(() => {
     return resolveSuggestionContextMatchedIds({
@@ -509,12 +536,12 @@ const CommissionSearch = ({
       suggestionQuery,
       suggestionContextQuery,
       matchedIds,
-      index,
+      index: resolvedIndex,
       suggestionOperator,
     })
   }, [
     deferredQuery,
-    index,
+    resolvedIndex,
     matchedIds,
     suggestionContextQuery,
     suggestionOperator,
@@ -523,16 +550,16 @@ const CommissionSearch = ({
 
   const filteredSuggestions = useMemo<FilteredSuggestion[]>(() => {
     return filterSuggestions({
-      entries: index.entries,
-      suggestions: index.suggestions,
+      entries: resolvedIndex.entries,
+      suggestions: resolvedIndex.suggestions,
       suggestionQuery,
       suggestionContextQuery,
       suggestionContextMatchedIds,
       isExclusionSuggestion: suggestionIsExclusion,
     })
   }, [
-    index.entries,
-    index.suggestions,
+    resolvedIndex.entries,
+    resolvedIndex.suggestions,
     suggestionContextQuery,
     suggestionContextMatchedIds,
     suggestionIsExclusion,
@@ -546,8 +573,8 @@ const CommissionSearch = ({
 
   const relatedCreatorTermsMap = useMemo(() => {
     if (!shouldResolveRelatedCreatorTerms) return new Map<string, string[]>()
-    return buildRelatedCreatorTermsMap(index.entries)
-  }, [index.entries, shouldResolveRelatedCreatorTerms])
+    return buildRelatedCreatorTermsMap(resolvedIndex.entries)
+  }, [resolvedIndex.entries, shouldResolveRelatedCreatorTerms])
 
   const suggestionViewModels = useMemo<SuggestionViewModel[]>(() => {
     return filteredSuggestions.map(suggestion => ({
@@ -588,7 +615,7 @@ const CommissionSearch = ({
   }, [deferredQuery, inputQuery, matchedIds.size, normalizedDeferredQuery.length])
 
   useEffect(() => {
-    const entriesCount = index.entries.length
+    const entriesCount = resolvedIndex.entries.length
     const statusMessage = buildSearchLiveStatusMessage(
       hasDeferredQuery,
       matchedIds.size,
@@ -602,10 +629,10 @@ const CommissionSearch = ({
       return
     }
 
-    const { entryById, sections, staleDivider } = index
+    const { entryById, sections, staleDivider } = resolvedIndex
     const previousMatchedIds = previousMatchedIdsRef.current
     const matchedIdsChanged = !areSetsEqual(previousMatchedIds, matchedIds)
-    const indexChanged = previousFilterIndexRef.current !== index
+    const indexChanged = previousFilterIndexRef.current !== resolvedIndex
     const visibleSectionIds = hasDeferredQuery ? new Set<string>() : null
     let didLayoutChange = false
 
@@ -634,7 +661,7 @@ const CommissionSearch = ({
     }
 
     previousMatchedIdsRef.current = matchedIds
-    previousFilterIndexRef.current = index
+    previousFilterIndexRef.current = resolvedIndex
 
     if (entriesCount === 0) {
       return
@@ -663,7 +690,7 @@ const CommissionSearch = ({
     if (didLayoutChange) {
       dispatchSidebarSearchState()
     }
-  }, [disableDomFiltering, hasDeferredQuery, index, matchedIds])
+  }, [disableDomFiltering, hasDeferredQuery, matchedIds, resolvedIndex])
 
   useEffect(() => {
     if (didAutoJumpRef.current || !initialUrlQuery) return

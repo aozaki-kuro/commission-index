@@ -3,50 +3,67 @@ import { CommissionViewModeProvider } from '#components/home/commission/Commissi
 import CommissionDescription from '#components/home/blocks/Description'
 import Footer from '#components/home/blocks/Footer'
 
-import CharacterList from '#components/home/nav/CharacterList'
 import CommissionSearchDeferred from '#components/home/search/CommissionSearchDeferred'
 import DevLiveRefresh from '#components/home/dev/DevLiveRefresh'
 
-import Hamburger from '#components/home/nav/Hamburger'
-import Warning from '#components/home/warning/Warning'
 import NotFoundPage from '#components/shared/NotFoundPage'
 import { Skeleton } from '#components/ui/skeleton'
 import { buildCommissionTimeline } from '#lib/commissions/timeline'
 import { useDocumentTitle } from '#lib/seo/useDocumentTitle'
 import { buildCommissionDataMap, buildCreatorAliasesMap, type SitePayload } from '#lib/sitePayload'
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
+
+const CharacterList = lazy(() => import('#components/home/nav/CharacterList'))
+const Hamburger = lazy(() => import('#components/home/nav/Hamburger'))
+const Warning = lazy(() => import('#components/home/warning/Warning'))
 
 const SITE_PAYLOAD_URL = '/data/site-payload.json'
 
 const HomePageSkeleton = () => {
   return (
-    <div className="relative mx-auto flex justify-center">
+    <div className="relative mx-auto flex min-h-[1850px] justify-center md:min-h-[2100px]">
       <div id="Main Contents" className="w-full max-w-160">
-        <div className="space-y-4">
-          <Skeleton className="h-8 w-52" />
-          <Skeleton className="h-4 w-4/5" />
-          <Skeleton className="h-4 w-2/3" />
+        <div className="mb-2 h-10 md:h-14">
+          <Skeleton className="h-full w-full rounded-xl" />
+        </div>
+        <div className="min-h-[330px] space-y-4 md:min-h-[380px]">
+          <Skeleton className="h-9 w-56" />
+          <Skeleton className="h-5 w-full md:w-11/12" />
+          <Skeleton className="h-5 w-full md:w-10/12" />
+          <Skeleton className="h-5 w-full md:w-10/12" />
+          <Skeleton className="h-5 w-full md:w-11/12" />
+          <Skeleton className="h-5 w-full md:w-9/12" />
         </div>
         <section className="mt-8 mb-6 h-12">
           <Skeleton className="h-11 w-full rounded-none" />
         </section>
-        <div className="space-y-8">
+        <div className="mb-6 flex h-10 items-center gap-2">
+          <Skeleton className="h-full w-28 rounded-lg" />
+          <Skeleton className="h-full w-28 rounded-lg" />
+        </div>
+        <div className="min-h-[1050px] space-y-8 md:min-h-[1280px]">
           <div className="space-y-3">
-            <Skeleton className="h-6 w-36" />
+            <Skeleton className="h-8 w-44" />
             <Skeleton className="aspect-1280/525 w-full" />
           </div>
           <div className="space-y-3">
-            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-8 w-52" />
+            <Skeleton className="aspect-1280/525 w-full" />
+          </div>
+          <div className="space-y-3">
+            <Skeleton className="h-8 w-40" />
             <Skeleton className="aspect-1280/525 w-full" />
           </div>
         </div>
       </div>
-      <aside className="hidden xl:block xl:w-[260px] xl:pl-7">
-        <div className="space-y-3 pt-4">
-          <Skeleton className="h-5 w-28" />
-          <Skeleton className="h-4 w-32" />
+      <aside className="hidden md:block md:w-[200px] md:pl-7 lg:w-[230px] xl:w-[260px]">
+        <div className="sticky top-4 space-y-3 pt-4">
+          <Skeleton className="h-5 w-36" />
           <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-4 w-32" />
           <Skeleton className="h-4 w-36" />
+          <Skeleton className="h-4 w-28" />
         </div>
       </aside>
     </div>
@@ -112,7 +129,9 @@ const Home = () => {
   return (
     <CommissionViewModeProvider>
       <>
-        <Warning />
+        <Suspense fallback={<div className="h-0" />}>
+          <Warning />
+        </Suspense>
         <div className="relative mx-auto flex justify-center">
           <div id="Main Contents" className="w-full max-w-160">
             <CommissionDescription
@@ -129,13 +148,30 @@ const Home = () => {
             />
             <Footer />
           </div>
-          <CharacterList characters={computed.characters} monthNavItems={computed.monthNavItems} />
+          <Suspense
+            fallback={
+              <aside className="hidden md:block md:w-[200px] md:pl-7 lg:w-[230px] xl:w-[260px]">
+                <div className="sticky top-4 space-y-3 pt-4">
+                  <Skeleton className="h-5 w-36" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-28" />
+                </div>
+              </aside>
+            }
+          >
+            <CharacterList
+              characters={computed.characters}
+              monthNavItems={computed.monthNavItems}
+            />
+          </Suspense>
         </div>
-        <Hamburger
-          active={payload.characterStatus.active}
-          stale={payload.characterStatus.stale}
-          timelineNavItems={computed.monthNavItems}
-        />
+        <Suspense fallback={null}>
+          <Hamburger
+            active={payload.characterStatus.active}
+            stale={payload.characterStatus.stale}
+            timelineNavItems={computed.monthNavItems}
+          />
+        </Suspense>
         {import.meta.env.DEV ? <DevLiveRefresh /> : null}
       </>
     </CommissionViewModeProvider>

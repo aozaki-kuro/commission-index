@@ -1,4 +1,4 @@
-import Fuse from 'fuse.js'
+import type Fuse from 'fuse.js'
 import { normalizeDateQueryToken, parseDateSearchInput } from '#lib/date/search'
 import { getBaseFileName } from '#lib/utils/strings'
 
@@ -80,6 +80,7 @@ const BASE_SEARCH_FUSE_OPTIONS = {
   minMatchCharLength: 1,
   useExtendedSearch: true,
 } as const
+let fuseModulePromise: Promise<typeof import('fuse.js')> | null = null
 const EMPTY_IDS = new Set<number>()
 const EMPTY_STRING_SET = new Set<string>()
 const matchedIdsCache = new WeakMap<object, Map<string, Set<number>>>()
@@ -535,18 +536,42 @@ export const buildStrictTermIndex = <T extends SearchEntryLike>(entries: T[]) =>
   return index
 }
 
-export const createSearchFuse = <T extends SearchEntryLike>(entries: T[]) =>
-  new Fuse(entries, {
+const loadFuseModule = async () => {
+  if (!fuseModulePromise) {
+    fuseModulePromise = import('fuse.js')
+  }
+
+  return fuseModulePromise
+}
+
+export const createSearchFuse = async <T extends SearchEntryLike>(entries: T[]) => {
+  const fuseModule = await loadFuseModule()
+  const FuseConstructor = fuseModule.default
+  return new FuseConstructor(entries, {
     keys: ['searchText'],
     ...BASE_SEARCH_FUSE_OPTIONS,
   })
+}
 
 export const createSearchIndex = <T extends SearchEntryLike>(entries: T[]): SearchIndexLike<T> => ({
   entries,
   allIds: new Set(entries.map(entry => entry.id)),
   strictTermIndex: buildStrictTermIndex(entries),
-  fuse: createSearchFuse(entries),
+  fuse: null,
 })
+
+export const hydrateSearchIndexFuse = async <
+  T extends SearchEntryLike,
+  I extends SearchIndexLike<T>,
+>(
+  index: I,
+): Promise<I> => {
+  if (index.fuse) return index
+  return {
+    ...index,
+    fuse: await createSearchFuse(index.entries),
+  } as I
+}
 
 const matchesMaskedAt = (pattern: string, query: string, startIndex: number) => {
   for (let i = 0; i < query.length; i += 1) {
@@ -645,14 +670,15 @@ export const getMatchedEntryIds = <T extends SearchEntryLike>(
 ) => {
   const { entries, allIds, fuse } = index
   const { normalizedRawQuery, tokens } = getParsedFuseQuery(rawQuery)
-  if (!entries.length || !fuse) return EMPTY_IDS
+  if (!entries.length) return EMPTY_IDS
   if (!normalizedRawQuery) return allIds
+
+  const strictMatchIds = tokens.length ? evaluateStrictQuery(index, tokens) : null
+  if (!fuse) return strictMatchIds ?? allIds
 
   const queryCache = getQueryCache(index)
   const cached = queryCache.get(normalizedRawQuery)
   if (cached) return cached
-
-  const strictMatchIds = tokens.length ? evaluateStrictQuery(index, tokens) : null
 
   const matched =
     strictMatchIds && strictMatchIds.size > 0
