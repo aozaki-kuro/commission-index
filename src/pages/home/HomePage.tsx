@@ -7,6 +7,13 @@ import CommissionSearchDeferred from '#components/home/search/CommissionSearchDe
 import DevLiveRefresh from '#components/home/dev/DevLiveRefresh'
 
 import NotFoundPage from '#components/shared/NotFoundPage'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarMenu,
+  SidebarMenuItem,
+} from '#components/ui/sidebar'
 import { Skeleton } from '#components/ui/skeleton'
 import { buildCommissionTimeline } from '#lib/commissions/timeline'
 import { useDocumentTitle } from '#lib/seo/useDocumentTitle'
@@ -20,6 +27,10 @@ const Warning = lazy(() => import('#components/home/warning/Warning'))
 const SITE_PAYLOAD_URL = '/data/site-payload.json'
 const DEFAULT_CHARACTER_LIST_SKELETON_COUNT = 12
 const CHARACTER_LIST_SKELETON_WIDTHS = [6.5, 7.5, 6, 8, 6.75, 7.25] as const
+const CHARACTER_LIST_SIDEBAR_CLASSES =
+  'md:top-52 md:left-[calc(50%+22rem)] md:h-screen md:w-full md:max-w-50 lg:fixed'
+const CHARACTER_LIST_UTILITY_ROW_CLASSES =
+  'relative flex min-h-5 items-center pl-4 text-gray-700 dark:text-gray-200'
 
 const CharacterListSkeleton = ({
   navItemCount = DEFAULT_CHARACTER_LIST_SKELETON_COUNT,
@@ -27,30 +38,44 @@ const CharacterListSkeleton = ({
   navItemCount?: number
 }) => {
   const resolvedNavItemCount = Math.max(DEFAULT_CHARACTER_LIST_SKELETON_COUNT, navItemCount)
+  const showAdminPlaceholder = import.meta.env.DEV
 
   return (
-    <aside className="hidden lg:fixed lg:top-52 lg:left-[calc(50%+22rem)] lg:block lg:h-screen lg:w-full lg:max-w-50">
-      <div className="sticky top-4 ml-8 space-y-2 pt-4">
-        <div className="space-y-4 pb-2">
-          <div className="relative min-h-5 pl-4">
+    <Sidebar
+      id="Character List Skeleton"
+      aria-hidden="true"
+      className={CHARACTER_LIST_SIDEBAR_CLASSES}
+    >
+      <SidebarContent className="sticky top-4 ml-8 space-y-2">
+        <SidebarGroup className="space-y-4 pb-2">
+          <SidebarMenuItem className={CHARACTER_LIST_UTILITY_ROW_CLASSES}>
             <Skeleton className="h-4 w-14" />
-          </div>
+          </SidebarMenuItem>
 
           <div className="space-y-2">
-            <div className="relative min-h-5 pl-4">
+            <div className={CHARACTER_LIST_UTILITY_ROW_CLASSES}>
               <div className="absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-300/80 dark:bg-gray-700/80" />
               <Skeleton className="h-4 w-23" />
             </div>
-            <div className="relative min-h-5 pl-4">
+            <div className={CHARACTER_LIST_UTILITY_ROW_CLASSES}>
               <Skeleton className="h-4 w-16" />
             </div>
           </div>
-        </div>
+
+          {showAdminPlaceholder ? (
+            <SidebarMenuItem className={CHARACTER_LIST_UTILITY_ROW_CLASSES}>
+              <Skeleton className="h-4 w-12" />
+            </SidebarMenuItem>
+          ) : null}
+        </SidebarGroup>
 
         <nav>
-          <ul className="space-y-2">
+          <SidebarMenu>
             {Array.from({ length: resolvedNavItemCount }).map((_, index) => (
-              <li key={`character-nav-skeleton-${index}`} className="relative min-h-5 pl-4">
+              <SidebarMenuItem
+                key={`character-nav-skeleton-${index}`}
+                className="relative min-h-5 pl-4 text-gray-700 dark:text-gray-200"
+              >
                 <div className="absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-300/60 dark:bg-gray-700/60" />
                 <Skeleton
                   className="h-4 rounded-sm"
@@ -58,12 +83,12 @@ const CharacterListSkeleton = ({
                     width: `${CHARACTER_LIST_SKELETON_WIDTHS[index % CHARACTER_LIST_SKELETON_WIDTHS.length]}rem`,
                   }}
                 />
-              </li>
+              </SidebarMenuItem>
             ))}
-          </ul>
+          </SidebarMenu>
         </nav>
-      </div>
-    </aside>
+      </SidebarContent>
+    </Sidebar>
   )
 }
 
