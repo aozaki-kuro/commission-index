@@ -18,17 +18,50 @@ const Hamburger = lazy(() => import('#components/home/nav/Hamburger'))
 const Warning = lazy(() => import('#components/home/warning/Warning'))
 
 const SITE_PAYLOAD_URL = '/data/site-payload.json'
+const DEFAULT_CHARACTER_LIST_SKELETON_COUNT = 12
+const CHARACTER_LIST_SKELETON_WIDTHS = [6.5, 7.5, 6, 8, 6.75, 7.25] as const
 
-const CharacterListSkeleton = () => {
+const CharacterListSkeleton = ({
+  navItemCount = DEFAULT_CHARACTER_LIST_SKELETON_COUNT,
+}: {
+  navItemCount?: number
+}) => {
+  const resolvedNavItemCount = Math.max(DEFAULT_CHARACTER_LIST_SKELETON_COUNT, navItemCount)
+
   return (
     <aside className="hidden lg:fixed lg:top-52 lg:left-[calc(50%+22rem)] lg:block lg:h-screen lg:w-full lg:max-w-50">
-      <div className="sticky top-4 ml-8 space-y-3 pt-4">
-        <Skeleton className="h-5 w-36" />
-        <Skeleton className="h-4 w-24" />
-        <Skeleton className="h-4 w-28" />
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-4 w-36" />
-        <Skeleton className="h-4 w-28" />
+      <div className="sticky top-4 ml-8 space-y-2 pt-4">
+        <div className="space-y-4 pb-2">
+          <div className="relative min-h-5 pl-4">
+            <Skeleton className="h-4 w-14" />
+          </div>
+
+          <div className="space-y-2">
+            <div className="relative min-h-5 pl-4">
+              <div className="absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-300/80 dark:bg-gray-700/80" />
+              <Skeleton className="h-4 w-23" />
+            </div>
+            <div className="relative min-h-5 pl-4">
+              <Skeleton className="h-4 w-16" />
+            </div>
+          </div>
+        </div>
+
+        <nav>
+          <ul className="space-y-2">
+            {Array.from({ length: resolvedNavItemCount }).map((_, index) => (
+              <li key={`character-nav-skeleton-${index}`} className="relative min-h-5 pl-4">
+                <div className="absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-300/60 dark:bg-gray-700/60" />
+                <Skeleton
+                  className="h-4 rounded-sm"
+                  style={{
+                    width: `${CHARACTER_LIST_SKELETON_WIDTHS[index % CHARACTER_LIST_SKELETON_WIDTHS.length]}rem`,
+                  }}
+                />
+              </li>
+            ))}
+          </ul>
+        </nav>
       </div>
     </aside>
   )
@@ -154,7 +187,13 @@ const Home = () => {
             />
             <Footer />
           </div>
-          <Suspense fallback={<CharacterListSkeleton />}>
+          <Suspense
+            fallback={
+              <CharacterListSkeleton
+                navItemCount={Math.max(computed.characters.length, computed.monthNavItems.length)}
+              />
+            }
+          >
             <CharacterList
               characters={computed.characters}
               monthNavItems={computed.monthNavItems}
