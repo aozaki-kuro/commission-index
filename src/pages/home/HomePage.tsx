@@ -99,14 +99,7 @@ const HomePageSkeleton = () => {
         <div className="mb-2 h-10 md:h-14">
           <Skeleton className="h-full w-full rounded-xl" />
         </div>
-        <div className="min-h-[330px] space-y-4 md:min-h-[380px]">
-          <Skeleton className="h-9 w-56" />
-          <Skeleton className="h-5 w-full md:w-11/12" />
-          <Skeleton className="h-5 w-full md:w-10/12" />
-          <Skeleton className="h-5 w-full md:w-10/12" />
-          <Skeleton className="h-5 w-full md:w-11/12" />
-          <Skeleton className="h-5 w-full md:w-9/12" />
-        </div>
+        <div className="min-h-[330px] md:min-h-[380px]" />
         <section className="mt-8 mb-6 h-12">
           <Skeleton className="h-11 w-full rounded-none" />
         </section>
@@ -115,16 +108,13 @@ const HomePageSkeleton = () => {
           <Skeleton className="h-full w-28 rounded-lg" />
         </div>
         <div className="min-h-[1050px] space-y-8 md:min-h-[1280px]">
-          <div className="space-y-3">
-            <Skeleton className="h-8 w-44" />
+          <div>
             <Skeleton className="aspect-1280/525 w-full" />
           </div>
-          <div className="space-y-3">
-            <Skeleton className="h-8 w-52" />
+          <div>
             <Skeleton className="aspect-1280/525 w-full" />
           </div>
-          <div className="space-y-3">
-            <Skeleton className="h-8 w-40" />
+          <div>
             <Skeleton className="aspect-1280/525 w-full" />
           </div>
         </div>
