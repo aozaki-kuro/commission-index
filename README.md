@@ -19,7 +19,9 @@ Personal use only
 
 ### Production `/admin` verification
 
-- `/admin` and `/api/admin/*` 404 in production are enforced by `server/worker.ts`.
+- Production deployment is static-only (no Worker entrypoint).
+- `/admin` and `/api/admin/*` return 404 from static `assets.not_found_handling = "404-page"`.
+- `/support` and `/support/` are explicitly rewritten to `/index.html` via `public/_redirects`.
 - `vite preview` does not validate edge HTTP status behavior for static host routing.
 - Verify using deployed Cloudflare URL:
 
