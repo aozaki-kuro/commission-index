@@ -38,7 +38,6 @@ yarn-error.log*
 # sitemap & rss
 public/feed.xml
 public/sitemap*
-public/robots.txt
 
 # imageMap
 data/imageMap.ts
