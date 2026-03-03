@@ -11,7 +11,7 @@ Personal use only
 - Admin pages (`/admin`, `/admin/aliases`) are injected only in development and are not part of production build output.
 - `bun run dev:api` — run admin API only.
 - `bun run build` — run Astro static build output to `dist/`.
-- `bun run preview:astro` — preview static output locally.
+- `bun run preview` — preview static output locally.
 
 Asset generation (`assets:dev` / `assets:build`) is shared by Astro:
 
