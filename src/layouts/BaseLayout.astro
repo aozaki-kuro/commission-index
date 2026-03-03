@@ -1,9 +1,8 @@
 ---
 import Analytics from '#layouts/Analytics'
 import { SiteMeta } from '#config/siteMeta'
+import { Font } from 'astro:assets'
 
-import '@fontsource/ibm-plex-sans/latin-400.css'
-import '@fontsource/ibm-plex-sans/latin-600.css'
 import '#styles/globals.css'
 
 interface Props {
@@ -20,6 +19,13 @@ const canonicalUrl = new URL(canonicalPath, SiteMeta.canonicalUrl).toString()
 <!doctype html>
 <html lang="en" class="font-sans">
   <head>
+    <Font
+      cssVariable="--font-ibm-plex-sans"
+      preload={[
+        { weight: 400, style: 'normal' },
+        { weight: 600, style: 'normal' },
+      ]}
+    />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex" />

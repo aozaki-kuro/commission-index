@@ -54,27 +54,7 @@ export const useTimelineScrollSpy = (
       rafIdRef.current = completedSynchronously ? null : nextRafId
     }
 
-    const timelinePanelObserver = new MutationObserver(mutations => {
-      if (
-        mutations.some(
-          mutation =>
-            mutation.type === 'childList' ||
-            (mutation.type === 'attributes' &&
-              mutation.target instanceof HTMLElement &&
-              mutation.target.matches('[data-commission-view-panel="timeline"]')),
-        )
-      ) {
-        scheduleUpdate()
-      }
-    })
-
     updateThreshold()
-    timelinePanelObserver.observe(document.body, {
-      subtree: true,
-      attributes: true,
-      childList: true,
-      attributeFilter: ['data-commission-view-active', 'class'],
-    })
 
     const onResize = () => {
       updateThreshold()
@@ -91,7 +71,6 @@ export const useTimelineScrollSpy = (
       window.removeEventListener('scroll', scheduleUpdate)
       window.removeEventListener('resize', onResize)
       window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleUpdate)
-      timelinePanelObserver.disconnect()
       if (rafIdRef.current !== null) {
         cancelAnimationFrame(rafIdRef.current)
       }

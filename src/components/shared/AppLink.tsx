@@ -1,15 +1,11 @@
 import { forwardRef, type AnchorHTMLAttributes } from 'react'
 
-type AppLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & {
-  href: string
-  prefetch?: boolean
-}
+type AppLinkProps = AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }
 
 const AppLink = forwardRef<HTMLAnchorElement, AppLinkProps>(function AppLink(
-  { href, prefetch, ...props },
+  { href, ...props },
   ref,
 ) {
-  void prefetch
   return <a ref={ref} href={href} {...props} />
 })
 

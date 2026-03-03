@@ -25,7 +25,7 @@ const CommissionDescription = ({
         Preview images are displayed alongside their corresponding links to platforms like Twitter,
         Pixiv, or Fantia when available. By clicking on these links, you can view the full image.
         You can also subscribe for updates through{' '}
-        <AppLink href="/rss.xml" target="_blank" prefetch={false}>
+        <AppLink href="/rss.xml" target="_blank">
           RSS
         </AppLink>
         .

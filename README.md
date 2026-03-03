@@ -8,6 +8,7 @@ Personal use only
 
 - `bun run dev` — run Astro web in development mode (`/api/admin/*` handled inside Astro dev middleware).
 - `bun run dev:astro` — run Astro web only (same in-process admin API behavior).
+- Admin pages (`/admin`, `/admin/aliases`) are injected only in development and are not part of production build output.
 - `bun run dev:api` — run admin API only.
 - `bun run build` — run Astro static build output to `dist/`.
 - `bun run preview:astro` — preview static output locally.

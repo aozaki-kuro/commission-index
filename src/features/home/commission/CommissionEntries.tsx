@@ -20,6 +20,8 @@ interface CommissionEntriesProps {
   entries: CommissionRenderEntry[]
   creatorAliasesMap: Map<string, string[]> | null
   showCharacterLabel?: boolean
+  showImage?: boolean
+  showLinks?: boolean
   embedSearchMetadata?: boolean
 }
 
@@ -27,6 +29,8 @@ const CommissionEntries = ({
   entries,
   creatorAliasesMap,
   showCharacterLabel = false,
+  showImage = true,
+  showLinks = true,
   embedSearchMetadata,
 }: CommissionEntriesProps) => {
   const shouldEmbedSearchMetadata = embedSearchMetadata ?? Boolean(import.meta.env?.DEV)
@@ -71,14 +75,20 @@ const CommissionEntries = ({
             data-commission-search-key={searchKey}
             {...(searchAttributes ?? {})}
           >
-            <ProtectedCommissionImage altText={altText} resolvedImageSrc={imageSrc} />
-            <div className="mt-6 mb-2 md:mt-8 md:mb-4">
+            {showImage ? (
+              <ProtectedCommissionImage altText={altText} resolvedImageSrc={imageSrc} />
+            ) : null}
+            <div className={showImage ? 'mt-6 mb-2 md:mt-8 md:mb-4' : 'mt-2 mb-2 md:mb-4'}>
               {showCharacterLabel ? (
                 <div className="mb-2 font-mono text-xs text-gray-600 md:text-sm dark:text-gray-400">
                   {character}
                 </div>
               ) : null}
-              <IllustratorInfo commission={commission} kebabName={entryAnchorPrefix} />
+              <IllustratorInfo
+                commission={commission}
+                kebabName={entryAnchorPrefix}
+                showLinks={showLinks}
+              />
             </div>
           </div>
         )

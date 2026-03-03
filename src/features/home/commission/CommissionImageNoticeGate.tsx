@@ -1,3 +1,5 @@
+import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { trackRybbitEvent } from '#lib/analytics/track'
 import { useEffect, useState, type ComponentType } from 'react'
 
 type InitialNotice = {
@@ -12,8 +14,7 @@ const NOTICE_WIDTH = 356
 const NOTICE_HEIGHT = 120
 const IMAGE_CONTAINER_SELECTOR = '[data-commission-image="true"]'
 const IMAGE_NODE_SELECTOR = '[data-commission-image-node="true"]'
-const IMAGE_SKELETON_SELECTOR = '[data-commission-image-skeleton="true"]'
-const IMAGE_FALLBACK_SELECTOR = '[data-commission-image-fallback="true"]'
+const trackedVariantKeys = new Set<string>()
 
 type CommissionImageNoticeClientProps = {
   initialNotice?: InitialNotice
@@ -38,6 +39,16 @@ const loadCommissionImageNoticeClient = async (): Promise<
   return noticeClientPromise
 }
 
+const detectLoadedVariant = (currentSrc: string): '960' | '1280' | 'base' | 'unknown' => {
+  if (!currentSrc) return 'unknown'
+
+  const normalized = currentSrc.toLowerCase()
+  if (normalized.includes('-960.webp')) return '960'
+  if (normalized.includes('-1280.webp')) return '1280'
+  if (normalized.includes('.webp')) return 'base'
+  return 'unknown'
+}
+
 export default function CommissionImageNoticeGate() {
   const [enabled, setEnabled] = useState(false)
   const [initialNotice, setInitialNotice] = useState<InitialNotice>(null)
@@ -45,68 +56,32 @@ export default function CommissionImageNoticeGate() {
     useState<ComponentType<CommissionImageNoticeClientProps> | null>(() => cachedNoticeClient)
 
   useEffect(() => {
-    const imageContainers = document.querySelectorAll<HTMLElement>(IMAGE_CONTAINER_SELECTOR)
+    const imageNodes = document.querySelectorAll<HTMLImageElement>(IMAGE_NODE_SELECTOR)
     const cleanupFns: Array<() => void> = []
 
-    const showLoaded = (container: HTMLElement, image: HTMLImageElement) => {
-      image.classList.remove('opacity-0')
-      image.classList.add('opacity-100')
-
-      const skeleton = container.querySelector<HTMLElement>(IMAGE_SKELETON_SELECTOR)
-      if (skeleton) {
-        skeleton.classList.remove('opacity-100')
-        skeleton.classList.add('opacity-0')
-      }
-
-      const fallback = container.querySelector<HTMLElement>(IMAGE_FALLBACK_SELECTOR)
-      if (fallback) {
-        fallback.classList.remove('flex')
-        fallback.classList.add('hidden')
+    const trackImageLoadedVariant = (image: HTMLImageElement) => {
+      const variant = detectLoadedVariant(image.currentSrc || image.src)
+      const trackKey = `${variant}:${Math.round(window.devicePixelRatio || 1)}`
+      if (!trackedVariantKeys.has(trackKey)) {
+        trackedVariantKeys.add(trackKey)
+        trackRybbitEvent(ANALYTICS_EVENTS.commissionImageVariantLoaded, {
+          variant,
+          dpr: Number((window.devicePixelRatio || 1).toFixed(2)),
+          viewport_width: window.innerWidth,
+        })
       }
     }
 
-    const showError = (container: HTMLElement, image: HTMLImageElement) => {
-      image.classList.remove('opacity-100')
-      image.classList.add('opacity-0')
-
-      const skeleton = container.querySelector<HTMLElement>(IMAGE_SKELETON_SELECTOR)
-      if (skeleton) {
-        skeleton.classList.remove('opacity-100')
-        skeleton.classList.add('opacity-0')
-      }
-
-      const fallback = container.querySelector<HTMLElement>(IMAGE_FALLBACK_SELECTOR)
-      if (fallback) {
-        fallback.classList.remove('hidden')
-        fallback.classList.add('flex')
-      }
-    }
-
-    imageContainers.forEach(container => {
-      const image = container.querySelector<HTMLImageElement>(IMAGE_NODE_SELECTOR)
-      if (!image) return
-
-      const onLoad = () => {
-        showLoaded(container, image)
-      }
-      const onError = () => {
-        showError(container, image)
-      }
-
+    imageNodes.forEach(image => {
+      const onLoad = () => trackImageLoadedVariant(image)
       image.addEventListener('load', onLoad)
-      image.addEventListener('error', onError)
 
-      if (image.complete) {
-        if (image.naturalWidth > 0) {
-          showLoaded(container, image)
-        } else {
-          showError(container, image)
-        }
+      if (image.complete && image.naturalWidth > 0) {
+        trackImageLoadedVariant(image)
       }
 
       cleanupFns.push(() => {
         image.removeEventListener('load', onLoad)
-        image.removeEventListener('error', onError)
       })
     })
 

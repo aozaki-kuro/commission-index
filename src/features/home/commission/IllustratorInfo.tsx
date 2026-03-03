@@ -9,6 +9,7 @@ import UnpublishedInterestButton from './UnpublishedInterestButton'
 type IllustratorInfoProps = {
   commission: Commission
   kebabName: string
+  showLinks?: boolean
 }
 
 /**
@@ -18,7 +19,7 @@ type IllustratorInfoProps = {
  * 无实际空格字符直接置于JSX中，减少选择文本时选中无意义空格的情况。
  */
 
-const IllustratorInfo = ({ commission, kebabName }: IllustratorInfoProps) => {
+const IllustratorInfo = ({ commission, kebabName, showLinks = true }: IllustratorInfoProps) => {
   const { fileName, Description: description, Links: links, Design: designLink } = commission
   const { date, creator } = parseCommissionFileName(fileName)
   const linkId = `#${kebabName}-${date}`
@@ -65,11 +66,13 @@ const IllustratorInfo = ({ commission, kebabName }: IllustratorInfoProps) => {
          当内容不足放一行时自动换行，flex-grow确保新行独占宽度，justify-end保证右对齐。
       */}
       <div className="ml-auto flex grow justify-end">
-        {hasDisplayLinks ? (
-          createLinks({ links, designLink })
-        ) : (
-          <UnpublishedInterestButton key={interestKey} commissionKey={interestKey} />
-        )}
+        {showLinks ? (
+          hasDisplayLinks ? (
+            createLinks({ links, designLink })
+          ) : (
+            <UnpublishedInterestButton key={interestKey} commissionKey={interestKey} />
+          )
+        ) : null}
       </div>
     </div>
   )
