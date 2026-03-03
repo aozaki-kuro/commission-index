@@ -1,6 +1,7 @@
+import { Skeleton } from '#components/ui/skeleton'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 type ProtectedCommissionImageProps = {
   altText: string
@@ -42,33 +43,63 @@ const detectLoadedVariant = (currentSrc: string): '960' | '1280' | 'base' | 'unk
 }
 
 const ProtectedCommissionImage = ({ altText, resolvedImageSrc }: ProtectedCommissionImageProps) => {
-  const [hasError, setHasError] = useState(false)
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null)
+  const [errorSrc, setErrorSrc] = useState<string | null>(null)
   const srcSet = useMemo(() => buildResponsiveSrcSet(resolvedImageSrc), [resolvedImageSrc])
+  const isLoaded = loadedSrc === resolvedImageSrc
+  const hasError = errorSrc === resolvedImageSrc
+  const handleImageRef = useCallback(
+    (node: HTMLImageElement | null) => {
+      if (!node || !node.complete) return
+
+      if (node.naturalWidth > 0) {
+        setLoadedSrc(resolvedImageSrc)
+        setErrorSrc(null)
+        return
+      }
+
+      setLoadedSrc(null)
+      setErrorSrc(resolvedImageSrc)
+    },
+    [resolvedImageSrc],
+  )
 
   return (
     <div data-commission-image="true" data-commission-alt={altText} className="relative">
-      {hasError ? (
-        <div
-          className="absolute inset-0 z-0 flex items-center justify-center bg-gray-200/80 text-xs text-gray-700 dark:bg-gray-700/60 dark:text-gray-200"
-          aria-hidden="true"
-        >
-          image unavailable
-        </div>
-      ) : null}
+      <Skeleton
+        aria-hidden="true"
+        data-commission-image-skeleton="true"
+        data-testid="commission-image-skeleton"
+        className={`absolute inset-0 z-0 rounded-none transition-opacity duration-500 ease-out motion-reduce:transition-none ${
+          isLoaded || hasError ? 'opacity-0' : 'opacity-100'
+        }`}
+      />
+      <div
+        data-commission-image-fallback="true"
+        className={`absolute inset-0 z-0 items-center justify-center bg-gray-200/80 text-xs text-gray-700 dark:bg-gray-700/60 dark:text-gray-200 ${
+          hasError ? 'flex' : 'hidden'
+        }`}
+        aria-hidden="true"
+      >
+        image unavailable
+      </div>
       <img
+        data-commission-image-node="true"
+        ref={handleImageRef}
         src={resolvedImageSrc}
         srcSet={srcSet || undefined}
         sizes={srcSet ? COMMISSION_IMAGE_SIZES : undefined}
         alt={altText}
-        className={`pointer-events-none relative z-10 transition-opacity duration-300 select-none motion-reduce:transition-none ${
-          hasError ? 'opacity-0' : 'opacity-100'
+        className={`pointer-events-none relative z-10 transition-opacity duration-500 ease-out select-none motion-reduce:transition-none ${
+          hasError ? 'opacity-0' : isLoaded ? 'opacity-100' : 'opacity-0'
         }`}
         loading="lazy"
         width={COMMISSION_IMAGE_WIDTH}
         height={COMMISSION_IMAGE_HEIGHT}
         style={{ width: '100%', height: 'auto' }}
         onLoad={e => {
-          if (hasError) setHasError(false)
+          setLoadedSrc(resolvedImageSrc)
+          if (hasError) setErrorSrc(null)
 
           const variant = detectLoadedVariant(e.currentTarget.currentSrc || e.currentTarget.src)
           const trackKey = `${variant}:${Math.round(window.devicePixelRatio || 1)}`
@@ -82,7 +113,8 @@ const ProtectedCommissionImage = ({ altText, resolvedImageSrc }: ProtectedCommis
           }
         }}
         onError={() => {
-          setHasError(true)
+          setLoadedSrc(null)
+          setErrorSrc(resolvedImageSrc)
         }}
       />
     </div>
