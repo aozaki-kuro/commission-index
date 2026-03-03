@@ -78,6 +78,12 @@ const formatSuggestionMatchCount = (count: number) =>
 const formatSuggestionSources = (sources: Suggestion['sources']) =>
   sources.map(source => suggestionSourceLabels[source]).join(' / ')
 const normalizeSuggestionTermKey = (term: string) => term.trim().toLowerCase()
+const shouldUseTapLikeFocus = () => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
+  const hasTouchPoints = navigator.maxTouchPoints > 0
+  const hasCoarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false
+  return hasTouchPoints || hasCoarsePointer
+}
 const MIN_TRACK_QUERY_LENGTH = 2
 
 const buildSearchUrl = (rawQuery: string) => {
@@ -708,13 +714,22 @@ const CommissionSearch = ({
   }, [initialUrlQuery])
 
   useEffect(() => {
+    if (!inputRef.current) return
+    // cmdk can generate an internal id; keep a stable id for jump/focus helpers.
+    inputRef.current.id = 'commission-search-input'
+  }, [])
+
+  useEffect(() => {
     if (!autoFocusOnMount) return
 
     requestAnimationFrame(() => {
       const input = inputRef.current
       if (!input) return
 
-      input.focus()
+      input.focus({ preventScroll: true })
+      if (shouldUseTapLikeFocus()) {
+        input.click()
+      }
       const cursor = input.value.length
       input.setSelectionRange(cursor, cursor)
     })

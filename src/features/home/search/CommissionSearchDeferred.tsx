@@ -23,6 +23,7 @@ const hasSearchQueryParam = () => {
 type CommissionSearchShellProps = {
   query: string
   isLoadingEntries: boolean
+  onPrewarm: () => void
   onActivate: (focusOnMount?: boolean, openHelpOnMount?: boolean) => void
   onQueryChange: (value: string) => void
 }
@@ -30,6 +31,7 @@ type CommissionSearchShellProps = {
 const CommissionSearchShell = ({
   query,
   isLoadingEntries,
+  onPrewarm,
   onActivate,
   onQueryChange,
 }: CommissionSearchShellProps) => (
@@ -55,12 +57,12 @@ const CommissionSearchShell = ({
           id="commission-search-input"
           type="search"
           value={query}
-          onFocus={() => onActivate(true)}
+          onFocus={() => onPrewarm()}
           onPointerDown={() => {
-            onActivate(true)
+            onPrewarm()
           }}
-          onChange={e => {
-            onQueryChange(e.target.value)
+          onChange={event => {
+            onQueryChange(event.target.value)
             onActivate(true)
           }}
           placeholder="Search"
@@ -148,8 +150,13 @@ export default function CommissionSearchDeferred() {
       const shouldEnable = !isEnabled
       const shouldMarkFocusOnMount = focusOnMount && !shouldFocusOnMount
       const shouldMarkHelpOnMount = openHelpOnMount && !shouldOpenHelpOnMount
+      const requiresSynchronousFocusPath = focusOnMount || openHelpOnMount
 
-      if (shouldEnable || shouldMarkFocusOnMount || shouldMarkHelpOnMount) {
+      if (requiresSynchronousFocusPath) {
+        if (shouldEnable) setIsEnabled(true)
+        if (shouldMarkFocusOnMount) setShouldFocusOnMount(true)
+        if (shouldMarkHelpOnMount) setShouldOpenHelpOnMount(true)
+      } else if (shouldEnable || shouldMarkFocusOnMount || shouldMarkHelpOnMount) {
         startTransition(() => {
           if (shouldEnable) setIsEnabled(true)
           if (shouldMarkFocusOnMount) setShouldFocusOnMount(true)
@@ -177,6 +184,20 @@ export default function CommissionSearchDeferred() {
       shouldOpenHelpOnMount,
     ],
   )
+
+  const prewarmSearch = useCallback(() => {
+    void loadCommissionSearch()
+
+    const shouldRequestEntries =
+      shouldLoadExternalEntries &&
+      !externalEntries &&
+      !cachedHomeSearchEntries &&
+      !homeSearchEntriesPromise
+
+    if (shouldRequestEntries) {
+      void loadExternalEntries()
+    }
+  }, [externalEntries, loadExternalEntries, shouldLoadExternalEntries])
 
   useEffect(() => {
     if (!shouldLoadExternalEntries || hasWarmedUpEntriesRef.current) return
@@ -221,6 +242,7 @@ export default function CommissionSearchDeferred() {
           <CommissionSearchShell
             query={shellQuery}
             isLoadingEntries={isLoadingEntries}
+            onPrewarm={prewarmSearch}
             onActivate={enableSearch}
             onQueryChange={setShellQuery}
           />
@@ -241,6 +263,7 @@ export default function CommissionSearchDeferred() {
     <CommissionSearchShell
       query={shellQuery}
       isLoadingEntries={isEnabled && isLoadingEntries}
+      onPrewarm={prewarmSearch}
       onActivate={enableSearch}
       onQueryChange={setShellQuery}
     />

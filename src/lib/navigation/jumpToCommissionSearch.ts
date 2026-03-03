@@ -7,6 +7,12 @@ type JumpToCommissionSearchOptions = {
 const DEFAULT_TOP_GAP = 24
 const DEFAULT_FOCUS_DELAY_MS = 160
 const DEFAULT_FOCUS_MODE: JumpToCommissionSearchOptions['focusMode'] = 'deferred'
+const shouldUseTapLikeFocus = () => {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
+  const hasTouchPoints = navigator.maxTouchPoints > 0
+  const hasCoarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false
+  return hasTouchPoints || hasCoarsePointer
+}
 
 export const jumpToCommissionSearch = ({
   topGap = DEFAULT_TOP_GAP,
@@ -33,15 +39,17 @@ export const jumpToCommissionSearch = ({
 
     input.focus({ preventScroll })
     // iOS Safari can ignore plain focus unless input receives a direct tap-like activation.
-    input.click()
+    if (shouldUseTapLikeFocus()) {
+      input.click()
+    }
     const cursor = input.value.length
     input.setSelectionRange(cursor, cursor)
   }
 
   if (focusMode === 'immediate') {
-    focusInput(false)
-    requestAnimationFrame(() => scrollToTarget('auto'))
-    window.setTimeout(() => scrollToTarget('auto'), 100)
+    // Keep focus in the same user activation turn on mobile keyboards.
+    scrollToTarget('auto')
+    focusInput(true)
     return
   }
 
@@ -50,7 +58,7 @@ export const jumpToCommissionSearch = ({
   if (focusMode === 'none') return
 
   window.setTimeout(() => {
-    focusInput(false)
+    focusInput(true)
     requestAnimationFrame(() => scrollToTarget('auto'))
     window.setTimeout(() => scrollToTarget('auto'), 100)
   }, focusDelayMs)

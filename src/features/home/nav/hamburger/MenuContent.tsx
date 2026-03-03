@@ -5,6 +5,8 @@ import {
   useRef,
   useState,
   type ComponentType,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
 import {
@@ -69,12 +71,20 @@ interface UtilityActionButtonProps {
   label: string
   icon?: ReactNode
   active: boolean
-  onClick: () => void
+  onClick: (event: ReactMouseEvent<HTMLButtonElement>) => void
+  onPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void
 }
 
-const UtilityActionButton = ({ label, icon, active, onClick }: UtilityActionButtonProps) => (
+const UtilityActionButton = ({
+  label,
+  icon,
+  active,
+  onClick,
+  onPointerDown,
+}: UtilityActionButtonProps) => (
   <button
     type="button"
+    onPointerDown={onPointerDown}
     onClick={onClick}
     aria-pressed={active}
     data-link-style="true"
@@ -100,6 +110,7 @@ const MenuContent = memo(
   ({ mounted, open, close, toggle, active, stale, timelineNavItems }: MenuContentProps) => {
     const { mode, setMode } = useCommissionViewMode()
     const hasTrackedHamburgerSearchUsageRef = useRef(false)
+    const hasHandledSearchPointerRef = useRef(false)
     const [CharacterMenuListComponent, setCharacterMenuListComponent] =
       useState<ComponentType<CharacterMenuListProps> | null>(() => cachedCharacterMenuList)
 
@@ -120,7 +131,7 @@ const MenuContent = memo(
       })
     }, [CharacterMenuListComponent, mounted])
 
-    const handleSearchClick = useCallback(() => {
+    const runSearchAction = useCallback(() => {
       if (!hasTrackedHamburgerSearchUsageRef.current) {
         hasTrackedHamburgerSearchUsageRef.current = true
         trackRybbitEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
@@ -130,9 +141,34 @@ const MenuContent = memo(
           item_count: mode === 'timeline' ? timelineNavItems.length : active.length + stale.length,
         })
       }
+
+      // Drop menu scrolling locks before moving focus so mobile keyboard state stays stable.
+      document.documentElement.classList.remove('overflow-hidden', 'touch-none')
       jumpToCommissionSearch({ topGap: 40, focusMode: 'immediate' })
       close()
     }, [active.length, close, mode, stale.length, timelineNavItems.length])
+
+    const handleSearchPointerDown = useCallback(
+      (event: ReactPointerEvent<HTMLButtonElement>) => {
+        event.preventDefault()
+        hasHandledSearchPointerRef.current = true
+        runSearchAction()
+      },
+      [runSearchAction],
+    )
+
+    const handleSearchClick = useCallback(
+      (_event: ReactMouseEvent<HTMLButtonElement>) => {
+        // Pointer path is handled in onPointerDown; click remains fallback for environments
+        // where pointer events are unavailable or inconsistent.
+        if (hasHandledSearchPointerRef.current) {
+          hasHandledSearchPointerRef.current = false
+          return
+        }
+        runSearchAction()
+      },
+      [runSearchAction],
+    )
 
     const handleModeChange = useCallback(
       (nextMode: CommissionViewMode) => {
@@ -193,6 +229,7 @@ const MenuContent = memo(
                     <UtilityActionButton
                       label="Search"
                       active
+                      onPointerDown={handleSearchPointerDown}
                       onClick={handleSearchClick}
                       icon={
                         <svg

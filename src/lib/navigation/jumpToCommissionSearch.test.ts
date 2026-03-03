@@ -89,13 +89,49 @@ describe('jumpToCommissionSearch', () => {
 
     vi.advanceTimersByTime(160)
 
-    expect(focusSpy).toHaveBeenCalledWith({ preventScroll: false })
-    expect(clickSpy).toHaveBeenCalledTimes(1)
+    expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true })
+    expect(clickSpy).not.toHaveBeenCalled()
     expect(selectionSpy).toHaveBeenCalledWith(input.value.length, input.value.length)
     expect(window.scrollTo).toHaveBeenCalledWith({ top: 146, behavior: 'smooth' })
 
     vi.advanceTimersByTime(100)
     expect(window.scrollTo).toHaveBeenCalledWith({ top: 146, behavior: 'auto' })
     expect(window.scrollTo).toHaveBeenCalledTimes(3)
+  })
+
+  it('runs immediate focus flow without deferred recenter timers', () => {
+    document.body.innerHTML = `
+      <section id="commission-search"></section>
+      <input id="commission-search-input" value="quick query" />
+    `
+    const section = document.getElementById('commission-search') as HTMLElement
+    const input = document.getElementById('commission-search-input') as HTMLInputElement
+
+    vi.spyOn(section, 'getBoundingClientRect').mockReturnValue({
+      top: 70,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 0,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    })
+
+    const focusSpy = vi.spyOn(input, 'focus')
+    const clickSpy = vi.spyOn(input, 'click')
+    const selectionSpy = vi.spyOn(input, 'setSelectionRange')
+
+    jumpToCommissionSearch({ focusMode: 'immediate', topGap: 40 })
+
+    expect(window.scrollTo).toHaveBeenCalledTimes(1)
+    expect(window.scrollTo).toHaveBeenCalledWith({ top: 150, behavior: 'auto' })
+    expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true })
+    expect(clickSpy).not.toHaveBeenCalled()
+    expect(selectionSpy).toHaveBeenCalledWith(input.value.length, input.value.length)
+
+    vi.runOnlyPendingTimers()
+    expect(window.scrollTo).toHaveBeenCalledTimes(1)
   })
 })
