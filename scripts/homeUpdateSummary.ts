@@ -8,12 +8,28 @@ import { writeFileIfChanged } from './writeFileIfChanged'
 
 const outputPath = path.join(process.cwd(), 'src', 'lib', 'generated', 'homeUpdateSummary.ts')
 
-const buildModuleSource = (
-  summary: HomeUpdateSummary,
-) => `import type { HomeUpdateSummary } from '#lib/home/updateSummary'
+const quote = (value: string) => `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
 
-export const homeUpdateSummary: HomeUpdateSummary = ${JSON.stringify(summary, null, 2)}
+const buildModuleSource = (summary: HomeUpdateSummary) => {
+  const entryLines = summary.entries.map(
+    entry => `    {
+      key: ${quote(entry.key)},
+      character: ${quote(entry.character)},
+      href: ${quote(entry.href)},
+      dateLabel: ${quote(entry.dateLabel)},
+    },`,
+  )
+
+  return `import type { HomeUpdateSummary } from '#lib/home/updateSummary'
+
+export const homeUpdateSummary: HomeUpdateSummary = {
+  totalCommissions: ${summary.totalCommissions},
+  entries: [
+${entryLines.join('\n')}
+  ],
+}
 `
+}
 
 export const generateHomeUpdateSummaryModule = async () => {
   const commissionData = getCommissionData()
