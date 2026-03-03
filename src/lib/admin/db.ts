@@ -243,7 +243,7 @@ export const getAdminData = (): AdminData =>
 export const getAdminBootstrapData = (): AdminBootstrapData => {
   const { characters, commissionSearchRows } = withReadOnlyDatabase(db => {
     const hasKeywordColumn = hasCommissionKeywordColumn(db)
-    const keywordSelect = hasKeywordColumn ? 'commissions.keyword as keyword,' : 'NULL as keyword,'
+    const keywordSelect = hasKeywordColumn ? 'commissions.keyword as keyword' : 'NULL as keyword'
 
     const rawCharacters = db
       .prepare(

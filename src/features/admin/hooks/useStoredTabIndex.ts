@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 const buildLocalEventName = (storageKey: string) => `localstorage:${storageKey}`
 
@@ -12,33 +12,35 @@ const readTabIndex = (storageKey: string, tabCount: number): number => {
 
 const useStoredTabIndex = (storageKey: string, tabCount: number) => {
   const localEvent = buildLocalEventName(storageKey)
+  const [selectedIndex, setSelectedIndexState] = useState<number | null>(null)
 
-  const subscribe = useCallback(
-    (onStoreChange: () => void) => {
-      const onStorage = (event: StorageEvent) => {
-        if (event.key === storageKey) onStoreChange()
+  useEffect(() => {
+    const syncFromStorage = () => {
+      setSelectedIndexState(readTabIndex(storageKey, tabCount))
+    }
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === storageKey) {
+        syncFromStorage()
       }
-      const onLocal = () => onStoreChange()
+    }
 
-      window.addEventListener('storage', onStorage)
-      window.addEventListener(localEvent, onLocal)
+    const onLocal = () => syncFromStorage()
 
-      return () => {
-        window.removeEventListener('storage', onStorage)
-        window.removeEventListener(localEvent, onLocal)
-      }
-    },
-    [localEvent, storageKey],
-  )
+    syncFromStorage()
+    window.addEventListener('storage', onStorage)
+    window.addEventListener(localEvent, onLocal)
 
-  const getSnapshot = useCallback(() => readTabIndex(storageKey, tabCount), [storageKey, tabCount])
-  const getServerSnapshot = useCallback(() => null, [])
-
-  const selectedIndex = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener(localEvent, onLocal)
+    }
+  }, [localEvent, storageKey, tabCount])
 
   const setSelectedIndex = useCallback(
     (nextIndex: number) => {
       window.localStorage.setItem(storageKey, String(nextIndex))
+      setSelectedIndexState(nextIndex)
       window.dispatchEvent(new Event(localEvent))
     },
     [localEvent, storageKey],

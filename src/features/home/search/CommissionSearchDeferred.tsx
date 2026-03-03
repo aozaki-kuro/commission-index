@@ -1,5 +1,5 @@
 import { Button } from '#components/ui/button'
-import { lazy, startTransition, Suspense, useCallback, useEffect, useState } from 'react'
+import { lazy, startTransition, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import type { CommissionSearchEntrySource } from '#features/home/search/CommissionSearch'
 
 const HOME_SEARCH_INDEX_URL = '/search/home-search-entries.json'
@@ -10,6 +10,11 @@ const CommissionSearch = lazy(loadCommissionSearch)
 let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
 let homeSearchEntriesPromise: Promise<CommissionSearchEntrySource[]> | null = null
 
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+  cancelIdleCallback?: (handle: number) => void
+}
+
 const hasSearchQueryParam = () => {
   if (typeof window === 'undefined') return false
   return !!new URLSearchParams(window.location.search).get('q')
@@ -18,7 +23,6 @@ const hasSearchQueryParam = () => {
 type CommissionSearchShellProps = {
   query: string
   isLoadingEntries: boolean
-  interceptPointerFocus?: boolean
   onActivate: (focusOnMount?: boolean, openHelpOnMount?: boolean) => void
   onQueryChange: (value: string) => void
 }
@@ -26,7 +30,6 @@ type CommissionSearchShellProps = {
 const CommissionSearchShell = ({
   query,
   isLoadingEntries,
-  interceptPointerFocus = false,
   onActivate,
   onQueryChange,
 }: CommissionSearchShellProps) => (
@@ -53,16 +56,8 @@ const CommissionSearchShell = ({
           type="search"
           value={query}
           onFocus={() => onActivate(true)}
-          onPointerDown={event => {
-            if (interceptPointerFocus) {
-              event.preventDefault()
-            }
+          onPointerDown={() => {
             onActivate(true)
-          }}
-          onTouchStart={event => {
-            if (interceptPointerFocus) {
-              event.preventDefault()
-            }
           }}
           onChange={e => {
             onQueryChange(e.target.value)
@@ -108,6 +103,7 @@ export default function CommissionSearchDeferred() {
   const [shellQuery, setShellQuery] = useState('')
   const [externalEntries, setExternalEntries] = useState<CommissionSearchEntrySource[] | null>(null)
   const [isLoadingEntries, setIsLoadingEntries] = useState(false)
+  const hasWarmedUpEntriesRef = useRef(false)
 
   const shouldLoadExternalEntries = Boolean(import.meta.env?.PROD)
 
@@ -183,6 +179,35 @@ export default function CommissionSearchDeferred() {
   )
 
   useEffect(() => {
+    if (!shouldLoadExternalEntries || hasWarmedUpEntriesRef.current) return
+
+    hasWarmedUpEntriesRef.current = true
+    let timeoutId: number | null = null
+    let idleId: number | null = null
+
+    const warmup = () => {
+      void loadCommissionSearch()
+      void loadExternalEntries()
+    }
+
+    const idleWindow = window as IdleWindow
+    if (idleWindow.requestIdleCallback) {
+      idleId = idleWindow.requestIdleCallback(warmup, { timeout: 1200 })
+    } else {
+      timeoutId = window.setTimeout(warmup, 300)
+    }
+
+    return () => {
+      if (idleId !== null && idleWindow.cancelIdleCallback) {
+        idleWindow.cancelIdleCallback(idleId)
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
+    }
+  }, [loadExternalEntries, shouldLoadExternalEntries])
+
+  useEffect(() => {
     if (isEnabled || !hasSearchQueryParam()) return
     enableSearch(false)
   }, [enableSearch, isEnabled])
@@ -196,7 +221,6 @@ export default function CommissionSearchDeferred() {
           <CommissionSearchShell
             query={shellQuery}
             isLoadingEntries={isLoadingEntries}
-            interceptPointerFocus={false}
             onActivate={enableSearch}
             onQueryChange={setShellQuery}
           />
@@ -217,7 +241,6 @@ export default function CommissionSearchDeferred() {
     <CommissionSearchShell
       query={shellQuery}
       isLoadingEntries={isEnabled && isLoadingEntries}
-      interceptPointerFocus={shouldLoadExternalEntries && !isSearchReady}
       onActivate={enableSearch}
       onQueryChange={setShellQuery}
     />
