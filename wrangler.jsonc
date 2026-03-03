@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "commission-vault",
+  "name": "commission-index",
   "compatibility_date": "2026-02-05",
   "vars": {},
   "assets": {

@@ -7,10 +7,13 @@
   "scripts": {
     "assets:build": "bun run scripts/assets.ts --mode build",
     "assets:dev": "bun run scripts/assets.ts --mode dev",
-    "build": "vite build",
+    "build": "bun run build:astro",
+    "build:astro": "bun run assets:build && astro build",
+    "build:vite": "vite build",
     "clean": "rm -rf dist node_modules .wrangler && bun i",
     "deploy": "bun run build && wrangler deploy",
     "dev": "bun run scripts/dev.ts",
+    "dev:astro": "bun run assets:dev && astro dev",
     "dev:api": "NODE_ENV=development node --import tsx server/admin-api.ts",
     "dev:web": "vite",
     "images": "bun run scripts/images.ts",
@@ -18,7 +21,8 @@
     "images:prune-unused": "bun run scripts/images.ts --prune-unused",
     "lint": "eslint --fix",
     "prepare": "prek install",
-    "start": "vite preview",
+    "preview:astro": "astro preview",
+    "start": "astro preview",
     "test": "vitest run",
     "test:changed": "vitest run --changed",
     "test:watch": "vitest"
@@ -52,6 +56,7 @@
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
+    "@astrojs/react": "^4.4.1",
     "@eslint/eslintrc": "^3.3.4",
     "@eslint/js": "^9.39.0",
     "@j178/prek": "^0.3.4",
@@ -65,6 +70,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.4",
+    "astro": "^5.13.0",
     "autoprefixer": "^10.4.27",
     "eslint": "^9.39.3",
     "eslint-config-prettier": "^10.1.8",

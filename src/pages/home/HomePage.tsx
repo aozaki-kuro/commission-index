@@ -17,7 +17,6 @@ import { buildCommissionTimeline } from '#lib/commissions/timeline'
 import { homeUpdateSummary } from '#lib/generated/homeUpdateSummary'
 import { useDocumentTitle } from '#lib/seo/useDocumentTitle'
 import { buildCommissionDataMap, buildCreatorAliasesMap, type SitePayload } from '#lib/sitePayload'
-import { getBootstrappedSitePayload } from '#lib/sitePayloadBootstrap'
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 
 const CharacterList = lazy(() => import('#components/home/nav/CharacterList'))
@@ -130,14 +129,9 @@ const HomePageLoadingShell = ({ hasError }: { hasError?: boolean }) => {
   )
 }
 
-const getInitialPayload = (bootstrapPayload?: SitePayload | null) =>
-  bootstrapPayload ?? getBootstrappedSitePayload()
-
 const Home = ({ bootstrapPayload }: { bootstrapPayload?: SitePayload | null }) => {
   useDocumentTitle()
-  const [payload, setPayload] = useState<SitePayload | null>(() =>
-    getInitialPayload(bootstrapPayload),
-  )
+  const [payload, setPayload] = useState<SitePayload | null>(() => bootstrapPayload ?? null)
   const [hasError, setHasError] = useState(false)
 
   useEffect(() => {

@@ -8,35 +8,18 @@ type AssetsCommand = 'assets:dev' | 'assets:build'
 
 const GENERATED_OUTPUTS = new Set(
   [
-    'public/data/site-payload.json',
-    'public/data/home-prerender.html',
     'src/lib/generated/homeUpdateSummary.ts',
     'public/search/home-search-entries.json',
     'public/rss.xml',
   ].map(file => path.resolve(process.cwd(), file)),
 )
 
-const TASK_ORDER: AssetTask[] = [
-  'site-payload',
-  'home-update-summary',
-  'home-search-entries',
-  'home-prerender',
-  'rss',
-  'images',
-]
+const TASK_ORDER: AssetTask[] = ['home-update-summary', 'home-search-entries', 'rss', 'images']
 
 const HOT_UPDATE_RULES: { pattern: RegExp; tasks: AssetTask[] }[] = [
   {
     pattern: /[/\\]data[/\\](?!images[/\\])/,
-    tasks: ['site-payload', 'home-update-summary', 'home-search-entries'],
-  },
-  {
-    pattern: /[/\\]src[/\\]lib[/\\]sitePayload\.ts$/,
-    tasks: ['site-payload'],
-  },
-  {
-    pattern: /[/\\]scripts[/\\]sitePayload\.ts$/,
-    tasks: ['site-payload'],
+    tasks: ['home-update-summary', 'home-search-entries'],
   },
   {
     pattern: /[/\\]src[/\\]lib[/\\]home[/\\]updateSummary\.ts$/,

@@ -1,0 +1,20 @@
+---
+import CommissionDescription from '#components/home/blocks/Description'
+import HomeInteractiveIsland from '#components/home/islands/HomeInteractiveIsland'
+import Warning from '#components/home/warning/Warning'
+import { homeUpdateSummary } from '#lib/generated/homeUpdateSummary'
+import { buildSitePayload } from '#lib/home/buildSitePayload'
+import BaseLayout from '#app/layouts/BaseLayout.astro'
+
+const payload = buildSitePayload()
+---
+
+<BaseLayout>
+  <Warning client:idle />
+  <CommissionDescription
+    commissionData={payload.commissionData}
+    activeCharacters={payload.activeCharacterNames}
+    updateSummary={homeUpdateSummary}
+  />
+  <HomeInteractiveIsland client:load payload={payload} />
+</BaseLayout>

@@ -2,10 +2,10 @@ import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MemoryRouter } from 'react-router-dom'
+import { buildSitePayload } from '#lib/home/buildSitePayload'
 
 import AppShell from '../src/AppShell'
 import HomePage from '../src/pages/home/HomePage'
-import { buildSitePayload } from './sitePayload'
 import { writeFileIfChanged } from './writeFileIfChanged'
 
 const outputPath = path.join(process.cwd(), 'public', 'data', 'home-prerender.html')

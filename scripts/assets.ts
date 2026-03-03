@@ -1,46 +1,22 @@
 import { runImageWorkflow } from '#lib/pipeline/images'
 import { generateHomeSearchEntriesFile } from './homeSearchEntries'
-import { generateHomePrerenderFile } from './homePrerender'
 import { generateHomeUpdateSummaryModule } from './homeUpdateSummary'
 import { generateRssFile } from './rss'
-import { generateSitePayloadFile } from './sitePayload'
 
 type AssetsMode = 'dev' | 'build'
 
-export type AssetTask =
-  | 'site-payload'
-  | 'home-update-summary'
-  | 'home-search-entries'
-  | 'home-prerender'
-  | 'rss'
-  | 'images'
+export type AssetTask = 'home-update-summary' | 'home-search-entries' | 'rss' | 'images'
 
-const TASK_ORDER: AssetTask[] = [
-  'site-payload',
-  'home-update-summary',
-  'home-search-entries',
-  'home-prerender',
-  'rss',
-  'images',
-]
+const TASK_ORDER: AssetTask[] = ['home-update-summary', 'home-search-entries', 'rss', 'images']
 
 const DEFAULT_TASKS_BY_MODE: Record<AssetsMode, AssetTask[]> = {
-  dev: ['site-payload', 'home-update-summary', 'home-search-entries'],
-  build: [
-    'site-payload',
-    'home-update-summary',
-    'home-search-entries',
-    'home-prerender',
-    'rss',
-    'images',
-  ],
+  dev: ['home-update-summary', 'home-search-entries'],
+  build: ['home-update-summary', 'home-search-entries', 'rss', 'images'],
 }
 
 const TASK_RUNNERS: Record<AssetTask, () => Promise<void>> = {
-  'site-payload': generateSitePayloadFile,
   'home-update-summary': generateHomeUpdateSummaryModule,
   'home-search-entries': generateHomeSearchEntriesFile,
-  'home-prerender': generateHomePrerenderFile,
   rss: generateRssFile,
   images: async () => {
     await runImageWorkflow()

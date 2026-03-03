@@ -1,0 +1,11 @@
+---
+import AdminAliasesPage from '#admin/aliases/AliasesPage'
+import NotFoundPage from '#components/shared/NotFoundPage'
+import BaseLayout from '#app/layouts/BaseLayout.astro'
+
+const isDev = import.meta.env.DEV
+---
+
+<BaseLayout title="Admin Aliases" canonicalPath="/admin/aliases">
+  {isDev ? <AdminAliasesPage client:load /> : <NotFoundPage />}
+</BaseLayout>

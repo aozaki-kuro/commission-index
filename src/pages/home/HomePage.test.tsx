@@ -2,7 +2,7 @@
 import type { Props } from '#data/types'
 import type { SitePayload } from '#lib/sitePayload'
 import { render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import HomePage from './HomePage'
 
 vi.mock('#components/home/commission', () => ({
@@ -76,21 +76,14 @@ const createPayload = (): SitePayload => ({
 })
 
 describe('HomePage bootstrap payload behavior', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
-    delete window.__SITE_PAYLOAD__
-  })
-
   afterEach(() => {
     vi.restoreAllMocks()
-    delete window.__SITE_PAYLOAD__
   })
 
-  it('uses inlined payload and skips initial fetch', async () => {
-    window.__SITE_PAYLOAD__ = createPayload()
+  it('uses bootstrap payload prop and skips initial fetch', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
 
-    render(<HomePage />)
+    render(<HomePage bootstrapPayload={createPayload()} />)
 
     expect(await screen.findByTestId('description')).toHaveTextContent(
       'description:1:Test Character',

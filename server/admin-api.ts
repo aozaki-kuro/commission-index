@@ -20,7 +20,6 @@ import {
 import { generateHomeSearchEntriesFile } from '#scripts/homeSearchEntries'
 import { generateHomeUpdateSummaryModule } from '#scripts/homeUpdateSummary'
 import { generateRssFile } from '#scripts/rss'
-import { generateSitePayloadFile } from '#scripts/sitePayload'
 import { writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { Readable } from 'node:stream'
@@ -110,7 +109,6 @@ const getUploadedSourceImage = (formData: FormData): File | null => {
 const regeneratePublicAssets = async () => {
   await runImagePipeline()
   await Promise.all([
-    generateSitePayloadFile(),
     generateHomeUpdateSummaryModule(),
     generateHomeSearchEntriesFile(),
     generateRssFile(),

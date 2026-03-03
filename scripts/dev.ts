@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises'
+import { runAssets } from './assets'
 
 const DEFAULT_ADMIN_API_PORT = 8788
 const DEFAULT_WEB_PORT = 5173
@@ -70,8 +71,13 @@ const run = async () => {
   console.log(
     `[dev] web port (preferred): ${preferredWebPort}, admin API port: ${resolvedAdminApiPort}, proxy target: http://localhost:${resolvedAdminApiPort}`,
   )
+  await runAssets({
+    mode: 'dev',
+    tasks: [],
+    reason: 'dev-script startup',
+  })
 
-  const web = Bun.spawn(['bun', 'x', 'vite'], {
+  const web = Bun.spawn(['bun', 'x', 'astro', 'dev', '--port', String(preferredWebPort)], {
     stdio: ['inherit', 'inherit', 'inherit'],
     env: webEnv,
   })

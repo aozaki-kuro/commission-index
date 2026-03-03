@@ -1,22 +1,15 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'astro/config'
+import react from '@astrojs/react'
 import tsconfigPaths from 'vite-tsconfig-paths'
-import { viteAssetsPipeline } from './scripts/viteAssetsPipeline'
 
 const adminApiPort = Number(process.env.VITE_ADMIN_API_PORT ?? 8788)
 
-export default defineConfig(({ command }) => {
-  const isBuild = command === 'build'
-
-  return {
-    plugins: [
-      viteAssetsPipeline({
-        command: isBuild ? 'assets:build' : 'assets:dev',
-        watch: !isBuild,
-      }),
-      react(),
-      tsconfigPaths(),
-    ],
+export default defineConfig({
+  output: 'static',
+  srcDir: './app',
+  integrations: [react()],
+  vite: {
+    plugins: [tsconfigPaths()],
     build: {
       rollupOptions: {
         output: {
@@ -31,7 +24,6 @@ export default defineConfig(({ command }) => {
       },
     },
     server: {
-      port: 5173,
       proxy: {
         '/api': {
           target: `http://localhost:${adminApiPort}`,
@@ -39,8 +31,5 @@ export default defineConfig(({ command }) => {
         },
       },
     },
-    preview: {
-      port: 4173,
-    },
-  }
+  },
 })

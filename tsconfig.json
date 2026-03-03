@@ -29,6 +29,7 @@
     "importHelpers": true,
     "baseUrl": ".",
     "paths": {
+      "#app/*": ["app/*"],
       "#components/*": ["src/components/*"],
       "#images/*": ["public/images/*"],
       "#commission/*": ["src/components/home/commission/*"],

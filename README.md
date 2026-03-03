@@ -6,16 +6,17 @@ Personal use only
 
 ## Development
 
-- `bun run dev` — run Vite web + admin API (Node + tsx) in development mode.
-- `bun run dev:web` — run Vite web only.
+- `bun run dev` — run Astro web + admin API (Node + tsx) in development mode.
+- `bun run dev:astro` — run Astro web only.
+- `bun run dev:web` — run legacy Vite web only (rollback path).
 - `bun run dev:api` — run admin API only.
-- `bun run build` — run Vite static build output to `dist/`.
+- `bun run build` — run Astro static build output to `dist/`.
+- `bun run build:vite` — run legacy Vite static build.
 
-Asset generation (`assets:dev` / `assets:build`) is wired into the Vite lifecycle:
+Asset generation (`assets:dev` / `assets:build`) is shared by Astro/Vite:
 
-- Dev server startup triggers `site-payload` + `home-update-summary` + `home-search-entries`.
-- Dev hot updates retrigger only affected asset tasks (`site-payload`, `home-update-summary`, `home-search-entries`, or `rss`).
-- Production build startup triggers `site-payload`, `home-update-summary`, `home-search-entries`, `rss`, and `images`.
+- Dev startup triggers `home-update-summary` + `home-search-entries`.
+- Production build startup triggers `home-update-summary`, `home-search-entries`, `rss`, and `images`.
 
 ### Dev ports
 
@@ -27,7 +28,7 @@ Asset generation (`assets:dev` / `assets:build`) is wired into the Vite lifecycl
 
 - Production deployment is static-only (no Worker entrypoint).
 - `/admin` and `/api/admin/*` return 404 from static `assets.not_found_handling = "404-page"`.
-- `/support` and `/support/` are explicitly rewritten to `/index.html` via `public/_redirects`.
+- `/admin` and `/api/admin/*` are explicitly mapped to `404` in `public/_redirects`.
 - `vite preview` does not validate edge HTTP status behavior for static host routing.
 - Verify using deployed Cloudflare URL:
 

@@ -1,0 +1,11 @@
+---
+import AdminPage from '#admin/AdminPage'
+import NotFoundPage from '#components/shared/NotFoundPage'
+import BaseLayout from '#app/layouts/BaseLayout.astro'
+
+const isDev = import.meta.env.DEV
+---
+
+<BaseLayout title="Admin" canonicalPath="/admin">
+  {isDev ? <AdminPage client:load /> : <NotFoundPage />}
+</BaseLayout>

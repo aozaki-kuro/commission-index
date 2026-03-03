@@ -11,7 +11,7 @@ import tseslint from 'typescript-eslint'
 const codeFiles = ['**/*.{js,mjs,cjs,jsx,ts,tsx}']
 
 const eslintConfig = defineConfig([
-  globalIgnores(['.next/**', 'dist/**', 'out/**', 'build/**', 'coverage/**']),
+  globalIgnores(['.astro/**', '.next/**', 'dist/**', 'out/**', 'build/**', 'coverage/**']),
   {
     files: codeFiles,
     languageOptions: {
