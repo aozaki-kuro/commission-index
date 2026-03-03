@@ -1,7 +1,11 @@
 import { defineConfig, fontProviders } from 'astro/config'
 import react from '@astrojs/react'
 import tsconfigPaths from 'vite-tsconfig-paths'
-import { devAdminApiPlugin, devAdminRoutesIntegration } from './server/dev-admin-astro'
+import {
+  devAdminApiPlugin,
+  devAdminRoutesIntegration,
+  devAssetsPipelinePlugin,
+} from './server/dev-admin-astro'
 
 export default defineConfig({
   output: 'static',
@@ -32,7 +36,7 @@ export default defineConfig({
   },
   integrations: [react(), devAdminRoutesIntegration()],
   vite: {
-    plugins: [tsconfigPaths(), devAdminApiPlugin()],
+    plugins: [tsconfigPaths(), devAssetsPipelinePlugin(), devAdminApiPlugin()],
     build: {
       rollupOptions: {
         output: {

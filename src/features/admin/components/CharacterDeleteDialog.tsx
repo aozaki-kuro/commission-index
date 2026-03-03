@@ -1,5 +1,10 @@
 import { Button } from '#components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '#components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+} from '#components/ui/alert-dialog'
 import { type RefObject } from 'react'
 
 interface CharacterDeleteDialogProps {
@@ -22,22 +27,22 @@ const CharacterDeleteDialog = ({
   onConfirm,
 }: CharacterDeleteDialogProps) => {
   return (
-    <Dialog open={isOpen} onOpenChange={open => !open && onClose()}>
-      <DialogContent
+    <AlertDialog open={isOpen} onOpenChange={open => !open && onClose()}>
+      <AlertDialogContent
         className="w-full max-w-md overflow-hidden rounded-2xl border-none bg-white p-6 text-left shadow-xl data-[state=closed]:animate-[dialog-content-out_150ms_ease-in] data-[state=open]:animate-[dialog-content-in_200ms_ease-out] dark:bg-gray-950"
         onOpenAutoFocus={event => {
           event.preventDefault()
           confirmButtonRef.current?.focus()
         }}
       >
-        <DialogTitle className="text-lg font-bold text-gray-900 dark:text-gray-100">
+        <AlertDialogTitle className="text-lg font-bold text-gray-900 dark:text-gray-100">
           Delete character?
-        </DialogTitle>
+        </AlertDialogTitle>
         <div className="mt-2 space-y-2">
-          <DialogDescription className="text-sm text-gray-600 dark:text-gray-300">
+          <AlertDialogDescription className="text-sm text-gray-600 dark:text-gray-300">
             This will remove the character and all associated commissions. This action cannot be
             undone.
-          </DialogDescription>
+          </AlertDialogDescription>
           <p className="text-sm text-gray-700 dark:text-gray-200">
             <span className="font-semibold">{characterName}</span> has{' '}
             <span className="font-mono">{commissionCount}</span> entr
@@ -59,8 +64,8 @@ const CharacterDeleteDialog = ({
             Delete
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }
 
