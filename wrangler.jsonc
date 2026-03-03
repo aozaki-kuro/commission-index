@@ -1,12 +1,15 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "commission-index",
+  "main": "server/worker.ts",
   "compatibility_date": "2026-02-05",
   "vars": {},
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "html_handling": "none",
     "not_found_handling": "404-page",
+    "run_worker_first": true,
   },
   "preview_urls": false,
   "workers_dev": false,

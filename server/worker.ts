@@ -21,8 +21,11 @@ const isAssetLikePath = (pathname: string) => {
   return lastSegment.includes('.')
 }
 
+const fetchAsset = (env: Env, pathname: string) =>
+  env.ASSETS.fetch(new Request(`https://assets.local${pathname}`))
+
 const notFoundHtmlResponse = async (env: Env) => {
-  const notFoundAsset = await env.ASSETS.fetch(new Request('https://assets.local/404.html'))
+  const notFoundAsset = await fetchAsset(env, '/404.html')
   if (notFoundAsset.ok) {
     return new Response(notFoundAsset.body, {
       status: 404,
@@ -53,7 +56,7 @@ const app = {
       return assetResponse
     }
 
-    const indexResponse = await env.ASSETS.fetch(new Request(new URL('/index.html', url.origin)))
+    const indexResponse = await fetchAsset(env, '/index.html')
     if (!indexResponse.ok) return assetResponse
     return new Response(indexResponse.body, {
       status: 200,
