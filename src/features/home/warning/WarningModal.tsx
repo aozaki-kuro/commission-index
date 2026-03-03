@@ -1,5 +1,12 @@
 import { Button } from '#components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '#components/ui/dialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+} from '#components/ui/alert-dialog'
 import { type RefObject } from 'react'
 
 const HeadImage = '/nsfw-cover-s.webp'
@@ -18,8 +25,8 @@ export default function WarningModal({
   onLeave,
 }: WarningModalProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
-      <DialogContent
+    <AlertDialog open={isOpen} onOpenChange={() => {}}>
+      <AlertDialogContent
         overlayClassName="bg-black/25 backdrop-blur-xl dark:bg-white/5 data-[state=open]:animate-[dialog-overlay-in_300ms_ease-out] data-[state=closed]:animate-[dialog-overlay-out_200ms_ease-in]"
         className="w-full max-w-md overflow-hidden rounded-2xl border-none bg-white p-6 text-left shadow-xl data-[state=closed]:animate-[dialog-content-out_200ms_ease-in] data-[state=open]:animate-[dialog-content-in_300ms_ease-out] dark:bg-gray-950"
         onEscapeKeyDown={event => event.preventDefault()}
@@ -31,12 +38,12 @@ export default function WarningModal({
         }}
       >
         <img src={HeadImage} alt="Commission Index" className="mb-4 select-none" />
-        <DialogTitle className="text-center text-lg leading-6 font-bold text-gray-900 select-none dark:text-gray-300">
+        <AlertDialogTitle className="text-center text-lg leading-6 font-bold text-gray-900 select-none dark:text-gray-300">
           [ Warning ]
-        </DialogTitle>
-        <DialogDescription className="sr-only">
+        </AlertDialogTitle>
+        <AlertDialogDescription className="sr-only">
           Age confirmation required before viewing the full content.
-        </DialogDescription>
+        </AlertDialogDescription>
         <div className="mt-2">
           <p className="text-center text-sm text-gray-500 select-none dark:text-gray-400">
             You have to be over 18 to view the contents.
@@ -45,28 +52,32 @@ export default function WarningModal({
           </p>
         </div>
         <div className="mt-4 flex items-center justify-center">
-          <Button
-            ref={confirmButtonRef}
-            type="button"
-            variant="outline"
-            size="sm"
-            className="border-transparent bg-blue-100 px-4 font-mono text-xs font-medium text-blue-900 select-none hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-900/55"
-            onClick={onConfirm}
-          >
-            I am over 18
-          </Button>
+          <AlertDialogAction asChild>
+            <Button
+              ref={confirmButtonRef}
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-transparent bg-blue-100 px-4 font-mono text-xs font-medium text-blue-900 select-none hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-900/55"
+              onClick={onConfirm}
+            >
+              I am over 18
+            </Button>
+          </AlertDialogAction>
           <div className="mx-3" />
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="border-transparent bg-red-100 px-4 font-mono text-xs font-medium text-red-900 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-100 dark:hover:bg-red-900/55"
-            onClick={onLeave}
-          >
-            Leave Now
-          </Button>
+          <AlertDialogCancel asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-transparent bg-red-100 px-4 font-mono text-xs font-medium text-red-900 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-100 dark:hover:bg-red-900/55"
+              onClick={onLeave}
+            >
+              Leave Now
+            </Button>
+          </AlertDialogCancel>
         </div>
-      </DialogContent>
-    </Dialog>
+      </AlertDialogContent>
+    </AlertDialog>
   )
 }

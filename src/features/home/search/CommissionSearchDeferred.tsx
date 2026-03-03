@@ -1,21 +1,13 @@
 import { Button } from '#components/ui/button'
-import { lazy, startTransition, Suspense, useCallback, useEffect, useRef, useState } from 'react'
-import type { CommissionSearchEntrySource } from '#features/home/search/CommissionSearch'
+import { startTransition, useCallback, useEffect, useState } from 'react'
+import CommissionSearch, {
+  type CommissionSearchEntrySource,
+} from '#features/home/search/CommissionSearch'
 
 const HOME_SEARCH_INDEX_URL = '/search/home-search-entries.json'
 
-const loadCommissionSearch = () => import('#features/home/search/CommissionSearch')
-const CommissionSearch = lazy(loadCommissionSearch)
-
 let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
 let homeSearchEntriesPromise: Promise<CommissionSearchEntrySource[]> | null = null
-
-type NavigatorWithConnection = Navigator & {
-  connection?: {
-    saveData?: boolean
-    effectiveType?: string
-  }
-}
 
 const hasSearchQueryParam = () => {
   if (typeof window === 'undefined') return false
@@ -107,7 +99,6 @@ export default function CommissionSearchDeferred() {
   const [shellQuery, setShellQuery] = useState('')
   const [externalEntries, setExternalEntries] = useState<CommissionSearchEntrySource[] | null>(null)
   const [isLoadingEntries, setIsLoadingEntries] = useState(false)
-  const hasWarmedUpEntriesRef = useRef(false)
 
   const shouldLoadExternalEntries = Boolean(import.meta.env?.PROD)
 
@@ -147,38 +138,6 @@ export default function CommissionSearchDeferred() {
     }
   }, [externalEntries, shouldLoadExternalEntries])
 
-  const shouldPrefetchSearchData = useCallback(() => {
-    if (typeof navigator === 'undefined') return true
-    const connection = (navigator as NavigatorWithConnection).connection
-    if (!connection) return true
-    if (connection.saveData) return false
-
-    const effectiveType = connection.effectiveType ?? ''
-    if (effectiveType === 'slow-2g' || effectiveType === '2g') return false
-    return true
-  }, [])
-
-  const warmupSearchAssets = useCallback(
-    (includeDataPrefetch: boolean) => {
-      if (hasWarmedUpEntriesRef.current) return
-      hasWarmedUpEntriesRef.current = true
-
-      void loadCommissionSearch()
-
-      const shouldRequestEntries =
-        includeDataPrefetch &&
-        shouldLoadExternalEntries &&
-        !externalEntries &&
-        !cachedHomeSearchEntries &&
-        !homeSearchEntriesPromise
-
-      if (shouldRequestEntries) {
-        void loadExternalEntries()
-      }
-    },
-    [externalEntries, loadExternalEntries, shouldLoadExternalEntries],
-  )
-
   const enableSearch = useCallback(
     (focusOnMount = false, openHelpOnMount = false) => {
       const shouldEnable = !isEnabled
@@ -205,7 +164,6 @@ export default function CommissionSearchDeferred() {
         !homeSearchEntriesPromise
 
       if (shouldEnable || shouldRequestEntries) {
-        void loadCommissionSearch()
         void loadExternalEntries()
       }
     },
@@ -220,29 +178,15 @@ export default function CommissionSearchDeferred() {
   )
 
   const prewarmSearch = useCallback(() => {
-    warmupSearchAssets(shouldPrefetchSearchData())
-  }, [shouldPrefetchSearchData, warmupSearchAssets])
-
-  useEffect(() => {
-    if (hasWarmedUpEntriesRef.current) return
-
-    const handleFirstInteraction = () => {
-      warmupSearchAssets(shouldPrefetchSearchData())
-      window.removeEventListener('pointerdown', handleFirstInteraction, true)
-      window.removeEventListener('touchstart', handleFirstInteraction, true)
-      window.removeEventListener('keydown', handleFirstInteraction, true)
+    const shouldRequestEntries =
+      shouldLoadExternalEntries &&
+      !externalEntries &&
+      !cachedHomeSearchEntries &&
+      !homeSearchEntriesPromise
+    if (shouldRequestEntries) {
+      void loadExternalEntries()
     }
-
-    window.addEventListener('pointerdown', handleFirstInteraction, { capture: true, passive: true })
-    window.addEventListener('touchstart', handleFirstInteraction, { capture: true, passive: true })
-    window.addEventListener('keydown', handleFirstInteraction, true)
-
-    return () => {
-      window.removeEventListener('pointerdown', handleFirstInteraction, true)
-      window.removeEventListener('touchstart', handleFirstInteraction, true)
-      window.removeEventListener('keydown', handleFirstInteraction, true)
-    }
-  }, [shouldPrefetchSearchData, warmupSearchAssets])
+  }, [externalEntries, loadExternalEntries, shouldLoadExternalEntries])
 
   useEffect(() => {
     if (isEnabled || !hasSearchQueryParam()) return
@@ -253,25 +197,13 @@ export default function CommissionSearchDeferred() {
 
   if (isEnabled && isSearchReady) {
     return (
-      <Suspense
-        fallback={
-          <CommissionSearchShell
-            query={shellQuery}
-            isLoadingEntries={isLoadingEntries}
-            onPrewarm={prewarmSearch}
-            onActivate={enableSearch}
-            onQueryChange={setShellQuery}
-          />
-        }
-      >
-        <CommissionSearch
-          autoFocusOnMount={shouldFocusOnMount}
-          deferIndexInit
-          externalEntries={externalEntries ?? undefined}
-          initialQuery={shellQuery || undefined}
-          openHelpOnMount={shouldOpenHelpOnMount}
-        />
-      </Suspense>
+      <CommissionSearch
+        autoFocusOnMount={shouldFocusOnMount}
+        deferIndexInit
+        externalEntries={externalEntries ?? undefined}
+        initialQuery={shellQuery || undefined}
+        openHelpOnMount={shouldOpenHelpOnMount}
+      />
     )
   }
 

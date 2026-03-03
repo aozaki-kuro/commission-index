@@ -1,9 +1,9 @@
 import { Button } from '#components/ui/button'
 import { Command, CommandInput, CommandItem, CommandList } from '#components/ui/command'
+import { Popover, PopoverTrigger } from '#components/ui/popover'
 import { useCommissionViewMode } from '#features/home/commission/CommissionViewMode'
+import CommissionSearchHelpPopover from '#features/home/search/CommissionSearchHelpPopover'
 import {
-  Suspense,
-  lazy,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -34,10 +34,6 @@ import {
   type Suggestion,
   type SuggestionEntryLike,
 } from '#lib/search/index'
-
-const CommissionSearchHelpModal = lazy(
-  () => import('#features/home/search/CommissionSearchHelpModal'),
-)
 
 type Entry = SearchEntryLike &
   SuggestionEntryLike & {
@@ -801,6 +797,14 @@ const CommissionSearch = ({
     [query],
   )
 
+  const ensureIndexReady = useCallback(() => {
+    if (deferIndexInit) setIsIndexReady(true)
+  }, [deferIndexInit])
+
+  const prepareSearchHelp = useCallback(() => {
+    ensureIndexReady()
+  }, [ensureIndexReady])
+
   return (
     <section id="commission-search" className="mt-8 mb-6 flex h-12 items-center justify-end">
       <div className="relative h-11 w-full overflow-visible border-b border-gray-300/80 bg-transparent text-gray-700 dark:border-gray-700 dark:text-gray-300">
@@ -891,30 +895,34 @@ const CommissionSearch = ({
             ) : null}
           </Command>
 
-          <Button
-            type="button"
-            onClick={() => {
-              if (deferIndexInit) setIsIndexReady(true)
-              setIsHelpOpen(true)
-            }}
-            variant="ghost"
-            size="icon"
-            className={`absolute inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[right,color] duration-200 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
-              hasQuery ? 'right-16' : 'right-0'
-            }`}
-            aria-label="Search help"
-          >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
-              <circle cx="12" cy="12" r="9" strokeWidth="2" />
-              <path
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9.6 9.2a2.6 2.6 0 1 1 4.8 1.4c-.6.8-1.4 1.2-2 1.8-.4.4-.6.9-.6 1.6"
-              />
-              <circle cx="12" cy="17.3" r="0.8" fill="currentColor" stroke="none" />
-            </svg>
-          </Button>
+          <Popover open={isHelpOpen} onOpenChange={setIsHelpOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                onPointerDown={prepareSearchHelp}
+                onFocus={prepareSearchHelp}
+                variant="ghost"
+                size="icon"
+                className={`absolute inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[right,color] duration-200 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
+                  hasQuery ? 'right-16' : 'right-0'
+                }`}
+                aria-label="Search help"
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
+                  <circle cx="12" cy="12" r="9" strokeWidth="2" />
+                  <path
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9.6 9.2a2.6 2.6 0 1 1 4.8 1.4c-.6.8-1.4 1.2-2 1.8-.4.4-.6.9-.6 1.6"
+                  />
+                  <circle cx="12" cy="17.3" r="0.8" fill="currentColor" stroke="none" />
+                </svg>
+              </Button>
+            </PopoverTrigger>
+
+            <CommissionSearchHelpPopover onOpenChange={setIsHelpOpen} />
+          </Popover>
 
           <Button
             type="button"
@@ -971,10 +979,6 @@ const CommissionSearch = ({
       </div>
 
       <p ref={liveRef} aria-live="polite" className="sr-only" />
-
-      <Suspense fallback={null}>
-        <CommissionSearchHelpModal isOpen={isHelpOpen} onClose={setIsHelpOpen} />
-      </Suspense>
     </section>
   )
 }

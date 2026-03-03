@@ -46,4 +46,20 @@ describe('CommissionSearchDeferred focus behavior', () => {
     liveInput.focus()
     expect(document.activeElement).toBe(liveInput)
   })
+
+  it('activates search and opens help when shell help button is clicked', async () => {
+    const { default: CommissionSearchDeferred } = await import('./CommissionSearchDeferred')
+
+    render(
+      <CommissionViewModeProvider>
+        <CommissionSearchDeferred />
+      </CommissionViewModeProvider>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search help' }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Search Help' })).toBeInTheDocument()
+    })
+  })
 })
