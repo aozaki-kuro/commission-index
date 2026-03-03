@@ -9,7 +9,13 @@ Personal use only
 - `bun run dev` — run Vite web + admin API (Node + tsx) in development mode.
 - `bun run dev:web` — run Vite web only.
 - `bun run dev:api` — run admin API only.
-- `bun run build` — generate assets and build static output to `dist/`.
+- `bun run build` — run Vite static build output to `dist/`.
+
+Asset generation (`assets:dev` / `assets:build`) is wired into the Vite lifecycle:
+
+- Dev server startup triggers `site-payload` + `home-update-summary` + `home-search-entries`.
+- Dev hot updates retrigger only affected asset tasks (`site-payload`, `home-update-summary`, `home-search-entries`, or `rss`).
+- Production build startup triggers `site-payload`, `home-update-summary`, `home-search-entries`, `rss`, and `images`.
 
 ### Dev ports
 

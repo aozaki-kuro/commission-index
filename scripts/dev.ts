@@ -44,14 +44,6 @@ const waitForAdminApiPort = async ({
 }
 
 const run = async () => {
-  const assets = Bun.spawn(['bun', 'run', 'assets:dev'], {
-    stdio: ['inherit', 'inherit', 'inherit'],
-  })
-  const assetsExit = await assets.exited
-  if (assetsExit !== 0) {
-    process.exit(assetsExit)
-  }
-
   const requestedAdminApiPort = Number(process.env.ADMIN_API_PORT ?? DEFAULT_ADMIN_API_PORT)
   const adminApiPortFile = `/tmp/commission-admin-api-port-${process.pid}.txt`
   const baseEnv = {

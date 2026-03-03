@@ -189,6 +189,7 @@ const Home = () => {
             <CommissionDescription
               commissionData={payload.commissionData}
               activeCharacters={computed.activeCharacterNames}
+              updateSummary={homeUpdateSummary}
             />
             <CommissionSearchDeferred />
             <Commission
