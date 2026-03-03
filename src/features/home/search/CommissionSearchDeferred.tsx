@@ -18,6 +18,7 @@ const hasSearchQueryParam = () => {
 type CommissionSearchShellProps = {
   query: string
   isLoadingEntries: boolean
+  interceptPointerFocus?: boolean
   onActivate: (focusOnMount?: boolean, openHelpOnMount?: boolean) => void
   onQueryChange: (value: string) => void
 }
@@ -25,6 +26,7 @@ type CommissionSearchShellProps = {
 const CommissionSearchShell = ({
   query,
   isLoadingEntries,
+  interceptPointerFocus = false,
   onActivate,
   onQueryChange,
 }: CommissionSearchShellProps) => (
@@ -51,7 +53,17 @@ const CommissionSearchShell = ({
           type="search"
           value={query}
           onFocus={() => onActivate(true)}
-          onPointerDown={() => onActivate(true)}
+          onPointerDown={event => {
+            if (interceptPointerFocus) {
+              event.preventDefault()
+            }
+            onActivate(true)
+          }}
+          onTouchStart={event => {
+            if (interceptPointerFocus) {
+              event.preventDefault()
+            }
+          }}
           onChange={e => {
             onQueryChange(e.target.value)
             onActivate(true)
@@ -184,6 +196,7 @@ export default function CommissionSearchDeferred() {
           <CommissionSearchShell
             query={shellQuery}
             isLoadingEntries={isLoadingEntries}
+            interceptPointerFocus={false}
             onActivate={enableSearch}
             onQueryChange={setShellQuery}
           />
@@ -204,6 +217,7 @@ export default function CommissionSearchDeferred() {
     <CommissionSearchShell
       query={shellQuery}
       isLoadingEntries={isEnabled && isLoadingEntries}
+      interceptPointerFocus={shouldLoadExternalEntries && !isSearchReady}
       onActivate={enableSearch}
       onQueryChange={setShellQuery}
     />
