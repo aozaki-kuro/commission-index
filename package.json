@@ -8,7 +8,7 @@
     "assets:build": "bun run scripts/assets.ts --mode build",
     "assets:dev": "bun run scripts/assets.ts --mode dev",
     "build": "bun run build:astro",
-    "build:astro": "bun run assets:build && astro build",
+    "build:astro": "bun run assets:build && astro build && bun run scripts/prune-static-admin.ts",
     "build:vite": "vite build",
     "clean": "rm -rf dist node_modules .wrangler && bun i",
     "deploy": "bun run build && wrangler deploy",
