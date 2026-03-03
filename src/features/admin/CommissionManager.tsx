@@ -1,13 +1,19 @@
 import { DndContext, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { Suspense, lazy, useCallback, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '#components/ui/button'
 
-import type { CharacterRow, CommissionRow, CreatorAliasRow } from '#lib/admin/db'
+import type {
+  AdminCommissionSearchRow,
+  CharacterRow,
+  CommissionRow,
+  CreatorAliasRow,
+} from '#lib/admin/db'
 import { getCharacterSectionId } from '#lib/characters/nav'
 import { buildCommissionSearchDomKey } from '#lib/search/commissionSearchMetadata'
 import type { CommissionSearchEntrySource } from '#features/home/search/CommissionSearch'
 import { normalizeQuery } from '#lib/search/index'
+import { fetchCharacterCommissionsAction } from '#admin/actions'
 
 import CharacterDeleteDialog from './components/CharacterDeleteDialog'
 import SortableCharacterCard from './components/SortableCharacterCard'
@@ -80,11 +86,21 @@ const CommissionSearchShell = ({ query, onQueryChange }: CommissionSearchShellPr
 
 interface CommissionManagerProps {
   characters: CharacterRow[]
-  commissions: CommissionRow[]
   creatorAliases: CreatorAliasRow[]
+  commissionSearchRows: AdminCommissionSearchRow[]
 }
 
-const CommissionManager = ({ characters, commissions, creatorAliases }: CommissionManagerProps) => {
+const CommissionManager = ({
+  characters,
+  creatorAliases,
+  commissionSearchRows,
+}: CommissionManagerProps) => {
+  const [loadedCommissions, setLoadedCommissions] = useState<CommissionRow[]>([])
+  const [loadingCharacterIds, setLoadingCharacterIds] = useState<Set<number>>(new Set())
+  const [loadedCharacterIds, setLoadedCharacterIds] = useState<Set<number>>(new Set())
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const loadingCharacterIdsRef = useRef<Set<number>>(new Set())
+  const loadedCharacterIdsRef = useRef<Set<number>>(new Set())
   const {
     list,
     commissionMap,
@@ -110,7 +126,7 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
     performDeleteCharacter,
     toggleCharacterOpen,
     closeAllCharacterOpen,
-  } = useCommissionManager({ characters, commissions })
+  } = useCommissionManager({ characters, commissions: loadedCommissions })
 
   const buttonRefs = useRef<Record<number, HTMLButtonElement | null>>({})
   const confirmDeleteButtonRef = useRef<HTMLButtonElement | null>(null)
@@ -121,7 +137,7 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
     () => new Map(creatorAliases.map(row => [row.creatorName, row.aliases] as const)),
     [creatorAliases],
   )
-  const sortedCommissionsByCharacter = useMemo(() => {
+  const sortedLoadedCommissionsByCharacter = useMemo(() => {
     const next = new Map<number, CommissionRow[]>()
     for (const [characterId, rows] of commissionMap) {
       next.set(
@@ -144,20 +160,17 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
     [list],
   )
 
-  const commissionSearchEntries = useMemo<CommissionSearchEntrySource[]>(() => {
-    const entries: CommissionSearchEntrySource[] = []
-
-    for (const [characterId, rows] of sortedCommissionsByCharacter) {
-      const characterName = characterNameById.get(characterId)
-      if (!characterName) continue
-
-      for (const commission of rows) {
+  const commissionSearchEntries = useMemo<CommissionSearchEntrySource[]>(
+    () =>
+      commissionSearchRows.map(commission => {
+        const characterName =
+          characterNameById.get(commission.characterId) ?? commission.characterName
         const metadata = buildAdminCommissionSearchMetadata(
           characterName,
           commission,
           creatorAliasesMap,
         )
-        entries.push({
+        return {
           id: commission.id,
           domKey: buildCommissionSearchDomKey(
             getCharacterSectionId(characterName),
@@ -165,12 +178,10 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
           ),
           searchText: metadata.searchText,
           searchSuggest: metadata.searchSuggestionText,
-        })
-      }
-    }
-
-    return entries
-  }, [characterNameById, creatorAliasesMap, sortedCommissionsByCharacter])
+        }
+      }),
+    [characterNameById, commissionSearchRows, creatorAliasesMap],
+  )
   const allCommissionIds = useMemo(
     () => new Set(commissionSearchEntries.map(entry => entry.id)),
     [commissionSearchEntries],
@@ -182,18 +193,60 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
     ? matchedCommissionIds
     : allCommissionIds
 
+  const matchedCharacterIds = useMemo(() => {
+    if (!hasAppliedSearchQuery) return new Set<number>()
+    const next = new Set<number>()
+    for (const row of commissionSearchRows) {
+      if (effectiveMatchedCommissionIds.has(row.id)) {
+        next.add(row.characterId)
+      }
+    }
+    return next
+  }, [commissionSearchRows, effectiveMatchedCommissionIds, hasAppliedSearchQuery])
+
   const visibleCommissionsByCharacter = useMemo(() => {
-    if (!hasAppliedSearchQuery) return sortedCommissionsByCharacter
+    if (!hasAppliedSearchQuery) return sortedLoadedCommissionsByCharacter
 
     const next = new Map<number, CommissionRow[]>()
-    for (const [characterId, rows] of sortedCommissionsByCharacter) {
+    for (const [characterId, rows] of sortedLoadedCommissionsByCharacter) {
       next.set(
         characterId,
         rows.filter(commission => effectiveMatchedCommissionIds.has(commission.id)),
       )
     }
     return next
-  }, [effectiveMatchedCommissionIds, hasAppliedSearchQuery, sortedCommissionsByCharacter])
+  }, [effectiveMatchedCommissionIds, hasAppliedSearchQuery, sortedLoadedCommissionsByCharacter])
+
+  const loadCharacterCommissions = useCallback((characterId: number) => {
+    if (loadedCharacterIdsRef.current.has(characterId)) return
+    if (loadingCharacterIdsRef.current.has(characterId)) return
+
+    loadingCharacterIdsRef.current.add(characterId)
+    setLoadingCharacterIds(prev => new Set(prev).add(characterId))
+    setLoadError(null)
+
+    fetchCharacterCommissionsAction(characterId)
+      .then(commissions => {
+        setLoadedCommissions(prev => [
+          ...prev.filter(commission => commission.characterId !== characterId),
+          ...commissions,
+        ])
+        loadedCharacterIdsRef.current.add(characterId)
+        setLoadedCharacterIds(prev => new Set(prev).add(characterId))
+      })
+      .catch(error => {
+        const message = error instanceof Error ? error.message : 'Failed to load commissions.'
+        setLoadError(message)
+      })
+      .finally(() => {
+        loadingCharacterIdsRef.current.delete(characterId)
+        setLoadingCharacterIds(prev => {
+          const next = new Set(prev)
+          next.delete(characterId)
+          return next
+        })
+      })
+  }, [])
 
   const handleSearchQueryChange = useCallback(
     (query: string) => {
@@ -220,6 +273,11 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
 
   const handleToggle = useCallback(
     (characterId: number) => {
+      const isOpening = !openIds.has(characterId)
+      if (isOpening) {
+        loadCharacterCommissions(characterId)
+      }
+
       toggleCharacterOpen(characterId)
       queueMicrotask(() => {
         const button = buttonRefs.current[characterId]
@@ -232,8 +290,21 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
         }
       })
     },
-    [hasAppliedSearchQuery, toggleCharacterOpen],
+    [hasAppliedSearchQuery, loadCharacterCommissions, openIds, toggleCharacterOpen],
   )
+
+  useEffect(() => {
+    if (!hasAppliedSearchQuery) return
+    matchedCharacterIds.forEach(characterId => {
+      loadCharacterCommissions(characterId)
+    })
+  }, [hasAppliedSearchQuery, loadCharacterCommissions, matchedCharacterIds])
+
+  useEffect(() => {
+    openIds.forEach(characterId => {
+      loadCharacterCommissions(characterId)
+    })
+  }, [loadCharacterCommissions, openIds])
 
   return (
     <section className="space-y-5">
@@ -257,6 +328,7 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
           {feedback.text}
         </p>
       )}
+      {loadError && <p className="text-sm text-red-500 dark:text-red-400">{loadError}</p>}
 
       <Suspense
         fallback={<CommissionSearchShell query={searchQuery} onQueryChange={setSearchQuery} />}
@@ -290,19 +362,25 @@ const CommissionManager = ({ characters, commissions, creatorAliases }: Commissi
                 visibleCommissionsByCharacter.get(character.id) ?? []
 
               const isActive = dividerIndex === -1 ? true : index < dividerIndex
-              const shouldAutoOpen = hasAppliedSearchQuery && visibleCharacterCommissions.length > 0
+              const shouldAutoOpen = hasAppliedSearchQuery && matchedCharacterIds.has(character.id)
 
               return (
                 <SortableCharacterCard
                   key={character.id}
                   item={item}
                   isActive={isActive}
+                  totalCommissions={character.commissionCount}
                   commissionList={visibleCharacterCommissions}
+                  isCommissionsLoaded={loadedCharacterIds.has(character.id)}
+                  isCommissionsLoading={loadingCharacterIds.has(character.id)}
                   isOpen={shouldAutoOpen || openIds.has(character.id)}
                   onToggle={() => handleToggle(character.id)}
-                  onDeleteCommission={commissionId =>
+                  onDeleteCommission={commissionId => {
+                    setLoadedCommissions(prev =>
+                      prev.filter(commission => commission.id !== commissionId),
+                    )
                     handleDeleteCommission(character.id, commissionId)
-                  }
+                  }}
                   charactersForSelect={orderedCharacters}
                   buttonRefFor={buttonRefFor}
                   getButtonRef={getButtonRef}

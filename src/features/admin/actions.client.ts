@@ -1,3 +1,4 @@
+import type { CommissionRow } from '#lib/admin/db'
 import type { FormState } from './types'
 
 export type AdminApiResponse = {
@@ -198,4 +199,28 @@ export const saveCreatorAliasesBatchAction = async (
   } catch (error) {
     return toErrorState(error, 'Failed to save aliases.')
   }
+}
+
+export async function fetchCharacterCommissionsAction(
+  characterId: number,
+): Promise<CommissionRow[]> {
+  if (!Number.isFinite(characterId) || characterId <= 0) {
+    throw new Error('Invalid character identifier.')
+  }
+
+  const response = await fetch(`/api/admin/characters/${characterId}/commissions`, {
+    method: 'GET',
+    cache: 'no-store',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to load commissions (${response.status}).`)
+  }
+
+  const payload = (await response.json()) as { commissions?: CommissionRow[] } | null
+  if (!payload || !Array.isArray(payload.commissions)) {
+    throw new Error('Invalid commissions payload.')
+  }
+
+  return payload.commissions
 }

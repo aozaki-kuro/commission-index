@@ -1,6 +1,6 @@
 import AdminDashboard from './AdminDashboard'
 import NotFoundPage from '#components/shared/NotFoundPage'
-import type { CharacterRow, CommissionRow, CreatorAliasRow } from '#lib/admin/db'
+import type { AdminCommissionSearchRow, CharacterRow, CreatorAliasRow } from '#lib/admin/db'
 import { useDocumentTitle } from '#lib/seo/useDocumentTitle'
 import { useEffect, useState } from 'react'
 import { fetchAdminBootstrapWithRetry } from './bootstrapFetch'
@@ -8,8 +8,8 @@ import { subscribeToDataUpdates } from './dataUpdateSignal'
 
 type BootstrapPayload = {
   characters: CharacterRow[]
-  commissions: CommissionRow[]
   creatorAliases: CreatorAliasRow[]
+  commissionSearchRows: AdminCommissionSearchRow[]
 }
 
 interface AdminPageProps {
@@ -94,8 +94,8 @@ const AdminPage = ({ initialPayload = null }: AdminPageProps) => {
   return (
     <AdminDashboard
       characters={payload.characters}
-      commissions={payload.commissions}
       creatorAliases={payload.creatorAliases}
+      commissionSearchRows={payload.commissionSearchRows}
     />
   )
 }

@@ -27,7 +27,10 @@ const inlineEditStyles =
 interface SortableCharacterCardProps {
   item: CharacterItem
   isActive: boolean
+  totalCommissions: number
   commissionList: CommissionRow[]
+  isCommissionsLoaded: boolean
+  isCommissionsLoading: boolean
   isOpen: boolean
   onToggle: () => void
   onDeleteCommission: (commissionId: number) => void
@@ -49,7 +52,10 @@ interface SortableCharacterCardProps {
 const SortableCharacterCard = ({
   item,
   isActive,
+  totalCommissions,
   commissionList,
+  isCommissionsLoaded,
+  isCommissionsLoading,
   isOpen,
   onToggle,
   onDeleteCommission,
@@ -105,7 +111,7 @@ const SortableCharacterCard = ({
       id={sectionId}
       data-character-section="true"
       data-character-status={isActive ? 'active' : 'stale'}
-      data-total-commissions={commissionList.length}
+      data-total-commissions={totalCommissions}
     >
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white/95 shadow-sm ring-1 ring-gray-900/5 transition dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10">
         <div
@@ -171,7 +177,7 @@ const SortableCharacterCard = ({
                 onClick={event => event.stopPropagation()}
               />
               <span className="w-24 text-right font-mono text-xs font-normal text-gray-500 dark:text-gray-300">
-                {commissionList.length} entries
+                {totalCommissions} entries
               </span>
             </div>
           ) : (
@@ -225,7 +231,7 @@ const SortableCharacterCard = ({
                 </div>
 
                 <span className="w-24 text-right font-mono text-xs font-normal text-gray-500 dark:text-gray-300">
-                  {commissionList.length} entries
+                  {totalCommissions} entries
                 </span>
               </button>
 
@@ -265,7 +271,12 @@ const SortableCharacterCard = ({
               aria-hidden={!isOpen}
             >
               {isOpen ? (
-                commissionList.length === 0 ? (
+                isCommissionsLoading || !isCommissionsLoaded ? (
+                  <div className="space-y-4">
+                    <CommissionEditFormSkeleton />
+                    <p className="text-sm text-gray-500 dark:text-gray-300">Loading commissions…</p>
+                  </div>
+                ) : commissionList.length === 0 ? (
                   <p className="text-sm text-gray-500 dark:text-gray-300">
                     No commissions recorded yet.
                   </p>

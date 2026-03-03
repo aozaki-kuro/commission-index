@@ -1,4 +1,4 @@
-import type { CharacterRow, CommissionRow, CreatorAliasRow } from '#lib/admin/db'
+import type { AdminCommissionSearchRow, CharacterRow, CreatorAliasRow } from '#lib/admin/db'
 import { CommissionViewModeProvider } from '#features/home/commission/CommissionViewMode'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs'
 import AddCharacterForm from './AddCharacterForm'
@@ -9,14 +9,18 @@ import useStoredTabIndex from './hooks/useStoredTabIndex'
 
 interface AdminDashboardProps {
   characters: CharacterRow[]
-  commissions: CommissionRow[]
   creatorAliases: CreatorAliasRow[]
+  commissionSearchRows: AdminCommissionSearchRow[]
 }
 
 const tabs = ['Create', 'Existing'] as const
 const tabStorageKey = 'admin-dashboard-tab-index'
 
-const AdminDashboard = ({ characters, commissions, creatorAliases }: AdminDashboardProps) => {
+const AdminDashboard = ({
+  characters,
+  creatorAliases,
+  commissionSearchRows,
+}: AdminDashboardProps) => {
   const [selectedIndex, setSelectedIndex] = useStoredTabIndex(tabStorageKey, tabs.length)
 
   const characterOptions = characters.map(c => ({
@@ -79,8 +83,8 @@ const AdminDashboard = ({ characters, commissions, creatorAliases }: AdminDashbo
               <TabsContent value="Existing" className="focus:outline-none">
                 <CommissionManager
                   characters={characters}
-                  commissions={commissions}
                   creatorAliases={creatorAliases}
+                  commissionSearchRows={commissionSearchRows}
                 />
               </TabsContent>
             </div>

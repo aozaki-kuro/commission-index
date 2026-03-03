@@ -3,8 +3,8 @@ import {
   createCommission,
   deleteCharacter,
   deleteCommission,
-  getAdminData,
-  getCreatorAliasesAdminData,
+  getAdminBootstrapData,
+  getAdminCommissionsByCharacterId,
   saveCreatorAliasesBatch,
   updateCharacter,
   updateCharactersOrder,
@@ -140,9 +140,16 @@ export const handleAdminApiRequest = async (request: Request) => {
   }
 
   if (request.method === 'GET' && pathname === '/api/admin/bootstrap') {
-    const { characters, commissions } = getAdminData()
-    const creatorAliases = getCreatorAliasesAdminData()
-    return json({ characters, commissions, creatorAliases })
+    return json(getAdminBootstrapData())
+  }
+
+  if (request.method === 'GET' && /^\/api\/admin\/characters\/\d+\/commissions$/.test(pathname)) {
+    const id = parseIdFromPath(pathname, /^\/api\/admin\/characters\/(\d+)\/commissions$/)
+    if (!id) return failure('Invalid character identifier.')
+
+    return json({
+      commissions: getAdminCommissionsByCharacterId(id),
+    })
   }
 
   if (request.method === 'POST' && pathname === '/api/admin/characters') {

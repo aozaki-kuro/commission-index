@@ -11,7 +11,7 @@ const includeFileNameInSearchText = (baseSearchText: string, fileName: string) =
 
 export const buildAdminCommissionSearchMetadata = (
   characterName: string,
-  commission: CommissionRow,
+  commission: Pick<CommissionRow, 'fileName' | 'design' | 'description' | 'keyword'>,
   creatorAliasesMap: Map<string, string[]>,
 ): AdminCommissionSearchMetadata => {
   const metadata = buildCommissionSearchMetadata({
