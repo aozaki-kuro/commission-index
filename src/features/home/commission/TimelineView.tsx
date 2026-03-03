@@ -37,8 +37,6 @@ const TimelineView = ({ groups, creatorAliasesMap }: TimelineViewProps) => {
           entryAnchorPrefix: getCharacterSectionId(entry.character),
         }))}
         creatorAliasesMap={creatorAliasesMap}
-        showImage={false}
-        showLinks={false}
       />
     </section>
   ))
