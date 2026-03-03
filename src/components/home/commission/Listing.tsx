@@ -32,16 +32,16 @@ const Listing = ({ Character, status, commissionMap, creatorAliasesMap }: Listin
       {commissions.length === 0 ? (
         <p className="my-4">To be announced ...</p>
       ) : (
-        CommissionEntries({
-          entries: commissions.map(commission => ({
+        <CommissionEntries
+          entries={commissions.map(commission => ({
             character: Character,
             commission,
             sectionId,
             entryKey: `${Character}:${commission.fileName}`,
             entryAnchorPrefix: sectionId,
-          })),
-          creatorAliasesMap,
-        })
+          }))}
+          creatorAliasesMap={creatorAliasesMap}
+        />
       )}
       <div className="pb-6" />
     </div>

@@ -1,5 +1,3 @@
-'use client'
-
 import DevAdminLink from '#components/home/nav/DevAdminLink'
 import {
   Sidebar,
@@ -76,7 +74,7 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
   })
   const activeTitleId = mode === 'timeline' ? activeTimelineTitleId : activeCharacterTitleId
   const navItemsKey = useMemo(() => navItems.map(item => item.sectionId).join('\n'), [navItems])
-  const showAdminLink = import.meta.env.DEV
+  const showAdminLink = import.meta.env?.DEV
 
   return (
     <Sidebar

@@ -1,5 +1,3 @@
-'use client'
-
 const channelName = 'commission-updates'
 const storageKey = 'commission-updated-at'
 

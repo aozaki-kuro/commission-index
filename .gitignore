@@ -55,3 +55,4 @@ data/commissions.db-shm
 public/rss.xml
 public/search/home-search-entries.json
 public/data/site-payload.json
+public/data/home-prerender.html

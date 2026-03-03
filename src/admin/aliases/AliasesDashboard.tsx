@@ -1,5 +1,3 @@
-'use client'
-
 import { useActionState, useMemo, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 

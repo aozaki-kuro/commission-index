@@ -1,5 +1,3 @@
-'use client'
-
 import AppLink from '#components/shared/AppLink'
 
 type AdminSection = 'admin' | 'aliases'

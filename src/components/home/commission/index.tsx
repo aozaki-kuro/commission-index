@@ -31,7 +31,7 @@ const Commission = ({
   return (
     <div id="--------Commissions--------">
       <CommissionViewTabs />
-      <CommissionViewPanel panel="character">
+      <CommissionViewPanel panel="character" deferInactiveMount>
         {/* Display Active Commissions */}
         {activeChars.map(chara => (
           <Listing
@@ -61,7 +61,7 @@ const Commission = ({
           />
         ))}
       </CommissionViewPanel>
-      <CommissionViewPanel panel="timeline">
+      <CommissionViewPanel panel="timeline" deferInactiveMount>
         <Suspense
           fallback={
             <div className="space-y-6">

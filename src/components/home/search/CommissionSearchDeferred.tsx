@@ -1,12 +1,10 @@
-'use client'
-
 import { Button } from '#components/ui/button'
-import CommissionSearch, {
-  type CommissionSearchEntrySource,
-} from '#components/home/search/CommissionSearch'
-import { startTransition, useCallback, useEffect, useState } from 'react'
+import { lazy, startTransition, Suspense, useCallback, useEffect, useState } from 'react'
+import type { CommissionSearchEntrySource } from '#components/home/search/CommissionSearch'
 
 const HOME_SEARCH_INDEX_URL = '/search/home-search-entries.json'
+
+const CommissionSearch = lazy(() => import('#components/home/search/CommissionSearch'))
 
 let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
 let homeSearchEntriesPromise: Promise<CommissionSearchEntrySource[]> | null = null
@@ -24,7 +22,7 @@ export default function CommissionSearchDeferred() {
   const [externalEntries, setExternalEntries] = useState<CommissionSearchEntrySource[] | null>(null)
   const [isLoadingEntries, setIsLoadingEntries] = useState(false)
 
-  const shouldLoadExternalEntries = import.meta.env.PROD
+  const shouldLoadExternalEntries = Boolean(import.meta.env?.PROD)
 
   const loadExternalEntries = useCallback(async () => {
     if (!shouldLoadExternalEntries) return externalEntries
@@ -105,13 +103,15 @@ export default function CommissionSearchDeferred() {
 
   if (isEnabled && isSearchReady) {
     return (
-      <CommissionSearch
-        autoFocusOnMount={shouldFocusOnMount}
-        deferIndexInit
-        externalEntries={externalEntries ?? undefined}
-        initialQuery={shellQuery || undefined}
-        openHelpOnMount={shouldOpenHelpOnMount}
-      />
+      <Suspense fallback={null}>
+        <CommissionSearch
+          autoFocusOnMount={shouldFocusOnMount}
+          deferIndexInit
+          externalEntries={externalEntries ?? undefined}
+          initialQuery={shellQuery || undefined}
+          openHelpOnMount={shouldOpenHelpOnMount}
+        />
+      </Suspense>
     )
   }
 

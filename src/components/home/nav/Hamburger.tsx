@@ -1,5 +1,3 @@
-'use client'
-
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import type { CharacterNavItem } from '#lib/characters/nav'

@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 
 const Analytics = () => {
   useEffect(() => {
-    if (import.meta.env.DEV) return
+    if (import.meta.env?.DEV) return
 
     const script = document.createElement('script')
     script.src = 'https://sight.crystallize.cc/api/script.js'

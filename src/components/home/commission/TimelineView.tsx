@@ -28,16 +28,16 @@ const TimelineView = ({ groups, creatorAliasesMap }: TimelineViewProps) => {
           </AppLink>
         </h2>
       </div>
-      {CommissionEntries({
-        entries: group.entries.map(entry => ({
+      <CommissionEntries
+        entries={group.entries.map(entry => ({
           character: entry.character,
           commission: entry.commission,
           sectionId: group.sectionId,
           entryKey: `${group.yearKey}:${entry.character}:${entry.commission.fileName}`,
           entryAnchorPrefix: getCharacterSectionId(entry.character),
-        })),
-        creatorAliasesMap,
-      })}
+        }))}
+        creatorAliasesMap={creatorAliasesMap}
+      />
     </section>
   ))
 

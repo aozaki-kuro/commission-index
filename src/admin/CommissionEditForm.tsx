@@ -1,5 +1,3 @@
-'use client'
-
 import { CommissionHiddenSwitch } from './components/CommissionFormFields'
 import CommissionSharedFields from './components/CommissionSharedFields'
 import { useActionState, useEffect, useRef, useState, useTransition, type ChangeEvent } from 'react'

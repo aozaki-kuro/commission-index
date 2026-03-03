@@ -1,5 +1,3 @@
-'use client'
-
 import { Skeleton } from '#components/ui/skeleton'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
@@ -51,7 +49,7 @@ const ProtectedCommissionImage = ({ altText, resolvedImageSrc }: ProtectedCommis
   const [erroredSrc, setErroredSrc] = useState<string | null>(null)
 
   const fallbackSrc =
-    import.meta.env.DEV && import.meta.env.MODE !== 'test'
+    import.meta.env?.DEV && import.meta.env?.MODE !== 'test'
       ? `${resolvedImageSrc}${resolvedImageSrc.includes('?') ? '&' : '?'}v=${encodeURIComponent(cacheBustId)}`
       : resolvedImageSrc
 

@@ -1,5 +1,3 @@
-'use client'
-
 import { useEffect, useRef } from 'react'
 
 import { updateChannel } from '#admin/dataUpdateSignal'
@@ -10,7 +8,7 @@ const DevLiveRefresh = () => {
 
   useEffect(() => {
     // Only attach in development
-    if (!import.meta.env.DEV) return
+    if (!import.meta.env?.DEV) return
     if (typeof window === 'undefined') return
 
     const refresh = () => {

@@ -11,7 +11,7 @@ const withRouteSuspense = (element: ReactNode) => (
 )
 
 const getAdminRoutes = (): RouteObject[] => {
-  if (!import.meta.env.DEV) return []
+  if (!import.meta.env?.DEV) return []
 
   const AdminPage = lazy(() => import('#admin/AdminPage'))
   const AdminAliasesPage = lazy(() => import('#admin/aliases/AliasesPage'))

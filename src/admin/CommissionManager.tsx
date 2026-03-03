@@ -1,5 +1,3 @@
-'use client'
-
 import { DndContext, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Suspense, lazy, useCallback, useMemo, useRef, useState } from 'react'

@@ -1,5 +1,3 @@
-'use client'
-
 import WarningModal from '#components/home/warning/WarningModal'
 import { useCallback, useRef, useSyncExternalStore } from 'react'
 

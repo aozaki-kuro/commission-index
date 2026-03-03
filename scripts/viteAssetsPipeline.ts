@@ -9,6 +9,7 @@ type AssetsCommand = 'assets:dev' | 'assets:build'
 const GENERATED_OUTPUTS = new Set(
   [
     'public/data/site-payload.json',
+    'public/data/home-prerender.html',
     'src/lib/generated/homeUpdateSummary.ts',
     'public/search/home-search-entries.json',
     'public/rss.xml',
@@ -19,6 +20,7 @@ const TASK_ORDER: AssetTask[] = [
   'site-payload',
   'home-update-summary',
   'home-search-entries',
+  'home-prerender',
   'rss',
   'images',
 ]

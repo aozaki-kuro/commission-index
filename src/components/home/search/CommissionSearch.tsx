@@ -1,5 +1,3 @@
-'use client'
-
 import { Button } from '#components/ui/button'
 import { Command, CommandInput, CommandItem, CommandList } from '#components/ui/command'
 import { useCommissionViewMode } from '#components/home/commission/CommissionViewMode'

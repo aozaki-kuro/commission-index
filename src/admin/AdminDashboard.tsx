@@ -1,5 +1,3 @@
-'use client'
-
 import type { CharacterRow, CommissionRow, CreatorAliasRow } from '#lib/admin/db'
 import { CommissionViewModeProvider } from '#components/home/commission/CommissionViewMode'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs'

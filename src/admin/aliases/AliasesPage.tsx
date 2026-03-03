@@ -1,5 +1,3 @@
-'use client'
-
 import NotFoundPage from '#components/shared/NotFoundPage'
 import type { CreatorAliasRow } from '#lib/admin/db'
 import { useDocumentTitle } from '#lib/seo/useDocumentTitle'
@@ -17,7 +15,7 @@ const AdminAliasesPage = () => {
   const [isError, setIsError] = useState(false)
 
   useEffect(() => {
-    if (!import.meta.env.DEV) return
+    if (!import.meta.env?.DEV) return
 
     let active = true
     const loadData = async () => {
@@ -40,7 +38,7 @@ const AdminAliasesPage = () => {
     }
   }, [])
 
-  if (!import.meta.env.DEV) {
+  if (!import.meta.env?.DEV) {
     return <NotFoundPage />
   }
 

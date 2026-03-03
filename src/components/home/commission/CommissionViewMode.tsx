@@ -1,11 +1,10 @@
-'use client'
-
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useState,
   useSyncExternalStore,
   type ReactNode,
 } from 'react'
@@ -16,6 +15,7 @@ export type CommissionViewMode = 'character' | 'timeline'
 type CommissionViewModeContextValue = {
   mode: CommissionViewMode
   setMode: (mode: CommissionViewMode) => void
+  isPanelMounted: (panel: CommissionViewMode) => boolean
 }
 
 const VIEW_MODE_QUERY_PARAM = 'view'
@@ -59,15 +59,41 @@ export const CommissionViewModeProvider = ({
   children: ReactNode
   initialMode?: CommissionViewMode
 }) => {
+  const initialMountedMode =
+    typeof window === 'undefined'
+      ? initialMode
+      : parseCommissionViewModeFromSearch(window.location.search)
+  const [mountedPanels, setMountedPanels] = useState<Set<CommissionViewMode>>(
+    () => new Set([initialMountedMode]),
+  )
+
+  const markPanelMounted = useCallback((panel: CommissionViewMode) => {
+    setMountedPanels(current => {
+      if (current.has(panel)) return current
+      const next = new Set(current)
+      next.add(panel)
+      return next
+    })
+  }, [])
+
   const mode = useSyncExternalStore(
     subscribeToCommissionViewMode,
     () => parseCommissionViewModeFromSearch(window.location.search),
     () => initialMode,
   )
-  const setMode = useCallback((nextMode: CommissionViewMode) => {
-    if (nextMode === parseCommissionViewModeFromSearch(window.location.search)) return
-    replaceCommissionViewModeInAddress(nextMode)
-  }, [])
+  const setMode = useCallback(
+    (nextMode: CommissionViewMode) => {
+      markPanelMounted(nextMode)
+      if (nextMode === parseCommissionViewModeFromSearch(window.location.search)) return
+      replaceCommissionViewModeInAddress(nextMode)
+    },
+    [markPanelMounted],
+  )
+
+  const isPanelMounted = useCallback(
+    (panel: CommissionViewMode) => mountedPanels.has(panel),
+    [mountedPanels],
+  )
 
   useEffect(() => {
     const hash = window.location.hash
@@ -80,7 +106,7 @@ export const CommissionViewModeProvider = ({
     return () => cancelAnimationFrame(rafId)
   }, [mode])
 
-  const value = useMemo(() => ({ mode, setMode }), [mode, setMode])
+  const value = useMemo(() => ({ mode, setMode, isPanelMounted }), [isPanelMounted, mode, setMode])
 
   return (
     <CommissionViewModeContext.Provider value={value}>
@@ -170,13 +196,18 @@ export const CommissionViewPanel = ({
   panel,
   children,
   className = '',
+  deferInactiveMount = false,
 }: {
   panel: CommissionViewMode
   children: ReactNode
   className?: string
+  deferInactiveMount?: boolean
 }) => {
-  const { mode } = useCommissionViewMode()
+  const { mode, isPanelMounted } = useCommissionViewMode()
   const active = mode === panel
+  const shouldRender = active || !deferInactiveMount || isPanelMounted(panel)
+
+  if (!shouldRender) return null
 
   return (
     <div

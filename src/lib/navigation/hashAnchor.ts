@@ -1,5 +1,3 @@
-'use client'
-
 export const getHashTarget = (hash: string): HTMLElement | null => {
   if (!hash || !hash.startsWith('#')) return null
 

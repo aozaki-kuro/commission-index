@@ -1,5 +1,3 @@
-'use client'
-
 import { getHashFromHref, scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import AppLink from '#components/shared/AppLink'
 import type { ComponentProps } from 'react'

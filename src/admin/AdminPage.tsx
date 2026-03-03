@@ -1,5 +1,3 @@
-'use client'
-
 import AdminDashboard from './AdminDashboard'
 import NotFoundPage from '#components/shared/NotFoundPage'
 import type { CharacterRow, CommissionRow, CreatorAliasRow } from '#lib/admin/db'
@@ -20,7 +18,7 @@ const AdminPage = () => {
   const [isError, setIsError] = useState(false)
 
   useEffect(() => {
-    if (!import.meta.env.DEV) return
+    if (!import.meta.env?.DEV) return
 
     let active = true
     const loadData = async () => {
@@ -49,7 +47,7 @@ const AdminPage = () => {
     }
   }, [])
 
-  if (!import.meta.env.DEV) {
+  if (!import.meta.env?.DEV) {
     return <NotFoundPage />
   }
 

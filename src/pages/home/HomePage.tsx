@@ -5,8 +5,6 @@ import Footer from '#components/home/blocks/Footer'
 
 import CommissionSearchDeferred from '#components/home/search/CommissionSearchDeferred'
 import DevLiveRefresh from '#components/home/dev/DevLiveRefresh'
-
-import NotFoundPage from '#components/shared/NotFoundPage'
 import {
   Sidebar,
   SidebarContent,
@@ -19,6 +17,7 @@ import { buildCommissionTimeline } from '#lib/commissions/timeline'
 import { homeUpdateSummary } from '#lib/generated/homeUpdateSummary'
 import { useDocumentTitle } from '#lib/seo/useDocumentTitle'
 import { buildCommissionDataMap, buildCreatorAliasesMap, type SitePayload } from '#lib/sitePayload'
+import { getBootstrappedSitePayload } from '#lib/sitePayloadBootstrap'
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 
 const CharacterList = lazy(() => import('#components/home/nav/CharacterList'))
@@ -26,6 +25,7 @@ const Hamburger = lazy(() => import('#components/home/nav/Hamburger'))
 const Warning = lazy(() => import('#components/home/warning/Warning'))
 
 const SITE_PAYLOAD_URL = '/data/site-payload.json'
+const isDevEnvironment = Boolean(import.meta.env?.DEV)
 const DEFAULT_CHARACTER_LIST_SKELETON_COUNT = 12
 const CHARACTER_LIST_SKELETON_WIDTHS = [6.5, 7.5, 6, 8, 6.75, 7.25] as const
 const CHARACTER_LIST_SIDEBAR_CLASSES =
@@ -39,7 +39,7 @@ const CharacterListSkeleton = ({
   navItemCount?: number
 }) => {
   const resolvedNavItemCount = Math.max(DEFAULT_CHARACTER_LIST_SKELETON_COUNT, navItemCount)
-  const showAdminPlaceholder = import.meta.env.DEV
+  const showAdminPlaceholder = isDevEnvironment
 
   return (
     <Sidebar
@@ -93,10 +93,18 @@ const CharacterListSkeleton = ({
   )
 }
 
-const HomePageLoadingShell = () => {
+const HomePageLoadingShell = ({ hasError }: { hasError?: boolean }) => {
   return (
     <div className="relative mx-auto flex min-h-[1850px] justify-center md:min-h-[2100px]">
       <div id="Main Contents" className="w-full max-w-160">
+        {hasError ? (
+          <p
+            role="status"
+            className="mt-4 border border-amber-400/40 bg-amber-100/50 px-3 py-2 text-xs text-amber-900 dark:border-amber-300/30 dark:bg-amber-900/20 dark:text-amber-100"
+          >
+            Unable to refresh latest payload. Showing static content shell.
+          </p>
+        ) : null}
         <CommissionDescription
           commissionData={[]}
           activeCharacters={[]}
@@ -122,12 +130,19 @@ const HomePageLoadingShell = () => {
   )
 }
 
-const Home = () => {
+const getInitialPayload = (bootstrapPayload?: SitePayload | null) =>
+  bootstrapPayload ?? getBootstrappedSitePayload()
+
+const Home = ({ bootstrapPayload }: { bootstrapPayload?: SitePayload | null }) => {
   useDocumentTitle()
-  const [payload, setPayload] = useState<SitePayload | null>(null)
+  const [payload, setPayload] = useState<SitePayload | null>(() =>
+    getInitialPayload(bootstrapPayload),
+  )
   const [hasError, setHasError] = useState(false)
 
   useEffect(() => {
+    if (payload) return
+
     let isMounted = true
 
     const loadPayload = async () => {
@@ -149,16 +164,29 @@ const Home = () => {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [payload])
 
   const computed = useMemo(() => {
     if (!payload) return null
 
     const commissionMap = buildCommissionDataMap(payload.commissionData)
     const creatorAliasesMap = buildCreatorAliasesMap(payload.creatorAliases)
-    const { groups: timelineGroups, navItems: monthNavItems } =
+    const { groups: fallbackTimelineGroups, navItems: fallbackMonthNavItems } =
       buildCommissionTimeline(commissionMap)
+
+    const timelineGroups =
+      Array.isArray(payload.timelineGroups) && payload.timelineGroups.length > 0
+        ? payload.timelineGroups
+        : fallbackTimelineGroups
+    const monthNavItems =
+      Array.isArray(payload.monthNavItems) && payload.monthNavItems.length > 0
+        ? payload.monthNavItems
+        : fallbackMonthNavItems
     const characters = [...payload.characterStatus.active, ...payload.characterStatus.stale]
+    const activeCharacterNames =
+      Array.isArray(payload.activeCharacterNames) && payload.activeCharacterNames.length > 0
+        ? payload.activeCharacterNames
+        : payload.characterStatus.active.map(item => item.DisplayName)
 
     return {
       commissionMap,
@@ -166,16 +194,12 @@ const Home = () => {
       timelineGroups,
       monthNavItems,
       characters,
-      activeCharacterNames: payload.characterStatus.active.map(item => item.DisplayName),
+      activeCharacterNames,
     }
   }, [payload])
 
-  if (hasError) {
-    return <NotFoundPage />
-  }
-
   if (!payload || !computed) {
-    return <HomePageLoadingShell />
+    return <HomePageLoadingShell hasError={hasError} />
   }
 
   return (
@@ -221,7 +245,7 @@ const Home = () => {
             timelineNavItems={computed.monthNavItems}
           />
         </Suspense>
-        {import.meta.env.DEV ? <DevLiveRefresh /> : null}
+        {isDevEnvironment ? <DevLiveRefresh /> : null}
       </>
     </CommissionViewModeProvider>
   )
