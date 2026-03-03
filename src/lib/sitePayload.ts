@@ -1,4 +1,6 @@
 import type { Props } from '#data/types'
+import type { CharacterNavItem } from '#lib/characters/nav'
+import type { TimelineYearGroup } from '#lib/commissions/timeline'
 
 export type CharacterDisplay = {
   DisplayName: string
@@ -18,6 +20,9 @@ export type SitePayload = {
   commissionData: Props
   characterStatus: CharacterStatusPayload
   creatorAliases: CreatorAliasPayload[]
+  timelineGroups: TimelineYearGroup[]
+  monthNavItems: CharacterNavItem[]
+  activeCharacterNames: string[]
 }
 
 export const buildCommissionDataMap = (commissionData: Props) =>

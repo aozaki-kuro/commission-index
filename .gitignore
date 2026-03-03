@@ -9,6 +9,7 @@
 /coverage
 
 # build artifacts
+.astro/
 .next/
 out/
 dist/
@@ -37,7 +38,6 @@ yarn-error.log*
 # sitemap & rss
 public/feed.xml
 public/sitemap*
-public/robots.txt
 
 # imageMap
 data/imageMap.ts
@@ -55,3 +55,4 @@ data/commissions.db-shm
 public/rss.xml
 public/search/home-search-entries.json
 public/data/site-payload.json
+public/data/home-prerender.html

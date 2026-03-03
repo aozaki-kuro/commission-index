@@ -29,6 +29,16 @@ interface CommissionRow {
   hidden: boolean
 }
 
+export interface AdminCommissionSearchRow {
+  id: number
+  characterId: number
+  characterName: string
+  fileName: string
+  design?: string | null
+  description?: string | null
+  keyword?: string | null
+}
+
 export interface CreatorAliasRow {
   creatorName: string
   aliases: string[]
@@ -38,6 +48,12 @@ export interface CreatorAliasRow {
 export interface AdminData {
   characters: CharacterRow[]
   commissions: CommissionRow[]
+}
+
+export interface AdminBootstrapData {
+  characters: CharacterRow[]
+  creatorAliases: CreatorAliasRow[]
+  commissionSearchRows: AdminCommissionSearchRow[]
 }
 
 type BetterSqlite3Database = Database.Database
@@ -222,6 +238,138 @@ export const getAdminData = (): AdminData =>
     }))
 
     return { characters, commissions }
+  })
+
+export const getAdminBootstrapData = (): AdminBootstrapData => {
+  const { characters, commissionSearchRows } = withReadOnlyDatabase(db => {
+    const hasKeywordColumn = hasCommissionKeywordColumn(db)
+    const keywordSelect = hasKeywordColumn ? 'commissions.keyword as keyword' : 'NULL as keyword'
+
+    const rawCharacters = db
+      .prepare(
+        `
+        SELECT
+          characters.id as id,
+          characters.name as name,
+          characters.status as status,
+          characters.sort_order as sortOrder,
+          COUNT(commissions.id) as commissionCount
+        FROM characters
+        LEFT JOIN commissions ON commissions.character_id = characters.id
+        GROUP BY characters.id
+        ORDER BY characters.sort_order ASC
+      `,
+      )
+      .all() as Array<{
+      id: number
+      name: string
+      status: CharacterStatus
+      sortOrder: number
+      commissionCount: number
+    }>
+
+    const characters: CharacterRow[] = rawCharacters.map(row => ({
+      ...row,
+      commissionCount: Number(row.commissionCount ?? 0),
+    }))
+
+    const rawCommissionSearchRows = db
+      .prepare(
+        `
+        SELECT
+          commissions.id as id,
+          commissions.character_id as characterId,
+          characters.name as characterName,
+          commissions.file_name as fileName,
+          commissions.design as design,
+          commissions.description as description,
+          ${keywordSelect}
+        FROM commissions
+        JOIN characters ON characters.id = commissions.character_id
+        ORDER BY characters.sort_order ASC, commissions.file_name DESC
+      `,
+      )
+      .all() as Array<{
+      id: number
+      characterId: number
+      characterName: string
+      fileName: string
+      design?: string | null
+      description?: string | null
+      keyword?: string | null
+    }>
+
+    const commissionSearchRows: AdminCommissionSearchRow[] = rawCommissionSearchRows.map(row => ({
+      id: row.id,
+      characterId: row.characterId,
+      characterName: row.characterName,
+      fileName: row.fileName,
+      design: row.design ?? null,
+      description: row.description ?? null,
+      keyword: row.keyword ?? null,
+    }))
+
+    return { characters, commissionSearchRows }
+  })
+
+  const creatorAliases = getCreatorAliasesAdminData()
+
+  return {
+    characters,
+    creatorAliases,
+    commissionSearchRows,
+  }
+}
+
+export const getAdminCommissionsByCharacterId = (characterId: number): CommissionRow[] =>
+  withReadOnlyDatabase(db => {
+    const hasKeywordColumn = hasCommissionKeywordColumn(db)
+    const keywordSelect = hasKeywordColumn ? 'commissions.keyword as keyword,' : 'NULL as keyword,'
+
+    const rawCommissions = db
+      .prepare(
+        `
+        SELECT
+          commissions.id as id,
+          commissions.character_id as characterId,
+          characters.name as characterName,
+          commissions.file_name as fileName,
+          commissions.links as links,
+          commissions.design as design,
+          commissions.description as description,
+          ${keywordSelect}
+          commissions.hidden as hidden
+        FROM commissions
+        JOIN characters ON characters.id = commissions.character_id
+        WHERE commissions.character_id = @characterId
+        ORDER BY commissions.file_name DESC
+      `,
+      )
+      .all({
+        characterId,
+      }) as Array<{
+      id: number
+      characterId: number
+      characterName: string
+      fileName: string
+      links: string
+      design?: string | null
+      description?: string | null
+      keyword?: string | null
+      hidden: number
+    }>
+
+    return rawCommissions.map(row => ({
+      id: row.id,
+      characterId: row.characterId,
+      characterName: row.characterName,
+      fileName: row.fileName,
+      links: JSON.parse(row.links) as string[],
+      design: row.design ?? null,
+      description: row.description ?? null,
+      keyword: row.keyword ?? null,
+      hidden: Boolean(row.hidden),
+    }))
   })
 
 export const getCreatorAliasesAdminData = (): CreatorAliasRow[] =>

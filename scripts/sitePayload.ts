@@ -1,19 +1,9 @@
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
-
-import { getCharacterStatus } from '#data/commissionStatus'
-import { getCommissionData } from '#data/commissionData'
-import { getCreatorAliases } from '#data/creatorAliases'
-import type { SitePayload } from '#lib/sitePayload'
+import { buildSitePayload } from '#lib/home/buildSitePayload'
 import { writeFileIfChanged } from './writeFileIfChanged'
 
 const outputPath = path.join(process.cwd(), 'public', 'data', 'site-payload.json')
-
-const buildSitePayload = (): SitePayload => ({
-  commissionData: getCommissionData(),
-  characterStatus: getCharacterStatus(),
-  creatorAliases: getCreatorAliases(),
-})
 
 export const generateSitePayloadFile = async () => {
   const payload = buildSitePayload()

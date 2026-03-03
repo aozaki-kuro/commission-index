@@ -1,5 +1,3 @@
-'use client'
-
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { clearHashIfTargetIsStale } from '#lib/navigation/hashAnchor'
 import {

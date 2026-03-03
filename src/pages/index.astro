@@ -1,0 +1,42 @@
+---
+import CommissionDescription from '#features/home/blocks/Description'
+import Footer from '#features/home/blocks/Footer'
+import HomeControlsIsland from '#features/home/islands/HomeControlsIsland'
+import StaticCommissionSections from '#features/home/server/StaticCommissionSections'
+import Warning from '#features/home/warning/Warning'
+import { homeUpdateSummary } from '#lib/generated/homeUpdateSummary'
+import { buildSitePayload } from '#lib/home/buildSitePayload'
+import { buildCommissionDataMap, buildCreatorAliasesMap } from '#lib/sitePayload'
+import BaseLayout from '#layouts/BaseLayout.astro'
+
+const payload = buildSitePayload()
+const commissionMap = buildCommissionDataMap(payload.commissionData)
+const creatorAliasesMap = buildCreatorAliasesMap(payload.creatorAliases)
+---
+
+<BaseLayout>
+  <Warning client:idle />
+  <CommissionDescription
+    commissionData={payload.commissionData}
+    activeCharacters={payload.activeCharacterNames}
+    updateSummary={homeUpdateSummary}
+  />
+  <div class="relative mx-auto flex justify-center">
+    <div id="Main Contents" class="w-full max-w-160">
+      <HomeControlsIsland
+        client:load
+        active={payload.characterStatus.active}
+        stale={payload.characterStatus.stale}
+        monthNavItems={payload.monthNavItems}
+      />
+      <StaticCommissionSections
+        activeChars={payload.characterStatus.active}
+        staleChars={payload.characterStatus.stale}
+        commissionMap={commissionMap}
+        creatorAliasesMap={creatorAliasesMap}
+        timelineGroups={payload.timelineGroups}
+      />
+      <Footer />
+    </div>
+  </div>
+</BaseLayout>

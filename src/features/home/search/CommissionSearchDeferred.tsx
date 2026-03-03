@@ -1,0 +1,271 @@
+import { Button } from '#components/ui/button'
+import { lazy, startTransition, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import type { CommissionSearchEntrySource } from '#features/home/search/CommissionSearch'
+
+const HOME_SEARCH_INDEX_URL = '/search/home-search-entries.json'
+
+const loadCommissionSearch = () => import('#features/home/search/CommissionSearch')
+const CommissionSearch = lazy(loadCommissionSearch)
+
+let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
+let homeSearchEntriesPromise: Promise<CommissionSearchEntrySource[]> | null = null
+
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
+  cancelIdleCallback?: (handle: number) => void
+}
+
+const hasSearchQueryParam = () => {
+  if (typeof window === 'undefined') return false
+  return !!new URLSearchParams(window.location.search).get('q')
+}
+
+type CommissionSearchShellProps = {
+  query: string
+  isLoadingEntries: boolean
+  onPrewarm: () => void
+  onActivate: (focusOnMount?: boolean, openHelpOnMount?: boolean) => void
+  onQueryChange: (value: string) => void
+}
+
+const CommissionSearchShell = ({
+  query,
+  isLoadingEntries,
+  onPrewarm,
+  onActivate,
+  onQueryChange,
+}: CommissionSearchShellProps) => (
+  <section id="commission-search" className="mt-8 mb-6 flex h-12 items-center justify-end">
+    <div className="relative h-11 w-full overflow-visible border-b border-gray-300/80 bg-transparent text-gray-700 dark:border-gray-700 dark:text-gray-300">
+      <svg
+        viewBox="0 0 24 24"
+        className="absolute top-1/2 left-2.5 h-3.5 w-3.5 shrink-0 -translate-y-1/2 opacity-70"
+        fill="none"
+        stroke="currentColor"
+        aria-hidden="true"
+      >
+        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.4-4.4" />
+        <circle cx="11" cy="11" r="6" strokeWidth="2" />
+      </svg>
+
+      <div className="absolute inset-y-0 right-2 left-8 flex items-center gap-2">
+        <label htmlFor="commission-search-input" className="sr-only">
+          Search commissions
+        </label>
+
+        <input
+          id="commission-search-input"
+          type="search"
+          value={query}
+          onFocus={() => onPrewarm()}
+          onPointerDown={() => {
+            onPrewarm()
+          }}
+          onChange={event => {
+            onQueryChange(event.target.value)
+            onActivate(true)
+          }}
+          placeholder="Search"
+          autoComplete="off"
+          aria-label="Search commissions"
+          className="w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-24 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
+        />
+        {isLoadingEntries ? (
+          <span className="absolute right-9 text-xs text-gray-400 dark:text-gray-500">...</span>
+        ) : null}
+
+        <Button
+          type="button"
+          onClick={() => onActivate(true, true)}
+          variant="ghost"
+          size="icon"
+          className="absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300"
+          aria-label="Search help"
+        >
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="9" strokeWidth="2" />
+            <path
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9.6 9.2a2.6 2.6 0 1 1 4.8 1.4c-.6.8-1.4 1.2-2 1.8-.4.4-.6.9-.6 1.6"
+            />
+            <circle cx="12" cy="17.3" r="0.8" fill="currentColor" stroke="none" />
+          </svg>
+        </Button>
+      </div>
+    </div>
+  </section>
+)
+
+export default function CommissionSearchDeferred() {
+  const [isEnabled, setIsEnabled] = useState(false)
+  const [shouldFocusOnMount, setShouldFocusOnMount] = useState(false)
+  const [shouldOpenHelpOnMount, setShouldOpenHelpOnMount] = useState(false)
+  const [shellQuery, setShellQuery] = useState('')
+  const [externalEntries, setExternalEntries] = useState<CommissionSearchEntrySource[] | null>(null)
+  const [isLoadingEntries, setIsLoadingEntries] = useState(false)
+  const hasWarmedUpEntriesRef = useRef(false)
+
+  const shouldLoadExternalEntries = Boolean(import.meta.env?.PROD)
+
+  const loadExternalEntries = useCallback(async () => {
+    if (!shouldLoadExternalEntries) return externalEntries
+    if (externalEntries) return externalEntries
+    if (cachedHomeSearchEntries) {
+      setExternalEntries(cachedHomeSearchEntries)
+      return cachedHomeSearchEntries
+    }
+
+    setIsLoadingEntries(true)
+    try {
+      if (!homeSearchEntriesPromise) {
+        homeSearchEntriesPromise = fetch(HOME_SEARCH_INDEX_URL)
+          .then(async response => {
+            if (!response.ok) {
+              throw new Error(`Failed to load search index: ${response.status}`)
+            }
+            return (await response.json()) as CommissionSearchEntrySource[]
+          })
+          .then(entries => {
+            cachedHomeSearchEntries = entries
+            return entries
+          })
+          .catch(error => {
+            homeSearchEntriesPromise = null
+            throw error
+          })
+      }
+
+      const entries = await homeSearchEntriesPromise
+      setExternalEntries(entries)
+      return entries
+    } finally {
+      setIsLoadingEntries(false)
+    }
+  }, [externalEntries, shouldLoadExternalEntries])
+
+  const enableSearch = useCallback(
+    (focusOnMount = false, openHelpOnMount = false) => {
+      const shouldEnable = !isEnabled
+      const shouldMarkFocusOnMount = focusOnMount && !shouldFocusOnMount
+      const shouldMarkHelpOnMount = openHelpOnMount && !shouldOpenHelpOnMount
+      const requiresSynchronousFocusPath = focusOnMount || openHelpOnMount
+
+      if (requiresSynchronousFocusPath) {
+        if (shouldEnable) setIsEnabled(true)
+        if (shouldMarkFocusOnMount) setShouldFocusOnMount(true)
+        if (shouldMarkHelpOnMount) setShouldOpenHelpOnMount(true)
+      } else if (shouldEnable || shouldMarkFocusOnMount || shouldMarkHelpOnMount) {
+        startTransition(() => {
+          if (shouldEnable) setIsEnabled(true)
+          if (shouldMarkFocusOnMount) setShouldFocusOnMount(true)
+          if (shouldMarkHelpOnMount) setShouldOpenHelpOnMount(true)
+        })
+      }
+
+      const shouldRequestEntries =
+        shouldLoadExternalEntries &&
+        !externalEntries &&
+        !cachedHomeSearchEntries &&
+        !homeSearchEntriesPromise
+
+      if (shouldEnable || shouldRequestEntries) {
+        void loadCommissionSearch()
+        void loadExternalEntries()
+      }
+    },
+    [
+      externalEntries,
+      isEnabled,
+      loadExternalEntries,
+      shouldFocusOnMount,
+      shouldLoadExternalEntries,
+      shouldOpenHelpOnMount,
+    ],
+  )
+
+  const prewarmSearch = useCallback(() => {
+    void loadCommissionSearch()
+
+    const shouldRequestEntries =
+      shouldLoadExternalEntries &&
+      !externalEntries &&
+      !cachedHomeSearchEntries &&
+      !homeSearchEntriesPromise
+
+    if (shouldRequestEntries) {
+      void loadExternalEntries()
+    }
+  }, [externalEntries, loadExternalEntries, shouldLoadExternalEntries])
+
+  useEffect(() => {
+    if (!shouldLoadExternalEntries || hasWarmedUpEntriesRef.current) return
+
+    hasWarmedUpEntriesRef.current = true
+    let timeoutId: number | null = null
+    let idleId: number | null = null
+
+    const warmup = () => {
+      void loadCommissionSearch()
+      void loadExternalEntries()
+    }
+
+    const idleWindow = window as IdleWindow
+    if (idleWindow.requestIdleCallback) {
+      idleId = idleWindow.requestIdleCallback(warmup, { timeout: 1200 })
+    } else {
+      timeoutId = window.setTimeout(warmup, 300)
+    }
+
+    return () => {
+      if (idleId !== null && idleWindow.cancelIdleCallback) {
+        idleWindow.cancelIdleCallback(idleId)
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
+    }
+  }, [loadExternalEntries, shouldLoadExternalEntries])
+
+  useEffect(() => {
+    if (isEnabled || !hasSearchQueryParam()) return
+    enableSearch(false)
+  }, [enableSearch, isEnabled])
+
+  const isSearchReady = !shouldLoadExternalEntries || !!externalEntries
+
+  if (isEnabled && isSearchReady) {
+    return (
+      <Suspense
+        fallback={
+          <CommissionSearchShell
+            query={shellQuery}
+            isLoadingEntries={isLoadingEntries}
+            onPrewarm={prewarmSearch}
+            onActivate={enableSearch}
+            onQueryChange={setShellQuery}
+          />
+        }
+      >
+        <CommissionSearch
+          autoFocusOnMount={shouldFocusOnMount}
+          deferIndexInit
+          externalEntries={externalEntries ?? undefined}
+          initialQuery={shellQuery || undefined}
+          openHelpOnMount={shouldOpenHelpOnMount}
+        />
+      </Suspense>
+    )
+  }
+
+  return (
+    <CommissionSearchShell
+      query={shellQuery}
+      isLoadingEntries={isEnabled && isLoadingEntries}
+      onPrewarm={prewarmSearch}
+      onActivate={enableSearch}
+      onQueryChange={setShellQuery}
+    />
+  )
+}

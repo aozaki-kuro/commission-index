@@ -1,0 +1,11 @@
+---
+import AdminPage from '#admin/AdminPage'
+import { getAdminBootstrapData } from '#lib/admin/db'
+import BaseLayout from '#layouts/BaseLayout.astro'
+
+const initialPayload = getAdminBootstrapData()
+---
+
+<BaseLayout title="Admin" canonicalPath="/admin">
+  <AdminPage client:load initialPayload={initialPayload} />
+</BaseLayout>

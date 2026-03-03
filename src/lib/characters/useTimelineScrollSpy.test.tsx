@@ -2,6 +2,7 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useTimelineScrollSpy } from './useTimelineScrollSpy'
+import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 
 const HookProbe = ({ titleIds, enabled = true }: { titleIds: string[]; enabled?: boolean }) => {
   const activeId = useTimelineScrollSpy(titleIds, { enabled })
@@ -85,6 +86,7 @@ describe('useTimelineScrollSpy', () => {
     visible = true
     panel.setAttribute('data-commission-view-active', 'true')
     panel.classList.remove('hidden')
+    window.dispatchEvent(new Event(SIDEBAR_SEARCH_STATE_EVENT))
 
     await waitFor(() => {
       expect(screen.getByTestId('active-id')).toHaveTextContent('title-timeline-year-2026')

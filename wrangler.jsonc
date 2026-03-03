@@ -1,11 +1,11 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "commission-vault",
+  "name": "commission-index",
   "compatibility_date": "2026-02-05",
   "vars": {},
   "assets": {
     "directory": "./dist",
-    "html_handling": "none",
+    "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page",
   },
   "preview_urls": false,
