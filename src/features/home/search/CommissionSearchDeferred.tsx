@@ -10,9 +10,11 @@ const CommissionSearch = lazy(loadCommissionSearch)
 let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
 let homeSearchEntriesPromise: Promise<CommissionSearchEntrySource[]> | null = null
 
-type IdleWindow = Window & {
-  requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number
-  cancelIdleCallback?: (handle: number) => void
+type NavigatorWithConnection = Navigator & {
+  connection?: {
+    saveData?: boolean
+    effectiveType?: string
+  }
 }
 
 const hasSearchQueryParam = () => {
@@ -145,6 +147,38 @@ export default function CommissionSearchDeferred() {
     }
   }, [externalEntries, shouldLoadExternalEntries])
 
+  const shouldPrefetchSearchData = useCallback(() => {
+    if (typeof navigator === 'undefined') return true
+    const connection = (navigator as NavigatorWithConnection).connection
+    if (!connection) return true
+    if (connection.saveData) return false
+
+    const effectiveType = connection.effectiveType ?? ''
+    if (effectiveType === 'slow-2g' || effectiveType === '2g') return false
+    return true
+  }, [])
+
+  const warmupSearchAssets = useCallback(
+    (includeDataPrefetch: boolean) => {
+      if (hasWarmedUpEntriesRef.current) return
+      hasWarmedUpEntriesRef.current = true
+
+      void loadCommissionSearch()
+
+      const shouldRequestEntries =
+        includeDataPrefetch &&
+        shouldLoadExternalEntries &&
+        !externalEntries &&
+        !cachedHomeSearchEntries &&
+        !homeSearchEntriesPromise
+
+      if (shouldRequestEntries) {
+        void loadExternalEntries()
+      }
+    },
+    [externalEntries, loadExternalEntries, shouldLoadExternalEntries],
+  )
+
   const enableSearch = useCallback(
     (focusOnMount = false, openHelpOnMount = false) => {
       const shouldEnable = !isEnabled
@@ -186,47 +220,29 @@ export default function CommissionSearchDeferred() {
   )
 
   const prewarmSearch = useCallback(() => {
-    void loadCommissionSearch()
-
-    const shouldRequestEntries =
-      shouldLoadExternalEntries &&
-      !externalEntries &&
-      !cachedHomeSearchEntries &&
-      !homeSearchEntriesPromise
-
-    if (shouldRequestEntries) {
-      void loadExternalEntries()
-    }
-  }, [externalEntries, loadExternalEntries, shouldLoadExternalEntries])
+    warmupSearchAssets(shouldPrefetchSearchData())
+  }, [shouldPrefetchSearchData, warmupSearchAssets])
 
   useEffect(() => {
-    if (!shouldLoadExternalEntries || hasWarmedUpEntriesRef.current) return
+    if (hasWarmedUpEntriesRef.current) return
 
-    hasWarmedUpEntriesRef.current = true
-    let timeoutId: number | null = null
-    let idleId: number | null = null
-
-    const warmup = () => {
-      void loadCommissionSearch()
-      void loadExternalEntries()
+    const handleFirstInteraction = () => {
+      warmupSearchAssets(shouldPrefetchSearchData())
+      window.removeEventListener('pointerdown', handleFirstInteraction, true)
+      window.removeEventListener('touchstart', handleFirstInteraction, true)
+      window.removeEventListener('keydown', handleFirstInteraction, true)
     }
 
-    const idleWindow = window as IdleWindow
-    if (idleWindow.requestIdleCallback) {
-      idleId = idleWindow.requestIdleCallback(warmup, { timeout: 1200 })
-    } else {
-      timeoutId = window.setTimeout(warmup, 300)
-    }
+    window.addEventListener('pointerdown', handleFirstInteraction, { capture: true, passive: true })
+    window.addEventListener('touchstart', handleFirstInteraction, { capture: true, passive: true })
+    window.addEventListener('keydown', handleFirstInteraction, true)
 
     return () => {
-      if (idleId !== null && idleWindow.cancelIdleCallback) {
-        idleWindow.cancelIdleCallback(idleId)
-      }
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId)
-      }
+      window.removeEventListener('pointerdown', handleFirstInteraction, true)
+      window.removeEventListener('touchstart', handleFirstInteraction, true)
+      window.removeEventListener('keydown', handleFirstInteraction, true)
     }
-  }, [loadExternalEntries, shouldLoadExternalEntries])
+  }, [shouldPrefetchSearchData, warmupSearchAssets])
 
   useEffect(() => {
     if (isEnabled || !hasSearchQueryParam()) return
