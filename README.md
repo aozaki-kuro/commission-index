@@ -6,8 +6,8 @@ Personal use only
 
 ## Development
 
-- `bun run dev` — run Astro web + admin API (Node + tsx) in development mode.
-- `bun run dev:astro` — run Astro web only.
+- `bun run dev` — run Astro web in development mode (`/api/admin/*` handled inside Astro dev middleware).
+- `bun run dev:astro` — run Astro web only (same in-process admin API behavior).
 - `bun run dev:web` — run legacy Vite web only (rollback path).
 - `bun run dev:api` — run admin API only.
 - `bun run build` — run Astro static build output to `dist/`.
@@ -20,9 +20,8 @@ Asset generation (`assets:dev` / `assets:build`) is shared by Astro/Vite:
 
 ### Dev ports
 
-- `ADMIN_API_PORT` controls the admin API listening port.
-- `VITE_ADMIN_API_PORT` controls Vite `/api` proxy target.
-- `bun run dev` sets both variables to the same value automatically.
+- `PORT` controls Astro dev port (default `5173`).
+- `bun run dev:web` + `bun run dev:api` fallback still uses `ADMIN_API_PORT` and Vite proxy.
 
 ### Production `/admin` verification
 

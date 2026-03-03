@@ -1,15 +1,65 @@
 import { defineConfig } from 'astro/config'
 import react from '@astrojs/react'
+import { Readable } from 'node:stream'
 import tsconfigPaths from 'vite-tsconfig-paths'
 
-const adminApiPort = Number(process.env.VITE_ADMIN_API_PORT ?? 8788)
+const devAdminApiPlugin = () => ({
+  name: 'dev-admin-api',
+  configureServer(server: import('vite').ViteDevServer) {
+    server.middlewares.use(async (req, res, next) => {
+      const requestPath = req.originalUrl ?? req.url ?? '/'
+      const pathname = requestPath.split('?')[0]
+      if (!pathname.startsWith('/api/admin/')) {
+        next()
+        return
+      }
+
+      try {
+        const { handleAdminApiRequest } = await server.ssrLoadModule('/server/admin-api-handler.ts')
+        const host = req.headers.host ?? 'localhost'
+        const url = `http://${host}${requestPath}`
+        const method = req.method ?? 'GET'
+        const body =
+          method === 'GET' || method === 'HEAD'
+            ? undefined
+            : (Readable.toWeb(req) as ReadableStream)
+        const requestInit: RequestInit = {
+          method,
+          headers: req.headers as HeadersInit,
+          body,
+        }
+        if (body) {
+          ;(requestInit as RequestInit & { duplex: 'half' }).duplex = 'half'
+        }
+        const response = await handleAdminApiRequest(new Request(url, requestInit))
+
+        res.statusCode = response.status
+        response.headers.forEach((value, key) => {
+          res.setHeader(key, value)
+        })
+
+        if (!response.body) {
+          res.end()
+          return
+        }
+
+        Readable.fromWeb(response.body as never).pipe(res)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unexpected server error.'
+        res.statusCode = 500
+        res.setHeader('Content-Type', 'application/json; charset=utf-8')
+        res.end(JSON.stringify({ status: 'error', message }))
+      }
+    })
+  },
+})
 
 export default defineConfig({
   output: 'static',
   srcDir: './app',
   integrations: [react()],
   vite: {
-    plugins: [tsconfigPaths()],
+    plugins: [tsconfigPaths(), devAdminApiPlugin()],
     build: {
       rollupOptions: {
         output: {
@@ -20,14 +70,6 @@ export default defineConfig({
             if (id.includes('@radix-ui') || id.includes('cmdk')) return 'vendor-ui'
             return 'vendor'
           },
-        },
-      },
-    },
-    server: {
-      proxy: {
-        '/api': {
-          target: `http://localhost:${adminApiPort}`,
-          changeOrigin: true,
         },
       },
     },

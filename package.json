@@ -13,7 +13,7 @@
     "clean": "rm -rf dist node_modules .wrangler && bun i",
     "deploy": "bun run build && wrangler deploy",
     "dev": "bun run scripts/dev.ts",
-    "dev:astro": "bun run assets:dev && astro dev",
+    "dev:astro": "NODE_ENV=development bun run assets:dev && astro dev",
     "dev:api": "NODE_ENV=development node --import tsx server/admin-api.ts",
     "dev:web": "vite",
     "images": "bun run scripts/images.ts",
