@@ -48,7 +48,11 @@ const createNodeRequestServer = (port: number) =>
         return
       }
 
-      Readable.fromWeb(response.body as never).pipe(res)
+      const bodyBuffer = Buffer.from(await response.arrayBuffer())
+      if (!res.hasHeader('content-length')) {
+        res.setHeader('content-length', String(bodyBuffer.byteLength))
+      }
+      res.end(bodyBuffer)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unexpected server error.'
       res.statusCode = 500

@@ -11,12 +11,12 @@ import {
   updateCommission,
   type CharacterStatus,
 } from '../src/lib/admin/db'
-import { runImagePipeline } from '../src/admin/imagePipeline'
+import { runImagePipeline } from '../src/features/admin/imagePipeline'
 import {
   removeSourceImageFile,
   replaceUploadedSourceImage,
   saveUploadedSourceImage,
-} from '../src/admin/imageUpload'
+} from '../src/features/admin/imageUpload'
 import { generateHomeSearchEntriesFile } from '../scripts/homeSearchEntries'
 import { generateHomeUpdateSummaryModule } from '../scripts/homeUpdateSummary'
 import { generateRssFile } from '../scripts/rss'
