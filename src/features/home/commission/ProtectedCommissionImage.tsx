@@ -31,17 +31,22 @@ const ProtectedCommissionImage = ({ altText, resolvedImageSrc }: ProtectedCommis
 
   return (
     <div data-commission-image="true" data-commission-alt={altText} className="relative">
+      <div
+        data-commission-image-skeleton="true"
+        aria-hidden="true"
+        className="absolute inset-0 animate-pulse bg-gray-200/80 dark:bg-gray-700/60"
+      />
       <img
         data-commission-image-node="true"
         src={resolvedImageSrc}
         srcSet={srcSet || undefined}
         sizes={srcSet ? COMMISSION_IMAGE_SIZES : undefined}
         alt={altText}
-        className="pointer-events-none relative z-10 select-none"
+        className="pointer-events-none relative z-10 block w-full select-none"
         loading="lazy"
         width={COMMISSION_IMAGE_WIDTH}
         height={COMMISSION_IMAGE_HEIGHT}
-        style={{ width: '100%', height: 'auto' }}
+        style={{ height: 'auto' }}
       />
     </div>
   )

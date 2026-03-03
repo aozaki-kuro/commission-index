@@ -17,6 +17,8 @@ describe('ProtectedCommissionImage', () => {
   it('renders lazily loaded image with srcset and explicit dimensions', () => {
     render(<ProtectedCommissionImage altText="sample alt" resolvedImageSrc="/images/sample.webp" />)
 
+    expect(document.querySelector('[data-commission-image-skeleton="true"]')).not.toBeNull()
+
     const image = screen.getByRole('img', { name: 'sample alt' })
     expect(image).toHaveAttribute('src', '/images/sample.webp')
     expect(image).toHaveAttribute(
