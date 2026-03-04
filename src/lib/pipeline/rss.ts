@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
-import { generateRssFeed } from '#lib/rss/feed'
+import { generateRssFeed } from '../rss/feed'
 import { writeFileIfChanged } from './writeFileIfChanged'
 
 const outputPath = path.join(process.cwd(), 'public', 'rss.xml')
@@ -17,8 +17,4 @@ export const generateRssFile = async () => {
   } else {
     console.log(`Generated RSS feed -> ${relativeOutputPath}`)
   }
-}
-
-if (import.meta.main) {
-  await generateRssFile()
 }

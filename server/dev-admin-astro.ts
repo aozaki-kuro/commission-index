@@ -1,51 +1,9 @@
 import type { AstroIntegration } from 'astro'
-import { spawn } from 'node:child_process'
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import path from 'node:path'
 import { Readable } from 'node:stream'
 import type { Plugin } from 'vite'
 
 const ADMIN_API_PREFIX = '/api/admin/'
-const DEV_ASSET_DB_PATH = path.join(process.cwd(), 'data', 'commissions.db')
-const normalizePath = (value: string) => value.replace(/\\/g, '/')
-
-const runDevAssetsCommand = async (reason: string) => {
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(
-      'bun',
-      [
-        'run',
-        'scripts/assets.ts',
-        '--mode',
-        'dev',
-        '--tasks',
-        'home-update-summary,home-search-entries',
-        '--reason',
-        reason,
-      ],
-      {
-        cwd: process.cwd(),
-        env: {
-          ...process.env,
-          NODE_ENV: 'development',
-        },
-        stdio: ['ignore', 'inherit', 'inherit'],
-      },
-    )
-
-    child.once('error', error => {
-      reject(error)
-    })
-    child.once('exit', code => {
-      if (code === 0) {
-        resolve()
-        return
-      }
-
-      reject(new Error(`assets command exited with code ${code ?? 'null'}`))
-    })
-  })
-}
 
 const toRequest = (req: IncomingMessage, requestPath: string) => {
   const host = req.headers.host ?? 'localhost'
@@ -107,55 +65,6 @@ export const devAdminApiPlugin = (): Plugin => ({
         res.end(JSON.stringify({ status: 'error', message }))
       }
     })
-  },
-})
-
-export const devAssetsPipelinePlugin = (): Plugin => ({
-  name: 'dev-assets-pipeline',
-  configureServer(server) {
-    if (server.config.mode !== 'development') return
-
-    let isRunning = false
-    let queuedReason: string | null = null
-
-    const runDevAssets = async (reason: string) => {
-      if (isRunning) {
-        queuedReason = reason
-        return
-      }
-
-      isRunning = true
-      try {
-        await runDevAssetsCommand(reason)
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        server.config.logger.error(`[dev-assets] ${message}`)
-      } finally {
-        isRunning = false
-        if (queuedReason) {
-          const nextReason = queuedReason
-          queuedReason = null
-          await runDevAssets(nextReason)
-        }
-      }
-    }
-
-    const handleInputFileEvent = (filePath: string) => {
-      if (normalizePath(filePath) !== normalizePath(DEV_ASSET_DB_PATH)) return
-
-      const relativePath = path.relative(process.cwd(), filePath)
-      void runDevAssets(`watch:${relativePath}`)
-    }
-
-    server.watcher.add(DEV_ASSET_DB_PATH)
-    server.watcher.on('change', handleInputFileEvent)
-    server.watcher.on('add', handleInputFileEvent)
-    void runDevAssets('astro-dev-startup')
-
-    return () => {
-      server.watcher.off('change', handleInputFileEvent)
-      server.watcher.off('add', handleInputFileEvent)
-    }
   },
 })
 

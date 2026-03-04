@@ -11,15 +11,12 @@ import {
   updateCommission,
   type CharacterStatus,
 } from '../src/lib/admin/db'
-import { runImagePipeline } from '../src/features/admin/imagePipeline'
 import {
   removeSourceImageFile,
   replaceUploadedSourceImage,
   saveUploadedSourceImage,
 } from '../src/features/admin/imageUpload'
-import { generateHomeSearchEntriesFile } from '../scripts/homeSearchEntries'
-import { generateHomeUpdateSummaryModule } from '../scripts/homeUpdateSummary'
-import { generateRssFile } from '../scripts/rss'
+import { runFullAssetPipeline } from '../src/lib/pipeline/assets'
 
 type ApiState = {
   status: 'success' | 'error'
@@ -100,13 +97,58 @@ const getUploadedSourceImage = (formData: FormData): File | null => {
   return entry
 }
 
-const regeneratePublicAssets = async () => {
-  await runImagePipeline()
-  await Promise.all([
-    generateHomeUpdateSummaryModule(),
-    generateHomeSearchEntriesFile(),
-    generateRssFile(),
-  ])
+const createAssetsSyncQueue = () => {
+  let requestedVersion = 0
+  let completedVersion = 0
+  let latestReason = 'unknown'
+  let runningPromise: Promise<void> | null = null
+
+  const runLoop = async () => {
+    while (completedVersion < requestedVersion) {
+      const targetVersion = requestedVersion
+      const reason = latestReason
+      const startedAt = Date.now()
+      console.log(`[assets-sync] start version=${targetVersion} reason=${reason}`)
+
+      try {
+        await runFullAssetPipeline(`admin-write:${reason}`)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        console.error(`[assets-sync] failed version=${targetVersion} reason=${reason}: ${message}`)
+        throw error
+      }
+
+      completedVersion = targetVersion
+      console.log(
+        `[assets-sync] done version=${targetVersion} reason=${reason} in ${Date.now() - startedAt}ms`,
+      )
+    }
+  }
+
+  const ensureRunning = () => {
+    if (runningPromise) return
+    runningPromise = runLoop().finally(() => {
+      runningPromise = null
+    })
+  }
+
+  return async (reason: string) => {
+    requestedVersion += 1
+    latestReason = reason
+    const waitForVersion = requestedVersion
+    ensureRunning()
+
+    while (completedVersion < waitForVersion) {
+      if (!runningPromise) ensureRunning()
+      await runningPromise
+    }
+  }
+}
+
+const syncPublicAssetsAfterWrite = createAssetsSyncQueue()
+
+const regeneratePublicAssets = async (reason: string) => {
+  await syncPublicAssetsAfterWrite(reason)
 }
 
 const parseJsonBody = async (request: Request): Promise<Record<string, unknown>> => {
@@ -162,7 +204,7 @@ export const handleAdminApiRequest = async (request: Request) => {
         name,
         status: parseCharacterStatus(body.status),
       })
-      await regeneratePublicAssets()
+      await regeneratePublicAssets('create-character')
       return success(`Character "${name}" created.`)
     } catch (error) {
       return handleWriteError(error, 'Failed to create character.')
@@ -183,7 +225,7 @@ export const handleAdminApiRequest = async (request: Request) => {
         name,
         status: parseCharacterStatus(body.status),
       })
-      await regeneratePublicAssets()
+      await regeneratePublicAssets('update-character')
       return success(`Character "${name}" updated.`)
     } catch (error) {
       return handleWriteError(error, 'Failed to update character.')
@@ -197,7 +239,7 @@ export const handleAdminApiRequest = async (request: Request) => {
         active: Array.isArray(body.active) ? body.active.map(Number) : [],
         stale: Array.isArray(body.stale) ? body.stale.map(Number) : [],
       })
-      await regeneratePublicAssets()
+      await regeneratePublicAssets('reorder-characters')
       return success('Character order updated.')
     } catch (error) {
       return handleWriteError(error, 'Failed to update character order.')
@@ -210,7 +252,7 @@ export const handleAdminApiRequest = async (request: Request) => {
 
     try {
       deleteCharacter(id)
-      await regeneratePublicAssets()
+      await regeneratePublicAssets('delete-character')
       return success('Character deleted.')
     } catch (error) {
       return handleWriteError(error, 'Failed to delete character.')
@@ -242,7 +284,7 @@ export const handleAdminApiRequest = async (request: Request) => {
 
     try {
       const { characterName } = createCommission(fields)
-      await regeneratePublicAssets()
+      await regeneratePublicAssets('create-commission')
       return success(`Commission "${fields.fileName}" added to ${characterName}.`)
     } catch (error) {
       if (uploadedSourceImagePath) {
@@ -266,7 +308,7 @@ export const handleAdminApiRequest = async (request: Request) => {
         id,
         ...fields,
       })
-      await regeneratePublicAssets()
+      await regeneratePublicAssets('update-commission')
       return success(`Commission "${fields.fileName}" updated.`)
     } catch (error) {
       return handleWriteError(error, 'Failed to update commission.')
@@ -279,7 +321,7 @@ export const handleAdminApiRequest = async (request: Request) => {
 
     try {
       deleteCommission(id)
-      await regeneratePublicAssets()
+      await regeneratePublicAssets('delete-commission')
       return success('Commission deleted.')
     } catch (error) {
       return handleWriteError(error, 'Failed to delete commission.')
@@ -305,7 +347,7 @@ export const handleAdminApiRequest = async (request: Request) => {
         commissionFileName,
         file: sourceImage,
       })
-      await regeneratePublicAssets()
+      await regeneratePublicAssets('replace-source-image')
       return success(`Source image for "${commissionFileName}" replaced.`)
     } catch (error) {
       return handleWriteError(error, 'Failed to replace source image.')
@@ -326,10 +368,19 @@ export const handleAdminApiRequest = async (request: Request) => {
         aliases: row.aliases ?? row.alias ?? '',
       }))
       saveCreatorAliasesBatch(rows)
-      await regeneratePublicAssets()
+      await regeneratePublicAssets('save-creator-aliases')
       return success('Creator aliases saved.')
     } catch (error) {
       return handleWriteError(error, 'Failed to save creator aliases.')
+    }
+  }
+
+  if (request.method === 'POST' && pathname === '/api/admin/assets/refresh') {
+    try {
+      await regeneratePublicAssets('manual-refresh')
+      return success('Assets refreshed.')
+    } catch (error) {
+      return handleWriteError(error, 'Failed to refresh assets.')
     }
   }
 

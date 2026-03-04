@@ -10,6 +10,7 @@ Personal use only
 - Admin pages (`/admin`, `/admin/aliases`) are injected only in development and are not part of production build output.
 - `bun run build` — run Astro static build output to `dist/`.
 - `bun run preview` — preview static output locally.
+- Admin page includes a dev-only floating `Refresh Assets Cache` button for manual asset resync.
 
 ## Tests
 

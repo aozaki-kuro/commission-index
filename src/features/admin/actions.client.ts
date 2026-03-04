@@ -224,3 +224,14 @@ export async function fetchCharacterCommissionsAction(
 
   return payload.commissions
 }
+
+export async function refreshAssetsAction(): Promise<FormState> {
+  try {
+    const response = await fetch('/api/admin/assets/refresh', {
+      method: 'POST',
+    })
+    return parseResponse(response)
+  } catch (error) {
+    return toErrorState(error, 'Failed to refresh assets.')
+  }
+}

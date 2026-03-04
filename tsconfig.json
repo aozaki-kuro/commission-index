@@ -38,8 +38,7 @@
       "#data/*": ["data/*"],
       "#lib/*": ["src/lib/*"],
       "#styles/*": ["src/styles/*"],
-      "#config/*": ["src/config/*"],
-      "#scripts/*": ["scripts/*"]
+      "#config/*": ["src/config/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],

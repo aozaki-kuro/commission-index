@@ -42,10 +42,9 @@ Additional guidance:
 
 ## Images
 
-- To add or update images, run:
-  - `bun run scripts/images.ts`
-- To clean stale webp files:
-  - `bun run images:prune-unused`
+- Image conversion/import sync is automatic in two flows:
+  - dev admin write operations (queued full sync)
+  - `bun run build` (full sync before static build)
 - Keep static export image variants at:
   - Base: `<name>.webp`
   - Responsive: `<name>-960.webp`, `<name>-1280.webp`

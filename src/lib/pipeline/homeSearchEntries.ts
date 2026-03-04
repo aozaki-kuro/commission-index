@@ -1,14 +1,14 @@
-import { getCharacterSectionId } from '#lib/characters/nav'
-import {
-  buildCommissionSearchDomKey,
-  buildCommissionSearchMetadata,
-} from '#lib/search/commissionSearchMetadata'
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
-import { getCommissionDataMap } from '#data/commissionData'
-import { getCharacterRecords } from '#data/commissionRecords'
-import { getCreatorAliasesMap } from '#data/creatorAliases'
+import { getCommissionDataMap } from '../../../data/commissionData'
+import { getCharacterRecords } from '../../../data/commissionRecords'
+import { getCreatorAliasesMap } from '../../../data/creatorAliases'
+import { getCharacterSectionId } from '../characters/nav'
+import {
+  buildCommissionSearchDomKey,
+  buildCommissionSearchMetadata,
+} from '../search/commissionSearchMetadata'
 import { writeFileIfChanged } from './writeFileIfChanged'
 
 type SearchEntry = {
@@ -72,8 +72,4 @@ export const generateHomeSearchEntriesFile = async () => {
   } else {
     console.log(`Generated ${entries.length} home search entries -> ${relativeOutputPath}`)
   }
-}
-
-if (import.meta.main) {
-  await generateHomeSearchEntriesFile()
 }

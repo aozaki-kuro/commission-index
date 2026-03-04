@@ -14,15 +14,6 @@ repos:
           - pre-commit
         always_run: true
 
-      - id: image-audit
-        name: image audit
-        entry: bun run scripts/images.ts
-        language: system
-        pass_filenames: false
-        stages:
-          - pre-commit
-        always_run: true
-
       - id: lint-staged
         name: lint staged
         entry: bun lint-staged

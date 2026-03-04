@@ -1,9 +1,9 @@
+import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
-import { getCharacterStatus } from '#data/commissionStatus'
-import { getCommissionData } from '#data/commissionData'
-import { buildHomeUpdateSummary, type HomeUpdateSummary } from '#lib/home/updateSummary'
-import { mkdir } from 'node:fs/promises'
+import { getCommissionData } from '../../../data/commissionData'
+import { getCharacterStatus } from '../../../data/commissionStatus'
+import { buildHomeUpdateSummary, type HomeUpdateSummary } from '../home/updateSummary'
 import { writeFileIfChanged } from './writeFileIfChanged'
 
 const outputPath = path.join(process.cwd(), 'src', 'lib', 'generated', 'homeUpdateSummary.ts')
@@ -46,8 +46,4 @@ export const generateHomeUpdateSummaryModule = async () => {
   } else {
     console.log(`Generated home update summary -> ${relativeOutputPath}`)
   }
-}
-
-if (import.meta.main) {
-  await generateHomeUpdateSummaryModule()
 }

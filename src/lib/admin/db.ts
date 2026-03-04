@@ -63,9 +63,7 @@ const databasePath = path.join(process.cwd(), 'data', 'commissions.db')
 
 const ensureDatabaseExists = () => {
   if (!fs.existsSync(databasePath)) {
-    throw new Error(
-      `SQLite database not found at ${databasePath}. Run "bun run db:seed" to generate it.`,
-    )
+    throw new Error(`SQLite database not found at ${databasePath}.`)
   }
 }
 

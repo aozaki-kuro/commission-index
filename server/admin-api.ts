@@ -65,20 +65,6 @@ const startServer = async () => {
   for (let attempt = 0; attempt < MAX_PORT_ATTEMPTS; attempt += 1) {
     const port = START_PORT + attempt
 
-    if (typeof Bun !== 'undefined') {
-      try {
-        const server = Bun.serve({
-          port,
-          fetch: handleAdminApiRequest,
-        })
-        await announceListeningPort(server.port)
-        return
-      } catch (error) {
-        if (isAddressInUseError(error)) continue
-        throw error
-      }
-    }
-
     const server = createNodeRequestServer(port)
     const listenResult = await new Promise<{ ok: true } | { ok: false; error: unknown }>(
       resolve => {

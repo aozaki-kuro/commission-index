@@ -1,5 +1,6 @@
 import AdminDashboard from './AdminDashboard'
 import NotFoundPage from '#components/shared/NotFoundPage'
+import { refreshAssetsAction } from '#admin/actions'
 import type { AdminCommissionSearchRow, CharacterRow, CreatorAliasRow } from '#lib/admin/db'
 import { useDocumentTitle } from '#lib/seo/useDocumentTitle'
 import { useEffect, useState } from 'react'
@@ -22,6 +23,14 @@ const AdminPage = ({ initialPayload = null }: AdminPageProps) => {
   const [payload, setPayload] = useState<BootstrapPayload | null>(initialPayload)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
+  const [isRefreshingAssets, setIsRefreshingAssets] = useState(false)
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!refreshMessage) return
+    const timer = window.setTimeout(() => setRefreshMessage(null), 2400)
+    return () => window.clearTimeout(timer)
+  }, [refreshMessage])
 
   useEffect(() => {
     if (!import.meta.env?.DEV) return
@@ -91,12 +100,43 @@ const AdminPage = ({ initialPayload = null }: AdminPageProps) => {
     )
   }
 
+  const handleRefreshAssets = async () => {
+    if (isRefreshingAssets) return
+    setIsRefreshingAssets(true)
+    setRefreshMessage(null)
+
+    const result = await refreshAssetsAction()
+    setIsRefreshingAssets(false)
+    setRefreshMessage(result.message ?? (result.status === 'success' ? 'Assets refreshed.' : null))
+    if (result.status === 'success') {
+      setReloadToken(token => token + 1)
+    }
+  }
+
   return (
-    <AdminDashboard
-      characters={payload.characters}
-      creatorAliases={payload.creatorAliases}
-      commissionSearchRows={payload.commissionSearchRows}
-    />
+    <>
+      <AdminDashboard
+        characters={payload.characters}
+        creatorAliases={payload.creatorAliases}
+        commissionSearchRows={payload.commissionSearchRows}
+      />
+
+      <div className="fixed right-4 bottom-4 z-50 flex flex-col items-end gap-2">
+        {refreshMessage ? (
+          <p className="rounded-md bg-gray-950/90 px-3 py-1.5 text-xs text-gray-100 shadow-md">
+            {refreshMessage}
+          </p>
+        ) : null}
+        <button
+          type="button"
+          onClick={handleRefreshAssets}
+          disabled={isRefreshingAssets}
+          className="inline-flex h-11 items-center rounded-full border border-gray-300 bg-white px-4 text-sm font-medium text-gray-800 shadow-lg transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:hover:border-gray-500 dark:hover:bg-gray-800"
+        >
+          {isRefreshingAssets ? 'Refreshing…' : 'Refresh Assets Cache'}
+        </button>
+      </div>
+    </>
   )
 }
 

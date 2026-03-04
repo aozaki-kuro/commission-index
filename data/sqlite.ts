@@ -1,8 +1,6 @@
 import path from 'node:path'
 import { createRequire } from 'node:module'
 
-declare const Bun: undefined | Record<string, unknown>
-
 const require = createRequire(import.meta.url)
 const dbPath = path.join(process.cwd(), 'data', 'commissions.db')
 
@@ -44,7 +42,7 @@ type BetterSqlite3Constructor = new (
 let cachedDatabaseHandle: DatabaseHandle | null = null
 
 const openDatabase = (): DatabaseHandle => {
-  if (typeof Bun !== 'undefined') {
+  if (process.versions.bun) {
     const { Database } = require('bun:sqlite') as BunSqliteModule
     const db = new Database(dbPath, { readonly: true })
     return {

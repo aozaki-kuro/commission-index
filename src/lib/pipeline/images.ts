@@ -3,7 +3,7 @@ import fsp from 'node:fs/promises'
 import path from 'node:path'
 import sharp from 'sharp'
 
-import { getCommissionData } from '#data/commissionData'
+import { getCommissionData } from '../../../data/commissionData'
 
 const MSG = {
   ERROR: '\x1b[0m[\x1b[31m ERROR \x1b[0m]',
