@@ -4,6 +4,7 @@ import { Popover, PopoverTrigger } from '#components/ui/popover'
 import { useCommissionViewMode } from '#features/home/commission/CommissionViewMode'
 import CommissionSearchHelpPopover from '#features/home/search/CommissionSearchHelpPopover'
 import {
+  type MouseEvent,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -489,6 +490,7 @@ const CommissionSearch = ({
   const sectionVisibilityRef = useRef(new Map<string, boolean>())
   const staleDividerVisibilityRef = useRef(true)
   const hasTrackedSearchUsageRef = useRef(false)
+  const ignoreNextHelpTriggerClickRef = useRef(openHelpOnMount)
   const [isHelpOpen, setIsHelpOpen] = useState(openHelpOnMount)
   const [copyState, setCopyState] = useState<'idle' | 'success'>('idle')
   const [activeSuggestionTerm, setActiveSuggestionTerm] = useState('')
@@ -731,6 +733,25 @@ const CommissionSearch = ({
     })
   }, [autoFocusOnMount])
 
+  useEffect(() => {
+    if (!openHelpOnMount) return
+
+    ignoreNextHelpTriggerClickRef.current = true
+
+    const clearIgnoredClick = () => {
+      ignoreNextHelpTriggerClickRef.current = false
+    }
+
+    window.addEventListener('pointerdown', clearIgnoredClick, {
+      capture: true,
+      once: true,
+    })
+
+    return () => {
+      window.removeEventListener('pointerdown', clearIgnoredClick, true)
+    }
+  }, [openHelpOnMount])
+
   useEffect(
     () => () => {
       if (!copyResetTimerRef.current) return
@@ -804,6 +825,15 @@ const CommissionSearch = ({
   const prepareSearchHelp = useCallback(() => {
     ensureIndexReady()
   }, [ensureIndexReady])
+
+  const handleHelpTriggerClick = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+    if (!ignoreNextHelpTriggerClickRef.current) return
+
+    // Ignore the residual click that opened deferred search + help in one gesture.
+    ignoreNextHelpTriggerClickRef.current = false
+    event.preventDefault()
+    event.stopPropagation()
+  }, [])
 
   return (
     <section id="commission-search" className="mt-8 mb-6 flex h-12 items-center justify-end">
@@ -901,6 +931,7 @@ const CommissionSearch = ({
                 type="button"
                 onPointerDown={prepareSearchHelp}
                 onFocus={prepareSearchHelp}
+                onClick={handleHelpTriggerClick}
                 variant="ghost"
                 size="icon"
                 className={`absolute inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[right,color] duration-200 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${

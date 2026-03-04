@@ -20,6 +20,16 @@ const renderSearch = (externalEntries: CommissionSearchEntrySource[]) =>
     </CommissionViewModeProvider>,
   )
 
+const renderSearchWithProps = (
+  externalEntries: CommissionSearchEntrySource[],
+  props: Partial<NonNullable<Parameters<typeof CommissionSearch>[0]>> = {},
+) =>
+  render(
+    <CommissionViewModeProvider>
+      <CommissionSearch disableDomFiltering externalEntries={externalEntries} {...props} />
+    </CommissionViewModeProvider>,
+  )
+
 describe('CommissionSearch', () => {
   beforeAll(() => {
     vi.stubGlobal(
@@ -93,5 +103,47 @@ describe('CommissionSearch', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copy search URL' }))
 
     expect(writeText).toHaveBeenCalledTimes(1)
+  })
+
+  it('opens help popover on mount when openHelpOnMount is true', async () => {
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'test-character::20240101_alice',
+        searchText: 'alice sample',
+        searchSuggest: 'Character\tAlice',
+      },
+    ]
+
+    renderSearchWithProps(entries, { openHelpOnMount: true })
+
+    await waitFor(() => {
+      expect(screen.getByText('Search Help')).toBeInTheDocument()
+    })
+  })
+
+  it('ignores the first trigger click after auto-open, then allows closing', async () => {
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'test-character::20240101_alice',
+        searchText: 'alice sample',
+        searchSuggest: 'Character\tAlice',
+      },
+    ]
+
+    renderSearchWithProps(entries, { openHelpOnMount: true })
+
+    await waitFor(() => {
+      expect(screen.getByText('Search Help')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search help' }))
+    expect(screen.getByText('Search Help')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Search help' }))
+    await waitFor(() => {
+      expect(screen.queryByText('Search Help')).not.toBeInTheDocument()
+    })
   })
 })

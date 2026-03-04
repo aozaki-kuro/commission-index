@@ -28,6 +28,13 @@ describe('CommissionSearchDeferred', () => {
     window.history.replaceState(null, '', '/')
   })
 
+  it('does not mount lazy search before activation', () => {
+    render(<CommissionSearchDeferred />)
+
+    expect(mockCommissionSearch).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('commission-search-lazy')).not.toBeInTheDocument()
+  })
+
   it('passes shell query to lazy search when activated from input', async () => {
     render(<CommissionSearchDeferred />)
 
@@ -77,7 +84,7 @@ describe('CommissionSearchDeferred', () => {
 
     expect(mockCommissionSearch).toHaveBeenCalledWith(
       expect.objectContaining({
-        autoFocusOnMount: true,
+        autoFocusOnMount: false,
         openHelpOnMount: true,
         deferIndexInit: true,
       }),

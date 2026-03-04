@@ -70,7 +70,16 @@ const CommissionSearchShell = ({
 
         <Button
           type="button"
-          onClick={() => onActivate(true, true)}
+          onPointerDown={event => {
+            // Activate on pointer down to avoid a residual click toggling the mounted trigger.
+            event.preventDefault()
+            onActivate(false, true)
+          }}
+          onClick={event => {
+            // Keyboard activation still fires click without a preceding pointer event.
+            if (event.detail !== 0) return
+            onActivate(false, true)
+          }}
           variant="ghost"
           size="icon"
           className="absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300"
