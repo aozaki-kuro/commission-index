@@ -1,13 +1,30 @@
 # AGENTS
 
-This repository contains a Vite + React 19 application written in TypeScript and managed with Bun.
+This repository contains an Astro 5 static site with React 19 islands, written in TypeScript and managed with Bun.
 
 ## Development Notes
 
 - **Runtime & package manager:** Node 22 via [mise](https://mise.jdx.dev) and `bun` for all commands.
-- **Framework:** Vite + React Router + Tailwind CSS.
+- **Framework:** Astro + Tailwind CSS + selective React islands (`@astrojs/react`).
 - **Path aliases:** Prefer the `#app`, `#components`, `#images`, `#commission`, `#data`, `#lib`, and `#admin/*` aliases (`#admin/actions` points to the HTTP client action wrappers).
 - **Data source:** Commission content lives in `data/commissions.db`; access it through `data/sqlite.ts` (Bun uses `bun:sqlite`, Node falls back to `better-sqlite3`).
+
+## Home Rendering Architecture
+
+- Home page static markup is Astro-first:
+  - `src/pages/index.astro`
+  - `src/features/home/blocks/*.astro`
+  - `src/features/home/server/StaticCommissionSections.astro`
+  - `src/features/home/commission/*.astro` (listing/timeline/entry rendering chain)
+- Keep React only for interactive islands:
+  - `Warning` (age gate)
+  - `HomeControlsIsland` (search/tabs/nav/hamburger)
+  - `SupportInteractiveIsland` (support page copy interactions)
+  - `Analytics` loader
+- Home search/view-mode behavior depends on existing `data-*` DOM contracts; preserve attribute names and structure when editing Astro templates.
+- Shared pure rendering helpers:
+  - `src/features/home/commission/linkDisplay.ts` (link sanitization/priority selection)
+  - `src/features/home/commission/imageVariants.ts` (responsive `srcset` generation)
 
 ## Dev/Admin Responsibilities (must follow)
 

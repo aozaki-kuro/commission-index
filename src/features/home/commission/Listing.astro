@@ -1,0 +1,56 @@
+---
+import type { CharacterCommissions } from '#data/types'
+import { getCharacterSectionHash, getCharacterSectionId, getCharacterTitleId } from '#lib/characters/nav'
+import CommissionEntries from '#features/home/commission/CommissionEntries.astro'
+
+interface ListingProps {
+  Character: string
+  status: 'active' | 'stale'
+  commissionMap: Map<string, CharacterCommissions>
+  creatorAliasesMap: Map<string, string[]> | null
+}
+
+const { Character, status, commissionMap, creatorAliasesMap }: ListingProps = Astro.props
+const sectionId = getCharacterSectionId(Character)
+const titleId = getCharacterTitleId(Character)
+const sectionHash = getCharacterSectionHash(Character)
+const characterData = commissionMap.get(Character)
+const commissions = characterData?.Commissions ?? []
+---
+
+<div
+  id={sectionId}
+  data-character-section="true"
+  data-character-status={status}
+  data-total-commissions={commissions.length}
+>
+  <div id={titleId} class="mb-2 pt-4">
+    <h2 class="group relative">
+      {Character}
+      <a
+        href={sectionHash}
+        class="ml-2 font-bold text-gray-400 no-underline opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-gray-600"
+      >
+        #
+      </a>
+    </h2>
+  </div>
+
+  {
+    commissions.length === 0 ? (
+      <p class="my-4">To be announced ...</p>
+    ) : (
+      <CommissionEntries
+        entries={commissions.map(commission => ({
+          character: Character,
+          commission,
+          sectionId,
+          entryKey: `${Character}:${commission.fileName}`,
+          entryAnchorPrefix: sectionId,
+        }))}
+        creatorAliasesMap={creatorAliasesMap}
+      />
+    )
+  }
+  <div class="pb-6" />
+</div>

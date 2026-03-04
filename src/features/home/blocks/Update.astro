@@ -1,0 +1,43 @@
+---
+import type { Props as CommissionData } from '#data/types'
+import {
+  buildHomeUpdateSummary,
+  isMilestoneCommissionCount,
+  type HomeUpdateSummary,
+} from '#lib/home/updateSummary'
+
+interface UpdateProps {
+  commissionData: CommissionData
+  activeCharacters: string[]
+  summary?: HomeUpdateSummary
+}
+
+const { commissionData, activeCharacters, summary }: UpdateProps = Astro.props
+const resolvedSummary = summary ?? buildHomeUpdateSummary(commissionData, activeCharacters)
+---
+
+{
+  resolvedSummary.entries.length === 0 ? (
+    <p class="font-mono text-sm">No active updates found</p>
+  ) : (
+    <div class="mt-6 mb-4 flex flex-col font-mono text-xs sm:text-sm md:mt-8">
+      <p class="mb-2">
+        Currently {resolvedSummary.totalCommissions} commissions
+        {isMilestoneCommissionCount(resolvedSummary.totalCommissions) ? ' 🎉' : ''}
+      </p>
+
+      <div class="flex items-start">
+        <p class="mr-2">Last update:</p>
+        <div class="flex flex-col space-y-2">
+          {
+            resolvedSummary.entries.map(entry => (
+              <p class="mr-2">
+                {entry.dateLabel} [ <a href={entry.href} class="underline-offset-2">{entry.character}</a> ]
+              </p>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  )
+}
