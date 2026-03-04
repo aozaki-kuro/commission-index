@@ -1,6 +1,5 @@
-import { Suspense, lazy, useCallback, useRef, useSyncExternalStore } from 'react'
-
-const WarningModal = lazy(() => import('#features/home/warning/WarningModal'))
+import { useCallback, useRef, useSyncExternalStore } from 'react'
+import WarningModal from '#features/home/warning/WarningModal'
 
 export const CONFIRMED_AGE_KEY = 'hasConfirmedAge'
 export const AGE_CONFIRM_DURATION = 30 * 24 * 60 * 60 * 1000
@@ -109,13 +108,11 @@ export default function Warning() {
   if (!shouldRender) return null
 
   return (
-    <Suspense fallback={null}>
-      <WarningModal
-        isOpen={isOpen}
-        confirmButtonRef={confirmButtonRef}
-        onConfirm={handleConfirmAge}
-        onLeave={handleLeave}
-      />
-    </Suspense>
+    <WarningModal
+      isOpen={isOpen}
+      confirmButtonRef={confirmButtonRef}
+      onConfirm={handleConfirmAge}
+      onLeave={handleLeave}
+    />
   )
 }

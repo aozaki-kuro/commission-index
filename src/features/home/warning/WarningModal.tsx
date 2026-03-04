@@ -10,6 +10,8 @@ import {
 import { type RefObject } from 'react'
 
 const HeadImage = '/nsfw-cover-s.webp'
+const HEAD_IMAGE_WIDTH = 800
+const HEAD_IMAGE_HEIGHT = 451
 
 type WarningModalProps = {
   isOpen: boolean
@@ -37,7 +39,16 @@ export default function WarningModal({
           confirmButtonRef.current?.focus()
         }}
       >
-        <img src={HeadImage} alt="Commission Index" className="mb-4 select-none" />
+        <img
+          src={HeadImage}
+          alt="Commission Index"
+          loading="eager"
+          fetchPriority="high"
+          decoding="async"
+          width={HEAD_IMAGE_WIDTH}
+          height={HEAD_IMAGE_HEIGHT}
+          className="mb-4 h-auto w-full select-none"
+        />
         <AlertDialogTitle className="text-center text-lg leading-6 font-bold text-gray-900 select-none dark:text-gray-300">
           [ Warning ]
         </AlertDialogTitle>

@@ -15,7 +15,7 @@ const creatorAliasesMap = buildCreatorAliasesMap(payload.creatorAliases)
 ---
 
 <BaseLayout>
-  <Warning client:idle />
+  <Warning client:load />
   <CommissionDescription
     commissionData={payload.commissionData}
     activeCharacters={payload.activeCharacterNames}
