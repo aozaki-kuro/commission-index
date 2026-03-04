@@ -12,25 +12,11 @@ export default defineConfig({
   experimental: {
     fonts: [
       {
-        provider: fontProviders.local(),
+        provider: fontProviders.fontsource(),
         name: 'IBM Plex Sans',
         cssVariable: '--font-ibm-plex-sans',
         weights: [400, 600],
         styles: ['normal'],
-        options: {
-          variants: [
-            {
-              weight: 400,
-              style: 'normal',
-              src: ['@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2'],
-            },
-            {
-              weight: 600,
-              style: 'normal',
-              src: ['@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff2'],
-            },
-          ],
-        },
       },
     ],
   },
