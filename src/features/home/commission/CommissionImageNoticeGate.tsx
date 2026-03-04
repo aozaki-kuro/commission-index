@@ -14,10 +14,20 @@ const NOTICE_WIDTH = 356
 const NOTICE_HEIGHT = 120
 const IMAGE_CONTAINER_SELECTOR = '[data-commission-image="true"]'
 const IMAGE_NODE_SELECTOR = '[data-commission-image-node="true"]'
+const IDLE_SAMPLE_TIMEOUT_MS = 500
+const IDLE_SAMPLE_FALLBACK_DELAY_MS = 120
+const IDLE_SAMPLE_MAX_MATCHES = 24
+const IDLE_SAMPLE_MAX_SCANS = 96
+const IDLE_SAMPLE_VIEWPORT_MULTIPLIER = 2
 const trackedVariantKeys = new Set<string>()
 
 type CommissionImageNoticeClientProps = {
   initialNotice?: InitialNotice
+}
+
+type IdleWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
+  cancelIdleCallback?: (handle: number) => void
 }
 
 let cachedNoticeClient: ComponentType<CommissionImageNoticeClientProps> | null = null
@@ -49,6 +59,66 @@ const detectLoadedVariant = (currentSrc: string): '960' | '1280' | 'base' | 'unk
   return 'unknown'
 }
 
+const trackImageLoadedVariant = (image: HTMLImageElement) => {
+  const variant = detectLoadedVariant(image.currentSrc || image.src)
+  const trackKey = `${variant}:${Math.round(window.devicePixelRatio || 1)}`
+  if (trackedVariantKeys.has(trackKey)) return
+
+  trackedVariantKeys.add(trackKey)
+  trackRybbitEvent(ANALYTICS_EVENTS.commissionImageVariantLoaded, {
+    variant,
+    dpr: Number((window.devicePixelRatio || 1).toFixed(2)),
+    viewport_width: window.innerWidth,
+  })
+}
+
+const scheduleIdleSampling = (task: () => void) => {
+  const idleWindow = window as IdleWindow
+
+  if (typeof idleWindow.requestIdleCallback === 'function') {
+    const idleHandle = idleWindow.requestIdleCallback(
+      () => {
+        task()
+      },
+      { timeout: IDLE_SAMPLE_TIMEOUT_MS },
+    )
+
+    return () => {
+      if (typeof idleWindow.cancelIdleCallback === 'function') {
+        idleWindow.cancelIdleCallback(idleHandle)
+      }
+    }
+  }
+
+  const timeoutHandle = window.setTimeout(task, IDLE_SAMPLE_FALLBACK_DELAY_MS)
+  return () => {
+    window.clearTimeout(timeoutHandle)
+  }
+}
+
+const sampleLoadedImagesNearViewport = () => {
+  const images = document.querySelectorAll<HTMLImageElement>(IMAGE_NODE_SELECTOR)
+  const viewportTop = -window.innerHeight
+  const viewportBottom = window.innerHeight * IDLE_SAMPLE_VIEWPORT_MULTIPLIER
+
+  let scanCount = 0
+  let matchedCount = 0
+
+  for (const image of images) {
+    if (scanCount >= IDLE_SAMPLE_MAX_SCANS || matchedCount >= IDLE_SAMPLE_MAX_MATCHES) break
+    scanCount += 1
+
+    if (!image.complete || image.naturalWidth <= 0) continue
+
+    const rect = image.getBoundingClientRect()
+    if (rect.top > viewportBottom) break
+    if (rect.bottom < viewportTop) continue
+
+    trackImageLoadedVariant(image)
+    matchedCount += 1
+  }
+}
+
 export default function CommissionImageNoticeGate() {
   const [enabled, setEnabled] = useState(false)
   const [initialNotice, setInitialNotice] = useState<InitialNotice>(null)
@@ -56,37 +126,20 @@ export default function CommissionImageNoticeGate() {
     useState<ComponentType<CommissionImageNoticeClientProps> | null>(() => cachedNoticeClient)
 
   useEffect(() => {
-    const imageNodes = document.querySelectorAll<HTMLImageElement>(IMAGE_NODE_SELECTOR)
-    const cleanupFns: Array<() => void> = []
+    const onImageLoadCapture = (event: Event) => {
+      const target = event.target
+      if (!(target instanceof HTMLImageElement)) return
+      if (!target.matches(IMAGE_NODE_SELECTOR)) return
 
-    const trackImageLoadedVariant = (image: HTMLImageElement) => {
-      const variant = detectLoadedVariant(image.currentSrc || image.src)
-      const trackKey = `${variant}:${Math.round(window.devicePixelRatio || 1)}`
-      if (!trackedVariantKeys.has(trackKey)) {
-        trackedVariantKeys.add(trackKey)
-        trackRybbitEvent(ANALYTICS_EVENTS.commissionImageVariantLoaded, {
-          variant,
-          dpr: Number((window.devicePixelRatio || 1).toFixed(2)),
-          viewport_width: window.innerWidth,
-        })
-      }
+      trackImageLoadedVariant(target)
     }
 
-    imageNodes.forEach(image => {
-      const onLoad = () => trackImageLoadedVariant(image)
-      image.addEventListener('load', onLoad)
-
-      if (image.complete && image.naturalWidth > 0) {
-        trackImageLoadedVariant(image)
-      }
-
-      cleanupFns.push(() => {
-        image.removeEventListener('load', onLoad)
-      })
-    })
+    document.addEventListener('load', onImageLoadCapture, true)
+    const cleanupIdleSampling = scheduleIdleSampling(sampleLoadedImagesNearViewport)
 
     return () => {
-      cleanupFns.forEach(cleanup => cleanup())
+      document.removeEventListener('load', onImageLoadCapture, true)
+      cleanupIdleSampling()
     }
   }, [])
 

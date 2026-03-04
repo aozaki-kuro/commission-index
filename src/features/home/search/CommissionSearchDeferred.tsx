@@ -1,8 +1,8 @@
 import { Button } from '#components/ui/button'
-import { startTransition, useCallback, useEffect, useState } from 'react'
-import CommissionSearch, {
-  type CommissionSearchEntrySource,
-} from '#features/home/search/CommissionSearch'
+import { Suspense, lazy, startTransition, useCallback, useEffect, useState } from 'react'
+import type { CommissionSearchEntrySource } from '#features/home/search/CommissionSearch'
+
+const CommissionSearch = lazy(() => import('#features/home/search/CommissionSearch'))
 
 const HOME_SEARCH_INDEX_URL = '/search/home-search-entries.json'
 
@@ -195,19 +195,7 @@ export default function CommissionSearchDeferred() {
 
   const isSearchReady = !shouldLoadExternalEntries || !!externalEntries
 
-  if (isEnabled && isSearchReady) {
-    return (
-      <CommissionSearch
-        autoFocusOnMount={shouldFocusOnMount}
-        deferIndexInit
-        externalEntries={externalEntries ?? undefined}
-        initialQuery={shellQuery || undefined}
-        openHelpOnMount={shouldOpenHelpOnMount}
-      />
-    )
-  }
-
-  return (
+  const shell = (
     <CommissionSearchShell
       query={shellQuery}
       isLoadingEntries={isEnabled && isLoadingEntries}
@@ -216,4 +204,20 @@ export default function CommissionSearchDeferred() {
       onQueryChange={setShellQuery}
     />
   )
+
+  if (isEnabled && isSearchReady) {
+    return (
+      <Suspense fallback={shell}>
+        <CommissionSearch
+          autoFocusOnMount={shouldFocusOnMount}
+          deferIndexInit
+          externalEntries={externalEntries ?? undefined}
+          initialQuery={shellQuery || undefined}
+          openHelpOnMount={shouldOpenHelpOnMount}
+        />
+      </Suspense>
+    )
+  }
+
+  return shell
 }
