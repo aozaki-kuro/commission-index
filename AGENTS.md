@@ -19,7 +19,6 @@ This repository contains an Astro 5 static site with React 19 islands, written i
 - Keep React only for interactive islands:
   - `Warning` (age gate)
   - `HomeControlsIsland` (search/tabs/nav/hamburger)
-  - `SupportInteractiveIsland` (support page copy interactions)
   - `Analytics` loader
 - Home search/view-mode behavior depends on existing `data-*` DOM contracts; preserve attribute names and structure when editing Astro templates.
 - Shared pure rendering helpers:
