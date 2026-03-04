@@ -9,10 +9,6 @@ import {
 } from '#components/ui/alert-dialog'
 import { type RefObject } from 'react'
 
-const HeadImage = '/nsfw-cover-s.webp'
-const HEAD_IMAGE_WIDTH = 800
-const HEAD_IMAGE_HEIGHT = 451
-
 type WarningModalProps = {
   isOpen: boolean
   confirmButtonRef: RefObject<HTMLButtonElement | null>
@@ -32,23 +28,11 @@ export default function WarningModal({
         overlayClassName="bg-black/25 backdrop-blur-xl dark:bg-white/5 data-[state=open]:animate-[dialog-overlay-in_300ms_ease-out] data-[state=closed]:animate-[dialog-overlay-out_200ms_ease-in]"
         className="w-full max-w-md overflow-hidden rounded-2xl border-none bg-white p-6 text-left shadow-xl data-[state=closed]:animate-[dialog-content-out_200ms_ease-in] data-[state=open]:animate-[dialog-content-in_300ms_ease-out] dark:bg-gray-950"
         onEscapeKeyDown={event => event.preventDefault()}
-        onPointerDownOutside={event => event.preventDefault()}
-        onInteractOutside={event => event.preventDefault()}
         onOpenAutoFocus={event => {
           event.preventDefault()
           confirmButtonRef.current?.focus()
         }}
       >
-        <img
-          src={HeadImage}
-          alt="Commission Index"
-          loading="eager"
-          fetchPriority="high"
-          decoding="async"
-          width={HEAD_IMAGE_WIDTH}
-          height={HEAD_IMAGE_HEIGHT}
-          className="mb-4 h-auto w-full select-none"
-        />
         <AlertDialogTitle className="text-center text-lg leading-6 font-bold text-gray-900 select-none dark:text-gray-300">
           [ Warning ]
         </AlertDialogTitle>

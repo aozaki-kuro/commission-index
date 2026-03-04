@@ -4,11 +4,27 @@ type RybbitAnalytics = {
   event?: (name: string, properties?: AnalyticsEventProperties) => void
 }
 
+type PendingAnalyticsEvent = {
+  name: string
+  properties?: AnalyticsEventProperties
+}
+
+type AnalyticsWindow = Window & {
+  rybbit?: RybbitAnalytics
+  __pendingRybbitEvents?: PendingAnalyticsEvent[]
+}
+
 export const trackRybbitEvent = (name: string, properties?: AnalyticsEventProperties) => {
   if (typeof window === 'undefined') return
 
-  const tracker = (window as Window & { rybbit?: RybbitAnalytics }).rybbit
-  if (!tracker?.event) return
+  const analyticsWindow = window as AnalyticsWindow
+  const tracker = analyticsWindow.rybbit
+  if (tracker?.event) {
+    tracker.event(name, properties)
+    return
+  }
 
-  tracker.event(name, properties)
+  const pendingEvents = analyticsWindow.__pendingRybbitEvents ?? []
+  pendingEvents.push({ name, properties })
+  analyticsWindow.__pendingRybbitEvents = pendingEvents.slice(-40)
 }
