@@ -16,8 +16,8 @@ interface StaticCommissionSectionsProps {
   creatorAliasesMap: Map<string, string[]>
 }
 
-const { activeChars, staleChars, commissionMap, timelineGroups, creatorAliasesMap }:
-  StaticCommissionSectionsProps = Astro.props
+const { activeChars, staleChars, commissionMap, timelineGroups, creatorAliasesMap } =
+  Astro.props as StaticCommissionSectionsProps
 ---
 
 <div id="--------Commissions--------">

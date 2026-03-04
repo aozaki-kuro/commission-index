@@ -8,7 +8,7 @@ interface TimelineViewProps {
   creatorAliasesMap: Map<string, string[]> | null
 }
 
-const { groups, creatorAliasesMap }: TimelineViewProps = Astro.props
+const { groups, creatorAliasesMap } = Astro.props as TimelineViewProps
 ---
 
 <div>

@@ -14,7 +14,7 @@ interface IllustratorInfoProps {
   showLinks?: boolean
 }
 
-const { commission, kebabName, showLinks = true }: IllustratorInfoProps = Astro.props
+const { commission, kebabName, showLinks = true } = Astro.props as IllustratorInfoProps
 const { fileName, Description: description = '', Links: links, Design: designLink } = commission
 const { date, creator } = parseCommissionFileName(fileName)
 const linkId = `#${kebabName}-${date}`

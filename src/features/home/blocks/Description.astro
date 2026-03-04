@@ -10,7 +10,7 @@ interface CommissionDescriptionProps {
   updateSummary?: HomeUpdateSummary
 }
 
-const { commissionData, activeCharacters, updateSummary }: CommissionDescriptionProps = Astro.props
+const { commissionData, activeCharacters, updateSummary } = Astro.props as CommissionDescriptionProps
 const introductionTitle = 'Introduction'
 const introductionTitleId = getCharacterTitleId(introductionTitle)
 const introductionSectionHash = getCharacterSectionHash(introductionTitle)

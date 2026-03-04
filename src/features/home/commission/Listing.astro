@@ -10,7 +10,7 @@ interface ListingProps {
   creatorAliasesMap: Map<string, string[]> | null
 }
 
-const { Character, status, commissionMap, creatorAliasesMap }: ListingProps = Astro.props
+const { Character, status, commissionMap, creatorAliasesMap } = Astro.props as ListingProps
 const sectionId = getCharacterSectionId(Character)
 const titleId = getCharacterTitleId(Character)
 const sectionHash = getCharacterSectionHash(Character)

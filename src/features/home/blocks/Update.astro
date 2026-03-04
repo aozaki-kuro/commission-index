@@ -6,13 +6,13 @@ import {
   type HomeUpdateSummary,
 } from '#lib/home/updateSummary'
 
-interface UpdateProps {
+interface Props {
   commissionData: CommissionData
   activeCharacters: string[]
   summary?: HomeUpdateSummary
 }
 
-const { commissionData, activeCharacters, summary }: UpdateProps = Astro.props
+const { commissionData, activeCharacters, summary } = Astro.props as Props
 const resolvedSummary = summary ?? buildHomeUpdateSummary(commissionData, activeCharacters)
 ---
 

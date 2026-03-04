@@ -33,7 +33,7 @@ const {
   showImage = true,
   showLinks = true,
   embedSearchMetadata,
-}: CommissionEntriesProps = Astro.props
+} = Astro.props as CommissionEntriesProps
 
 const shouldEmbedSearchMetadata = embedSearchMetadata ?? Boolean(import.meta.env?.DEV)
 ---

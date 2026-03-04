@@ -6,7 +6,7 @@ interface ProtectedCommissionImageProps {
   resolvedImageSrc: string
 }
 
-const { altText, resolvedImageSrc }: ProtectedCommissionImageProps = Astro.props
+const { altText, resolvedImageSrc } = Astro.props as ProtectedCommissionImageProps
 
 const COMMISSION_IMAGE_WIDTH = 1280
 const COMMISSION_IMAGE_HEIGHT = 525

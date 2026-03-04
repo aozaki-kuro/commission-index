@@ -16,7 +16,8 @@ interface Props {
   }
 }
 
-const { title, description = SiteMeta.description, canonicalPath = '/', priorityImage } = Astro.props
+const { title, description = SiteMeta.description, canonicalPath = '/', priorityImage } =
+  Astro.props as Props
 const pageTitle = title ? `${title} | ${SiteMeta.site}` : SiteMeta.site
 const canonicalUrl = new URL(canonicalPath, SiteMeta.canonicalUrl).toString()
 ---
