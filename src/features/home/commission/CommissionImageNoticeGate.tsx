@@ -49,10 +49,11 @@ const loadCommissionImageNoticeClient = async (): Promise<
   return noticeClientPromise
 }
 
-const detectLoadedVariant = (currentSrc: string): '960' | '1280' | 'base' | 'unknown' => {
+const detectLoadedVariant = (currentSrc: string): '768' | '960' | '1280' | 'base' | 'unknown' => {
   if (!currentSrc) return 'unknown'
 
   const normalized = currentSrc.toLowerCase()
+  if (normalized.includes('-768.webp')) return '768'
   if (normalized.includes('-960.webp')) return '960'
   if (normalized.includes('-1280.webp')) return '1280'
   if (normalized.includes('.webp')) return 'base'

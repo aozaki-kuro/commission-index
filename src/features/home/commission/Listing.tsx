@@ -8,13 +8,20 @@ type ListingProps = {
   status: 'active' | 'stale'
   commissionMap: Map<string, CharacterCommissions>
   creatorAliasesMap: Map<string, string[]> | null
+  prioritizeFirstImage?: boolean
 }
 
 /**
  * Listing 组件显示特定角色的所有委托作品，包括图片、信息和链接。
  * @param Character - 角色名称。
  */
-const Listing = ({ Character, status, commissionMap, creatorAliasesMap }: ListingProps) => {
+const Listing = ({
+  Character,
+  status,
+  commissionMap,
+  creatorAliasesMap,
+  prioritizeFirstImage = false,
+}: ListingProps) => {
   const sectionId = getCharacterSectionId(Character)
   const characterData = commissionMap.get(Character)
   const commissions = characterData?.Commissions ?? []
@@ -41,6 +48,7 @@ const Listing = ({ Character, status, commissionMap, creatorAliasesMap }: Listin
             entryAnchorPrefix: sectionId,
           }))}
           creatorAliasesMap={creatorAliasesMap}
+          prioritizeFirstImage={prioritizeFirstImage}
         />
       )}
       <div className="pb-6" />

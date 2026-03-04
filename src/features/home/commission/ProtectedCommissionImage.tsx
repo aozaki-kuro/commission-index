@@ -1,6 +1,7 @@
 type ProtectedCommissionImageProps = {
   altText: string
   resolvedImageSrc: string
+  priority?: boolean
 }
 
 const COMMISSION_IMAGE_WIDTH = 1280
@@ -21,12 +22,17 @@ export const buildResponsiveSrcSet = (src: string) => {
   const extension = pathPart.slice(extensionIndex)
 
   return [
+    `${stem}-768${extension}${queryPart} 768w`,
     `${stem}-960${extension}${queryPart} 960w`,
     `${stem}-1280${extension}${queryPart} 1280w`,
   ].join(', ')
 }
 
-const ProtectedCommissionImage = ({ altText, resolvedImageSrc }: ProtectedCommissionImageProps) => {
+const ProtectedCommissionImage = ({
+  altText,
+  resolvedImageSrc,
+  priority = false,
+}: ProtectedCommissionImageProps) => {
   const srcSet = buildResponsiveSrcSet(resolvedImageSrc)
 
   return (
@@ -43,7 +49,9 @@ const ProtectedCommissionImage = ({ altText, resolvedImageSrc }: ProtectedCommis
         sizes={srcSet ? COMMISSION_IMAGE_SIZES : undefined}
         alt={altText}
         className="pointer-events-none relative z-10 block w-full select-none"
-        loading="lazy"
+        loading={priority ? 'eager' : 'lazy'}
+        fetchPriority={priority ? 'high' : 'auto'}
+        decoding="async"
         width={COMMISSION_IMAGE_WIDTH}
         height={COMMISSION_IMAGE_HEIGHT}
         style={{ height: 'auto' }}

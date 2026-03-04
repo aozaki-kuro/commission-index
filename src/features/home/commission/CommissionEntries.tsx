@@ -23,6 +23,7 @@ interface CommissionEntriesProps {
   showImage?: boolean
   showLinks?: boolean
   embedSearchMetadata?: boolean
+  prioritizeFirstImage?: boolean
 }
 
 const CommissionEntries = ({
@@ -32,12 +33,13 @@ const CommissionEntries = ({
   showImage = true,
   showLinks = true,
   embedSearchMetadata,
+  prioritizeFirstImage = false,
 }: CommissionEntriesProps) => {
   const shouldEmbedSearchMetadata = embedSearchMetadata ?? Boolean(import.meta.env?.DEV)
 
   return (
     <>
-      {entries.map(({ character, commission, sectionId, entryKey, entryAnchorPrefix }) => {
+      {entries.map(({ character, commission, sectionId, entryKey, entryAnchorPrefix }, index) => {
         const { date, year, creator } = parseCommissionFileName(commission.fileName)
         const copyrightCreator = creator ? getBaseFileName(creator).trim() || creator : 'Anonymous'
         const altText = `© ${year} ${copyrightCreator} & Crystallize`
@@ -76,7 +78,11 @@ const CommissionEntries = ({
             {...(searchAttributes ?? {})}
           >
             {showImage ? (
-              <ProtectedCommissionImage altText={altText} resolvedImageSrc={imageSrc} />
+              <ProtectedCommissionImage
+                altText={altText}
+                resolvedImageSrc={imageSrc}
+                priority={prioritizeFirstImage && index === 0}
+              />
             ) : null}
             <div className={showImage ? 'mt-6 mb-2 md:mt-8 md:mb-4' : 'mt-2 mb-2 md:mb-4'}>
               {showCharacterLabel ? (

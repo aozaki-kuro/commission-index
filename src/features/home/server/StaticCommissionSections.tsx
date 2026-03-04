@@ -25,12 +25,13 @@ const StaticCommissionSections = ({
   return (
     <div id="--------Commissions--------">
       <div data-commission-view-panel="character" data-commission-view-active="true">
-        {activeChars.map(chara => (
+        {activeChars.map((chara, index) => (
           <Listing
             Character={chara.DisplayName}
             status="active"
             commissionMap={commissionMap}
             creatorAliasesMap={creatorAliasesMap}
+            prioritizeFirstImage={index === 0}
             key={chara.DisplayName}
           />
         ))}

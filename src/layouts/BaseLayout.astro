@@ -9,9 +9,14 @@ interface Props {
   title?: string
   description?: string
   canonicalPath?: string
+  priorityImage?: {
+    src: string
+    srcSet?: string
+    sizes?: string
+  }
 }
 
-const { title, description = SiteMeta.description, canonicalPath = '/' } = Astro.props
+const { title, description = SiteMeta.description, canonicalPath = '/', priorityImage } = Astro.props
 const pageTitle = title ? `${title} | ${SiteMeta.site}` : SiteMeta.site
 const canonicalUrl = new URL(canonicalPath, SiteMeta.canonicalUrl).toString()
 ---
@@ -61,6 +66,19 @@ const canonicalUrl = new URL(canonicalPath, SiteMeta.canonicalUrl).toString()
     <meta name="msapplication-TileColor" content={SiteMeta.themeColor} />
     <meta name="msapplication-config" content="/favicon/browserconfig.xml" />
     <link rel="manifest" href="/favicon/site.webmanifest" />
+    {
+      priorityImage ? (
+        <link
+          rel="preload"
+          as="image"
+          type="image/webp"
+          href={priorityImage.src}
+          imagesrcset={priorityImage.srcSet}
+          imagesizes={priorityImage.sizes}
+          fetchpriority="high"
+        />
+      ) : null
+    }
     <title>{pageTitle}</title>
   </head>
   <body>

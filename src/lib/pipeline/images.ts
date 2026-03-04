@@ -19,7 +19,7 @@ const DIRS = {
 const JPG_CONFIG = { quality: 95, progressive: true, chromaSubsampling: '4:4:4', mozjpeg: true }
 const WEBP_CONFIG = { quality: 80 }
 const SUPPORTED_EXTS = new Set(['.jpg', '.png'])
-const RESPONSIVE_WIDTHS = [960, 1280] as const
+const RESPONSIVE_WIDTHS = [768, 960, 1280] as const
 const LEGACY_RESPONSIVE_WIDTHS = [640] as const
 
 type ResolveMode = 'exact' | 'normalized' | 'same-date' | 'same-date-creator'

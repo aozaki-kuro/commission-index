@@ -12,9 +12,43 @@ import BaseLayout from '#layouts/BaseLayout.astro'
 const payload = buildSitePayload()
 const commissionMap = buildCommissionDataMap(payload.commissionData)
 const creatorAliasesMap = buildCreatorAliasesMap(payload.creatorAliases)
+const COMMISSION_IMAGE_SIZES = '(max-width: 768px) 92vw, 640px'
+
+const buildResponsiveSrcSet = (src: string) => {
+  const queryIndex = src.indexOf('?')
+  const pathPart = queryIndex === -1 ? src : src.slice(0, queryIndex)
+  const queryPart = queryIndex === -1 ? '' : src.slice(queryIndex)
+  const extensionIndex = pathPart.lastIndexOf('.')
+  if (extensionIndex === -1) return ''
+
+  const stem = pathPart.slice(0, extensionIndex)
+  const extension = pathPart.slice(extensionIndex)
+
+  return [
+    `${stem}-768${extension}${queryPart} 768w`,
+    `${stem}-960${extension}${queryPart} 960w`,
+    `${stem}-1280${extension}${queryPart} 1280w`,
+  ].join(', ')
+}
+
+const firstCharacterName =
+  payload.characterStatus.active[0]?.DisplayName ?? payload.characterStatus.stale[0]?.DisplayName
+const firstCommissionFileName = firstCharacterName
+  ? commissionMap.get(firstCharacterName)?.Commissions?.[0]?.fileName
+  : undefined
+const priorityImage = firstCommissionFileName
+  ? (() => {
+      const src = `/images/webp/${encodeURIComponent(firstCommissionFileName)}.webp`
+      return {
+        src,
+        srcSet: buildResponsiveSrcSet(src),
+        sizes: COMMISSION_IMAGE_SIZES,
+      }
+    })()
+  : undefined
 ---
 
-<BaseLayout>
+<BaseLayout priorityImage={priorityImage}>
   <Warning client:load />
   <CommissionDescription
     commissionData={payload.commissionData}
