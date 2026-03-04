@@ -9,6 +9,9 @@ import {
 } from '#components/ui/alert-dialog'
 import { type RefObject } from 'react'
 
+const WarningMark = '/favicon-transparent.svg'
+const WARNING_MARK_SIZE = 88
+
 type WarningModalProps = {
   isOpen: boolean
   confirmButtonRef: RefObject<HTMLButtonElement | null>
@@ -33,6 +36,17 @@ export default function WarningModal({
           confirmButtonRef.current?.focus()
         }}
       >
+        <div className="flex items-center justify-center">
+          <img
+            src={WarningMark}
+            alt="Commission Index mark"
+            loading="eager"
+            decoding="async"
+            width={WARNING_MARK_SIZE}
+            height={WARNING_MARK_SIZE}
+            className="select-none"
+          />
+        </div>
         <AlertDialogTitle className="text-center text-lg leading-6 font-bold text-gray-900 select-none dark:text-gray-300">
           [ Warning ]
         </AlertDialogTitle>
