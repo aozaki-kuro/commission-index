@@ -13,16 +13,15 @@ Personal use only
 
 ## Tests
 
-- `bun run test` / `bun run test:core` — run core regression tests for search/navigation/data and one search UI smoke test.
-- `bun run test:full` — run the full Vitest suite, including lower-change UI behavior tests.
-- `bun run test:watch` — watch core tests.
-- `bun run test:watch:full` — watch the full suite.
-- `bun run test:changed` — run changed core tests only.
+- `bun run test` — run the full Vitest suite.
+- `bun run test:watch` — watch tests during local development.
+- `bun run test:changed` — run changed tests only.
 
 Asset generation is shared by Astro:
 
-- Dev startup triggers `home-update-summary` + `home-search-entries`.
-- Production build startup triggers `home-update-summary`, `home-search-entries`, `rss`, and `images`.
+- Dev startup triggers full asset sync (`home-update-summary`, `home-search-entries`, `rss`, `images`).
+- Admin write operations in development trigger queued full asset sync (write-through, coalesced).
+- Production build startup triggers full asset sync before page generation.
 
 ### Dev ports
 
