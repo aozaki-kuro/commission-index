@@ -19,6 +19,7 @@ const IDLE_SAMPLE_FALLBACK_DELAY_MS = 120
 const IDLE_SAMPLE_MAX_MATCHES = 24
 const IDLE_SAMPLE_MAX_SCANS = 96
 const IDLE_SAMPLE_VIEWPORT_MULTIPLIER = 2
+const TRACKED_WIDTH_VARIANTS = new Set([768, 960, 1280])
 const trackedVariantKeys = new Set<string>()
 
 type CommissionImageNoticeClientProps = {
@@ -49,10 +50,78 @@ const loadCommissionImageNoticeClient = async (): Promise<
   return noticeClientPromise
 }
 
-const detectLoadedVariant = (currentSrc: string): '768' | '960' | '1280' | 'base' | 'unknown' => {
+const normalizeImageUrl = (url: string) => {
+  if (!url) return ''
+
+  try {
+    const parsed = new URL(url, window.location.href)
+    parsed.hash = ''
+    return parsed.href
+  } catch {
+    return url.trim()
+  }
+}
+
+type SrcSetCandidate = {
+  url: string
+  width: number | null
+}
+
+const parseSrcSetCandidates = (srcSet: string): SrcSetCandidate[] => {
+  if (!srcSet) return []
+
+  return srcSet
+    .split(',')
+    .map(entry => entry.trim())
+    .filter(Boolean)
+    .map(entry => {
+      const [rawUrl, descriptor] = entry.split(/\s+/, 2)
+      const widthValue = descriptor?.endsWith('w')
+        ? Number.parseInt(descriptor.slice(0, -1), 10)
+        : Number.NaN
+
+      return {
+        url: normalizeImageUrl(rawUrl ?? ''),
+        width: Number.isFinite(widthValue) ? widthValue : null,
+      }
+    })
+}
+
+const detectVariantFromQueryParam = (sourceUrl: string): '768' | '960' | '1280' | null => {
+  try {
+    const parsed = new URL(sourceUrl, window.location.href)
+    const width = Number.parseInt(parsed.searchParams.get('w') ?? '', 10)
+    if (width === 768) return '768'
+    if (width === 960) return '960'
+    if (width === 1280) return '1280'
+  } catch {
+    return null
+  }
+
+  return null
+}
+
+const detectLoadedVariant = (
+  currentSrc: string,
+  srcSet: string,
+): '768' | '960' | '1280' | 'base' | 'unknown' => {
   if (!currentSrc) return 'unknown'
 
-  const normalized = currentSrc.toLowerCase()
+  const normalizedCurrentSrc = normalizeImageUrl(currentSrc)
+  const srcSetCandidates = parseSrcSetCandidates(srcSet)
+  const matchedCandidate = srcSetCandidates.find(candidate => {
+    if (!candidate.width || !TRACKED_WIDTH_VARIANTS.has(candidate.width)) return false
+    return candidate.url === normalizedCurrentSrc
+  })
+
+  if (matchedCandidate?.width === 768) return '768'
+  if (matchedCandidate?.width === 960) return '960'
+  if (matchedCandidate?.width === 1280) return '1280'
+
+  const queryVariant = detectVariantFromQueryParam(normalizedCurrentSrc)
+  if (queryVariant) return queryVariant
+
+  const normalized = normalizedCurrentSrc.toLowerCase()
   if (normalized.includes('-768.webp')) return '768'
   if (normalized.includes('-960.webp')) return '960'
   if (normalized.includes('-1280.webp')) return '1280'
@@ -61,7 +130,7 @@ const detectLoadedVariant = (currentSrc: string): '768' | '960' | '1280' | 'base
 }
 
 const trackImageLoadedVariant = (image: HTMLImageElement) => {
-  const variant = detectLoadedVariant(image.currentSrc || image.src)
+  const variant = detectLoadedVariant(image.currentSrc || image.src, image.srcset)
   const trackKey = `${variant}:${Math.round(window.devicePixelRatio || 1)}`
   if (trackedVariantKeys.has(trackKey)) return
 

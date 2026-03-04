@@ -1,17 +1,15 @@
 ---
-import { buildResponsiveSrcSet } from '#features/home/commission/imageVariants'
+import { Image } from 'astro:assets'
 
 interface ProtectedCommissionImageProps {
   altText: string
-  resolvedImageSrc: string
+  sourceImage: ImageMetadata
 }
 
-const { altText, resolvedImageSrc } = Astro.props as ProtectedCommissionImageProps
+const { altText, sourceImage } = Astro.props as ProtectedCommissionImageProps
 
 const COMMISSION_IMAGE_WIDTH = 1280
-const COMMISSION_IMAGE_HEIGHT = 525
 const COMMISSION_IMAGE_SIZES = '(max-width: 768px) 92vw, 640px'
-const srcSet = buildResponsiveSrcSet(resolvedImageSrc)
 ---
 
 <div data-commission-image="true" data-commission-alt={altText} class="relative">
@@ -20,16 +18,16 @@ const srcSet = buildResponsiveSrcSet(resolvedImageSrc)
     aria-hidden="true"
     class="absolute inset-0 animate-pulse bg-gray-200/80 dark:bg-gray-700/60"
   />
-  <img
+  <Image
     data-commission-image-node="true"
-    src={resolvedImageSrc}
-    srcset={srcSet || undefined}
-    sizes={srcSet ? COMMISSION_IMAGE_SIZES : undefined}
+    src={sourceImage}
     alt={altText}
+    widths={[768, 960, 1280]}
+    width={COMMISSION_IMAGE_WIDTH}
+    format="webp"
+    sizes={COMMISSION_IMAGE_SIZES}
     class="pointer-events-none relative z-10 block w-full select-none"
     loading="lazy"
-    width={COMMISSION_IMAGE_WIDTH}
-    height={COMMISSION_IMAGE_HEIGHT}
     style="height:auto"
   />
 </div>

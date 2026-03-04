@@ -20,10 +20,19 @@ vi.mock('#features/home/commission/CommissionImageNoticeClient', () => ({
   },
 }))
 
-const createTrackedImage = (src: string) => {
+const createTrackedImage = (src: string, options?: { srcSet?: string; currentSrc?: string }) => {
   const image = document.createElement('img')
   image.setAttribute('data-commission-image-node', 'true')
   image.src = src
+  if (options?.srcSet) {
+    image.setAttribute('srcset', options.srcSet)
+  }
+  if (options?.currentSrc) {
+    Object.defineProperty(image, 'currentSrc', {
+      configurable: true,
+      get: () => options.currentSrc ?? src,
+    })
+  }
   return image
 }
 
@@ -66,10 +75,14 @@ describe('CommissionImageNoticeGate', () => {
     })
   })
 
-  it('tracks load variant once per variant+dpr key via capture listener', () => {
+  it('tracks load variant once per variant+dpr key via srcset width descriptor', () => {
     render(<CommissionImageNoticeGate />)
 
-    const image = createTrackedImage('/images/webp/sample-960.webp')
+    const image = createTrackedImage('/_astro/sample.webp?w=768', {
+      srcSet:
+        '/_astro/sample.webp?w=768 768w, /_astro/sample.webp?w=960 960w, /_astro/sample.webp?w=1280 1280w',
+      currentSrc: '/_astro/sample.webp?w=960',
+    })
     document.body.appendChild(image)
 
     image.dispatchEvent(new Event('load'))
@@ -98,7 +111,11 @@ describe('CommissionImageNoticeGate', () => {
       value: vi.fn(),
     })
 
-    const image = createTrackedImage('/images/webp/sample-1280.webp')
+    const image = createTrackedImage('/_astro/sample.webp?w=768', {
+      srcSet:
+        '/_astro/sample.webp?w=768 768w, /_astro/sample.webp?w=960 960w, /_astro/sample.webp?w=1280 1280w',
+      currentSrc: '/_astro/sample.webp?w=1280',
+    })
     Object.defineProperty(image, 'complete', { configurable: true, value: true })
     Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 900 })
     image.getBoundingClientRect = vi.fn(() => ({

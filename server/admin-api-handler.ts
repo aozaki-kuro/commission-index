@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import {
   createCharacter,
   createCommission,
@@ -13,6 +14,7 @@ import {
 } from '../src/lib/admin/db'
 import {
   removeSourceImageFile,
+  resolveSourceImagePathByStem,
   replaceUploadedSourceImage,
   saveUploadedSourceImage,
 } from '../src/features/admin/imageUpload'
@@ -179,6 +181,34 @@ export const handleAdminApiRequest = async (request: Request) => {
 
   if (!isDevelopment) {
     return notFound()
+  }
+
+  if (request.method === 'GET' && pathname.startsWith('/api/admin/source-image/')) {
+    const encodedFileName = pathname.slice('/api/admin/source-image/'.length)
+    if (!encodedFileName) return failure('File name is required.')
+
+    let fileName: string
+    try {
+      fileName = decodeURIComponent(encodedFileName)
+    } catch {
+      return failure('Invalid file name.')
+    }
+
+    try {
+      const resolvedSourceImage = await resolveSourceImagePathByStem(fileName)
+      if (!resolvedSourceImage) return notFound()
+
+      const imageBuffer = await readFile(resolvedSourceImage.filePath)
+      return new Response(imageBuffer, {
+        status: 200,
+        headers: {
+          'Content-Type': resolvedSourceImage.mimeType,
+          'Cache-Control': 'no-store',
+        },
+      })
+    } catch (error) {
+      return handleWriteError(error, 'Failed to load source image.')
+    }
   }
 
   if (request.method === 'GET' && pathname === '/api/admin/bootstrap') {

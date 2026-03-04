@@ -22,7 +22,8 @@ interface UseCommissionEditStateParams {
   characters: CharacterRow[]
 }
 
-const buildImageSrc = (fileName: string) => `/images/webp/${encodeURIComponent(fileName)}.webp`
+const buildImageSrc = (fileName: string) =>
+  `/api/admin/source-image/${encodeURIComponent(fileName)}`
 
 const useCommissionEditState = ({ commission, characters }: UseCommissionEditStateParams) => {
   const sortedCharacters = useMemo(

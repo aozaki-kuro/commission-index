@@ -40,6 +40,11 @@ export interface SavedSourceImage {
   targetFileName: string
 }
 
+export interface ResolvedSourceImagePath {
+  filePath: string
+  mimeType: 'image/jpeg' | 'image/png'
+}
+
 const resolveTargetFromInput = async (input: { commissionFileName: string; file: File }) => {
   const fileName = validateCommissionFileName(input.commissionFileName)
   if (input.file.size <= 0) {
@@ -108,4 +113,27 @@ export const removeSourceImageFile = async (targetPath: string) => {
     const err = error as NodeJS.ErrnoException
     if (err.code !== 'ENOENT') throw error
   }
+}
+
+export const resolveSourceImagePathByStem = async (
+  rawCommissionFileName: string,
+): Promise<ResolvedSourceImagePath | null> => {
+  const fileName = validateCommissionFileName(rawCommissionFileName)
+  const candidates: ResolvedSourceImagePath[] = [
+    { filePath: path.join(SOURCE_IMAGES_DIR, `${fileName}.jpg`), mimeType: 'image/jpeg' },
+    { filePath: path.join(SOURCE_IMAGES_DIR, `${fileName}.jpeg`), mimeType: 'image/jpeg' },
+    { filePath: path.join(SOURCE_IMAGES_DIR, `${fileName}.png`), mimeType: 'image/png' },
+  ]
+
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate.filePath)
+      return candidate
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException
+      if (err.code !== 'ENOENT') throw error
+    }
+  }
+
+  return null
 }

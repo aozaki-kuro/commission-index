@@ -16,7 +16,6 @@ interface RssItem {
   pubDate: string
   author: string
   description: string
-  enclosure: string
 }
 
 function buildItem(commission: CommissionWithCharacter): RssItem {
@@ -27,7 +26,6 @@ function buildItem(commission: CommissionWithCharacter): RssItem {
   const pubDate = dateObj.toUTCString()
   const formatted = formatDate(dateObj, 'yyyy/MM/dd')
   const link = `${SITE_URL}#${encodeURIComponent(kebabCase(commission.character))}-${datePart}`
-  const imageUrl = `https://img.crystallize.cc/nsfw-commission/webp/${commission.fileName}.webp`
   const description = `<![CDATA[Illustrator: ${artistName}, published on ${formatted}]]>`
   return {
     title: commission.character,
@@ -35,7 +33,6 @@ function buildItem(commission: CommissionWithCharacter): RssItem {
     pubDate,
     author: artistName,
     description,
-    enclosure: `<enclosure url="${imageUrl}" type="image/jpeg" />`,
   }
 }
 
@@ -50,7 +47,7 @@ export function generateRssFeed(): string {
   const items = rssItems
     .map(
       item =>
-        `\n    <item>\n      <title>${item.title}</title>\n      <link>${item.link}</link>\n      <pubDate>${item.pubDate}</pubDate>\n      <author>${item.author}</author>\n      <description>${item.description}</description>\n      ${item.enclosure}\n    </item>`,
+        `\n    <item>\n      <title>${item.title}</title>\n      <link>${item.link}</link>\n      <pubDate>${item.pubDate}</pubDate>\n      <author>${item.author}</author>\n      <description>${item.description}</description>\n    </item>`,
     )
     .join('')
 

@@ -1,4 +1,5 @@
 ---
+import { getImage } from 'astro:assets'
 import CommissionDescription from '#features/home/blocks/Description.astro'
 import Footer from '#features/home/blocks/Footer.astro'
 import HomeControlsIsland from '#features/home/islands/HomeControlsIsland'
@@ -6,6 +7,7 @@ import StaticCommissionSections from '#features/home/server/StaticCommissionSect
 import Warning from '#features/home/warning/Warning'
 import { homeUpdateSummary } from '#lib/generated/homeUpdateSummary'
 import { buildSitePayload } from '#lib/home/buildSitePayload'
+import { listMissingSourceImages, resolveSourceImageByCommissionFileName } from '#lib/images/sourceImageRegistry'
 import { buildCommissionDataMap, buildCreatorAliasesMap } from '#lib/sitePayload'
 import BaseLayout from '#layouts/BaseLayout.astro'
 
@@ -14,21 +16,19 @@ const commissionMap = buildCommissionDataMap(payload.commissionData)
 const creatorAliasesMap = buildCreatorAliasesMap(payload.creatorAliases)
 const COMMISSION_IMAGE_SIZES = '(max-width: 768px) 92vw, 640px'
 
-const buildResponsiveSrcSet = (src: string) => {
-  const queryIndex = src.indexOf('?')
-  const pathPart = queryIndex === -1 ? src : src.slice(0, queryIndex)
-  const queryPart = queryIndex === -1 ? '' : src.slice(queryIndex)
-  const extensionIndex = pathPart.lastIndexOf('.')
-  if (extensionIndex === -1) return ''
+const commissionFileNames = payload.commissionData.flatMap(character =>
+  character.Commissions.map(commission => commission.fileName),
+)
+const missingSourceImages = listMissingSourceImages(commissionFileNames)
 
-  const stem = pathPart.slice(0, extensionIndex)
-  const extension = pathPart.slice(extensionIndex)
+if (missingSourceImages.length > 0) {
+  const message = `Missing source images for ${missingSourceImages.length} commissions: ${missingSourceImages.join(', ')}`
 
-  return [
-    `${stem}-768${extension}${queryPart} 768w`,
-    `${stem}-960${extension}${queryPart} 960w`,
-    `${stem}-1280${extension}${queryPart} 1280w`,
-  ].join(', ')
+  if (import.meta.env.DEV) {
+    console.warn(`[images] ${message}`)
+  } else {
+    throw new Error(message)
+  }
 }
 
 const firstCharacterName =
@@ -36,19 +36,26 @@ const firstCharacterName =
 const firstCommissionFileName = firstCharacterName
   ? commissionMap.get(firstCharacterName)?.Commissions?.[0]?.fileName
   : undefined
-const priorityImage = firstCommissionFileName
-  ? (() => {
-      const src = `/images/webp/${encodeURIComponent(firstCommissionFileName)}.webp`
-      return {
-        src,
-        srcSet: buildResponsiveSrcSet(src),
+const firstSourceImage = firstCommissionFileName
+  ? resolveSourceImageByCommissionFileName(firstCommissionFileName)
+  : null
+
+const priorityImage = firstSourceImage
+  ? (() =>
+      getImage({
+        src: firstSourceImage,
+        widths: [768, 960, 1280],
+        format: 'webp',
         sizes: COMMISSION_IMAGE_SIZES,
-      }
-    })()
+      }).then(image => ({
+        src: image.src,
+        srcSet: image.srcSet.attribute,
+        sizes: COMMISSION_IMAGE_SIZES,
+      })))()
   : undefined
 ---
 
-<BaseLayout priorityImage={priorityImage}>
+<BaseLayout priorityImage={await priorityImage}>
   <Warning client:load />
   <CommissionDescription
     commissionData={payload.commissionData}

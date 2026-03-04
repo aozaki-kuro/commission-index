@@ -20,9 +20,10 @@ Personal use only
 
 Asset generation is shared by Astro:
 
-- Dev startup triggers full asset sync (`home-update-summary`, `home-search-entries`, `rss`, `images`).
+- Dev startup triggers full asset sync (`home-update-summary`, `home-search-entries`, `rss`).
 - Admin write operations in development trigger queued full asset sync (write-through, coalesced).
 - Production build startup triggers full asset sync before page generation.
+- Source images under `data/images` are imported by Astro Image at runtime; in dev, image add/change/remove triggers a full page reload automatically.
 
 ### Dev ports
 

@@ -1,19 +1,15 @@
-import { runImageWorkflow } from './images'
 import { generateHomeSearchEntriesFile } from './homeSearchEntries'
 import { generateHomeUpdateSummaryModule } from './homeUpdateSummary'
 import { generateRssFile } from './rss'
 
-export type AssetTask = 'home-update-summary' | 'home-search-entries' | 'rss' | 'images'
+export type AssetTask = 'home-update-summary' | 'home-search-entries' | 'rss'
 
-const FULL_TASK_ORDER: AssetTask[] = ['home-update-summary', 'home-search-entries', 'rss', 'images']
+const FULL_TASK_ORDER: AssetTask[] = ['home-update-summary', 'home-search-entries', 'rss']
 
 const TASK_RUNNERS: Record<AssetTask, () => Promise<void>> = {
   'home-update-summary': generateHomeUpdateSummaryModule,
   'home-search-entries': generateHomeSearchEntriesFile,
   rss: generateRssFile,
-  images: async () => {
-    await runImageWorkflow()
-  },
 }
 
 const runTasks = async (tasks: AssetTask[], reason: string) => {

@@ -6,6 +6,7 @@ import {
   buildCommissionSearchMetadata,
 } from '#lib/search/commissionSearchMetadata'
 import { getBaseFileName } from '#lib/utils/strings'
+import { resolveSourceImageByCommissionFileName } from '#lib/images/sourceImageRegistry'
 import IllustratorInfo from '#features/home/commission/IllustratorInfo.astro'
 import ProtectedCommissionImage from '#features/home/commission/ProtectedCommissionImage.astro'
 
@@ -43,7 +44,7 @@ const shouldEmbedSearchMetadata = embedSearchMetadata ?? Boolean(import.meta.env
     const { date, year, creator } = parseCommissionFileName(commission.fileName)
     const copyrightCreator = creator ? getBaseFileName(creator).trim() || creator : 'Anonymous'
     const altText = `© ${year} ${copyrightCreator} & Crystallize`
-    const imageSrc = `/images/webp/${encodeURIComponent(commission.fileName)}.webp`
+    const sourceImage = resolveSourceImageByCommissionFileName(commission.fileName)
     const elementId = `${entryAnchorPrefix}-${date}`
     const searchKey = buildCommissionSearchDomKey(entryAnchorPrefix, commission.fileName)
 
@@ -76,7 +77,19 @@ const shouldEmbedSearchMetadata = embedSearchMetadata ?? Boolean(import.meta.env
         data-commission-search-key={searchKey}
         {...searchAttributes}
       >
-        {showImage ? <ProtectedCommissionImage altText={altText} resolvedImageSrc={imageSrc} /> : null}
+        {
+          showImage ? (
+            sourceImage ? (
+              <ProtectedCommissionImage altText={altText} sourceImage={sourceImage} />
+            ) : (
+              <div data-commission-image="true" data-commission-alt={altText} class="relative">
+                <div class="aspect-1280/525 flex items-center justify-center bg-gray-100 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-300">
+                  Source image not found
+                </div>
+              </div>
+            )
+          ) : null
+        }
         <div class={showImage ? 'mt-6 mb-2 md:mt-8 md:mb-4' : 'mt-2 mb-2 md:mb-4'}>
           {
             showCharacterLabel ? (

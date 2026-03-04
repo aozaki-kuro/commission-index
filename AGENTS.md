@@ -24,7 +24,7 @@ This repository contains an Astro 5 static site with React 19 islands, written i
 - Home search/view-mode behavior depends on existing `data-*` DOM contracts; preserve attribute names and structure when editing Astro templates.
 - Shared pure rendering helpers:
   - `src/features/home/commission/linkDisplay.ts` (link sanitization/priority selection)
-  - `src/features/home/commission/imageVariants.ts` (responsive `srcset` generation)
+  - `src/lib/images/sourceImageRegistry.ts` (source image lookup by commission fileName)
 
 ## Dev/Admin Responsibilities (must follow)
 
@@ -59,16 +59,12 @@ Additional guidance:
 
 ## Images
 
-- Image conversion/import sync is automatic in two flows:
-  - dev admin write operations (queued full sync)
-  - `bun run build` (full sync before static build)
-- Keep static export image variants at:
-  - Base: `<name>.webp`
-  - Responsive: `<name>-960.webp`, `<name>-1280.webp`
-- `-640.webp` is intentionally not generated.
-- Listing image rendering should use `srcset` (`960w`, `1280w`) with:
-  - `sizes="(max-width: 768px) 92vw, 640px"`
-- When evaluating whether to add a sub-960 variant, use `commission_image_variant_loaded` distribution first.
+- Frontend listing images are rendered with Astro Image (`astro:assets`) from `data/images/*.{jpg,jpeg,png}` source files.
+- Source file resolution is centralized in `src/lib/images/sourceImageRegistry.ts`; keep commission `fileName` and source image stem aligned.
+- Home listing image widths are fixed at `768/960/1280` and `sizes="(max-width: 768px) 92vw, 640px"` to keep analytics variant labels stable.
+- Dev mode includes a source-image watcher (`astro.config.ts`) that full-reloads when `data/images` changes.
+- Admin preview image URL uses dev-only API: `GET /api/admin/source-image/:fileName`.
+- `/images/webp/*` is no longer a supported runtime contract.
 
 ## Commit Etiquette
 
