@@ -1,36 +1,99 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-
-  "extends": ["config:base"],
-
+  "extends": ["config:recommended"],
+  "timezone": "Asia/Shanghai",
+  "dependencyDashboard": true,
   "lockFileMaintenance": {
     "enabled": true,
     "automerge": true,
     "automergeType": "pr",
     "platformAutomerge": true
   },
-
   "packageRules": [
     {
-      "matchDepTypes": ["devDependencies"],
-      "matchPackagePatterns": ["eslint"],
-      "groupName": "ESLint and plugins",
-      "automerge": true
+      "matchPackageNames": ["astro", "@astrojs/react"],
+      "groupName": "astro stack"
     },
     {
-      "matchDepTypes": ["devDependencies"],
-      "matchPackagePatterns": ["prettier"],
-      "groupName": "Prettier and plugins",
-      "automerge": true
+      "matchPackageNames": ["react", "react-dom", "cmdk"],
+      "groupName": "react runtime"
     },
     {
-      "matchDepTypes": ["devDependencies"],
-      "matchPackageNames": ["types", "tsx"],
-      "groupName": "TypeScript",
-      "automerge": true
+      "matchPackageNames": ["@types/react", "@types/react-dom", "@types/node"],
+      "groupName": "react and node types"
     },
     {
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchPackageNames": ["tailwindcss", "@tailwindcss/postcss", "postcss", "tailwind-merge"],
+      "groupName": "tailwind and postcss"
+    },
+    {
+      "matchPackageNames": ["eslint", "@eslint/js", "typescript-eslint", "globals"],
+      "groupName": "eslint core"
+    },
+    {
+      "matchPackagePrefixes": ["eslint-plugin-", "eslint-config-"],
+      "groupName": "eslint plugins and configs"
+    },
+    {
+      "matchPackageNames": ["prettier", "prettier-plugin-tailwindcss"],
+      "groupName": "prettier stack"
+    },
+    {
+      "matchPackageNames": [
+        "vitest",
+        "jsdom",
+        "@testing-library/jest-dom",
+        "@testing-library/react"
+      ],
+      "groupName": "test stack"
+    },
+    {
+      "matchPackageNames": ["typescript", "vite-tsconfig-paths"],
+      "groupName": "typescript toolchain"
+    },
+    {
+      "matchPackageNames": ["wrangler"],
+      "groupName": "cloudflare tooling"
+    },
+    {
+      "matchPackageNames": [
+        "@radix-ui/react-alert-dialog",
+        "@radix-ui/react-popover",
+        "@radix-ui/react-select",
+        "@radix-ui/react-slot",
+        "@radix-ui/react-tabs"
+      ],
+      "groupName": "radix ui"
+    },
+    {
+      "matchPackageNames": ["@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
+      "groupName": "dnd-kit"
+    },
+    {
+      "matchPackageNames": [
+        "class-variance-authority",
+        "clsx",
+        "fuse.js",
+        "sharp",
+        "better-sqlite3"
+      ],
+      "groupName": "runtime utilities"
+    },
+    {
+      "matchPackageNames": [
+        "astro",
+        "@astrojs/react",
+        "react",
+        "react-dom",
+        "cmdk",
+        "wrangler",
+        "sharp",
+        "better-sqlite3"
+      ],
+      "automerge": false
+    },
+    {
+      "matchUpdateTypes": ["minor", "patch", "digest"],
       "matchCurrentVersion": "!/^0/",
       "automerge": true
     }
