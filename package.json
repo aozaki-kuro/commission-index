@@ -16,9 +16,12 @@
     "perf:check": "bun run scripts/perf/check.ts",
     "prepare": "prek install",
     "preview": "astro preview",
-    "test": "vitest run",
-    "test:changed": "vitest run --changed",
-    "test:watch": "vitest"
+    "test": "vitest run -c vitest.core.config.ts",
+    "test:core": "vitest run -c vitest.core.config.ts",
+    "test:full": "vitest run -c vitest.full.config.ts",
+    "test:changed": "vitest run -c vitest.core.config.ts --changed",
+    "test:watch": "vitest -c vitest.core.config.ts",
+    "test:watch:full": "vitest -c vitest.full.config.ts"
   },
   "lint-staged": {
     "*.{js,mjs,cjs,jsx,ts,tsx}": [
