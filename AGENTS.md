@@ -26,6 +26,22 @@ This repository contains an Astro 5 static site with React 19 islands, written i
   - `src/features/home/commission/linkDisplay.ts` (link sanitization/priority selection)
   - `src/lib/images/sourceImageRegistry.ts` (source image lookup by commission fileName)
 
+## Admin Rendering Architecture
+
+- Admin routes are Astro page shells in dev-only entrypoints:
+  - `src/dev-admin/pages/adminIndex.astro`
+  - `src/dev-admin/pages/adminAliases.astro`
+- Static page structure (title/description/navigation/fallback) stays in Astro templates.
+- Admin interactive state is isolated to React islands:
+  - `src/features/admin/islands/AdminDashboardIsland.tsx`
+  - `src/features/admin/islands/AdminAliasesIsland.tsx`
+- Feature-heavy admin UI remains React:
+  - `src/features/admin/AdminDashboard.tsx`
+  - `src/features/admin/aliases/AliasesDashboard.tsx`
+  - form/dnd/search subcomponents in `src/features/admin/*`
+- Shared not-found presentation is Astro-first:
+  - `src/components/shared/NotFoundPage.astro`
+
 ## Dev/Admin Responsibilities (must follow)
 
 - `src/admin` is a **development-only data maintenance UI** served at `/admin`.

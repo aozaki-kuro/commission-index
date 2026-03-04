@@ -8,6 +8,7 @@ Personal use only
 
 - `bun run dev` — run Astro web in development mode (`/api/admin/*` handled inside Astro dev middleware).
 - Admin pages (`/admin`, `/admin/aliases`) are injected only in development and are not part of production build output.
+- Admin route shells are Astro pages; interactive admin state is mounted via React islands.
 - `bun run build` — run Astro static build output to `dist/`.
 - `bun run preview` — preview static output locally.
 - Admin page includes a dev-only floating `Refresh Assets Cache` button for manual asset resync.

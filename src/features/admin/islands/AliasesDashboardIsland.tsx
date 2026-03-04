@@ -1,21 +1,17 @@
-import NotFoundPage from '#components/shared/NotFoundPage'
-import type { CreatorAliasRow } from '#lib/admin/db'
-import { useDocumentTitle } from '#lib/seo/useDocumentTitle'
 import { useEffect, useState } from 'react'
-import { fetchAdminBootstrapWithRetry } from '../bootstrapFetch'
-import AliasesDashboard from './AliasesDashboard'
+import type { CreatorAliasRow } from '#lib/admin/db'
+import { fetchAdminBootstrapWithRetry } from '#admin/bootstrapFetch'
+import AliasesDashboard from '#admin/aliases/AliasesDashboard'
 
 type BootstrapPayload = {
   creatorAliases: CreatorAliasRow[]
 }
 
-interface AdminAliasesPageProps {
+interface AliasesDashboardIslandProps {
   initialPayload?: BootstrapPayload | null
 }
 
-const AdminAliasesPage = ({ initialPayload = null }: AdminAliasesPageProps) => {
-  useDocumentTitle('Admin Aliases')
-
+const AliasesDashboardIsland = ({ initialPayload = null }: AliasesDashboardIslandProps) => {
   const [payload, setPayload] = useState<BootstrapPayload | null>(initialPayload)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
@@ -49,13 +45,9 @@ const AdminAliasesPage = ({ initialPayload = null }: AdminAliasesPageProps) => {
     }
   }, [reloadToken])
 
-  if (!import.meta.env?.DEV) {
-    return <NotFoundPage />
-  }
-
   if (!payload && errorMessage) {
     return (
-      <div className="mx-auto max-w-5xl px-4 pt-6 pb-10 lg:px-0">
+      <div>
         <p className="text-sm text-red-300">{errorMessage}</p>
         <button
           className="mt-3 inline-flex rounded-md border border-zinc-500 px-3 py-1 text-sm hover:border-zinc-300"
@@ -72,14 +64,10 @@ const AdminAliasesPage = ({ initialPayload = null }: AdminAliasesPageProps) => {
   }
 
   if (!payload) {
-    return (
-      <div className="mx-auto max-w-5xl px-4 pt-6 pb-10 lg:px-0">
-        <p>Loading aliases data...</p>
-      </div>
-    )
+    return <p>Loading aliases data...</p>
   }
 
   return <AliasesDashboard creators={payload.creatorAliases} />
 }
 
-export default AdminAliasesPage
+export default AliasesDashboardIsland

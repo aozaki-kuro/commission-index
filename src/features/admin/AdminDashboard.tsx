@@ -4,7 +4,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '#components/ui/tabs'
 import AddCharacterForm from './AddCharacterForm'
 import AddCommissionForm from './AddCommissionForm'
 import CommissionManager from './CommissionManager'
-import AdminSectionNav from './AdminSectionNav'
 import useStoredTabIndex from './hooks/useStoredTabIndex'
 
 interface AdminDashboardProps {
@@ -32,18 +31,7 @@ const AdminDashboard = ({
 
   return (
     <CommissionViewModeProvider>
-      <div className="mx-auto max-w-5xl space-y-6 px-4 pt-6 pb-10 lg:px-0">
-        <header className="space-y-2">
-          <h1 className="text-2xl leading-tight font-semibold text-gray-900 dark:text-gray-100">
-            Commission Index Admin
-          </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-300">
-            Create new entries, reprioritize characters, and curate the commission archive.
-          </p>
-        </header>
-
-        <AdminSectionNav current="admin" />
-
+      <div className="space-y-6">
         {selectedIndex === null ? (
           <div className="mt-2 space-y-6" aria-hidden="true">
             <div className="h-11 w-full rounded-xl opacity-0" />

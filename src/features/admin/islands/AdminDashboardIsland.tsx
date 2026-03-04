@@ -1,26 +1,16 @@
-import AdminDashboard from './AdminDashboard'
-import NotFoundPage from '#components/shared/NotFoundPage'
-import { refreshAssetsAction } from '#admin/actions'
-import type { AdminCommissionSearchRow, CharacterRow, CreatorAliasRow } from '#lib/admin/db'
-import { useDocumentTitle } from '#lib/seo/useDocumentTitle'
 import { useEffect, useState } from 'react'
-import { fetchAdminBootstrapWithRetry } from './bootstrapFetch'
-import { subscribeToDataUpdates } from './dataUpdateSignal'
+import { refreshAssetsAction } from '#admin/actions'
+import AdminDashboard from '#admin/AdminDashboard'
+import { fetchAdminBootstrapWithRetry } from '#admin/bootstrapFetch'
+import { subscribeToDataUpdates } from '#admin/dataUpdateSignal'
+import type { AdminBootstrapData } from '#lib/admin/db'
 
-type BootstrapPayload = {
-  characters: CharacterRow[]
-  creatorAliases: CreatorAliasRow[]
-  commissionSearchRows: AdminCommissionSearchRow[]
+interface AdminDashboardIslandProps {
+  initialPayload?: AdminBootstrapData | null
 }
 
-interface AdminPageProps {
-  initialPayload?: BootstrapPayload | null
-}
-
-const AdminPage = ({ initialPayload = null }: AdminPageProps) => {
-  useDocumentTitle('Admin')
-
-  const [payload, setPayload] = useState<BootstrapPayload | null>(initialPayload)
+const AdminDashboardIsland = ({ initialPayload = null }: AdminDashboardIslandProps) => {
+  const [payload, setPayload] = useState<AdminBootstrapData | null>(initialPayload)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
   const [isRefreshingAssets, setIsRefreshingAssets] = useState(false)
@@ -43,7 +33,7 @@ const AdminPage = ({ initialPayload = null }: AdminPageProps) => {
       controller = new AbortController()
 
       try {
-        const data = await fetchAdminBootstrapWithRetry<BootstrapPayload>({
+        const data = await fetchAdminBootstrapWithRetry<AdminBootstrapData>({
           signal: controller.signal,
         })
         if (active) {
@@ -70,13 +60,9 @@ const AdminPage = ({ initialPayload = null }: AdminPageProps) => {
     }
   }, [reloadToken])
 
-  if (!import.meta.env?.DEV) {
-    return <NotFoundPage />
-  }
-
   if (!payload && errorMessage) {
     return (
-      <div className="mx-auto max-w-5xl px-4 pt-6 pb-10 lg:px-0">
+      <div>
         <p className="text-sm text-red-300">{errorMessage}</p>
         <button
           className="mt-3 inline-flex rounded-md border border-zinc-500 px-3 py-1 text-sm hover:border-zinc-300"
@@ -93,11 +79,7 @@ const AdminPage = ({ initialPayload = null }: AdminPageProps) => {
   }
 
   if (!payload) {
-    return (
-      <div className="mx-auto max-w-5xl px-4 pt-6 pb-10 lg:px-0">
-        <p>Loading admin data...</p>
-      </div>
-    )
+    return <p>Loading admin data...</p>
   }
 
   const handleRefreshAssets = async () => {
@@ -140,4 +122,4 @@ const AdminPage = ({ initialPayload = null }: AdminPageProps) => {
   )
 }
 
-export default AdminPage
+export default AdminDashboardIsland
