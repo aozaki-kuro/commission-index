@@ -1,0 +1,213 @@
+---
+import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
+
+interface AgeGateScriptProps {
+  locale?: string
+}
+
+const { locale } = Astro.props as AgeGateScriptProps
+const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
+---
+
+<div
+  data-age-gate-root
+  data-state="closed"
+  class="fixed inset-0 z-80 hidden items-center justify-center p-4"
+  aria-hidden="true"
+>
+  <div
+    data-age-gate-overlay
+    class="absolute inset-0 z-0 bg-black/25 opacity-0 backdrop-blur-xl data-[state=closed]:opacity-0 data-[state=closed]:animate-[dialog-overlay-out_200ms_ease-in] data-[state=open]:opacity-100 data-[state=open]:animate-[dialog-overlay-in_300ms_ease-out] dark:bg-white/5"
+  />
+
+  <section
+    role="alertdialog"
+    aria-modal="true"
+    aria-labelledby="age-gate-title"
+    aria-describedby="age-gate-description"
+    class="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border-none bg-white p-6 text-left opacity-0 shadow-xl data-[state=closed]:scale-95 data-[state=closed]:opacity-0 data-[state=closed]:animate-[dialog-content-out_200ms_ease-in] data-[state=open]:scale-100 data-[state=open]:opacity-100 data-[state=open]:animate-[dialog-content-in_300ms_ease-out] dark:bg-gray-950"
+    data-age-gate-panel
+    data-state="closed"
+  >
+    <div class="flex items-center justify-center">
+      <img
+        src="/favicon-transparent.svg"
+        alt="Commission Index mark"
+        loading="eager"
+        decoding="async"
+        width="88"
+        height="88"
+        class="select-none"
+      />
+    </div>
+
+    <h2
+      id="age-gate-title"
+      class="mt-2 text-center text-lg leading-6 font-bold text-gray-900 select-none dark:text-gray-300"
+    >
+      {messages.warning.title}
+    </h2>
+    <p id="age-gate-description" class="sr-only">{messages.warning.srDescription}</p>
+
+    <p class="mt-2 text-center text-sm text-gray-500 select-none dark:text-gray-400">
+      {messages.warning.contentLine1}
+      <br />
+      {messages.warning.contentLine2}
+    </p>
+
+    <div class="mt-4 flex items-center justify-center gap-3">
+      <button
+        type="button"
+        data-age-gate-confirm
+        class="inline-flex h-9 items-center justify-center rounded-md border border-transparent bg-blue-100 px-4 py-2 font-mono text-xs font-medium text-blue-900 transition hover:bg-blue-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-900/55 dark:focus-visible:outline-gray-300"
+      >
+        {messages.warning.confirmAge}
+      </button>
+
+      <button
+        type="button"
+        data-age-gate-leave
+        class="inline-flex h-9 items-center justify-center rounded-md border border-transparent bg-red-100 px-4 py-2 font-mono text-xs font-medium text-red-900 transition hover:bg-red-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:bg-red-900/40 dark:text-red-100 dark:hover:bg-red-900/55 dark:focus-visible:outline-gray-300"
+      >
+        {messages.warning.leaveNow}
+      </button>
+    </div>
+  </section>
+</div>
+
+<script>
+  const CONFIRMED_AGE_KEY = 'hasConfirmedAge'
+  const AGE_CONFIRM_DURATION = 30 * 24 * 60 * 60 * 1000
+  const AGE_CONFIRM_EVENT = 'age-confirm-changed'
+  const LIGHTHOUSE_USER_AGENT_TOKEN = 'lighthouse'
+
+  const root = document.querySelector<HTMLElement>('[data-age-gate-root]')
+  const overlay = root?.querySelector<HTMLElement>('[data-age-gate-overlay]')
+  const panel = root?.querySelector<HTMLElement>('[data-age-gate-panel]')
+  const confirmButton = root?.querySelector<HTMLButtonElement>('[data-age-gate-confirm]')
+  const leaveButton = root?.querySelector<HTMLButtonElement>('[data-age-gate-leave]')
+
+  if (!root || !overlay || !panel || !confirmButton || !leaveButton) {
+    console.warn('[age-gate] root elements are missing')
+  } else {
+    let hasOpened = false
+    let isOpen = false
+    const originalHtmlOverflow = document.documentElement.style.overflow
+    const originalBodyOverflow = document.body.style.overflow
+
+    const isLighthouseUserAgent = () =>
+      navigator.userAgent.toLowerCase().includes(LIGHTHOUSE_USER_AGENT_TOKEN)
+    const hasValidAgeConfirmation = () => {
+      if (isLighthouseUserAgent()) return true
+      const timestamp = Number(localStorage.getItem(CONFIRMED_AGE_KEY))
+      return Boolean(timestamp && Date.now() - timestamp < AGE_CONFIRM_DURATION)
+    }
+
+    const updateState = (open: boolean) => {
+      isOpen = open
+      if (open) hasOpened = true
+
+      const shouldRender = open || hasOpened
+      root.classList.toggle('hidden', !shouldRender)
+      root.classList.toggle('flex', shouldRender)
+      root.classList.toggle('pointer-events-none', !open)
+      root.classList.toggle('pointer-events-auto', open)
+
+      const state = open ? 'open' : 'closed'
+      root.dataset.state = state
+      root.setAttribute('aria-hidden', open ? 'false' : 'true')
+      overlay.dataset.state = state
+      panel.dataset.state = state
+
+      if (open) {
+        document.documentElement.style.overflow = 'hidden'
+        document.body.style.overflow = 'hidden'
+        confirmButton.focus()
+        return
+      }
+
+      document.documentElement.style.overflow = originalHtmlOverflow
+      document.body.style.overflow = originalBodyOverflow
+    }
+
+    const syncOpenState = () => {
+      updateState(!hasValidAgeConfirmation())
+    }
+
+    const onConfirmAge = () => {
+      localStorage.setItem(CONFIRMED_AGE_KEY, String(Date.now()))
+      window.dispatchEvent(new Event(AGE_CONFIRM_EVENT))
+    }
+
+    const onLeave = () => {
+      window.location.href = 'https://www.google.com'
+    }
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== CONFIRMED_AGE_KEY) return
+      syncOpenState()
+    }
+
+    const getFocusableElements = () =>
+      Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter(element => !element.hasAttribute('disabled') && element.getAttribute('aria-hidden') !== 'true')
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!isOpen) return
+
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        return
+      }
+
+      if (event.key !== 'Tab') return
+
+      const focusable = getFocusableElements()
+      if (focusable.length === 0) {
+        event.preventDefault()
+        return
+      }
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      const active = document.activeElement
+
+      if (event.shiftKey) {
+        if (active === first || !panel.contains(active)) {
+          event.preventDefault()
+          last.focus()
+        }
+        return
+      }
+
+      if (active === last || !panel.contains(active)) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    confirmButton.addEventListener('click', onConfirmAge)
+    leaveButton.addEventListener('click', onLeave)
+    window.addEventListener('storage', onStorage)
+    window.addEventListener(AGE_CONFIRM_EVENT, syncOpenState)
+    document.addEventListener('keydown', onKeyDown)
+    syncOpenState()
+
+    window.addEventListener(
+      'pagehide',
+      () => {
+        confirmButton.removeEventListener('click', onConfirmAge)
+        leaveButton.removeEventListener('click', onLeave)
+        window.removeEventListener('storage', onStorage)
+        window.removeEventListener(AGE_CONFIRM_EVENT, syncOpenState)
+        document.removeEventListener('keydown', onKeyDown)
+        document.documentElement.style.overflow = originalHtmlOverflow
+        document.body.style.overflow = originalBodyOverflow
+      },
+      { once: true },
+    )
+  }
+</script>

@@ -3,11 +3,13 @@ import { getImage } from 'astro:assets'
 import { getRelativeLocaleUrl } from 'astro:i18n'
 import CommissionDescription from '#features/home/blocks/Description.astro'
 import Footer from '#features/home/blocks/Footer.astro'
+import CommissionImageNoticeScript from '#features/home/commission/CommissionImageNoticeScript.astro'
 import CommissionViewModeDomSyncScript from '#features/home/commission/CommissionViewModeDomSyncScript.astro'
 import DevLiveRefreshScript from '#features/home/dev/DevLiveRefreshScript.astro'
 import HomeControlsIsland from '#features/home/islands/HomeControlsIsland'
+import SidebarNavEnhancerScript from '#features/home/nav/SidebarNavEnhancerScript.astro'
 import StaticCommissionSections from '#features/home/server/StaticCommissionSections.astro'
-import Warning from '#features/home/warning/Warning'
+import AgeGateScript from '#features/home/warning/AgeGateScript.astro'
 import { homeUpdateSummary } from '#lib/generated/homeUpdateSummary'
 import { buildSitePayload } from '#lib/home/buildSitePayload'
 import { listMissingSourceImages, resolveSourceImageByCommissionFileName } from '#lib/images/sourceImageRegistry'
@@ -81,7 +83,7 @@ const resolvedCanonicalPath =
 ---
 
 <BaseLayout priorityImage={await priorityImage} lang={messages.lang} canonicalPath={resolvedCanonicalPath}>
-  <Warning client:load locale={resolvedLocale} />
+  <AgeGateScript locale={resolvedLocale} />
   <CommissionDescription
     locale={resolvedLocale}
     commissionData={payload.commissionData}
@@ -98,6 +100,8 @@ const resolvedCanonicalPath =
         stale={payload.characterStatus.stale}
         monthNavItems={payload.monthNavItems}
       />
+      <CommissionImageNoticeScript />
+      <SidebarNavEnhancerScript />
       <StaticCommissionSections
         locale={resolvedLocale}
         activeChars={payload.characterStatus.active}

@@ -3,7 +3,6 @@ import {
   CommissionViewModeProvider,
   CommissionViewTabs,
 } from '#features/home/commission/CommissionViewMode'
-import CommissionImageNoticeGate from '#features/home/commission/CommissionImageNoticeGate'
 import type { CharacterNavItem } from '#lib/characters/nav'
 import CommissionSearchDeferred from '#features/home/search/CommissionSearchDeferred'
 import { HomeLocaleProvider, type HomeLocaleOption } from '#features/home/i18n/HomeLocaleContext'
@@ -37,7 +36,6 @@ const HomeControlsIsland = ({
       <CommissionViewModeProvider>
         <CommissionSearchDeferred />
         <CommissionViewTabs />
-        <CommissionImageNoticeGate />
 
         <Suspense fallback={null}>
           <CharacterList characters={characters} monthNavItems={monthNavItems} />

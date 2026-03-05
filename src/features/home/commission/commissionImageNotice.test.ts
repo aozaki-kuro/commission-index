@@ -1,24 +1,9 @@
 // @vitest-environment jsdom
-import { render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { waitFor } from '@testing-library/react'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
-import CommissionImageNoticeGate from './CommissionImageNoticeGate'
-
-const { mockTrackRybbitEvent, mockNoticeClient } = vi.hoisted(() => ({
-  mockTrackRybbitEvent: vi.fn(),
-  mockNoticeClient: vi.fn(),
-}))
-
-vi.mock('#lib/analytics/track', () => ({
-  trackRybbitEvent: (...args: unknown[]) => mockTrackRybbitEvent(...args),
-}))
-
-vi.mock('#features/home/commission/CommissionImageNoticeClient', () => ({
-  default: ({ initialNotice }: { initialNotice?: { text: string } | null }) => {
-    mockNoticeClient(initialNotice)
-    return <div data-testid="commission-image-notice">{initialNotice?.text ?? ''}</div>
-  },
-}))
+import { mountCommissionImageNoticeClient } from './commissionImageNoticeClient'
+import { createCommissionImageVariantTracker } from './commissionImageVariantTracker'
 
 const createTrackedImage = (src: string, options?: { srcSet?: string; currentSrc?: string }) => {
   const image = document.createElement('img')
@@ -36,22 +21,24 @@ const createTrackedImage = (src: string, options?: { srcSet?: string; currentSrc
   return image
 }
 
-describe('CommissionImageNoticeGate', () => {
+describe('commissionImageNotice', () => {
+  let cleanupNotice: (() => void) | null = null
+
   beforeEach(() => {
-    mockTrackRybbitEvent.mockClear()
-    mockNoticeClient.mockClear()
     document.body.innerHTML = ''
+    cleanupNotice = null
     Reflect.deleteProperty(window, 'requestIdleCallback')
     Reflect.deleteProperty(window, 'cancelIdleCallback')
   })
 
   afterEach(() => {
+    cleanupNotice?.()
     Reflect.deleteProperty(window, 'requestIdleCallback')
     Reflect.deleteProperty(window, 'cancelIdleCallback')
   })
 
-  it('keeps contextmenu behavior and lazy-renders notice client', async () => {
-    render(<CommissionImageNoticeGate />)
+  it('keeps contextmenu behavior and renders notice text', async () => {
+    cleanupNotice = mountCommissionImageNoticeClient()
 
     const container = document.createElement('div')
     container.setAttribute('data-commission-image', 'true')
@@ -71,12 +58,14 @@ describe('CommissionImageNoticeGate', () => {
     expect(event.defaultPrevented).toBe(true)
 
     await waitFor(() => {
-      expect(screen.getByTestId('commission-image-notice')).toHaveTextContent('sample alt text')
+      const notice = document.querySelector<HTMLElement>('[data-commission-image-notice="true"]')
+      expect(notice?.textContent).toBe('sample alt text')
     })
   })
 
   it('tracks load variant once per variant+dpr key via srcset width descriptor', () => {
-    render(<CommissionImageNoticeGate />)
+    const trackEvent = vi.fn()
+    const tracker = createCommissionImageVariantTracker(trackEvent, window, document)
 
     const image = createTrackedImage('/_astro/sample.webp?w=768', {
       srcSet:
@@ -85,11 +74,11 @@ describe('CommissionImageNoticeGate', () => {
     })
     document.body.appendChild(image)
 
-    image.dispatchEvent(new Event('load'))
-    image.dispatchEvent(new Event('load'))
+    tracker.handleImageLoadCaptureEvent({ target: image } as unknown as Event)
+    tracker.handleImageLoadCaptureEvent({ target: image } as unknown as Event)
 
-    expect(mockTrackRybbitEvent).toHaveBeenCalledTimes(1)
-    expect(mockTrackRybbitEvent).toHaveBeenCalledWith(
+    expect(trackEvent).toHaveBeenCalledTimes(1)
+    expect(trackEvent).toHaveBeenCalledWith(
       ANALYTICS_EVENTS.commissionImageVariantLoaded,
       expect.objectContaining({
         variant: '960',
@@ -99,6 +88,9 @@ describe('CommissionImageNoticeGate', () => {
   })
 
   it('samples complete images during idle pass without duplicate tracking', async () => {
+    const trackEvent = vi.fn()
+    const tracker = createCommissionImageVariantTracker(trackEvent, window, document)
+
     Object.defineProperty(window, 'requestIdleCallback', {
       configurable: true,
       value: (callback: () => void) => {
@@ -131,17 +123,20 @@ describe('CommissionImageNoticeGate', () => {
     }))
     document.body.appendChild(image)
 
-    render(<CommissionImageNoticeGate />)
+    const cleanupIdleSampling = tracker.scheduleIdleSampling(() => {
+      tracker.sampleLoadedImagesNearViewport()
+    })
 
     await waitFor(() => {
-      expect(mockTrackRybbitEvent).toHaveBeenCalledWith(
+      expect(trackEvent).toHaveBeenCalledWith(
         ANALYTICS_EVENTS.commissionImageVariantLoaded,
         expect.objectContaining({ variant: '1280' }),
       )
     })
 
-    image.dispatchEvent(new Event('load'))
+    tracker.handleImageLoadCaptureEvent({ target: image } as unknown as Event)
+    expect(trackEvent).toHaveBeenCalledTimes(1)
 
-    expect(mockTrackRybbitEvent).toHaveBeenCalledTimes(1)
+    cleanupIdleSampling()
   })
 })

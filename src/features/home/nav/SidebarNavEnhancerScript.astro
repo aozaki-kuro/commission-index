@@ -1,0 +1,177 @@
+<script>
+  import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+  import { trackRybbitEvent } from '#lib/analytics/track'
+  import { parseCommissionViewModeFromSearch } from '#features/home/commission/CommissionViewModeSearch'
+  import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
+  import {
+    clearHashIfTargetIsStale,
+    scrollToHashTargetFromHrefWithoutHash,
+  } from '#lib/navigation/hashAnchor'
+  import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
+  import { syncHiddenSectionLinkAvailability } from '#lib/navigation/syncHiddenSectionLinkAvailability'
+
+  const SIDEBAR_ROOT_ID = 'Character List'
+  const SEARCH_LINK_SELECTOR = '[data-sidebar-search-link="true"]'
+  const CHARACTER_LINK_SELECTOR = '[data-sidebar-character-link="true"]'
+  const VIEW_MODE_URL_CHANGE_EVENT = 'commission-view-mode-change'
+  const SIDEBAR_INIT_MAX_RETRY_FRAMES = 180
+
+  let hasTrackedSidebarSearchUsage = false
+  let clearHashRafId: number | null = null
+  let syncCharacterLinkRafId: number | null = null
+  let sidebarInitRafId: number | null = null
+  let sidebarInitRetryCount = 0
+
+  const getSidebarRoot = () => document.getElementById(SIDEBAR_ROOT_ID)
+  const getCurrentMode = () => parseCommissionViewModeFromSearch(window.location.search)
+  const getSidebarItemCount = () =>
+    getSidebarRoot()?.querySelectorAll<HTMLAnchorElement>(CHARACTER_LINK_SELECTOR).length ?? 0
+
+  const scheduleClearHashIfTargetIsStale = () => {
+    if (clearHashRafId !== null) return
+
+    clearHashRafId = requestAnimationFrame(() => {
+      clearHashRafId = null
+      clearHashIfTargetIsStale()
+    })
+  }
+
+  const trackSidebarSearchUsage = () => {
+    if (hasTrackedSidebarSearchUsage) return
+    hasTrackedSidebarSearchUsage = true
+
+    trackRybbitEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
+      source: 'search_link',
+      nav_surface: 'sidebar',
+      view_mode: getCurrentMode(),
+      item_count: getSidebarItemCount(),
+    })
+  }
+
+  const trackSidebarCharacterClick = (link: HTMLAnchorElement) => {
+    trackRybbitEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
+      source: 'character_link',
+      nav_surface: 'sidebar',
+      view_mode: getCurrentMode(),
+      item_count: getSidebarItemCount(),
+      character_name: link.textContent?.trim() || 'unknown',
+      section_id: link.getAttribute('href')?.replace(/^#/, '') || 'unknown',
+    })
+  }
+
+  const syncCharacterLinkAvailability = () => {
+    const root = getSidebarRoot()
+    if (!root) return
+
+    syncHiddenSectionLinkAvailability({
+      root,
+      linkSelector: CHARACTER_LINK_SELECTOR,
+      getSectionId: link => {
+        const rawHash = link.getAttribute('href')
+        return rawHash?.startsWith('#') ? rawHash.slice(1) : null
+      },
+    })
+  }
+
+  const scheduleSyncCharacterLinkAvailability = () => {
+    if (syncCharacterLinkRafId !== null) return
+
+    syncCharacterLinkRafId = requestAnimationFrame(() => {
+      syncCharacterLinkRafId = null
+      syncCharacterLinkAvailability()
+    })
+  }
+
+  const onSidebarClick = (event: MouseEvent) => {
+    const target = event.target
+    if (!(target instanceof Element)) return
+
+    const searchLink = target.closest<HTMLAnchorElement>(SEARCH_LINK_SELECTOR)
+    if (searchLink) {
+      event.preventDefault()
+      trackSidebarSearchUsage()
+      jumpToCommissionSearch()
+      return
+    }
+
+    const characterLink = target.closest<HTMLAnchorElement>(CHARACTER_LINK_SELECTOR)
+    if (!characterLink) return
+
+    if (characterLink.getAttribute('aria-disabled') === 'true') {
+      event.preventDefault()
+      return
+    }
+
+    if (getCurrentMode() === 'timeline') {
+      event.preventDefault()
+      scrollToHashTargetFromHrefWithoutHash(characterLink.getAttribute('href'))
+    }
+
+    trackSidebarCharacterClick(characterLink)
+  }
+
+  let sidebarCleanup: (() => void) | null = null
+
+  const mountSidebarEnhancer = () => {
+    if (sidebarCleanup) return
+
+    const root = getSidebarRoot()
+    if (!root) return
+
+    scheduleSyncCharacterLinkAvailability()
+    root.addEventListener('click', onSidebarClick)
+    window.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleSyncCharacterLinkAvailability)
+    window.addEventListener(VIEW_MODE_URL_CHANGE_EVENT, scheduleSyncCharacterLinkAvailability)
+    window.addEventListener('popstate', scheduleSyncCharacterLinkAvailability)
+
+    sidebarCleanup = () => {
+      root.removeEventListener('click', onSidebarClick)
+      window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleSyncCharacterLinkAvailability)
+      window.removeEventListener(VIEW_MODE_URL_CHANGE_EVENT, scheduleSyncCharacterLinkAvailability)
+      window.removeEventListener('popstate', scheduleSyncCharacterLinkAvailability)
+    }
+  }
+
+  window.addEventListener('scroll', scheduleClearHashIfTargetIsStale, { passive: true })
+  window.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleClearHashIfTargetIsStale)
+  scheduleClearHashIfTargetIsStale()
+
+  const mountSidebarEnhancerWhenReady = () => {
+    mountSidebarEnhancer()
+    if (sidebarCleanup) {
+      sidebarInitRafId = null
+      return
+    }
+
+    if (sidebarInitRetryCount >= SIDEBAR_INIT_MAX_RETRY_FRAMES) {
+      sidebarInitRafId = null
+      return
+    }
+
+    sidebarInitRetryCount += 1
+    sidebarInitRafId = requestAnimationFrame(mountSidebarEnhancerWhenReady)
+  }
+  sidebarInitRafId = requestAnimationFrame(mountSidebarEnhancerWhenReady)
+
+  window.addEventListener(
+    'pagehide',
+    () => {
+      window.removeEventListener('scroll', scheduleClearHashIfTargetIsStale)
+      window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleClearHashIfTargetIsStale)
+      if (clearHashRafId !== null) {
+        cancelAnimationFrame(clearHashRafId)
+        clearHashRafId = null
+      }
+      if (syncCharacterLinkRafId !== null) {
+        cancelAnimationFrame(syncCharacterLinkRafId)
+        syncCharacterLinkRafId = null
+      }
+      if (sidebarInitRafId !== null) {
+        cancelAnimationFrame(sidebarInitRafId)
+        sidebarInitRafId = null
+      }
+      sidebarCleanup?.()
+    },
+    { once: true },
+  )
+</script>

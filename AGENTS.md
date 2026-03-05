@@ -17,12 +17,14 @@ This repository contains an Astro 5 static site with React 19 islands, written i
   - `src/features/home/server/StaticCommissionSections.astro`
   - `src/features/home/commission/*.astro` (listing/timeline/entry rendering chain)
 - Keep React only for interactive islands:
-  - `Warning` (age gate)
   - `HomeControlsIsland` (search/tabs/nav/hamburger)
 - Home-level side effects are Astro script components:
+  - `src/features/home/warning/AgeGateScript.astro`
   - `src/layouts/AnalyticsScript.astro`
+  - `src/features/home/commission/CommissionImageNoticeScript.astro`
   - `src/features/home/commission/CommissionViewModeDomSyncScript.astro`
   - `src/features/home/dev/DevLiveRefreshScript.astro`
+  - `src/features/home/nav/SidebarNavEnhancerScript.astro`
 - Home search/view-mode behavior depends on existing `data-*` DOM contracts; preserve attribute names and structure when editing Astro templates.
 - Shared pure rendering helpers:
   - `src/features/home/commission/linkDisplay.ts` (link sanitization/priority selection)
@@ -91,6 +93,9 @@ Additional guidance:
 - Switched admin/server business filenames to camelCase (`adminApi*`, `devAdminAstro`, `assetsPipelineAstro`, `assetsSyncCli`).
 - Moved dev admin Astro routes to `src/devAdmin/pages/*`.
 - Migrated effect-only home/layout side effects to Astro script components.
+- Migrated age gate warning from React island to Astro script.
+- Migrated commission image notice gate/client from React to Astro script + DOM module.
+- Migrated sidebar click/hash/search-link enhancer from React effect component to Astro script.
 - Added shared server request/response bridge utility and test coverage.
 
 ## Code Style

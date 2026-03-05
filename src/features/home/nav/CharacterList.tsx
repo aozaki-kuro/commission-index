@@ -15,7 +15,6 @@ import { useTimelineScrollSpy } from '#lib/characters/useTimelineScrollSpy'
 import { useMemo } from 'react'
 import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
 import LocalePopoverMenu from '#features/home/nav/LocalePopoverMenu'
-import CharacterListEnhancer from './CharacterListEnhancer'
 
 interface CharacterListProps {
   characters: { DisplayName: string }[]
@@ -83,7 +82,6 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
     enabled: mode === 'timeline',
   })
   const activeTitleId = mode === 'timeline' ? activeTimelineTitleId : activeCharacterTitleId
-  const navItemsKey = useMemo(() => navItems.map(item => item.sectionId).join('\n'), [navItems])
   const showAdminLink = import.meta.env?.DEV
 
   return (
@@ -168,8 +166,6 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
           </SidebarMenu>
         </nav>
       </SidebarContent>
-
-      <CharacterListEnhancer itemCount={navItems.length} navItemsKey={navItemsKey} mode={mode} />
     </Sidebar>
   )
 }
