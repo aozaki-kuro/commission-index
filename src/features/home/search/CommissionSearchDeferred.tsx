@@ -3,12 +3,21 @@ import type { CommissionSearchEntrySource } from '#features/home/search/Commissi
 import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
 import SearchShell from '#features/home/search/SearchShell'
 
-const CommissionSearch = lazy(() => import('#features/home/search/CommissionSearch'))
+const loadCommissionSearchModule = () => import('#features/home/search/CommissionSearch')
+const CommissionSearch = lazy(loadCommissionSearchModule)
 
 const HOME_SEARCH_INDEX_URL = '/search/home-search-entries.json'
 
 let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
 let homeSearchEntriesPromise: Promise<CommissionSearchEntrySource[]> | null = null
+let commissionSearchModulePromise: Promise<unknown> | null = null
+
+const prewarmCommissionSearchModule = () => {
+  if (!commissionSearchModulePromise) {
+    commissionSearchModulePromise = loadCommissionSearchModule()
+  }
+  return commissionSearchModulePromise
+}
 
 const hasSearchQueryParam = () => {
   if (typeof window === 'undefined') return false
@@ -81,6 +90,7 @@ export default function CommissionSearchDeferred() {
   const [isLoadingEntries, setIsLoadingEntries] = useState(false)
 
   const shouldLoadExternalEntries = Boolean(import.meta.env?.PROD)
+  const shouldPrewarmModule = !import.meta.env?.TEST
 
   const loadExternalEntries = useCallback(async () => {
     if (!shouldLoadExternalEntries) return externalEntries
@@ -143,6 +153,10 @@ export default function CommissionSearchDeferred() {
         !cachedHomeSearchEntries &&
         !homeSearchEntriesPromise
 
+      if (shouldEnable && shouldPrewarmModule) {
+        void prewarmCommissionSearchModule()
+      }
+
       if (shouldEnable || shouldRequestEntries) {
         void loadExternalEntries()
       }
@@ -154,10 +168,15 @@ export default function CommissionSearchDeferred() {
       shouldFocusOnMount,
       shouldLoadExternalEntries,
       shouldOpenHelpOnMount,
+      shouldPrewarmModule,
     ],
   )
 
   const prewarmSearch = useCallback(() => {
+    if (shouldPrewarmModule) {
+      void prewarmCommissionSearchModule()
+    }
+
     const shouldRequestEntries =
       shouldLoadExternalEntries &&
       !externalEntries &&
@@ -166,12 +185,42 @@ export default function CommissionSearchDeferred() {
     if (shouldRequestEntries) {
       void loadExternalEntries()
     }
-  }, [externalEntries, loadExternalEntries, shouldLoadExternalEntries])
+  }, [externalEntries, loadExternalEntries, shouldLoadExternalEntries, shouldPrewarmModule])
 
   useEffect(() => {
     if (isEnabled || !hasSearchQueryParam()) return
     enableSearch(false)
   }, [enableSearch, isEnabled])
+
+  useEffect(() => {
+    if (isEnabled || (!shouldLoadExternalEntries && !shouldPrewarmModule)) return
+
+    const win = window as Window & {
+      requestIdleCallback?: (
+        callback: (deadline?: unknown) => void,
+        options?: { timeout: number },
+      ) => number
+      cancelIdleCallback?: (id: number) => void
+    }
+
+    const runPrewarm = () => {
+      prewarmSearch()
+    }
+
+    if (typeof win.requestIdleCallback === 'function') {
+      const idleId = win.requestIdleCallback(() => runPrewarm(), { timeout: 1200 })
+      return () => {
+        if (typeof win.cancelIdleCallback === 'function') {
+          win.cancelIdleCallback(idleId)
+        }
+      }
+    }
+
+    const timeoutId = window.setTimeout(runPrewarm, 320)
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [isEnabled, prewarmSearch, shouldLoadExternalEntries, shouldPrewarmModule])
 
   const isSearchReady = !shouldLoadExternalEntries || !!externalEntries
 

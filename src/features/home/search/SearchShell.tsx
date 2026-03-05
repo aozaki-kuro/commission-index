@@ -52,8 +52,14 @@ const SearchShell = ({
           id="commission-search-input"
           type="search"
           value={query}
-          onFocus={() => onPrewarm?.()}
-          onPointerDown={() => onPrewarm?.()}
+          onFocus={() => {
+            onPrewarm?.()
+            onActivate?.(true)
+          }}
+          onPointerDown={() => {
+            onPrewarm?.()
+            onActivate?.(true)
+          }}
           onChange={event => {
             onQueryChange(event.target.value)
             onActivate?.(true)
