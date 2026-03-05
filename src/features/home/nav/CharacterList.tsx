@@ -13,6 +13,8 @@ import { buildCharacterNavItems, type CharacterNavItem } from '#lib/characters/n
 import { useCharacterScrollSpy } from '#lib/characters/useCharacterScrollSpy'
 import { useTimelineScrollSpy } from '#lib/characters/useTimelineScrollSpy'
 import { useMemo } from 'react'
+import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
+import LocalePopoverMenu from '#features/home/nav/LocalePopoverMenu'
 import CharacterListEnhancer from './CharacterListEnhancer'
 
 interface CharacterListProps {
@@ -26,10 +28,10 @@ const UTILITY_ROW_WRAPPER_CLASSES =
   'relative flex min-h-5 items-center pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white'
 const UTILITY_ROW_TEXT_CLASSES =
   'font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200'
-const VIEW_MODE_TOGGLE_ITEMS = [
-  { mode: 'character', label: 'By Character' },
-  { mode: 'timeline', label: 'By Date' },
-] as const
+type ViewModeToggleItem = {
+  mode: 'character' | 'timeline'
+  label: string
+}
 
 interface ModeToggleButtonProps {
   label: string
@@ -59,6 +61,14 @@ const ModeToggleButton = ({ label, active, onClick }: ModeToggleButtonProps) => 
 
 const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) => {
   const { mode, setMode } = useCommissionViewMode()
+  const { controls } = useHomeLocaleMessages()
+  const viewModeToggleItems = useMemo<ViewModeToggleItem[]>(
+    () => [
+      { mode: 'character', label: controls.byCharacter },
+      { mode: 'timeline', label: controls.byDate },
+    ],
+    [controls.byCharacter, controls.byDate],
+  )
   const characterNavItems = useMemo(
     () => (mode === 'character' ? buildCharacterNavItems(characters) : []),
     [characters, mode],
@@ -104,12 +114,14 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
               data-sidebar-search-link="true"
               className={UTILITY_ROW_TEXT_CLASSES}
             >
-              Search
+              {controls.search}
             </a>
           </SidebarMenuItem>
 
+          <LocalePopoverMenu />
+
           <div className="space-y-2">
-            {VIEW_MODE_TOGGLE_ITEMS.map(item => (
+            {viewModeToggleItems.map(item => (
               <ModeToggleButton
                 key={item.mode}
                 label={item.label}

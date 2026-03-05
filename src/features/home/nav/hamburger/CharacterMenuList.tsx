@@ -7,6 +7,7 @@ import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '#lib/navigation/syncHiddenSectionLinkAvailability'
 import { SidebarMenu, SidebarMenuItem } from '#components/ui/sidebar'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
 import { STYLES } from './constants'
 import { ChevronIcon } from './Icons'
 import type { CharacterEntry } from './types'
@@ -159,6 +160,7 @@ interface CharacterMenuListProps {
 const CharacterMenuList = memo(
   ({ active, stale, timelineNavItems, close }: CharacterMenuListProps) => {
     const { mode } = useCommissionViewMode()
+    const { controls } = useHomeLocaleMessages()
     const [expandedSection, setExpandedSection] = useState<ExpandedSection>('active')
     const rootRef = useRef<HTMLDivElement>(null)
 
@@ -219,10 +221,10 @@ const CharacterMenuList = memo(
           <>
             <CharacterSection
               id="mobile-active-characters"
-              label="Active Characters"
+              label={controls.activeCharacters}
               expanded={expandedSection === 'active'}
               onExpand={() => setExpandedSection('active')}
-              emptyLabel="No active characters."
+              emptyLabel={controls.noActiveCharacters}
               items={activeNavItems}
               close={close}
               itemCount={totalNavItemsCount}
@@ -230,10 +232,10 @@ const CharacterMenuList = memo(
             />
             <CharacterSection
               id="mobile-stale-characters"
-              label="Stale Characters"
+              label={controls.staleCharacters}
               expanded={expandedSection === 'stale'}
               onExpand={() => setExpandedSection('stale')}
-              emptyLabel="No stale characters."
+              emptyLabel={controls.noStaleCharacters}
               items={staleNavItems}
               close={close}
               itemCount={totalNavItemsCount}

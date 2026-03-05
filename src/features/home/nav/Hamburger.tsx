@@ -3,6 +3,7 @@ import { trackRybbitEvent } from '#lib/analytics/track'
 import type { CharacterNavItem } from '#lib/characters/nav'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MenuContent, { preloadCharacterMenuList } from './hamburger/MenuContent'
+import LanguageFloatingMenu from './hamburger/LanguageFloatingMenu'
 import { MENU_TRANSITION_MS } from './hamburger/constants'
 import type { CharacterEntry } from './hamburger/types'
 
@@ -103,7 +104,14 @@ const Hamburger = ({ active, stale, timelineNavItems }: HamburgerProps) => {
   }, [clearCloseTimer, clearOpenRaf])
 
   return (
-    <div className="fixed right-8 bottom-8 z-[90] flex flex-col items-end gap-3 md:hidden">
+    <div className="fixed right-8 bottom-8 z-[90] md:hidden">
+      <div
+        className={`absolute right-0 bottom-full mb-3 transition-all duration-200 ${
+          mounted ? 'pointer-events-none translate-y-1 opacity-0' : 'translate-y-0 opacity-100'
+        }`}
+      >
+        <LanguageFloatingMenu hidden={mounted} />
+      </div>
       <MenuContent
         mounted={mounted}
         open={open}

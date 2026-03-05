@@ -18,6 +18,7 @@ import { trackRybbitEvent } from '#lib/analytics/track'
 import type { CharacterNavItem } from '#lib/characters/nav'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import { SidebarContent, SidebarGroup, SidebarMenu, SidebarMenuItem } from '#components/ui/sidebar'
+import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
 import { STYLES } from './constants'
 import { MenuIcon } from './Icons'
 import type { CharacterEntry } from './types'
@@ -62,11 +63,6 @@ const UTILITY_ROW_WRAPPER_CLASSES =
   'flex w-full items-center justify-between rounded-lg px-4 py-1 text-gray-700 transition-colors duration-150 hover:bg-white/70 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-white/10 dark:hover:text-white'
 const UTILITY_ROW_TEXT_CLASSES =
   'font-mono text-base leading-6 font-bold no-underline transition-colors duration-200'
-const VIEW_MODE_TOGGLE_ITEMS = [
-  { mode: 'character' as CommissionViewMode, label: 'By Character' },
-  { mode: 'timeline' as CommissionViewMode, label: 'By Date' },
-] as const
-
 interface UtilityActionButtonProps {
   label: string
   icon?: ReactNode
@@ -109,6 +105,7 @@ const UtilityActionButton = ({
 const MenuContent = memo(
   ({ mounted, open, close, toggle, active, stale, timelineNavItems }: MenuContentProps) => {
     const { mode, setMode } = useCommissionViewMode()
+    const { controls } = useHomeLocaleMessages()
     const hasTrackedHamburgerSearchUsageRef = useRef(false)
     const hasHandledSearchPointerRef = useRef(false)
     const [CharacterMenuListComponent, setCharacterMenuListComponent] =
@@ -186,14 +183,18 @@ const MenuContent = memo(
       WebkitBackdropFilter: STYLES.backdrop,
       backdropFilter: STYLES.backdrop,
     } as const
-    const loadingLabel = mode === 'timeline' ? 'years' : 'characters'
+    const loadingLabel = mode === 'timeline' ? controls.loadingYears : controls.loadingCharacters
+    const viewModeToggleItems = [
+      { mode: 'character' as CommissionViewMode, label: controls.byCharacter },
+      { mode: 'timeline' as CommissionViewMode, label: controls.byDate },
+    ]
 
     return (
       <>
         {mounted && (
           <button
             type="button"
-            aria-label="Close navigation menu"
+            aria-label={controls.closeNavigationMenu}
             className={`fixed inset-0 z-60 bg-gray-200/10 backdrop-blur-xs transition-opacity duration-200 dark:bg-gray-900/10 ${
               open ? 'opacity-100' : 'pointer-events-none opacity-0'
             }`}
@@ -209,7 +210,7 @@ const MenuContent = memo(
           aria-controls="mobile-character-menu"
           onClick={toggle}
         >
-          <span className="sr-only">Open navigation menu</span>
+          <span className="sr-only">{controls.openNavigationMenu}</span>
           <MenuIcon isOpen={open} />
         </button>
 
@@ -227,7 +228,7 @@ const MenuContent = memo(
                 <SidebarMenu className="space-y-1.5">
                   <SidebarMenuItem>
                     <UtilityActionButton
-                      label="Search"
+                      label={controls.search}
                       active
                       onPointerDown={handleSearchPointerDown}
                       onClick={handleSearchClick}
@@ -251,7 +252,7 @@ const MenuContent = memo(
                     />
                   </SidebarMenuItem>
 
-                  {VIEW_MODE_TOGGLE_ITEMS.map(item => (
+                  {viewModeToggleItems.map(item => (
                     <SidebarMenuItem key={item.mode}>
                       <UtilityActionButton
                         label={item.label}
@@ -273,7 +274,7 @@ const MenuContent = memo(
                   />
                 ) : (
                   <div className="px-4 py-3 text-sm text-gray-600 dark:text-gray-300">
-                    {`Loading ${loadingLabel}...`}
+                    {loadingLabel}
                   </div>
                 )}
               </div>

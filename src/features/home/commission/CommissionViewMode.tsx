@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from 'react'
 import { scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
+import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
 
 export type CommissionViewMode = 'character' | 'timeline'
 
@@ -164,12 +165,13 @@ export const CommissionViewModeToggle = ({
   compact?: boolean
 }) => {
   const { mode, setMode } = useCommissionViewMode()
+  const { controls } = useHomeLocaleMessages()
 
   return (
     <div className={`${className} ${compact ? 'space-y-2' : 'pb-2'}`.trim()}>
       {compact ? (
         <div className="pl-4 font-mono text-[11px] tracking-[0.08em] text-gray-500 uppercase dark:text-gray-400">
-          View
+          {controls.view}
         </div>
       ) : null}
       <div className={`relative flex items-end gap-0 ${compact ? 'pr-2 pl-4' : ''}`}>
@@ -178,12 +180,12 @@ export const CommissionViewModeToggle = ({
           className="absolute right-0 bottom-0 left-0 h-px bg-gray-300/80 dark:bg-gray-700"
         />
         <ViewModeTabButton
-          label="By Character"
+          label={controls.byCharacter}
           active={mode === 'character'}
           onClick={() => setMode('character')}
         />
         <ViewModeTabButton
-          label="By Date"
+          label={controls.byDate}
           active={mode === 'timeline'}
           onClick={() => setMode('timeline')}
         />

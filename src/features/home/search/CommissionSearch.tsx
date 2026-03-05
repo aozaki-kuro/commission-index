@@ -2,6 +2,7 @@ import { Button } from '#components/ui/button'
 import { Command, CommandInput, CommandItem, CommandList } from '#components/ui/command'
 import { Popover, PopoverTrigger } from '#components/ui/popover'
 import { useCommissionViewMode } from '#features/home/commission/CommissionViewMode'
+import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
 import CommissionSearchHelpPopover from '#features/home/search/CommissionSearchHelpPopover'
 import {
   type MouseEvent,
@@ -63,17 +64,6 @@ export interface CommissionSearchEntrySource {
   searchSuggest?: string
 }
 
-const suggestionSourceLabels = {
-  Character: 'character',
-  Creator: 'creator',
-  Keyword: 'keyword',
-  Date: 'date',
-} satisfies Record<Suggestion['sources'][number], string>
-
-const formatSuggestionMatchCount = (count: number) =>
-  `${count} ${count === 1 ? 'match' : 'matches'}`
-const formatSuggestionSources = (sources: Suggestion['sources']) =>
-  sources.map(source => suggestionSourceLabels[source]).join(' / ')
 const normalizeSuggestionTermKey = (term: string) => term.trim().toLowerCase()
 const shouldUseTapLikeFocus = () => {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
@@ -106,15 +96,6 @@ const areSetsEqual = <T,>(left: Set<T>, right: Set<T>) => {
 
   return true
 }
-
-const buildSearchLiveStatusMessage = (
-  hasDeferredQuery: boolean,
-  matchedCount: number,
-  entriesCount: number,
-) =>
-  hasDeferredQuery
-    ? `Search results: ${matchedCount} of ${entriesCount} commissions shown.`
-    : `Search cleared. Showing all ${entriesCount} commissions.`
 
 const setTextContentIfChanged = (element: HTMLElement | null, message: string) => {
   if (!element || element.textContent === message) return
@@ -457,6 +438,17 @@ const CommissionSearch = ({
   openHelpOnMount = false,
 }: CommissionSearchProps = {}) => {
   const { mode } = useCommissionViewMode()
+  const { controls } = useHomeLocaleMessages()
+  const suggestionSourceLabels = useMemo(
+    () =>
+      ({
+        Character: controls.sourceCharacter,
+        Creator: controls.sourceCreator,
+        Keyword: controls.sourceKeyword,
+        Date: controls.sourceDate,
+      }) satisfies Record<Suggestion['sources'][number], string>,
+    [controls.sourceCharacter, controls.sourceCreator, controls.sourceDate, controls.sourceKeyword],
+  )
   const initialUrlQuery = useSyncExternalStore(
     () => () => {},
     getUrlQuerySnapshot,
@@ -581,13 +573,13 @@ const CommissionSearch = ({
   const suggestionViewModels = useMemo<SuggestionViewModel[]>(() => {
     return filteredSuggestions.map(suggestion => ({
       term: suggestion.term,
-      matchCountLabel: formatSuggestionMatchCount(suggestion.matchedCount),
-      sourcesLabel: formatSuggestionSources(suggestion.sources),
+      matchCountLabel: controls.formatMatchCount(suggestion.matchedCount),
+      sourcesLabel: suggestion.sources.map(source => suggestionSourceLabels[source]).join(' / '),
       relatedCreatorTerms: suggestion.sources.includes('Creator')
         ? (relatedCreatorTermsMap.get(normalizeSuggestionTermKey(suggestion.term)) ?? [])
         : [],
     }))
-  }, [filteredSuggestions, relatedCreatorTermsMap])
+  }, [controls, filteredSuggestions, relatedCreatorTermsMap, suggestionSourceLabels])
 
   const resolvedActiveSuggestionTerm = useMemo(() => {
     if (suggestionViewModels.length === 0) return ''
@@ -626,11 +618,9 @@ const CommissionSearch = ({
 
   useEffect(() => {
     const entriesCount = resolvedIndex.entries.length
-    const statusMessage = buildSearchLiveStatusMessage(
-      hasDeferredQuery,
-      matchedIds.size,
-      entriesCount,
-    )
+    const statusMessage = hasDeferredQuery
+      ? controls.formatSearchResultsStatus(matchedIds.size, entriesCount)
+      : controls.formatSearchClearedStatus(entriesCount)
 
     if (disableDomFiltering) {
       if (liveRef.current && entriesCount > 0) {
@@ -700,7 +690,7 @@ const CommissionSearch = ({
     if (didLayoutChange) {
       dispatchSidebarSearchState()
     }
-  }, [disableDomFiltering, hasDeferredQuery, matchedIds, resolvedIndex])
+  }, [controls, disableDomFiltering, hasDeferredQuery, matchedIds, resolvedIndex])
 
   useEffect(() => {
     if (didAutoJumpRef.current || !initialUrlQuery) return
@@ -779,12 +769,12 @@ const CommissionSearch = ({
     try {
       await navigator.clipboard.writeText(buildSearchUrl(query))
       setCopyFeedback()
-      if (liveRef.current) liveRef.current.textContent = 'Search URL copied.'
+      if (liveRef.current) liveRef.current.textContent = controls.searchUrlCopied
     } catch {
       setCopyState('idle')
-      if (liveRef.current) liveRef.current.textContent = 'Failed to copy search URL.'
+      if (liveRef.current) liveRef.current.textContent = controls.searchUrlCopyFailed
     }
-  }, [hasQuery, query, setCopyFeedback])
+  }, [controls.searchUrlCopied, controls.searchUrlCopyFailed, hasQuery, query, setCopyFeedback])
 
   const clearSearch = useCallback(() => {
     setInputQuery('')
@@ -856,7 +846,7 @@ const CommissionSearch = ({
             className="relative h-full w-full overflow-visible bg-transparent"
           >
             <label htmlFor="commission-search-input" className="sr-only">
-              Search commissions
+              {controls.searchCommissions}
             </label>
 
             <CommandInput
@@ -871,9 +861,9 @@ const CommissionSearch = ({
                 setInputQuery(normalizeQuotedTokenBoundary(value))
                 setCopyState('idle')
               }}
-              placeholder="Search"
+              placeholder={controls.searchPlaceholder}
               autoComplete="off"
-              aria-label="Search commissions"
+              aria-label={controls.searchCommissions}
               className="peer w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-24 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
             />
 
@@ -885,7 +875,7 @@ const CommissionSearch = ({
                       key={suggestion.term}
                       value={suggestion.term}
                       onSelect={() => applySuggestion(suggestion.term)}
-                      className="cursor-pointer px-3 py-1.5 font-mono text-gray-700 data-[selected=true]:bg-gray-100 data-[selected=true]:text-gray-900 dark:text-gray-300 dark:data-[selected=true]:bg-gray-800 dark:data-[selected=true]:text-gray-100"
+                      className="cursor-pointer px-3 py-1.5 font-mono text-gray-700 data-[selected=true]:bg-gray-900/6 data-[selected=true]:text-gray-900 dark:text-gray-300 dark:data-[selected=true]:bg-white/10 dark:data-[selected=true]:text-white"
                     >
                       <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-0.5">
                         <span className="flex min-w-0 items-center gap-1.5">
@@ -915,7 +905,7 @@ const CommissionSearch = ({
                           {suggestion.matchCountLabel}
                         </span>
                         <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
-                          in {suggestion.sourcesLabel}
+                          {controls.sourcePrefix} {suggestion.sourcesLabel}
                         </span>
                       </div>
                     </CommandItem>
@@ -937,7 +927,7 @@ const CommissionSearch = ({
                 className={`absolute inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[right,color] duration-200 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
                   hasQuery ? 'right-16' : 'right-0'
                 }`}
-                aria-label="Search help"
+                aria-label={controls.searchHelp}
               >
                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
                   <circle cx="12" cy="12" r="9" strokeWidth="2" />
@@ -965,7 +955,7 @@ const CommissionSearch = ({
                 ? 'text-emerald-600 dark:text-emerald-400'
                 : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100'
             } ${hasQuery ? '' : 'pointer-events-none opacity-0'}`}
-            aria-label={copyState === 'success' ? 'Search URL copied' : 'Copy search URL'}
+            aria-label={copyState === 'success' ? controls.searchUrlCopied : controls.copySearchUrl}
           >
             {copyState === 'success' ? (
               <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor">
@@ -999,7 +989,7 @@ const CommissionSearch = ({
             className={`absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[opacity,color] hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
               hasQuery ? '' : 'pointer-events-none opacity-0'
             }`}
-            aria-label="Clear search"
+            aria-label={controls.clearSearch}
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
               <path strokeWidth="2.2" strokeLinecap="round" d="M6 6l12 12" />
