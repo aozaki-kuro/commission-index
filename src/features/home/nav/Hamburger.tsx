@@ -2,6 +2,8 @@ import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import type { CharacterNavItem } from '#lib/characters/nav'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { HomeLocale } from '#features/home/i18n/homeLocale'
+import LanguageMenu from './hamburger/LanguageMenu'
 import MenuContent, { preloadCharacterMenuList } from './hamburger/MenuContent'
 import { MENU_TRANSITION_MS } from './hamburger/constants'
 import type { CharacterEntry } from './hamburger/types'
@@ -15,9 +17,10 @@ interface HamburgerProps {
   active: CharacterEntry[]
   stale: CharacterEntry[]
   timelineNavItems: CharacterNavItem[]
+  locale: HomeLocale
 }
 
-const Hamburger = ({ active, stale, timelineNavItems }: HamburgerProps) => {
+const Hamburger = ({ active, stale, timelineNavItems, locale }: HamburgerProps) => {
   const [open, setOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const closeTimerRef = useRef<number | null>(null)
@@ -104,6 +107,7 @@ const Hamburger = ({ active, stale, timelineNavItems }: HamburgerProps) => {
 
   return (
     <div className="fixed right-8 bottom-8 z-[90] flex flex-col items-end gap-3 md:hidden">
+      <LanguageMenu locale={locale} />
       <MenuContent
         mounted={mounted}
         open={open}

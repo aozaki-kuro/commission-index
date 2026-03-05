@@ -1,0 +1,94 @@
+---
+import { getImage } from 'astro:assets'
+import CommissionDescription from '#features/home/blocks/Description.astro'
+import Footer from '#features/home/blocks/Footer.astro'
+import HomeControlsIsland from '#features/home/islands/HomeControlsIsland'
+import type { HomeLocale } from '#features/home/i18n/homeLocale'
+import StaticCommissionSections from '#features/home/server/StaticCommissionSections.astro'
+import Warning from '#features/home/warning/Warning'
+import { homeUpdateSummary } from '#lib/generated/homeUpdateSummary'
+import { buildSitePayload } from '#lib/home/buildSitePayload'
+import {
+  listMissingSourceImages,
+  resolveSourceImageByCommissionFileName,
+} from '#lib/images/sourceImageRegistry'
+import { buildCommissionDataMap, buildCreatorAliasesMap } from '#lib/sitePayload'
+import BaseLayout from '#layouts/BaseLayout.astro'
+
+interface Props {
+  locale: HomeLocale
+}
+
+const { locale } = Astro.props as Props
+const payload = buildSitePayload()
+const commissionMap = buildCommissionDataMap(payload.commissionData)
+const creatorAliasesMap = buildCreatorAliasesMap(payload.creatorAliases)
+const COMMISSION_IMAGE_SIZES = '(max-width: 768px) 92vw, 640px'
+
+const commissionFileNames = payload.commissionData.flatMap(character =>
+  character.Commissions.map(commission => commission.fileName),
+)
+const missingSourceImages = listMissingSourceImages(commissionFileNames)
+
+if (missingSourceImages.length > 0) {
+  const message = `Missing source images for ${missingSourceImages.length} commissions: ${missingSourceImages.join(', ')}`
+
+  if (import.meta.env.DEV) {
+    console.warn(`[images] ${message}`)
+  } else {
+    throw new Error(message)
+  }
+}
+
+const firstCharacterName =
+  payload.characterStatus.active[0]?.DisplayName ?? payload.characterStatus.stale[0]?.DisplayName
+const firstCommissionFileName = firstCharacterName
+  ? commissionMap.get(firstCharacterName)?.Commissions?.[0]?.fileName
+  : undefined
+const firstSourceImage = firstCommissionFileName
+  ? resolveSourceImageByCommissionFileName(firstCommissionFileName)
+  : null
+
+const priorityImage = firstSourceImage
+  ? (() =>
+      getImage({
+        src: firstSourceImage,
+        widths: [768, 960, 1280],
+        format: 'webp',
+        sizes: COMMISSION_IMAGE_SIZES,
+      }).then(image => ({
+        src: image.src,
+        srcSet: image.srcSet.attribute,
+        sizes: COMMISSION_IMAGE_SIZES,
+      })))()
+  : undefined
+---
+
+<BaseLayout priorityImage={await priorityImage} lang={locale}>
+  <Warning client:load />
+  <CommissionDescription
+    commissionData={payload.commissionData}
+    activeCharacters={payload.activeCharacterNames}
+    updateSummary={homeUpdateSummary}
+    locale={locale}
+  />
+  <div class="relative mx-auto flex justify-center">
+    <div id="Main Contents" class="w-full max-w-2xl">
+      <HomeControlsIsland
+        client:load
+        active={payload.characterStatus.active}
+        stale={payload.characterStatus.stale}
+        monthNavItems={payload.monthNavItems}
+        locale={locale}
+      />
+      <StaticCommissionSections
+        activeChars={payload.characterStatus.active}
+        staleChars={payload.characterStatus.stale}
+        commissionMap={commissionMap}
+        creatorAliasesMap={creatorAliasesMap}
+        timelineGroups={payload.timelineGroups}
+      />
+      <Footer locale={locale} />
+    </div>
+  </div>
+</BaseLayout>

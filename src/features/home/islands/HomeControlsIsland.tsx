@@ -6,6 +6,7 @@ import {
 import CommissionViewModeDomSync from '#features/home/commission/CommissionViewModeDomSync'
 import CommissionImageNoticeGate from '#features/home/commission/CommissionImageNoticeGate'
 import DevLiveRefresh from '#features/home/dev/DevLiveRefresh'
+import type { HomeLocale } from '#features/home/i18n/homeLocale'
 import type { CharacterNavItem } from '#lib/characters/nav'
 import CommissionSearchDeferred from '#features/home/search/CommissionSearchDeferred'
 
@@ -20,11 +21,12 @@ interface HomeControlsIslandProps {
   active: CharacterDisplay[]
   stale: CharacterDisplay[]
   monthNavItems: CharacterNavItem[]
+  locale: HomeLocale
 }
 
 const isDevEnvironment = Boolean(import.meta.env?.DEV)
 
-const HomeControlsIsland = ({ active, stale, monthNavItems }: HomeControlsIslandProps) => {
+const HomeControlsIsland = ({ active, stale, monthNavItems, locale }: HomeControlsIslandProps) => {
   const characters = [...active, ...stale]
 
   return (
@@ -35,10 +37,10 @@ const HomeControlsIsland = ({ active, stale, monthNavItems }: HomeControlsIsland
       <CommissionImageNoticeGate />
 
       <Suspense fallback={null}>
-        <CharacterList characters={characters} monthNavItems={monthNavItems} />
+        <CharacterList characters={characters} monthNavItems={monthNavItems} locale={locale} />
       </Suspense>
       <Suspense fallback={null}>
-        <Hamburger active={active} stale={stale} timelineNavItems={monthNavItems} />
+        <Hamburger active={active} stale={stale} timelineNavItems={monthNavItems} locale={locale} />
       </Suspense>
 
       {isDevEnvironment ? <DevLiveRefresh /> : null}

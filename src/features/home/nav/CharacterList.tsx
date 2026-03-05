@@ -1,4 +1,10 @@
-import DevAdminLink from '#features/home/nav/DevAdminLink'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '#components/ui/select'
 import {
   Sidebar,
   SidebarContent,
@@ -6,9 +12,15 @@ import {
   SidebarMenu,
   SidebarMenuItem,
 } from '#components/ui/sidebar'
+import {
+  getHomeLocalePath,
+  HOME_LOCALE_OPTIONS,
+  type HomeLocale,
+} from '#features/home/i18n/homeLocale'
+import { useCommissionViewMode } from '#features/home/commission/CommissionViewMode'
+import DevAdminLink from '#features/home/nav/DevAdminLink'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
-import { useCommissionViewMode } from '#features/home/commission/CommissionViewMode'
 import { buildCharacterNavItems, type CharacterNavItem } from '#lib/characters/nav'
 import { useCharacterScrollSpy } from '#lib/characters/useCharacterScrollSpy'
 import { useTimelineScrollSpy } from '#lib/characters/useTimelineScrollSpy'
@@ -18,6 +30,7 @@ import CharacterListEnhancer from './CharacterListEnhancer'
 interface CharacterListProps {
   characters: { DisplayName: string }[]
   monthNavItems?: CharacterNavItem[]
+  locale: HomeLocale
 }
 
 const HIDDEN_DOT_CLASSES = 'scale-0 opacity-0'
@@ -57,7 +70,7 @@ const ModeToggleButton = ({ label, active, onClick }: ModeToggleButtonProps) => 
   </button>
 )
 
-const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) => {
+const CharacterList = ({ characters, monthNavItems = [], locale }: CharacterListProps) => {
   const { mode, setMode } = useCommissionViewMode()
   const characterNavItems = useMemo(
     () => (mode === 'character' ? buildCharacterNavItems(characters) : []),
@@ -126,6 +139,31 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
             ))}
           </div>
 
+          <div className="space-y-1.5 pl-4">
+            <p className="font-mono text-[11px] tracking-wide text-gray-500 uppercase dark:text-gray-400">
+              Language
+            </p>
+            <Select
+              value={locale}
+              onValueChange={value => {
+                const nextLocale = value as HomeLocale
+                if (nextLocale === locale) return
+                window.location.assign(getHomeLocalePath(nextLocale))
+              }}
+            >
+              <SelectTrigger className="h-8 w-[9rem] border-gray-300/70 bg-white/70 py-0 font-mono text-xs dark:border-gray-700/70 dark:bg-black/30">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {HOME_LOCALE_OPTIONS.map(option => (
+                  <SelectItem key={option.locale} value={option.locale}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {showAdminLink ? <DevAdminLink /> : null}
         </SidebarGroup>
 
@@ -155,9 +193,9 @@ const CharacterList = ({ characters, monthNavItems = [] }: CharacterListProps) =
             ))}
           </SidebarMenu>
         </nav>
-      </SidebarContent>
 
-      <CharacterListEnhancer itemCount={navItems.length} navItemsKey={navItemsKey} mode={mode} />
+        <CharacterListEnhancer itemCount={navItems.length} navItemsKey={navItemsKey} mode={mode} />
+      </SidebarContent>
     </Sidebar>
   )
 }
