@@ -4,9 +4,11 @@ import path from 'node:path'
 import { getCommissionData } from '../../../data/commissionData'
 import { getCharacterStatus } from '../../../data/commissionStatus'
 import { buildHomeUpdateSummary, type HomeUpdateSummary } from '../home/updateSummary'
+import { createAstroStyleLogger } from './astroLogger'
 import { writeFileIfChanged } from './writeFileIfChanged'
 
 const outputPath = path.join(process.cwd(), 'src', 'lib', 'generated', 'homeUpdateSummary.ts')
+const logger = createAstroStyleLogger('assets')
 
 const quote = (value: string) => `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
 
@@ -42,8 +44,8 @@ export const generateHomeUpdateSummaryModule = async () => {
   const relativeOutputPath = path.relative(process.cwd(), outputPath)
 
   if (result === 'unchanged') {
-    console.log(`Home update summary unchanged -> ${relativeOutputPath}`)
+    logger.info(`home update summary unchanged -> ${relativeOutputPath}`)
   } else {
-    console.log(`Generated home update summary -> ${relativeOutputPath}`)
+    logger.success(`generated home update summary -> ${relativeOutputPath}`)
   }
 }

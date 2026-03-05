@@ -2,9 +2,11 @@ import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
 import { generateRssFeed } from '../rss/feed'
+import { createAstroStyleLogger } from './astroLogger'
 import { writeFileIfChanged } from './writeFileIfChanged'
 
 const outputPath = path.join(process.cwd(), 'public', 'rss.xml')
+const logger = createAstroStyleLogger('assets')
 
 export const generateRssFile = async () => {
   await mkdir(path.dirname(outputPath), { recursive: true })
@@ -13,8 +15,8 @@ export const generateRssFile = async () => {
   const relativeOutputPath = path.relative(process.cwd(), outputPath)
 
   if (result === 'unchanged') {
-    console.log(`RSS feed unchanged -> ${relativeOutputPath}`)
+    logger.info(`rss feed unchanged -> ${relativeOutputPath}`)
   } else {
-    console.log(`Generated RSS feed -> ${relativeOutputPath}`)
+    logger.success(`generated rss feed -> ${relativeOutputPath}`)
   }
 }

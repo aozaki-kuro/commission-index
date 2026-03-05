@@ -9,6 +9,7 @@ import {
   buildCommissionSearchDomKey,
   buildCommissionSearchMetadata,
 } from '../search/commissionSearchMetadata'
+import { createAstroStyleLogger } from './astroLogger'
 import { writeFileIfChanged } from './writeFileIfChanged'
 
 type SearchEntry = {
@@ -59,6 +60,7 @@ const buildHomeSearchEntries = (): SearchEntry[] => {
 }
 
 const outputPath = path.join(process.cwd(), 'public', 'search', 'home-search-entries.json')
+const logger = createAstroStyleLogger('assets')
 
 export const generateHomeSearchEntriesFile = async () => {
   const entries = buildHomeSearchEntries()
@@ -68,8 +70,8 @@ export const generateHomeSearchEntriesFile = async () => {
   const relativeOutputPath = path.relative(process.cwd(), outputPath)
 
   if (result === 'unchanged') {
-    console.log(`Home search entries unchanged (${entries.length}) -> ${relativeOutputPath}`)
+    logger.info(`home search entries unchanged (${entries.length}) -> ${relativeOutputPath}`)
   } else {
-    console.log(`Generated ${entries.length} home search entries -> ${relativeOutputPath}`)
+    logger.success(`generated ${entries.length} home search entries -> ${relativeOutputPath}`)
   }
 }

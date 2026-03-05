@@ -18,6 +18,7 @@ import {
   replaceUploadedSourceImage,
   saveUploadedSourceImage,
 } from '../src/features/admin/imageUpload'
+import { createAstroStyleLogger } from '../src/lib/pipeline/astroLogger'
 import { runFullAssetPipeline } from '../src/lib/pipeline/assets'
 
 type ApiState = {
@@ -26,6 +27,7 @@ type ApiState = {
 }
 
 const isDevelopment = process.env.NODE_ENV === 'development'
+const logger = createAstroStyleLogger('assets-sync')
 
 const json = (payload: unknown, status = 200) =>
   new Response(JSON.stringify(payload), {
@@ -110,19 +112,19 @@ const createAssetsSyncQueue = () => {
       const targetVersion = requestedVersion
       const reason = latestReason
       const startedAt = Date.now()
-      console.log(`[assets-sync] start version=${targetVersion} reason=${reason}`)
+      logger.info(`start version=${targetVersion} reason=${reason}`)
 
       try {
         await runFullAssetPipeline(`admin-write:${reason}`)
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        console.error(`[assets-sync] failed version=${targetVersion} reason=${reason}: ${message}`)
+        logger.error(`failed version=${targetVersion} reason=${reason}: ${message}`)
         throw error
       }
 
       completedVersion = targetVersion
-      console.log(
-        `[assets-sync] done version=${targetVersion} reason=${reason} in ${Date.now() - startedAt}ms`,
+      logger.success(
+        `done version=${targetVersion} reason=${reason} in ${Date.now() - startedAt}ms`,
       )
     }
   }

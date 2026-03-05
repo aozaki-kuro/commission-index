@@ -1,5 +1,6 @@
 import { generateHomeSearchEntriesFile } from './homeSearchEntries'
 import { generateHomeUpdateSummaryModule } from './homeUpdateSummary'
+import { createAstroStyleLogger } from './astroLogger'
 import { generateRssFile } from './rss'
 
 export type AssetTask = 'home-update-summary' | 'home-search-entries' | 'rss'
@@ -12,14 +13,16 @@ const TASK_RUNNERS: Record<AssetTask, () => Promise<void>> = {
   rss: generateRssFile,
 }
 
+const logger = createAstroStyleLogger('assets')
+
 const runTasks = async (tasks: AssetTask[], reason: string) => {
   const reasonSuffix = reason ? ` (${reason})` : ''
-  console.log(`[assets] tasks=${tasks.join(', ')}${reasonSuffix}`)
+  logger.info(`tasks=${tasks.join(', ')}${reasonSuffix}`)
 
   for (const task of tasks) {
-    console.log(`[assets] start ${task}`)
+    logger.info(`start ${task}`)
     await TASK_RUNNERS[task]()
-    console.log(`[assets] done ${task}`)
+    logger.success(`done ${task}`)
   }
 }
 

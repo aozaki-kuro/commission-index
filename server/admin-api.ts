@@ -2,10 +2,12 @@ import { writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { Readable } from 'node:stream'
 import { handleAdminApiRequest } from './admin-api-handler'
+import { createAstroStyleLogger } from '../src/lib/pipeline/astroLogger'
 
 const START_PORT = Number(process.env.ADMIN_API_PORT ?? 8788)
 const PORT_FILE_PATH = process.env.ADMIN_API_PORT_FILE
 const MAX_PORT_ATTEMPTS = 200
+const logger = createAstroStyleLogger('admin-api')
 
 const isAddressInUseError = (error: unknown) => {
   if (!(error instanceof Error)) return false
@@ -17,7 +19,7 @@ const announceListeningPort = async (port: number) => {
   if (PORT_FILE_PATH) {
     await writeFile(PORT_FILE_PATH, String(port), 'utf8')
   }
-  console.log(`[admin-api] listening on http://localhost:${port}`)
+  logger.success(`listening on http://localhost:${port}`)
 }
 
 const createNodeRequestServer = (port: number) =>

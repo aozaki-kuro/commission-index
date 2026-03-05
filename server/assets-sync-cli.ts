@@ -1,4 +1,5 @@
 import { runFullAssetPipeline } from '../src/lib/pipeline/assets'
+import { createAstroStyleLogger } from '../src/lib/pipeline/astroLogger'
 
 const parseReason = (args: string[]) => {
   for (let index = 0; index < args.length; index += 1) {
@@ -10,9 +11,10 @@ const parseReason = (args: string[]) => {
 }
 
 const reason = parseReason(process.argv.slice(2))
+const logger = createAstroStyleLogger('assets-sync')
 
 await runFullAssetPipeline(reason).catch(error => {
   const message = error instanceof Error ? error.message : String(error)
-  console.error(`[assets-sync] ${message}`)
+  logger.error(message)
   process.exit(1)
 })
