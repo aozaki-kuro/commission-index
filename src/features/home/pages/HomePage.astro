@@ -3,6 +3,8 @@ import { getImage } from 'astro:assets'
 import { getRelativeLocaleUrl } from 'astro:i18n'
 import CommissionDescription from '#features/home/blocks/Description.astro'
 import Footer from '#features/home/blocks/Footer.astro'
+import CommissionViewModeDomSyncScript from '#features/home/commission/CommissionViewModeDomSyncScript.astro'
+import DevLiveRefreshScript from '#features/home/dev/DevLiveRefreshScript.astro'
 import HomeControlsIsland from '#features/home/islands/HomeControlsIsland'
 import StaticCommissionSections from '#features/home/server/StaticCommissionSections.astro'
 import Warning from '#features/home/warning/Warning'
@@ -104,6 +106,8 @@ const resolvedCanonicalPath =
         creatorAliasesMap={creatorAliasesMap}
         timelineGroups={payload.timelineGroups}
       />
+      <CommissionViewModeDomSyncScript />
+      {import.meta.env.DEV ? <DevLiveRefreshScript /> : null}
       <Footer locale={resolvedLocale} />
     </div>
   </div>

@@ -1,0 +1,117 @@
+import { Button } from '#components/ui/button'
+import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
+
+interface SearchShellProps {
+  query: string
+  onQueryChange: (value: string) => void
+  searchLabel: string
+  searchPlaceholder: string
+  searchHelpLabel: string
+  loadingLabel?: string | null
+  helpDisabled?: boolean
+  helpButtonClassName?: string
+  onPrewarm?: () => void
+  onActivate?: (focusOnMount?: boolean, openHelpOnMount?: boolean) => void
+  onHelpPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void
+  onHelpClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void
+}
+
+const SearchShell = ({
+  query,
+  onQueryChange,
+  searchLabel,
+  searchPlaceholder,
+  searchHelpLabel,
+  loadingLabel = null,
+  helpDisabled = false,
+  helpButtonClassName,
+  onPrewarm,
+  onActivate,
+  onHelpPointerDown,
+  onHelpClick,
+}: SearchShellProps) => (
+  <section id="commission-search" className="mt-8 mb-6 flex h-12 items-center justify-end">
+    <div className="relative h-11 w-full overflow-visible border-b border-gray-300/80 bg-transparent text-gray-700 dark:border-gray-700 dark:text-gray-300">
+      <svg
+        viewBox="0 0 24 24"
+        className="absolute top-1/2 left-2.5 h-3.5 w-3.5 shrink-0 -translate-y-1/2 opacity-70"
+        fill="none"
+        stroke="currentColor"
+        aria-hidden="true"
+      >
+        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.4-4.4" />
+        <circle cx="11" cy="11" r="6" strokeWidth="2" />
+      </svg>
+
+      <div className="absolute inset-y-0 right-2 left-8 flex items-center gap-2">
+        <label htmlFor="commission-search-input" className="sr-only">
+          {searchLabel}
+        </label>
+
+        <input
+          id="commission-search-input"
+          type="search"
+          value={query}
+          onFocus={() => onPrewarm?.()}
+          onPointerDown={() => onPrewarm?.()}
+          onChange={event => {
+            onQueryChange(event.target.value)
+            onActivate?.(true)
+          }}
+          placeholder={searchPlaceholder}
+          autoComplete="off"
+          aria-label={searchLabel}
+          className="w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-24 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
+        />
+        {loadingLabel ? (
+          <span className="absolute right-9 text-xs text-gray-400 dark:text-gray-500">
+            {loadingLabel}
+          </span>
+        ) : null}
+
+        <Button
+          type="button"
+          onPointerDown={event => {
+            if (helpDisabled) return
+            if (onHelpPointerDown) {
+              onHelpPointerDown(event)
+              return
+            }
+            event.preventDefault()
+            onActivate?.(false, true)
+          }}
+          onClick={event => {
+            if (helpDisabled) return
+            if (onHelpClick) {
+              onHelpClick(event)
+              return
+            }
+            if (event.detail !== 0) return
+            onActivate?.(false, true)
+          }}
+          variant="ghost"
+          size="icon"
+          className={
+            helpButtonClassName ??
+            'absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300'
+          }
+          aria-label={searchHelpLabel}
+          disabled={helpDisabled}
+        >
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
+            <circle cx="12" cy="12" r="9" strokeWidth="2" />
+            <path
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9.6 9.2a2.6 2.6 0 1 1 4.8 1.4c-.6.8-1.4 1.2-2 1.8-.4.4-.6.9-.6 1.6"
+            />
+            <circle cx="12" cy="17.3" r="0.8" fill="currentColor" stroke="none" />
+          </svg>
+        </Button>
+      </div>
+    </div>
+  </section>
+)
+
+export default SearchShell

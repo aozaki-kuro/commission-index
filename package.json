@@ -44,6 +44,7 @@
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
+    "@astrojs/check": "^0.9.6",
     "@astrojs/react": "^4.4.2",
     "@eslint/js": "^9.39.3",
     "@j178/prek": "^0.3.4",

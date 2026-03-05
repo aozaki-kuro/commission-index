@@ -3,9 +3,7 @@ import {
   CommissionViewModeProvider,
   CommissionViewTabs,
 } from '#features/home/commission/CommissionViewMode'
-import CommissionViewModeDomSync from '#features/home/commission/CommissionViewModeDomSync'
 import CommissionImageNoticeGate from '#features/home/commission/CommissionImageNoticeGate'
-import DevLiveRefresh from '#features/home/dev/DevLiveRefresh'
 import type { CharacterNavItem } from '#lib/characters/nav'
 import CommissionSearchDeferred from '#features/home/search/CommissionSearchDeferred'
 import { HomeLocaleProvider, type HomeLocaleOption } from '#features/home/i18n/HomeLocaleContext'
@@ -25,8 +23,6 @@ interface HomeControlsIslandProps {
   monthNavItems: CharacterNavItem[]
 }
 
-const isDevEnvironment = Boolean(import.meta.env?.DEV)
-
 const HomeControlsIsland = ({
   locale,
   localeOptions,
@@ -41,7 +37,6 @@ const HomeControlsIsland = ({
       <CommissionViewModeProvider>
         <CommissionSearchDeferred />
         <CommissionViewTabs />
-        <CommissionViewModeDomSync />
         <CommissionImageNoticeGate />
 
         <Suspense fallback={null}>
@@ -50,8 +45,6 @@ const HomeControlsIsland = ({
         <Suspense fallback={null}>
           <Hamburger active={active} stale={stale} timelineNavItems={monthNavItems} />
         </Suspense>
-
-        {isDevEnvironment ? <DevLiveRefresh /> : null}
       </CommissionViewModeProvider>
     </HomeLocaleProvider>
   )

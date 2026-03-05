@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react'
 import type { CreatorAliasRow } from '#lib/admin/db'
-import { fetchAdminBootstrapWithRetry } from '#admin/bootstrapFetch'
 import AliasesDashboard from '#admin/aliases/AliasesDashboard'
+import { useAdminBootstrap } from '#admin/hooks/useAdminBootstrap'
 
 type BootstrapPayload = {
   creatorAliases: CreatorAliasRow[]
@@ -12,38 +11,10 @@ interface AliasesDashboardIslandProps {
 }
 
 const AliasesDashboardIsland = ({ initialPayload = null }: AliasesDashboardIslandProps) => {
-  const [payload, setPayload] = useState<BootstrapPayload | null>(initialPayload)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [reloadToken, setReloadToken] = useState(0)
-
-  useEffect(() => {
-    if (!import.meta.env?.DEV) return
-
-    let active = true
-    const controller = new AbortController()
-
-    const loadData = async () => {
-      try {
-        const data = await fetchAdminBootstrapWithRetry<BootstrapPayload>({
-          signal: controller.signal,
-        })
-        if (active) {
-          setPayload(data)
-          setErrorMessage(null)
-        }
-      } catch (error) {
-        if (!active || controller.signal.aborted) return
-        const message = error instanceof Error ? error.message : 'Failed to load aliases data.'
-        setErrorMessage(message)
-      }
-    }
-
-    void loadData()
-    return () => {
-      active = false
-      controller.abort()
-    }
-  }, [reloadToken])
+  const { payload, errorMessage, isLoading, reload } = useAdminBootstrap<BootstrapPayload>({
+    initialPayload,
+    errorFallback: 'Failed to load aliases data.',
+  })
 
   if (!payload && errorMessage) {
     return (
@@ -51,10 +22,7 @@ const AliasesDashboardIsland = ({ initialPayload = null }: AliasesDashboardIslan
         <p className="text-sm text-red-300">{errorMessage}</p>
         <button
           className="mt-3 inline-flex rounded-md border border-zinc-500 px-3 py-1 text-sm hover:border-zinc-300"
-          onClick={() => {
-            setErrorMessage(null)
-            setReloadToken(token => token + 1)
-          }}
+          onClick={reload}
           type="button"
         >
           Retry
@@ -63,8 +31,12 @@ const AliasesDashboardIsland = ({ initialPayload = null }: AliasesDashboardIslan
     )
   }
 
-  if (!payload) {
+  if (isLoading) {
     return <p>Loading aliases data...</p>
+  }
+
+  if (!payload) {
+    return null
   }
 
   return <AliasesDashboard creators={payload.creatorAliases} />

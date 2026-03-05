@@ -1,5 +1,5 @@
 ---
-import Analytics from '#layouts/Analytics'
+import AnalyticsScript from '#layouts/AnalyticsScript.astro'
 import { SiteMeta } from '#config/siteMeta'
 import { Font } from 'astro:assets'
 
@@ -88,7 +88,7 @@ const canonicalUrl = new URL(canonicalPath, SiteMeta.canonicalUrl).toString()
       <div class="mx-4 min-h-dvh max-w-2xl pt-7 pb-16 text-sm leading-relaxed sm:pt-20 sm:pb-32 sm:text-base md:mx-auto md:min-h-screen">
         <slot />
       </div>
-      <Analytics client:idle />
+      <AnalyticsScript />
     </div>
   </body>
 </html>

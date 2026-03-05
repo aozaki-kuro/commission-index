@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
-import { Readable } from 'node:stream'
-import { handleAdminApiRequest } from './admin-api-handler'
+import { handleAdminApiRequest } from './adminApiHandler'
+import { toWebRequest, writeNodeResponse } from './httpBridge'
 import { createAstroStyleLogger } from '../src/lib/pipeline/astroLogger'
 
 const START_PORT = Number(process.env.ADMIN_API_PORT ?? 8788)
@@ -25,36 +25,12 @@ const announceListeningPort = async (port: number) => {
 const createNodeRequestServer = (port: number) =>
   createServer(async (req, res) => {
     try {
-      const host = req.headers.host ?? `localhost:${port}`
-      const url = `http://${host}${req.url ?? '/'}`
-      const method = req.method ?? 'GET'
-      const body =
-        method === 'GET' || method === 'HEAD' ? undefined : (Readable.toWeb(req) as ReadableStream)
-      const requestInit: RequestInit = {
-        method,
-        headers: req.headers as HeadersInit,
-        body,
-      }
-      if (body) {
-        ;(requestInit as RequestInit & { duplex: 'half' }).duplex = 'half'
-      }
-
-      const response = await handleAdminApiRequest(new Request(url, requestInit))
-      res.statusCode = response.status
-      response.headers.forEach((value, key) => {
-        res.setHeader(key, value)
+      const request = toWebRequest(req, {
+        requestPath: req.url ?? '/',
+        fallbackHost: `localhost:${port}`,
       })
-
-      if (!response.body) {
-        res.end()
-        return
-      }
-
-      const bodyBuffer = Buffer.from(await response.arrayBuffer())
-      if (!res.hasHeader('content-length')) {
-        res.setHeader('content-length', String(bodyBuffer.byteLength))
-      }
-      res.end(bodyBuffer)
+      const response = await handleAdminApiRequest(request)
+      await writeNodeResponse(res, response)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unexpected server error.'
       res.statusCode = 500

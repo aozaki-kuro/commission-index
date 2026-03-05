@@ -1,0 +1,28 @@
+<script>
+  import { updateChannel } from '#admin/dataUpdateSignal'
+
+  let debounceId: number | null = null
+
+  const refresh = () => {
+    if (debounceId !== null) {
+      window.clearTimeout(debounceId)
+    }
+    debounceId = window.setTimeout(() => {
+      window.location.reload()
+      debounceId = null
+    }, 120)
+  }
+
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const channel = new BroadcastChannel(updateChannel.name)
+      channel.onmessage = refresh
+    }
+  } catch {
+    // ignore
+  }
+
+  window.addEventListener('storage', event => {
+    if (event.key === updateChannel.storageKey) refresh()
+  })
+</script>

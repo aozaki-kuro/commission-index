@@ -1,0 +1,25 @@
+<script>
+  import { parseCommissionViewModeFromSearch } from '#features/home/commission/CommissionViewModeSearch'
+
+  const VIEW_MODE_URL_CHANGE_EVENT = 'commission-view-mode-change'
+
+  const syncPanelsByMode = () => {
+    const mode = parseCommissionViewModeFromSearch(window.location.search)
+    const panels = document.querySelectorAll('[data-commission-view-panel]')
+
+    for (const panel of panels) {
+      if (!(panel instanceof HTMLElement)) continue
+
+      const panelMode = panel.dataset.commissionViewPanel
+      if (panelMode !== 'character' && panelMode !== 'timeline') continue
+
+      const isActive = panelMode === mode
+      panel.dataset.commissionViewActive = isActive ? 'true' : 'false'
+      panel.classList.toggle('hidden', !isActive)
+    }
+  }
+
+  window.addEventListener('popstate', syncPanelsByMode)
+  window.addEventListener(VIEW_MODE_URL_CHANGE_EVENT, syncPanelsByMode)
+  syncPanelsByMode()
+</script>

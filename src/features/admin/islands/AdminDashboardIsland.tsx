@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { refreshAssetsAction } from '#admin/actions'
 import AdminDashboard from '#admin/AdminDashboard'
-import { fetchAdminBootstrapWithRetry } from '#admin/bootstrapFetch'
-import { subscribeToDataUpdates } from '#admin/dataUpdateSignal'
+import { useAdminBootstrap } from '#admin/hooks/useAdminBootstrap'
 import type { AdminBootstrapData } from '#lib/admin/db'
 
 interface AdminDashboardIslandProps {
@@ -10,9 +9,11 @@ interface AdminDashboardIslandProps {
 }
 
 const AdminDashboardIsland = ({ initialPayload = null }: AdminDashboardIslandProps) => {
-  const [payload, setPayload] = useState<AdminBootstrapData | null>(initialPayload)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [reloadToken, setReloadToken] = useState(0)
+  const { payload, errorMessage, isLoading, reload } = useAdminBootstrap<AdminBootstrapData>({
+    initialPayload,
+    errorFallback: 'Failed to load admin data.',
+    subscribeUpdates: true,
+  })
   const [isRefreshingAssets, setIsRefreshingAssets] = useState(false)
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null)
 
@@ -22,54 +23,13 @@ const AdminDashboardIsland = ({ initialPayload = null }: AdminDashboardIslandPro
     return () => window.clearTimeout(timer)
   }, [refreshMessage])
 
-  useEffect(() => {
-    if (!import.meta.env?.DEV) return
-
-    let active = true
-    let controller: AbortController | null = null
-
-    const loadData = async () => {
-      controller?.abort()
-      controller = new AbortController()
-
-      try {
-        const data = await fetchAdminBootstrapWithRetry<AdminBootstrapData>({
-          signal: controller.signal,
-        })
-        if (active) {
-          setPayload(data)
-          setErrorMessage(null)
-        }
-      } catch (error) {
-        if (!active || controller.signal.aborted) return
-        const message = error instanceof Error ? error.message : 'Failed to load admin data.'
-        setErrorMessage(message)
-      }
-    }
-
-    void loadData()
-
-    const unsubscribe = subscribeToDataUpdates(() => {
-      void loadData()
-    })
-
-    return () => {
-      active = false
-      controller?.abort()
-      unsubscribe()
-    }
-  }, [reloadToken])
-
   if (!payload && errorMessage) {
     return (
       <div>
         <p className="text-sm text-red-300">{errorMessage}</p>
         <button
           className="mt-3 inline-flex rounded-md border border-zinc-500 px-3 py-1 text-sm hover:border-zinc-300"
-          onClick={() => {
-            setErrorMessage(null)
-            setReloadToken(token => token + 1)
-          }}
+          onClick={reload}
           type="button"
         >
           Retry
@@ -78,8 +38,12 @@ const AdminDashboardIsland = ({ initialPayload = null }: AdminDashboardIslandPro
     )
   }
 
-  if (!payload) {
+  if (isLoading) {
     return <p>Loading admin data...</p>
+  }
+
+  if (!payload) {
+    return null
   }
 
   const handleRefreshAssets = async () => {
@@ -91,7 +55,7 @@ const AdminDashboardIsland = ({ initialPayload = null }: AdminDashboardIslandPro
     setIsRefreshingAssets(false)
     setRefreshMessage(result.message ?? (result.status === 'success' ? 'Assets refreshed.' : null))
     if (result.status === 'success') {
-      setReloadToken(token => token + 1)
+      reload()
     }
   }
 

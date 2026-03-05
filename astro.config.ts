@@ -3,8 +3,8 @@ import { defineConfig, fontProviders } from 'astro/config'
 import react from '@astrojs/react'
 import type { Plugin } from 'vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
-import { assetsPipelineIntegration } from './server/assets-pipeline-astro'
-import { devAdminApiPlugin, devAdminRoutesIntegration } from './server/dev-admin-astro'
+import { assetsPipelineIntegration } from './server/assetsPipelineAstro'
+import { devAdminApiPlugin, devAdminRoutesIntegration } from './server/devAdminAstro'
 
 const isSourceImagePath = (filePath: string) => {
   const normalized = filePath.split(path.sep).join('/').toLowerCase()

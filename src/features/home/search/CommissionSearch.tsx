@@ -192,10 +192,21 @@ const getDomSearchContext = (viewMode: 'character' | 'timeline') => {
 const buildSearchIndex = (
   viewMode: 'character' | 'timeline',
   externalEntries?: CommissionSearchEntrySource[],
+  options?: {
+    skipDomContext?: boolean
+  },
 ): SearchIndex => {
   if (typeof window === 'undefined') return createEmptySearchIndex()
 
-  const { domEntries, sections, staleDivider } = getDomSearchContext(viewMode)
+  const shouldSkipDomContext = options?.skipDomContext === true
+  const domContext = shouldSkipDomContext
+    ? {
+        domEntries: [] as Array<{ element: HTMLElement; sectionId?: string; domKey?: string }>,
+        sections: [] as Section[],
+        staleDivider: null as HTMLElement | null,
+      }
+    : getDomSearchContext(viewMode)
+  const { domEntries, sections, staleDivider } = domContext
 
   if (externalEntries) {
     const domEntryByKey = new Map(
@@ -490,11 +501,14 @@ const CommissionSearch = ({
     () => !deferIndexInit || !!initialQuery || !!initialUrlQuery,
   )
   const shouldBuildIndex = isIndexReady || !deferIndexInit || !!query || !!initialUrlQuery
+  const shouldSkipDomContext = disableDomFiltering && Boolean(externalEntries)
 
   const index = useMemo(() => {
     if (!shouldBuildIndex) return createEmptySearchIndex()
-    return buildSearchIndex(mode, externalEntries)
-  }, [externalEntries, mode, shouldBuildIndex])
+    return buildSearchIndex(mode, externalEntries, {
+      skipDomContext: shouldSkipDomContext,
+    })
+  }, [externalEntries, mode, shouldBuildIndex, shouldSkipDomContext])
   const [hydratedIndex, setHydratedIndex] = useState<SearchIndex | null>(null)
   const resolvedIndex = useMemo(
     () => (hydratedIndex && hydratedIndex.entries === index.entries ? hydratedIndex : index),

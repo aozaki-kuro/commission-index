@@ -1,5 +1,3 @@
-import AppLink from '#components/shared/AppLink'
-
 const DevAdminLink = () => {
   return (
     <div className="relative flex min-h-5 items-center pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
@@ -17,12 +15,12 @@ const DevAdminLink = () => {
           strokeLinejoin="round"
         />
       </svg>
-      <AppLink
+      <a
         href="/admin"
         className="font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200"
       >
         Admin
-      </AppLink>
+      </a>
     </div>
   )
 }

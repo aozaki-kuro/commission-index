@@ -41,47 +41,76 @@ const success = (message: string) => json({ status: 'success', message } satisfi
 const failure = (message: string, status = 400) =>
   json({ status: 'error', message } satisfies ApiState, status)
 
-const parseCommissionFieldsFromForm = (formData: FormData) => {
-  const characterId = Number(formData.get('characterId'))
-  const fileName = formData.get('fileName')?.toString().trim() ?? ''
-  const linksRaw = formData.get('links')?.toString() ?? ''
-  const design = formData.get('design')?.toString().trim() || undefined
-  const description = formData.get('description')?.toString().trim() || undefined
-  const keyword = formData.get('keyword')?.toString().trim() || undefined
-  const hidden = formData.get('hidden') === 'on'
+type CommissionFields = {
+  characterId: number
+  fileName: string
+  links: string[]
+  design?: string
+  description?: string
+  keyword?: string
+  hidden: boolean
+}
 
-  return {
-    characterId,
-    fileName,
-    links: linksRaw
-      .split('\n')
-      .map(link => link.trim())
-      .filter(Boolean),
-    design,
-    description,
-    keyword,
-    hidden,
-  }
+const parseLinks = (rawValue: string) =>
+  rawValue
+    .split('\n')
+    .map(link => link.trim())
+    .filter(Boolean)
+
+const parseOptionalField = (rawValue: string) => rawValue.trim() || undefined
+
+const parseCommissionFields = ({
+  characterId,
+  fileName,
+  links,
+  design,
+  description,
+  keyword,
+  hidden,
+}: {
+  characterId: number
+  fileName: string
+  links: string
+  design: string
+  description: string
+  keyword: string
+  hidden: boolean
+}): CommissionFields => ({
+  characterId,
+  fileName: fileName.trim(),
+  links: parseLinks(links),
+  design: parseOptionalField(design),
+  description: parseOptionalField(description),
+  keyword: parseOptionalField(keyword),
+  hidden,
+})
+
+const parseCommissionFieldsFromForm = (formData: FormData) => {
+  return parseCommissionFields({
+    characterId: Number(formData.get('characterId')),
+    fileName: formData.get('fileName')?.toString() ?? '',
+    links: formData.get('links')?.toString() ?? '',
+    design: formData.get('design')?.toString() ?? '',
+    description: formData.get('description')?.toString() ?? '',
+    keyword: formData.get('keyword')?.toString() ?? '',
+    hidden: formData.get('hidden') === 'on',
+  })
 }
 
 const parseCommissionFieldsFromJson = (payload: Record<string, unknown>) => {
-  const linksRaw = String(payload.links ?? '')
-  return {
+  return parseCommissionFields({
     characterId: Number(payload.characterId),
-    fileName: String(payload.fileName ?? '').trim(),
-    links: linksRaw
-      .split('\n')
-      .map(link => link.trim())
-      .filter(Boolean),
-    design: String(payload.design ?? '').trim() || undefined,
-    description: String(payload.description ?? '').trim() || undefined,
-    keyword: String(payload.keyword ?? '').trim() || undefined,
+    fileName: String(payload.fileName ?? ''),
+    links: String(payload.links ?? ''),
+    design: String(payload.design ?? ''),
+    description: String(payload.description ?? ''),
+    keyword: String(payload.keyword ?? ''),
     hidden: Boolean(payload.hidden),
-  }
+  })
 }
 
 const validateCommissionFields = (
-  fields: Pick<ReturnType<typeof parseCommissionFieldsFromForm>, 'characterId' | 'fileName'>,
+  fields: Pick<CommissionFields, 'characterId' | 'fileName'>,
 ): string | null => {
   if (!Number.isFinite(fields.characterId) || fields.characterId <= 0) {
     return 'Character selection is required.'

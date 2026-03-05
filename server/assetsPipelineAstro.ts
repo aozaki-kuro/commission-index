@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process'
 
 const runAssetsSyncCli = async (reason: string) => {
   await new Promise<void>((resolve, reject) => {
-    const child = spawn('bun', ['run', 'server/assets-sync-cli.ts', '--reason', reason], {
+    const child = spawn('bun', ['run', 'server/assetsSyncCli.ts', '--reason', reason], {
       cwd: process.cwd(),
       env: process.env,
       stdio: ['ignore', 'inherit', 'inherit'],

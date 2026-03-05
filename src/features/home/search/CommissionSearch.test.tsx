@@ -105,6 +105,30 @@ describe('CommissionSearch', () => {
     expect(writeText).toHaveBeenCalledTimes(1)
   })
 
+  it('does not scan commission DOM when external entries are provided with disableDomFiltering', () => {
+    const querySelectorAllSpy = vi.spyOn(document, 'querySelectorAll')
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'test-character::20240101_alice',
+        searchText: 'alice sample',
+        searchSuggest: 'Character\tAlice',
+      },
+    ]
+    try {
+      renderSearch(entries)
+
+      const queriedSelectors = querySelectorAllSpy.mock.calls
+        .map(([selector]) => selector)
+        .filter((value): value is string => typeof value === 'string')
+
+      expect(queriedSelectors).not.toContain('[data-commission-entry="true"]')
+      expect(queriedSelectors).not.toContain('[data-character-section="true"]')
+    } finally {
+      querySelectorAllSpy.mockRestore()
+    }
+  })
+
   it('opens help popover on mount when openHelpOnMount is true', async () => {
     const entries: CommissionSearchEntrySource[] = [
       {

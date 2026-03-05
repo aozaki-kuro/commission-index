@@ -19,7 +19,10 @@ This repository contains an Astro 5 static site with React 19 islands, written i
 - Keep React only for interactive islands:
   - `Warning` (age gate)
   - `HomeControlsIsland` (search/tabs/nav/hamburger)
-  - `Analytics` loader
+- Home-level side effects are Astro script components:
+  - `src/layouts/AnalyticsScript.astro`
+  - `src/features/home/commission/CommissionViewModeDomSyncScript.astro`
+  - `src/features/home/dev/DevLiveRefreshScript.astro`
 - Home search/view-mode behavior depends on existing `data-*` DOM contracts; preserve attribute names and structure when editing Astro templates.
 - Shared pure rendering helpers:
   - `src/features/home/commission/linkDisplay.ts` (link sanitization/priority selection)
@@ -28,8 +31,8 @@ This repository contains an Astro 5 static site with React 19 islands, written i
 ## Admin Rendering Architecture
 
 - Admin routes are Astro page shells in dev-only entrypoints:
-  - `src/dev-admin/pages/adminIndex.astro`
-  - `src/dev-admin/pages/adminAliases.astro`
+  - `src/devAdmin/pages/adminIndex.astro`
+  - `src/devAdmin/pages/adminAliases.astro`
 - Static page structure (title/description/navigation/fallback) stays in Astro templates.
 - Admin interactive state is isolated to React islands:
   - `src/features/admin/islands/AdminDashboardIsland.tsx`
@@ -61,11 +64,32 @@ Run checks in this order before pushing:
 Additional guidance:
 
 - For docs-only edits, `bun run lint` is still recommended; `bun run build` can be skipped only when no runtime-related files changed.
-- If `data/commissions.db`, `server/admin-api.ts`, or admin/data-access code changed, `bun run build` is mandatory.
+- If `data/commissions.db`, `server/adminApi.ts`, or admin/data-access code changed, `bun run build` is mandatory.
 - Run `bun run test` whenever you modify:
-  - `src/admin/*`, `#admin/actions`, `server/admin-api.ts`, `src/lib/admin/db.ts`, `vite.config.ts`
+  - `src/admin/*`, `#admin/actions`, `server/adminApi.ts`, `src/lib/admin/db.ts`, `vite.config.ts`
   - Rendering/component logic in `src/components/*` and `src/pages/*`
   - Search/filter/date parsing logic or other user-visible behavior in `src/lib/*` and `data/*`
+
+## Server Runtime Architecture
+
+- Astro dev integration and route injection:
+  - `server/devAdminAstro.ts`
+- Standalone dev admin API server:
+  - `server/adminApi.ts`
+- API route handler:
+  - `server/adminApiHandler.ts`
+- Shared Node/Web bridge helpers:
+  - `server/httpBridge.ts`
+- Asset pipeline integration:
+  - `server/assetsPipelineAstro.ts`
+  - `server/assetsSyncCli.ts`
+
+## Change Log
+
+- Switched admin/server business filenames to camelCase (`adminApi*`, `devAdminAstro`, `assetsPipelineAstro`, `assetsSyncCli`).
+- Moved dev admin Astro routes to `src/devAdmin/pages/*`.
+- Migrated effect-only home/layout side effects to Astro script components.
+- Added shared server request/response bridge utility and test coverage.
 
 ## Code Style
 
