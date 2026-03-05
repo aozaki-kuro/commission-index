@@ -35,6 +35,17 @@ describe('CommissionSearchDeferred', () => {
     expect(screen.queryByTestId('commission-search-lazy')).not.toBeInTheDocument()
   })
 
+  it('keeps shell input focus path without activating lazy search', () => {
+    render(<CommissionSearchDeferred />)
+
+    const input = screen.getByLabelText('Search commissions')
+    fireEvent.pointerDown(input)
+    fireEvent.focus(input)
+
+    expect(mockCommissionSearch).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('commission-search-lazy')).not.toBeInTheDocument()
+  })
+
   it('passes shell query to lazy search when activated from input', async () => {
     render(<CommissionSearchDeferred />)
 
