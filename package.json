@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "astro build",
+    "check": "astro check .",
     "clean": "rm -rf .astro dist node_modules .wrangler && bun i",
     "deploy": "bun run build && wrangler deploy",
     "dev": "NODE_ENV=development astro dev",
