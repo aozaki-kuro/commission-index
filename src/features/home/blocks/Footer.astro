@@ -1,4 +1,12 @@
 ---
+import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
+
+interface Props {
+  locale?: string
+}
+
+const { locale } = Astro.props as Props
+const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
 const currentYear = new Date().getFullYear()
 ---
 
@@ -8,13 +16,9 @@ const currentYear = new Date().getFullYear()
   <div class="pb-8" />
 
   <div class="pb-10 text-center text-xs">
-    <p class="pt-2">規約による、Skeb でやり取りされた作品のすべての権利はクリエイターと版権元に帰属する。</p>
-    <p class="pt-2">
-      The copyright of all art works commissioned on Skeb belongs to the artist and the proper
-      copyright holders.
-    </p>
-    <p class="pt-2">Some character names are obscured due to rule requirements.</p>
-    <p class="pt-2">This site has restricted search engines from indexing.</p>
+    {messages.footer.rightsLines.map(line => <p class="pt-2">{line}</p>)}
+    <p class="pt-2">{messages.footer.obscuredNames}</p>
+    <p class="pt-2">{messages.footer.noIndexing}</p>
   </div>
 
   <small class="block pt-24 pb-10 font-mono text-xs text-gray-800 md:pb-0 dark:text-gray-300">

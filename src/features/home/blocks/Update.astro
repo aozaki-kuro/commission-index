@@ -5,29 +5,32 @@ import {
   isMilestoneCommissionCount,
   type HomeUpdateSummary,
 } from '#lib/home/updateSummary'
+import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
 
 interface Props {
+  locale?: string
   commissionData: CommissionData
   activeCharacters: string[]
   summary?: HomeUpdateSummary
 }
 
-const { commissionData, activeCharacters, summary } = Astro.props as Props
+const { locale, commissionData, activeCharacters, summary } = Astro.props as Props
+const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
 const resolvedSummary = summary ?? buildHomeUpdateSummary(commissionData, activeCharacters)
 ---
 
 {
   resolvedSummary.entries.length === 0 ? (
-    <p class="font-mono text-sm">No active updates found</p>
+    <p class="font-mono text-sm">{messages.update.noActiveUpdatesFound}</p>
   ) : (
     <div class="mt-6 mb-4 flex flex-col font-mono text-xs sm:text-sm md:mt-8">
       <p class="mb-2">
-        Currently {resolvedSummary.totalCommissions} commissions
+        {messages.update.formatTotalCommissions(resolvedSummary.totalCommissions)}
         {isMilestoneCommissionCount(resolvedSummary.totalCommissions) ? ' 🎉' : ''}
       </p>
 
       <div class="flex items-start">
-        <p class="mr-2">Last update:</p>
+        <p class="mr-2">{messages.update.lastUpdate}</p>
         <div class="flex flex-col space-y-2">
           {
             resolvedSummary.entries.map(entry => (

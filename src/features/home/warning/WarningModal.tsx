@@ -8,11 +8,13 @@ import {
   AlertDialogTitle,
 } from '#components/ui/alert-dialog'
 import { type RefObject } from 'react'
+import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
 
 const WarningMark = '/favicon-transparent.svg'
 const WARNING_MARK_SIZE = 88
 
 type WarningModalProps = {
+  locale?: string
   isOpen: boolean
   confirmButtonRef: RefObject<HTMLButtonElement | null>
   onConfirm: () => void
@@ -20,11 +22,14 @@ type WarningModalProps = {
 }
 
 export default function WarningModal({
+  locale,
   isOpen,
   confirmButtonRef,
   onConfirm,
   onLeave,
 }: WarningModalProps) {
+  const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
+
   return (
     <AlertDialog open={isOpen} onOpenChange={() => {}}>
       <AlertDialogContent
@@ -48,16 +53,16 @@ export default function WarningModal({
           />
         </div>
         <AlertDialogTitle className="text-center text-lg leading-6 font-bold text-gray-900 select-none dark:text-gray-300">
-          [ Warning ]
+          {messages.warning.title}
         </AlertDialogTitle>
         <AlertDialogDescription className="sr-only">
-          Age confirmation required before viewing the full content.
+          {messages.warning.srDescription}
         </AlertDialogDescription>
         <div className="mt-2">
           <p className="text-center text-sm text-gray-500 select-none dark:text-gray-400">
-            You have to be over 18 to view the contents.
+            {messages.warning.contentLine1}
             <br />
-            Please <b>leave now</b> if you are under 18.
+            {messages.warning.contentLine2}
           </p>
         </div>
         <div className="mt-4 flex items-center justify-center">
@@ -70,7 +75,7 @@ export default function WarningModal({
               className="border-transparent bg-blue-100 px-4 font-mono text-xs font-medium text-blue-900 select-none hover:bg-blue-200 dark:bg-blue-900/40 dark:text-blue-100 dark:hover:bg-blue-900/55"
               onClick={onConfirm}
             >
-              I am over 18
+              {messages.warning.confirmAge}
             </Button>
           </AlertDialogAction>
           <div className="mx-3" />
@@ -82,7 +87,7 @@ export default function WarningModal({
               className="border-transparent bg-red-100 px-4 font-mono text-xs font-medium text-red-900 hover:bg-red-200 dark:bg-red-900/40 dark:text-red-100 dark:hover:bg-red-900/55"
               onClick={onLeave}
             >
-              Leave Now
+              {messages.warning.leaveNow}
             </Button>
           </AlertDialogCancel>
         </div>

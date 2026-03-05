@@ -9,6 +9,7 @@ type CharacterDisplay = {
 }
 
 interface StaticCommissionSectionsProps {
+  locale?: string
   activeChars: CharacterDisplay[]
   staleChars: CharacterDisplay[]
   commissionMap: Map<string, CharacterCommissions>
@@ -16,7 +17,7 @@ interface StaticCommissionSectionsProps {
   creatorAliasesMap: Map<string, string[]>
 }
 
-const { activeChars, staleChars, commissionMap, timelineGroups, creatorAliasesMap } =
+const { locale, activeChars, staleChars, commissionMap, timelineGroups, creatorAliasesMap } =
   Astro.props as StaticCommissionSectionsProps
 ---
 
@@ -25,6 +26,7 @@ const { activeChars, staleChars, commissionMap, timelineGroups, creatorAliasesMa
     {
       activeChars.map(chara => (
         <Listing
+          locale={locale}
           Character={chara.DisplayName}
           status="active"
           commissionMap={commissionMap}
@@ -42,6 +44,7 @@ const { activeChars, staleChars, commissionMap, timelineGroups, creatorAliasesMa
     {
       staleChars.map(chara => (
         <Listing
+          locale={locale}
           Character={chara.DisplayName}
           status="stale"
           commissionMap={commissionMap}

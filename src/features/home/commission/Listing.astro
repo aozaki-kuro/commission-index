@@ -2,15 +2,19 @@
 import type { CharacterCommissions } from '#data/types'
 import { getCharacterSectionHash, getCharacterSectionId, getCharacterTitleId } from '#lib/characters/nav'
 import CommissionEntries from '#features/home/commission/CommissionEntries.astro'
+import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
 
 interface ListingProps {
+  locale?: string
   Character: string
   status: 'active' | 'stale'
   commissionMap: Map<string, CharacterCommissions>
   creatorAliasesMap: Map<string, string[]> | null
 }
 
-const { Character, status, commissionMap, creatorAliasesMap } = Astro.props as ListingProps
+const { locale, Character, status, commissionMap, creatorAliasesMap } = Astro.props as ListingProps
+const resolvedLocale = normalizeHomeLocale(locale)
+const messages = getHomeLocaleMessages(resolvedLocale)
 const sectionId = getCharacterSectionId(Character)
 const titleId = getCharacterTitleId(Character)
 const sectionHash = getCharacterSectionHash(Character)
@@ -38,9 +42,10 @@ const commissions = characterData?.Commissions ?? []
 
   {
     commissions.length === 0 ? (
-      <p class="my-4">To be announced ...</p>
+      <p class="my-4">{messages.listing.toBeAnnounced}</p>
     ) : (
       <CommissionEntries
+        locale={resolvedLocale}
         entries={commissions.map(commission => ({
           character: Character,
           commission,

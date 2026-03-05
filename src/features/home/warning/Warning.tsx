@@ -84,7 +84,7 @@ function subscribeHasOpened(callback: () => void) {
   }
 }
 
-export default function Warning() {
+export default function Warning({ locale }: { locale?: string }) {
   // 用外部存储（localStorage）作为“单一事实来源”，不再在 effect 里 setState
   const isOpen = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
   const confirmButtonRef = useRef<HTMLButtonElement>(null)
@@ -109,6 +109,7 @@ export default function Warning() {
 
   return (
     <WarningModal
+      locale={locale}
       isOpen={isOpen}
       confirmButtonRef={confirmButtonRef}
       onConfirm={handleConfirmAge}

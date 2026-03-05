@@ -9,6 +9,7 @@ interface Props {
   title?: string
   description?: string
   canonicalPath?: string
+  lang?: string
   priorityImage?: {
     src: string
     srcSet?: string
@@ -16,14 +17,14 @@ interface Props {
   }
 }
 
-const { title, description = SiteMeta.description, canonicalPath = '/', priorityImage } =
+const { title, description = SiteMeta.description, canonicalPath = '/', lang = 'en', priorityImage } =
   Astro.props as Props
 const pageTitle = title ? `${title} | ${SiteMeta.site}` : SiteMeta.site
 const canonicalUrl = new URL(canonicalPath, SiteMeta.canonicalUrl).toString()
 ---
 
 <!doctype html>
-<html lang="en" class="font-sans">
+<html lang={lang} class="font-sans">
   <head>
     <meta charset="UTF-8" />
     <Font

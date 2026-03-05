@@ -1,0 +1,110 @@
+---
+import { getImage } from 'astro:assets'
+import { getRelativeLocaleUrl } from 'astro:i18n'
+import CommissionDescription from '#features/home/blocks/Description.astro'
+import Footer from '#features/home/blocks/Footer.astro'
+import HomeControlsIsland from '#features/home/islands/HomeControlsIsland'
+import StaticCommissionSections from '#features/home/server/StaticCommissionSections.astro'
+import Warning from '#features/home/warning/Warning'
+import { homeUpdateSummary } from '#lib/generated/homeUpdateSummary'
+import { buildSitePayload } from '#lib/home/buildSitePayload'
+import { listMissingSourceImages, resolveSourceImageByCommissionFileName } from '#lib/images/sourceImageRegistry'
+import { buildCommissionDataMap, buildCreatorAliasesMap } from '#lib/sitePayload'
+import BaseLayout from '#layouts/BaseLayout.astro'
+import {
+  HOME_LOCALE_SWITCH_ITEMS,
+  getHomeLocaleMessages,
+  normalizeHomeLocale,
+} from '#features/home/i18n/homeLocale'
+
+interface HomePageProps {
+  locale?: string
+  canonicalPath?: string
+}
+
+const { locale, canonicalPath } = Astro.props as HomePageProps
+const resolvedLocale = normalizeHomeLocale(locale)
+const messages = getHomeLocaleMessages(resolvedLocale)
+const localeOptions = HOME_LOCALE_SWITCH_ITEMS.map(item => ({
+  locale: item.locale,
+  label: item.label,
+  href: getRelativeLocaleUrl(item.locale),
+}))
+
+const payload = buildSitePayload()
+const commissionMap = buildCommissionDataMap(payload.commissionData)
+const creatorAliasesMap = buildCreatorAliasesMap(payload.creatorAliases)
+const COMMISSION_IMAGE_SIZES = '(max-width: 768px) 92vw, 640px'
+
+const commissionFileNames = payload.commissionData.flatMap(character =>
+  character.Commissions.map(commission => commission.fileName),
+)
+const missingSourceImages = listMissingSourceImages(commissionFileNames)
+
+if (missingSourceImages.length > 0) {
+  const message = `Missing source images for ${missingSourceImages.length} commissions: ${missingSourceImages.join(', ')}`
+
+  if (import.meta.env.DEV) {
+    console.warn(`[images] ${message}`)
+  } else {
+    throw new Error(message)
+  }
+}
+
+const firstCharacterName =
+  payload.characterStatus.active[0]?.DisplayName ?? payload.characterStatus.stale[0]?.DisplayName
+const firstCommissionFileName = firstCharacterName
+  ? commissionMap.get(firstCharacterName)?.Commissions?.[0]?.fileName
+  : undefined
+const firstSourceImage = firstCommissionFileName
+  ? resolveSourceImageByCommissionFileName(firstCommissionFileName)
+  : null
+
+const priorityImage = firstSourceImage
+  ? (() =>
+      getImage({
+        src: firstSourceImage,
+        widths: [768, 960, 1280],
+        format: 'webp',
+        sizes: COMMISSION_IMAGE_SIZES,
+      }).then(image => ({
+        src: image.src,
+        srcSet: image.srcSet.attribute,
+        sizes: COMMISSION_IMAGE_SIZES,
+      })))()
+  : undefined
+
+const resolvedCanonicalPath =
+  canonicalPath ?? (resolvedLocale === 'en' ? '/' : `/${resolvedLocale}/`)
+---
+
+<BaseLayout priorityImage={await priorityImage} lang={messages.lang} canonicalPath={resolvedCanonicalPath}>
+  <Warning client:load locale={resolvedLocale} />
+  <CommissionDescription
+    locale={resolvedLocale}
+    commissionData={payload.commissionData}
+    activeCharacters={payload.activeCharacterNames}
+    updateSummary={homeUpdateSummary}
+  />
+  <div class="relative mx-auto flex justify-center">
+    <div id="Main Contents" class="w-full max-w-2xl">
+      <HomeControlsIsland
+        client:load
+        locale={resolvedLocale}
+        localeOptions={localeOptions}
+        active={payload.characterStatus.active}
+        stale={payload.characterStatus.stale}
+        monthNavItems={payload.monthNavItems}
+      />
+      <StaticCommissionSections
+        locale={resolvedLocale}
+        activeChars={payload.characterStatus.active}
+        staleChars={payload.characterStatus.stale}
+        commissionMap={commissionMap}
+        creatorAliasesMap={creatorAliasesMap}
+        timelineGroups={payload.timelineGroups}
+      />
+      <Footer locale={resolvedLocale} />
+    </div>
+  </div>
+</BaseLayout>

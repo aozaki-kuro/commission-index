@@ -31,6 +31,13 @@ const devSourceImageWatchPlugin = (): Plugin => ({
 
 export default defineConfig({
   output: 'static',
+  i18n: {
+    defaultLocale: 'en',
+    locales: ['en', 'zh-tw', 'ja'],
+    routing: {
+      prefixDefaultLocale: false,
+    },
+  },
   experimental: {
     fonts: [
       {

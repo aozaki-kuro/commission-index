@@ -7,14 +7,17 @@ import {
   hasDisplayableLinks,
   selectDisplayLinks,
 } from '#features/home/commission/linkDisplay'
+import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
 
 interface IllustratorInfoProps {
+  locale?: string
   commission: Commission
   kebabName: string
   showLinks?: boolean
 }
 
-const { commission, kebabName, showLinks = true } = Astro.props as IllustratorInfoProps
+const { locale, commission, kebabName, showLinks = true } = Astro.props as IllustratorInfoProps
+const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
 const { fileName, Description: description = '', Links: links, Design: designLink } = commission
 const { date, creator } = parseCommissionFileName(fileName)
 const linkId = `#${kebabName}-${date}`
@@ -78,7 +81,7 @@ const hasDisplayLinks = hasDisplayableLinks({ links, designLink })
               displayLinks.designLink ? (
                 <span class={displayLinks.mainLinks.length > 0 ? 'ml-2 md:ml-3' : ''}>
                   <a href={displayLinks.designLink} class={COMMISSION_LINK_TEXT_CLASS} target="_blank">
-                    Design
+                    {messages.listing.designLink}
                   </a>
                 </span>
               ) : null
@@ -90,11 +93,11 @@ const hasDisplayLinks = hasDisplayableLinks({ links, designLink })
             aria-pressed="false"
             data-link-style="true"
             class={`${COMMISSION_LINK_TEXT_CLASS} inline-flex cursor-pointer appearance-none items-center gap-2.5 border-0 bg-transparent p-0 disabled:cursor-default disabled:no-underline`}
-            title="Record interest in this unpublished commission"
+            title={messages.listing.wantThisTitle}
             data-commission-interest-key={interestKey}
           >
             <span aria-hidden="true" class="h-1.5 w-1.5 rounded-full bg-current opacity-80" />
-            <span>Want this</span>
+            <span>{messages.listing.wantThis}</span>
           </button>
         )
       ) : null

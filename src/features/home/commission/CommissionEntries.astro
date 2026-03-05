@@ -9,6 +9,7 @@ import { getBaseFileName } from '#lib/utils/strings'
 import { resolveSourceImageByCommissionFileName } from '#lib/images/sourceImageRegistry'
 import IllustratorInfo from '#features/home/commission/IllustratorInfo.astro'
 import ProtectedCommissionImage from '#features/home/commission/ProtectedCommissionImage.astro'
+import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
 
 export interface CommissionRenderEntry {
   character: string
@@ -19,6 +20,7 @@ export interface CommissionRenderEntry {
 }
 
 interface CommissionEntriesProps {
+  locale?: string
   entries: CommissionRenderEntry[]
   creatorAliasesMap: Map<string, string[]> | null
   showCharacterLabel?: boolean
@@ -28,6 +30,7 @@ interface CommissionEntriesProps {
 }
 
 const {
+  locale,
   entries,
   creatorAliasesMap,
   showCharacterLabel = false,
@@ -36,6 +39,8 @@ const {
   embedSearchMetadata,
 } = Astro.props as CommissionEntriesProps
 
+const resolvedLocale = normalizeHomeLocale(locale)
+const messages = getHomeLocaleMessages(resolvedLocale)
 const shouldEmbedSearchMetadata = embedSearchMetadata ?? Boolean(import.meta.env?.DEV)
 ---
 
@@ -84,7 +89,7 @@ const shouldEmbedSearchMetadata = embedSearchMetadata ?? Boolean(import.meta.env
             ) : (
               <div data-commission-image="true" data-commission-alt={altText} class="relative">
                 <div class="aspect-1280/525 flex items-center justify-center bg-gray-100 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-300">
-                  Source image not found
+                  {messages.listing.sourceImageNotFound}
                 </div>
               </div>
             )
@@ -98,7 +103,12 @@ const shouldEmbedSearchMetadata = embedSearchMetadata ?? Boolean(import.meta.env
               </div>
             ) : null
           }
-          <IllustratorInfo commission={commission} kebabName={entryAnchorPrefix} showLinks={showLinks} />
+          <IllustratorInfo
+            locale={resolvedLocale}
+            commission={commission}
+            kebabName={entryAnchorPrefix}
+            showLinks={showLinks}
+          />
         </div>
       </div>
     )
