@@ -10,8 +10,10 @@ import {
 } from 'react'
 import { scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
+import { parseCommissionViewModeFromSearch } from './CommissionViewModeSearch'
 
-export type CommissionViewMode = 'character' | 'timeline'
+type CommissionViewMode = import('./CommissionViewModeSearch').CommissionViewMode
+export type { CommissionViewMode } from './CommissionViewModeSearch'
 
 type CommissionViewModeContextValue = {
   mode: CommissionViewMode
@@ -19,22 +21,16 @@ type CommissionViewModeContextValue = {
   isPanelMounted: (panel: CommissionViewMode) => boolean
 }
 
-const VIEW_MODE_QUERY_PARAM = 'view'
 const VIEW_MODE_URL_CHANGE_EVENT = 'commission-view-mode-change'
-
-export const parseCommissionViewModeFromSearch = (search: string): CommissionViewMode => {
-  const view = new URLSearchParams(search).get(VIEW_MODE_QUERY_PARAM)
-  return view === 'timeline' ? 'timeline' : 'character'
-}
 
 const replaceCommissionViewModeInAddress = (mode: CommissionViewMode) => {
   if (typeof window === 'undefined') return
 
   const url = new URL(window.location.href)
   if (mode === 'timeline') {
-    url.searchParams.set(VIEW_MODE_QUERY_PARAM, 'timeline')
+    url.searchParams.set('view', 'timeline')
   } else {
-    url.searchParams.delete(VIEW_MODE_QUERY_PARAM)
+    url.searchParams.delete('view')
   }
 
   window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
