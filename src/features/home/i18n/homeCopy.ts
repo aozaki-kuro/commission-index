@@ -38,7 +38,7 @@ export const homeCopyByLocale: Record<HomeLocale, HomeCopy> = {
     footerNoIndex: 'This site has restricted search engines from indexing.',
   },
   ja: {
-    siteTitle: 'コミッション索引',
+    siteTitle: 'コミッション一覧',
     introductionTitle: '紹介',
     descriptionParagraphs: [
       'プレビュー画像には、可能な範囲で Twitter、Pixiv、Fantia などへのリンクを添えています。リンクからフルサイズ画像を閲覧できます。更新通知は',
