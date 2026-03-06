@@ -69,6 +69,7 @@ const characterNavItems = buildCharacterNavItems([...active, ...stale])
         </summary>
 
         <ul
+          data-sidebar-locale-panel="true"
           class="absolute top-full left-0 z-[95] mt-2 w-48 space-y-1 rounded-xl border border-white/20 bg-white/80 p-2 font-mono shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-[12px] dark:bg-black/80"
         >
           {
@@ -215,6 +216,22 @@ const characterNavItems = buildCharacterNavItems([...active, ...stale])
   const localeMenu = document.querySelector('[data-sidebar-locale-menu]')
 
   if (localeMenu instanceof HTMLDetailsElement) {
+    const localePanel = localeMenu.querySelector<HTMLElement>('[data-sidebar-locale-panel="true"]')
+
+    const syncLocalePanelState = () => {
+      if (!localePanel) return
+
+      localePanel.classList.toggle('pointer-events-auto', localeMenu.open)
+      localePanel.classList.toggle('opacity-100', localeMenu.open)
+      localePanel.classList.toggle('translate-y-0', localeMenu.open)
+      localePanel.classList.toggle('scale-100', localeMenu.open)
+
+      localePanel.classList.toggle('pointer-events-none', !localeMenu.open)
+      localePanel.classList.toggle('opacity-0', !localeMenu.open)
+      localePanel.classList.toggle('-translate-y-1', !localeMenu.open)
+      localePanel.classList.toggle('scale-95', !localeMenu.open)
+    }
+
     const closeMenu = (event: Event) => {
       const target = event.target
       if (target instanceof Node && localeMenu.contains(target)) return
@@ -226,12 +243,24 @@ const characterNavItems = buildCharacterNavItems([...active, ...stale])
       localeMenu.open = false
     }
 
+    if (localePanel) {
+      localePanel.classList.add(
+        'origin-top-left',
+        'transition-[opacity,transform]',
+        'duration-220',
+        'ease-out',
+      )
+    }
+
+    localeMenu.addEventListener('toggle', syncLocalePanelState)
     document.addEventListener('click', closeMenu)
     document.addEventListener('keydown', closeOnEscape)
+    syncLocalePanelState()
 
     window.addEventListener(
       'pagehide',
       () => {
+        localeMenu.removeEventListener('toggle', syncLocalePanelState)
         document.removeEventListener('click', closeMenu)
         document.removeEventListener('keydown', closeOnEscape)
       },
