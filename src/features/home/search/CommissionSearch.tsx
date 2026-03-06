@@ -436,6 +436,7 @@ interface CommissionSearchProps {
   autoFocusOnMount?: boolean
   deferIndexInit?: boolean
   openHelpOnMount?: boolean
+  suppressInitialSuggestionPanelAnimation?: boolean
 }
 
 const CommissionSearch = ({
@@ -447,6 +448,7 @@ const CommissionSearch = ({
   autoFocusOnMount = false,
   deferIndexInit = false,
   openHelpOnMount = false,
+  suppressInitialSuggestionPanelAnimation = false,
 }: CommissionSearchProps = {}) => {
   const { mode } = useCommissionViewMode()
   const { controls } = useHomeLocaleMessages()
@@ -603,6 +605,9 @@ const CommissionSearch = ({
     }
     return suggestionViewModels[0].term
   }, [activeSuggestionTerm, suggestionViewModels])
+  const shouldSuppressHandoffPanelAnimation =
+    suppressInitialSuggestionPanelAnimation && !!initialQuery && query === initialQuery
+  const shouldAnimateSuggestionPanel = !shouldSuppressHandoffPanelAnimation
 
   useEffect(() => {
     onQueryChange?.(query)
@@ -883,7 +888,9 @@ const CommissionSearch = ({
             />
 
             {shouldShowSuggestionPanel ? (
-              <CommandList className="animate-search-dropdown-in absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain rounded-lg border border-gray-300/80 bg-white/95 py-1 text-sm shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm motion-reduce:animate-none dark:border-gray-700 dark:bg-black/90">
+              <CommandList
+                className={`${shouldAnimateSuggestionPanel ? 'animate-search-dropdown-in' : ''} absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain rounded-lg border border-gray-300/80 bg-white/95 py-1 text-sm shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm motion-reduce:animate-none dark:border-gray-700 dark:bg-black/90`}
+              >
                 {suggestionViewModels.map(suggestion => {
                   return (
                     <CommandItem

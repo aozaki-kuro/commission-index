@@ -54,10 +54,13 @@ const SearchShell = ({
   const probeRowRef = useRef<HTMLDivElement | null>(null)
   const probeTitleRef = useRef<HTMLSpanElement | null>(null)
   const probeDetailRef = useRef<HTMLSpanElement | null>(null)
+  const hasSettledMetricsRef = useRef(false)
   const [loadingPanelMetrics, setLoadingPanelMetrics] = useState<LoadingPanelMetrics | null>(null)
 
   useEffect(() => {
     if (!showLoadingPanel) return
+
+    if (hasSettledMetricsRef.current) return
 
     const probeRow = probeRowRef.current
     const probeTitle = probeTitleRef.current
@@ -78,28 +81,31 @@ const SearchShell = ({
 
     let rafId = 0
     let isDisposed = false
-    const scheduleMeasure = () => {
+    const scheduleMeasure = (onMeasured?: () => void) => {
       cancelAnimationFrame(rafId)
-      rafId = requestAnimationFrame(measure)
+      rafId = requestAnimationFrame(() => {
+        measure()
+        onMeasured?.()
+      })
     }
 
-    scheduleMeasure()
-
-    const handleResize = () => scheduleMeasure()
-    window.addEventListener('resize', handleResize, { passive: true })
-
+    const markMetricsSettled = () => {
+      hasSettledMetricsRef.current = true
+    }
     const fonts = 'fonts' in document ? document.fonts : null
-    if (fonts?.ready) {
+    if (!fonts || fonts.status === 'loaded') {
+      scheduleMeasure(markMetricsSettled)
+    } else {
+      scheduleMeasure()
       void fonts.ready.then(() => {
         if (isDisposed) return
-        scheduleMeasure()
+        scheduleMeasure(markMetricsSettled)
       })
     }
 
     return () => {
       isDisposed = true
       cancelAnimationFrame(rafId)
-      window.removeEventListener('resize', handleResize)
     }
   }, [showLoadingPanel])
 
@@ -202,7 +208,7 @@ const SearchShell = ({
             aria-hidden="true"
             data-search-loading-panel="true"
             data-testid="search-loading-panel"
-            className="animate-search-dropdown-in pointer-events-none absolute top-[calc(100%+0.5rem)] right-2 left-8 z-20 rounded-lg border border-gray-300/80 bg-white/95 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.08)] backdrop-blur-sm motion-reduce:animate-none dark:border-gray-700 dark:bg-black/90"
+            className="animate-search-dropdown-in pointer-events-none absolute top-[calc(100%+0.5rem)] right-2 left-8 z-20 rounded-lg border border-gray-300/80 bg-white/95 py-1 text-sm shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm motion-reduce:animate-none dark:border-gray-700 dark:bg-black/90"
           >
             <span className="sr-only">{loadingLabel ?? '...'}</span>
             <div className="pointer-events-none absolute -z-10 px-4 py-2 opacity-0">

@@ -40,6 +40,13 @@ describe('CommissionSearch', () => {
         disconnect() {}
       },
     )
+    if (!HTMLElement.prototype.scrollIntoView) {
+      Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+        value: vi.fn(),
+        configurable: true,
+        writable: true,
+      })
+    }
   })
 
   it('applies suggestion from command list', async () => {
@@ -168,6 +175,36 @@ describe('CommissionSearch', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Search help' }))
     await waitFor(() => {
       expect(screen.queryByText('Search Help')).not.toBeInTheDocument()
+    })
+  })
+
+  it('suppresses initial suggestion panel animation for deferred handoff query', async () => {
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'test-character::20240101_alice',
+        searchText: 'alice sample',
+        searchSuggest: 'Character\tAlice',
+      },
+    ]
+
+    renderSearchWithProps(entries, {
+      initialQuery: 'ali',
+      suppressInitialSuggestionPanelAnimation: true,
+    })
+
+    await waitFor(() => {
+      const panel = document.querySelector('[cmdk-list]') as HTMLElement | null
+      expect(panel).toBeTruthy()
+      expect(panel?.classList.contains('animate-search-dropdown-in')).toBe(false)
+    })
+
+    const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+    fireEvent.input(input, { target: { value: 'alice' } })
+
+    await waitFor(() => {
+      const panel = document.querySelector('[cmdk-list]') as HTMLElement | null
+      expect(panel?.classList.contains('animate-search-dropdown-in')).toBe(true)
     })
   })
 })

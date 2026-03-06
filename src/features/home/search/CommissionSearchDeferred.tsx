@@ -249,6 +249,7 @@ export default function CommissionSearchDeferred() {
           externalEntries={externalEntries ?? undefined}
           initialQuery={shellQuery || undefined}
           openHelpOnMount={shouldOpenHelpOnMount}
+          suppressInitialSuggestionPanelAnimation
         />
       </Suspense>
     )
