@@ -13,7 +13,9 @@ import MobileLanguageMenu from '#features/home/nav/hamburger/MobileLanguageMenu.
 import SidebarNavEnhancerScript from '#features/home/nav/SidebarNavEnhancerScript.astro'
 import StaticCommissionSections from '#features/home/server/StaticCommissionSections.astro'
 import AgeGateScript from '#features/home/warning/AgeGateScript.astro'
+import { getCharacterAliases, getCharacterAliasesMap } from '#data/characterAliases'
 import { getHomeFeaturedSearchKeywords } from '#data/homeFeaturedSearchKeywords'
+import { getKeywordAliases, getKeywordAliasesMap } from '#data/keywordAliases'
 import { homeUpdateSummary } from '#lib/generated/homeUpdateSummary'
 import { buildSitePayload } from '#lib/home/buildSitePayload'
 import { listMissingSourceImages, resolveSourceImageByCommissionFileName } from '#lib/images/sourceImageRegistry'
@@ -41,8 +43,26 @@ const localeOptions = HOME_LOCALE_SWITCH_ITEMS.map(item => ({
 
 const payload = buildSitePayload()
 const featuredSearchKeywords = getHomeFeaturedSearchKeywords()
+const characterAliases = getCharacterAliases()
+const keywordAliases = getKeywordAliases()
 const commissionMap = buildCommissionDataMap(payload.commissionData)
 const creatorAliasesMap = buildCreatorAliasesMap(payload.creatorAliases)
+const characterAliasesMap = getCharacterAliasesMap()
+const keywordAliasesMap = getKeywordAliasesMap()
+const suggestionAliasGroups = [
+  ...characterAliases.map(row => ({
+    term: row.characterName,
+    aliases: row.aliases,
+  })),
+  ...payload.creatorAliases.map(row => ({
+    term: row.creatorName,
+    aliases: row.aliases,
+  })),
+  ...keywordAliases.map(row => ({
+    term: row.baseKeyword,
+    aliases: row.aliases,
+  })),
+]
 const COMMISSION_IMAGE_SIZES = '(max-width: 768px) 92vw, 640px'
 
 const commissionFileNames = payload.commissionData.flatMap(character =>
@@ -102,6 +122,7 @@ const resolvedCanonicalPath =
         locale={resolvedLocale}
         localeOptions={localeOptions}
         featuredSearchKeywords={featuredSearchKeywords}
+        suggestionAliasGroups={suggestionAliasGroups}
         active={payload.characterStatus.active}
         stale={payload.characterStatus.stale}
         monthNavItems={payload.monthNavItems}
@@ -131,7 +152,9 @@ const resolvedCanonicalPath =
         activeChars={payload.characterStatus.active}
         staleChars={payload.characterStatus.stale}
         commissionMap={commissionMap}
+        characterAliasesMap={characterAliasesMap}
         creatorAliasesMap={creatorAliasesMap}
+        keywordAliasesMap={keywordAliasesMap}
         timelineGroups={payload.timelineGroups}
       />
       <CommissionViewModeDomSyncScript />

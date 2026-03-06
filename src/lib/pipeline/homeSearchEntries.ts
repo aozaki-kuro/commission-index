@@ -1,9 +1,11 @@
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
+import { getCharacterAliasesMap } from '../../../data/characterAliases'
 import { getCommissionDataMap } from '../../../data/commissionData'
 import { getCharacterRecords } from '../../../data/commissionRecords'
 import { getCreatorAliasesMap } from '../../../data/creatorAliases'
+import { getKeywordAliasesMap } from '../../../data/keywordAliases'
 import { getCharacterSectionId } from '../characters/nav'
 import {
   buildCommissionSearchDomKey,
@@ -22,7 +24,9 @@ type SearchEntry = {
 const buildHomeSearchEntries = (): SearchEntry[] => {
   const records = getCharacterRecords()
   const commissionMap = getCommissionDataMap()
+  const characterAliasesMap = getCharacterAliasesMap()
   const creatorAliasesMap = getCreatorAliasesMap()
+  const keywordAliasesMap = getKeywordAliasesMap()
   const orderedCharacters = [
     ...records.filter(record => record.status === 'active').map(record => record.name),
     ...records.filter(record => record.status === 'stale').map(record => record.name),
@@ -41,7 +45,9 @@ const buildHomeSearchEntries = (): SearchEntry[] => {
         design: commission.Design,
         description: commission.Description,
         keyword: commission.Keyword,
+        characterAliasesMap,
         creatorAliasesMap,
+        keywordAliasesMap,
         creatorSuggestionMode: 'normalized',
         creatorSearchTextMode: 'normalized',
       })

@@ -6,12 +6,14 @@ type UseAdminBootstrapOptions<TPayload> = {
   initialPayload?: TPayload | null
   errorFallback: string
   subscribeUpdates?: boolean
+  endpoint?: string
 }
 
 export const useAdminBootstrap = <TPayload>({
   initialPayload = null,
   errorFallback,
   subscribeUpdates = false,
+  endpoint,
 }: UseAdminBootstrapOptions<TPayload>) => {
   const [payload, setPayload] = useState<TPayload | null>(initialPayload)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -35,6 +37,7 @@ export const useAdminBootstrap = <TPayload>({
       try {
         const data = await fetchAdminBootstrapWithRetry<TPayload>({
           signal: controller.signal,
+          endpoint,
         })
         if (active) {
           setPayload(data)
@@ -59,7 +62,7 @@ export const useAdminBootstrap = <TPayload>({
       controller?.abort()
       unsubscribe()
     }
-  }, [errorFallback, reloadToken, subscribeUpdates])
+  }, [endpoint, errorFallback, reloadToken, subscribeUpdates])
 
   return {
     payload,

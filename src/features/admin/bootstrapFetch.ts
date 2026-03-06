@@ -7,6 +7,7 @@ type FetchBootstrapOptions = {
   baseDelayMs?: number
   requestTimeoutMs?: number
   signal?: AbortSignal
+  endpoint?: string
 }
 
 const sleep = (ms: number, signal?: AbortSignal) =>
@@ -34,13 +35,14 @@ export const fetchAdminBootstrapWithRetry = async <TPayload>(
   const baseDelayMs = Math.max(0, options.baseDelayMs ?? DEFAULT_BASE_DELAY_MS)
   const requestTimeoutMs = Math.max(1000, options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS)
   const signal = options.signal
+  const endpoint = options.endpoint ?? '/api/admin/bootstrap'
 
   let lastError: unknown = null
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       const response = (await Promise.race([
-        fetch('/api/admin/bootstrap', {
+        fetch(endpoint, {
           signal,
           cache: 'no-store',
         }),

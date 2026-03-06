@@ -150,7 +150,7 @@ describe('CommissionSearchDeferred', () => {
 
     expect(mockCommissionSearch).toHaveBeenCalledWith(
       expect.objectContaining({
-        initialQuery: 'maid',
+        initialQuery: 'maid ',
         autoFocusOnMount: true,
         deferIndexInit: true,
       }),

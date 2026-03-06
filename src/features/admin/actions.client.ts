@@ -201,6 +201,48 @@ export const saveCreatorAliasesBatchAction = async (
   }
 }
 
+export const saveCharacterAliasesBatchAction = async (
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> => {
+  void _prevState
+  try {
+    const response = await fetch('/api/admin/character-aliases/batch', {
+      method: 'POST',
+      body: JSON.stringify({
+        rowsJson: formData.get('rowsJson')?.toString() ?? '[]',
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    return parseResponse(response)
+  } catch (error) {
+    return toErrorState(error, 'Failed to save character aliases.')
+  }
+}
+
+export const saveKeywordAliasesBatchAction = async (
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> => {
+  void _prevState
+  try {
+    const response = await fetch('/api/admin/keyword-aliases/batch', {
+      method: 'POST',
+      body: JSON.stringify({
+        rowsJson: formData.get('rowsJson')?.toString() ?? '[]',
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    return parseResponse(response)
+  } catch (error) {
+    return toErrorState(error, 'Failed to save keyword aliases.')
+  }
+}
+
 export const saveHomeFeaturedKeywordsAction = async (
   _prevState: FormState,
   formData: FormData,

@@ -22,7 +22,9 @@ export interface CommissionRenderEntry {
 interface CommissionEntriesProps {
   locale?: string
   entries: CommissionRenderEntry[]
+  characterAliasesMap: Map<string, string[]> | null
   creatorAliasesMap: Map<string, string[]> | null
+  keywordAliasesMap: Map<string, string[]> | null
   showCharacterLabel?: boolean
   showImage?: boolean
   showLinks?: boolean
@@ -32,7 +34,9 @@ interface CommissionEntriesProps {
 const {
   locale,
   entries,
+  characterAliasesMap,
   creatorAliasesMap,
+  keywordAliasesMap,
   showCharacterLabel = false,
   showImage = true,
   showLinks = true,
@@ -61,7 +65,9 @@ const shouldEmbedSearchMetadata = embedSearchMetadata ?? Boolean(import.meta.env
             design: commission.Design,
             description: commission.Description,
             keyword: commission.Keyword,
+            characterAliasesMap: characterAliasesMap ?? undefined,
             creatorAliasesMap: creatorAliasesMap ?? undefined,
+            keywordAliasesMap: keywordAliasesMap ?? undefined,
             creatorSuggestionMode: 'normalized',
             creatorSearchTextMode: 'normalized',
           })

@@ -5,10 +5,13 @@ import CommissionEntries from '#features/home/commission/CommissionEntries.astro
 
 interface TimelineViewProps {
   groups: TimelineYearGroup[]
+  characterAliasesMap: Map<string, string[]> | null
   creatorAliasesMap: Map<string, string[]> | null
+  keywordAliasesMap: Map<string, string[]> | null
 }
 
-const { groups, creatorAliasesMap } = Astro.props as TimelineViewProps
+const { groups, characterAliasesMap, creatorAliasesMap, keywordAliasesMap } =
+  Astro.props as TimelineViewProps
 ---
 
 <div>
@@ -40,7 +43,9 @@ const { groups, creatorAliasesMap } = Astro.props as TimelineViewProps
             entryKey: `${group.yearKey}:${entry.character}:${entry.commission.fileName}`,
             entryAnchorPrefix: getCharacterSectionId(entry.character),
           }))}
+          characterAliasesMap={characterAliasesMap}
           creatorAliasesMap={creatorAliasesMap}
+          keywordAliasesMap={keywordAliasesMap}
         />
       </section>
     ))

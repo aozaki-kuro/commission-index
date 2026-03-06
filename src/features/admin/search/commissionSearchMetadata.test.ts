@@ -21,6 +21,7 @@ describe('buildAdminCommissionSearchMetadata', () => {
       'L*cia',
       baseCommission(),
       new Map([['Q', ['Cue', 'cue']]]),
+      new Map([['tag', ['タグ']]]),
     )
 
     expect(result.searchText).toContain('l*cia')
@@ -31,6 +32,7 @@ describe('buildAdminCommissionSearchMetadata', () => {
     expect(result.searchText).toContain('cue')
     expect(result.searchText).toContain('sample description')
     expect(result.searchText).toContain('tag tag 別名')
+    expect(result.searchText).toContain('タグ')
 
     const lines = result.searchSuggestionText.split('\n')
     expect(lines).toContain('Character\tL*cia')
@@ -38,6 +40,7 @@ describe('buildAdminCommissionSearchMetadata', () => {
     expect(lines).toContain('Creator\tQ (part 2)')
     expect(lines).toContain('Creator\tCue')
     expect(lines).toContain('Keyword\ttag')
+    expect(lines).toContain('Keyword\tタグ')
     expect(lines).toContain('Keyword\t別名')
     expect(lines.filter(line => line === 'Creator\tCue')).toHaveLength(1)
     expect(lines.filter(line => line === 'Creator\tcue')).toHaveLength(0)

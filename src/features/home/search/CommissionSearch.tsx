@@ -45,6 +45,11 @@ type Entry = SearchEntryLike &
     domKey?: string
   }
 
+export type SearchSuggestionAliasGroup = {
+  term: string
+  aliases: string[]
+}
+
 type Section = {
   id: string
   element: HTMLElement
@@ -247,29 +252,56 @@ const buildSearchIndex = (
   return finalizeSearchIndex(entries, { sections, staleDivider })
 }
 
-const buildRelatedCreatorTermsMap = (entries: SuggestionEntryLike[]) => {
-  const related = new Map<string, Set<string>>()
+const addRelatedTerms = (related: Map<string, Set<string>>, terms: string[]) => {
+  const uniqueTerms = new Map<string, string>()
+  for (const term of terms) {
+    const normalizedTerm = term.trim()
+    const key = normalizeSuggestionTermKey(normalizedTerm)
+    if (!key || uniqueTerms.has(key)) continue
+    uniqueTerms.set(key, normalizedTerm)
+  }
 
+  if (uniqueTerms.size < 2) return
+
+  const values = [...uniqueTerms.values()]
+  for (const leftTerm of values) {
+    const leftKey = normalizeSuggestionTermKey(leftTerm)
+    if (!leftKey) continue
+    const bucket = related.get(leftKey) ?? new Set<string>()
+    for (const rightTerm of values) {
+      const rightKey = normalizeSuggestionTermKey(rightTerm)
+      if (!rightKey || rightKey === leftKey) continue
+      bucket.add(rightTerm)
+    }
+    related.set(leftKey, bucket)
+  }
+}
+
+const buildRelatedSuggestionTermsMap = (
+  entries: SuggestionEntryLike[],
+  aliasGroups: SearchSuggestionAliasGroup[],
+) => {
+  const related = new Map<string, Set<string>>()
+  const usedPrimaryKeys = new Set<string>()
+
+  for (const group of aliasGroups) {
+    const primaryKey = normalizeSuggestionTermKey(group.term)
+    if (!primaryKey || usedPrimaryKeys.has(primaryKey)) continue
+    usedPrimaryKeys.add(primaryKey)
+    addRelatedTerms(related, [group.term, ...group.aliases])
+  }
+
+  // 兼容旧行为：当别名配置缺失时，仍可通过 Creator 共现词展示后缀提示。
   for (const entry of entries) {
-    const creatorTerms: Array<{ key: string; term: string }> = []
+    const creatorTerms: string[] = []
     for (const row of entry.suggestionRows.values()) {
       if (row.source !== 'Creator') continue
       const term = row.term.trim()
-      const key = normalizeSuggestionTermKey(term)
-      if (!key) continue
-      creatorTerms.push({ key, term })
+      if (!term) continue
+      creatorTerms.push(term)
     }
 
-    if (creatorTerms.length < 2) continue
-
-    for (const creator of creatorTerms) {
-      const bucket = related.get(creator.key) ?? new Set<string>()
-      for (const other of creatorTerms) {
-        if (other.key === creator.key) continue
-        bucket.add(other.term)
-      }
-      related.set(creator.key, bucket)
-    }
+    addRelatedTerms(related, creatorTerms)
   }
 
   return new Map(
@@ -284,7 +316,7 @@ type SuggestionViewModel = {
   term: string
   matchCountLabel: string
   sourcesLabel: string
-  relatedCreatorTerms: string[]
+  relatedTerms: string[]
 }
 
 const toggleHiddenClass = (element: HTMLElement, shouldHide: boolean) => {
@@ -441,6 +473,7 @@ interface CommissionSearchProps {
   refreshPopularSearchLabel?: string
   onRotatePopularKeywords?: () => void
   suppressInitialSuggestionPanelAnimation?: boolean
+  suggestionAliasGroups?: SearchSuggestionAliasGroup[]
 }
 
 const CommissionSearch = ({
@@ -456,6 +489,7 @@ const CommissionSearch = ({
   refreshPopularSearchLabel = '',
   onRotatePopularKeywords,
   suppressInitialSuggestionPanelAnimation = false,
+  suggestionAliasGroups = [],
 }: CommissionSearchProps = {}) => {
   const { mode } = useCommissionViewMode()
   const { controls } = useHomeLocaleMessages()
@@ -583,26 +617,20 @@ const CommissionSearch = ({
     suggestionQuery,
   ])
 
-  const shouldResolveRelatedCreatorTerms = useMemo(
-    () => filteredSuggestions.some(suggestion => suggestion.sources.includes('Creator')),
-    [filteredSuggestions],
+  const relatedSuggestionTermsMap = useMemo(
+    () => buildRelatedSuggestionTermsMap(resolvedIndex.entries, suggestionAliasGroups),
+    [resolvedIndex.entries, suggestionAliasGroups],
   )
-
-  const relatedCreatorTermsMap = useMemo(() => {
-    if (!shouldResolveRelatedCreatorTerms) return new Map<string, string[]>()
-    return buildRelatedCreatorTermsMap(resolvedIndex.entries)
-  }, [resolvedIndex.entries, shouldResolveRelatedCreatorTerms])
 
   const suggestionViewModels = useMemo<SuggestionViewModel[]>(() => {
     return filteredSuggestions.map(suggestion => ({
       term: suggestion.term,
       matchCountLabel: controls.formatMatchCount(suggestion.matchedCount),
       sourcesLabel: suggestion.sources.map(source => suggestionSourceLabels[source]).join(' / '),
-      relatedCreatorTerms: suggestion.sources.includes('Creator')
-        ? (relatedCreatorTermsMap.get(normalizeSuggestionTermKey(suggestion.term)) ?? [])
-        : [],
+      relatedTerms:
+        relatedSuggestionTermsMap.get(normalizeSuggestionTermKey(suggestion.term)) ?? [],
     }))
-  }, [controls, filteredSuggestions, relatedCreatorTermsMap, suggestionSourceLabels])
+  }, [controls, filteredSuggestions, relatedSuggestionTermsMap, suggestionSourceLabels])
   const shouldShowSuggestionPanel = hasQuery && suggestionViewModels.length > 0
 
   const resolvedActiveSuggestionTerm = useMemo(() => {
@@ -843,7 +871,9 @@ const CommissionSearch = ({
     (keyword: string) => {
       if (!keyword) return
 
-      const nextQuery = normalizeQuotedTokenBoundary(keyword)
+      const normalizedKeyword = normalizeQuotedTokenBoundary(keyword).trim()
+      if (!normalizedKeyword) return
+      const nextQuery = `${normalizedKeyword} `
       ensureIndexReady()
       setInputQuery(nextQuery)
       setCopyState('idle')
@@ -944,9 +974,9 @@ const CommissionSearch = ({
                             ) : null}
                             <span className="flex min-w-0 items-baseline gap-1 truncate">
                               <span className="truncate">{suggestion.term}</span>
-                              {suggestion.relatedCreatorTerms.length > 0 ? (
+                              {suggestion.relatedTerms.length > 0 ? (
                                 <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
-                                  ({suggestion.relatedCreatorTerms.join(' / ')})
+                                  ({suggestion.relatedTerms.join(' / ')})
                                 </span>
                               ) : null}
                             </span>

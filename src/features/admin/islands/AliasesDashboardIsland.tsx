@@ -1,9 +1,11 @@
-import type { CreatorAliasRow } from '#lib/admin/db'
+import type { CharacterAliasRow, CreatorAliasRow, KeywordAliasRow } from '#lib/admin/db'
 import AliasesDashboard from '#admin/aliases/AliasesDashboard'
 import { useAdminBootstrap } from '#admin/hooks/useAdminBootstrap'
 
 type BootstrapPayload = {
+  characterAliases: CharacterAliasRow[]
   creatorAliases: CreatorAliasRow[]
+  keywordAliases: KeywordAliasRow[]
 }
 
 interface AliasesDashboardIslandProps {
@@ -14,6 +16,7 @@ const AliasesDashboardIsland = ({ initialPayload = null }: AliasesDashboardIslan
   const { payload, errorMessage, isLoading, reload } = useAdminBootstrap<BootstrapPayload>({
     initialPayload,
     errorFallback: 'Failed to load aliases data.',
+    endpoint: '/api/admin/aliases/bootstrap',
   })
 
   if (!payload && errorMessage) {
@@ -39,7 +42,13 @@ const AliasesDashboardIsland = ({ initialPayload = null }: AliasesDashboardIslan
     return null
   }
 
-  return <AliasesDashboard creators={payload.creatorAliases} />
+  return (
+    <AliasesDashboard
+      characters={payload.characterAliases}
+      creators={payload.creatorAliases}
+      keywords={payload.keywordAliases}
+    />
+  )
 }
 
 export default AliasesDashboardIsland

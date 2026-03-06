@@ -14,10 +14,21 @@ interface StaticCommissionSectionsProps {
   staleChars: CharacterDisplay[]
   commissionMap: Map<string, CharacterCommissions>
   timelineGroups: TimelineYearGroup[]
+  characterAliasesMap: Map<string, string[]>
   creatorAliasesMap: Map<string, string[]>
+  keywordAliasesMap: Map<string, string[]>
 }
 
-const { locale, activeChars, staleChars, commissionMap, timelineGroups, creatorAliasesMap } =
+const {
+  locale,
+  activeChars,
+  staleChars,
+  commissionMap,
+  timelineGroups,
+  characterAliasesMap,
+  creatorAliasesMap,
+  keywordAliasesMap,
+} =
   Astro.props as StaticCommissionSectionsProps
 ---
 
@@ -30,7 +41,9 @@ const { locale, activeChars, staleChars, commissionMap, timelineGroups, creatorA
           Character={chara.DisplayName}
           status="active"
           commissionMap={commissionMap}
+          characterAliasesMap={characterAliasesMap}
           creatorAliasesMap={creatorAliasesMap}
+          keywordAliasesMap={keywordAliasesMap}
         />
       ))
     }
@@ -48,13 +61,20 @@ const { locale, activeChars, staleChars, commissionMap, timelineGroups, creatorA
           Character={chara.DisplayName}
           status="stale"
           commissionMap={commissionMap}
+          characterAliasesMap={characterAliasesMap}
           creatorAliasesMap={creatorAliasesMap}
+          keywordAliasesMap={keywordAliasesMap}
         />
       ))
     }
   </div>
 
   <div data-commission-view-panel="timeline" data-commission-view-active="false" class="hidden">
-    <TimelineView groups={timelineGroups} creatorAliasesMap={creatorAliasesMap} />
+    <TimelineView
+      groups={timelineGroups}
+      characterAliasesMap={characterAliasesMap}
+      creatorAliasesMap={creatorAliasesMap}
+      keywordAliasesMap={keywordAliasesMap}
+    />
   </div>
 </div>

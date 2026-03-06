@@ -227,9 +227,49 @@ describe('CommissionSearch', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Kanaut Nishe' }))
 
     await waitFor(() => {
-      expect(input.value).toBe('Kanaut Nishe')
+      expect(input.value).toBe('Kanaut Nishe ')
     })
+    expect(document.querySelector('[cmdk-list]')).not.toBeInTheDocument()
 
     expect(screen.getByRole('button', { name: 'Kanaut Nishe' })).toBeInTheDocument()
+  })
+
+  it('shows shared alias suffix for keyword and character suggestions', async () => {
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'test-character::20240101_nanashi',
+        searchText: 'nanashi sample',
+        searchSuggest: 'Character\tNanashi\nCreator\tNanashi\nKeyword\tsample',
+      },
+      {
+        id: 2,
+        domKey: 'test-character::20240102_aitsuki',
+        searchText: 'aitsuki nakuru sample',
+        searchSuggest: 'Character\tAitsuki Nakuru\nKeyword\tAitsuki Nakuru',
+      },
+    ]
+
+    renderSearchWithProps(entries, {
+      suggestionAliasGroups: [
+        { term: 'Nanashi', aliases: ['七市'] },
+        { term: 'Aitsuki Nakuru', aliases: ['あいつき なくる'] },
+        { term: 'Aitsuki Nakuru', aliases: ['should-not-show'] },
+      ],
+    })
+
+    const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+    fireEvent.input(input, { target: { value: 'nana' } })
+
+    await waitFor(() => {
+      expect(screen.getByText('(七市)')).toBeInTheDocument()
+    })
+
+    fireEvent.input(input, { target: { value: 'aitsuki' } })
+
+    await waitFor(() => {
+      expect(screen.getByText('(あいつき なくる)')).toBeInTheDocument()
+    })
+    expect(screen.queryByText('should-not-show')).not.toBeInTheDocument()
   })
 })

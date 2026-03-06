@@ -4,11 +4,14 @@ import {
   createCommission,
   deleteCharacter,
   deleteCommission,
+  getAdminAliasesData,
   getAdminBootstrapData,
   getAdminCommissionsByCharacterId,
   getHomeSuggestionAdminData,
+  saveCharacterAliasesBatch,
   saveCreatorAliasesBatch,
   saveHomeFeaturedSearchKeywords,
+  saveKeywordAliasesBatch,
   updateCharacter,
   updateCharactersOrder,
   updateCommission,
@@ -248,6 +251,10 @@ export const handleAdminApiRequest = async (request: Request) => {
     return json(getAdminBootstrapData())
   }
 
+  if (request.method === 'GET' && pathname === '/api/admin/aliases/bootstrap') {
+    return json(getAdminAliasesData())
+  }
+
   if (request.method === 'GET' && pathname === '/api/admin/suggestion') {
     return json(getHomeSuggestionAdminData())
   }
@@ -439,6 +446,48 @@ export const handleAdminApiRequest = async (request: Request) => {
       return success('Creator aliases saved.')
     } catch (error) {
       return handleWriteError(error, 'Failed to save creator aliases.')
+    }
+  }
+
+  if (request.method === 'POST' && pathname === '/api/admin/character-aliases/batch') {
+    try {
+      const body = await parseJsonBody(request)
+      const rowsJson = String(body.rowsJson ?? '[]')
+      const parsedRows = JSON.parse(rowsJson) as Array<{
+        characterName?: string
+        alias?: string
+        aliases?: string[] | string
+      }>
+      const rows = parsedRows.map(row => ({
+        characterName: row.characterName ?? '',
+        aliases: row.aliases ?? row.alias ?? '',
+      }))
+      saveCharacterAliasesBatch(rows)
+      await regeneratePublicAssets('save-character-aliases')
+      return success('Character aliases saved.')
+    } catch (error) {
+      return handleWriteError(error, 'Failed to save character aliases.')
+    }
+  }
+
+  if (request.method === 'POST' && pathname === '/api/admin/keyword-aliases/batch') {
+    try {
+      const body = await parseJsonBody(request)
+      const rowsJson = String(body.rowsJson ?? '[]')
+      const parsedRows = JSON.parse(rowsJson) as Array<{
+        baseKeyword?: string
+        alias?: string
+        aliases?: string[] | string
+      }>
+      const rows = parsedRows.map(row => ({
+        baseKeyword: row.baseKeyword ?? '',
+        aliases: row.aliases ?? row.alias ?? '',
+      }))
+      saveKeywordAliasesBatch(rows)
+      await regeneratePublicAssets('save-keyword-aliases')
+      return success('Keyword aliases saved.')
+    } catch (error) {
+      return handleWriteError(error, 'Failed to save keyword aliases.')
     }
   }
 

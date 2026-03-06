@@ -9,10 +9,20 @@ interface ListingProps {
   Character: string
   status: 'active' | 'stale'
   commissionMap: Map<string, CharacterCommissions>
+  characterAliasesMap: Map<string, string[]> | null
   creatorAliasesMap: Map<string, string[]> | null
+  keywordAliasesMap: Map<string, string[]> | null
 }
 
-const { locale, Character, status, commissionMap, creatorAliasesMap } = Astro.props as ListingProps
+const {
+  locale,
+  Character,
+  status,
+  commissionMap,
+  characterAliasesMap,
+  creatorAliasesMap,
+  keywordAliasesMap,
+} = Astro.props as ListingProps
 const resolvedLocale = normalizeHomeLocale(locale)
 const messages = getHomeLocaleMessages(resolvedLocale)
 const sectionId = getCharacterSectionId(Character)
@@ -53,7 +63,9 @@ const commissions = characterData?.Commissions ?? []
           entryKey: `${Character}:${commission.fileName}`,
           entryAnchorPrefix: sectionId,
         }))}
+        characterAliasesMap={characterAliasesMap}
         creatorAliasesMap={creatorAliasesMap}
+        keywordAliasesMap={keywordAliasesMap}
       />
     )
   }

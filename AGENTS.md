@@ -8,6 +8,7 @@ This repository contains an Astro 5 static site with React 19 islands, written i
 - **Framework:** Astro + Tailwind CSS + selective React islands (`@astrojs/react`).
 - **Path aliases:** Prefer `#layouts/*`, `#features/*`, `#components/*`, `#images/*`, `#data/*`, `#lib/*`, `#styles/*`, `#config/*`, and `#admin/*` (`#admin/actions` points to the HTTP client action wrappers).
 - **Data source:** Commission content lives in `data/commissions.db`; access it through `data/sqlite.ts` (Bun uses `bun:sqlite`, Node falls back to `better-sqlite3`).
+  - Admin-managed search configuration tables include `character_aliases`, `creator_aliases`, `keyword_aliases`, and `home_featured_search_keywords`.
 
 ## Home Rendering Architecture
 
@@ -112,6 +113,8 @@ Additional guidance:
 - Removed unused migration leftovers (`CommissionViewModeDomSync.tsx`, `useDocumentTitle`, `src/lib/index.ts`).
 - Added dev-only `/admin/suggestion` page to curate featured home search keywords (select + DnD + manual input).
 - Added `home_featured_search_keywords` SQLite config table and home-side featured keyword hydration path.
+- Added keyword alias management (`keyword_aliases`) to `/admin/aliases` with shadcn tabs and bootstrap/action API wiring.
+- Added character alias management (`character_aliases`) to `/admin/aliases` and unified search-suggestion alias display mapping with source priority (`character > creator > keyword`).
 - Added shared server request/response bridge utility and test coverage.
 
 ## Code Style

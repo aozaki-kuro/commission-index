@@ -13,6 +13,7 @@ export const buildAdminCommissionSearchMetadata = (
   characterName: string,
   commission: Pick<CommissionRow, 'fileName' | 'design' | 'description' | 'keyword'>,
   creatorAliasesMap: Map<string, string[]>,
+  keywordAliasesMap?: Map<string, string[]>,
 ): AdminCommissionSearchMetadata => {
   const metadata = buildCommissionSearchMetadata({
     characterName,
@@ -21,6 +22,7 @@ export const buildAdminCommissionSearchMetadata = (
     description: commission.description,
     keyword: commission.keyword,
     creatorAliasesMap,
+    keywordAliasesMap,
     creatorSuggestionMode: 'raw',
     creatorSearchTextMode: 'raw',
   })

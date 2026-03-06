@@ -2,10 +2,23 @@ import Database from 'better-sqlite3'
 import fs from 'node:fs'
 import path from 'node:path'
 import {
+  normalizeCharacterAliasKey,
+  normalizeCharacterAliasName,
+  normalizeCharacterAliases,
+  parseCharacterAliasesJson,
+} from '#lib/characterAliases/shared'
+import {
   normalizeAliases,
   normalizeCreatorName,
   parseAliasesJson,
 } from '#lib/creatorAliases/shared'
+import {
+  normalizeKeywordAliasKey,
+  normalizeKeywordAliases,
+  normalizeKeywordBaseTerm,
+  parseKeywordAliasesJson,
+  splitKeywordTerms,
+} from '#lib/keywordAliases/shared'
 import { buildCommissionSearchMetadata } from '#lib/search/commissionSearchMetadata'
 import {
   buildPopularKeywordPoolFromSuggestTexts,
@@ -50,6 +63,18 @@ export interface CreatorAliasRow {
   commissionCount: number
 }
 
+export interface CharacterAliasRow {
+  characterName: string
+  aliases: string[]
+  commissionCount: number
+}
+
+export interface KeywordAliasRow {
+  baseKeyword: string
+  aliases: string[]
+  commissionCount: number
+}
+
 export interface AdminData {
   characters: CharacterRow[]
   commissions: CommissionRow[]
@@ -64,6 +89,12 @@ export interface AdminBootstrapData {
 export interface HomeSuggestionAdminData {
   featuredKeywords: string[]
   keywordOptions: string[]
+}
+
+export interface AdminAliasesData {
+  characterAliases: CharacterAliasRow[]
+  creatorAliases: CreatorAliasRow[]
+  keywordAliases: KeywordAliasRow[]
 }
 
 type BetterSqlite3Database = Database.Database
@@ -110,6 +141,48 @@ const ensureCreatorAliasesTable = (db: BetterSqlite3Database) => {
   ).run()
 }
 
+const hasCharacterAliasesTable = (db: BetterSqlite3Database): boolean => {
+  const row = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'character_aliases' LIMIT 1",
+    )
+    .get() as { name?: string } | undefined
+
+  return row?.name === 'character_aliases'
+}
+
+const ensureCharacterAliasesTable = (db: BetterSqlite3Database) => {
+  db.prepare(
+    `
+      CREATE TABLE IF NOT EXISTS character_aliases (
+        character_name TEXT PRIMARY KEY,
+        aliases TEXT NOT NULL
+      )
+    `,
+  ).run()
+}
+
+const hasKeywordAliasesTable = (db: BetterSqlite3Database): boolean => {
+  const row = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'keyword_aliases' LIMIT 1",
+    )
+    .get() as { name?: string } | undefined
+
+  return row?.name === 'keyword_aliases'
+}
+
+const ensureKeywordAliasesTable = (db: BetterSqlite3Database) => {
+  db.prepare(
+    `
+      CREATE TABLE IF NOT EXISTS keyword_aliases (
+        base_keyword TEXT PRIMARY KEY,
+        aliases TEXT NOT NULL
+      )
+    `,
+  ).run()
+}
+
 const hasHomeFeaturedSearchKeywordsTable = (db: BetterSqlite3Database): boolean => {
   const row = db
     .prepare(
@@ -132,18 +205,9 @@ const ensureHomeFeaturedSearchKeywordsTable = (db: BetterSqlite3Database) => {
 }
 
 const normalizeKeyword = (value?: string | null): string | null => {
-  const raw = value?.trim()
-  if (!raw) return null
-
-  const keywords = raw
-    .split(/[,\n，、;；]/)
-    .map(keyword => keyword.trim())
-    .filter(Boolean)
-
+  const keywords = splitKeywordTerms(value)
   if (keywords.length === 0) return null
-
-  const uniqueKeywords = Array.from(new Set(keywords))
-  return uniqueKeywords.join(', ')
+  return normalizeKeywordAliases(keywords).join(', ')
 }
 
 const openDatabase = (readonly: boolean) => {
@@ -160,7 +224,9 @@ const openDatabase = (readonly: boolean) => {
     db.pragma('foreign_keys = ON')
     db.pragma('journal_mode = DELETE')
     ensureCommissionKeywordColumn(db)
+    ensureCharacterAliasesTable(db)
     ensureCreatorAliasesTable(db)
+    ensureKeywordAliasesTable(db)
     ensureHomeFeaturedSearchKeywordsTable(db)
   }
 
@@ -447,6 +513,179 @@ export const getCreatorAliasesAdminData = (): CreatorAliasRow[] =>
       .sort((a, b) => a.creatorName.localeCompare(b.creatorName, 'ja'))
   })
 
+type KeywordCountRow = {
+  keyword?: string | null
+}
+
+const getCharacterAliasesMapFromDatabase = (db: BetterSqlite3Database) => {
+  const aliasesByCharacter = new Map<string, { characterName: string; aliases: string[] }>()
+  if (!hasCharacterAliasesTable(db)) return aliasesByCharacter
+
+  const aliasRows = db
+    .prepare(
+      'SELECT character_name as characterName, aliases as aliasesJson FROM character_aliases ORDER BY character_name ASC',
+    )
+    .all() as Array<{ characterName: string; aliasesJson: string }>
+
+  aliasRows.forEach(row => {
+    const characterName = normalizeCharacterAliasName(row.characterName)
+    if (!characterName) return
+
+    const key = normalizeCharacterAliasKey(characterName)
+    if (!key) return
+
+    const previous = aliasesByCharacter.get(key)
+    aliasesByCharacter.set(key, {
+      characterName: previous?.characterName ?? characterName,
+      aliases: normalizeCharacterAliases([
+        ...(previous?.aliases ?? []),
+        ...parseCharacterAliasesJson(row.aliasesJson),
+      ]),
+    })
+  })
+
+  return aliasesByCharacter
+}
+
+export const getCharacterAliasesAdminData = (): CharacterAliasRow[] =>
+  withReadOnlyDatabase(db => {
+    const characterRows = db
+      .prepare(
+        `
+          SELECT
+            characters.name as characterName,
+            COUNT(commissions.id) as commissionCount
+          FROM characters
+          LEFT JOIN commissions ON commissions.character_id = characters.id
+          GROUP BY characters.id
+          ORDER BY characters.sort_order ASC
+        `,
+      )
+      .all() as Array<{ characterName: string; commissionCount: number }>
+
+    const characterCounts = new Map<string, { characterName: string; commissionCount: number }>()
+    characterRows.forEach(row => {
+      const characterName = normalizeCharacterAliasName(row.characterName)
+      if (!characterName) return
+      const key = normalizeCharacterAliasKey(characterName)
+      if (!key) return
+      characterCounts.set(key, {
+        characterName,
+        commissionCount: Number(row.commissionCount ?? 0),
+      })
+    })
+
+    const aliasMap = getCharacterAliasesMapFromDatabase(db)
+    const allKeys = new Set<string>([...characterCounts.keys(), ...aliasMap.keys()])
+
+    return [...allKeys]
+      .map(key => ({
+        characterName:
+          aliasMap.get(key)?.characterName ?? characterCounts.get(key)?.characterName ?? '',
+        aliases: aliasMap.get(key)?.aliases ?? [],
+        commissionCount: characterCounts.get(key)?.commissionCount ?? 0,
+      }))
+      .filter(row => Boolean(row.characterName))
+      .sort((a, b) => a.characterName.localeCompare(b.characterName, 'ja'))
+  })
+
+const getKeywordAliasesMapFromDatabase = (db: BetterSqlite3Database) => {
+  const aliasesByKeyword = new Map<string, { baseKeyword: string; aliases: string[] }>()
+  if (!hasKeywordAliasesTable(db)) return aliasesByKeyword
+
+  const aliasRows = db
+    .prepare(
+      'SELECT base_keyword as baseKeyword, aliases as aliasesJson FROM keyword_aliases ORDER BY base_keyword ASC',
+    )
+    .all() as Array<{ baseKeyword: string; aliasesJson: string }>
+
+  aliasRows.forEach(row => {
+    const baseKeyword = normalizeKeywordBaseTerm(row.baseKeyword)
+    if (!baseKeyword) return
+
+    const key = normalizeKeywordAliasKey(baseKeyword)
+    if (!key) return
+
+    const previous = aliasesByKeyword.get(key)
+    aliasesByKeyword.set(key, {
+      baseKeyword: previous?.baseKeyword ?? baseKeyword,
+      aliases: normalizeKeywordAliases([
+        ...(previous?.aliases ?? []),
+        ...parseKeywordAliasesJson(row.aliasesJson),
+      ]),
+    })
+  })
+
+  return aliasesByKeyword
+}
+
+export const getKeywordAliasesAdminData = (): KeywordAliasRow[] =>
+  withReadOnlyDatabase(db => {
+    const keywordCounts = new Map<string, { baseKeyword: string; commissionCount: number }>()
+
+    const keywordRows = db.prepare('SELECT keyword FROM commissions').all() as KeywordCountRow[]
+    keywordRows.forEach(row => {
+      const uniqueTerms = new Set(splitKeywordTerms(row.keyword))
+      uniqueTerms.forEach(term => {
+        const key = normalizeKeywordAliasKey(term)
+        if (!key) return
+        const previous = keywordCounts.get(key)
+        keywordCounts.set(key, {
+          baseKeyword: previous?.baseKeyword ?? term,
+          commissionCount: (previous?.commissionCount ?? 0) + 1,
+        })
+      })
+    })
+
+    const aliasMap = getKeywordAliasesMapFromDatabase(db)
+    const allKeywordKeys = new Set<string>([...keywordCounts.keys(), ...aliasMap.keys()])
+
+    return [...allKeywordKeys]
+      .map(keywordKey => ({
+        baseKeyword:
+          aliasMap.get(keywordKey)?.baseKeyword ?? keywordCounts.get(keywordKey)?.baseKeyword ?? '',
+        aliases: aliasMap.get(keywordKey)?.aliases ?? [],
+        commissionCount: keywordCounts.get(keywordKey)?.commissionCount ?? 0,
+      }))
+      .filter(row => Boolean(row.baseKeyword))
+      .sort((a, b) => a.baseKeyword.localeCompare(b.baseKeyword, 'ja'))
+  })
+
+const normalizeAliasPriorityKey = (value: string) =>
+  normalizeCharacterAliasKey(value) ?? value.trim().toLowerCase()
+
+export const getAdminAliasesData = (): AdminAliasesData => {
+  const characterAliases = getCharacterAliasesAdminData()
+  const creatorAliases = getCreatorAliasesAdminData()
+  const keywordAliases = getKeywordAliasesAdminData()
+
+  const usedKeys = new Set(
+    characterAliases
+      .map(row => normalizeAliasPriorityKey(row.characterName))
+      .filter((key): key is string => Boolean(key)),
+  )
+
+  const filteredCreatorAliases = creatorAliases.filter(row => {
+    const key = normalizeAliasPriorityKey(row.creatorName)
+    if (!key || usedKeys.has(key)) return false
+    usedKeys.add(key)
+    return true
+  })
+
+  const filteredKeywordAliases = keywordAliases.filter(row => {
+    const key = normalizeAliasPriorityKey(row.baseKeyword)
+    if (!key || usedKeys.has(key)) return false
+    usedKeys.add(key)
+    return true
+  })
+
+  return {
+    characterAliases,
+    creatorAliases: filteredCreatorAliases,
+    keywordAliases: filteredKeywordAliases,
+  }
+}
+
 const MAX_FEATURED_SEARCH_KEYWORDS = 6
 
 const getCreatorAliasesMapFromDatabase = (db: BetterSqlite3Database) => {
@@ -496,6 +735,12 @@ const loadPopularKeywordOptions = (db: BetterSqlite3Database) => {
   }>
 
   const creatorAliasesMap = getCreatorAliasesMapFromDatabase(db)
+  const characterAliasesMap = new Map(
+    [...getCharacterAliasesMapFromDatabase(db).entries()].map(([key, row]) => [key, row.aliases]),
+  )
+  const keywordAliasesMap = new Map(
+    [...getKeywordAliasesMapFromDatabase(db).entries()].map(([key, row]) => [key, row.aliases]),
+  )
   const suggestTexts = commissionRows.map(row => {
     return buildCommissionSearchMetadata({
       characterName: row.characterName,
@@ -503,7 +748,9 @@ const loadPopularKeywordOptions = (db: BetterSqlite3Database) => {
       design: row.design ?? null,
       description: row.description ?? null,
       keyword: row.keyword ?? null,
+      characterAliasesMap,
       creatorAliasesMap,
+      keywordAliasesMap,
       creatorSuggestionMode: 'normalized',
       creatorSearchTextMode: 'normalized',
     }).searchSuggestionText
@@ -791,6 +1038,40 @@ const saveCreatorAliasesRowsInDatabase = (
   transaction()
 }
 
+const saveCharacterAliasesRowsInDatabase = (
+  db: BetterSqlite3Database,
+  rows: Array<{ characterName: string; aliases: string[] }>,
+) => {
+  ensureCharacterAliasesTable(db)
+
+  const deleteStatement = db.prepare(
+    'DELETE FROM character_aliases WHERE character_name = @characterName',
+  )
+  const upsertStatement = db.prepare(
+    `
+      INSERT INTO character_aliases (character_name, aliases)
+      VALUES (@characterName, @aliases)
+      ON CONFLICT(character_name) DO UPDATE SET aliases = excluded.aliases
+    `,
+  )
+
+  const transaction = db.transaction(() => {
+    rows.forEach(({ characterName, aliases }) => {
+      if (aliases.length === 0) {
+        deleteStatement.run({ characterName })
+        return
+      }
+
+      upsertStatement.run({
+        characterName,
+        aliases: JSON.stringify(aliases),
+      })
+    })
+  })
+
+  transaction()
+}
+
 export const saveCreatorAliasesBatch = (
   rows: Array<{ creatorName: string; aliases: string[] | string }>,
 ) => {
@@ -815,6 +1096,107 @@ export const saveCreatorAliasesBatch = (
 
   withWritableDatabase(db => {
     saveCreatorAliasesRowsInDatabase(db, normalizedRows)
+  })
+}
+
+export const saveCharacterAliasesBatch = (
+  rows: Array<{ characterName: string; aliases: string[] | string }>,
+) => {
+  ensureWritable()
+
+  const mergedRows = new Map<string, { characterName: string; aliases: string[] }>()
+
+  rows.forEach(row => {
+    const characterName = normalizeCharacterAliasName(row.characterName)
+    if (!characterName) return
+
+    const key = normalizeCharacterAliasKey(characterName)
+    if (!key) return
+
+    const aliases = normalizeCharacterAliases(row.aliases)
+    const previous = mergedRows.get(key)
+    mergedRows.set(key, {
+      characterName: previous?.characterName ?? characterName,
+      aliases: normalizeCharacterAliases([...(previous?.aliases ?? []), ...aliases]),
+    })
+  })
+
+  withWritableDatabase(db => {
+    saveCharacterAliasesRowsInDatabase(
+      db,
+      [...mergedRows.values()].map(row => ({
+        characterName: row.characterName,
+        aliases: row.aliases,
+      })),
+    )
+  })
+}
+
+const saveKeywordAliasesRowsInDatabase = (
+  db: BetterSqlite3Database,
+  rows: Array<{ baseKeyword: string; aliases: string[] }>,
+) => {
+  ensureKeywordAliasesTable(db)
+
+  const deleteStatement = db.prepare(
+    'DELETE FROM keyword_aliases WHERE base_keyword = @baseKeyword',
+  )
+  const upsertStatement = db.prepare(
+    `
+      INSERT INTO keyword_aliases (base_keyword, aliases)
+      VALUES (@baseKeyword, @aliases)
+      ON CONFLICT(base_keyword) DO UPDATE SET aliases = excluded.aliases
+    `,
+  )
+
+  const transaction = db.transaction(() => {
+    rows.forEach(({ baseKeyword, aliases }) => {
+      if (aliases.length === 0) {
+        deleteStatement.run({ baseKeyword })
+        return
+      }
+
+      upsertStatement.run({
+        baseKeyword,
+        aliases: JSON.stringify(aliases),
+      })
+    })
+  })
+
+  transaction()
+}
+
+export const saveKeywordAliasesBatch = (
+  rows: Array<{ baseKeyword: string; aliases: string[] | string }>,
+) => {
+  ensureWritable()
+
+  const mergedRows = new Map<string, { baseKeyword: string; aliases: string[] }>()
+
+  rows.forEach(row => {
+    const baseKeyword = normalizeKeywordBaseTerm(row.baseKeyword)
+    if (!baseKeyword) return
+
+    const key = normalizeKeywordAliasKey(baseKeyword)
+    if (!key) return
+
+    const aliases = normalizeKeywordAliases(row.aliases)
+    const previous = mergedRows.get(key)
+
+    mergedRows.set(key, {
+      baseKeyword: previous?.baseKeyword ?? baseKeyword,
+      aliases: normalizeKeywordAliases([...(previous?.aliases ?? []), ...aliases]),
+    })
+  })
+
+  withWritableDatabase(db => {
+    saveKeywordAliasesRowsInDatabase(
+      db,
+      [...mergedRows.values()].map(row => ({
+        baseKeyword: row.baseKeyword,
+        aliases: row.aliases,
+      })),
+    )
   })
 }
 

@@ -1,11 +1,15 @@
 import { Suspense, lazy, startTransition, useCallback, useEffect, useMemo, useState } from 'react'
-import type { CommissionSearchEntrySource } from '#features/home/search/CommissionSearch'
+import type {
+  CommissionSearchEntrySource,
+  SearchSuggestionAliasGroup,
+} from '#features/home/search/CommissionSearch'
 import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
 import SearchShell from '#features/home/search/SearchShell'
 import {
   buildPopularKeywordPoolFromSuggestTexts,
   dedupeKeywords,
 } from '#lib/search/popularKeywords'
+import { normalizeQuotedTokenBoundary } from '#lib/search/index'
 
 const loadCommissionSearchModule = () => import('#features/home/search/CommissionSearch')
 const CommissionSearch = lazy(loadCommissionSearchModule)
@@ -15,6 +19,7 @@ const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)'
 const DESKTOP_POPULAR_KEYWORD_BATCH_SIZE = 6
 const MOBILE_POPULAR_KEYWORD_BATCH_SIZE = 4
 const MAX_FEATURED_KEYWORDS = 6
+const POPULAR_KEYWORDS_HANDOFF_DELAY_MS = 220
 
 let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
 let homeSearchEntriesPromise: Promise<CommissionSearchEntrySource[]> | null = null
@@ -156,10 +161,12 @@ const CommissionSearchShell = ({
 
 interface CommissionSearchDeferredProps {
   featuredKeywords?: string[]
+  suggestionAliasGroups?: SearchSuggestionAliasGroup[]
 }
 
 export default function CommissionSearchDeferred({
   featuredKeywords = [],
+  suggestionAliasGroups = [],
 }: CommissionSearchDeferredProps = {}) {
   const { controls } = useHomeLocaleMessages()
   const [didHydrate, setDidHydrate] = useState(false)
@@ -169,6 +176,9 @@ export default function CommissionSearchDeferred({
   const [shellQuery, setShellQuery] = useState('')
   const [popularKeywordPage, setPopularKeywordPage] = useState(0)
   const [hasDismissedFeaturedKeywords, setHasDismissedFeaturedKeywords] = useState(false)
+  const [hasCompletedPopularKeywordsHandoff, setHasCompletedPopularKeywordsHandoff] = useState(() =>
+    Boolean(import.meta.env?.TEST),
+  )
   const [popularKeywordBatchSize, setPopularKeywordBatchSize] = useState(
     getPopularKeywordBatchSize(false),
   )
@@ -283,6 +293,18 @@ export default function CommissionSearchDeferred({
   }, [])
 
   useEffect(() => {
+    if (hasCompletedPopularKeywordsHandoff || !didHydrate) return
+
+    const timeoutId = window.setTimeout(() => {
+      setHasCompletedPopularKeywordsHandoff(true)
+    }, POPULAR_KEYWORDS_HANDOFF_DELAY_MS)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [didHydrate, hasCompletedPopularKeywordsHandoff])
+
+  useEffect(() => {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
 
     const mediaQuery = window.matchMedia(DESKTOP_MEDIA_QUERY)
@@ -345,30 +367,39 @@ export default function CommissionSearchDeferred({
     }
     return buildPopularKeywordPoolFromDom()
   }, [externalEntries])
+  const hasEmptyQuery = shellQuery.trim().length === 0
+  const shouldUseFeaturedKeywords = !hasDismissedFeaturedKeywords && featuredKeywordBatch.length > 0
+  const shouldWaitForExternalKeywordPool =
+    shouldLoadExternalEntries && !externalEntries && !cachedHomeSearchEntries
   const shouldReservePopularKeywordsSpace =
-    shellQuery.trim().length === 0 &&
-    popularKeywordPool.length === 0 &&
-    (!didHydrate || (shouldLoadExternalEntries && !externalEntries && !cachedHomeSearchEntries))
+    hasEmptyQuery &&
+    (!didHydrate ||
+      !hasCompletedPopularKeywordsHandoff ||
+      (!shouldUseFeaturedKeywords && shouldWaitForExternalKeywordPool))
   const popularKeywords = useMemo(
     () =>
-      !hasDismissedFeaturedKeywords && featuredKeywordBatch.length > 0
+      shouldUseFeaturedKeywords
         ? featuredKeywordBatch.slice(0, popularKeywordBatchSize)
         : getPopularKeywordBatch(popularKeywordPool, popularKeywordPage, popularKeywordBatchSize),
     [
       featuredKeywordBatch,
-      hasDismissedFeaturedKeywords,
       popularKeywordBatchSize,
       popularKeywordPage,
       popularKeywordPool,
+      shouldUseFeaturedKeywords,
     ],
   )
+  const visiblePopularKeywords = shouldReservePopularKeywordsSpace ? [] : popularKeywords
   const rotatePopularKeywords = useCallback(() => {
     setHasDismissedFeaturedKeywords(true)
     setPopularKeywordPage(previous => previous + 1)
   }, [])
   const selectPopularKeyword = useCallback(
     (keyword: string) => {
-      setShellQuery(keyword)
+      const normalizedKeyword = normalizeQuotedTokenBoundary(keyword).trim()
+      if (!normalizedKeyword) return
+
+      setShellQuery(`${normalizedKeyword} `)
       enableSearch(true)
     },
     [enableSearch],
@@ -378,9 +409,9 @@ export default function CommissionSearchDeferred({
     <CommissionSearchShell
       query={shellQuery}
       isLoadingEntries={isEnabled && isLoadingEntries}
-      showLoadingPanel={isEnabled}
+      showLoadingPanel={isEnabled && shellQuery.trim().length === 0}
       reservePopularKeywordsSpace={shouldReservePopularKeywordsSpace}
-      popularKeywords={popularKeywords}
+      popularKeywords={visiblePopularKeywords}
       onPrewarm={prewarmSearch}
       onActivate={enableSearch}
       onQueryChange={setShellQuery}
@@ -402,6 +433,7 @@ export default function CommissionSearchDeferred({
           refreshPopularSearchLabel={controls.refreshPopularSearchLabel}
           onRotatePopularKeywords={rotatePopularKeywords}
           suppressInitialSuggestionPanelAnimation
+          suggestionAliasGroups={suggestionAliasGroups}
         />
       </Suspense>
     )
