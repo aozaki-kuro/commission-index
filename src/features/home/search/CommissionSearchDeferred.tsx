@@ -176,6 +176,8 @@ export default function CommissionSearchDeferred({
   const [shellQuery, setShellQuery] = useState('')
   const [popularKeywordPage, setPopularKeywordPage] = useState(0)
   const [hasDismissedFeaturedKeywords, setHasDismissedFeaturedKeywords] = useState(false)
+  const [suppressLoadingPanelForPopularKeyword, setSuppressLoadingPanelForPopularKeyword] =
+    useState(false)
   const [hasCompletedPopularKeywordsHandoff, setHasCompletedPopularKeywordsHandoff] = useState(() =>
     Boolean(import.meta.env?.TEST),
   )
@@ -399,22 +401,36 @@ export default function CommissionSearchDeferred({
       const normalizedKeyword = normalizeQuotedTokenBoundary(keyword).trim()
       if (!normalizedKeyword) return
 
+      setSuppressLoadingPanelForPopularKeyword(true)
       setShellQuery(`${normalizedKeyword} `)
       enableSearch(true)
     },
     [enableSearch],
   )
 
+  const activateFromShell = useCallback(
+    (focusOnMount = false, openHelpOnMount = false) => {
+      setSuppressLoadingPanelForPopularKeyword(false)
+      enableSearch(focusOnMount, openHelpOnMount)
+    },
+    [enableSearch],
+  )
+
+  const handleShellQueryChange = useCallback((value: string) => {
+    setSuppressLoadingPanelForPopularKeyword(false)
+    setShellQuery(value)
+  }, [])
+
   const shell = (
     <CommissionSearchShell
       query={shellQuery}
       isLoadingEntries={isEnabled && isLoadingEntries}
-      showLoadingPanel={isEnabled && shellQuery.trim().length === 0}
+      showLoadingPanel={isEnabled && !suppressLoadingPanelForPopularKeyword}
       reservePopularKeywordsSpace={shouldReservePopularKeywordsSpace}
       popularKeywords={visiblePopularKeywords}
       onPrewarm={prewarmSearch}
-      onActivate={enableSearch}
-      onQueryChange={setShellQuery}
+      onActivate={activateFromShell}
+      onQueryChange={handleShellQueryChange}
       onRotatePopularKeywords={rotatePopularKeywords}
       onSelectPopularKeyword={selectPopularKeyword}
     />
