@@ -79,6 +79,7 @@ const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
   const CONFIRMED_AGE_KEY = 'hasConfirmedAge'
   const AGE_CONFIRM_DURATION = 30 * 24 * 60 * 60 * 1000
   const AGE_CONFIRM_EVENT = 'age-confirm-changed'
+  const AGE_GATE_STATE_EVENT = 'age-gate-state-change'
   const LIGHTHOUSE_USER_AGENT_TOKEN = 'lighthouse'
 
   const root = document.querySelector<HTMLElement>('[data-age-gate-root]')
@@ -118,6 +119,12 @@ const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
       root.setAttribute('aria-hidden', open ? 'false' : 'true')
       overlay.dataset.state = state
       panel.dataset.state = state
+      document.documentElement.dataset.ageGateOpen = open ? 'true' : 'false'
+      window.dispatchEvent(
+        new CustomEvent(AGE_GATE_STATE_EVENT, {
+          detail: { open },
+        }),
+      )
 
       if (open) {
         document.documentElement.style.overflow = 'hidden'
@@ -204,6 +211,7 @@ const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
         window.removeEventListener('storage', onStorage)
         window.removeEventListener(AGE_CONFIRM_EVENT, syncOpenState)
         document.removeEventListener('keydown', onKeyDown)
+        delete document.documentElement.dataset.ageGateOpen
         document.documentElement.style.overflow = originalHtmlOverflow
         document.body.style.overflow = originalBodyOverflow
       },

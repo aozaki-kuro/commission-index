@@ -29,6 +29,8 @@ const NAV_ROOT_SELECTOR = '[data-mobile-nav-root="true"]'
 const NAV_LINK_SELECTOR = '[data-mobile-nav-link="true"]'
 const CHARACTER_SECTION_SELECTOR = '[data-mobile-character-section]'
 const CHARACTER_SECTION_TOGGLE_SELECTOR = '[data-mobile-character-section-toggle="true"]'
+const AGE_GATE_ROOT_SELECTOR = '[data-age-gate-root]'
+const AGE_GATE_STATE_EVENT = 'age-gate-state-change'
 
 type MobileHamburgerMenuDeps = {
   trackEvent: typeof trackRybbitEvent
@@ -66,6 +68,11 @@ const readCount = (rawValue: string | undefined) => {
   const value = Number(rawValue)
   if (!Number.isFinite(value)) return 0
   return Math.max(0, Math.floor(value))
+}
+
+const readAgeGateOpen = (doc: Document) => {
+  if (doc.documentElement.dataset.ageGateOpen === 'true') return true
+  return doc.querySelector<HTMLElement>(AGE_GATE_ROOT_SELECTOR)?.dataset.state === 'open'
 }
 
 const setHtmlScrollLocked = (doc: Document, locked: boolean) => {
@@ -124,6 +131,7 @@ export const mountMobileHamburgerMenu = ({
   let hasTrackedSearchUsage = false
   let didHandleSearchPointerDown = false
   let expandedCharacterSection: CharacterSectionKey = 'active'
+  let ageGateOpen = readAgeGateOpen(doc)
 
   const clearCloseTimer = () => {
     if (closeTimerId === null) return
@@ -147,6 +155,13 @@ export const mountMobileHamburgerMenu = ({
 
   const syncOpenState = () => {
     const isVisible = mounted
+
+    root.classList.toggle('invisible', ageGateOpen)
+    root.classList.toggle('opacity-0', ageGateOpen)
+    root.classList.toggle('pointer-events-none', ageGateOpen)
+    root.classList.toggle('opacity-100', !ageGateOpen)
+    toggle.disabled = ageGateOpen
+    toggle.setAttribute('aria-hidden', String(ageGateOpen))
 
     root.dataset.mobileHamburgerMounted = isVisible ? 'true' : 'false'
     root.dataset.mobileHamburgerOpen = open ? 'true' : 'false'
@@ -197,6 +212,8 @@ export const mountMobileHamburgerMenu = ({
   }
 
   const openMenu = () => {
+    if (ageGateOpen) return
+
     if (!hasTrackedHamburgerUsage) {
       hasTrackedHamburgerUsage = true
       deps.trackEvent(ANALYTICS_EVENTS.hamburgerMenuUsed, {
@@ -216,6 +233,8 @@ export const mountMobileHamburgerMenu = ({
   }
 
   const toggleMenu = () => {
+    if (ageGateOpen) return
+
     if (open) {
       closeMenu()
       return
@@ -404,6 +423,26 @@ export const mountMobileHamburgerMenu = ({
     syncUiState()
   }
 
+  const onAgeGateStateChanged = (event: Event) => {
+    const nextOpen =
+      event instanceof CustomEvent && event.detail && typeof event.detail === 'object'
+        ? Boolean((event.detail as { open?: unknown }).open)
+        : readAgeGateOpen(doc)
+    if (ageGateOpen === nextOpen) return
+
+    ageGateOpen = nextOpen
+    if (ageGateOpen) {
+      clearCloseTimer()
+      clearOpenRaf()
+      open = false
+      setMounted(false)
+      setHtmlScrollLocked(doc, false)
+      syncOpenState()
+    } else {
+      syncOpenState()
+    }
+  }
+
   root.addEventListener('pointerdown', onRootPointerDown)
   root.addEventListener('click', onRootClick)
   backdrop.addEventListener('click', onBackdropClick)
@@ -411,6 +450,7 @@ export const mountMobileHamburgerMenu = ({
   win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onViewModeChanged)
   win.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSearchStateChanged)
   win.addEventListener('popstate', onPopState)
+  win.addEventListener(AGE_GATE_STATE_EVENT, onAgeGateStateChanged)
 
   syncUiState()
   syncOpenState()
@@ -434,5 +474,6 @@ export const mountMobileHamburgerMenu = ({
     win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onViewModeChanged)
     win.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSearchStateChanged)
     win.removeEventListener('popstate', onPopState)
+    win.removeEventListener(AGE_GATE_STATE_EVENT, onAgeGateStateChanged)
   }
 }

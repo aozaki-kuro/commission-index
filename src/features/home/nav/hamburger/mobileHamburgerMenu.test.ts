@@ -166,4 +166,35 @@ describe('mobileHamburgerMenu', () => {
 
     cleanup()
   })
+
+  it('hides and disables the hamburger menu while age gate is open', () => {
+    const cleanup = mountMobileHamburgerMenu()
+    const toggle = getToggle()
+    const root = getRoot()
+
+    window.dispatchEvent(
+      new CustomEvent('age-gate-state-change', {
+        detail: { open: true },
+      }),
+    )
+
+    expect(root?.classList.contains('invisible')).toBe(true)
+    expect(root?.classList.contains('pointer-events-none')).toBe(true)
+    expect(toggle?.disabled).toBe(true)
+
+    toggle!.click()
+    expect(root?.dataset.mobileHamburgerMounted).toBe('false')
+    expect(root?.dataset.mobileHamburgerOpen).toBe('false')
+
+    window.dispatchEvent(
+      new CustomEvent('age-gate-state-change', {
+        detail: { open: false },
+      }),
+    )
+
+    expect(root?.classList.contains('invisible')).toBe(false)
+    expect(toggle?.disabled).toBe(false)
+
+    cleanup()
+  })
 })
