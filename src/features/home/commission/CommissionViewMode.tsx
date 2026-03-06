@@ -9,8 +9,8 @@ import {
   type ReactNode,
 } from 'react'
 import { scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
-import { parseCommissionViewModeFromSearch } from './CommissionViewModeSearch'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from './viewModeEvent'
+import { readCommissionViewMode, replaceCommissionViewModeInAddress } from './viewModeState'
 
 type CommissionViewMode = import('./CommissionViewModeSearch').CommissionViewMode
 export type { CommissionViewMode } from './CommissionViewModeSearch'
@@ -19,20 +19,6 @@ type CommissionViewModeContextValue = {
   mode: CommissionViewMode
   setMode: (mode: CommissionViewMode) => void
   isPanelMounted: (panel: CommissionViewMode) => boolean
-}
-
-const replaceCommissionViewModeInAddress = (mode: CommissionViewMode) => {
-  if (typeof window === 'undefined') return
-
-  const url = new URL(window.location.href)
-  if (mode === 'timeline') {
-    url.searchParams.set('view', 'timeline')
-  } else {
-    url.searchParams.delete('view')
-  }
-
-  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
-  window.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
 }
 
 const subscribeToCommissionViewMode = (onStoreChange: () => void) => {
@@ -55,9 +41,7 @@ export const CommissionViewModeProvider = ({
   initialMode?: CommissionViewMode
 }) => {
   const initialMountedMode =
-    typeof window === 'undefined'
-      ? initialMode
-      : parseCommissionViewModeFromSearch(window.location.search)
+    typeof window === 'undefined' ? initialMode : readCommissionViewMode(window)
   const [mountedPanels, setMountedPanels] = useState<Set<CommissionViewMode>>(
     () => new Set([initialMountedMode]),
   )
@@ -73,14 +57,14 @@ export const CommissionViewModeProvider = ({
 
   const mode = useSyncExternalStore(
     subscribeToCommissionViewMode,
-    () => parseCommissionViewModeFromSearch(window.location.search),
+    () => readCommissionViewMode(window),
     () => initialMode,
   )
   const setMode = useCallback(
     (nextMode: CommissionViewMode) => {
       markPanelMounted(nextMode)
-      if (nextMode === parseCommissionViewModeFromSearch(window.location.search)) return
-      replaceCommissionViewModeInAddress(nextMode)
+      if (nextMode === readCommissionViewMode(window)) return
+      replaceCommissionViewModeInAddress(window, nextMode)
     },
     [markPanelMounted],
   )

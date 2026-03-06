@@ -1,29 +1,11 @@
-import {
-  parseCommissionViewModeFromSearch,
-  type CommissionViewMode,
-} from '#features/home/commission/CommissionViewModeSearch'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
+import {
+  readCommissionViewMode,
+  replaceCommissionViewModeInAddress,
+  resolveCommissionViewModeFromElement,
+} from '#features/home/commission/viewModeState'
 
 const TOGGLE_SELECTOR = '[data-mobile-view-mode-toggle="true"]'
-
-const resolveViewModeFromElement = (target: Element | null): CommissionViewMode | null => {
-  if (!target) return null
-  const mode = target.getAttribute('data-view-mode')
-  if (mode === 'timeline' || mode === 'character') return mode
-  return null
-}
-
-const replaceCommissionViewModeInAddress = (win: Window, mode: CommissionViewMode) => {
-  const url = new URL(win.location.href)
-  if (mode === 'timeline') {
-    url.searchParams.set('view', 'timeline')
-  } else {
-    url.searchParams.delete('view')
-  }
-
-  win.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
-  win.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
-}
 
 const syncToggleButtonState = (button: HTMLButtonElement, active: boolean) => {
   button.setAttribute('aria-pressed', String(active))
@@ -54,10 +36,10 @@ export const mountMobileViewModeTabs = ({
   if (!root) return () => {}
 
   const syncByUrl = () => {
-    const mode = parseCommissionViewModeFromSearch(win.location.search)
+    const mode = readCommissionViewMode(win)
     const buttons = root.querySelectorAll<HTMLButtonElement>(TOGGLE_SELECTOR)
     buttons.forEach(button => {
-      const buttonMode = resolveViewModeFromElement(button)
+      const buttonMode = resolveCommissionViewModeFromElement(button)
       syncToggleButtonState(button, buttonMode === mode)
     })
   }
@@ -69,10 +51,10 @@ export const mountMobileViewModeTabs = ({
     const button = target.closest<HTMLButtonElement>(TOGGLE_SELECTOR)
     if (!button) return
 
-    const nextMode = resolveViewModeFromElement(button)
+    const nextMode = resolveCommissionViewModeFromElement(button)
     if (!nextMode) return
 
-    const currentMode = parseCommissionViewModeFromSearch(win.location.search)
+    const currentMode = readCommissionViewMode(win)
     if (nextMode !== currentMode) {
       replaceCommissionViewModeInAddress(win, nextMode)
       return

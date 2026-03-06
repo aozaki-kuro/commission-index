@@ -1,9 +1,11 @@
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import {
-  parseCommissionViewModeFromSearch,
-  type CommissionViewMode,
-} from '#features/home/commission/CommissionViewModeSearch'
+  readCommissionViewMode,
+  replaceCommissionViewModeInAddress,
+  resolveCommissionViewModeFromElement,
+} from '#features/home/commission/viewModeState'
+import type { CommissionViewMode } from '#features/home/commission/CommissionViewModeSearch'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import { scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
@@ -50,25 +52,6 @@ const defaultDeps: MobileHamburgerMenuDeps = {
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
 }
 
-const replaceCommissionViewModeInAddress = (win: Window, mode: CommissionViewMode) => {
-  const url = new URL(win.location.href)
-  if (mode === 'timeline') {
-    url.searchParams.set('view', 'timeline')
-  } else {
-    url.searchParams.delete('view')
-  }
-
-  win.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
-  win.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
-}
-
-const resolveViewModeFromElement = (target: Element | null): CommissionViewMode | null => {
-  if (!target) return null
-  const mode = target.getAttribute('data-view-mode')
-  if (mode === 'character' || mode === 'timeline') return mode
-  return null
-}
-
 const resolveCharacterSectionKeyFromElement = (
   target: Element | null,
 ): CharacterSectionKey | null => {
@@ -84,8 +67,6 @@ const readCount = (rawValue: string | undefined) => {
   if (!Number.isFinite(value)) return 0
   return Math.max(0, Math.floor(value))
 }
-
-const readCurrentMode = (win: Window) => parseCommissionViewModeFromSearch(win.location.search)
 
 const setHtmlScrollLocked = (doc: Document, locked: boolean) => {
   const html = doc.documentElement
@@ -264,10 +245,10 @@ export const mountMobileHamburgerMenu = ({
   }
 
   const syncViewModeState = () => {
-    const mode = readCurrentMode(win)
+    const mode = readCommissionViewMode(win)
     const toggles = root.querySelectorAll<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR)
     toggles.forEach(button => {
-      const buttonMode = resolveViewModeFromElement(button)
+      const buttonMode = resolveCommissionViewModeFromElement(button)
       syncViewModeIndicatorState(button, buttonMode === mode)
     })
 
@@ -295,7 +276,7 @@ export const mountMobileHamburgerMenu = ({
     mode === 'timeline' ? timelineCount : activeCount + staleCount
 
   const runSearchAction = () => {
-    const mode = readCurrentMode(win)
+    const mode = readCommissionViewMode(win)
     if (!hasTrackedSearchUsage) {
       hasTrackedSearchUsage = true
       deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
@@ -335,8 +316,8 @@ export const mountMobileHamburgerMenu = ({
 
     const viewModeToggle = target.closest<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR)
     if (viewModeToggle) {
-      const currentMode = readCurrentMode(win)
-      const nextMode = resolveViewModeFromElement(viewModeToggle)
+      const currentMode = readCommissionViewMode(win)
+      const nextMode = resolveCommissionViewModeFromElement(viewModeToggle)
       if (!nextMode) return
 
       deps.trackEvent(ANALYTICS_EVENTS.sidebarViewModeToggleUsed, {
@@ -381,7 +362,7 @@ export const mountMobileHamburgerMenu = ({
       return
     }
 
-    const mode = readCurrentMode(win)
+    const mode = readCommissionViewMode(win)
     const sectionId = navLink.dataset.mobileNavSectionId ?? 'unknown'
     const characterName = navLink.textContent?.trim() || 'unknown'
 

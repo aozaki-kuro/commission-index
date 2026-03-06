@@ -14,9 +14,11 @@ import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '#lib/navigation/syncHiddenSectionLinkAvailability'
 import {
-  parseCommissionViewModeFromSearch,
-  type CommissionViewMode,
-} from '#features/home/commission/CommissionViewModeSearch'
+  readCommissionViewMode,
+  replaceCommissionViewModeInAddress,
+  resolveCommissionViewModeFromElement,
+} from '#features/home/commission/viewModeState'
+import type { CommissionViewMode } from '#features/home/commission/CommissionViewModeSearch'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 
 const SIDEBAR_ROOT_ID = 'Character List'
@@ -48,30 +50,10 @@ const defaultDeps: SidebarNavEnhancerDeps = {
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
 }
 
-const getCurrentMode = (win: Window): CommissionViewMode =>
-  parseCommissionViewModeFromSearch(win.location.search)
+const getCurrentMode = (win: Window): CommissionViewMode => readCommissionViewMode(win)
 
 const hasSearchQueryInUrl = (win: Window) =>
   Boolean(new URLSearchParams(win.location.search).get('q')?.trim())
-
-const replaceCommissionViewModeInAddress = (win: Window, mode: CommissionViewMode) => {
-  const url = new URL(win.location.href)
-  if (mode === 'timeline') {
-    url.searchParams.set('view', 'timeline')
-  } else {
-    url.searchParams.delete('view')
-  }
-
-  win.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
-  win.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
-}
-
-const resolveViewModeFromElement = (target: Element | null): CommissionViewMode | null => {
-  if (!target) return null
-  const mode = target.getAttribute('data-view-mode')
-  if (mode === 'timeline' || mode === 'character') return mode
-  return null
-}
 
 const getVisibleNavPanel = (root: HTMLElement, mode: CommissionViewMode) =>
   root.querySelector<HTMLElement>(`${NAV_PANEL_SELECTOR}[data-sidebar-nav-panel="${mode}"]`)
@@ -158,7 +140,7 @@ export const mountSidebarNavEnhancer = ({
 
     const toggles = root.querySelectorAll<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR)
     toggles.forEach(toggle => {
-      const toggleMode = resolveViewModeFromElement(toggle)
+      const toggleMode = resolveCommissionViewModeFromElement(toggle)
       const active = toggleMode === mode
       toggle.setAttribute('aria-pressed', String(active))
       toggleViewModeButtonState(toggle, active)
@@ -252,7 +234,7 @@ export const mountSidebarNavEnhancer = ({
     const modeToggleButton = target.closest<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR)
     if (modeToggleButton) {
       const currentMode = getCurrentMode(win)
-      const nextMode = resolveViewModeFromElement(modeToggleButton)
+      const nextMode = resolveCommissionViewModeFromElement(modeToggleButton)
       if (!nextMode) return
 
       deps.trackEvent(ANALYTICS_EVENTS.sidebarViewModeToggleUsed, {

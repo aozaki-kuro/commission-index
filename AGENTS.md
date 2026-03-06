@@ -104,6 +104,8 @@ Additional guidance:
 
 ## Change Log
 
+- Removed unused React hamburger leftovers (`src/features/home/nav/Hamburger.tsx`, `src/features/home/nav/hamburger/MenuContent.tsx`, `src/features/home/nav/hamburger/CharacterMenuList.tsx`, `src/features/home/nav/hamburger/Icons.tsx`) after the Astro mobile menu migration.
+- Removed the deferred SearchShell handoff so home/admin search now render the real `CommissionSearch` immediately and only defer index construction.
 - Switched admin/server business filenames to camelCase (`adminApi*`, `devAdminAstro`, `assetsPipelineAstro`, `assetsSyncCli`).
 - Moved dev admin Astro routes to `src/devAdmin/pages/*`.
 - Migrated effect-only home/layout side effects to Astro script components.
