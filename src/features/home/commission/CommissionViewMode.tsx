@@ -11,6 +11,7 @@ import {
 import { scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
 import { parseCommissionViewModeFromSearch } from './CommissionViewModeSearch'
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from './viewModeEvent'
 
 type CommissionViewMode = import('./CommissionViewModeSearch').CommissionViewMode
 export type { CommissionViewMode } from './CommissionViewModeSearch'
@@ -20,8 +21,6 @@ type CommissionViewModeContextValue = {
   setMode: (mode: CommissionViewMode) => void
   isPanelMounted: (panel: CommissionViewMode) => boolean
 }
-
-const VIEW_MODE_URL_CHANGE_EVENT = 'commission-view-mode-change'
 
 const replaceCommissionViewModeInAddress = (mode: CommissionViewMode) => {
   if (typeof window === 'undefined') return
@@ -34,16 +33,16 @@ const replaceCommissionViewModeInAddress = (mode: CommissionViewMode) => {
   }
 
   window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
-  window.dispatchEvent(new Event(VIEW_MODE_URL_CHANGE_EVENT))
+  window.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
 }
 
 const subscribeToCommissionViewMode = (onStoreChange: () => void) => {
   window.addEventListener('popstate', onStoreChange)
-  window.addEventListener(VIEW_MODE_URL_CHANGE_EVENT, onStoreChange)
+  window.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onStoreChange)
 
   return () => {
     window.removeEventListener('popstate', onStoreChange)
-    window.removeEventListener(VIEW_MODE_URL_CHANGE_EVENT, onStoreChange)
+    window.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onStoreChange)
   }
 }
 

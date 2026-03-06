@@ -1,0 +1,241 @@
+---
+import type { HomeLocaleOption } from '#features/home/i18n/HomeLocaleContext'
+import type { HomeLocaleMessages } from '#features/home/i18n/homeLocale'
+import { buildCharacterNavItems, type CharacterNavItem } from '#lib/characters/nav'
+
+interface CharacterDisplay {
+  DisplayName: string
+}
+
+interface DesktopSidebarNavProps {
+  active: CharacterDisplay[]
+  stale: CharacterDisplay[]
+  monthNavItems: CharacterNavItem[]
+  locale: string
+  localeOptions: HomeLocaleOption[]
+  localeSwitcherLabel: string
+  controls: HomeLocaleMessages['controls']
+}
+
+const { active, stale, monthNavItems, locale, localeOptions, localeSwitcherLabel, controls } =
+  Astro.props as DesktopSidebarNavProps
+
+const characterNavItems = buildCharacterNavItems([...active, ...stale])
+---
+
+<aside
+  id="Character List"
+  class="hidden md:top-52 md:left-[calc(50%+22rem)] md:h-screen md:w-full md:max-w-50 lg:fixed lg:block"
+>
+  <div class="sticky top-4 ml-8 space-y-2">
+    <div class="space-y-4 pb-2">
+      <div class="relative flex min-h-5 items-center pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
+        <svg
+          viewBox="0 0 24 24"
+          class="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-all duration-300"
+          fill="none"
+          stroke="currentColor"
+          aria-hidden="true"
+        >
+          <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.4-4.4" />
+          <circle cx="11" cy="11" r="6" stroke-width="2" />
+        </svg>
+        <a
+          href="#commission-search"
+          data-sidebar-search-link="true"
+          class="font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200"
+        >
+          {controls.search}
+        </a>
+      </div>
+
+      <details data-sidebar-locale-menu class="group relative">
+        <summary
+          data-link-style="true"
+          class="relative flex min-h-5 cursor-pointer list-none items-center pl-4 text-gray-700 no-underline transition-colors hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
+          aria-label={localeSwitcherLabel}
+        >
+          <svg
+            viewBox="0 0 12 12"
+            class="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-colors duration-200 group-hover:text-gray-500 dark:group-hover:text-gray-300"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path d="M2 4h8L6 9z" />
+          </svg>
+          <span class="font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200">
+            {localeSwitcherLabel}
+          </span>
+        </summary>
+
+        <ul
+          class="absolute top-full left-0 z-[95] mt-2 w-48 space-y-1 rounded-xl border border-white/20 bg-white/80 p-2 font-mono shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-[12px] dark:bg-black/80"
+        >
+          {
+            localeOptions.map(option => {
+              const isActive = option.locale === locale
+              return (
+                <li>
+                  <a
+                    href={option.href}
+                    aria-current={isActive ? 'page' : undefined}
+                    class={`group flex w-full items-center justify-between rounded-lg px-4 py-1 font-mono text-sm no-underline transition-colors duration-150 ${
+                      isActive
+                        ? 'text-gray-900 dark:text-white'
+                        : 'text-gray-700 hover:bg-white/70 dark:text-gray-200 dark:hover:bg-white/10'
+                    }`.trim()}
+                  >
+                    <span>{option.label}</span>
+                    {isActive ? (
+                      <span
+                        aria-hidden="true"
+                        class="h-1.5 w-1.5 rounded-full bg-gray-500/80 dark:bg-gray-300/80"
+                      />
+                    ) : null}
+                  </a>
+                </li>
+              )
+            })
+          }
+        </ul>
+      </details>
+
+      <div class="space-y-2">
+        <button
+          type="button"
+          data-sidebar-view-mode-toggle="true"
+          data-view-mode="character"
+          aria-pressed="true"
+          data-link-style="true"
+          class="relative flex min-h-5 w-full cursor-pointer appearance-none items-center border-0 bg-transparent p-0 pl-4 text-left text-gray-900 no-underline transition-colors hover:text-gray-900 dark:text-white dark:hover:text-white"
+        >
+          <span
+            data-sidebar-view-mode-indicator
+            class="absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-500 scale-100 opacity-100 transition-all duration-300"
+            aria-hidden="true"
+          />
+          <span class="font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200">
+            {controls.byCharacter}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          data-sidebar-view-mode-toggle="true"
+          data-view-mode="timeline"
+          aria-pressed="false"
+          data-link-style="true"
+          class="relative flex min-h-5 w-full cursor-pointer appearance-none items-center border-0 bg-transparent p-0 pl-4 text-left text-gray-700 no-underline transition-colors hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
+        >
+          <span
+            data-sidebar-view-mode-indicator
+            class="absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-500 scale-0 opacity-0 transition-all duration-300"
+            aria-hidden="true"
+          />
+          <span class="font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200">
+            {controls.byDate}
+          </span>
+        </button>
+      </div>
+
+      {
+        import.meta.env.DEV ? (
+          <div class="relative flex min-h-5 items-center pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
+            <svg
+              viewBox="0 0 24 24"
+              class="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-all duration-300"
+              fill="none"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l2.5-2.5a5.8 5.8 0 0 1-7.4 7.4l-6.5 6.5a1.8 1.8 0 1 1-2.5-2.5l6.5-6.5a5.8 5.8 0 0 1 7.4-7.4l-3 3Z"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+            <a href="/admin" class="font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200">
+              Admin
+            </a>
+          </div>
+        ) : null
+      }
+    </div>
+
+    <nav>
+      <ul data-sidebar-nav-panel="character">
+        {
+          characterNavItems.map(({ displayName, sectionHash, titleId, sectionId }) => (
+            <li class="relative pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
+              <span
+                data-sidebar-dot-for={titleId}
+                class="absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-400 scale-0 opacity-0 transition-all duration-300"
+              />
+              <a
+                href={sectionHash}
+                data-sidebar-character-link="true"
+                data-sidebar-title-id={titleId}
+                class="font-mono text-sm no-underline transition-colors duration-200"
+                data-sidebar-section-id={sectionId}
+              >
+                {displayName}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+
+      <ul data-sidebar-nav-panel="timeline" class="hidden">
+        {
+          monthNavItems.map(({ displayName, sectionHash, titleId, sectionId }) => (
+            <li class="relative pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
+              <span
+                data-sidebar-dot-for={titleId}
+                class="absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-400 scale-0 opacity-0 transition-all duration-300"
+              />
+              <a
+                href={sectionHash}
+                data-sidebar-character-link="true"
+                data-sidebar-title-id={titleId}
+                class="font-mono text-sm no-underline transition-colors duration-200"
+                data-sidebar-section-id={sectionId}
+              >
+                {displayName}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+  </div>
+</aside>
+
+<script>
+  const localeMenu = document.querySelector('[data-sidebar-locale-menu]')
+
+  if (localeMenu instanceof HTMLDetailsElement) {
+    const closeMenu = (event: Event) => {
+      const target = event.target
+      if (target instanceof Node && localeMenu.contains(target)) return
+      localeMenu.open = false
+    }
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      localeMenu.open = false
+    }
+
+    document.addEventListener('click', closeMenu)
+    document.addEventListener('keydown', closeOnEscape)
+
+    window.addEventListener(
+      'pagehide',
+      () => {
+        document.removeEventListener('click', closeMenu)
+        document.removeEventListener('keydown', closeOnEscape)
+      },
+      { once: true },
+    )
+  }
+</script>

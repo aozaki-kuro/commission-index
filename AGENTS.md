@@ -6,7 +6,7 @@ This repository contains an Astro 5 static site with React 19 islands, written i
 
 - **Runtime & package manager:** Node 22 via [mise](https://mise.jdx.dev) and `bun` for all commands.
 - **Framework:** Astro + Tailwind CSS + selective React islands (`@astrojs/react`).
-- **Path aliases:** Prefer the `#app`, `#components`, `#images`, `#commission`, `#data`, `#lib`, and `#admin/*` aliases (`#admin/actions` points to the HTTP client action wrappers).
+- **Path aliases:** Prefer `#layouts/*`, `#features/*`, `#components/*`, `#images/*`, `#data/*`, `#lib/*`, `#styles/*`, `#config/*`, and `#admin/*` (`#admin/actions` points to the HTTP client action wrappers).
 - **Data source:** Commission content lives in `data/commissions.db`; access it through `data/sqlite.ts` (Bun uses `bun:sqlite`, Node falls back to `better-sqlite3`).
 
 ## Home Rendering Architecture
@@ -16,8 +16,9 @@ This repository contains an Astro 5 static site with React 19 islands, written i
   - `src/features/home/blocks/*.astro`
   - `src/features/home/server/StaticCommissionSections.astro`
   - `src/features/home/commission/*.astro` (listing/timeline/entry rendering chain)
+  - `src/features/home/nav/DesktopSidebarNav.astro` (desktop nav/search/view/locale shell)
 - Keep React only for interactive islands:
-  - `HomeControlsIsland` (search/tabs/nav/hamburger)
+  - `HomeControlsIsland` (search shell + mobile-only tabs/hamburger)
 - Home-level side effects are Astro script components:
   - `src/features/home/warning/AgeGateScript.astro`
   - `src/layouts/AnalyticsScript.astro`
@@ -25,6 +26,8 @@ This repository contains an Astro 5 static site with React 19 islands, written i
   - `src/features/home/commission/CommissionViewModeDomSyncScript.astro`
   - `src/features/home/dev/DevLiveRefreshScript.astro`
   - `src/features/home/nav/SidebarNavEnhancerScript.astro`
+- Home desktop navigation behavior is centralized in:
+  - `src/features/home/nav/sidebarNavEnhancer.ts`
 - Home search/view-mode behavior depends on existing `data-*` DOM contracts; preserve attribute names and structure when editing Astro templates.
 - Shared pure rendering helpers:
   - `src/features/home/commission/linkDisplay.ts` (link sanitization/priority selection)
@@ -38,7 +41,7 @@ This repository contains an Astro 5 static site with React 19 islands, written i
 - Static page structure (title/description/navigation/fallback) stays in Astro templates.
 - Admin interactive state is isolated to React islands:
   - `src/features/admin/islands/AdminDashboardIsland.tsx`
-  - `src/features/admin/islands/AdminAliasesIsland.tsx`
+  - `src/features/admin/islands/AliasesDashboardIsland.tsx`
 - Feature-heavy admin UI remains React:
   - `src/features/admin/AdminDashboard.tsx`
   - `src/features/admin/aliases/AliasesDashboard.tsx`
@@ -70,7 +73,7 @@ Additional guidance:
 - If `data/commissions.db`, `server/adminApi.ts`, or admin/data-access code changed, `bun run build` is mandatory.
 - If `.astro` files or Astro script blocks are modified, `bun run check` is mandatory.
 - Run `bun run test` whenever you modify:
-  - `src/admin/*`, `#admin/actions`, `server/adminApi.ts`, `src/lib/admin/db.ts`, `vite.config.ts`
+  - `src/admin/*`, `#admin/actions`, `server/adminApi.ts`, `src/lib/admin/db.ts`, `astro.config.ts`
   - Rendering/component logic in `src/components/*` and `src/pages/*`
   - Search/filter/date parsing logic or other user-visible behavior in `src/lib/*` and `data/*`
 
@@ -96,6 +99,8 @@ Additional guidance:
 - Migrated age gate warning from React island to Astro script.
 - Migrated commission image notice gate/client from React to Astro script + DOM module.
 - Migrated sidebar click/hash/search-link enhancer from React effect component to Astro script.
+- Migrated desktop sidebar navigation (search/view-mode/locale list) from React to Astro + script module.
+- Removed unused migration leftovers (`CommissionViewModeDomSync.tsx`, `useDocumentTitle`, `src/lib/index.ts`).
 - Added shared server request/response bridge utility and test coverage.
 
 ## Code Style

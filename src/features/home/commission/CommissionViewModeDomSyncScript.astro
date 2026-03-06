@@ -1,7 +1,6 @@
 <script>
   import { parseCommissionViewModeFromSearch } from '#features/home/commission/CommissionViewModeSearch'
-
-  const VIEW_MODE_URL_CHANGE_EVENT = 'commission-view-mode-change'
+  import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 
   const syncPanelsByMode = () => {
     const mode = parseCommissionViewModeFromSearch(window.location.search)
@@ -20,6 +19,6 @@
   }
 
   window.addEventListener('popstate', syncPanelsByMode)
-  window.addEventListener(VIEW_MODE_URL_CHANGE_EVENT, syncPanelsByMode)
+  window.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, syncPanelsByMode)
   syncPanelsByMode()
 </script>

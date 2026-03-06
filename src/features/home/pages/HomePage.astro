@@ -7,6 +7,7 @@ import CommissionImageNoticeScript from '#features/home/commission/CommissionIma
 import CommissionViewModeDomSyncScript from '#features/home/commission/CommissionViewModeDomSyncScript.astro'
 import DevLiveRefreshScript from '#features/home/dev/DevLiveRefreshScript.astro'
 import HomeControlsIsland from '#features/home/islands/HomeControlsIsland'
+import DesktopSidebarNav from '#features/home/nav/DesktopSidebarNav.astro'
 import SidebarNavEnhancerScript from '#features/home/nav/SidebarNavEnhancerScript.astro'
 import StaticCommissionSections from '#features/home/server/StaticCommissionSections.astro'
 import AgeGateScript from '#features/home/warning/AgeGateScript.astro'
@@ -96,6 +97,15 @@ const resolvedCanonicalPath =
         client:load
         locale={resolvedLocale}
         localeOptions={localeOptions}
+        active={payload.characterStatus.active}
+        stale={payload.characterStatus.stale}
+        monthNavItems={payload.monthNavItems}
+      />
+      <DesktopSidebarNav
+        locale={resolvedLocale}
+        localeOptions={localeOptions}
+        localeSwitcherLabel={messages.localeSwitcherLabel}
+        controls={messages.controls}
         active={payload.characterStatus.active}
         stale={payload.characterStatus.stale}
         monthNavItems={payload.monthNavItems}
