@@ -1,0 +1,285 @@
+---
+import type { CharacterNavItem } from '#lib/characters/nav'
+import { buildCharacterNavItems } from '#lib/characters/nav'
+import type { HomeLocaleMessages } from '#features/home/i18n/homeLocale'
+import { STYLES } from '#features/home/nav/hamburger/constants'
+
+interface CharacterDisplay {
+  DisplayName: string
+}
+
+interface MobileHamburgerMenuProps {
+  active: CharacterDisplay[]
+  stale: CharacterDisplay[]
+  monthNavItems: CharacterNavItem[]
+  controls: HomeLocaleMessages['controls']
+}
+
+const { active, stale, monthNavItems, controls } = Astro.props as MobileHamburgerMenuProps
+const activeNavItems = buildCharacterNavItems(active)
+const staleNavItems = buildCharacterNavItems(stale)
+const backdropStyle = {
+  WebkitBackdropFilter: STYLES.backdrop,
+  backdropFilter: STYLES.backdrop,
+}
+
+const utilityActionButtonClassName =
+  'flex w-full items-center justify-between rounded-lg px-4 py-1 text-gray-700 transition-colors duration-150 hover:bg-white/70 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-white/10 dark:hover:text-white'
+const utilityActionTextClassName = 'font-mono text-base leading-6 font-bold no-underline transition-colors duration-200'
+---
+
+<div
+  data-mobile-hamburger="true"
+  data-mobile-hamburger-mounted="false"
+  data-mobile-hamburger-open="false"
+  data-mobile-hamburger-active-count={active.length}
+  data-mobile-hamburger-stale-count={stale.length}
+  data-mobile-hamburger-timeline-count={monthNavItems.length}
+  data-mobile-hamburger-open-label={controls.openNavigationMenu}
+  data-mobile-hamburger-close-label={controls.closeNavigationMenu}
+  class="fixed right-8 bottom-8 z-[90] md:hidden"
+>
+  <button
+    type="button"
+    data-mobile-hamburger-backdrop="true"
+    aria-label={controls.closeNavigationMenu}
+    class="hidden pointer-events-none fixed inset-0 z-60 bg-gray-200/10 opacity-0 backdrop-blur-xs transition-opacity duration-200 dark:bg-gray-900/10"
+  />
+
+  <button
+    type="button"
+    data-mobile-hamburger-toggle="true"
+    style={backdropStyle}
+    class={STYLES.floatingButton}
+    aria-expanded="false"
+    aria-controls="mobile-character-menu"
+    aria-label={controls.openNavigationMenu}
+  >
+    <span class="sr-only" data-mobile-hamburger-toggle-label>{controls.openNavigationMenu}</span>
+    <svg
+      data-mobile-hamburger-toggle-icon="true"
+      class="h-5 w-5 transform transition-transform duration-300"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      <path
+        data-mobile-hamburger-icon-menu="true"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width={2}
+        d="M4 6h16M4 12h16M4 18h16"
+      />
+      <path
+        data-mobile-hamburger-icon-close="true"
+        class="hidden"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width={2}
+        d="M6 18L18 6M6 6l12 12"
+      />
+    </svg>
+  </button>
+
+  <div
+    id="mobile-character-menu"
+    data-mobile-hamburger-panel="true"
+    aria-hidden="true"
+    style={backdropStyle}
+    class="hidden pointer-events-none absolute right-4 bottom-full z-80 mb-4 max-h-[calc(100vh-8rem)] w-64 origin-bottom-right overflow-y-auto rounded-xl border border-white/20 bg-white/80 font-mono opacity-0 shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-lg transition-[opacity,transform] duration-220 ease-out focus:outline-hidden dark:bg-black/80"
+  >
+    <div class="space-y-0">
+      <div class="space-y-1.5 border-b border-gray-300/50 px-2 py-3 dark:border-white/10">
+        <ul class="space-y-1.5">
+          <li class="relative">
+            <button
+              type="button"
+              data-mobile-hamburger-search-action="true"
+              data-link-style="true"
+              class={`${utilityActionButtonClassName} cursor-pointer appearance-none border-0 bg-transparent p-0 text-left no-underline`.trim()}
+            >
+              <span class={utilityActionTextClassName}>{controls.search}</span>
+              <svg
+                viewBox="0 0 24 24"
+                class="h-3.5 w-3.5 text-gray-500 transition-colors"
+                fill="none"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.4-4.4" />
+                <circle cx="11" cy="11" r="6" stroke-width="2" />
+              </svg>
+            </button>
+          </li>
+
+          <li class="relative">
+            <button
+              type="button"
+              data-mobile-hamburger-view-mode-toggle="true"
+              data-view-mode="character"
+              aria-pressed="true"
+              class={`${utilityActionButtonClassName} cursor-pointer appearance-none border-0 bg-transparent p-0 text-left text-gray-900 dark:text-white`.trim()}
+            >
+              <span class={utilityActionTextClassName}>{controls.byCharacter}</span>
+              <span
+                data-mobile-hamburger-view-mode-indicator="true"
+                class="h-1.5 w-1.5 rounded-full scale-100 bg-gray-500 opacity-100 transition-all duration-300"
+                aria-hidden="true"
+              />
+            </button>
+          </li>
+
+          <li class="relative">
+            <button
+              type="button"
+              data-mobile-hamburger-view-mode-toggle="true"
+              data-view-mode="timeline"
+              aria-pressed="false"
+              class={`${utilityActionButtonClassName} cursor-pointer appearance-none border-0 bg-transparent p-0 text-left`.trim()}
+            >
+              <span class={utilityActionTextClassName}>{controls.byDate}</span>
+              <span
+                data-mobile-hamburger-view-mode-indicator="true"
+                class="h-1.5 w-1.5 rounded-full scale-0 opacity-0 transition-all duration-300"
+                aria-hidden="true"
+              />
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="p-2" data-mobile-nav-root="true">
+        <div class="relative" data-mobile-character-menu-list="true">
+          <div data-mobile-hamburger-nav-panel="character">
+          <section class="mt-1.5 first:mt-0" data-mobile-character-section="active">
+            <button
+              type="button"
+              data-mobile-character-section-toggle="true"
+              data-mobile-character-section-key="active"
+              aria-expanded="true"
+              aria-controls="mobile-active-characters"
+              class="flex w-full cursor-pointer items-center justify-between rounded-lg px-4 py-2 text-left font-mono transition-colors duration-150 hover:bg-white/70 dark:hover:bg-white/10"
+            >
+              <p class="text-base leading-6 font-bold text-gray-700 dark:text-gray-200">
+                {controls.activeCharacters}
+              </p>
+              <svg
+                data-mobile-character-section-chevron="true"
+                class="h-4 w-4 rotate-180 text-gray-600 transition-transform duration-200 dark:text-gray-300"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div id="mobile-active-characters" data-mobile-character-section-panel="active" class="mt-1">
+              {
+                activeNavItems.length > 0 ? (
+                  <ul class="space-y-2">
+                    {activeNavItems.map(item => (
+                      <li class="relative">
+                        <a
+                          href={item.sectionHash}
+                          data-mobile-nav-link="true"
+                          data-mobile-nav-section-id={item.sectionId}
+                          class={STYLES.listItem}
+                        >
+                          {item.displayName}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p class="px-4 py-2 font-mono text-sm text-gray-500 dark:text-gray-400">
+                    {controls.noActiveCharacters}
+                  </p>
+                )
+              }
+            </div>
+          </section>
+
+          <section class="mt-1.5 first:mt-0" data-mobile-character-section="stale">
+            <button
+              type="button"
+              data-mobile-character-section-toggle="true"
+              data-mobile-character-section-key="stale"
+              aria-expanded="false"
+              aria-controls="mobile-stale-characters"
+              class="flex w-full cursor-pointer items-center justify-between rounded-lg px-4 py-2 text-left font-mono transition-colors duration-150 hover:bg-white/70 dark:hover:bg-white/10"
+            >
+              <p class="text-base leading-6 font-bold text-gray-700 dark:text-gray-200">
+                {controls.staleCharacters}
+              </p>
+              <svg
+                data-mobile-character-section-chevron="true"
+                class="h-4 w-4 text-gray-600 transition-transform duration-200 dark:text-gray-300"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div
+              id="mobile-stale-characters"
+              data-mobile-character-section-panel="stale"
+              class="mt-1"
+              hidden
+            >
+              {
+                staleNavItems.length > 0 ? (
+                  <ul class="space-y-2">
+                    {staleNavItems.map(item => (
+                      <li class="relative">
+                        <a
+                          href={item.sectionHash}
+                          data-mobile-nav-link="true"
+                          data-mobile-nav-section-id={item.sectionId}
+                          class={STYLES.listItem}
+                        >
+                          {item.displayName}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p class="px-4 py-2 font-mono text-sm text-gray-500 dark:text-gray-400">
+                    {controls.noStaleCharacters}
+                  </p>
+                )
+              }
+            </div>
+          </section>
+          </div>
+
+          <div data-mobile-hamburger-nav-panel="timeline" class="hidden">
+            <ul class="space-y-2">
+              {
+                monthNavItems.map(item => (
+                  <li class="relative">
+                    <a
+                      href={`/?view=timeline${item.sectionHash}`}
+                      data-mobile-nav-link="true"
+                      data-mobile-nav-section-id={item.sectionId}
+                      class={STYLES.listItem}
+                    >
+                      {item.displayName}
+                    </a>
+                  </li>
+                ))
+              }
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  import { mountMobileHamburgerMenu } from '#features/home/nav/hamburger/mobileHamburgerMenu'
+
+  const cleanup = mountMobileHamburgerMenu()
+  window.addEventListener('pagehide', cleanup, { once: true })
+</script>

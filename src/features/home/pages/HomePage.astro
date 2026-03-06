@@ -9,6 +9,7 @@ import MobileViewModeTabs from '#features/home/commission/MobileViewModeTabs.ast
 import DevLiveRefreshScript from '#features/home/dev/DevLiveRefreshScript.astro'
 import HomeControlsIsland from '#features/home/islands/HomeControlsIsland'
 import DesktopSidebarNav from '#features/home/nav/DesktopSidebarNav.astro'
+import MobileHamburgerMenu from '#features/home/nav/hamburger/MobileHamburgerMenu.astro'
 import MobileLanguageMenu from '#features/home/nav/hamburger/MobileLanguageMenu.astro'
 import SidebarNavEnhancerScript from '#features/home/nav/SidebarNavEnhancerScript.astro'
 import StaticCommissionSections from '#features/home/server/StaticCommissionSections.astro'
@@ -123,9 +124,12 @@ const resolvedCanonicalPath =
         localeOptions={localeOptions}
         featuredSearchKeywords={featuredSearchKeywords}
         suggestionAliasGroups={suggestionAliasGroups}
+      />
+      <MobileHamburgerMenu
         active={payload.characterStatus.active}
         stale={payload.characterStatus.stale}
         monthNavItems={payload.monthNavItems}
+        controls={messages.controls}
       />
       <MobileLanguageMenu
         locale={resolvedLocale}
