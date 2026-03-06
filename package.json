@@ -12,7 +12,7 @@
     "dev": "NODE_ENV=development astro dev",
     "lint": "eslint --fix",
     "prepare": "prek install",
-    "preview": "astro preview",
+    "preview": "astro build --clean && astro preview",
     "test": "vitest run",
     "test:changed": "vitest run --changed",
     "test:watch": "vitest"

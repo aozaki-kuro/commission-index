@@ -1,0 +1,19 @@
+<script>
+  import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+  import { trackRybbitEvent } from '#lib/analytics/track'
+  import { mountUnpublishedInterestButtons } from '#features/home/commission/unpublishedInterestClient'
+
+  const cleanup = mountUnpublishedInterestButtons({
+    trackEvent: properties => {
+      trackRybbitEvent(ANALYTICS_EVENTS.iWantToSeeIt, properties)
+    },
+  })
+
+  window.addEventListener(
+    'pagehide',
+    () => {
+      cleanup()
+    },
+    { once: true },
+  )
+</script>

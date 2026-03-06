@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import CommissionSearchDeferred from './CommissionSearchDeferred'
 
 const { mockCommissionSearch } = vi.hoisted(() => ({
   mockCommissionSearch: vi.fn(),
@@ -34,7 +33,6 @@ vi.mock('#features/home/search/CommissionSearch', () => ({
 
 describe('CommissionSearchDeferred', () => {
   const appendedEntries: HTMLElement[] = []
-
   const appendSearchEntry = (searchSuggest: string) => {
     const element = document.createElement('article')
     element.dataset.commissionEntry = 'true'
@@ -51,9 +49,12 @@ describe('CommissionSearchDeferred', () => {
   afterEach(() => {
     appendedEntries.splice(0).forEach(element => element.remove())
     window.history.replaceState(null, '', '/')
+    vi.unstubAllGlobals()
   })
 
-  it('renders the real search immediately and keeps deferIndexInit enabled', () => {
+  it('renders the real search immediately and keeps deferIndexInit enabled', async () => {
+    const { default: CommissionSearchDeferred } = await loadDeferredModule()
+
     render(<CommissionSearchDeferred />)
 
     expect(screen.getByTestId('commission-search')).toBeInTheDocument()
@@ -66,6 +67,8 @@ describe('CommissionSearchDeferred', () => {
   })
 
   it('deduplicates creator aliases to a single popular term', async () => {
+    const { default: CommissionSearchDeferred } = await loadDeferredModule()
+
     appendSearchEntry(['Creator\t七市', 'Creator\tNanashi', 'Keyword\tmaid'].join('\n'))
     appendSearchEntry(['Creator\t七市', 'Creator\tnanashi', 'Keyword\tkimono'].join('\n'))
 
@@ -80,6 +83,8 @@ describe('CommissionSearchDeferred', () => {
   })
 
   it('shows only one keyword alias variant in a popular batch', async () => {
+    const { default: CommissionSearchDeferred } = await loadDeferredModule()
+
     appendSearchEntry(['Keyword\tmaid', 'Keyword\t女仆', 'Keyword\tkimono'].join('\n'))
     appendSearchEntry(['Keyword\tmaid', 'Keyword\t女仆', 'Keyword\tapron'].join('\n'))
 
@@ -96,6 +101,8 @@ describe('CommissionSearchDeferred', () => {
   })
 
   it('prepares up to six popular keyword chips per batch', async () => {
+    const { default: CommissionSearchDeferred } = await loadDeferredModule()
+
     appendSearchEntry('Keyword\taa')
     appendSearchEntry('Keyword\tbb')
     appendSearchEntry('Keyword\tcc')
@@ -114,7 +121,9 @@ describe('CommissionSearchDeferred', () => {
     })
   })
 
-  it('prioritizes manually featured keywords on first batch', () => {
+  it('prioritizes manually featured keywords on first batch', async () => {
+    const { default: CommissionSearchDeferred } = await loadDeferredModule()
+
     render(
       <CommissionSearchDeferred
         featuredKeywords={['alpha', 'beta', 'gamma', 'delta', 'epsilon']}
@@ -129,6 +138,8 @@ describe('CommissionSearchDeferred', () => {
   })
 
   it('falls back to pool batches after rotating featured keywords', async () => {
+    const { default: CommissionSearchDeferred } = await loadDeferredModule()
+
     appendSearchEntry('Keyword\taa')
     appendSearchEntry('Keyword\tbb')
     appendSearchEntry('Keyword\tcc')
@@ -154,3 +165,8 @@ describe('CommissionSearchDeferred', () => {
     })
   })
 })
+
+const loadDeferredModule = async () => {
+  vi.resetModules()
+  return import('./CommissionSearchDeferred')
+}

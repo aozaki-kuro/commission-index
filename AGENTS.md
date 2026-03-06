@@ -25,9 +25,12 @@ This repository contains an Astro 5 static site with React 19 islands, written i
   - `src/features/home/warning/AgeGateScript.astro`
   - `src/layouts/AnalyticsScript.astro`
   - `src/features/home/commission/CommissionImageNoticeScript.astro`
+  - `src/features/home/commission/UnpublishedInterestScript.astro`
   - `src/features/home/commission/CommissionViewModeDomSyncScript.astro`
   - `src/features/home/dev/DevLiveRefreshScript.astro`
   - `src/features/home/nav/SidebarNavEnhancerScript.astro`
+- Home unpublished-interest button state is centralized in:
+  - `src/features/home/commission/unpublishedInterestClient.ts`
 - Home desktop navigation behavior is centralized in:
   - `src/features/home/nav/sidebarNavEnhancer.ts`
 - Home mobile top tabs behavior is centralized in:
@@ -37,6 +40,10 @@ This repository contains an Astro 5 static site with React 19 islands, written i
 - Home mobile hamburger behavior is centralized in:
   - `src/features/home/nav/hamburger/mobileHamburgerMenu.ts`
 - Home search/view-mode behavior depends on existing `data-*` DOM contracts; preserve attribute names and structure when editing Astro templates.
+- Home search UX policy:
+  - Keep the search UI itself synchronously rendered and layout-stable on first paint; do not reintroduce shell-to-real-content swaps that cause visible jump, drift, or delayed keyword chips.
+  - `dev` search may read DOM metadata, but `build` output cannot rely on `data-search-*` attributes being present; production search must keep `/search/home-search-entries.json` as a valid index source.
+  - Prefer optimizing index/data loading behind a stable UI shell over lazy-loading the entire search island. If revisiting async loading, prove identical DOM footprint before and after hydration.
 - Shared pure rendering helpers:
   - `src/features/home/commission/linkDisplay.ts` (link sanitization/priority selection)
   - `src/lib/images/sourceImageRegistry.ts` (source image lookup by commission fileName)
@@ -104,6 +111,7 @@ Additional guidance:
 
 ## Change Log
 
+- Restored unpublished `Want this` button client behavior with localStorage-backed disable/hydration flow after the Astro migration regression.
 - Removed unused React hamburger leftovers (`src/features/home/nav/Hamburger.tsx`, `src/features/home/nav/hamburger/MenuContent.tsx`, `src/features/home/nav/hamburger/CharacterMenuList.tsx`, `src/features/home/nav/hamburger/Icons.tsx`) after the Astro mobile menu migration.
 - Removed the deferred SearchShell handoff so home/admin search now render the real `CommissionSearch` immediately and only defer index construction.
 - Switched admin/server business filenames to camelCase (`adminApi*`, `devAdminAstro`, `assetsPipelineAstro`, `assetsSyncCli`).

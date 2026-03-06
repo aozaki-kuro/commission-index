@@ -95,9 +95,11 @@ const hasDisplayLinks = hasDisplayableLinks({ links, designLink })
             class={`${COMMISSION_LINK_TEXT_CLASS} inline-flex cursor-pointer appearance-none items-center gap-2.5 border-0 bg-transparent p-0 disabled:cursor-default disabled:no-underline`}
             title={messages.listing.wantThisTitle}
             data-commission-interest-key={interestKey}
+            data-commission-interest-recorded-label={messages.listing.wantThisRecorded}
+            data-commission-interest-recorded-title={messages.listing.wantThisRecordedTitle}
           >
             <span aria-hidden="true" class="h-1.5 w-1.5 rounded-full bg-current opacity-80" />
-            <span>{messages.listing.wantThis}</span>
+            <span data-commission-interest-label>{messages.listing.wantThis}</span>
           </button>
         )
       ) : null

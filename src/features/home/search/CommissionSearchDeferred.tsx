@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import CommissionSearch, {
+  type CommissionSearchEntrySource,
   type SearchSuggestionAliasGroup,
 } from '#features/home/search/CommissionSearch'
 import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
@@ -10,6 +11,10 @@ import {
 
 const MAX_FEATURED_KEYWORDS = 6
 const MAX_VISIBLE_POPULAR_KEYWORDS = 6
+const HOME_SEARCH_INDEX_URL = '/search/home-search-entries.json'
+
+let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
+let homeSearchEntriesPromise: Promise<CommissionSearchEntrySource[]> | null = null
 
 const createSeededRandom = (seed: number) => {
   let state = seed >>> 0 || 0x6d2b79f5
@@ -154,6 +159,13 @@ const buildPopularKeywordPoolFromDom = () => {
   return buildPopularKeywordPoolFromSuggestTexts(suggestTexts)
 }
 
+const buildPopularKeywordPoolFromEntries = (entries: CommissionSearchEntrySource[]) =>
+  buildPopularKeywordPoolFromSuggestTexts(
+    entries
+      .map(entry => entry.searchSuggest ?? '')
+      .filter((suggestText): suggestText is string => Boolean(suggestText)),
+  )
+
 interface CommissionSearchDeferredProps {
   featuredKeywords?: string[]
   suggestionAliasGroups?: SearchSuggestionAliasGroup[]
@@ -164,9 +176,17 @@ export default function CommissionSearchDeferred({
   suggestionAliasGroups = [],
 }: CommissionSearchDeferredProps = {}) {
   const { controls } = useHomeLocaleMessages()
+  const shouldLoadExternalEntries = Boolean(import.meta.env?.PROD)
   const [popularKeywordPage, setPopularKeywordPage] = useState(0)
   const [hasDismissedFeaturedKeywords, setHasDismissedFeaturedKeywords] = useState(false)
-  const [popularKeywordPool, setPopularKeywordPool] = useState<string[]>([])
+  const [popularKeywordPool, setPopularKeywordPool] = useState<string[]>(() =>
+    shouldLoadExternalEntries && cachedHomeSearchEntries
+      ? buildPopularKeywordPoolFromEntries(cachedHomeSearchEntries)
+      : [],
+  )
+  const [externalEntries, setExternalEntries] = useState<CommissionSearchEntrySource[] | null>(
+    () => (shouldLoadExternalEntries ? cachedHomeSearchEntries : null),
+  )
 
   const dedupedFeaturedKeywordBatch = useMemo(
     () => dedupeKeywords(featuredKeywords, MAX_FEATURED_KEYWORDS),
@@ -183,6 +203,43 @@ export default function CommissionSearchDeferred({
   )
 
   useEffect(() => {
+    if (shouldLoadExternalEntries) {
+      if (cachedHomeSearchEntries) return
+
+      let active = true
+      if (!homeSearchEntriesPromise) {
+        homeSearchEntriesPromise = fetch(HOME_SEARCH_INDEX_URL)
+          .then(async response => {
+            if (!response.ok) {
+              throw new Error(`Failed to load search index: ${response.status}`)
+            }
+            return (await response.json()) as CommissionSearchEntrySource[]
+          })
+          .then(entries => {
+            cachedHomeSearchEntries = entries
+            return entries
+          })
+          .catch(error => {
+            homeSearchEntriesPromise = null
+            throw error
+          })
+      }
+
+      void homeSearchEntriesPromise
+        .then(entries => {
+          if (!active) return
+          setExternalEntries(entries)
+          setPopularKeywordPool(buildPopularKeywordPoolFromEntries(entries))
+        })
+        .catch(error => {
+          console.error(error)
+        })
+
+      return () => {
+        active = false
+      }
+    }
+
     const rafId = window.requestAnimationFrame(() => {
       setPopularKeywordPool(buildPopularKeywordPoolFromDom())
     })
@@ -190,7 +247,7 @@ export default function CommissionSearchDeferred({
     return () => {
       window.cancelAnimationFrame(rafId)
     }
-  }, [])
+  }, [shouldLoadExternalEntries])
 
   const dedupedPopularKeywordPool = useMemo(
     () =>
@@ -223,6 +280,7 @@ export default function CommissionSearchDeferred({
   return (
     <CommissionSearch
       deferIndexInit
+      externalEntries={externalEntries ?? undefined}
       popularKeywords={popularKeywords}
       refreshPopularSearchLabel={controls.refreshPopularSearchLabel}
       onRotatePopularKeywords={popularKeywords.length > 0 ? rotatePopularKeywords : undefined}

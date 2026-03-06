@@ -44,6 +44,8 @@ export interface HomeLocaleMessages {
     designLink: string
     wantThis: string
     wantThisTitle: string
+    wantThisRecorded: string
+    wantThisRecordedTitle: string
   }
   warning: {
     title: string
@@ -134,6 +136,8 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       designLink: 'Design',
       wantThis: 'Want this',
       wantThisTitle: 'Record interest in this unpublished commission',
+      wantThisRecorded: 'Recorded',
+      wantThisRecordedTitle: 'Already recorded',
     },
     warning: {
       title: '[ Warning ]',
@@ -240,6 +244,8 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       designLink: '設計稿',
       wantThis: '想看這張',
       wantThisTitle: '記錄你對此未公開委託的興趣',
+      wantThisRecorded: '已記錄',
+      wantThisRecordedTitle: '已記錄過',
     },
     warning: {
       title: '[ 警告 ]',
@@ -344,6 +350,8 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       designLink: 'デザイン',
       wantThis: '見たい',
       wantThisTitle: '未公開コミッションへの関心を記録する',
+      wantThisRecorded: '記録済み',
+      wantThisRecordedTitle: '記録済みです',
     },
     warning: {
       title: '[ 警告 ]',
