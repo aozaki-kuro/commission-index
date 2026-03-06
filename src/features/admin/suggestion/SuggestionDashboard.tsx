@@ -174,25 +174,26 @@ const SuggestionDashboard = ({ featuredKeywords, keywordOptions }: SuggestionDas
     <form action={formAction} className={adminSurfaceStyles}>
       <input type="hidden" name="keywordsJson" value={keywordsJson} />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
             Featured keywords ({selectedKeywords.length}/{MAX_FEATURED_KEYWORDS})
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Home first batch uses these keywords first, then rotates to random suggestions.
-          </p>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <FormStatusIndicator
+              status={state.status}
+              message={state.message}
+              successLabel="Saved"
+              errorFallback="Unable to save featured keywords."
+            />
+            <SaveButton />
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <SaveButton />
-          <FormStatusIndicator
-            status={state.status}
-            message={state.message}
-            successLabel="Saved"
-            errorFallback="Unable to save featured keywords."
-          />
-        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Home first batch uses these keywords first, then rotates to random suggestions.
+        </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">

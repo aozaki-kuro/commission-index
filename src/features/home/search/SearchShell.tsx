@@ -13,6 +13,7 @@ import {
 interface SearchShellProps {
   query: string
   onQueryChange: (value: string) => void
+  sectionClassName?: string
   searchLabel: string
   searchPlaceholder: string
   searchHelpLabel: string
@@ -46,6 +47,7 @@ const hasSameMetrics = (a: LoadingPanelMetrics | null, b: LoadingPanelMetrics) =
 const SearchShell = ({
   query,
   onQueryChange,
+  sectionClassName = 'mt-8 mb-6',
   searchLabel,
   searchPlaceholder,
   searchHelpLabel,
@@ -166,7 +168,7 @@ const SearchShell = ({
     : undefined
 
   return (
-    <section id="commission-search" className="mt-8 mb-6">
+    <section id="commission-search" className={sectionClassName}>
       <div className="flex h-12 items-center justify-end">
         <div className="relative h-11 w-full overflow-visible border-b border-gray-300/80 bg-transparent text-gray-700 dark:border-gray-700 dark:text-gray-300">
           <svg
