@@ -165,7 +165,7 @@ const characterNavItems = buildCharacterNavItems([...active, ...stale])
     </div>
 
     <nav>
-      <ul data-sidebar-nav-panel="character">
+      <ul data-sidebar-nav-panel="character" class="space-y-2">
         {
           characterNavItems.map(({ displayName, sectionHash, titleId, sectionId }) => (
             <li class="relative pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
@@ -187,7 +187,7 @@ const characterNavItems = buildCharacterNavItems([...active, ...stale])
         }
       </ul>
 
-      <ul data-sidebar-nav-panel="timeline" class="hidden">
+      <ul data-sidebar-nav-panel="timeline" class="hidden space-y-2">
         {
           monthNavItems.map(({ displayName, sectionHash, titleId, sectionId }) => (
             <li class="relative pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
