@@ -18,7 +18,7 @@ This repository contains an Astro 5 static site with React 19 islands, written i
   - `src/features/home/commission/*.astro` (listing/timeline/entry rendering chain)
   - `src/features/home/nav/DesktopSidebarNav.astro` (desktop nav/search/view/locale shell)
 - Keep React only for interactive islands:
-  - `HomeControlsIsland` (search shell + mobile-only tabs/hamburger)
+  - `HomeControlsIsland` (search shell + mobile hamburger)
 - Home-level side effects are Astro script components:
   - `src/features/home/warning/AgeGateScript.astro`
   - `src/layouts/AnalyticsScript.astro`
@@ -28,6 +28,8 @@ This repository contains an Astro 5 static site with React 19 islands, written i
   - `src/features/home/nav/SidebarNavEnhancerScript.astro`
 - Home desktop navigation behavior is centralized in:
   - `src/features/home/nav/sidebarNavEnhancer.ts`
+- Home mobile top tabs behavior is centralized in:
+  - `src/features/home/commission/mobileViewModeTabs.ts`
 - Home search/view-mode behavior depends on existing `data-*` DOM contracts; preserve attribute names and structure when editing Astro templates.
 - Shared pure rendering helpers:
   - `src/features/home/commission/linkDisplay.ts` (link sanitization/priority selection)
@@ -100,6 +102,7 @@ Additional guidance:
 - Migrated commission image notice gate/client from React to Astro script + DOM module.
 - Migrated sidebar click/hash/search-link enhancer from React effect component to Astro script.
 - Migrated desktop sidebar navigation (search/view-mode/locale list) from React to Astro + script module.
+- Migrated mobile top view-mode tabs from React to Astro + script module.
 - Removed unused migration leftovers (`CommissionViewModeDomSync.tsx`, `useDocumentTitle`, `src/lib/index.ts`).
 - Added shared server request/response bridge utility and test coverage.
 

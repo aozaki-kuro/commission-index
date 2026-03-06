@@ -5,6 +5,7 @@ import CommissionDescription from '#features/home/blocks/Description.astro'
 import Footer from '#features/home/blocks/Footer.astro'
 import CommissionImageNoticeScript from '#features/home/commission/CommissionImageNoticeScript.astro'
 import CommissionViewModeDomSyncScript from '#features/home/commission/CommissionViewModeDomSyncScript.astro'
+import MobileViewModeTabs from '#features/home/commission/MobileViewModeTabs.astro'
 import DevLiveRefreshScript from '#features/home/dev/DevLiveRefreshScript.astro'
 import HomeControlsIsland from '#features/home/islands/HomeControlsIsland'
 import DesktopSidebarNav from '#features/home/nav/DesktopSidebarNav.astro'
@@ -100,6 +101,10 @@ const resolvedCanonicalPath =
         active={payload.characterStatus.active}
         stale={payload.characterStatus.stale}
         monthNavItems={payload.monthNavItems}
+      />
+      <MobileViewModeTabs
+        byCharacterLabel={messages.controls.byCharacter}
+        byDateLabel={messages.controls.byDate}
       />
       <DesktopSidebarNav
         locale={resolvedLocale}

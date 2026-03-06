@@ -1,16 +1,33 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   CommissionViewModeProvider,
-  CommissionViewModeToggle,
   CommissionViewPanel,
+  useCommissionViewMode,
 } from './CommissionViewMode'
+
+const ModeButton = ({
+  mode,
+  children,
+}: {
+  mode: 'character' | 'timeline'
+  children: ReactNode
+}) => {
+  const { setMode } = useCommissionViewMode()
+  return (
+    <button type="button" onClick={() => setMode(mode)}>
+      {children}
+    </button>
+  )
+}
 
 const renderPanels = () =>
   render(
     <CommissionViewModeProvider>
-      <CommissionViewModeToggle />
+      <ModeButton mode="character">By Character</ModeButton>
+      <ModeButton mode="timeline">By Date</ModeButton>
       <CommissionViewPanel panel="character" deferInactiveMount>
         <div data-testid="character-panel">character</div>
       </CommissionViewPanel>
