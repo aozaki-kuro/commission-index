@@ -871,9 +871,8 @@ const CommissionSearch = ({
     (keyword: string) => {
       if (!keyword) return
 
-      const normalizedKeyword = normalizeQuotedTokenBoundary(keyword).trim()
-      if (!normalizedKeyword) return
-      const nextQuery = `${normalizedKeyword} `
+      const nextQuery = applySuggestionToQuery('', keyword)
+      if (!nextQuery.trim()) return
       ensureIndexReady()
       setInputQuery(nextQuery)
       setCopyState('idle')

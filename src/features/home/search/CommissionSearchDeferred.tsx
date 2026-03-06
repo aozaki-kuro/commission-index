@@ -5,11 +5,11 @@ import type {
 } from '#features/home/search/CommissionSearch'
 import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
 import SearchShell from '#features/home/search/SearchShell'
+import { applySuggestionToQuery } from '#lib/search/index'
 import {
   buildPopularKeywordPoolFromSuggestTexts,
   dedupeKeywords,
 } from '#lib/search/popularKeywords'
-import { normalizeQuotedTokenBoundary } from '#lib/search/index'
 
 const loadCommissionSearchModule = () => import('#features/home/search/CommissionSearch')
 const CommissionSearch = lazy(loadCommissionSearchModule)
@@ -517,11 +517,11 @@ export default function CommissionSearchDeferred({
   }, [])
   const selectPopularKeyword = useCallback(
     (keyword: string) => {
-      const normalizedKeyword = normalizeQuotedTokenBoundary(keyword).trim()
-      if (!normalizedKeyword) return
+      const nextQuery = applySuggestionToQuery('', keyword)
+      if (!nextQuery.trim()) return
 
       setSuppressLoadingPanelForPopularKeyword(true)
-      setShellQuery(`${normalizedKeyword} `)
+      setShellQuery(nextQuery)
       enableSearch(true)
     },
     [enableSearch],

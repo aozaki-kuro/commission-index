@@ -227,7 +227,7 @@ describe('CommissionSearch', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Kanaut Nishe' }))
 
     await waitFor(() => {
-      expect(input.value).toBe('Kanaut Nishe ')
+      expect(input.value).toBe('"Kanaut Nishe" ')
     })
     expect(document.querySelector('[cmdk-list]')).not.toBeInTheDocument()
 

@@ -157,6 +157,25 @@ describe('CommissionSearchDeferred', () => {
     )
   })
 
+  it('wraps spaced popular keywords in quotes when activating search', async () => {
+    appendSearchEntry(['Keyword\tStudio K', 'Keyword\tmaid'].join('\n'))
+    render(<CommissionSearchDeferred />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Studio K' }))
+
+    await waitFor(() => {
+      expect(mockCommissionSearch).toHaveBeenCalled()
+    })
+
+    expect(mockCommissionSearch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialQuery: '"Studio K" ',
+        autoFocusOnMount: true,
+        deferIndexInit: true,
+      }),
+    )
+  })
+
   it('deduplicates creator aliases to a single popular term', () => {
     appendSearchEntry(['Creator\t七市', 'Creator\tNanashi', 'Keyword\tmaid'].join('\n'))
     appendSearchEntry(['Creator\t七市', 'Creator\tnanashi', 'Keyword\tkimono'].join('\n'))
