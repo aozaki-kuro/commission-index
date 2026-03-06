@@ -25,7 +25,7 @@ const PopularKeywordsRow = ({
   return (
     <div
       ref={rowRef}
-      className="mt-2 flex w-full items-center gap-1.5 overflow-hidden text-xs text-gray-500 dark:text-gray-400"
+      className="mt-2 flex min-h-8 w-full items-center gap-1.5 overflow-hidden text-xs text-gray-500 dark:text-gray-400"
       style={style}
     >
       {onRotate ? (
