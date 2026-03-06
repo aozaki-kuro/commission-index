@@ -10,7 +10,12 @@ const renderMenu = () => {
       <div data-mobile-language-menu-anchor="true" class="pointer-events-auto">
         <details data-mobile-language-menu="true">
           <summary>Language</summary>
-          <ul><li><a href="/">English</a></li></ul>
+          <ul
+            data-mobile-language-menu-panel="true"
+            class="pointer-events-none opacity-0 translate-y-1 scale-95"
+          >
+            <li><a href="/">English</a></li>
+          </ul>
         </details>
       </div>
     </div>
@@ -22,6 +27,8 @@ const getAnchor = () =>
   document.querySelector<HTMLElement>('[data-mobile-language-menu-anchor="true"]')
 const getMenu = () =>
   document.querySelector<HTMLDetailsElement>('[data-mobile-language-menu="true"]')
+const getPanel = () =>
+  document.querySelector<HTMLElement>('[data-mobile-language-menu-panel="true"]')
 
 describe('mobileLanguageMenu', () => {
   beforeEach(() => {
@@ -64,6 +71,30 @@ describe('mobileLanguageMenu', () => {
     menu!.open = true
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     expect(menu?.open).toBe(false)
+
+    cleanup()
+  })
+
+  it('syncs panel animation classes on menu toggle', () => {
+    const cleanup = mountMobileLanguageMenu()
+    const menu = getMenu()
+    const panel = getPanel()
+
+    menu!.open = true
+    menu!.dispatchEvent(new Event('toggle'))
+
+    expect(panel?.classList.contains('opacity-100')).toBe(true)
+    expect(panel?.classList.contains('translate-y-0')).toBe(true)
+    expect(panel?.classList.contains('scale-100')).toBe(true)
+    expect(panel?.classList.contains('pointer-events-auto')).toBe(true)
+
+    menu!.open = false
+    menu!.dispatchEvent(new Event('toggle'))
+
+    expect(panel?.classList.contains('opacity-0')).toBe(true)
+    expect(panel?.classList.contains('translate-y-1')).toBe(true)
+    expect(panel?.classList.contains('scale-95')).toBe(true)
+    expect(panel?.classList.contains('pointer-events-none')).toBe(true)
 
     cleanup()
   })
