@@ -133,7 +133,7 @@ const CommissionSearchShell = ({
     <SearchShell
       query={query}
       onQueryChange={onQueryChange}
-      sectionClassName="mt-8 mb-3 md:mt-9 md:mb-4 lg:mt-10 lg:mb-10"
+      sectionClassName="mt-4 mb-8 md:mt-4 md:mb-10 lg:mt-6 lg:mb-12"
       searchLabel={controls.searchCommissions}
       searchPlaceholder={controls.searchPlaceholder}
       searchHelpLabel={controls.searchHelp}
