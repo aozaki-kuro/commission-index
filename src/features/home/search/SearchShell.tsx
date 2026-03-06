@@ -1,4 +1,5 @@
 import { Button } from '#components/ui/button'
+import { Skeleton } from '#components/ui/skeleton'
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react'
 
 interface SearchShellProps {
@@ -14,6 +15,7 @@ interface SearchShellProps {
   onActivate?: (focusOnMount?: boolean, openHelpOnMount?: boolean) => void
   onHelpPointerDown?: (event: ReactPointerEvent<HTMLButtonElement>) => void
   onHelpClick?: (event: ReactMouseEvent<HTMLButtonElement>) => void
+  showLoadingPanel?: boolean
 }
 
 const SearchShell = ({
@@ -29,6 +31,7 @@ const SearchShell = ({
   onActivate,
   onHelpPointerDown,
   onHelpClick,
+  showLoadingPanel = false,
 }: SearchShellProps) => (
   <section id="commission-search" className="mt-8 mb-6 flex h-12 items-center justify-end">
     <div className="relative h-11 w-full overflow-visible border-b border-gray-300/80 bg-transparent text-gray-700 dark:border-gray-700 dark:text-gray-300">
@@ -112,6 +115,28 @@ const SearchShell = ({
           </svg>
         </Button>
       </div>
+
+      {showLoadingPanel ? (
+        <div
+          aria-hidden="true"
+          data-search-loading-panel="true"
+          data-testid="search-loading-panel"
+          className="animate-search-dropdown-in pointer-events-none absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 rounded-lg border border-gray-300/80 bg-white/95 py-1 shadow-[0_10px_30px_rgba(0,0,0,0.08)] backdrop-blur-sm motion-reduce:animate-none dark:border-gray-700 dark:bg-black/90"
+        >
+          <span className="sr-only">{loadingLabel ?? '...'}</span>
+          <ul className="space-y-0.5 px-1">
+            {(['w-[72%]', 'w-[58%]', 'w-[80%]'] as const).map((titleWidth, index) => (
+              <li key={`search-loading-row-${index}`} className="rounded-md px-2 py-1.5">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1">
+                  <Skeleton className={`h-3 ${titleWidth} rounded-sm`} />
+                  <Skeleton className="h-2.5 w-8 rounded-sm" />
+                  <Skeleton className="h-2.5 w-24 rounded-sm" />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   </section>
 )

@@ -192,4 +192,19 @@
       transform: scale(0.97);
     }
   }
+
+  @keyframes search-dropdown-in {
+    from {
+      opacity: 0;
+      transform: translateY(-2px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-search-dropdown-in {
+    animation: search-dropdown-in 180ms ease-out;
+  }
 }

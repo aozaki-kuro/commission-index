@@ -27,6 +27,7 @@ const hasSearchQueryParam = () => {
 type CommissionSearchShellProps = {
   query: string
   isLoadingEntries: boolean
+  showLoadingPanel: boolean
   onPrewarm: () => void
   onActivate: (focusOnMount?: boolean, openHelpOnMount?: boolean) => void
   onQueryChange: (value: string) => void
@@ -35,6 +36,7 @@ type CommissionSearchShellProps = {
 const CommissionSearchShell = ({
   query,
   isLoadingEntries,
+  showLoadingPanel,
   onPrewarm,
   onActivate,
   onQueryChange,
@@ -42,6 +44,7 @@ const CommissionSearchShell = ({
   <CommissionSearchShellBody
     query={query}
     isLoadingEntries={isLoadingEntries}
+    showLoadingPanel={showLoadingPanel}
     onPrewarm={onPrewarm}
     onActivate={onActivate}
     onQueryChange={onQueryChange}
@@ -51,6 +54,7 @@ const CommissionSearchShell = ({
 const CommissionSearchShellBody = ({
   query,
   isLoadingEntries,
+  showLoadingPanel,
   onPrewarm,
   onActivate,
   onQueryChange,
@@ -65,6 +69,7 @@ const CommissionSearchShellBody = ({
       searchPlaceholder={controls.searchPlaceholder}
       searchHelpLabel={controls.searchHelp}
       loadingLabel={isLoadingEntries ? '...' : null}
+      showLoadingPanel={showLoadingPanel}
       onPrewarm={onPrewarm}
       onActivate={onActivate}
       onHelpPointerDown={event => {
@@ -228,6 +233,7 @@ export default function CommissionSearchDeferred() {
     <CommissionSearchShell
       query={shellQuery}
       isLoadingEntries={isEnabled && isLoadingEntries}
+      showLoadingPanel={isEnabled}
       onPrewarm={prewarmSearch}
       onActivate={enableSearch}
       onQueryChange={setShellQuery}

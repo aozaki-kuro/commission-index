@@ -594,6 +594,7 @@ const CommissionSearch = ({
         : [],
     }))
   }, [controls, filteredSuggestions, relatedCreatorTermsMap, suggestionSourceLabels])
+  const shouldShowSuggestionPanel = hasQuery && suggestionViewModels.length > 0
 
   const resolvedActiveSuggestionTerm = useMemo(() => {
     if (suggestionViewModels.length === 0) return ''
@@ -881,8 +882,8 @@ const CommissionSearch = ({
               className="peer w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-24 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
             />
 
-            {hasQuery && suggestionViewModels.length > 0 ? (
-              <CommandList className="absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain rounded-lg border border-gray-300/80 bg-white/95 py-1 text-sm shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm dark:border-gray-700 dark:bg-black/90">
+            {shouldShowSuggestionPanel ? (
+              <CommandList className="animate-search-dropdown-in absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain rounded-lg border border-gray-300/80 bg-white/95 py-1 text-sm shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm motion-reduce:animate-none dark:border-gray-700 dark:bg-black/90">
                 {suggestionViewModels.map(suggestion => {
                   return (
                     <CommandItem
