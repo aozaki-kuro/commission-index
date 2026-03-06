@@ -1,10 +1,3 @@
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '#components/ui/select'
 import { type ChangeEvent, type ComponentPropsWithoutRef } from 'react'
 import { formControlStyles } from '../uiStyles'
 
@@ -47,7 +40,6 @@ interface CommissionCharacterFieldProps {
   selectedCharacterId: number | null
   onChange: (id: number | null) => void
   disabled?: boolean
-  dropdownZIndexClassName?: string
 }
 
 export const CommissionCharacterField = ({
@@ -55,40 +47,50 @@ export const CommissionCharacterField = ({
   selectedCharacterId,
   onChange,
   disabled = false,
-  dropdownZIndexClassName = 'z-10',
 }: CommissionCharacterFieldProps) => {
-  const selectedCharacter = options.find(option => option.id === selectedCharacterId) ?? null
   const hasCharacters = options.length > 0
   const isDisabled = disabled || !hasCharacters
 
   return (
     <div className="space-y-1">
       <label className={fieldLabelStyles}>Character</label>
-      <Select
-        value={selectedCharacterId === null ? undefined : String(selectedCharacterId)}
-        onValueChange={value => onChange(Number(value))}
-        disabled={isDisabled}
-      >
-        <SelectTrigger
-          className={`${formControlStyles} h-auto py-2.5 ${isDisabled ? 'cursor-not-allowed opacity-70' : ''}`}
+      <div className="relative">
+        <select
+          value={selectedCharacterId === null ? '' : String(selectedCharacterId)}
+          onChange={event => {
+            const nextValue = event.target.value
+            onChange(nextValue ? Number(nextValue) : null)
+          }}
+          disabled={isDisabled}
+          aria-label="Character"
+          className={`${formControlStyles} h-auto w-full appearance-none py-2.5 pr-10 ${
+            isDisabled ? 'cursor-not-allowed opacity-70' : ''
+          }`}
         >
-          <SelectValue
-            placeholder={hasCharacters ? 'Select character' : 'No characters available'}
-            aria-label={selectedCharacter?.name}
-          >
-            {selectedCharacter?.name}
-          </SelectValue>
-        </SelectTrigger>
-        {hasCharacters ? (
-          <SelectContent className={dropdownZIndexClassName}>
-            {options.map(option => (
-              <SelectItem key={option.id} value={String(option.id)}>
-                <p className="font-medium">{option.name}</p>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        ) : null}
-      </Select>
+          <option value="" disabled>
+            {hasCharacters ? 'Select character' : 'No characters available'}
+          </option>
+          {options.map(option => (
+            <option key={option.id} value={String(option.id)}>
+              {option.name}
+            </option>
+          ))}
+        </select>
+        <svg
+          viewBox="0 0 20 20"
+          fill="none"
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400"
+        >
+          <path
+            d="M6 8l4 4 4-4"
+            stroke="currentColor"
+            strokeWidth={1.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </div>
       <p className={fieldDescriptionStyles}>Choose the character this commission belongs to.</p>
     </div>
   )

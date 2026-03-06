@@ -29,7 +29,6 @@ interface CommissionSharedFieldsProps {
   descriptionPlaceholder?: string
   keywordValue?: string
   onKeywordChange?: (value: string) => void
-  dropdownZIndexClassName?: string
 }
 
 const CommissionSharedFields = ({
@@ -50,7 +49,6 @@ const CommissionSharedFields = ({
   descriptionPlaceholder,
   keywordValue,
   onKeywordChange,
-  dropdownZIndexClassName = 'z-10',
 }: CommissionSharedFieldsProps) => {
   return (
     <>
@@ -59,7 +57,6 @@ const CommissionSharedFields = ({
           options={characterOptions}
           selectedCharacterId={selectedCharacterId}
           onChange={onCharacterChange}
-          dropdownZIndexClassName={dropdownZIndexClassName}
         />
         <CommissionFileNameField
           placeholder={fileNamePlaceholder}

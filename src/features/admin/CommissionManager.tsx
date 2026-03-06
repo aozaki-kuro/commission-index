@@ -1,6 +1,6 @@
 import { DndContext, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type {
   AdminCommissionSearchRow,
@@ -8,10 +8,11 @@ import type {
   CommissionRow,
   CreatorAliasRow,
 } from '#lib/admin/db'
+import CommissionSearch, {
+  type CommissionSearchEntrySource,
+} from '#features/home/search/CommissionSearch'
 import { getCharacterSectionId } from '#lib/characters/nav'
 import { buildCommissionSearchDomKey } from '#lib/search/commissionSearchMetadata'
-import type { CommissionSearchEntrySource } from '#features/home/search/CommissionSearch'
-import SearchShell from '#features/home/search/SearchShell'
 import { normalizeQuery } from '#lib/search/index'
 import { fetchCharacterCommissionsAction } from '#admin/actions'
 
@@ -20,25 +21,6 @@ import SortableCharacterCard from './components/SortableCharacterCard'
 import SortableDivider from './components/SortableDivider'
 import useCommissionManager, { DIVIDER_ID } from './hooks/useCommissionManager'
 import { buildAdminCommissionSearchMetadata } from './search/commissionSearchMetadata'
-
-const CommissionSearch = lazy(() => import('#features/home/search/CommissionSearch'))
-
-type CommissionSearchShellProps = {
-  query: string
-  onQueryChange: (value: string) => void
-}
-
-const CommissionSearchShell = ({ query, onQueryChange }: CommissionSearchShellProps) => (
-  <SearchShell
-    query={query}
-    onQueryChange={onQueryChange}
-    searchLabel="Search commissions"
-    searchPlaceholder="Search"
-    searchHelpLabel="Search help"
-    helpDisabled
-    helpButtonClassName="absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-400"
-  />
-)
 
 interface CommissionManagerProps {
   characters: CharacterRow[]
@@ -286,17 +268,13 @@ const CommissionManager = ({
       )}
       {loadError && <p className="text-sm text-red-500 dark:text-red-400">{loadError}</p>}
 
-      <Suspense
-        fallback={<CommissionSearchShell query={searchQuery} onQueryChange={setSearchQuery} />}
-      >
-        <CommissionSearch
-          disableDomFiltering
-          externalEntries={commissionSearchEntries}
-          initialQuery={searchQuery || undefined}
-          onQueryChange={handleSearchQueryChange}
-          onMatchedIdsChange={setMatchedCommissionIds}
-        />
-      </Suspense>
+      <CommissionSearch
+        disableDomFiltering
+        externalEntries={commissionSearchEntries}
+        initialQuery={searchQuery || undefined}
+        onQueryChange={handleSearchQueryChange}
+        onMatchedIdsChange={setMatchedCommissionIds}
+      />
 
       <div className="animate-[tabFade_260ms_ease-out] space-y-4">
         <DndContext

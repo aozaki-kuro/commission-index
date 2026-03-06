@@ -1,15 +1,27 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { CommissionHiddenSwitch } from './CommissionFormFields'
+import { CommissionCharacterField } from './CommissionFormFields'
 
-describe('CommissionHiddenSwitch', () => {
-  it('triggers onChange when toggled', () => {
-    const onChange = vi.fn()
+describe('CommissionCharacterField', () => {
+  it('updates the selected character when choosing an option', () => {
+    const handleChange = vi.fn()
 
-    render(<CommissionHiddenSwitch isHidden={false} onChange={onChange} />)
+    render(
+      <CommissionCharacterField
+        options={[
+          { id: 1, name: 'Alice' },
+          { id: 2, name: 'Bob' },
+        ]}
+        selectedCharacterId={null}
+        onChange={handleChange}
+      />,
+    )
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Hide commission from public list' }))
-    expect(onChange).toHaveBeenCalledWith(true)
+    fireEvent.change(screen.getByLabelText('Character'), {
+      target: { value: '1' },
+    })
+
+    expect(handleChange).toHaveBeenCalledWith(1)
   })
 })

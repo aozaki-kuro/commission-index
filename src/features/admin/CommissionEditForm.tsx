@@ -235,7 +235,6 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
             characterOptions={sortedCharacters}
             selectedCharacterId={selectedCharacterId}
             onCharacterChange={id => setSelectedCharacterId(id ?? initialCharacterId)}
-            dropdownZIndexClassName="z-20"
             fileName={fileName}
             onFileNameChange={setFileName}
             linksValue={linksValue}

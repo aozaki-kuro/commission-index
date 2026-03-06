@@ -48,8 +48,8 @@ const PopularKeywordsRow = ({
         </Button>
       ) : null}
       <ul className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto pr-0.5">
-        {keywords.map(keyword => (
-          <li key={keyword} className="shrink-0">
+        {keywords.map((keyword, index) => (
+          <li key={keyword} className={`shrink-0 ${index >= 4 ? 'hidden lg:block' : ''}`}>
             <button
               type="button"
               className="rounded-full border border-gray-300/80 bg-white/75 px-2.5 py-1 font-mono text-[11px] tracking-[0.01em] text-gray-700 transition-colors hover:border-gray-400 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:border-gray-700 dark:bg-black/40 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:text-gray-100"
