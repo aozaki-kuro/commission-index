@@ -19,12 +19,23 @@ vi.mock('#features/home/search/CommissionSearch', () => ({
 }))
 
 describe('CommissionSearchDeferred', () => {
+  const appendedEntries: HTMLElement[] = []
+
+  const appendSearchEntry = (searchSuggest: string) => {
+    const element = document.createElement('article')
+    element.dataset.commissionEntry = 'true'
+    element.dataset.searchSuggest = searchSuggest
+    document.body.appendChild(element)
+    appendedEntries.push(element)
+  }
+
   beforeEach(() => {
     mockCommissionSearch.mockClear()
     window.history.replaceState(null, '', '/')
   })
 
   afterEach(() => {
+    appendedEntries.splice(0).forEach(element => element.remove())
     window.history.replaceState(null, '', '/')
   })
 
@@ -100,5 +111,36 @@ describe('CommissionSearchDeferred', () => {
         deferIndexInit: true,
       }),
     )
+  })
+
+  it('activates lazy search when selecting a popular keyword chip', async () => {
+    appendSearchEntry(['Date\t2025/01', 'Keyword\tmaid'].join('\n'))
+    render(<CommissionSearchDeferred />)
+
+    expect(screen.queryByRole('button', { name: '2025/01' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'maid' }))
+
+    await waitFor(() => {
+      expect(mockCommissionSearch).toHaveBeenCalled()
+    })
+
+    expect(mockCommissionSearch).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialQuery: 'maid',
+        autoFocusOnMount: true,
+        deferIndexInit: true,
+      }),
+    )
+  })
+
+  it('deduplicates creator aliases to a single popular term', () => {
+    appendSearchEntry(['Creator\t七市', 'Creator\tNanashi', 'Keyword\tmaid'].join('\n'))
+    appendSearchEntry(['Creator\t七市', 'Creator\tnanashi', 'Keyword\tkimono'].join('\n'))
+
+    render(<CommissionSearchDeferred />)
+
+    expect(screen.getAllByRole('button', { name: '七市' })).toHaveLength(1)
+    expect(screen.queryByRole('button', { name: 'Nanashi' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'nanashi' })).not.toBeInTheDocument()
   })
 })

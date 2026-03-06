@@ -58,6 +58,7 @@ export interface HomeLocaleMessages {
     searchPlaceholder: string
     searchCommissions: string
     searchHelp: string
+    refreshPopularSearchLabel: string
     clearSearch: string
     copySearchUrl: string
     searchUrlCopied: string
@@ -147,6 +148,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       searchPlaceholder: 'Search',
       searchCommissions: 'Search commissions',
       searchHelp: 'Search help',
+      refreshPopularSearchLabel: 'Refresh popular keywords',
       clearSearch: 'Clear search',
       copySearchUrl: 'Copy search URL',
       searchUrlCopied: 'Search URL copied',
@@ -252,6 +254,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       searchPlaceholder: '搜尋',
       searchCommissions: '搜尋委託',
       searchHelp: '搜尋說明',
+      refreshPopularSearchLabel: '換一批熱門關鍵字',
       clearSearch: '清除搜尋',
       copySearchUrl: '複製搜尋網址',
       searchUrlCopied: '已複製搜尋網址',
@@ -355,6 +358,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       searchPlaceholder: '検索',
       searchCommissions: 'コミッションを検索',
       searchHelp: '検索ヘルプ',
+      refreshPopularSearchLabel: '人気キーワードを更新',
       clearSearch: '検索をクリア',
       copySearchUrl: '検索URLをコピー',
       searchUrlCopied: '検索URLをコピーしました',
