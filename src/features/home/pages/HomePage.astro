@@ -9,6 +9,7 @@ import MobileViewModeTabs from '#features/home/commission/MobileViewModeTabs.ast
 import DevLiveRefreshScript from '#features/home/dev/DevLiveRefreshScript.astro'
 import HomeControlsIsland from '#features/home/islands/HomeControlsIsland'
 import DesktopSidebarNav from '#features/home/nav/DesktopSidebarNav.astro'
+import MobileLanguageMenu from '#features/home/nav/hamburger/MobileLanguageMenu.astro'
 import SidebarNavEnhancerScript from '#features/home/nav/SidebarNavEnhancerScript.astro'
 import StaticCommissionSections from '#features/home/server/StaticCommissionSections.astro'
 import AgeGateScript from '#features/home/warning/AgeGateScript.astro'
@@ -101,6 +102,11 @@ const resolvedCanonicalPath =
         active={payload.characterStatus.active}
         stale={payload.characterStatus.stale}
         monthNavItems={payload.monthNavItems}
+      />
+      <MobileLanguageMenu
+        locale={resolvedLocale}
+        localeOptions={localeOptions}
+        localeSwitcherLabel={messages.localeSwitcherLabel}
       />
       <MobileViewModeTabs
         byCharacterLabel={messages.controls.byCharacter}

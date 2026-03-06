@@ -1,0 +1,80 @@
+---
+import type { HomeLocaleOption } from '#features/home/i18n/HomeLocaleContext'
+import { STYLES } from '#features/home/nav/hamburger/constants'
+
+interface MobileLanguageMenuProps {
+  locale: string
+  localeOptions: HomeLocaleOption[]
+  localeSwitcherLabel: string
+}
+
+const { locale, localeOptions, localeSwitcherLabel } = Astro.props as MobileLanguageMenuProps
+const backdropStyle = {
+  WebkitBackdropFilter: STYLES.backdrop,
+  backdropFilter: STYLES.backdrop,
+}
+---
+
+<div
+  data-mobile-language-menu-root="true"
+  class="fixed right-8 bottom-8 z-[90] opacity-100 transition-all duration-200 md:hidden"
+>
+  <div class="absolute right-0 bottom-full mb-3">
+    <details data-mobile-language-menu="true" class="group relative">
+      <summary
+        style={backdropStyle}
+        aria-label={localeSwitcherLabel}
+        class={`${STYLES.floatingButton} list-none cursor-pointer [&::-webkit-details-marker]:hidden`}
+      >
+        <span class="sr-only">{localeSwitcherLabel}</span>
+        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" aria-hidden="true">
+          <path d="m5 8 6 6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="m4 14 6-6 2-3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M2 5h12" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M7 2h1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="m22 22-5-10-5 10" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M14 18h6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </summary>
+
+      <ul
+        style={backdropStyle}
+        class="absolute right-0 bottom-full z-[95] mb-3 w-48 space-y-1 rounded-xl border border-white/20 bg-white/80 p-2 font-mono shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:bg-black/80"
+      >
+        {
+          localeOptions.map(option => {
+            const isActive = option.locale === locale
+            return (
+              <li>
+                <a
+                  href={option.href}
+                  aria-current={isActive ? 'page' : undefined}
+                  class={`group flex w-full items-center justify-between rounded-lg px-4 py-1 font-mono text-sm no-underline transition-colors duration-150 ${
+                    isActive
+                      ? 'text-gray-900 dark:text-white'
+                      : 'text-gray-700 hover:bg-white/70 dark:text-gray-200 dark:hover:bg-white/10'
+                  }`.trim()}
+                >
+                  <span>{option.label}</span>
+                  {isActive ? (
+                    <span
+                      aria-hidden="true"
+                      class="h-1.5 w-1.5 rounded-full bg-gray-500/80 dark:bg-gray-300/80"
+                    />
+                  ) : null}
+                </a>
+              </li>
+            )
+          })
+        }
+      </ul>
+    </details>
+  </div>
+</div>
+
+<script>
+  import { mountMobileLanguageMenu } from '#features/home/nav/hamburger/mobileLanguageMenu'
+
+  const cleanup = mountMobileLanguageMenu()
+  window.addEventListener('pagehide', cleanup, { once: true })
+</script>

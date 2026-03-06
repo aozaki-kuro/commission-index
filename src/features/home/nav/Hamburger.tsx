@@ -3,7 +3,7 @@ import { trackRybbitEvent } from '#lib/analytics/track'
 import type { CharacterNavItem } from '#lib/characters/nav'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import MenuContent, { preloadCharacterMenuList } from './hamburger/MenuContent'
-import LanguageFloatingMenu from './hamburger/LanguageFloatingMenu'
+import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from './hamburger/hamburgerMenuStateEvent'
 import { MENU_TRANSITION_MS } from './hamburger/constants'
 import type { CharacterEntry } from './hamburger/types'
 
@@ -103,15 +103,31 @@ const Hamburger = ({ active, stale, timelineNavItems }: HamburgerProps) => {
     }
   }, [clearCloseTimer, clearOpenRaf])
 
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, {
+        detail: { mounted },
+      }),
+    )
+  }, [mounted])
+
+  useEffect(
+    () => () => {
+      window.dispatchEvent(
+        new CustomEvent(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, {
+          detail: { mounted: false },
+        }),
+      )
+    },
+    [],
+  )
+
   return (
-    <div className="fixed right-8 bottom-8 z-[90] md:hidden">
-      <div
-        className={`absolute right-0 bottom-full mb-3 transition-all duration-200 ${
-          mounted ? 'pointer-events-none translate-y-1 opacity-0' : 'translate-y-0 opacity-100'
-        }`}
-      >
-        <LanguageFloatingMenu hidden={mounted} />
-      </div>
+    <div
+      data-mobile-hamburger="true"
+      data-mobile-hamburger-mounted={mounted ? 'true' : 'false'}
+      className="fixed right-8 bottom-8 z-[90] md:hidden"
+    >
       <MenuContent
         mounted={mounted}
         open={open}
