@@ -902,7 +902,7 @@ const CommissionSearch = ({
   }, [])
 
   return (
-    <section id="commission-search" className="mt-8 mb-6">
+    <section id="commission-search" className="mt-4 mb-8 md:mt-4 md:mb-10 lg:mt-6 lg:mb-12">
       <div className="flex h-12 items-center justify-end">
         <div className="relative h-11 w-full overflow-visible border-b border-gray-300/80 bg-transparent text-gray-700 dark:border-gray-700 dark:text-gray-300">
           <svg
