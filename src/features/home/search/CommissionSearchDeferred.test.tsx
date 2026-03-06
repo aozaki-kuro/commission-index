@@ -163,9 +163,24 @@ describe('CommissionSearchDeferred', () => {
 
     render(<CommissionSearchDeferred />)
 
-    expect(screen.getAllByRole('button', { name: '七市' })).toHaveLength(1)
-    expect(screen.queryByRole('button', { name: 'Nanashi' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'nanashi' })).not.toBeInTheDocument()
+    const visibleCreatorVariants = ['七市', 'Nanashi', 'nanashi'].filter(term =>
+      screen.queryByRole('button', { name: term }),
+    )
+    expect(visibleCreatorVariants).toHaveLength(1)
+  })
+
+  it('shows only one keyword alias variant in a popular batch', () => {
+    appendSearchEntry(['Keyword\tmaid', 'Keyword\t女仆', 'Keyword\tkimono'].join('\n'))
+    appendSearchEntry(['Keyword\tmaid', 'Keyword\t女仆', 'Keyword\tapron'].join('\n'))
+
+    render(
+      <CommissionSearchDeferred suggestionAliasGroups={[{ term: 'maid', aliases: ['女仆'] }]} />,
+    )
+
+    const visibleKeywordVariants = ['maid', '女仆'].filter(term =>
+      screen.queryByRole('button', { name: term }),
+    )
+    expect(visibleKeywordVariants).toHaveLength(1)
   })
 
   it('limits each popular keyword batch to four chips', () => {

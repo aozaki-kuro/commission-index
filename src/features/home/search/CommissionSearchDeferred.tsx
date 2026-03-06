@@ -82,6 +82,106 @@ const getPopularKeywordBatch = (keywords: string[], page: number, batchSize: num
   return shuffleKeywords(keywords, seed).slice(0, batchSize)
 }
 
+const normalizeKeywordVariantKey = (value: string) => value.trim().toLowerCase()
+
+const buildAliasKeyLookup = (aliasGroups: SearchSuggestionAliasGroup[]) => {
+  const keyToGroup = new Map<string, string>()
+
+  for (const group of aliasGroups) {
+    const normalizedTerms = Array.from(
+      [group.term, ...group.aliases]
+        .map(term => normalizeKeywordVariantKey(term))
+        .filter((term): term is string => Boolean(term)),
+    )
+
+    const uniqueTerms = Array.from(new Set(normalizedTerms))
+    if (uniqueTerms.length < 2) continue
+
+    const existingGroup = uniqueTerms.map(term => keyToGroup.get(term)).find(Boolean)
+    const groupKey = existingGroup ?? uniqueTerms[0]
+
+    for (const term of uniqueTerms) {
+      keyToGroup.set(term, groupKey)
+    }
+  }
+
+  return keyToGroup
+}
+
+const collapseAliasKeywordVariants = (
+  keywords: string[],
+  aliasGroups: SearchSuggestionAliasGroup[],
+  seed: number,
+) => {
+  if (keywords.length === 0 || aliasGroups.length === 0) return keywords
+
+  const aliasKeyLookup = buildAliasKeyLookup(aliasGroups)
+  if (aliasKeyLookup.size === 0) return keywords
+
+  const candidatesByGroup = new Map<string, string[]>()
+  const seenCandidateKeysByGroup = new Map<string, Set<string>>()
+
+  for (const keyword of keywords) {
+    const normalizedKeyword = normalizeKeywordVariantKey(keyword)
+    if (!normalizedKeyword) continue
+    const groupKey = aliasKeyLookup.get(normalizedKeyword)
+    if (!groupKey) continue
+
+    let seenKeys = seenCandidateKeysByGroup.get(groupKey)
+    if (!seenKeys) {
+      seenKeys = new Set<string>()
+      seenCandidateKeysByGroup.set(groupKey, seenKeys)
+    }
+    if (seenKeys.has(normalizedKeyword)) continue
+    seenKeys.add(normalizedKeyword)
+
+    const candidates = candidatesByGroup.get(groupKey) ?? []
+    candidates.push(keyword.trim())
+    candidatesByGroup.set(groupKey, candidates)
+  }
+
+  const selectedTermByGroup = new Map<string, string>()
+  const random = createSeededRandom(seed ^ candidatesByGroup.size)
+  for (const [groupKey, candidates] of candidatesByGroup) {
+    if (candidates.length === 0) continue
+    if (candidates.length === 1) {
+      selectedTermByGroup.set(groupKey, candidates[0])
+      continue
+    }
+
+    const selectedIndex = Math.floor(random() * candidates.length)
+    selectedTermByGroup.set(groupKey, candidates[selectedIndex])
+  }
+
+  const collapsedKeywords: string[] = []
+  const emittedAliasGroups = new Set<string>()
+  const emittedKeywordKeys = new Set<string>()
+
+  for (const keyword of keywords) {
+    const normalizedKeyword = normalizeKeywordVariantKey(keyword)
+    if (!normalizedKeyword) continue
+
+    const groupKey = aliasKeyLookup.get(normalizedKeyword)
+    if (!groupKey) {
+      if (emittedKeywordKeys.has(normalizedKeyword)) continue
+      emittedKeywordKeys.add(normalizedKeyword)
+      collapsedKeywords.push(keyword.trim())
+      continue
+    }
+    if (emittedAliasGroups.has(groupKey)) continue
+
+    emittedAliasGroups.add(groupKey)
+    const selectedTerm = selectedTermByGroup.get(groupKey) ?? keyword.trim()
+    const selectedTermKey = normalizeKeywordVariantKey(selectedTerm)
+    if (!selectedTermKey || emittedKeywordKeys.has(selectedTermKey)) continue
+
+    emittedKeywordKeys.add(selectedTermKey)
+    collapsedKeywords.push(selectedTerm)
+  }
+
+  return collapsedKeywords
+}
+
 const getPopularKeywordBatchSize = (isDesktop: boolean) =>
   isDesktop ? DESKTOP_POPULAR_KEYWORD_BATCH_SIZE : MOBILE_POPULAR_KEYWORD_BATCH_SIZE
 
@@ -190,9 +290,18 @@ export default function CommissionSearchDeferred({
 
   const shouldLoadExternalEntries = Boolean(import.meta.env?.PROD)
   const shouldPrewarmModule = !import.meta.env?.TEST
-  const featuredKeywordBatch = useMemo(
+  const dedupedFeaturedKeywordBatch = useMemo(
     () => dedupeKeywords(featuredKeywords, MAX_FEATURED_KEYWORDS),
     [featuredKeywords],
+  )
+  const featuredKeywordBatch = useMemo(
+    () =>
+      collapseAliasKeywordVariants(
+        dedupedFeaturedKeywordBatch,
+        suggestionAliasGroups,
+        popularKeywordPage ^ 0x9e3779b9,
+      ),
+    [dedupedFeaturedKeywordBatch, popularKeywordPage, suggestionAliasGroups],
   )
 
   const loadExternalEntries = useCallback(async () => {
@@ -370,6 +479,11 @@ export default function CommissionSearchDeferred({
     }
     return buildPopularKeywordPoolFromDom()
   }, [externalEntries])
+  const dedupedPopularKeywordPool = useMemo(
+    () =>
+      collapseAliasKeywordVariants(popularKeywordPool, suggestionAliasGroups, popularKeywordPage),
+    [popularKeywordPage, popularKeywordPool, suggestionAliasGroups],
+  )
   const hasEmptyQuery = shellQuery.trim().length === 0
   const shouldUseFeaturedKeywords = !hasDismissedFeaturedKeywords && featuredKeywordBatch.length > 0
   const shouldWaitForExternalKeywordPool =
@@ -383,12 +497,16 @@ export default function CommissionSearchDeferred({
     () =>
       shouldUseFeaturedKeywords
         ? featuredKeywordBatch.slice(0, popularKeywordBatchSize)
-        : getPopularKeywordBatch(popularKeywordPool, popularKeywordPage, popularKeywordBatchSize),
+        : getPopularKeywordBatch(
+            dedupedPopularKeywordPool,
+            popularKeywordPage,
+            popularKeywordBatchSize,
+          ),
     [
       featuredKeywordBatch,
       popularKeywordBatchSize,
       popularKeywordPage,
-      popularKeywordPool,
+      dedupedPopularKeywordPool,
       shouldUseFeaturedKeywords,
     ],
   )
