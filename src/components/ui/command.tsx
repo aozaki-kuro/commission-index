@@ -2,6 +2,18 @@ import * as React from 'react'
 import { Command as CommandPrimitive } from 'cmdk'
 import { cn } from '#lib/utils/cn'
 
+const useSafeLayoutEffect = typeof window === 'undefined' ? React.useEffect : React.useLayoutEffect
+
+const setForwardedRef = <T,>(ref: React.ForwardedRef<T>, value: T) => {
+  if (typeof ref === 'function') {
+    ref(value)
+    return
+  }
+
+  if (!ref) return
+  ;(ref as React.MutableRefObject<T>).current = value
+}
+
 const Command = React.forwardRef<
   React.ComponentRef<typeof CommandPrimitive>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive>
@@ -20,16 +32,47 @@ Command.displayName = CommandPrimitive.displayName
 const CommandInput = React.forwardRef<
   React.ComponentRef<typeof CommandPrimitive.Input>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
->(({ className, ...props }, ref) => (
-  <CommandPrimitive.Input
-    ref={ref}
-    className={cn(
-      'flex h-10 w-full rounded-md bg-transparent text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50',
-      className,
-    )}
-    {...props}
-  />
-))
+>(({ className, ...props }, ref) => {
+  const inputRef = React.useRef<React.ComponentRef<typeof CommandPrimitive.Input>>(null)
+
+  useSafeLayoutEffect(() => {
+    const inputElement = inputRef.current
+    if (!inputElement) return
+
+    const currentControlsId = inputElement.getAttribute('aria-controls')
+    if (currentControlsId) {
+      inputElement.dataset.cmdkControlsId = currentControlsId
+    }
+
+    const controlsId = inputElement.dataset.cmdkControlsId
+    if (!controlsId) return
+
+    const controlsElement = document.getElementById(controlsId)
+    if (controlsElement) {
+      inputElement.setAttribute('aria-controls', controlsId)
+      inputElement.setAttribute('aria-expanded', 'true')
+      return
+    }
+
+    inputElement.removeAttribute('aria-controls')
+    inputElement.removeAttribute('aria-activedescendant')
+    inputElement.setAttribute('aria-expanded', 'false')
+  })
+
+  return (
+    <CommandPrimitive.Input
+      ref={node => {
+        inputRef.current = node
+        setForwardedRef(ref, node)
+      }}
+      className={cn(
+        'flex h-10 w-full rounded-md bg-transparent text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50',
+        className,
+      )}
+      {...props}
+    />
+  )
+})
 CommandInput.displayName = CommandPrimitive.Input.displayName
 
 const CommandList = React.forwardRef<

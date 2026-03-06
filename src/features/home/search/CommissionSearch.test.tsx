@@ -66,6 +66,13 @@ describe('CommissionSearch', () => {
     fireEvent.focus(input)
     fireEvent.input(input, { target: { value: 'ali' } })
 
+    await waitFor(() => {
+      const controlsId = input.getAttribute('aria-controls')
+      expect(controlsId).toBeTruthy()
+      expect(document.getElementById(controlsId!)).toBeInTheDocument()
+      expect(input).toHaveAttribute('aria-expanded', 'true')
+    })
+
     fireEvent.click(screen.getByText('Alice'))
 
     expect(input.value).toContain('Alice')
@@ -84,6 +91,26 @@ describe('CommissionSearch', () => {
     expect(searchEventPayload).toBeDefined()
     expect(searchEventPayload).not.toHaveProperty('query_length')
     expect(searchEventPayload).not.toHaveProperty('trackable_query_length')
+  })
+
+  it('clears combobox control attributes when suggestion panel is hidden', async () => {
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'test-character::20240101_alice',
+        searchText: 'alice sample',
+        searchSuggest: 'Character\tAlice',
+      },
+    ]
+
+    renderSearch(entries)
+
+    const input = screen.getByLabelText('Search commissions')
+    await waitFor(() => {
+      expect(input).not.toHaveAttribute('aria-controls')
+      expect(input).toHaveAttribute('aria-expanded', 'false')
+      expect(document.querySelector('[cmdk-list]')).not.toBeInTheDocument()
+    })
   })
 
   it('copies search url when copy button clicked', () => {
