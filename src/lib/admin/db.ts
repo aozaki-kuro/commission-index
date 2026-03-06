@@ -6,6 +6,11 @@ import {
   normalizeCreatorName,
   parseAliasesJson,
 } from '#lib/creatorAliases/shared'
+import { buildCommissionSearchMetadata } from '#lib/search/commissionSearchMetadata'
+import {
+  buildPopularKeywordPoolFromSuggestTexts,
+  dedupeKeywords,
+} from '#lib/search/popularKeywords'
 
 export type CharacterStatus = 'active' | 'stale'
 
@@ -56,6 +61,11 @@ export interface AdminBootstrapData {
   commissionSearchRows: AdminCommissionSearchRow[]
 }
 
+export interface HomeSuggestionAdminData {
+  featuredKeywords: string[]
+  keywordOptions: string[]
+}
+
 type BetterSqlite3Database = Database.Database
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
@@ -100,6 +110,27 @@ const ensureCreatorAliasesTable = (db: BetterSqlite3Database) => {
   ).run()
 }
 
+const hasHomeFeaturedSearchKeywordsTable = (db: BetterSqlite3Database): boolean => {
+  const row = db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'home_featured_search_keywords' LIMIT 1",
+    )
+    .get() as { name?: string } | undefined
+
+  return row?.name === 'home_featured_search_keywords'
+}
+
+const ensureHomeFeaturedSearchKeywordsTable = (db: BetterSqlite3Database) => {
+  db.prepare(
+    `
+      CREATE TABLE IF NOT EXISTS home_featured_search_keywords (
+        keyword TEXT PRIMARY KEY,
+        sort_order INTEGER NOT NULL
+      )
+    `,
+  ).run()
+}
+
 const normalizeKeyword = (value?: string | null): string | null => {
   const raw = value?.trim()
   if (!raw) return null
@@ -130,6 +161,7 @@ const openDatabase = (readonly: boolean) => {
     db.pragma('journal_mode = DELETE')
     ensureCommissionKeywordColumn(db)
     ensureCreatorAliasesTable(db)
+    ensureHomeFeaturedSearchKeywordsTable(db)
   }
 
   return db
@@ -415,6 +447,105 @@ export const getCreatorAliasesAdminData = (): CreatorAliasRow[] =>
       .sort((a, b) => a.creatorName.localeCompare(b.creatorName, 'ja'))
   })
 
+const MAX_FEATURED_SEARCH_KEYWORDS = 6
+
+const getCreatorAliasesMapFromDatabase = (db: BetterSqlite3Database) => {
+  const aliasesByCreator = new Map<string, string[]>()
+  if (!hasCreatorAliasesTable(db)) return aliasesByCreator
+
+  const aliasRows = db
+    .prepare('SELECT creator_name as creatorName, aliases as aliasesJson FROM creator_aliases')
+    .all() as Array<{ creatorName: string; aliasesJson: string }>
+
+  aliasRows.forEach(row => {
+    const creatorName = normalizeCreatorName(row.creatorName)
+    if (!creatorName) return
+
+    const mergedAliases = normalizeAliases([
+      ...(aliasesByCreator.get(creatorName) ?? []),
+      ...parseAliasesJson(row.aliasesJson),
+    ])
+    aliasesByCreator.set(creatorName, mergedAliases)
+  })
+
+  return aliasesByCreator
+}
+
+const loadPopularKeywordOptions = (db: BetterSqlite3Database) => {
+  const hasKeywordColumn = hasCommissionKeywordColumn(db)
+  const keywordSelect = hasKeywordColumn ? 'commissions.keyword as keyword' : 'NULL as keyword'
+  const commissionRows = db
+    .prepare(
+      `
+        SELECT
+          characters.name as characterName,
+          commissions.file_name as fileName,
+          commissions.design as design,
+          commissions.description as description,
+          ${keywordSelect}
+        FROM commissions
+        JOIN characters ON characters.id = commissions.character_id
+      `,
+    )
+    .all() as Array<{
+    characterName: string
+    fileName: string
+    design?: string | null
+    description?: string | null
+    keyword?: string | null
+  }>
+
+  const creatorAliasesMap = getCreatorAliasesMapFromDatabase(db)
+  const suggestTexts = commissionRows.map(row => {
+    return buildCommissionSearchMetadata({
+      characterName: row.characterName,
+      fileName: row.fileName,
+      design: row.design ?? null,
+      description: row.description ?? null,
+      keyword: row.keyword ?? null,
+      creatorAliasesMap,
+      creatorSuggestionMode: 'normalized',
+      creatorSearchTextMode: 'normalized',
+    }).searchSuggestionText
+  })
+
+  return buildPopularKeywordPoolFromSuggestTexts(suggestTexts, 240)
+}
+
+const loadHomeFeaturedSearchKeywordsFromDatabase = (
+  db: BetterSqlite3Database,
+  limit = MAX_FEATURED_SEARCH_KEYWORDS,
+) => {
+  if (limit <= 0 || !hasHomeFeaturedSearchKeywordsTable(db)) {
+    return []
+  }
+
+  const rows = db
+    .prepare(
+      `
+        SELECT keyword
+        FROM home_featured_search_keywords
+        ORDER BY sort_order ASC
+        LIMIT @limit
+      `,
+    )
+    .all({ limit }) as Array<{ keyword: string }>
+
+  return dedupeKeywords(
+    rows.map(row => row.keyword),
+    limit,
+  )
+}
+
+export const getHomeFeaturedSearchKeywords = (limit = MAX_FEATURED_SEARCH_KEYWORDS): string[] =>
+  withReadOnlyDatabase(db => loadHomeFeaturedSearchKeywordsFromDatabase(db, limit))
+
+export const getHomeSuggestionAdminData = (): HomeSuggestionAdminData =>
+  withReadOnlyDatabase(db => ({
+    featuredKeywords: loadHomeFeaturedSearchKeywordsFromDatabase(db, MAX_FEATURED_SEARCH_KEYWORDS),
+    keywordOptions: loadPopularKeywordOptions(db),
+  }))
+
 const ensureWritable = () => {
   if (!isDevelopment) {
     throw new Error('Writable database operations are only available in development mode.')
@@ -684,6 +815,36 @@ export const saveCreatorAliasesBatch = (
 
   withWritableDatabase(db => {
     saveCreatorAliasesRowsInDatabase(db, normalizedRows)
+  })
+}
+
+export const saveHomeFeaturedSearchKeywords = (keywords: string[]) => {
+  ensureWritable()
+
+  const normalizedKeywords = dedupeKeywords(keywords, MAX_FEATURED_SEARCH_KEYWORDS)
+
+  withWritableDatabase(db => {
+    ensureHomeFeaturedSearchKeywordsTable(db)
+
+    const clearStatement = db.prepare('DELETE FROM home_featured_search_keywords')
+    const insertStatement = db.prepare(
+      `
+        INSERT INTO home_featured_search_keywords (keyword, sort_order)
+        VALUES (@keyword, @sortOrder)
+      `,
+    )
+
+    const transaction = db.transaction(() => {
+      clearStatement.run()
+      normalizedKeywords.forEach((keyword, index) => {
+        insertStatement.run({
+          keyword,
+          sortOrder: index + 1,
+        })
+      })
+    })
+
+    transaction()
   })
 }
 

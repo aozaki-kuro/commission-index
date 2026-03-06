@@ -3,6 +3,7 @@ import { getCommissionData } from '#data/commissionData'
 import { flattenCommissions, parseCommissionFileName } from '#lib/commissions/index'
 import { describe, expect, it } from 'vitest'
 import {
+  applySuggestionToQuery,
   buildStrictTermIndex,
   collectSuggestions,
   extractSuggestionContextQuery,
@@ -171,5 +172,13 @@ describe('search utils (trimmed + real db sample)', () => {
     expect(rows.size).toBe(2)
     expect(rows.get('l*cia')?.term).toBe('L*cia')
     expect(rows.get('lucia')?.term).toBe('Lucia')
+  })
+
+  it('replaces a partial multi-word prefix without duplicating leading terms', () => {
+    expect(applySuggestionToQuery('Kanaut N', 'Kanaut Nishe')).toBe('"Kanaut Nishe" ')
+  })
+
+  it('replaces an equivalent multi-word query with a single quoted phrase', () => {
+    expect(applySuggestionToQuery('Kanaut Nishe', 'Kanaut Nishe')).toBe('"Kanaut Nishe" ')
   })
 })

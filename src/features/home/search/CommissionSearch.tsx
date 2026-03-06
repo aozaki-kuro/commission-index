@@ -4,6 +4,7 @@ import { Popover, PopoverTrigger } from '#components/ui/popover'
 import { useCommissionViewMode } from '#features/home/commission/CommissionViewMode'
 import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
 import CommissionSearchHelpPopover from '#features/home/search/CommissionSearchHelpPopover'
+import PopularKeywordsRow from '#features/home/search/PopularKeywordsRow'
 import {
   type MouseEvent,
   useCallback,
@@ -436,6 +437,9 @@ interface CommissionSearchProps {
   autoFocusOnMount?: boolean
   deferIndexInit?: boolean
   openHelpOnMount?: boolean
+  popularKeywords?: string[]
+  refreshPopularSearchLabel?: string
+  onRotatePopularKeywords?: () => void
   suppressInitialSuggestionPanelAnimation?: boolean
 }
 
@@ -448,6 +452,9 @@ const CommissionSearch = ({
   autoFocusOnMount = false,
   deferIndexInit = false,
   openHelpOnMount = false,
+  popularKeywords = [],
+  refreshPopularSearchLabel = '',
+  onRotatePopularKeywords,
   suppressInitialSuggestionPanelAnimation = false,
 }: CommissionSearchProps = {}) => {
   const { mode } = useCommissionViewMode()
@@ -803,6 +810,10 @@ const CommissionSearch = ({
     inputRef.current?.focus()
   }, [])
 
+  const ensureIndexReady = useCallback(() => {
+    if (deferIndexInit) setIsIndexReady(true)
+  }, [deferIndexInit])
+
   const applySuggestion = useCallback(
     (suggestion: string | null) => {
       if (!suggestion) return
@@ -828,9 +839,25 @@ const CommissionSearch = ({
     [query],
   )
 
-  const ensureIndexReady = useCallback(() => {
-    if (deferIndexInit) setIsIndexReady(true)
-  }, [deferIndexInit])
+  const applyPopularKeyword = useCallback(
+    (keyword: string) => {
+      if (!keyword) return
+
+      const nextQuery = normalizeQuotedTokenBoundary(keyword)
+      ensureIndexReady()
+      setInputQuery(nextQuery)
+      setCopyState('idle')
+
+      requestAnimationFrame(() => {
+        const input = inputRef.current
+        if (!input) return
+        input.focus({ preventScroll: true })
+        const cursor = nextQuery.length
+        input.setSelectionRange(cursor, cursor)
+      })
+    },
+    [ensureIndexReady],
+  )
 
   const prepareSearchHelp = useCallback(() => {
     ensureIndexReady()
@@ -846,180 +873,192 @@ const CommissionSearch = ({
   }, [])
 
   return (
-    <section id="commission-search" className="mt-8 mb-6 flex h-12 items-center justify-end">
-      <div className="relative h-11 w-full overflow-visible border-b border-gray-300/80 bg-transparent text-gray-700 dark:border-gray-700 dark:text-gray-300">
-        <svg
-          viewBox="0 0 24 24"
-          className="absolute top-1/2 left-2.5 h-3.5 w-3.5 shrink-0 -translate-y-1/2 opacity-70"
-          fill="none"
-          stroke="currentColor"
-        >
-          <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.4-4.4" />
-          <circle cx="11" cy="11" r="6" strokeWidth="2" />
-        </svg>
-
-        <div className="absolute inset-y-0 right-2 left-8 flex items-center gap-2">
-          <Command
-            shouldFilter={false}
-            value={resolvedActiveSuggestionTerm}
-            onValueChange={setActiveSuggestionTerm}
-            className="relative h-full w-full overflow-visible bg-transparent"
+    <section id="commission-search" className="mt-8 mb-6">
+      <div className="flex h-12 items-center justify-end">
+        <div className="relative h-11 w-full overflow-visible border-b border-gray-300/80 bg-transparent text-gray-700 dark:border-gray-700 dark:text-gray-300">
+          <svg
+            viewBox="0 0 24 24"
+            className="absolute top-1/2 left-2.5 h-3.5 w-3.5 shrink-0 -translate-y-1/2 opacity-70"
+            fill="none"
+            stroke="currentColor"
           >
-            <label htmlFor="commission-search-input" className="sr-only">
-              {controls.searchCommissions}
-            </label>
+            <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.4-4.4" />
+            <circle cx="11" cy="11" r="6" strokeWidth="2" />
+          </svg>
 
-            <CommandInput
-              ref={inputRef}
-              id="commission-search-input"
-              value={query}
-              onFocus={() => {
-                if (deferIndexInit) setIsIndexReady(true)
-              }}
-              onValueChange={value => {
-                if (deferIndexInit) setIsIndexReady(true)
-                setInputQuery(normalizeQuotedTokenBoundary(value))
-                setCopyState('idle')
-              }}
-              placeholder={controls.searchPlaceholder}
-              autoComplete="off"
-              aria-label={controls.searchCommissions}
-              className="peer w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-24 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
-            />
+          <div className="absolute inset-y-0 right-2 left-8 flex items-center gap-2">
+            <Command
+              shouldFilter={false}
+              value={resolvedActiveSuggestionTerm}
+              onValueChange={setActiveSuggestionTerm}
+              className="relative h-full w-full overflow-visible bg-transparent"
+            >
+              <label htmlFor="commission-search-input" className="sr-only">
+                {controls.searchCommissions}
+              </label>
 
-            {shouldShowSuggestionPanel ? (
-              <CommandList
-                className={`${shouldAnimateSuggestionPanel ? 'animate-search-dropdown-in' : ''} absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain rounded-lg border border-gray-300/80 bg-white/95 py-1 text-sm shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm motion-reduce:animate-none dark:border-gray-700 dark:bg-black/90`}
-              >
-                {suggestionViewModels.map(suggestion => {
-                  return (
-                    <CommandItem
-                      key={suggestion.term}
-                      value={suggestion.term}
-                      onSelect={() => applySuggestion(suggestion.term)}
-                      className="cursor-pointer px-3 py-1.5 font-mono text-gray-700 data-[selected=true]:bg-gray-900/6 data-[selected=true]:text-gray-900 dark:text-gray-300 dark:data-[selected=true]:bg-white/10 dark:data-[selected=true]:text-white"
-                    >
-                      <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-0.5">
-                        <span className="flex min-w-0 items-center gap-1.5">
-                          {suggestionIsExclusion ? (
-                            <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                              NOT
-                            </span>
-                          ) : suggestionOperator === 'or' ? (
-                            <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                              OR
-                            </span>
-                          ) : suggestionOperator === 'and' ? (
-                            <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                              AND
-                            </span>
-                          ) : null}
-                          <span className="flex min-w-0 items-baseline gap-1 truncate">
-                            <span className="truncate">{suggestion.term}</span>
-                            {suggestion.relatedCreatorTerms.length > 0 ? (
-                              <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
-                                ({suggestion.relatedCreatorTerms.join(' / ')})
+              <CommandInput
+                ref={inputRef}
+                id="commission-search-input"
+                value={query}
+                onFocus={() => {
+                  if (deferIndexInit) setIsIndexReady(true)
+                }}
+                onValueChange={value => {
+                  if (deferIndexInit) setIsIndexReady(true)
+                  setInputQuery(normalizeQuotedTokenBoundary(value))
+                  setCopyState('idle')
+                }}
+                placeholder={controls.searchPlaceholder}
+                autoComplete="off"
+                aria-label={controls.searchCommissions}
+                className="peer w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-24 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
+              />
+
+              {shouldShowSuggestionPanel ? (
+                <CommandList
+                  className={`${shouldAnimateSuggestionPanel ? 'animate-search-dropdown-in' : ''} absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain rounded-lg border border-gray-300/80 bg-white/95 py-1 text-sm shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm motion-reduce:animate-none dark:border-gray-700 dark:bg-black/90`}
+                >
+                  {suggestionViewModels.map(suggestion => {
+                    return (
+                      <CommandItem
+                        key={suggestion.term}
+                        value={suggestion.term}
+                        onSelect={() => applySuggestion(suggestion.term)}
+                        className="cursor-pointer px-3 py-1.5 font-mono text-gray-700 data-[selected=true]:bg-gray-900/6 data-[selected=true]:text-gray-900 dark:text-gray-300 dark:data-[selected=true]:bg-white/10 dark:data-[selected=true]:text-white"
+                      >
+                        <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-0.5">
+                          <span className="flex min-w-0 items-center gap-1.5">
+                            {suggestionIsExclusion ? (
+                              <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                NOT
+                              </span>
+                            ) : suggestionOperator === 'or' ? (
+                              <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                OR
+                              </span>
+                            ) : suggestionOperator === 'and' ? (
+                              <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                AND
                               </span>
                             ) : null}
+                            <span className="flex min-w-0 items-baseline gap-1 truncate">
+                              <span className="truncate">{suggestion.term}</span>
+                              {suggestion.relatedCreatorTerms.length > 0 ? (
+                                <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
+                                  ({suggestion.relatedCreatorTerms.join(' / ')})
+                                </span>
+                              ) : null}
+                            </span>
                           </span>
-                        </span>
-                        <span className="col-start-2 row-span-2 self-center text-right text-[11px] leading-4 text-gray-500 tabular-nums dark:text-gray-400">
-                          {suggestion.matchCountLabel}
-                        </span>
-                        <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
-                          {controls.sourcePrefix} {suggestion.sourcesLabel}
-                        </span>
-                      </div>
-                    </CommandItem>
-                  )
-                })}
-              </CommandList>
-            ) : null}
-          </Command>
+                          <span className="col-start-2 row-span-2 self-center text-right text-[11px] leading-4 text-gray-500 tabular-nums dark:text-gray-400">
+                            {suggestion.matchCountLabel}
+                          </span>
+                          <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
+                            {controls.sourcePrefix} {suggestion.sourcesLabel}
+                          </span>
+                        </div>
+                      </CommandItem>
+                    )
+                  })}
+                </CommandList>
+              ) : null}
+            </Command>
 
-          <Popover open={isHelpOpen} onOpenChange={setIsHelpOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                onPointerDown={prepareSearchHelp}
-                onFocus={prepareSearchHelp}
-                onClick={handleHelpTriggerClick}
-                variant="ghost"
-                size="icon"
-                className={`absolute inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[right,color] duration-200 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
-                  hasQuery ? 'right-16' : 'right-0'
-                }`}
-                aria-label={controls.searchHelp}
-              >
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
-                  <circle cx="12" cy="12" r="9" strokeWidth="2" />
+            <Popover open={isHelpOpen} onOpenChange={setIsHelpOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  onPointerDown={prepareSearchHelp}
+                  onFocus={prepareSearchHelp}
+                  onClick={handleHelpTriggerClick}
+                  variant="ghost"
+                  size="icon"
+                  className={`absolute inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[right,color] duration-200 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
+                    hasQuery ? 'right-16' : 'right-0'
+                  }`}
+                  aria-label={controls.searchHelp}
+                >
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
+                    <circle cx="12" cy="12" r="9" strokeWidth="2" />
+                    <path
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9.6 9.2a2.6 2.6 0 1 1 4.8 1.4c-.6.8-1.4 1.2-2 1.8-.4.4-.6.9-.6 1.6"
+                    />
+                    <circle cx="12" cy="17.3" r="0.8" fill="currentColor" stroke="none" />
+                  </svg>
+                </Button>
+              </PopoverTrigger>
+
+              <CommissionSearchHelpPopover onOpenChange={setIsHelpOpen} />
+            </Popover>
+
+            <Button
+              type="button"
+              onClick={copySearchUrl}
+              variant="ghost"
+              size="icon"
+              className={`absolute right-8 inline-flex h-7 w-7 items-center justify-center rounded-full transition-[opacity,color] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:focus-visible:outline-gray-300 ${
+                copyState === 'success'
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100'
+              } ${hasQuery ? '' : 'pointer-events-none opacity-0'}`}
+              aria-label={
+                copyState === 'success' ? controls.searchUrlCopied : controls.copySearchUrl
+              }
+            >
+              {copyState === 'success' ? (
+                <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor">
+                  <path
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5.6 12.3L10 16.7l8.4-9.4"
+                  />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor">
+                  <circle cx="18" cy="5.5" r="2.3" strokeWidth="2" />
+                  <circle cx="6" cy="12" r="2.3" strokeWidth="2" />
+                  <circle cx="18" cy="18.5" r="2.3" strokeWidth="2" />
                   <path
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    d="M9.6 9.2a2.6 2.6 0 1 1 4.8 1.4c-.6.8-1.4 1.2-2 1.8-.4.4-.6.9-.6 1.6"
+                    d="M8.2 11l7.6-4.1M8.2 13l7.6 4.1"
                   />
-                  <circle cx="12" cy="17.3" r="0.8" fill="currentColor" stroke="none" />
                 </svg>
-              </Button>
-            </PopoverTrigger>
+              )}
+            </Button>
 
-            <CommissionSearchHelpPopover onOpenChange={setIsHelpOpen} />
-          </Popover>
-
-          <Button
-            type="button"
-            onClick={copySearchUrl}
-            variant="ghost"
-            size="icon"
-            className={`absolute right-8 inline-flex h-7 w-7 items-center justify-center rounded-full transition-[opacity,color] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:focus-visible:outline-gray-300 ${
-              copyState === 'success'
-                ? 'text-emerald-600 dark:text-emerald-400'
-                : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100'
-            } ${hasQuery ? '' : 'pointer-events-none opacity-0'}`}
-            aria-label={copyState === 'success' ? controls.searchUrlCopied : controls.copySearchUrl}
-          >
-            {copyState === 'success' ? (
-              <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor">
-                <path
-                  strokeWidth="2.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M5.6 12.3L10 16.7l8.4-9.4"
-                />
+            <Button
+              type="button"
+              onClick={clearSearch}
+              variant="ghost"
+              size="icon"
+              className={`absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[opacity,color] hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
+                hasQuery ? '' : 'pointer-events-none opacity-0'
+              }`}
+              aria-label={controls.clearSearch}
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
+                <path strokeWidth="2.2" strokeLinecap="round" d="M6 6l12 12" />
+                <path strokeWidth="2.2" strokeLinecap="round" d="M18 6L6 18" />
               </svg>
-            ) : (
-              <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor">
-                <circle cx="18" cy="5.5" r="2.3" strokeWidth="2" />
-                <circle cx="6" cy="12" r="2.3" strokeWidth="2" />
-                <circle cx="18" cy="18.5" r="2.3" strokeWidth="2" />
-                <path
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M8.2 11l7.6-4.1M8.2 13l7.6 4.1"
-                />
-              </svg>
-            )}
-          </Button>
-
-          <Button
-            type="button"
-            onClick={clearSearch}
-            variant="ghost"
-            size="icon"
-            className={`absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[opacity,color] hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
-              hasQuery ? '' : 'pointer-events-none opacity-0'
-            }`}
-            aria-label={controls.clearSearch}
-          >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
-              <path strokeWidth="2.2" strokeLinecap="round" d="M6 6l12 12" />
-              <path strokeWidth="2.2" strokeLinecap="round" d="M18 6L6 18" />
-            </svg>
-          </Button>
+            </Button>
+          </div>
         </div>
       </div>
+
+      <PopularKeywordsRow
+        keywords={popularKeywords}
+        refreshLabel={refreshPopularSearchLabel}
+        onRotate={onRotatePopularKeywords}
+        onKeywordPointerDown={ensureIndexReady}
+        onKeywordSelect={applyPopularKeyword}
+      />
 
       <p ref={liveRef} aria-live="polite" className="sr-only" />
     </section>

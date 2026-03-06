@@ -643,6 +643,16 @@ export const applySuggestionToQuery = (rawQuery: string, suggestion: string) => 
     suggestionToken = `"${suggestionToken}"`
   }
 
+  const normalizedRawToken = normalizeSuggestionMatchToken(trimWrappingQuotes(rawQuery))
+  const normalizedSuggestionToken = normalizeSuggestionMatchToken(
+    trimWrappingQuotes(suggestionToken),
+  )
+  if (normalizedRawToken && normalizedSuggestionToken.startsWith(normalizedRawToken)) {
+    return trailingTokenSeparatorPattern.test(suggestionToken)
+      ? suggestionToken
+      : `${suggestionToken} `
+  }
+
   const match = rawQuery.match(replaceLastTokenPattern)
   const nextQuery = match ? `${match[1]}${match[2]}${suggestionToken}` : suggestionToken
   return trailingTokenSeparatorPattern.test(nextQuery) ? nextQuery : `${nextQuery} `

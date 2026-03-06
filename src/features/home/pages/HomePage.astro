@@ -13,6 +13,7 @@ import MobileLanguageMenu from '#features/home/nav/hamburger/MobileLanguageMenu.
 import SidebarNavEnhancerScript from '#features/home/nav/SidebarNavEnhancerScript.astro'
 import StaticCommissionSections from '#features/home/server/StaticCommissionSections.astro'
 import AgeGateScript from '#features/home/warning/AgeGateScript.astro'
+import { getHomeFeaturedSearchKeywords } from '#data/homeFeaturedSearchKeywords'
 import { homeUpdateSummary } from '#lib/generated/homeUpdateSummary'
 import { buildSitePayload } from '#lib/home/buildSitePayload'
 import { listMissingSourceImages, resolveSourceImageByCommissionFileName } from '#lib/images/sourceImageRegistry'
@@ -39,6 +40,7 @@ const localeOptions = HOME_LOCALE_SWITCH_ITEMS.map(item => ({
 }))
 
 const payload = buildSitePayload()
+const featuredSearchKeywords = getHomeFeaturedSearchKeywords()
 const commissionMap = buildCommissionDataMap(payload.commissionData)
 const creatorAliasesMap = buildCreatorAliasesMap(payload.creatorAliases)
 const COMMISSION_IMAGE_SIZES = '(max-width: 768px) 92vw, 640px'
@@ -99,6 +101,7 @@ const resolvedCanonicalPath =
         client:load
         locale={resolvedLocale}
         localeOptions={localeOptions}
+        featuredSearchKeywords={featuredSearchKeywords}
         active={payload.characterStatus.active}
         stale={payload.characterStatus.stale}
         monthNavItems={payload.monthNavItems}

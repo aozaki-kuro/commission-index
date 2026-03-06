@@ -207,4 +207,29 @@ describe('CommissionSearch', () => {
       expect(panel?.classList.contains('animate-search-dropdown-in')).toBe(true)
     })
   })
+
+  it('keeps popular keyword chips visible and applies selected keyword', async () => {
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'test-character::20240101_kanaut',
+        searchText: 'kanaut nishe sample',
+        searchSuggest: 'Creator\tKanaut Nishe\nKeyword\tsample',
+      },
+    ]
+
+    renderSearchWithProps(entries, {
+      popularKeywords: ['Kanaut Nishe', 'sample'],
+      refreshPopularSearchLabel: 'Refresh popular keywords',
+    })
+
+    const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+    fireEvent.click(screen.getByRole('button', { name: 'Kanaut Nishe' }))
+
+    await waitFor(() => {
+      expect(input.value).toBe('Kanaut Nishe')
+    })
+
+    expect(screen.getByRole('button', { name: 'Kanaut Nishe' })).toBeInTheDocument()
+  })
 })

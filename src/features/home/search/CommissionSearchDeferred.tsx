@@ -2,15 +2,19 @@ import { Suspense, lazy, startTransition, useCallback, useEffect, useMemo, useSt
 import type { CommissionSearchEntrySource } from '#features/home/search/CommissionSearch'
 import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
 import SearchShell from '#features/home/search/SearchShell'
-import { normalizeCreatorName } from '#lib/creatorAliases/shared'
-import { parseSuggestionRows } from '#lib/search/index'
+import {
+  buildPopularKeywordPoolFromSuggestTexts,
+  dedupeKeywords,
+} from '#lib/search/popularKeywords'
 
 const loadCommissionSearchModule = () => import('#features/home/search/CommissionSearch')
 const CommissionSearch = lazy(loadCommissionSearchModule)
 
 const HOME_SEARCH_INDEX_URL = '/search/home-search-entries.json'
-const POPULAR_KEYWORD_BATCH_SIZE = 6
-const MAX_POPULAR_KEYWORDS = 36
+const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)'
+const DESKTOP_POPULAR_KEYWORD_BATCH_SIZE = 6
+const MOBILE_POPULAR_KEYWORD_BATCH_SIZE = 4
+const MAX_FEATURED_KEYWORDS = 6
 
 let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
 let homeSearchEntriesPromise: Promise<CommissionSearchEntrySource[]> | null = null
@@ -33,8 +37,7 @@ type CommissionSearchShellProps = {
   isLoadingEntries: boolean
   showLoadingPanel: boolean
   reservePopularKeywordsSpace: boolean
-  popularKeywordPool: string[]
-  popularKeywordPage: number
+  popularKeywords: string[]
   onPrewarm: () => void
   onActivate: (focusOnMount?: boolean, openHelpOnMount?: boolean) => void
   onQueryChange: (value: string) => void
@@ -42,58 +45,51 @@ type CommissionSearchShellProps = {
   onSelectPopularKeyword: (keyword: string) => void
 }
 
-const getPopularKeywordBatch = (keywords: string[], page: number) => {
-  if (keywords.length <= POPULAR_KEYWORD_BATCH_SIZE) return keywords
+const createSeededRandom = (seed: number) => {
+  let state = seed >>> 0 || 0x6d2b79f5
 
-  const start = (page * POPULAR_KEYWORD_BATCH_SIZE) % keywords.length
-  return Array.from({ length: POPULAR_KEYWORD_BATCH_SIZE }, (_, offset) => {
-    const index = (start + offset) % keywords.length
-    return keywords[index]
-  })
+  return () => {
+    state += 0x6d2b79f5
+    let mixed = Math.imul(state ^ (state >>> 15), state | 1)
+    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61)
+    return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296
+  }
 }
 
-const buildPopularKeywordPoolFromSuggestTexts = (suggestTexts: Iterable<string>) => {
-  const termStats = new Map<string, { term: string; count: number }>()
+const shuffleKeywords = (keywords: string[], seed: number) => {
+  const shuffled = [...keywords]
+  const random = createSeededRandom(seed)
 
-  for (const suggestText of suggestTexts) {
-    const parsedRows = parseSuggestionRows(suggestText)
-    let hasPrimaryCreatorInEntry = false
-
-    for (const { source, term } of parsedRows.values()) {
-      if (source === 'Date') continue
-      if (source === 'Creator' && hasPrimaryCreatorInEntry) continue
-
-      const trimmedTerm = term.trim()
-      if (!trimmedTerm) continue
-
-      const normalizedTerm =
-        source === 'Creator' ? (normalizeCreatorName(trimmedTerm) ?? trimmedTerm) : trimmedTerm
-      if (!normalizedTerm) continue
-
-      const normalizedKey = normalizedTerm.toLowerCase()
-      const previous = termStats.get(normalizedKey)
-      if (previous) {
-        previous.count += 1
-      } else {
-        termStats.set(normalizedKey, {
-          term: normalizedTerm,
-          count: 1,
-        })
-      }
-
-      if (source === 'Creator') {
-        hasPrimaryCreatorInEntry = true
-      }
-    }
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(random() * (index + 1))
+    const current = shuffled[index]
+    shuffled[index] = shuffled[swapIndex]
+    shuffled[swapIndex] = current
   }
 
-  return [...termStats.values()]
-    .sort((a, b) => {
-      if (a.count !== b.count) return b.count - a.count
-      return a.term.localeCompare(b.term)
-    })
-    .slice(0, MAX_POPULAR_KEYWORDS)
-    .map(item => item.term)
+  return shuffled
+}
+
+const getPopularKeywordBatch = (keywords: string[], page: number, batchSize: number) => {
+  if (keywords.length <= batchSize) return keywords
+
+  const seed = (keywords.length * 2654435761 + (page + 1) * 1013904223) >>> 0
+  return shuffleKeywords(keywords, seed).slice(0, batchSize)
+}
+
+const getPopularKeywordBatchSize = (isDesktop: boolean) =>
+  isDesktop ? DESKTOP_POPULAR_KEYWORD_BATCH_SIZE : MOBILE_POPULAR_KEYWORD_BATCH_SIZE
+
+const getRandomSeed = () => {
+  if (typeof window === 'undefined') return 0
+
+  if (typeof window.crypto?.getRandomValues === 'function') {
+    const randomBuffer = new Uint32Array(1)
+    window.crypto.getRandomValues(randomBuffer)
+    return randomBuffer[0]
+  }
+
+  return Math.floor(Math.random() * 4294967296)
 }
 
 const buildPopularKeywordPoolFromEntries = (entries: CommissionSearchEntrySource[]) =>
@@ -119,36 +115,7 @@ const CommissionSearchShell = ({
   isLoadingEntries,
   showLoadingPanel,
   reservePopularKeywordsSpace,
-  popularKeywordPool,
-  popularKeywordPage,
-  onPrewarm,
-  onActivate,
-  onQueryChange,
-  onRotatePopularKeywords,
-  onSelectPopularKeyword,
-}: CommissionSearchShellProps) => (
-  <CommissionSearchShellBody
-    query={query}
-    isLoadingEntries={isLoadingEntries}
-    showLoadingPanel={showLoadingPanel}
-    reservePopularKeywordsSpace={reservePopularKeywordsSpace}
-    popularKeywordPool={popularKeywordPool}
-    popularKeywordPage={popularKeywordPage}
-    onPrewarm={onPrewarm}
-    onActivate={onActivate}
-    onQueryChange={onQueryChange}
-    onRotatePopularKeywords={onRotatePopularKeywords}
-    onSelectPopularKeyword={onSelectPopularKeyword}
-  />
-)
-
-const CommissionSearchShellBody = ({
-  query,
-  isLoadingEntries,
-  showLoadingPanel,
-  reservePopularKeywordsSpace,
-  popularKeywordPool,
-  popularKeywordPage,
+  popularKeywords,
   onPrewarm,
   onActivate,
   onQueryChange,
@@ -156,10 +123,6 @@ const CommissionSearchShellBody = ({
   onSelectPopularKeyword,
 }: CommissionSearchShellProps) => {
   const { controls } = useHomeLocaleMessages()
-  const popularKeywords = useMemo(
-    () => getPopularKeywordBatch(popularKeywordPool, popularKeywordPage),
-    [popularKeywordPage, popularKeywordPool],
-  )
 
   return (
     <SearchShell
@@ -191,18 +154,33 @@ const CommissionSearchShellBody = ({
   )
 }
 
-export default function CommissionSearchDeferred() {
+interface CommissionSearchDeferredProps {
+  featuredKeywords?: string[]
+}
+
+export default function CommissionSearchDeferred({
+  featuredKeywords = [],
+}: CommissionSearchDeferredProps = {}) {
+  const { controls } = useHomeLocaleMessages()
   const [didHydrate, setDidHydrate] = useState(false)
   const [isEnabled, setIsEnabled] = useState(false)
   const [shouldFocusOnMount, setShouldFocusOnMount] = useState(false)
   const [shouldOpenHelpOnMount, setShouldOpenHelpOnMount] = useState(false)
   const [shellQuery, setShellQuery] = useState('')
   const [popularKeywordPage, setPopularKeywordPage] = useState(0)
+  const [hasDismissedFeaturedKeywords, setHasDismissedFeaturedKeywords] = useState(false)
+  const [popularKeywordBatchSize, setPopularKeywordBatchSize] = useState(
+    getPopularKeywordBatchSize(false),
+  )
   const [externalEntries, setExternalEntries] = useState<CommissionSearchEntrySource[] | null>(null)
   const [isLoadingEntries, setIsLoadingEntries] = useState(false)
 
   const shouldLoadExternalEntries = Boolean(import.meta.env?.PROD)
   const shouldPrewarmModule = !import.meta.env?.TEST
+  const featuredKeywordBatch = useMemo(
+    () => dedupeKeywords(featuredKeywords, MAX_FEATURED_KEYWORDS),
+    [featuredKeywords],
+  )
 
   const loadExternalEntries = useCallback(async () => {
     if (!shouldLoadExternalEntries) return externalEntries
@@ -300,7 +278,26 @@ export default function CommissionSearchDeferred() {
   }, [externalEntries, loadExternalEntries, shouldLoadExternalEntries, shouldPrewarmModule])
 
   useEffect(() => {
+    setPopularKeywordPage(getRandomSeed())
     setDidHydrate(true)
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+
+    const mediaQuery = window.matchMedia(DESKTOP_MEDIA_QUERY)
+    const updateBatchSize = () => {
+      setPopularKeywordBatchSize(getPopularKeywordBatchSize(mediaQuery.matches))
+    }
+    updateBatchSize()
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', updateBatchSize)
+      return () => {
+        mediaQuery.removeEventListener('change', updateBatchSize)
+      }
+    }
+    return undefined
   }, [])
 
   useEffect(() => {
@@ -350,12 +347,23 @@ export default function CommissionSearchDeferred() {
   }, [externalEntries])
   const shouldReservePopularKeywordsSpace =
     shellQuery.trim().length === 0 &&
-    (!didHydrate ||
-      (popularKeywordPool.length === 0 &&
-        shouldLoadExternalEntries &&
-        !externalEntries &&
-        !cachedHomeSearchEntries))
+    popularKeywordPool.length === 0 &&
+    (!didHydrate || (shouldLoadExternalEntries && !externalEntries && !cachedHomeSearchEntries))
+  const popularKeywords = useMemo(
+    () =>
+      !hasDismissedFeaturedKeywords && featuredKeywordBatch.length > 0
+        ? featuredKeywordBatch.slice(0, popularKeywordBatchSize)
+        : getPopularKeywordBatch(popularKeywordPool, popularKeywordPage, popularKeywordBatchSize),
+    [
+      featuredKeywordBatch,
+      hasDismissedFeaturedKeywords,
+      popularKeywordBatchSize,
+      popularKeywordPage,
+      popularKeywordPool,
+    ],
+  )
   const rotatePopularKeywords = useCallback(() => {
+    setHasDismissedFeaturedKeywords(true)
     setPopularKeywordPage(previous => previous + 1)
   }, [])
   const selectPopularKeyword = useCallback(
@@ -372,8 +380,7 @@ export default function CommissionSearchDeferred() {
       isLoadingEntries={isEnabled && isLoadingEntries}
       showLoadingPanel={isEnabled}
       reservePopularKeywordsSpace={shouldReservePopularKeywordsSpace}
-      popularKeywordPool={popularKeywordPool}
-      popularKeywordPage={popularKeywordPage}
+      popularKeywords={popularKeywords}
       onPrewarm={prewarmSearch}
       onActivate={enableSearch}
       onQueryChange={setShellQuery}
@@ -391,6 +398,9 @@ export default function CommissionSearchDeferred() {
           externalEntries={externalEntries ?? undefined}
           initialQuery={shellQuery || undefined}
           openHelpOnMount={shouldOpenHelpOnMount}
+          popularKeywords={popularKeywords}
+          refreshPopularSearchLabel={controls.refreshPopularSearchLabel}
+          onRotatePopularKeywords={rotatePopularKeywords}
           suppressInitialSuggestionPanelAnimation
         />
       </Suspense>

@@ -13,6 +13,7 @@ type CharacterDisplay = {
 interface HomeControlsIslandProps {
   locale?: string
   localeOptions?: HomeLocaleOption[]
+  featuredSearchKeywords?: string[]
   active: CharacterDisplay[]
   stale: CharacterDisplay[]
   monthNavItems: CharacterNavItem[]
@@ -21,6 +22,7 @@ interface HomeControlsIslandProps {
 const HomeControlsIsland = ({
   locale,
   localeOptions,
+  featuredSearchKeywords = [],
   active,
   stale,
   monthNavItems,
@@ -28,7 +30,7 @@ const HomeControlsIsland = ({
   return (
     <HomeLocaleProvider locale={locale} options={localeOptions}>
       <CommissionViewModeProvider>
-        <CommissionSearchDeferred />
+        <CommissionSearchDeferred featuredKeywords={featuredSearchKeywords} />
         <Suspense fallback={null}>
           <Hamburger active={active} stale={stale} timelineNavItems={monthNavItems} />
         </Suspense>

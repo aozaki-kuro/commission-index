@@ -42,13 +42,16 @@ This repository contains an Astro 5 static site with React 19 islands, written i
 - Admin routes are Astro page shells in dev-only entrypoints:
   - `src/devAdmin/pages/adminIndex.astro`
   - `src/devAdmin/pages/adminAliases.astro`
+  - `src/devAdmin/pages/adminSuggestion.astro`
 - Static page structure (title/description/navigation/fallback) stays in Astro templates.
 - Admin interactive state is isolated to React islands:
   - `src/features/admin/islands/AdminDashboardIsland.tsx`
   - `src/features/admin/islands/AliasesDashboardIsland.tsx`
+  - `src/features/admin/islands/AdminSuggestionIsland.tsx`
 - Feature-heavy admin UI remains React:
   - `src/features/admin/AdminDashboard.tsx`
   - `src/features/admin/aliases/AliasesDashboard.tsx`
+  - `src/features/admin/suggestion/SuggestionDashboard.tsx`
   - form/dnd/search subcomponents in `src/features/admin/*`
 - Shared not-found presentation is Astro-first:
   - `src/components/shared/NotFoundPage.astro`
@@ -57,7 +60,7 @@ This repository contains an Astro 5 static site with React 19 islands, written i
 
 - `src/admin` is a **development-only data maintenance UI** served at `/admin`.
 - In production behavior, `/admin` should not expose editing and must return 404 via route guards + static redirect rules.
-- All write operations (`create*`, `update*`, `deleteCommission`) are valid only when `NODE_ENV=development`.
+- All write operations (`create*`, `update*`, `deleteCommission`, `save*`) are valid only when `NODE_ENV=development`.
 - Always import actions from `#admin/actions` so components stay on the HTTP API wrapper path.
 - Any admin edit that changes content must include the related `data/commissions.db` update in the same commit.
 
@@ -107,6 +110,8 @@ Additional guidance:
 - Migrated mobile top view-mode tabs from React to Astro + script module.
 - Migrated mobile language floating menu from React popover to Astro `details` + script module.
 - Removed unused migration leftovers (`CommissionViewModeDomSync.tsx`, `useDocumentTitle`, `src/lib/index.ts`).
+- Added dev-only `/admin/suggestion` page to curate featured home search keywords (select + DnD + manual input).
+- Added `home_featured_search_keywords` SQLite config table and home-side featured keyword hydration path.
 - Added shared server request/response bridge utility and test coverage.
 
 ## Code Style

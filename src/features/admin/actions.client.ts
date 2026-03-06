@@ -201,6 +201,27 @@ export const saveCreatorAliasesBatchAction = async (
   }
 }
 
+export const saveHomeFeaturedKeywordsAction = async (
+  _prevState: FormState,
+  formData: FormData,
+): Promise<FormState> => {
+  void _prevState
+  try {
+    const response = await fetch('/api/admin/suggestion', {
+      method: 'POST',
+      body: JSON.stringify({
+        keywordsJson: formData.get('keywordsJson')?.toString() ?? '[]',
+      }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    return parseResponse(response)
+  } catch (error) {
+    return toErrorState(error, 'Failed to save featured keywords.')
+  }
+}
+
 export async function fetchCharacterCommissionsAction(
   characterId: number,
 ): Promise<CommissionRow[]> {

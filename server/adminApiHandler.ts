@@ -6,7 +6,9 @@ import {
   deleteCommission,
   getAdminBootstrapData,
   getAdminCommissionsByCharacterId,
+  getHomeSuggestionAdminData,
   saveCreatorAliasesBatch,
+  saveHomeFeaturedSearchKeywords,
   updateCharacter,
   updateCharactersOrder,
   updateCommission,
@@ -246,6 +248,10 @@ export const handleAdminApiRequest = async (request: Request) => {
     return json(getAdminBootstrapData())
   }
 
+  if (request.method === 'GET' && pathname === '/api/admin/suggestion') {
+    return json(getHomeSuggestionAdminData())
+  }
+
   if (request.method === 'GET' && /^\/api\/admin\/characters\/\d+\/commissions$/.test(pathname)) {
     const id = parseIdFromPath(pathname, /^\/api\/admin\/characters\/(\d+)\/commissions$/)
     if (!id) return failure('Invalid character identifier.')
@@ -433,6 +439,20 @@ export const handleAdminApiRequest = async (request: Request) => {
       return success('Creator aliases saved.')
     } catch (error) {
       return handleWriteError(error, 'Failed to save creator aliases.')
+    }
+  }
+
+  if (request.method === 'POST' && pathname === '/api/admin/suggestion') {
+    try {
+      const body = await parseJsonBody(request)
+      const keywordsJson = String(body.keywordsJson ?? '[]')
+      const parsedKeywords = JSON.parse(keywordsJson) as unknown
+      const keywords = Array.isArray(parsedKeywords) ? parsedKeywords.map(String) : []
+
+      saveHomeFeaturedSearchKeywords(keywords)
+      return success('Home featured keywords saved.')
+    } catch (error) {
+      return handleWriteError(error, 'Failed to save home featured keywords.')
     }
   }
 

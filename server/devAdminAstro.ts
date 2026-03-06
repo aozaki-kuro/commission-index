@@ -47,6 +47,10 @@ export const devAdminRoutesIntegration = (): AstroIntegration => ({
         pattern: '/admin/aliases',
         entrypoint: './src/devAdmin/pages/adminAliases.astro',
       })
+      injectRoute({
+        pattern: '/admin/suggestion',
+        entrypoint: './src/devAdmin/pages/adminSuggestion.astro',
+      })
     },
   },
 })

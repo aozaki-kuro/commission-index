@@ -47,7 +47,7 @@ describe('SearchShell loading panel', () => {
     expect(onPopularKeywordSelect).toHaveBeenCalledWith('maid')
   })
 
-  it('keeps a skeleton placeholder for popular keywords during loading panel handoff', () => {
+  it('keeps popular keywords visible during loading panel handoff', () => {
     render(
       <SearchShell
         {...baseProps}
@@ -59,8 +59,15 @@ describe('SearchShell loading panel', () => {
     )
 
     expect(screen.getByTestId('search-loading-panel')).toBeInTheDocument()
-    expect(screen.getByTestId('search-popular-keywords-skeleton')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'maid' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'maid' })).toBeInTheDocument()
+    expect(screen.queryByTestId('search-popular-keywords-skeleton')).not.toBeInTheDocument()
+  })
+
+  it('keeps popular keywords visible when query is not empty', () => {
+    render(<SearchShell {...baseProps} query="maid" popularKeywords={['maid', 'kimono']} />)
+
+    expect(screen.getByRole('button', { name: 'maid' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'kimono' })).toBeInTheDocument()
   })
 
   it('reserves space before popular keywords are loaded', () => {

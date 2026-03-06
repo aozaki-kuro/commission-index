@@ -20,6 +20,24 @@ vi.mock('#features/home/search/CommissionSearch', () => ({
 
 describe('CommissionSearchDeferred', () => {
   const appendedEntries: HTMLElement[] = []
+  const originalMatchMedia = window.matchMedia
+
+  const stubMatchMedia = (matches: boolean) => {
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    })
+  }
 
   const appendSearchEntry = (searchSuggest: string) => {
     const element = document.createElement('article')
@@ -32,11 +50,17 @@ describe('CommissionSearchDeferred', () => {
   beforeEach(() => {
     mockCommissionSearch.mockClear()
     window.history.replaceState(null, '', '/')
+    stubMatchMedia(false)
   })
 
   afterEach(() => {
     appendedEntries.splice(0).forEach(element => element.remove())
     window.history.replaceState(null, '', '/')
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: originalMatchMedia,
+    })
   })
 
   it('does not mount lazy search before activation', () => {
@@ -142,5 +166,77 @@ describe('CommissionSearchDeferred', () => {
     expect(screen.getAllByRole('button', { name: '七市' })).toHaveLength(1)
     expect(screen.queryByRole('button', { name: 'Nanashi' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'nanashi' })).not.toBeInTheDocument()
+  })
+
+  it('limits each popular keyword batch to four chips', () => {
+    appendSearchEntry('Keyword\taa')
+    appendSearchEntry('Keyword\tbb')
+    appendSearchEntry('Keyword\tcc')
+    appendSearchEntry('Keyword\tdd')
+    appendSearchEntry('Keyword\tee')
+
+    render(<CommissionSearchDeferred />)
+
+    const visibleKeywords = ['aa', 'bb', 'cc', 'dd', 'ee'].filter(keyword =>
+      screen.queryByRole('button', { name: keyword }),
+    )
+    expect(visibleKeywords).toHaveLength(4)
+  })
+
+  it('shows six popular keyword chips on desktop viewport', async () => {
+    stubMatchMedia(true)
+
+    appendSearchEntry('Keyword\taa')
+    appendSearchEntry('Keyword\tbb')
+    appendSearchEntry('Keyword\tcc')
+    appendSearchEntry('Keyword\tdd')
+    appendSearchEntry('Keyword\tee')
+    appendSearchEntry('Keyword\tff')
+    appendSearchEntry('Keyword\tgg')
+
+    render(<CommissionSearchDeferred />)
+
+    await waitFor(() => {
+      const visibleKeywords = ['aa', 'bb', 'cc', 'dd', 'ee', 'ff', 'gg'].filter(keyword =>
+        screen.queryByRole('button', { name: keyword }),
+      )
+      expect(visibleKeywords).toHaveLength(6)
+    })
+  })
+
+  it('prioritizes manually featured keywords on first batch', () => {
+    render(
+      <CommissionSearchDeferred
+        featuredKeywords={['alpha', 'beta', 'gamma', 'delta', 'epsilon']}
+      />,
+    )
+
+    expect(screen.getByRole('button', { name: 'alpha' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'beta' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'gamma' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'delta' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'epsilon' })).not.toBeInTheDocument()
+  })
+
+  it('falls back to random pool batches after rotating featured keywords', () => {
+    appendSearchEntry('Keyword\taa')
+    appendSearchEntry('Keyword\tbb')
+    appendSearchEntry('Keyword\tcc')
+    appendSearchEntry('Keyword\tdd')
+    appendSearchEntry('Keyword\tee')
+
+    render(
+      <CommissionSearchDeferred
+        featuredKeywords={['alpha', 'beta', 'gamma', 'delta', 'epsilon']}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh popular keywords' }))
+
+    expect(screen.queryByRole('button', { name: 'alpha' })).not.toBeInTheDocument()
+    const visiblePoolKeywords = ['aa', 'bb', 'cc', 'dd', 'ee'].filter(keyword =>
+      screen.queryByRole('button', { name: keyword }),
+    )
+    expect(visiblePoolKeywords).toHaveLength(4)
   })
 })
