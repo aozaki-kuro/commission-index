@@ -2,21 +2,25 @@ import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from '#features/home/nav/hamburge
 
 const ROOT_SELECTOR = '[data-mobile-language-menu-root="true"]'
 const MENU_SELECTOR = '[data-mobile-language-menu="true"]'
+const ANCHOR_SELECTOR = '[data-mobile-language-menu-anchor="true"]'
 const HAMBURGER_SELECTOR = '[data-mobile-hamburger="true"]'
 
 const applyHiddenState = ({
   root,
+  anchor,
   menu,
   hidden,
 }: {
   root: HTMLElement
+  anchor: HTMLElement
   menu: HTMLDetailsElement
   hidden: boolean
 }) => {
-  root.classList.toggle('pointer-events-none', hidden)
   root.classList.toggle('translate-y-1', hidden)
   root.classList.toggle('opacity-0', hidden)
   root.classList.toggle('opacity-100', !hidden)
+  anchor.classList.toggle('pointer-events-none', hidden)
+  anchor.classList.toggle('pointer-events-auto', !hidden)
 
   if (hidden) {
     menu.open = false
@@ -45,11 +49,12 @@ export const mountMobileLanguageMenu = ({
   doc = document,
 }: MountMobileLanguageMenuOptions = {}) => {
   const root = doc.querySelector<HTMLElement>(ROOT_SELECTOR)
+  const anchor = root?.querySelector<HTMLElement>(ANCHOR_SELECTOR) ?? null
   const menu = doc.querySelector<HTMLDetailsElement>(MENU_SELECTOR)
-  if (!root || !menu) return () => {}
+  if (!root || !anchor || !menu) return () => {}
 
   const syncVisibility = (mounted: boolean) => {
-    applyHiddenState({ root, menu, hidden: mounted })
+    applyHiddenState({ root, anchor, menu, hidden: mounted })
   }
 
   const onHamburgerMountedChange = (event: Event) => {

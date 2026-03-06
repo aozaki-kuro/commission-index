@@ -7,15 +7,19 @@ const renderMenu = () => {
   document.body.innerHTML = `
     <div data-mobile-hamburger="true" data-mobile-hamburger-mounted="false"></div>
     <div data-mobile-language-menu-root="true" class="opacity-100">
-      <details data-mobile-language-menu="true">
-        <summary>Language</summary>
-        <ul><li><a href="/">English</a></li></ul>
-      </details>
+      <div data-mobile-language-menu-anchor="true" class="pointer-events-auto">
+        <details data-mobile-language-menu="true">
+          <summary>Language</summary>
+          <ul><li><a href="/">English</a></li></ul>
+        </details>
+      </div>
     </div>
   `
 }
 
 const getRoot = () => document.querySelector<HTMLElement>('[data-mobile-language-menu-root="true"]')
+const getAnchor = () =>
+  document.querySelector<HTMLElement>('[data-mobile-language-menu-anchor="true"]')
 const getMenu = () =>
   document.querySelector<HTMLDetailsElement>('[data-mobile-language-menu="true"]')
 
@@ -27,6 +31,7 @@ describe('mobileLanguageMenu', () => {
   it('hides and closes language menu while hamburger is mounted', () => {
     const cleanup = mountMobileLanguageMenu()
     const root = getRoot()
+    const anchor = getAnchor()
     const menu = getMenu()
 
     menu!.open = true
@@ -34,16 +39,16 @@ describe('mobileLanguageMenu', () => {
       new CustomEvent(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, { detail: { mounted: true } }),
     )
 
-    expect(root?.classList.contains('pointer-events-none')).toBe(true)
     expect(root?.classList.contains('opacity-0')).toBe(true)
+    expect(anchor?.classList.contains('pointer-events-none')).toBe(true)
     expect(menu?.open).toBe(false)
 
     window.dispatchEvent(
       new CustomEvent(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, { detail: { mounted: false } }),
     )
 
-    expect(root?.classList.contains('pointer-events-none')).toBe(false)
     expect(root?.classList.contains('opacity-100')).toBe(true)
+    expect(anchor?.classList.contains('pointer-events-auto')).toBe(true)
 
     cleanup()
   })
@@ -65,13 +70,13 @@ describe('mobileLanguageMenu', () => {
 
   it('removes listeners on cleanup', () => {
     const cleanup = mountMobileLanguageMenu()
-    const root = getRoot()
+    const anchor = getAnchor()
 
     cleanup()
     window.dispatchEvent(
       new CustomEvent(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, { detail: { mounted: true } }),
     )
 
-    expect(root?.classList.contains('pointer-events-none')).toBe(false)
+    expect(anchor?.classList.contains('pointer-events-none')).toBe(false)
   })
 })

@@ -17,9 +17,12 @@ const backdropStyle = {
 
 <div
   data-mobile-language-menu-root="true"
-  class="fixed right-8 bottom-8 z-[90] h-10 w-10 opacity-100 transition-all duration-200 md:hidden"
+  class="pointer-events-none fixed right-8 bottom-8 z-[90] h-10 w-10 opacity-100 transition-all duration-200 md:hidden"
 >
-  <div class="absolute right-0 bottom-[calc(100%+0.75rem)]">
+  <div
+    data-mobile-language-menu-anchor="true"
+    class="pointer-events-auto absolute right-0 bottom-[calc(100%+0.75rem)]"
+  >
     <details data-mobile-language-menu="true" class="group relative">
       <summary
         style={backdropStyle}
