@@ -189,7 +189,7 @@ const SearchShell = ({
 
             <input
               id="commission-search-input"
-              type="search"
+              type="text"
               value={query}
               onFocus={() => onPrewarm?.()}
               onPointerDown={() => {
@@ -202,7 +202,7 @@ const SearchShell = ({
               placeholder={searchPlaceholder}
               autoComplete="off"
               aria-label={searchLabel}
-              className="peer flex h-10 w-full origin-[left_center] transform-[scale(0.8)] appearance-none rounded-md bg-transparent pr-24 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
+              className="peer flex h-10 w-full origin-[left_center] transform-[scale(0.8)] appearance-none rounded-md bg-transparent pr-24 font-mono text-[16px] leading-5 tracking-[0.01em] outline-none placeholder:text-gray-400"
             />
             {loadingLabel ? (
               <span className="absolute right-9 text-xs text-gray-400 dark:text-gray-500">

@@ -941,7 +941,7 @@ const CommissionSearch = ({
                 placeholder={controls.searchPlaceholder}
                 autoComplete="off"
                 aria-label={controls.searchCommissions}
-                className="peer w-full origin-[left_center] transform-[scale(0.8)] bg-transparent pr-24 font-mono text-[16px] tracking-[0.01em] outline-none placeholder:text-gray-400"
+                className="peer w-full origin-[left_center] transform-[scale(0.8)] appearance-none bg-transparent pr-24 font-mono text-[16px] leading-5 tracking-[0.01em] outline-none placeholder:text-gray-400"
               />
 
               {shouldShowSuggestionPanel ? (
