@@ -30,42 +30,62 @@ type EditingState = { id: number; value: string } | null
 type DeletingState = number | null
 
 type StoredOpenState = {
-  id: number
+  ids: number[]
   timestamp: number
 }
 
-const readOpenIdFromStorage = (): number | null => {
-  if (typeof window === 'undefined') return null
+const readOpenIdsFromStorage = (): Set<number> => {
+  if (typeof window === 'undefined') return new Set()
 
   try {
     const stored = window.localStorage.getItem(disclosureStorageKey)
-    if (!stored) return null
+    if (!stored) return new Set()
 
-    const parsed: StoredOpenState = JSON.parse(stored)
+    const parsed = JSON.parse(stored) as
+      | StoredOpenState
+      | {
+          id?: number
+          timestamp?: number
+        }
     const now = Date.now()
     const expiryTime = EXPIRY_MINUTES * 60 * 1000
 
-    if (now - parsed.timestamp > expiryTime) {
+    if (!parsed || typeof parsed !== 'object') {
       window.localStorage.removeItem(disclosureStorageKey)
-      return null
+      return new Set()
     }
 
-    return parsed.id
+    const timestamp = Number(parsed.timestamp)
+    if (!Number.isFinite(timestamp) || now - timestamp > expiryTime) {
+      window.localStorage.removeItem(disclosureStorageKey)
+      return new Set()
+    }
+
+    if ('ids' in parsed && Array.isArray(parsed.ids)) {
+      return new Set(parsed.ids.filter((id): id is number => Number.isInteger(id) && id > 0))
+    }
+
+    const legacyId = 'id' in parsed ? parsed.id : undefined
+    if (typeof legacyId === 'number' && Number.isInteger(legacyId) && legacyId > 0) {
+      return new Set<number>([legacyId])
+    }
+
+    return new Set()
   } catch {
-    return null
+    return new Set()
   }
 }
 
-const saveOpenIdToStorage = (id: number | null) => {
+const saveOpenIdsToStorage = (openIds: Set<number>) => {
   if (typeof window === 'undefined') return
 
-  if (id === null) {
+  if (openIds.size === 0) {
     window.localStorage.removeItem(disclosureStorageKey)
     return
   }
 
   const data: StoredOpenState = {
-    id,
+    ids: [...openIds],
     timestamp: Date.now(),
   }
   window.localStorage.setItem(disclosureStorageKey, JSON.stringify(data))
@@ -115,16 +135,22 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
 
   const closeConfirmDialog = () => setConfirmingCharacter(null)
 
-  const [openIds, setOpenIds] = useState<Set<number>>(() => {
-    const storedId = readOpenIdFromStorage()
-    return storedId !== null ? new Set([storedId]) : new Set()
-  })
+  const [openIds, setOpenIds] = useState<Set<number>>(() => readOpenIdsFromStorage())
 
   useEffect(() => {
-    const idsArray = Array.from(openIds)
-    const lastId = idsArray[idsArray.length - 1] ?? null
-    saveOpenIdToStorage(lastId)
+    saveOpenIdsToStorage(openIds)
   }, [openIds])
+
+  useEffect(() => {
+    const validIds = new Set(sortedCharacters.map(character => character.id))
+    setOpenIds(current => {
+      const next = new Set([...current].filter(id => validIds.has(id)))
+      if (next.size === current.size && [...next].every(id => current.has(id))) {
+        return current
+      }
+      return next
+    })
+  }, [sortedCharacters])
 
   useEffect(() => {
     setCommissionMap(initialMap)
