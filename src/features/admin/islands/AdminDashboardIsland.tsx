@@ -174,7 +174,18 @@ const AdminDashboardIsland = ({ initialPayload = null }: AdminDashboardIslandPro
   }
 
   if (!payload) {
-    return null
+    return (
+      <div>
+        <p className="text-sm text-red-300">Admin data is unavailable.</p>
+        <button
+          className="mt-3 inline-flex rounded-md border border-zinc-500 px-3 py-1 text-sm hover:border-zinc-300"
+          onClick={reload}
+          type="button"
+        >
+          Retry
+        </button>
+      </div>
+    )
   }
 
   const handleRefreshAssets = async () => {

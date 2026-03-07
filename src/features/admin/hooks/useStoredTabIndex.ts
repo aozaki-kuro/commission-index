@@ -2,17 +2,29 @@ import { useCallback, useEffect, useState } from 'react'
 
 const buildLocalEventName = (storageKey: string) => `localstorage:${storageKey}`
 
+const readStoredValue = (storageKey: string): string | null => {
+  if (typeof window === 'undefined') return null
+
+  try {
+    return window.localStorage.getItem(storageKey)
+  } catch {
+    return null
+  }
+}
+
 const readTabIndex = (storageKey: string, tabCount: number): number => {
   if (typeof window === 'undefined') return 0
 
-  const raw = window.localStorage.getItem(storageKey)
+  const raw = readStoredValue(storageKey)
   const parsed = Number(raw)
   return Number.isFinite(parsed) && parsed >= 0 && parsed < tabCount ? parsed : 0
 }
 
 const useStoredTabIndex = (storageKey: string, tabCount: number) => {
   const localEvent = buildLocalEventName(storageKey)
-  const [selectedIndex, setSelectedIndexState] = useState<number | null>(null)
+  const [selectedIndex, setSelectedIndexState] = useState<number>(() =>
+    readTabIndex(storageKey, tabCount),
+  )
 
   useEffect(() => {
     const syncFromStorage = () => {
@@ -39,7 +51,11 @@ const useStoredTabIndex = (storageKey: string, tabCount: number) => {
 
   const setSelectedIndex = useCallback(
     (nextIndex: number) => {
-      window.localStorage.setItem(storageKey, String(nextIndex))
+      try {
+        window.localStorage.setItem(storageKey, String(nextIndex))
+      } catch {
+        // 存储不可用时仍保持当前会话中的 UI 可用
+      }
       setSelectedIndexState(nextIndex)
       window.dispatchEvent(new Event(localEvent))
     },
