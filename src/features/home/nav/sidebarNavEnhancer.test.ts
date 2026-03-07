@@ -151,6 +151,50 @@ describe('sidebarNavEnhancer', () => {
     cleanup()
   })
 
+  it('keeps the first character dot active near the top like timeline mode', () => {
+    const title = document.getElementById('title-alpha')
+    const introduction = document.getElementById('title-introduction')
+
+    title!.getBoundingClientRect = () =>
+      ({
+        top: 420,
+        bottom: 460,
+        left: 0,
+        right: 0,
+        width: 200,
+        height: 40,
+        x: 0,
+        y: 420,
+        toJSON: () => ({}),
+      }) as DOMRect
+    title!.getClientRects = () => [title!.getBoundingClientRect()] as unknown as DOMRectList
+    introduction!.getBoundingClientRect = () =>
+      ({
+        top: 80,
+        bottom: 180,
+        left: 0,
+        right: 0,
+        width: 200,
+        height: 100,
+        x: 0,
+        y: 80,
+        toJSON: () => ({}),
+      }) as DOMRect
+    introduction!.getClientRects = () =>
+      [introduction!.getBoundingClientRect()] as unknown as DOMRectList
+
+    Object.defineProperty(window, 'scrollY', { value: 0, writable: true })
+
+    const cleanup = mountSidebarNavEnhancer()
+    window.dispatchEvent(new Event('scroll'))
+
+    const dot = document.querySelector<HTMLElement>('[data-sidebar-dot-for="title-alpha"]')
+    expect(dot?.classList.contains('scale-100')).toBe(true)
+    expect(dot?.classList.contains('opacity-100')).toBe(true)
+
+    cleanup()
+  })
+
   it('removes all listeners on cleanup', () => {
     const jumpToSearch = vi.fn()
     const clearHash = vi.fn()

@@ -3,7 +3,6 @@ import { trackRybbitEvent } from '#lib/analytics/track'
 import {
   getActiveSectionId,
   getScrollThreshold,
-  isElementAtThreshold,
   resolveElementsByIds,
 } from '#lib/characters/scrollSpy'
 import {
@@ -62,9 +61,6 @@ const defaultDeps: SidebarNavEnhancerDeps = {
 
 const getCurrentMode = (win: Window): CommissionViewMode => readCommissionViewMode(win)
 
-const hasSearchQueryInUrl = (win: Window) =>
-  Boolean(new URLSearchParams(win.location.search).get('q')?.trim())
-
 const getVisibleNavPanel = (root: HTMLElement, mode: CommissionViewMode) =>
   root.querySelector<HTMLElement>(`${NAV_PANEL_SELECTOR}[data-sidebar-nav-panel="${mode}"]`)
 
@@ -104,34 +100,12 @@ const toggleViewModeButtonState = (button: HTMLButtonElement, active: boolean) =
   }
 }
 
-const resolveActiveTitleId = ({
-  root,
-  mode,
-  win,
-  doc,
-}: {
-  root: HTMLElement
-  mode: CommissionViewMode
-  win: Window
-  doc: Document
-}) => {
+const resolveActiveTitleId = ({ root, mode }: { root: HTMLElement; mode: CommissionViewMode }) => {
   const titleIds = getVisibleTitleIds(root, mode)
   const titleElements = resolveElementsByIds(titleIds)
   if (titleElements.length === 0) return ''
 
-  const threshold = getScrollThreshold()
-  if (mode === 'character') {
-    const introductionElement = doc.getElementById('title-introduction')
-    if (
-      !hasSearchQueryInUrl(win) &&
-      (win.scrollY === 0 ||
-        (introductionElement && isElementAtThreshold(introductionElement, threshold)))
-    ) {
-      return ''
-    }
-  }
-
-  return getActiveSectionId(titleElements, threshold)
+  return getActiveSectionId(titleElements, getScrollThreshold())
 }
 
 export const mountSidebarNavEnhancer = ({
