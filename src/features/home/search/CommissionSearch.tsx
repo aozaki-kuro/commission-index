@@ -2,6 +2,7 @@ import { Button } from '#components/ui/button'
 import { Command, CommandInput, CommandItem, CommandList } from '#components/ui/command'
 import { Popover, PopoverTrigger } from '#components/ui/popover'
 import { useCommissionViewMode } from '#features/home/commission/CommissionViewMode'
+import { STALE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/staleCharactersEvent'
 import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
 import CommissionSearchHelpPopover from '#features/home/search/CommissionSearchHelpPopover'
 import PopularKeywordsRow from '#features/home/search/PopularKeywordsRow'
@@ -113,6 +114,14 @@ const getUrlQuerySnapshot = () => {
   return new URLSearchParams(window.location.search).get('q') ?? ''
 }
 
+const getCharacterPanelStaleLoaded = () => {
+  if (typeof document === 'undefined') return false
+  return (
+    document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')?.dataset
+      .staleLoaded === 'true'
+  )
+}
+
 const parsedSuggestionRowsCache = new Map<string, ReturnType<typeof parseSuggestionRows>>()
 
 const getParsedSuggestionRows = (searchSuggest = '') => {
@@ -200,11 +209,13 @@ const buildSearchIndex = (
   externalEntries?: CommissionSearchEntrySource[],
   options?: {
     skipDomContext?: boolean
+    includeOnlyMountedExternalEntries?: boolean
   },
 ): SearchIndex => {
   if (typeof window === 'undefined') return createEmptySearchIndex()
 
   const shouldSkipDomContext = options?.skipDomContext === true
+  const includeOnlyMountedExternalEntries = options?.includeOnlyMountedExternalEntries === true
   const domContext = shouldSkipDomContext
     ? {
         domEntries: [] as Array<{ element: HTMLElement; sectionId?: string; domKey?: string }>,
@@ -221,7 +232,11 @@ const buildSearchIndex = (
         .map(entry => [entry.domKey as string, entry] as const),
     )
 
-    const entries = externalEntries.map(entry => {
+    const entriesSource = includeOnlyMountedExternalEntries
+      ? externalEntries.filter(entry => domEntryByKey.has(entry.domKey))
+      : externalEntries
+
+    const entries = entriesSource.map(entry => {
       const domEntry = domEntryByKey.get(entry.domKey)
       return {
         id: entry.id,
@@ -540,18 +555,28 @@ const CommissionSearch = ({
   const [isHelpOpen, setIsHelpOpen] = useState(openHelpOnMount)
   const [copyState, setCopyState] = useState<'idle' | 'success'>('idle')
   const [activeSuggestionTerm, setActiveSuggestionTerm] = useState('')
+  const [staleLoaded, setStaleLoaded] = useState(getCharacterPanelStaleLoaded)
   const [isIndexReady, setIsIndexReady] = useState(
     () => !deferIndexInit || !!initialQuery || !!initialUrlQuery,
   )
   const shouldBuildIndex = isIndexReady || !deferIndexInit || !!query || !!initialUrlQuery
   const shouldSkipDomContext = disableDomFiltering && Boolean(externalEntries)
+  const includeOnlyMountedExternalEntries =
+    mode === 'character' && Boolean(externalEntries) && !staleLoaded && !shouldSkipDomContext
 
   const index = useMemo(() => {
     if (!shouldBuildIndex) return createEmptySearchIndex()
     return buildSearchIndex(mode, externalEntries, {
       skipDomContext: shouldSkipDomContext,
+      includeOnlyMountedExternalEntries,
     })
-  }, [externalEntries, mode, shouldBuildIndex, shouldSkipDomContext])
+  }, [
+    externalEntries,
+    includeOnlyMountedExternalEntries,
+    mode,
+    shouldBuildIndex,
+    shouldSkipDomContext,
+  ])
   const [hydratedIndex, setHydratedIndex] = useState<SearchIndex | null>(null)
   const resolvedIndex = useMemo(
     () => (hydratedIndex && hydratedIndex.entries === index.entries ? hydratedIndex : index),
@@ -575,6 +600,18 @@ const CommissionSearch = ({
       active = false
     }
   }, [index, resolvedIndex.fuse])
+
+  useEffect(() => {
+    const syncStaleLoaded = () => {
+      setStaleLoaded(getCharacterPanelStaleLoaded())
+    }
+
+    syncStaleLoaded()
+    window.addEventListener(STALE_CHARACTERS_LOADED_EVENT, syncStaleLoaded)
+    return () => {
+      window.removeEventListener(STALE_CHARACTERS_LOADED_EVENT, syncStaleLoaded)
+    }
+  }, [])
 
   const matchedIds = useMemo(
     () => getMatchedEntryIds(deferredQuery, resolvedIndex),

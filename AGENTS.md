@@ -25,6 +25,7 @@ This repository contains an Astro 5 static site with React 19 islands, written i
   - `src/features/home/warning/AgeGateScript.astro`
   - `src/layouts/AnalyticsScript.astro`
   - `src/features/home/commission/CommissionImageNoticeScript.astro`
+  - `src/features/home/commission/StaleCharactersLoaderScript.astro`
   - `src/features/home/commission/UnpublishedInterestScript.astro`
   - `src/features/home/commission/CommissionViewModeDomSyncScript.astro`
   - `src/features/home/dev/DevLiveRefreshScript.astro`
@@ -130,6 +131,7 @@ Additional guidance:
 - Added keyword alias management (`keyword_aliases`) to `/admin/aliases` with shadcn tabs and bootstrap/action API wiring.
 - Added character alias management (`character_aliases`) to `/admin/aliases` and unified search-suggestion alias display mapping with source priority (`character > creator > keyword`).
 - Added shared server request/response bridge utility and test coverage.
+- Added stale character lazy-loading pipeline (`template` + loader script + sidebar/search sync events) to reduce initial DOM size while preserving navigation discoverability.
 
 ## Code Style
 

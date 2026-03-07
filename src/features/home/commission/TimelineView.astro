@@ -14,40 +14,38 @@ const { groups, characterAliasesMap, creatorAliasesMap, keywordAliasesMap } =
   Astro.props as TimelineViewProps
 ---
 
-<div>
-  {
-    groups.map(group => (
-      <section
-        id={group.sectionId}
-        data-character-section="true"
-        data-total-commissions={group.entries.length}
-        class="pb-6"
-      >
-        <div id={group.titleId} class="mb-2 pt-4">
-          <h2 class="group relative">
-            {group.yearKey}
-            <a
-              href={group.navItem.sectionHash}
-              class="ml-2 font-bold text-gray-400 no-underline opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-gray-600"
-            >
-              #
-            </a>
-          </h2>
-        </div>
+{
+  groups.map(group => (
+    <section
+      id={group.sectionId}
+      data-character-section="true"
+      data-total-commissions={group.entries.length}
+      class="pb-6"
+    >
+      <div id={group.titleId} class="mb-2 pt-4">
+        <h2 class="group relative">
+          {group.yearKey}
+          <a
+            href={group.navItem.sectionHash}
+            class="ml-2 font-bold text-gray-400 no-underline opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-gray-600"
+          >
+            #
+          </a>
+        </h2>
+      </div>
 
-        <CommissionEntries
-          entries={group.entries.map(entry => ({
-            character: entry.character,
-            commission: entry.commission,
-            sectionId: group.sectionId,
-            entryKey: `${group.yearKey}:${entry.character}:${entry.commission.fileName}`,
-            entryAnchorPrefix: getCharacterSectionId(entry.character),
-          }))}
-          characterAliasesMap={characterAliasesMap}
-          creatorAliasesMap={creatorAliasesMap}
-          keywordAliasesMap={keywordAliasesMap}
-        />
-      </section>
-    ))
-  }
-</div>
+      <CommissionEntries
+        entries={group.entries.map(entry => ({
+          character: entry.character,
+          commission: entry.commission,
+          sectionId: group.sectionId,
+          entryKey: `${group.yearKey}:${entry.character}:${entry.commission.fileName}`,
+          entryAnchorPrefix: getCharacterSectionId(entry.character),
+        }))}
+        characterAliasesMap={characterAliasesMap}
+        creatorAliasesMap={creatorAliasesMap}
+        keywordAliasesMap={keywordAliasesMap}
+      />
+    </section>
+  ))
+}

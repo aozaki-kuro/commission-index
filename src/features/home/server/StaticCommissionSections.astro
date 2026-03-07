@@ -1,6 +1,7 @@
 ---
 import type { CharacterCommissions } from '#data/types'
 import type { TimelineYearGroup } from '#lib/commissions/timeline'
+import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
 import Listing from '#features/home/commission/Listing.astro'
 import TimelineView from '#features/home/commission/TimelineView.astro'
 
@@ -30,10 +31,11 @@ const {
   keywordAliasesMap,
 } =
   Astro.props as StaticCommissionSectionsProps
+const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
 ---
 
 <div id="--------Commissions--------">
-  <div data-commission-view-panel="character" data-commission-view-active="true">
+  <div data-commission-view-panel="character" data-commission-view-active="true" data-stale-loaded="false">
     {
       activeChars.map(chara => (
         <Listing
@@ -47,25 +49,50 @@ const {
         />
       ))
     }
-
-    <div id="--------Stale Divder--------" data-stale-divider="true">
-      <div class="pt-0" />
-      <hr />
-      <div class="pb-8" />
-    </div>
-
     {
-      staleChars.map(chara => (
-        <Listing
-          locale={locale}
-          Character={chara.DisplayName}
-          status="stale"
-          commissionMap={commissionMap}
-          characterAliasesMap={characterAliasesMap}
-          creatorAliasesMap={creatorAliasesMap}
-          keywordAliasesMap={keywordAliasesMap}
-        />
-      ))
+      staleChars.length > 0 ? (
+        <>
+          <div data-stale-sections-placeholder="true" class="pb-8">
+            <hr class="my-4" />
+            <div class="flex flex-col items-center justify-center py-10 text-center">
+              <p class="font-mono text-lg font-bold text-gray-700 dark:text-gray-200">
+                {messages.controls.staleCharactersCollapsedTitle}
+              </p>
+              <p class="mt-2 font-mono text-sm text-gray-500 dark:text-gray-400">
+                {messages.controls.staleCharactersCollapsedHint}
+              </p>
+              <button
+                type="button"
+                data-load-stale-characters="true"
+                class="mt-4 inline-flex cursor-pointer items-center gap-2 border-0 bg-transparent p-0 font-mono text-base text-gray-600 underline-offset-2 transition-colors hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+              >
+                <span aria-hidden="true">▸</span>
+                <span>{messages.controls.loadStaleCharacters}</span>
+                <span aria-hidden="true">◂</span>
+              </button>
+            </div>
+          </div>
+          <div data-stale-sections-container="true" />
+          <template data-stale-sections-template="true">
+            <div data-stale-divider="true" class="pb-8">
+              <hr />
+            </div>
+            {
+              staleChars.map(chara => (
+                <Listing
+                  locale={locale}
+                  Character={chara.DisplayName}
+                  status="stale"
+                  commissionMap={commissionMap}
+                  characterAliasesMap={characterAliasesMap}
+                  creatorAliasesMap={creatorAliasesMap}
+                  keywordAliasesMap={keywordAliasesMap}
+                />
+              ))
+            }
+          </template>
+        </>
+      ) : null
     }
   </div>
 

@@ -72,6 +72,9 @@ export interface HomeLocaleMessages {
     openNavigationMenu: string
     loadingCharacters: string
     loadingYears: string
+    loadStaleCharacters: string
+    staleCharactersCollapsedTitle: string
+    staleCharactersCollapsedHint: string
     activeCharacters: string
     staleCharacters: string
     noActiveCharacters: string
@@ -164,6 +167,9 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       openNavigationMenu: 'Open navigation menu',
       loadingCharacters: 'Loading characters...',
       loadingYears: 'Loading years...',
+      loadStaleCharacters: 'Load stale characters',
+      staleCharactersCollapsedTitle: 'Stale characters are hidden',
+      staleCharactersCollapsedHint: 'Click to expand remaining characters',
       activeCharacters: 'Active Characters',
       staleCharacters: 'Stale Characters',
       noActiveCharacters: 'No active characters.',
@@ -272,6 +278,9 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       openNavigationMenu: '開啟導覽選單',
       loadingCharacters: '載入角色中...',
       loadingYears: '載入年份中...',
+      loadStaleCharacters: '載入停更角色',
+      staleCharactersCollapsedTitle: '停更角色已摺疊',
+      staleCharactersCollapsedHint: '點擊以展開剩餘角色',
       activeCharacters: '活躍角色',
       staleCharacters: '停更角色',
       noActiveCharacters: '目前沒有活躍角色。',
@@ -378,6 +387,9 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       openNavigationMenu: 'ナビゲーションメニューを開く',
       loadingCharacters: 'キャラクターを読み込み中...',
       loadingYears: '年別一覧を読み込み中...',
+      loadStaleCharacters: '停止中キャラクターを読み込む',
+      staleCharactersCollapsedTitle: '停止中キャラクターは折りたたまれています',
+      staleCharactersCollapsedHint: 'クリックして残りのキャラクターを展開',
       activeCharacters: '進行中キャラクター',
       staleCharacters: '停止中キャラクター',
       noActiveCharacters: '進行中のキャラクターはありません。',

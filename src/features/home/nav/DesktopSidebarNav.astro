@@ -20,14 +20,15 @@ interface DesktopSidebarNavProps {
 const { active, stale, monthNavItems, locale, localeOptions, localeSwitcherLabel, controls } =
   Astro.props as DesktopSidebarNavProps
 
-const characterNavItems = buildCharacterNavItems([...active, ...stale])
+const activeCharacterNavItems = buildCharacterNavItems(active)
+const staleCharacterNavItems = buildCharacterNavItems(stale)
 ---
 
 <aside
-  id="Character List"
-  class="hidden md:top-52 md:left-[calc(50%+22rem)] md:h-screen md:w-full md:max-w-50 lg:fixed lg:block"
+  id="Home Controls"
+  class="hidden md:top-52 md:right-[calc(50%+22rem)] md:h-screen md:w-full md:max-w-40 lg:fixed lg:block"
 >
-  <div class="sticky top-4 ml-8 space-y-2">
+  <div class="sticky top-4 mr-8 space-y-2">
     <div class="space-y-4 pb-2">
       <div class="relative flex min-h-5 items-center pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
         <svg
@@ -164,10 +165,35 @@ const characterNavItems = buildCharacterNavItems([...active, ...stale])
       }
     </div>
 
+  </div>
+</aside>
+
+<aside
+  id="Character List"
+  class="hidden md:top-52 md:left-[calc(50%+22rem)] md:h-screen md:w-full md:max-w-50 lg:fixed lg:block"
+>
+  <div class="sticky top-4 ml-8 space-y-2">
     <nav>
       <ul data-sidebar-nav-panel="character" class="space-y-2">
         {
-          characterNavItems.map(({ displayName, sectionHash, titleId, sectionId }) => (
+          activeCharacterNavItems.length > 0 ? (
+            <li>
+              <div class="relative flex min-h-5 items-center pl-4 text-gray-700 dark:text-gray-200">
+                <svg
+                  viewBox="0 0 12 12"
+                  class="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path d="M2 4h8L6 9z" />
+                </svg>
+                <span class="font-mono text-sm leading-5 font-bold">{controls.activeCharacters}</span>
+              </div>
+            </li>
+          ) : null
+        }
+        {
+          activeCharacterNavItems.map(({ displayName, sectionHash, titleId, sectionId }) => (
             <li class="relative pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
               <span
                 data-sidebar-dot-for={titleId}
@@ -176,6 +202,7 @@ const characterNavItems = buildCharacterNavItems([...active, ...stale])
               <a
                 href={sectionHash}
                 data-sidebar-character-link="true"
+                data-sidebar-character-status="active"
                 data-sidebar-title-id={titleId}
                 class="font-mono text-sm no-underline transition-colors duration-200"
                 data-sidebar-section-id={sectionId}
@@ -184,6 +211,53 @@ const characterNavItems = buildCharacterNavItems([...active, ...stale])
               </a>
             </li>
           ))
+        }
+        {
+          staleCharacterNavItems.length > 0 ? (
+            <li class="pt-2">
+              <details class="group" data-sidebar-stale-details="true">
+                <summary
+                  data-load-stale-characters="true"
+                  class="relative flex min-h-5 cursor-pointer list-none items-center pl-4 text-gray-700 transition-colors hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
+                >
+                  <svg
+                    viewBox="0 0 12 12"
+                    class="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-transform duration-200 group-open:rotate-90"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path d="M4 2 9 6 4 10z" />
+                  </svg>
+                  <span class="font-mono text-sm leading-5 font-bold">{controls.staleCharacters}</span>
+                </summary>
+
+                <ul class="mt-4 space-y-2">
+                  {
+                    staleCharacterNavItems.map(({ displayName, sectionHash, titleId, sectionId }) => (
+                      <li class="relative pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
+                        <span
+                          data-sidebar-dot-for={titleId}
+                          class="absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-400 scale-0 opacity-0 transition-all duration-300"
+                        />
+                        <a
+                          href={sectionHash}
+                          data-sidebar-character-link="true"
+                          data-sidebar-character-status="stale"
+                          data-sidebar-title-id={titleId}
+                          class="pointer-events-none cursor-not-allowed font-mono text-sm text-gray-500 no-underline opacity-70 transition-colors duration-200 dark:text-gray-400"
+                          data-sidebar-section-id={sectionId}
+                          aria-disabled="true"
+                          tabindex="-1"
+                        >
+                          {displayName}
+                        </a>
+                      </li>
+                    ))
+                  }
+                </ul>
+              </details>
+            </li>
+          ) : null
         }
       </ul>
 
@@ -198,6 +272,7 @@ const characterNavItems = buildCharacterNavItems([...active, ...stale])
               <a
                 href={sectionHash}
                 data-sidebar-character-link="true"
+                data-sidebar-character-status="active"
                 data-sidebar-title-id={titleId}
                 class="font-mono text-sm no-underline transition-colors duration-200"
                 data-sidebar-section-id={sectionId}

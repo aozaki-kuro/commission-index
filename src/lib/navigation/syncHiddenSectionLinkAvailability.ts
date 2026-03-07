@@ -35,7 +35,7 @@ export const syncHiddenSectionLinkAvailability = ({
   for (const link of links) {
     const sectionId = getSectionId(link)
     const section = sectionId ? document.getElementById(sectionId) : null
-    const isDisabled = Boolean(section?.classList.contains('hidden'))
+    const isDisabled = !section || section.classList.contains('hidden')
     setLinkDisabledState(link, isDisabled)
   }
 }

@@ -2,6 +2,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { CommissionViewModeProvider } from '#features/home/commission/CommissionViewMode'
+import { STALE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/staleCharactersEvent'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import CommissionSearch, { type CommissionSearchEntrySource } from './CommissionSearch'
 
@@ -27,6 +28,13 @@ const renderSearchWithProps = (
   render(
     <CommissionViewModeProvider>
       <CommissionSearch disableDomFiltering externalEntries={externalEntries} {...props} />
+    </CommissionViewModeProvider>,
+  )
+
+const renderSearchWithDomFiltering = (externalEntries: CommissionSearchEntrySource[]) =>
+  render(
+    <CommissionViewModeProvider>
+      <CommissionSearch externalEntries={externalEntries} />
     </CommissionViewModeProvider>,
   )
 
@@ -298,5 +306,52 @@ describe('CommissionSearch', () => {
       expect(screen.getByText('(あいつき なくる)')).toBeInTheDocument()
     })
     expect(screen.queryByText('should-not-show')).not.toBeInTheDocument()
+  })
+
+  it('excludes stale entries before load and reindexes after stale loaded event', async () => {
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-commission-view-active="true" data-stale-loaded="false">
+        <section id="active" data-character-section="true" data-character-status="active">
+          <div data-commission-entry="true" data-character-section-id="active" data-commission-search-key="active::20240101_alpha"></div>
+        </section>
+      </div>
+    `
+
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'active::20240101_alpha',
+        searchText: 'alpha',
+      },
+      {
+        id: 2,
+        domKey: 'stale::20240102_stale',
+        searchText: 'staleword',
+      },
+    ]
+
+    renderSearchWithDomFiltering(entries)
+
+    const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+    fireEvent.input(input, { target: { value: 'staleword' } })
+
+    await waitFor(() => {
+      expect(screen.getByText('Search results: 0 of 1 commissions shown.')).toBeInTheDocument()
+    })
+
+    const panel = document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+    panel?.setAttribute('data-stale-loaded', 'true')
+    const staleSection = document.createElement('section')
+    staleSection.id = 'stale'
+    staleSection.dataset.characterSection = 'true'
+    staleSection.dataset.characterStatus = 'stale'
+    staleSection.innerHTML =
+      '<div data-commission-entry="true" data-character-section-id="stale" data-commission-search-key="stale::20240102_stale"></div>'
+    panel?.append(staleSection)
+    window.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
+
+    await waitFor(() => {
+      expect(screen.getByText('Search results: 1 of 2 commissions shown.')).toBeInTheDocument()
+    })
   })
 })

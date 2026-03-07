@@ -4,6 +4,7 @@ import { getRelativeLocaleUrl } from 'astro:i18n'
 import CommissionDescription from '#features/home/blocks/Description.astro'
 import Footer from '#features/home/blocks/Footer.astro'
 import CommissionImageNoticeScript from '#features/home/commission/CommissionImageNoticeScript.astro'
+import StaleCharactersLoaderScript from '#features/home/commission/StaleCharactersLoaderScript.astro'
 import UnpublishedInterestScript from '#features/home/commission/UnpublishedInterestScript.astro'
 import CommissionViewModeDomSyncScript from '#features/home/commission/CommissionViewModeDomSyncScript.astro'
 import MobileViewModeTabs from '#features/home/commission/MobileViewModeTabs.astro'
@@ -152,6 +153,7 @@ const resolvedCanonicalPath =
       <CommissionImageNoticeScript />
       <UnpublishedInterestScript />
       <SidebarNavEnhancerScript />
+      <StaleCharactersLoaderScript />
       <StaticCommissionSections
         locale={resolvedLocale}
         activeChars={payload.characterStatus.active}

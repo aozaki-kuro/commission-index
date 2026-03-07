@@ -37,18 +37,17 @@ const commissions = characterData?.Commissions ?? []
   data-character-section="true"
   data-character-status={status}
   data-total-commissions={commissions.length}
+  class="pb-6"
 >
-  <div id={titleId} class="mb-2 pt-4">
-    <h2 class="group relative">
-      {Character}
-      <a
-        href={sectionHash}
-        class="ml-2 font-bold text-gray-400 no-underline opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-gray-600"
-      >
-        #
-      </a>
-    </h2>
-  </div>
+  <h2 id={titleId} class="group relative mb-2 pt-4">
+    {Character}
+    <a
+      href={sectionHash}
+      class="ml-2 font-bold text-gray-400 no-underline opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-gray-600"
+    >
+      #
+    </a>
+  </h2>
 
   {
     commissions.length === 0 ? (
@@ -69,5 +68,4 @@ const commissions = characterData?.Commissions ?? []
       />
     )
   }
-  <div class="pb-6" />
 </div>

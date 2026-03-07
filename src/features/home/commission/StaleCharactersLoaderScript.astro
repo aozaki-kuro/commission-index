@@ -1,0 +1,6 @@
+<script>
+  import { mountStaleCharactersLoader } from '#features/home/commission/staleCharactersLoader'
+
+  const cleanup = mountStaleCharactersLoader()
+  window.addEventListener('pagehide', cleanup, { once: true })
+</script>

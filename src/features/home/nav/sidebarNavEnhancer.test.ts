@@ -18,13 +18,20 @@ const renderSidebarRoot = () => {
       <ul data-sidebar-nav-panel="character">
         <li>
           <span data-sidebar-dot-for="title-alpha" class="scale-0 opacity-0"></span>
-          <a href="#section-alpha" data-sidebar-character-link="true" data-sidebar-title-id="title-alpha">Alpha</a>
+          <a href="#section-alpha" data-sidebar-character-link="true" data-sidebar-character-status="active" data-sidebar-title-id="title-alpha">Alpha</a>
+        </li>
+        <li>
+          <details data-sidebar-stale-details="true">
+            <summary>Stale Characters</summary>
+            <span data-sidebar-dot-for="title-stale" class="scale-0 opacity-0"></span>
+            <a href="#section-stale" data-sidebar-character-link="true" data-sidebar-character-status="stale" data-sidebar-title-id="title-stale">Stale</a>
+          </details>
         </li>
       </ul>
       <ul data-sidebar-nav-panel="timeline" class="hidden">
         <li>
           <span data-sidebar-dot-for="timeline-title-2026" class="scale-0 opacity-0"></span>
-          <a href="#timeline-year-2026" data-sidebar-character-link="true" data-sidebar-title-id="timeline-title-2026">2026</a>
+          <a href="#timeline-year-2026" data-sidebar-character-link="true" data-sidebar-character-status="active" data-sidebar-title-id="timeline-title-2026">2026</a>
         </li>
       </ul>
     </div>
@@ -33,6 +40,7 @@ const renderSidebarRoot = () => {
     <section id="section-alpha"></section>
     <h2 id="timeline-title-2026"></h2>
     <section id="timeline-year-2026"></section>
+    <div data-commission-view-panel="character" data-stale-loaded="false"></div>
   `
 }
 
@@ -166,5 +174,48 @@ describe('sidebarNavEnhancer', () => {
 
     expect(jumpToSearch).not.toHaveBeenCalled()
     expect(clearHash).not.toHaveBeenCalled()
+  })
+
+  it('requests stale loading then scrolls when stale link is clicked', () => {
+    const scrollToHashWithoutWrite = vi.fn()
+    const requestStaleLoad = vi.fn(win => {
+      const staleSection = document.createElement('section')
+      staleSection.id = 'section-stale'
+      document.body.append(staleSection)
+      document
+        .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+        ?.setAttribute('data-stale-loaded', 'true')
+      win.dispatchEvent(new Event('home:stale-loaded'))
+    })
+
+    const cleanup = mountSidebarNavEnhancer({
+      deps: {
+        scrollToHashWithoutWrite,
+        requestStaleLoad,
+      },
+    })
+
+    const staleLink = Array.from(
+      document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]'),
+    ).find(link => link.getAttribute('href') === '#section-stale')
+    staleLink?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+    expect(requestStaleLoad).toHaveBeenCalledTimes(1)
+    expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-stale')
+
+    cleanup()
+  })
+
+  it('opens stale details when stale sections are loaded externally', () => {
+    const staleDetails = document.querySelector<HTMLDetailsElement>(
+      '[data-sidebar-stale-details="true"]',
+    )
+    expect(staleDetails?.open).toBe(false)
+
+    const cleanup = mountSidebarNavEnhancer()
+    window.dispatchEvent(new Event('home:stale-loaded'))
+
+    expect(staleDetails?.open).toBe(true)
+    cleanup()
   })
 })
