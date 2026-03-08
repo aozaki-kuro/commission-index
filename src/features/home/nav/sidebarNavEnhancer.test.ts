@@ -22,7 +22,7 @@ const renderSidebarRoot = () => {
         </li>
         <li>
           <details data-sidebar-stale-details="true">
-            <summary>Stale Characters</summary>
+            <summary data-load-stale-characters="true">Stale Characters</summary>
             <span data-sidebar-dot-for="title-stale" class="scale-0 opacity-0"></span>
             <a href="#section-stale" data-sidebar-character-link="true" data-sidebar-character-status="stale" data-sidebar-title-id="title-stale">Stale</a>
           </details>
@@ -218,6 +218,21 @@ describe('sidebarNavEnhancer', () => {
 
     expect(jumpToSearch).not.toHaveBeenCalled()
     expect(clearHash).not.toHaveBeenCalled()
+  })
+
+  it('opens stale details immediately when stale summary is clicked before load', () => {
+    const staleDetails = document.querySelector<HTMLDetailsElement>(
+      '[data-sidebar-stale-details="true"]',
+    )
+    const cleanup = mountSidebarNavEnhancer()
+    const summary = document.querySelector<HTMLElement>('[data-load-stale-characters="true"]')
+    const clickEvent = new MouseEvent('click', { bubbles: true, cancelable: true })
+
+    expect(staleDetails?.open).toBe(false)
+    expect(summary?.dispatchEvent(clickEvent)).toBe(false)
+    expect(staleDetails?.open).toBe(true)
+
+    cleanup()
   })
 
   it('requests stale loading then scrolls when stale link is clicked', () => {

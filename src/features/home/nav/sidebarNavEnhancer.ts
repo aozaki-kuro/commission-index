@@ -31,6 +31,7 @@ const CHARACTER_LINK_SELECTOR = '[data-sidebar-character-link="true"]'
 const NAV_PANEL_SELECTOR = '[data-sidebar-nav-panel]'
 const VIEW_MODE_TOGGLE_SELECTOR = '[data-sidebar-view-mode-toggle="true"]'
 const STALE_DETAILS_SELECTOR = '[data-sidebar-stale-details="true"]'
+const STALE_LOAD_TRIGGER_SELECTOR = '[data-load-stale-characters="true"]'
 
 const ACTIVE_DOT_CLASSES = ['scale-100', 'opacity-100'] as const
 const HIDDEN_DOT_CLASSES = ['scale-0', 'opacity-0'] as const
@@ -261,6 +262,17 @@ export const mountSidebarNavEnhancer = ({
       }
 
       deps.jumpToSearch()
+      return
+    }
+
+    const staleLoadTrigger = target.closest<HTMLElement>(STALE_LOAD_TRIGGER_SELECTOR)
+    if (
+      staleLoadTrigger &&
+      staleLoadTrigger.closest(STALE_DETAILS_SELECTOR) &&
+      !isStaleCharacterLoaded(doc)
+    ) {
+      event.preventDefault()
+      openStaleDetails()
       return
     }
 
