@@ -1,0 +1,6 @@
+<script>
+  import { mountHomePageClient } from '#features/home/homePageClient'
+
+  const cleanup = mountHomePageClient()
+  window.addEventListener('pagehide', cleanup, { once: true })
+</script>

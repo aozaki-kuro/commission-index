@@ -3,18 +3,14 @@ import { getImage } from 'astro:assets'
 import { getRelativeLocaleUrl } from 'astro:i18n'
 import CommissionDescription from '#features/home/blocks/Description.astro'
 import Footer from '#features/home/blocks/Footer.astro'
+import HomeClientScript from '#features/home/HomeClientScript.astro'
 import CommissionImageNoticeScript from '#features/home/commission/CommissionImageNoticeScript.astro'
-import StaleCharactersLoaderScript from '#features/home/commission/StaleCharactersLoaderScript.astro'
-import UnpublishedInterestScript from '#features/home/commission/UnpublishedInterestScript.astro'
-import CommissionViewModeDomSyncScript from '#features/home/commission/CommissionViewModeDomSyncScript.astro'
 import MobileViewModeTabs from '#features/home/commission/MobileViewModeTabs.astro'
-import TimelineViewLoaderScript from '#features/home/commission/TimelineViewLoaderScript.astro'
 import DevLiveRefreshScript from '#features/home/dev/DevLiveRefreshScript.astro'
 import HomeControlsIsland from '#features/home/islands/HomeControlsIsland'
 import DesktopSidebarNav from '#features/home/nav/DesktopSidebarNav.astro'
 import MobileHamburgerMenu from '#features/home/nav/hamburger/MobileHamburgerMenu.astro'
 import MobileLanguageMenu from '#features/home/nav/hamburger/MobileLanguageMenu.astro'
-import SidebarNavEnhancerScript from '#features/home/nav/SidebarNavEnhancerScript.astro'
 import StaticCommissionSections from '#features/home/server/StaticCommissionSections.astro'
 import AgeGateScript from '#features/home/warning/AgeGateScript.astro'
 import { getCharacterAliases, getCharacterAliasesMap } from '#data/characterAliases'
@@ -152,11 +148,6 @@ const resolvedCanonicalPath =
         monthNavItems={payload.monthNavItems}
       />
       <CommissionImageNoticeScript />
-      <UnpublishedInterestScript />
-      <CommissionViewModeDomSyncScript />
-      <TimelineViewLoaderScript />
-      <SidebarNavEnhancerScript />
-      <StaleCharactersLoaderScript />
       <StaticCommissionSections
         locale={resolvedLocale}
         activeChars={payload.characterStatus.active}
@@ -167,6 +158,7 @@ const resolvedCanonicalPath =
         keywordAliasesMap={keywordAliasesMap}
         timelineGroups={payload.timelineGroups}
       />
+      <HomeClientScript />
       {import.meta.env.DEV ? <DevLiveRefreshScript /> : null}
       <Footer locale={resolvedLocale} />
     </div>

@@ -278,10 +278,3 @@ const utilityActionTextClassName = 'font-mono text-base leading-6 font-bold no-u
     </div>
   </div>
 </div>
-
-<script>
-  import { mountMobileHamburgerMenu } from '#features/home/nav/hamburger/mobileHamburgerMenu'
-
-  const cleanup = mountMobileHamburgerMenu()
-  window.addEventListener('pagehide', cleanup, { once: true })
-</script>

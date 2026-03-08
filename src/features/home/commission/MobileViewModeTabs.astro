@@ -42,10 +42,3 @@ const { byCharacterLabel, byDateLabel } = Astro.props as MobileViewModeTabsProps
     </button>
   </div>
 </div>
-
-<script>
-  import { mountMobileViewModeTabs } from '#features/home/commission/mobileViewModeTabs'
-
-  const cleanup = mountMobileViewModeTabs()
-  window.addEventListener('pagehide', cleanup, { once: true })
-</script>

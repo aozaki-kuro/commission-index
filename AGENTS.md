@@ -15,6 +15,7 @@ This repository contains an Astro 5 static site with React 19 islands, written i
 - Home page static markup is Astro-first:
   - `src/pages/index.astro`
   - `src/features/home/blocks/*.astro`
+  - `src/features/home/HomeClientScript.astro`
   - `src/features/home/server/StaticCommissionSections.astro`
   - `src/features/home/commission/*.astro` (listing/timeline/entry rendering chain)
   - `src/features/home/nav/DesktopSidebarNav.astro` (desktop nav/search/view/locale shell)
@@ -23,14 +24,12 @@ This repository contains an Astro 5 static site with React 19 islands, written i
   - `HomeControlsIsland` (search shell)
 - Home-level side effects are Astro script components:
   - `src/features/home/warning/AgeGateScript.astro`
+  - `src/features/home/HomeClientScript.astro`
   - `src/layouts/AnalyticsScript.astro`
   - `src/features/home/commission/CommissionImageNoticeScript.astro`
-  - `src/features/home/commission/TimelineViewLoaderScript.astro`
-  - `src/features/home/commission/StaleCharactersLoaderScript.astro`
-  - `src/features/home/commission/UnpublishedInterestScript.astro`
-  - `src/features/home/commission/CommissionViewModeDomSyncScript.astro`
   - `src/features/home/dev/DevLiveRefreshScript.astro`
-  - `src/features/home/nav/SidebarNavEnhancerScript.astro`
+- Home runtime side-effect bootstrapping is centralized in:
+  - `src/features/home/homePageClient.ts`
 - Home unpublished-interest button state is centralized in:
   - `src/features/home/commission/unpublishedInterestClient.ts`
 - Home timeline lazy-mount behavior is centralized in:
@@ -43,6 +42,8 @@ This repository contains an Astro 5 static site with React 19 islands, written i
   - `src/features/home/nav/hamburger/mobileLanguageMenu.ts`
 - Home mobile hamburger behavior is centralized in:
   - `src/features/home/nav/hamburger/mobileHamburgerMenu.ts`
+- Home view-panel DOM visibility sync is centralized in:
+  - `src/features/home/commission/commissionViewModeDomSync.ts`
 - Home search/view-mode behavior depends on existing `data-*` DOM contracts; preserve attribute names and structure when editing Astro templates.
 - Home search UX policy:
   - Keep the search UI itself synchronously rendered and layout-stable on first paint; do not reintroduce shell-to-real-content swaps that cause visible jump, drift, or delayed keyword chips.
@@ -138,6 +139,7 @@ Additional guidance:
 - Added shared server request/response bridge utility and test coverage.
 - Added stale character lazy-loading pipeline (`template` + loader script + sidebar/search sync events) to reduce initial DOM size while preserving navigation discoverability.
 - Added timeline lazy-mount pipeline (`template` + loader script + search/sidebar sync events) so the hidden timeline view no longer doubles the initial homepage DOM.
+- Collapsed most home side-effect entrypoints into `HomeClientScript.astro` + `homePageClient.ts` to reduce initial module requests without changing DOM contracts.
 
 ## Code Style
 

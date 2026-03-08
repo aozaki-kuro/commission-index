@@ -75,10 +75,3 @@ const backdropStyle = {
     </details>
   </div>
 </div>
-
-<script>
-  import { mountMobileLanguageMenu } from '#features/home/nav/hamburger/mobileLanguageMenu'
-
-  const cleanup = mountMobileLanguageMenu()
-  window.addEventListener('pagehide', cleanup, { once: true })
-</script>
