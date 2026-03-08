@@ -90,6 +90,7 @@ export interface HomeLocaleMessages {
     sourceKeyword: string
     sourceDate: string
     sourcePrefix: string
+    formatCollapsedStaleCommissionCount: (count: number) => string
     formatMatchCount: (count: number) => string
     formatSearchResultsStatus: (matchedCount: number, entriesCount: number) => string
     formatSearchClearedStatus: (entriesCount: number) => string
@@ -175,8 +176,8 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       loadingCharacters: 'Loading characters...',
       loadingYears: 'Loading years...',
       loadStaleCharacters: 'Load stale characters',
-      staleCharactersCollapsedTitle: 'Stale characters are hidden',
-      staleCharactersCollapsedHint: 'Click to expand remaining characters',
+      staleCharactersCollapsedTitle: 'Archived characters stay folded by default',
+      staleCharactersCollapsedHint: 'Expand them only when you want to browse the older entries.',
       activeCharacters: 'Active Characters',
       staleCharacters: 'Stale Characters',
       noActiveCharacters: 'No active characters.',
@@ -186,6 +187,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       sourceKeyword: 'keyword',
       sourceDate: 'date',
       sourcePrefix: 'in',
+      formatCollapsedStaleCommissionCount: count => `${count} commission${count === 1 ? '' : 's'}`,
       formatMatchCount: count => `${count} ${count === 1 ? 'match' : 'matches'}`,
       formatSearchResultsStatus: (matchedCount, entriesCount) =>
         `Search results: ${matchedCount} of ${entriesCount} commissions shown.`,
@@ -288,8 +290,8 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       loadingCharacters: '載入角色中...',
       loadingYears: '載入年份中...',
       loadStaleCharacters: '載入停更角色',
-      staleCharactersCollapsedTitle: '停更角色已摺疊',
-      staleCharactersCollapsedHint: '點擊以展開剩餘角色',
+      staleCharactersCollapsedTitle: '停更角色預設會先收起',
+      staleCharactersCollapsedHint: '想查看較舊的委託時，再展開即可。',
       activeCharacters: '活躍角色',
       staleCharacters: '停更角色',
       noActiveCharacters: '目前沒有活躍角色。',
@@ -299,6 +301,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       sourceKeyword: '關鍵字',
       sourceDate: '日期',
       sourcePrefix: '於',
+      formatCollapsedStaleCommissionCount: count => `${count} 筆委託`,
       formatMatchCount: count => `${count} 筆`,
       formatSearchResultsStatus: (matchedCount, entriesCount) =>
         `搜尋結果：顯示 ${matchedCount} / ${entriesCount} 筆委託。`,
@@ -398,8 +401,8 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       loadingCharacters: 'キャラクターを読み込み中...',
       loadingYears: '年別一覧を読み込み中...',
       loadStaleCharacters: '停止中キャラクターを読み込む',
-      staleCharactersCollapsedTitle: '停止中キャラクターは折りたたまれています',
-      staleCharactersCollapsedHint: 'クリックして残りのキャラクターを展開',
+      staleCharactersCollapsedTitle: '停止中キャラクターは初期表示では折りたたまれます',
+      staleCharactersCollapsedHint: '過去のコミッションを見たいときだけ展開できます。',
       activeCharacters: '進行中キャラクター',
       staleCharacters: '停止中キャラクター',
       noActiveCharacters: '進行中のキャラクターはありません。',
@@ -409,6 +412,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       sourceKeyword: 'キーワード',
       sourceDate: '日付',
       sourcePrefix: '対象',
+      formatCollapsedStaleCommissionCount: count => `${count}件のコミッション`,
       formatMatchCount: count => `${count}件`,
       formatSearchResultsStatus: (matchedCount, entriesCount) =>
         `検索結果：${entriesCount}件中 ${matchedCount}件を表示。`,
