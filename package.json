@@ -47,7 +47,7 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.6",
     "@astrojs/react": "^4.4.2",
-    "@eslint/js": "^9.39.3",
+    "@eslint/js": "^9.39.4",
     "@j178/prek": "^0.3.4",
     "@tailwindcss/postcss": "^4.2.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -58,7 +58,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "astro": "^5.18.0",
-    "eslint": "^9.39.3",
+    "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",
