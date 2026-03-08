@@ -683,12 +683,19 @@ export const getMatchedEntryIds = <T extends SearchEntryLike>(
   if (!entries.length) return EMPTY_IDS
   if (!normalizedRawQuery) return allIds
 
-  const strictMatchIds = tokens.length ? evaluateStrictQuery(index, tokens) : null
-  if (!fuse) return strictMatchIds ?? allIds
-
   const queryCache = getQueryCache(index)
   const cached = queryCache.get(normalizedRawQuery)
   if (cached) return cached
+
+  const strictMatchIds = tokens.length ? evaluateStrictQuery(index, tokens) : null
+  if (!fuse) {
+    return setLruCacheEntry(
+      queryCache,
+      normalizedRawQuery,
+      strictMatchIds ?? allIds,
+      MAX_QUERY_CACHE_SIZE,
+    )
+  }
 
   const matched =
     strictMatchIds && strictMatchIds.size > 0

@@ -60,6 +60,7 @@ interface UseCommissionSearchModelOptions {
 }
 
 const MIN_TRACK_QUERY_LENGTH = 2
+const EMPTY_RELATED_SUGGESTION_TERMS_MAP = new Map<string, string[]>()
 
 const getUrlQuerySnapshot = () => {
   if (typeof window === 'undefined') return ''
@@ -117,6 +118,7 @@ export const useCommissionSearchModel = ({
   const [isIndexReady, setIsIndexReady] = useState(
     () => !deferIndexInit || !!initialQuery || !!initialUrlQuery,
   )
+  const [shouldWarmFuse, setShouldWarmFuse] = useState(() => !!initialQuery || !!initialUrlQuery)
   const { staleLoaded, timelineLoaded } = useSearchPanelLoadedState()
   const shouldBuildIndex = isIndexReady || !deferIndexInit || !!query || !!initialUrlQuery
   const shouldSkipDomContext = disableDomFiltering && Boolean(externalEntries)
@@ -134,10 +136,11 @@ export const useCommissionSearchModel = ({
     () => (hydratedIndex && hydratedIndex.entries === index.entries ? hydratedIndex : index),
     [hydratedIndex, index],
   )
+  const shouldHydrateFuse = shouldWarmFuse || hasQuery
 
   useEffect(() => {
     let active = true
-    if (!index.entries.length || resolvedIndex.fuse) {
+    if (!shouldHydrateFuse || !index.entries.length || resolvedIndex.fuse) {
       return () => {
         active = false
       }
@@ -151,7 +154,7 @@ export const useCommissionSearchModel = ({
     return () => {
       active = false
     }
-  }, [index, resolvedIndex.fuse])
+  }, [index, resolvedIndex.fuse, shouldHydrateFuse])
 
   const matchedIds = useMemo(
     () => getMatchedEntryIds(deferredQuery, resolvedIndex),
@@ -206,9 +209,13 @@ export const useCommissionSearchModel = ({
     suggestionQuery,
   ])
 
+  const hasSuggestionResults = filteredSuggestions.length > 0
   const relatedSuggestionTermsMap = useMemo(
-    () => buildRelatedSuggestionTermsMap(resolvedIndex.entries, suggestionAliasGroups),
-    [resolvedIndex.entries, suggestionAliasGroups],
+    () =>
+      hasSuggestionResults
+        ? buildRelatedSuggestionTermsMap(resolvedIndex.entries, suggestionAliasGroups)
+        : EMPTY_RELATED_SUGGESTION_TERMS_MAP,
+    [hasSuggestionResults, resolvedIndex.entries, suggestionAliasGroups],
   )
 
   const suggestionViewModels = useMemo<SuggestionViewModel[]>(() => {
@@ -304,9 +311,15 @@ export const useCommissionSearchModel = ({
     if (deferIndexInit) setIsIndexReady(true)
   }, [deferIndexInit])
 
+  const ensureSearchRuntimeReady = useCallback(() => {
+    if (deferIndexInit) setIsIndexReady(true)
+    setShouldWarmFuse(true)
+  }, [deferIndexInit])
+
   return {
     deferredQuery,
     ensureIndexReady,
+    ensureSearchRuntimeReady,
     hasDeferredQuery,
     hasQuery,
     hiddenStaleNoticeMessage,

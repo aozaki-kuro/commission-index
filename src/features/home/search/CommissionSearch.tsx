@@ -97,6 +97,7 @@ const CommissionSearch = ({
   const [isSuggestionPanelDismissed, setIsSuggestionPanelDismissed] = useState(false)
   const {
     ensureIndexReady,
+    ensureSearchRuntimeReady,
     hasQuery,
     hiddenStaleNoticeMessage,
     initialUrlQuery,
@@ -278,10 +279,10 @@ const CommissionSearch = ({
       const nextQuery = applySuggestionToQuery('', keyword)
       if (!nextQuery.trim()) return
 
-      ensureIndexReady()
+      ensureSearchRuntimeReady()
       applySelectedQuery(nextQuery, { preventScroll: true })
     },
-    [applySelectedQuery, ensureIndexReady],
+    [applySelectedQuery, ensureSearchRuntimeReady],
   )
 
   const prepareSearchHelp = useCallback(() => {
@@ -342,13 +343,13 @@ const CommissionSearch = ({
                 id="commission-search-input"
                 value={query}
                 onFocus={() => {
-                  ensureIndexReady()
+                  ensureSearchRuntimeReady()
                   if (shouldSuppressInputFocusOpen()) return
                   showSuggestionPanel()
                 }}
                 onKeyDown={handleInputKeyDown}
                 onValueChange={value => {
-                  ensureIndexReady()
+                  ensureSearchRuntimeReady()
                   setInputQuery(normalizeQuotedTokenBoundary(value))
                   showSuggestionPanel()
                   setCopyState('idle')
