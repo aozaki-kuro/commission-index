@@ -5,88 +5,40 @@ import { useCommissionViewMode } from '#features/home/commission/CommissionViewM
 import { STALE_CHARACTERS_LOAD_REQUEST_EVENT } from '#features/home/commission/staleCharactersEvent'
 import { resolveHomeControls } from '#features/home/i18n/homeLocale'
 import CommissionSearchHelpPopover from '#features/home/search/CommissionSearchHelpPopover'
-import CommissionSearchSuggestionDropdown, {
-  LOAD_STALE_COMMAND_VALUE,
-  type SuggestionViewModel,
-} from '#features/home/search/CommissionSearchSuggestionDropdown'
+import CommissionSearchSuggestionDropdown from '#features/home/search/CommissionSearchSuggestionDropdown'
 import PopularKeywordsRow from '#features/home/search/PopularKeywordsRow'
-import { useSearchPanelLoadedState } from '#features/home/search/useSearchPanelLoadedState'
+import type {
+  CommissionSearchEntrySource,
+  SearchSuggestionAliasGroup,
+} from '#features/home/search/commissionSearchIndex'
+import { useCommissionSearchModel } from '#features/home/search/useCommissionSearchModel'
 import { useSuggestionPanelController } from '#features/home/search/useSuggestionPanelController'
 import {
   type KeyboardEvent,
   type MouseEvent,
   useCallback,
-  useDeferredValue,
   useEffect,
-  useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from 'react'
-import { ANALYTICS_EVENTS } from '#lib/analytics/events'
-import { trackRybbitEvent } from '#lib/analytics/track'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
-import { dispatchSidebarSearchState } from '#lib/navigation/sidebarSearchState'
 import {
   applySuggestionToQuery,
-  collectSuggestions,
-  createSearchIndex,
-  filterSuggestions,
-  getMatchedEntryIds,
-  hydrateSearchIndexFuse,
   normalizeQuery,
   normalizeQuotedTokenBoundary,
-  parseSuggestionInputState,
-  resolveSuggestionContextMatchedIds,
-  type FilteredSuggestion,
-  parseSuggestionRows,
-  type SearchEntryLike,
-  type SearchIndexLike,
-  type Suggestion,
-  type SuggestionEntryLike,
 } from '#lib/search/index'
 
-type Entry = SearchEntryLike &
-  SuggestionEntryLike & {
-    element?: HTMLElement
-    sectionId?: string
-    domKey?: string
-  }
+export type {
+  CommissionSearchEntrySource,
+  SearchSuggestionAliasGroup,
+} from '#features/home/search/commissionSearchIndex'
 
-export type SearchSuggestionAliasGroup = {
-  term: string
-  aliases: string[]
-}
-
-type Section = {
-  id: string
-  element: HTMLElement
-  status: 'active' | 'stale' | undefined
-}
-
-type SearchIndex = SearchIndexLike<Entry> & {
-  entryById: Map<number, Entry>
-  sections: Section[]
-  staleDivider: HTMLElement | null
-  suggestions: Suggestion[]
-}
-
-export interface CommissionSearchEntrySource {
-  id: number
-  domKey: string
-  searchText: string
-  searchSuggest?: string
-}
-
-const normalizeSuggestionTermKey = (term: string) => term.trim().toLowerCase()
 const shouldUseTapLikeFocus = () => {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
   const hasTouchPoints = navigator.maxTouchPoints > 0
   const hasCoarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false
   return hasTouchPoints || hasCoarsePointer
 }
-const MIN_TRACK_QUERY_LENGTH = 2
-
 const buildSearchUrl = (rawQuery: string) => {
   const url = new URL(window.location.href)
   if (normalizeQuery(rawQuery)) url.searchParams.set('q', rawQuery)
@@ -98,423 +50,6 @@ const clearSearchQueryParamInAddress = () => {
   const url = new URL(window.location.href)
   url.searchParams.delete('q')
   window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
-}
-
-const areSetsEqual = <T,>(left: Set<T>, right: Set<T>) => {
-  if (left === right) return true
-  if (left.size !== right.size) return false
-
-  for (const value of left) {
-    if (!right.has(value)) return false
-  }
-
-  return true
-}
-
-const setTextContentIfChanged = (element: HTMLElement | null, message: string) => {
-  if (!element || element.textContent === message) return
-  element.textContent = message
-}
-
-const getUrlQuerySnapshot = () => {
-  if (typeof window === 'undefined') return ''
-  return new URLSearchParams(window.location.search).get('q') ?? ''
-}
-
-const parsedSuggestionRowsCache = new Map<string, ReturnType<typeof parseSuggestionRows>>()
-
-const getParsedSuggestionRows = (searchSuggest = '') => {
-  const cached = parsedSuggestionRowsCache.get(searchSuggest)
-  if (cached) return cached
-
-  const parsed = parseSuggestionRows(searchSuggest)
-  parsedSuggestionRowsCache.set(searchSuggest, parsed)
-  return parsed
-}
-
-const createEmptySearchIndex = (): SearchIndex => ({
-  entries: [],
-  entryById: new Map(),
-  sections: [],
-  staleDivider: null,
-  allIds: new Set<number>(),
-  suggestions: [],
-  fuse: null,
-})
-
-const finalizeSearchIndex = (
-  entries: Entry[],
-  {
-    sections = [],
-    staleDivider = null,
-  }: {
-    sections?: Section[]
-    staleDivider?: HTMLElement | null
-  } = {},
-): SearchIndex => ({
-  ...createSearchIndex(entries),
-  entryById: new Map(entries.map(entry => [entry.id, entry])),
-  sections,
-  staleDivider,
-  suggestions: collectSuggestions(entries),
-})
-
-const getDisplayMetrics = ({
-  entries,
-  matchedIds,
-  disableDomFiltering,
-  hasDeferredQuery,
-  mode,
-  staleLoaded,
-}: {
-  entries: Entry[]
-  matchedIds: Set<number>
-  disableDomFiltering: boolean
-  hasDeferredQuery: boolean
-  mode: 'character' | 'timeline'
-  staleLoaded: boolean
-}) => {
-  if (disableDomFiltering) {
-    const visibleEntriesCount = entries.length
-    return {
-      visibleEntriesCount,
-      visibleMatchedCount: hasDeferredQuery ? matchedIds.size : visibleEntriesCount,
-      hiddenStaleMatchedCount: 0,
-    }
-  }
-
-  let visibleEntriesCount = 0
-  let visibleMatchedCount = 0
-  let hiddenStaleMatchedCount = 0
-  const canHaveHiddenStaleMatches = mode === 'character' && !staleLoaded
-
-  for (const entry of entries) {
-    const isVisible = Boolean(entry.element)
-    if (isVisible) {
-      visibleEntriesCount += 1
-    }
-
-    if (!hasDeferredQuery || !matchedIds.has(entry.id)) continue
-
-    if (isVisible) {
-      visibleMatchedCount += 1
-      continue
-    }
-
-    if (canHaveHiddenStaleMatches) {
-      hiddenStaleMatchedCount += 1
-    }
-  }
-
-  return {
-    visibleEntriesCount,
-    visibleMatchedCount: hasDeferredQuery ? visibleMatchedCount : visibleEntriesCount,
-    hiddenStaleMatchedCount,
-  }
-}
-
-const getActiveCommissionViewRoot = (viewMode: 'character' | 'timeline'): ParentNode | Document => {
-  if (typeof window === 'undefined') return document
-
-  const activeSelector = `[data-commission-view-panel="${viewMode}"][data-commission-view-active="true"]`
-  const panelSelector = `[data-commission-view-panel="${viewMode}"]`
-
-  return (
-    document.querySelector<HTMLElement>(activeSelector) ??
-    document.querySelector<HTMLElement>(panelSelector) ??
-    document
-  )
-}
-
-const getDomSearchContext = (viewMode: 'character' | 'timeline') => {
-  if (typeof window === 'undefined') {
-    return {
-      domEntries: [] as Array<{ element: HTMLElement; sectionId?: string; domKey?: string }>,
-      sections: [] as Section[],
-      staleDivider: null as HTMLElement | null,
-    }
-  }
-
-  const root = getActiveCommissionViewRoot(viewMode)
-  const domEntries = Array.from(
-    root.querySelectorAll<HTMLElement>('[data-commission-entry="true"]'),
-  ).map(element => ({
-    element,
-    sectionId: element.dataset.characterSectionId,
-    domKey: element.dataset.commissionSearchKey,
-  }))
-
-  const sections = Array.from(
-    root.querySelectorAll<HTMLElement>('[data-character-section="true"]'),
-  ).map(element => ({
-    id: element.id,
-    element,
-    status: element.dataset.characterStatus as 'active' | 'stale' | undefined,
-  }))
-
-  const staleDivider = root.querySelector<HTMLElement>('[data-stale-divider="true"]')
-
-  return { domEntries, sections, staleDivider }
-}
-
-const buildSearchIndex = (
-  viewMode: 'character' | 'timeline',
-  externalEntries?: CommissionSearchEntrySource[],
-  options?: {
-    skipDomContext?: boolean
-    domSnapshotKey?: string
-  },
-): SearchIndex => {
-  if (typeof window === 'undefined') return createEmptySearchIndex()
-
-  void options?.domSnapshotKey
-  const shouldSkipDomContext = options?.skipDomContext === true
-  const domContext = shouldSkipDomContext
-    ? {
-        domEntries: [] as Array<{ element: HTMLElement; sectionId?: string; domKey?: string }>,
-        sections: [] as Section[],
-        staleDivider: null as HTMLElement | null,
-      }
-    : getDomSearchContext(viewMode)
-  const { domEntries, sections, staleDivider } = domContext
-
-  if (externalEntries) {
-    const domEntryByKey = new Map(
-      domEntries
-        .filter(entry => Boolean(entry.domKey))
-        .map(entry => [entry.domKey as string, entry] as const),
-    )
-
-    const entries = externalEntries.map(entry => {
-      const domEntry = domEntryByKey.get(entry.domKey)
-      return {
-        id: entry.id,
-        domKey: entry.domKey,
-        searchText: entry.searchText.toLowerCase(),
-        suggestionRows: getParsedSuggestionRows(entry.searchSuggest ?? ''),
-        element: domEntry?.element,
-        sectionId: domEntry?.sectionId,
-      }
-    })
-
-    return finalizeSearchIndex(entries, { sections, staleDivider })
-  }
-
-  const entries = domEntries.map(({ element, sectionId, domKey }, id) => {
-    const suggestText = element.dataset.searchSuggest ?? ''
-    const suggestionRows = getParsedSuggestionRows(suggestText)
-    return {
-      suggestionRows,
-      id,
-      element,
-      sectionId,
-      domKey,
-      searchText: (element.dataset.searchText ?? '').toLowerCase(),
-    }
-  })
-
-  return finalizeSearchIndex(entries, { sections, staleDivider })
-}
-
-const addRelatedTerms = (related: Map<string, Set<string>>, terms: string[]) => {
-  const uniqueTerms = new Map<string, string>()
-  for (const term of terms) {
-    const normalizedTerm = term.trim()
-    const key = normalizeSuggestionTermKey(normalizedTerm)
-    if (!key || uniqueTerms.has(key)) continue
-    uniqueTerms.set(key, normalizedTerm)
-  }
-
-  if (uniqueTerms.size < 2) return
-
-  const values = [...uniqueTerms.values()]
-  for (const leftTerm of values) {
-    const leftKey = normalizeSuggestionTermKey(leftTerm)
-    if (!leftKey) continue
-    const bucket = related.get(leftKey) ?? new Set<string>()
-    for (const rightTerm of values) {
-      const rightKey = normalizeSuggestionTermKey(rightTerm)
-      if (!rightKey || rightKey === leftKey) continue
-      bucket.add(rightTerm)
-    }
-    related.set(leftKey, bucket)
-  }
-}
-
-const buildRelatedSuggestionTermsMap = (
-  entries: SuggestionEntryLike[],
-  aliasGroups: SearchSuggestionAliasGroup[],
-) => {
-  const related = new Map<string, Set<string>>()
-  const usedPrimaryKeys = new Set<string>()
-
-  for (const group of aliasGroups) {
-    const primaryKey = normalizeSuggestionTermKey(group.term)
-    if (!primaryKey || usedPrimaryKeys.has(primaryKey)) continue
-    usedPrimaryKeys.add(primaryKey)
-    addRelatedTerms(related, [group.term, ...group.aliases])
-  }
-
-  // 兼容旧行为：当别名配置缺失时，仍可通过 Creator 共现词展示后缀提示。
-  for (const entry of entries) {
-    const creatorTerms: string[] = []
-    for (const row of entry.suggestionRows.values()) {
-      if (row.source !== 'Creator') continue
-      const term = row.term.trim()
-      if (!term) continue
-      creatorTerms.push(term)
-    }
-
-    addRelatedTerms(related, creatorTerms)
-  }
-
-  return new Map(
-    [...related.entries()].map(([key, terms]) => [
-      key,
-      [...terms].sort((a, b) => a.localeCompare(b, 'ja')),
-    ]),
-  )
-}
-
-const toggleHiddenClass = (element: HTMLElement, shouldHide: boolean) => {
-  const isHidden = element.classList.contains('hidden')
-  if (isHidden === shouldHide) return false
-  element.classList.toggle('hidden', shouldHide)
-  return true
-}
-
-const syncEntryVisibilityForIndexChange = ({
-  entryById,
-  matchedIds,
-  hasDeferredQuery,
-  visibleSectionIds,
-}: {
-  entryById: SearchIndex['entryById']
-  matchedIds: Set<number>
-  hasDeferredQuery: boolean
-  visibleSectionIds: Set<string> | null
-}) => {
-  let didLayoutChange = false
-
-  for (const entry of entryById.values()) {
-    const isMatched = !hasDeferredQuery || matchedIds.has(entry.id)
-
-    if (isMatched && visibleSectionIds && entry.sectionId) {
-      visibleSectionIds.add(entry.sectionId)
-    }
-
-    if (!entry.element) continue
-    if (toggleHiddenClass(entry.element, !isMatched)) {
-      didLayoutChange = true
-    }
-  }
-
-  return didLayoutChange
-}
-
-const syncEntryVisibilityForMatchedDiff = ({
-  entryById,
-  matchedIds,
-  previousMatchedIds,
-  indexChanged,
-  visibleSectionIds,
-}: {
-  entryById: SearchIndex['entryById']
-  matchedIds: Set<number>
-  previousMatchedIds: Set<number>
-  indexChanged: boolean
-  visibleSectionIds: Set<string> | null
-}) => {
-  let didLayoutChange = false
-
-  for (const id of previousMatchedIds) {
-    if (matchedIds.has(id)) continue
-
-    const previousEntry = entryById.get(id)
-    if (!previousEntry?.element) continue
-    if (toggleHiddenClass(previousEntry.element, true)) {
-      didLayoutChange = true
-    }
-  }
-
-  for (const id of matchedIds) {
-    const entry = entryById.get(id)
-    if (!entry) continue
-
-    if (visibleSectionIds && entry.sectionId) {
-      visibleSectionIds.add(entry.sectionId)
-    }
-
-    const shouldEnsureVisible = indexChanged || !previousMatchedIds.has(id)
-    if (!shouldEnsureVisible || !entry.element) continue
-
-    if (toggleHiddenClass(entry.element, false)) {
-      didLayoutChange = true
-    }
-  }
-
-  return didLayoutChange
-}
-
-const syncSectionVisibility = ({
-  sections,
-  hasDeferredQuery,
-  visibleSectionIds,
-  sectionVisibilityById,
-}: {
-  sections: SearchIndex['sections']
-  hasDeferredQuery: boolean
-  visibleSectionIds: Set<string> | null
-  sectionVisibilityById: Map<string, boolean>
-}) => {
-  let didLayoutChange = false
-  let visibleActiveSections = 0
-  let visibleStaleSections = 0
-
-  for (const section of sections) {
-    const visible = !hasDeferredQuery || Boolean(visibleSectionIds?.has(section.id))
-
-    if (sectionVisibilityById.get(section.id) !== visible) {
-      sectionVisibilityById.set(section.id, visible)
-      if (toggleHiddenClass(section.element, !visible)) {
-        didLayoutChange = true
-      }
-    }
-
-    if (!visible || !hasDeferredQuery) continue
-    if (section.status === 'active') visibleActiveSections += 1
-    if (section.status === 'stale') visibleStaleSections += 1
-  }
-
-  return { didLayoutChange, visibleActiveSections, visibleStaleSections }
-}
-
-const syncStaleDividerVisibility = ({
-  staleDivider,
-  hasDeferredQuery,
-  visibleActiveSections,
-  visibleStaleSections,
-  previousVisible,
-}: {
-  staleDivider: HTMLElement | null
-  hasDeferredQuery: boolean
-  visibleActiveSections: number
-  visibleStaleSections: number
-  previousVisible: boolean
-}) => {
-  if (!staleDivider) {
-    return { didLayoutChange: false, nextVisible: previousVisible }
-  }
-
-  const shouldShowDivider =
-    !hasDeferredQuery || (visibleActiveSections > 0 && visibleStaleSections > 0)
-
-  if (shouldShowDivider === previousVisible) {
-    return { didLayoutChange: false, nextVisible: previousVisible }
-  }
-
-  const didLayoutChange = toggleHiddenClass(staleDivider, !shouldShowDivider)
-  return { didLayoutChange, nextVisible: shouldShowDivider }
 }
 
 interface CommissionSearchProps {
@@ -552,308 +87,44 @@ const CommissionSearch = ({
 }: CommissionSearchProps = {}) => {
   const mode = useCommissionViewMode()
   const controls = resolveHomeControls(locale)
-  const suggestionSourceLabels = useMemo(
-    () =>
-      ({
-        Character: controls.sourceCharacter,
-        Creator: controls.sourceCreator,
-        Keyword: controls.sourceKeyword,
-        Date: controls.sourceDate,
-      }) satisfies Record<Suggestion['sources'][number], string>,
-    [controls.sourceCharacter, controls.sourceCreator, controls.sourceDate, controls.sourceKeyword],
-  )
-  const initialUrlQuery = useSyncExternalStore(
-    () => () => {},
-    getUrlQuerySnapshot,
-    () => '',
-  )
-  const [inputQuery, setInputQuery] = useState<string | null>(initialQuery ?? null)
-  const query = inputQuery ?? initialUrlQuery
-  const deferredQuery = useDeferredValue(query)
-  const normalizedQuery = normalizeQuery(query)
-  const hasQuery = !!normalizedQuery
-  const normalizedDeferredQuery = normalizeQuery(deferredQuery)
-  const hasDeferredQuery = !!normalizedDeferredQuery
-  const { suggestionQuery, suggestionContextQuery, suggestionOperator, suggestionIsExclusion } =
-    useMemo(() => {
-      const parsed = parseSuggestionInputState(deferredQuery)
-
-      return {
-        suggestionQuery: normalizeQuery(parsed.suggestionQuery),
-        suggestionContextQuery: parsed.suggestionContextQuery,
-        suggestionOperator: parsed.suggestionOperator,
-        suggestionIsExclusion: parsed.suggestionIsExclusion,
-      }
-    }, [deferredQuery])
-
   const inputRef = useRef<HTMLInputElement>(null)
-  const liveRef = useRef<HTMLParagraphElement>(null)
   const didAutoJumpRef = useRef(false)
   const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const previousMatchedIdsRef = useRef<Set<number>>(new Set())
-  const previousFilterIndexRef = useRef<SearchIndex | null>(null)
-  const sectionVisibilityRef = useRef(new Map<string, boolean>())
-  const staleDividerVisibilityRef = useRef(true)
-  const hasTrackedSearchUsageRef = useRef(false)
   const ignoreNextHelpTriggerClickRef = useRef(openHelpOnMount)
   const [isHelpOpen, setIsHelpOpen] = useState(openHelpOnMount)
   const [copyState, setCopyState] = useState<'idle' | 'success'>('idle')
   const [activeCommandValue, setActiveCommandValue] = useState('')
   const [isSuggestionPanelDismissed, setIsSuggestionPanelDismissed] = useState(false)
-  const [isIndexReady, setIsIndexReady] = useState(
-    () => !deferIndexInit || !!initialQuery || !!initialUrlQuery,
-  )
-  const { staleLoaded, timelineLoaded } = useSearchPanelLoadedState()
-  const shouldBuildIndex = isIndexReady || !deferIndexInit || !!query || !!initialUrlQuery
-  const shouldSkipDomContext = disableDomFiltering && Boolean(externalEntries)
-  const domSnapshotKey = `${staleLoaded ? 'stale-loaded' : 'stale-collapsed'}:${timelineLoaded ? 'timeline-loaded' : 'timeline-pending'}`
-
-  const index = useMemo(() => {
-    if (!shouldBuildIndex) return createEmptySearchIndex()
-    return buildSearchIndex(mode, externalEntries, {
-      domSnapshotKey,
-      skipDomContext: shouldSkipDomContext,
-    })
-  }, [domSnapshotKey, externalEntries, mode, shouldBuildIndex, shouldSkipDomContext])
-  const [hydratedIndex, setHydratedIndex] = useState<SearchIndex | null>(null)
-  const resolvedIndex = useMemo(
-    () => (hydratedIndex && hydratedIndex.entries === index.entries ? hydratedIndex : index),
-    [hydratedIndex, index],
-  )
-
-  useEffect(() => {
-    let active = true
-    if (!index.entries.length || resolvedIndex.fuse) {
-      return () => {
-        active = false
-      }
-    }
-
-    void hydrateSearchIndexFuse(index).then(nextIndex => {
-      if (!active) return
-      setHydratedIndex(nextIndex)
-    })
-
-    return () => {
-      active = false
-    }
-  }, [index, resolvedIndex.fuse])
-
-  const matchedIds = useMemo(
-    () => getMatchedEntryIds(deferredQuery, resolvedIndex),
-    [deferredQuery, resolvedIndex],
-  )
-  const { visibleEntriesCount, visibleMatchedCount, hiddenStaleMatchedCount } = useMemo(
-    () =>
-      getDisplayMetrics({
-        entries: resolvedIndex.entries,
-        matchedIds,
-        disableDomFiltering,
-        hasDeferredQuery,
-        mode,
-        staleLoaded,
-      }),
-    [disableDomFiltering, hasDeferredQuery, matchedIds, mode, resolvedIndex.entries, staleLoaded],
-  )
-
-  const suggestionContextMatchedIds = useMemo(() => {
-    return resolveSuggestionContextMatchedIds({
-      rawQuery: deferredQuery,
-      suggestionQuery,
-      suggestionContextQuery,
-      matchedIds,
-      index: resolvedIndex,
-      suggestionOperator,
-    })
-  }, [
-    deferredQuery,
-    resolvedIndex,
-    matchedIds,
-    suggestionContextQuery,
-    suggestionOperator,
-    suggestionQuery,
-  ])
-
-  const filteredSuggestions = useMemo<FilteredSuggestion[]>(() => {
-    return filterSuggestions({
-      entries: resolvedIndex.entries,
-      suggestions: resolvedIndex.suggestions,
-      suggestionQuery,
-      suggestionContextQuery,
-      suggestionContextMatchedIds,
-      isExclusionSuggestion: suggestionIsExclusion,
-    })
-  }, [
-    resolvedIndex.entries,
-    resolvedIndex.suggestions,
-    suggestionContextQuery,
-    suggestionContextMatchedIds,
-    suggestionIsExclusion,
-    suggestionQuery,
-  ])
-
-  const relatedSuggestionTermsMap = useMemo(
-    () => buildRelatedSuggestionTermsMap(resolvedIndex.entries, suggestionAliasGroups),
-    [resolvedIndex.entries, suggestionAliasGroups],
-  )
-
-  const suggestionViewModels = useMemo<SuggestionViewModel[]>(() => {
-    return filteredSuggestions.map(suggestion => ({
-      term: suggestion.term,
-      matchCountLabel: controls.formatMatchCount(suggestion.matchedCount),
-      sourcesLabel: suggestion.sources.map(source => suggestionSourceLabels[source]).join(' / '),
-      relatedTerms:
-        relatedSuggestionTermsMap.get(normalizeSuggestionTermKey(suggestion.term)) ?? [],
-    }))
-  }, [controls, filteredSuggestions, relatedSuggestionTermsMap, suggestionSourceLabels])
-  const shouldShowHiddenStaleNotice = hiddenStaleMatchedCount > 0
-  const shouldShowSuggestionPanel =
-    !isSuggestionPanelDismissed &&
-    hasQuery &&
-    (suggestionViewModels.length > 0 || shouldShowHiddenStaleNotice)
-  const visibleStatusMessage = useMemo(
-    () =>
-      hasDeferredQuery
-        ? controls.formatSearchResultsStatus(visibleMatchedCount, visibleEntriesCount)
-        : controls.formatSearchClearedStatus(visibleEntriesCount),
-    [controls, hasDeferredQuery, visibleEntriesCount, visibleMatchedCount],
-  )
-  const hiddenStaleNoticeMessage = useMemo(
-    () => controls.formatHiddenStaleResultsNotice(hiddenStaleMatchedCount),
-    [controls, hiddenStaleMatchedCount],
-  )
-
-  const resolvedActiveCommandValue = useMemo(() => {
-    if (shouldShowHiddenStaleNotice && activeCommandValue === LOAD_STALE_COMMAND_VALUE) {
-      return LOAD_STALE_COMMAND_VALUE
-    }
-
-    if (suggestionViewModels.some(item => item.term === activeCommandValue)) {
-      return activeCommandValue
-    }
-
-    if (suggestionViewModels.length > 0) {
-      return suggestionViewModels[0].term
-    }
-
-    return shouldShowHiddenStaleNotice ? LOAD_STALE_COMMAND_VALUE : ''
-  }, [activeCommandValue, shouldShowHiddenStaleNotice, suggestionViewModels])
-  const shouldSuppressHandoffPanelAnimation =
-    suppressInitialSuggestionPanelAnimation && !!initialQuery && query === initialQuery
-  const shouldAnimateSuggestionPanel = !shouldSuppressHandoffPanelAnimation
-
-  useEffect(() => {
-    onQueryChange?.(query)
-  }, [onQueryChange, query])
-
-  useEffect(() => {
-    onMatchedIdsChange?.(matchedIds)
-  }, [matchedIds, onMatchedIdsChange])
-
-  useEffect(() => {
-    if (normalizedDeferredQuery.length < MIN_TRACK_QUERY_LENGTH || hasTrackedSearchUsageRef.current)
-      return
-    if (resolvedIndex.entries.length > 0 && !resolvedIndex.fuse) return
-    hasTrackedSearchUsageRef.current = true
-
-    trackRybbitEvent(ANALYTICS_EVENTS.searchUsed, {
-      result_count: matchedIds.size,
-      source: inputQuery === null ? 'url_query' : 'input',
-    })
-  }, [
-    deferredQuery,
-    inputQuery,
-    matchedIds.size,
-    normalizedDeferredQuery.length,
-    resolvedIndex.entries.length,
-    resolvedIndex.fuse,
-  ])
-
-  useEffect(() => {
-    const statusMessage = shouldShowHiddenStaleNotice
-      ? `${visibleStatusMessage} ${hiddenStaleNoticeMessage}`
-      : visibleStatusMessage
-
-    if (disableDomFiltering) {
-      if (liveRef.current && visibleEntriesCount > 0) {
-        setTextContentIfChanged(liveRef.current, statusMessage)
-      }
-      return
-    }
-
-    const { entryById, sections, staleDivider } = resolvedIndex
-    const previousMatchedIds = previousMatchedIdsRef.current
-    const matchedIdsChanged = !areSetsEqual(previousMatchedIds, matchedIds)
-    const indexChanged = previousFilterIndexRef.current !== resolvedIndex
-    const visibleSectionIds = hasDeferredQuery ? new Set<string>() : null
-    let didLayoutChange = false
-
-    if (!matchedIdsChanged && !indexChanged) {
-      setTextContentIfChanged(liveRef.current, statusMessage)
-      return
-    }
-
-    if (indexChanged) {
-      didLayoutChange =
-        syncEntryVisibilityForIndexChange({
-          entryById,
-          matchedIds,
-          hasDeferredQuery,
-          visibleSectionIds,
-        }) || didLayoutChange
-    } else if (matchedIdsChanged) {
-      didLayoutChange =
-        syncEntryVisibilityForMatchedDiff({
-          entryById,
-          matchedIds,
-          previousMatchedIds,
-          indexChanged,
-          visibleSectionIds,
-        }) || didLayoutChange
-    }
-
-    previousMatchedIdsRef.current = matchedIds
-    previousFilterIndexRef.current = resolvedIndex
-
-    if (visibleEntriesCount === 0) {
-      return
-    }
-
-    const sectionSyncResult = syncSectionVisibility({
-      sections,
-      hasDeferredQuery,
-      visibleSectionIds,
-      sectionVisibilityById: sectionVisibilityRef.current,
-    })
-    didLayoutChange = sectionSyncResult.didLayoutChange || didLayoutChange
-
-    const dividerSyncResult = syncStaleDividerVisibility({
-      staleDivider,
-      hasDeferredQuery,
-      visibleActiveSections: sectionSyncResult.visibleActiveSections,
-      visibleStaleSections: sectionSyncResult.visibleStaleSections,
-      previousVisible: staleDividerVisibilityRef.current,
-    })
-    staleDividerVisibilityRef.current = dividerSyncResult.nextVisible
-    didLayoutChange = dividerSyncResult.didLayoutChange || didLayoutChange
-
-    setTextContentIfChanged(liveRef.current, statusMessage)
-
-    if (didLayoutChange) {
-      dispatchSidebarSearchState()
-    }
-  }, [
-    controls,
-    disableDomFiltering,
-    hasDeferredQuery,
-    hiddenStaleMatchedCount,
-    matchedIds,
-    resolvedIndex,
+  const {
+    ensureIndexReady,
+    hasQuery,
     hiddenStaleNoticeMessage,
+    initialUrlQuery,
+    liveRef,
+    query,
+    resolvedActiveCommandValue,
+    setInputQuery,
+    shouldAnimateSuggestionPanel,
     shouldShowHiddenStaleNotice,
-    visibleEntriesCount,
+    shouldShowSuggestionPanel,
+    suggestionIsExclusion,
+    suggestionOperator,
+    suggestionViewModels,
     visibleStatusMessage,
-  ])
+  } = useCommissionSearchModel({
+    activeCommandValue,
+    controls,
+    deferIndexInit,
+    disableDomFiltering,
+    externalEntries,
+    initialQuery,
+    isSuggestionPanelDismissed,
+    mode,
+    onMatchedIdsChange,
+    onQueryChange,
+    suggestionAliasGroups,
+    suppressInitialSuggestionPanelAnimation,
+  })
 
   useEffect(() => {
     if (didAutoJumpRef.current || !initialUrlQuery) return
@@ -946,11 +217,14 @@ const CommissionSearch = ({
       setCopyState('idle')
       if (liveRef.current) liveRef.current.textContent = controls.searchUrlCopyFailed
     }
-  }, [controls.searchUrlCopied, controls.searchUrlCopyFailed, hasQuery, query, setCopyFeedback])
-
-  const ensureIndexReady = useCallback(() => {
-    if (deferIndexInit) setIsIndexReady(true)
-  }, [deferIndexInit])
+  }, [
+    controls.searchUrlCopied,
+    controls.searchUrlCopyFailed,
+    hasQuery,
+    liveRef,
+    query,
+    setCopyFeedback,
+  ])
 
   const clearSearch = useCallback(() => {
     setInputQuery('')
@@ -958,7 +232,7 @@ const CommissionSearch = ({
     setCopyState('idle')
     clearSearchQueryParamInAddress()
     inputRef.current?.focus()
-  }, [showSuggestionPanel])
+  }, [setInputQuery, showSuggestionPanel])
 
   const requestStaleCharactersLoad = useCallback(() => {
     window.dispatchEvent(new Event(STALE_CHARACTERS_LOAD_REQUEST_EVENT))
@@ -986,7 +260,7 @@ const CommissionSearch = ({
 
       focusInputAfterSelection(nextQuery, options)
     },
-    [dismissSuggestionPanel, focusInputAfterSelection],
+    [dismissSuggestionPanel, focusInputAfterSelection, setInputQuery],
   )
 
   const applySuggestion = useCallback(
