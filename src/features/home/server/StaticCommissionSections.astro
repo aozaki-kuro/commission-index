@@ -32,6 +32,7 @@ const {
 } =
   Astro.props as StaticCommissionSectionsProps
 const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
+const staleCharacterCount = staleChars.length
 const staleCommissionCount = staleChars.reduce(
   (count, chara) => count + (commissionMap.get(chara.DisplayName)?.Commissions.length ?? 0),
   0,
@@ -60,11 +61,12 @@ const staleCommissionCount = staleChars.reduce(
             <div class="pb-8">
               <hr />
             </div>
-            <div class="mx-auto max-w-lg text-center">
+            <div class="mx-auto max-w-lg text-center pt-6">
               <p class="text-[11px] tracking-[0.08em] text-stone-500 dark:text-stone-400">
-                {messages.controls.staleCharacters}
-                <span aria-hidden="true" class="px-1.5 text-stone-400 dark:text-stone-500">/</span>
-                {messages.controls.formatCollapsedStaleCommissionCount(staleCommissionCount)}
+                {messages.controls.formatCollapsedStaleSummary(
+                  staleCharacterCount,
+                  staleCommissionCount,
+                )}
               </p>
 
               <p class="mt-3 text-base leading-7 font-semibold text-stone-700 dark:text-stone-200">

@@ -90,7 +90,7 @@ export interface HomeLocaleMessages {
     sourceKeyword: string
     sourceDate: string
     sourcePrefix: string
-    formatCollapsedStaleCommissionCount: (count: number) => string
+    formatCollapsedStaleSummary: (characterCount: number, commissionCount: number) => string
     formatMatchCount: (count: number) => string
     formatSearchResultsStatus: (matchedCount: number, entriesCount: number) => string
     formatSearchClearedStatus: (entriesCount: number) => string
@@ -177,7 +177,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       loadingYears: 'Loading years...',
       loadStaleCharacters: 'Load stale characters',
       staleCharactersCollapsedTitle: 'Archived characters stay folded by default',
-      staleCharactersCollapsedHint: 'Expand them only when you want to browse the older entries.',
+      staleCharactersCollapsedHint: 'Expand only when you want to browse the older entries.',
       activeCharacters: 'Active Characters',
       staleCharacters: 'Stale Characters',
       noActiveCharacters: 'No active characters.',
@@ -187,7 +187,8 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       sourceKeyword: 'keyword',
       sourceDate: 'date',
       sourcePrefix: 'in',
-      formatCollapsedStaleCommissionCount: count => `${count} commission${count === 1 ? '' : 's'}`,
+      formatCollapsedStaleSummary: (characterCount, commissionCount) =>
+        `${characterCount} Stale Character${characterCount === 1 ? '' : 's'} / ${commissionCount} commission${commissionCount === 1 ? '' : 's'}`,
       formatMatchCount: count => `${count} ${count === 1 ? 'match' : 'matches'}`,
       formatSearchResultsStatus: (matchedCount, entriesCount) =>
         `Search results: ${matchedCount} of ${entriesCount} commissions shown.`,
@@ -301,7 +302,8 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       sourceKeyword: '關鍵字',
       sourceDate: '日期',
       sourcePrefix: '於',
-      formatCollapsedStaleCommissionCount: count => `${count} 筆委託`,
+      formatCollapsedStaleSummary: (characterCount, commissionCount) =>
+        `${characterCount} 位停更角色 / ${commissionCount} 筆委託`,
       formatMatchCount: count => `${count} 筆`,
       formatSearchResultsStatus: (matchedCount, entriesCount) =>
         `搜尋結果：顯示 ${matchedCount} / ${entriesCount} 筆委託。`,
@@ -412,7 +414,8 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       sourceKeyword: 'キーワード',
       sourceDate: '日付',
       sourcePrefix: '対象',
-      formatCollapsedStaleCommissionCount: count => `${count}件のコミッション`,
+      formatCollapsedStaleSummary: (characterCount, commissionCount) =>
+        `${characterCount}人の停止中キャラクター / ${commissionCount}件のコミッション`,
       formatMatchCount: count => `${count}件`,
       formatSearchResultsStatus: (matchedCount, entriesCount) =>
         `検索結果：${entriesCount}件中 ${matchedCount}件を表示。`,
