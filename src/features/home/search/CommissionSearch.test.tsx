@@ -351,6 +351,40 @@ describe('CommissionSearch', () => {
     expect(screen.queryByText('1 matching stale commission is hidden.')).not.toBeInTheDocument()
   })
 
+  it('keeps hidden stale notice working for non-stale-prefixed dom keys', async () => {
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-commission-view-active="true" data-stale-loaded="false">
+        <section id="active" data-character-section="true" data-character-status="active">
+          <div data-commission-entry="true" data-character-section-id="active" data-commission-search-key="l-cia::20240101_visible"></div>
+        </section>
+      </div>
+    `
+
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'l-cia::20240101_visible',
+        searchText: 'visible alpha',
+      },
+      {
+        id: 2,
+        domKey: 'l-cia::20240102_hidden',
+        searchText: 'hidden alpha',
+      },
+    ]
+
+    renderSearchWithDomFiltering(entries)
+
+    const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+    fireEvent.input(input, { target: { value: 'hidden' } })
+
+    await waitFor(() => {
+      expect(screen.getByText('1 matching stale commission is hidden.')).toBeInTheDocument()
+      expect(screen.getByText('Load stale characters')).toBeInTheDocument()
+      expect(input).toHaveAttribute('aria-expanded', 'true')
+    })
+  })
+
   it('dismisses a hidden stale notice panel on outside click', async () => {
     document.body.innerHTML = `
       <div data-commission-view-panel="character" data-commission-view-active="true" data-stale-loaded="false">

@@ -28,9 +28,12 @@ export type Section = {
 
 export type SearchIndex = SearchIndexLike<Entry> & {
   entryById: Map<number, Entry>
+  hiddenEntryIds: Set<number>
   sections: Section[]
   staleDivider: HTMLElement | null
   suggestions: Suggestion[]
+  visibleEntriesCount: number
+  visibleEntryIds: Set<number>
 }
 
 export interface CommissionSearchEntrySource {
@@ -56,12 +59,33 @@ const getParsedSuggestionRows = (searchSuggest = '') => {
 export const createEmptySearchIndex = (): SearchIndex => ({
   entries: [],
   entryById: new Map(),
+  hiddenEntryIds: new Set<number>(),
   sections: [],
   staleDivider: null,
   allIds: new Set<number>(),
   suggestions: [],
   fuse: null,
+  visibleEntriesCount: 0,
+  visibleEntryIds: new Set<number>(),
 })
+
+const collectVisibilityMetrics = (entries: Entry[]) => {
+  const visibleEntryIds = new Set<number>()
+  const hiddenEntryIds = new Set<number>()
+  let visibleEntriesCount = 0
+
+  for (const entry of entries) {
+    if (entry.element) {
+      visibleEntryIds.add(entry.id)
+      visibleEntriesCount += 1
+      continue
+    }
+
+    hiddenEntryIds.add(entry.id)
+  }
+
+  return { hiddenEntryIds, visibleEntriesCount, visibleEntryIds }
+}
 
 const finalizeSearchIndex = (
   entries: Entry[],
@@ -74,6 +98,7 @@ const finalizeSearchIndex = (
   } = {},
 ): SearchIndex => ({
   ...createSearchIndex(entries),
+  ...collectVisibilityMetrics(entries),
   entryById: new Map(entries.map(entry => [entry.id, entry])),
   sections,
   staleDivider,
@@ -81,14 +106,14 @@ const finalizeSearchIndex = (
 })
 
 export const getDisplayMetrics = ({
-  entries,
+  searchIndex,
   matchedIds,
   disableDomFiltering,
   hasDeferredQuery,
   mode,
   staleLoaded,
 }: {
-  entries: Entry[]
+  searchIndex: SearchIndex
   matchedIds: Set<number>
   disableDomFiltering: boolean
   hasDeferredQuery: boolean
@@ -96,7 +121,7 @@ export const getDisplayMetrics = ({
   staleLoaded: boolean
 }) => {
   if (disableDomFiltering) {
-    const visibleEntriesCount = entries.length
+    const visibleEntriesCount = searchIndex.entries.length
     return {
       visibleEntriesCount,
       visibleMatchedCount: hasDeferredQuery ? matchedIds.size : visibleEntriesCount,
@@ -104,32 +129,33 @@ export const getDisplayMetrics = ({
     }
   }
 
-  let visibleEntriesCount = 0
+  const { hiddenEntryIds, visibleEntriesCount, visibleEntryIds } = searchIndex
+  if (!hasDeferredQuery) {
+    return {
+      visibleEntriesCount,
+      visibleMatchedCount: visibleEntriesCount,
+      hiddenStaleMatchedCount: 0,
+    }
+  }
+
   let visibleMatchedCount = 0
   let hiddenStaleMatchedCount = 0
   const canHaveHiddenStaleMatches = mode === 'character' && !staleLoaded
 
-  for (const entry of entries) {
-    const isVisible = Boolean(entry.element)
-    if (isVisible) {
-      visibleEntriesCount += 1
-    }
-
-    if (!hasDeferredQuery || !matchedIds.has(entry.id)) continue
-
-    if (isVisible) {
+  for (const id of matchedIds) {
+    if (visibleEntryIds.has(id)) {
       visibleMatchedCount += 1
       continue
     }
 
-    if (canHaveHiddenStaleMatches) {
+    if (canHaveHiddenStaleMatches && hiddenEntryIds.has(id)) {
       hiddenStaleMatchedCount += 1
     }
   }
 
   return {
     visibleEntriesCount,
-    visibleMatchedCount: hasDeferredQuery ? visibleMatchedCount : visibleEntriesCount,
+    visibleMatchedCount,
     hiddenStaleMatchedCount,
   }
 }

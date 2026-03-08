@@ -160,14 +160,14 @@ export const useCommissionSearchModel = ({
   const { visibleEntriesCount, visibleMatchedCount, hiddenStaleMatchedCount } = useMemo(
     () =>
       getDisplayMetrics({
-        entries: resolvedIndex.entries,
+        searchIndex: resolvedIndex,
         matchedIds,
         disableDomFiltering,
         hasDeferredQuery,
         mode,
         staleLoaded,
       }),
-    [disableDomFiltering, hasDeferredQuery, matchedIds, mode, resolvedIndex.entries, staleLoaded],
+    [disableDomFiltering, hasDeferredQuery, matchedIds, mode, resolvedIndex, staleLoaded],
   )
 
   const suggestionContextMatchedIds = useMemo(() => {
