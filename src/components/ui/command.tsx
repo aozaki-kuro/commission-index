@@ -11,7 +11,7 @@ const setForwardedRef = <T,>(ref: React.ForwardedRef<T>, value: T) => {
   }
 
   if (!ref) return
-  ;(ref as React.MutableRefObject<T>).current = value
+  ;(ref as { current: T }).current = value
 }
 
 const Command = React.forwardRef<
