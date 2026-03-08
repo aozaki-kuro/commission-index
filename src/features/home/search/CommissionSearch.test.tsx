@@ -6,6 +6,7 @@ import {
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_LOAD_REQUEST_EVENT,
 } from '#features/home/commission/staleCharactersEvent'
+import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import CommissionSearch, { type CommissionSearchEntrySource } from './CommissionSearch'
 
@@ -205,6 +206,65 @@ describe('CommissionSearch', () => {
       expect(queriedSelectors).not.toContain('[data-character-section="true"]')
     } finally {
       querySelectorAllSpy.mockRestore()
+    }
+  })
+
+  it('rebuilds the timeline DOM mapping after timeline sections are mounted', async () => {
+    try {
+      window.history.replaceState(null, '', '/?view=timeline')
+      document.body.innerHTML = `
+        <div data-commission-view-panel="character" data-commission-view-active="false"></div>
+        <div
+          data-commission-view-panel="timeline"
+          data-commission-view-active="true"
+          data-timeline-loaded="false"
+        >
+          <div data-timeline-sections-container="true"></div>
+        </div>
+      `
+
+      const entries: CommissionSearchEntrySource[] = [
+        {
+          id: 1,
+          domKey: 'timeline-year-2025::20240101_alice',
+          searchText: 'alice sample',
+        },
+      ]
+
+      renderSearchWithDomFiltering(entries)
+
+      const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+      fireEvent.input(input, { target: { value: 'zzz' } })
+
+      const timelineContainer = document.querySelector<HTMLElement>(
+        '[data-timeline-sections-container="true"]',
+      )
+      timelineContainer?.insertAdjacentHTML(
+        'beforeend',
+        `
+          <section id="timeline-year-2025" data-character-section="true">
+            <div
+              data-commission-entry="true"
+              data-character-section-id="timeline-year-2025"
+              data-commission-search-key="timeline-year-2025::20240101_alice"
+            ></div>
+          </section>
+        `,
+      )
+      document
+        .querySelector<HTMLElement>('[data-commission-view-panel="timeline"]')
+        ?.setAttribute('data-timeline-loaded', 'true')
+
+      const entry = document.querySelector<HTMLElement>('[data-commission-entry="true"]')
+      expect(entry?.classList.contains('hidden')).toBe(false)
+
+      window.dispatchEvent(new Event(TIMELINE_VIEW_LOADED_EVENT))
+
+      await waitFor(() => {
+        expect(entry?.classList.contains('hidden')).toBe(true)
+      })
+    } finally {
+      window.history.replaceState(null, '', '/')
     }
   })
 

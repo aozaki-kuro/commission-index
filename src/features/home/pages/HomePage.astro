@@ -8,6 +8,7 @@ import StaleCharactersLoaderScript from '#features/home/commission/StaleCharacte
 import UnpublishedInterestScript from '#features/home/commission/UnpublishedInterestScript.astro'
 import CommissionViewModeDomSyncScript from '#features/home/commission/CommissionViewModeDomSyncScript.astro'
 import MobileViewModeTabs from '#features/home/commission/MobileViewModeTabs.astro'
+import TimelineViewLoaderScript from '#features/home/commission/TimelineViewLoaderScript.astro'
 import DevLiveRefreshScript from '#features/home/dev/DevLiveRefreshScript.astro'
 import HomeControlsIsland from '#features/home/islands/HomeControlsIsland'
 import DesktopSidebarNav from '#features/home/nav/DesktopSidebarNav.astro'
@@ -152,6 +153,8 @@ const resolvedCanonicalPath =
       />
       <CommissionImageNoticeScript />
       <UnpublishedInterestScript />
+      <CommissionViewModeDomSyncScript />
+      <TimelineViewLoaderScript />
       <SidebarNavEnhancerScript />
       <StaleCharactersLoaderScript />
       <StaticCommissionSections
@@ -164,7 +167,6 @@ const resolvedCanonicalPath =
         keywordAliasesMap={keywordAliasesMap}
         timelineGroups={payload.timelineGroups}
       />
-      <CommissionViewModeDomSyncScript />
       {import.meta.env.DEV ? <DevLiveRefreshScript /> : null}
       <Footer locale={resolvedLocale} />
     </div>

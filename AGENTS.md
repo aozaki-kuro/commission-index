@@ -25,6 +25,7 @@ This repository contains an Astro 5 static site with React 19 islands, written i
   - `src/features/home/warning/AgeGateScript.astro`
   - `src/layouts/AnalyticsScript.astro`
   - `src/features/home/commission/CommissionImageNoticeScript.astro`
+  - `src/features/home/commission/TimelineViewLoaderScript.astro`
   - `src/features/home/commission/StaleCharactersLoaderScript.astro`
   - `src/features/home/commission/UnpublishedInterestScript.astro`
   - `src/features/home/commission/CommissionViewModeDomSyncScript.astro`
@@ -32,6 +33,8 @@ This repository contains an Astro 5 static site with React 19 islands, written i
   - `src/features/home/nav/SidebarNavEnhancerScript.astro`
 - Home unpublished-interest button state is centralized in:
   - `src/features/home/commission/unpublishedInterestClient.ts`
+- Home timeline lazy-mount behavior is centralized in:
+  - `src/features/home/commission/timelineViewLoader.ts`
 - Home desktop navigation behavior is centralized in:
   - `src/features/home/nav/sidebarNavEnhancer.ts`
 - Home mobile top tabs behavior is centralized in:
@@ -134,6 +137,7 @@ Additional guidance:
 - Added character alias management (`character_aliases`) to `/admin/aliases` and unified search-suggestion alias display mapping with source priority (`character > creator > keyword`).
 - Added shared server request/response bridge utility and test coverage.
 - Added stale character lazy-loading pipeline (`template` + loader script + sidebar/search sync events) to reduce initial DOM size while preserving navigation discoverability.
+- Added timeline lazy-mount pipeline (`template` + loader script + search/sidebar sync events) so the hidden timeline view no longer doubles the initial homepage DOM.
 
 ## Code Style
 

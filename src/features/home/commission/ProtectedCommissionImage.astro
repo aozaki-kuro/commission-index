@@ -12,12 +12,11 @@ const COMMISSION_IMAGE_WIDTH = 1280
 const COMMISSION_IMAGE_SIZES = '(max-width: 768px) 92vw, 640px'
 ---
 
-<div data-commission-image="true" data-commission-alt={altText} class="relative">
-  <div
-    data-commission-image-skeleton="true"
-    aria-hidden="true"
-    class="absolute inset-0 animate-pulse bg-gray-200/80 dark:bg-gray-700/60"
-  />
+<div
+  data-commission-image="true"
+  data-commission-alt={altText}
+  class="relative before:pointer-events-none before:absolute before:inset-0 before:animate-pulse before:bg-gray-200/80 before:content-[''] dark:before:bg-gray-700/60"
+>
   <Image
     data-commission-image-node="true"
     src={sourceImage}

@@ -14,9 +14,11 @@ interface IllustratorInfoProps {
   commission: Commission
   kebabName: string
   showLinks?: boolean
+  className?: string
 }
 
-const { locale, commission, kebabName, showLinks = true } = Astro.props as IllustratorInfoProps
+const { locale, commission, kebabName, showLinks = true, className = '' } =
+  Astro.props as IllustratorInfoProps
 const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
 const { fileName, Description: description = '', Links: links, Design: designLink } = commission
 const { date, creator } = parseCommissionFileName(fileName)
@@ -31,59 +33,52 @@ const hasBoth = hasCreator && hasDescription
 
 const displayLinks = selectDisplayLinks({ links, designLink })
 const hasDisplayLinks = hasDisplayableLinks({ links, designLink })
+const rootClass = `flex w-full flex-wrap items-center gap-y-2 font-mono text-xs text-gray-800 md:text-sm dark:text-gray-300 ${className}`.trim()
 ---
 
-<div class="flex w-full flex-wrap items-center gap-y-2 font-mono text-xs text-gray-800 md:text-sm dark:text-gray-300">
+<div class={rootClass}>
   <div class="flex items-center">
-    <span class="mr-6 select-none md:mr-16">
-      <a href={linkId} class="text-gray-800 no-underline dark:text-gray-300!">
-        <time>{formattedDate}</time>
-      </a>
-    </span>
+    <a href={linkId} class="mr-6 select-none text-gray-800 no-underline dark:text-gray-300! md:mr-16">
+      <time>{formattedDate}</time>
+    </a>
 
-    <div class="flex items-center">
-      {
-        hasCreator ? (
-          <span>{creator}</span>
-        ) : hasDescription ? (
+    {
+      hasCreator ? (
+        <span>{creator}</span>
+      ) : hasDescription ? (
+        <span>{quotedDescription}</span>
+      ) : (
+        <span>-</span>
+      )
+    }
+
+    {
+      hasBoth ? (
+        <>
+          <span class="mx-2 select-none md:mx-4">|</span>
           <span>{quotedDescription}</span>
-        ) : (
-          <span>-</span>
-        )
-      }
-
-      {
-        hasBoth ? (
-          <>
-            <span class="mx-2 select-none md:mx-4">|</span>
-            <span>{quotedDescription}</span>
-          </>
-        ) : null
-      }
-    </div>
+        </>
+      ) : null
+    }
   </div>
 
-  <div class="ml-auto flex grow justify-end">
+  <div class="ml-auto flex grow justify-end gap-2 md:gap-3">
     {
       showLinks ? (
         hasDisplayLinks ? (
           <>
             {
-              displayLinks.mainLinks.map((link, index) => (
-                <span class={index > 0 ? 'ml-2 md:ml-3' : ''}>
-                  <a href={link.url} class={COMMISSION_LINK_TEXT_CLASS} target="_blank">
-                    {link.type}
-                  </a>
-                </span>
+              displayLinks.mainLinks.map(link => (
+                <a href={link.url} class={COMMISSION_LINK_TEXT_CLASS} target="_blank">
+                  {link.type}
+                </a>
               ))
             }
             {
               displayLinks.designLink ? (
-                <span class={displayLinks.mainLinks.length > 0 ? 'ml-2 md:ml-3' : ''}>
-                  <a href={displayLinks.designLink} class={COMMISSION_LINK_TEXT_CLASS} target="_blank">
-                    {messages.listing.designLink}
-                  </a>
-                </span>
+                <a href={displayLinks.designLink} class={COMMISSION_LINK_TEXT_CLASS} target="_blank">
+                  {messages.listing.designLink}
+                </a>
               ) : null
             }
           </>

@@ -8,6 +8,7 @@ import {
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_LOAD_REQUEST_EVENT,
 } from '#features/home/commission/staleCharactersEvent'
+import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
 import { resolveHomeControls } from '#features/home/i18n/homeLocale'
 import CommissionSearchHelpPopover from '#features/home/search/CommissionSearchHelpPopover'
 import PopularKeywordsRow from '#features/home/search/PopularKeywordsRow'
@@ -126,6 +127,14 @@ const getCharacterPanelStaleLoaded = () => {
   return (
     document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')?.dataset
       .staleLoaded === 'true'
+  )
+}
+
+const getTimelinePanelLoaded = () => {
+  if (typeof document === 'undefined') return false
+  return (
+    document.querySelector<HTMLElement>('[data-commission-view-panel="timeline"]')?.dataset
+      .timelineLoaded === 'true'
   )
 }
 
@@ -616,19 +625,21 @@ const CommissionSearch = ({
   const [activeCommandValue, setActiveCommandValue] = useState('')
   const [isSuggestionPanelDismissed, setIsSuggestionPanelDismissed] = useState(false)
   const [staleLoaded, setStaleLoaded] = useState(getCharacterPanelStaleLoaded)
+  const [timelineLoaded, setTimelineLoaded] = useState(getTimelinePanelLoaded)
   const [isIndexReady, setIsIndexReady] = useState(
     () => !deferIndexInit || !!initialQuery || !!initialUrlQuery,
   )
   const shouldBuildIndex = isIndexReady || !deferIndexInit || !!query || !!initialUrlQuery
   const shouldSkipDomContext = disableDomFiltering && Boolean(externalEntries)
+  const domSnapshotKey = `${staleLoaded ? 'stale-loaded' : 'stale-collapsed'}:${timelineLoaded ? 'timeline-loaded' : 'timeline-pending'}`
 
   const index = useMemo(() => {
     if (!shouldBuildIndex) return createEmptySearchIndex()
     return buildSearchIndex(mode, externalEntries, {
-      domSnapshotKey: staleLoaded ? 'stale-loaded' : 'stale-collapsed',
+      domSnapshotKey,
       skipDomContext: shouldSkipDomContext,
     })
-  }, [externalEntries, mode, shouldBuildIndex, shouldSkipDomContext, staleLoaded])
+  }, [domSnapshotKey, externalEntries, mode, shouldBuildIndex, shouldSkipDomContext])
   const [hydratedIndex, setHydratedIndex] = useState<SearchIndex | null>(null)
   const resolvedIndex = useMemo(
     () => (hydratedIndex && hydratedIndex.entries === index.entries ? hydratedIndex : index),
@@ -664,6 +675,18 @@ const CommissionSearch = ({
     return () => {
       window.removeEventListener(STALE_CHARACTERS_LOADED_EVENT, syncStaleLoaded)
       window.removeEventListener(STALE_CHARACTERS_COLLAPSED_EVENT, syncStaleLoaded)
+    }
+  }, [])
+
+  useEffect(() => {
+    const syncTimelineLoaded = () => {
+      setTimelineLoaded(getTimelinePanelLoaded())
+    }
+
+    syncTimelineLoaded()
+    window.addEventListener(TIMELINE_VIEW_LOADED_EVENT, syncTimelineLoaded)
+    return () => {
+      window.removeEventListener(TIMELINE_VIEW_LOADED_EVENT, syncTimelineLoaded)
     }
   }, [])
 

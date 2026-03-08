@@ -96,12 +96,20 @@ const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
     }
   </div>
 
-  <div data-commission-view-panel="timeline" data-commission-view-active="false" class="hidden">
-    <TimelineView
-      groups={timelineGroups}
-      characterAliasesMap={characterAliasesMap}
-      creatorAliasesMap={creatorAliasesMap}
-      keywordAliasesMap={keywordAliasesMap}
-    />
+  <div
+    data-commission-view-panel="timeline"
+    data-commission-view-active="false"
+    data-timeline-loaded="false"
+    class="hidden"
+  >
+    <div data-timeline-sections-container="true" />
+    <template data-timeline-sections-template="true">
+      <TimelineView
+        groups={timelineGroups}
+        characterAliasesMap={characterAliasesMap}
+        creatorAliasesMap={creatorAliasesMap}
+        keywordAliasesMap={keywordAliasesMap}
+      />
+    </template>
   </div>
 </div>

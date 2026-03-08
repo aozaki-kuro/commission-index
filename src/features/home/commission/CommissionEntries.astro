@@ -101,21 +101,29 @@ const shouldEmbedSearchMetadata = embedSearchMetadata ?? Boolean(import.meta.env
             )
           ) : null
         }
-        <div class={showImage ? 'mt-6 mb-2 md:mt-8 md:mb-4' : 'mt-2 mb-2 md:mb-4'}>
-          {
-            showCharacterLabel ? (
+        {
+          showCharacterLabel ? (
+            <div class={showImage ? 'mt-6 mb-2 md:mt-8 md:mb-4' : 'mt-2 mb-2 md:mb-4'}>
               <div class="mb-2 font-mono text-xs text-gray-600 md:text-sm dark:text-gray-400">
                 {character}
               </div>
-            ) : null
-          }
-          <IllustratorInfo
-            locale={resolvedLocale}
-            commission={commission}
-            kebabName={entryAnchorPrefix}
-            showLinks={showLinks}
-          />
-        </div>
+              <IllustratorInfo
+                locale={resolvedLocale}
+                commission={commission}
+                kebabName={entryAnchorPrefix}
+                showLinks={showLinks}
+              />
+            </div>
+          ) : (
+            <IllustratorInfo
+              locale={resolvedLocale}
+              commission={commission}
+              kebabName={entryAnchorPrefix}
+              showLinks={showLinks}
+              className={showImage ? 'mt-6 mb-2 md:mt-8 md:mb-4' : 'mt-2 mb-2 md:mb-4'}
+            />
+          )
+        }
       </div>
     )
   })
