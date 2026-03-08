@@ -82,7 +82,7 @@ describe('CommissionSearch', () => {
           ([event]) =>
             event instanceof Event && event.type === STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT,
         ),
-      ).toBe(true)
+      ).toBe(false)
       await waitFor(() => {
         expect(mockTrackRybbitEvent).toHaveBeenCalledWith(
           ANALYTICS_EVENTS.searchUsed,
@@ -251,7 +251,7 @@ describe('CommissionSearch', () => {
           ([event]) =>
             event instanceof Event && event.type === STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT,
         ),
-      ).toBe(true)
+      ).toBe(false)
       expect(document.querySelector('[cmdk-list]')).not.toBeInTheDocument()
 
       expect(screen.getByRole('button', { name: 'Kanaut Nishe' })).toBeInTheDocument()
@@ -349,6 +349,196 @@ describe('CommissionSearch', () => {
       expect(screen.getByText('Search results: 1 of 2 commissions shown.')).toBeInTheDocument()
     })
     expect(screen.queryByText('1 matching stale commission is hidden.')).not.toBeInTheDocument()
+  })
+
+  it('dismisses a hidden stale notice panel on outside click', async () => {
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-commission-view-active="true" data-stale-loaded="false">
+        <section id="active" data-character-section="true" data-character-status="active">
+          <div data-commission-entry="true" data-character-section-id="active" data-commission-search-key="active::20240101_alpha"></div>
+        </section>
+      </div>
+    `
+
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'active::20240101_alpha',
+        searchText: 'alpha',
+      },
+      {
+        id: 2,
+        domKey: 'stale::20240102_stale',
+        searchText: 'staleword',
+      },
+    ]
+
+    renderSearchWithDomFiltering(entries)
+
+    const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+    fireEvent.input(input, { target: { value: 'staleword' } })
+
+    await waitFor(() => {
+      expect(document.querySelector('[cmdk-list]')).toBeInTheDocument()
+      expect(screen.getByText('1 matching stale commission is hidden.')).toBeInTheDocument()
+    })
+
+    fireEvent.pointerDown(document.body)
+
+    await waitFor(() => {
+      expect(document.querySelector('[cmdk-list]')).not.toBeInTheDocument()
+      expect(input).toHaveAttribute('aria-expanded', 'false')
+    })
+  })
+
+  it('dismisses a hidden stale notice panel on global Escape', async () => {
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-commission-view-active="true" data-stale-loaded="false">
+        <section id="active" data-character-section="true" data-character-status="active">
+          <div data-commission-entry="true" data-character-section-id="active" data-commission-search-key="active::20240101_alpha"></div>
+        </section>
+      </div>
+    `
+
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'active::20240101_alpha',
+        searchText: 'alpha',
+      },
+      {
+        id: 2,
+        domKey: 'stale::20240102_stale',
+        searchText: 'staleword',
+      },
+    ]
+
+    renderSearchWithDomFiltering(entries)
+
+    const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+    fireEvent.input(input, { target: { value: 'staleword' } })
+
+    await waitFor(() => {
+      expect(document.querySelector('[cmdk-list]')).toBeInTheDocument()
+    })
+
+    input.blur()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+
+    await waitFor(() => {
+      expect(document.querySelector('[cmdk-list]')).not.toBeInTheDocument()
+      expect(input).toHaveAttribute('aria-expanded', 'false')
+    })
+  })
+
+  it('keeps the suggestion panel closed after mouse selection even when the input refocuses', async () => {
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-commission-view-active="true" data-stale-loaded="false">
+        <section id="active" data-character-section="true" data-character-status="active">
+          <div data-commission-entry="true" data-character-section-id="active" data-commission-search-key="active::20240101_nanashi"></div>
+        </section>
+      </div>
+    `
+
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'active::20240101_nanashi',
+        searchText: 'nanashi active',
+        searchSuggest: 'Character	Nanashi',
+      },
+      {
+        id: 2,
+        domKey: 'stale::20240102_nanashi',
+        searchText: 'nanashi stale',
+        searchSuggest: 'Character	Nanashi',
+      },
+    ]
+
+    renderSearchWithDomFiltering(entries)
+
+    const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+    fireEvent.focus(input)
+    fireEvent.input(input, { target: { value: 'nana' } })
+
+    await waitFor(() => {
+      expect(document.querySelector('[cmdk-list]')).toBeInTheDocument()
+      expect(screen.getByText('Nanashi')).toBeInTheDocument()
+      expect(screen.getByText('Load stale characters')).toBeInTheDocument()
+    })
+
+    fireEvent.blur(input)
+    fireEvent.click(screen.getByText('Nanashi'))
+
+    await waitFor(() => {
+      expect(input.value).toContain('Nanashi')
+      expect(document.querySelector('[cmdk-list]')).not.toBeInTheDocument()
+      expect(input).toHaveAttribute('aria-expanded', 'false')
+    })
+  })
+
+  it('preserves loaded stale sections when applying a suggestion', async () => {
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-commission-view-active="true" data-stale-loaded="true">
+        <section id="active" data-character-section="true" data-character-status="active">
+          <div data-commission-entry="true" data-character-section-id="active" data-commission-search-key="active::20240101_nanashi"></div>
+        </section>
+        <section id="stale" data-character-section="true" data-character-status="stale">
+          <div data-commission-entry="true" data-character-section-id="stale" data-commission-search-key="stale::20240102_nanashi"></div>
+        </section>
+      </div>
+    `
+
+    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'active::20240101_nanashi',
+        searchText: 'nanashi active',
+        searchSuggest: 'Character	Nanashi',
+      },
+      {
+        id: 2,
+        domKey: 'stale::20240102_nanashi',
+        searchText: 'nanashi stale',
+        searchSuggest: 'Character	Nanashi',
+      },
+    ]
+
+    try {
+      renderSearchWithDomFiltering(entries)
+
+      const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+      fireEvent.focus(input)
+      fireEvent.input(input, { target: { value: 'nana' } })
+
+      await waitFor(() => {
+        expect(document.querySelector('[cmdk-list]')).toBeInTheDocument()
+        expect(screen.getByText('Nanashi')).toBeInTheDocument()
+        expect(screen.queryByText('Load stale characters')).not.toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByText('Nanashi'))
+
+      await waitFor(() => {
+        expect(document.querySelector('[cmdk-list]')).not.toBeInTheDocument()
+        expect(input.value).toContain('Nanashi')
+      })
+
+      expect(
+        dispatchEventSpy.mock.calls.some(
+          ([event]) =>
+            event instanceof Event && event.type === STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT,
+        ),
+      ).toBe(false)
+      expect(
+        document
+          .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+          ?.getAttribute('data-stale-loaded'),
+      ).toBe('true')
+    } finally {
+      dispatchEventSpy.mockRestore()
+    }
   })
 
   it('closes suggestion panel after applying a suggestion while stale results remain hidden', async () => {

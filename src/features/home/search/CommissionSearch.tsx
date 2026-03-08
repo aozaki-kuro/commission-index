@@ -4,7 +4,6 @@ import { Popover, PopoverTrigger } from '#components/ui/popover'
 import { useCommissionViewMode } from '#features/home/commission/CommissionViewMode'
 import {
   STALE_CHARACTERS_COLLAPSED_EVENT,
-  STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT,
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_LOAD_REQUEST_EVENT,
 } from '#features/home/commission/staleCharactersEvent'
@@ -610,8 +609,10 @@ const CommissionSearch = ({
       }
     }, [deferredQuery])
 
+  const searchRootRef = useRef<HTMLElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const liveRef = useRef<HTMLParagraphElement>(null)
+  const suppressNextInputFocusOpenRef = useRef(false)
   const didAutoJumpRef = useRef(false)
   const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const previousMatchedIdsRef = useRef<Set<number>>(new Set())
@@ -964,6 +965,35 @@ const CommissionSearch = ({
     [],
   )
 
+  useEffect(() => {
+    if (!shouldShowSuggestionPanel) return
+
+    const dismissSuggestionPanel = () => {
+      setIsSuggestionPanelDismissed(true)
+      setActiveCommandValue('')
+    }
+
+    const handleWindowPointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (searchRootRef.current?.contains(target)) return
+      dismissSuggestionPanel()
+    }
+
+    const handleWindowKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented || event.key !== 'Escape') return
+      dismissSuggestionPanel()
+    }
+
+    window.addEventListener('pointerdown', handleWindowPointerDown, true)
+    window.addEventListener('keydown', handleWindowKeyDown)
+
+    return () => {
+      window.removeEventListener('pointerdown', handleWindowPointerDown, true)
+      window.removeEventListener('keydown', handleWindowKeyDown)
+    }
+  }, [shouldShowSuggestionPanel])
+
   const setCopyFeedback = useCallback(() => {
     setCopyState('success')
 
@@ -1006,15 +1036,30 @@ const CommissionSearch = ({
     window.dispatchEvent(new Event(STALE_CHARACTERS_LOAD_REQUEST_EVENT))
   }, [])
 
-  const requestStaleCharactersCollapse = useCallback(() => {
-    window.dispatchEvent(new Event(STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT))
-  }, [])
+  const focusInputAfterSelection = useCallback(
+    (nextQuery: string, options?: { preventScroll?: boolean }) => {
+      suppressNextInputFocusOpenRef.current = true
+
+      requestAnimationFrame(() => {
+        const input = inputRef.current
+        if (input) {
+          input.focus(options)
+          const cursor = nextQuery.length
+          input.setSelectionRange(cursor, cursor)
+        }
+
+        requestAnimationFrame(() => {
+          suppressNextInputFocusOpenRef.current = false
+        })
+      })
+    },
+    [],
+  )
 
   const applySuggestion = useCallback(
     (suggestion: string | null) => {
       if (!suggestion) return
 
-      requestStaleCharactersCollapse()
       setIsSuggestionPanelDismissed(true)
       const nextQueryWithSeparator = applySuggestionToQuery(query, suggestion)
 
@@ -1027,21 +1072,15 @@ const CommissionSearch = ({
         inputRef.current.setSelectionRange(cursor, cursor)
       }
 
-      requestAnimationFrame(() => {
-        if (!inputRef.current) return
-        inputRef.current.focus()
-        const rafCursor = nextQueryWithSeparator.length
-        inputRef.current.setSelectionRange(rafCursor, rafCursor)
-      })
+      focusInputAfterSelection(nextQueryWithSeparator)
     },
-    [query, requestStaleCharactersCollapse],
+    [focusInputAfterSelection, query],
   )
 
   const applyPopularKeyword = useCallback(
     (keyword: string) => {
       if (!keyword) return
 
-      requestStaleCharactersCollapse()
       setIsSuggestionPanelDismissed(true)
       const nextQuery = applySuggestionToQuery('', keyword)
       if (!nextQuery.trim()) return
@@ -1049,15 +1088,9 @@ const CommissionSearch = ({
       setInputQuery(nextQuery)
       setCopyState('idle')
 
-      requestAnimationFrame(() => {
-        const input = inputRef.current
-        if (!input) return
-        input.focus({ preventScroll: true })
-        const cursor = nextQuery.length
-        input.setSelectionRange(cursor, cursor)
-      })
+      focusInputAfterSelection(nextQuery, { preventScroll: true })
     },
-    [ensureIndexReady, requestStaleCharactersCollapse],
+    [ensureIndexReady, focusInputAfterSelection],
   )
 
   const prepareSearchHelp = useCallback(() => {
@@ -1086,7 +1119,11 @@ const CommissionSearch = ({
   )
 
   return (
-    <section id="commission-search" className="mt-4 mb-8 md:mt-4 md:mb-10 lg:mt-6 lg:mb-12">
+    <section
+      ref={searchRootRef}
+      id="commission-search"
+      className="mt-4 mb-8 md:mt-4 md:mb-10 lg:mt-6 lg:mb-12"
+    >
       <div className="flex h-12 items-center justify-end">
         <div className="relative h-11 w-full overflow-visible border-b border-gray-300/80 bg-transparent text-gray-700 dark:border-gray-700 dark:text-gray-300">
           <svg
@@ -1116,6 +1153,10 @@ const CommissionSearch = ({
                 value={query}
                 onFocus={() => {
                   if (deferIndexInit) setIsIndexReady(true)
+                  if (suppressNextInputFocusOpenRef.current) {
+                    suppressNextInputFocusOpenRef.current = false
+                    return
+                  }
                   setIsSuggestionPanelDismissed(false)
                 }}
                 onKeyDown={handleInputKeyDown}
