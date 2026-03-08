@@ -6,6 +6,7 @@ export default defineConfig({
   test: {
     environment: 'node',
     setupFiles: ['./test/setup.tsx'],
-    include: ['**/*.test.ts', '**/*.test.tsx'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'data/**/*.test.ts', 'server/**/*.test.ts'],
+    exclude: ['node_modules/**', 'dist/**', '.astro/**'],
   },
 })

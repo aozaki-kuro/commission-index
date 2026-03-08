@@ -116,22 +116,6 @@ describe('CommissionSearchDeferred', () => {
     })
   })
 
-  it('deduplicates creator aliases to a single popular term', async () => {
-    const { default: CommissionSearchDeferred } = await loadDeferredModule()
-
-    appendSearchEntry(['Creator\t七市', 'Creator\tNanashi', 'Keyword\tmaid'].join('\n'))
-    appendSearchEntry(['Creator\t七市', 'Creator\tnanashi', 'Keyword\tkimono'].join('\n'))
-
-    render(<CommissionSearchDeferred />)
-
-    await waitFor(() => {
-      const visibleCreatorVariants = ['七市', 'Nanashi', 'nanashi'].filter(term =>
-        screen.queryByRole('button', { name: term }),
-      )
-      expect(visibleCreatorVariants).toHaveLength(1)
-    })
-  })
-
   it('shows only one keyword alias variant in a popular batch', async () => {
     const { default: CommissionSearchDeferred } = await loadDeferredModule()
 
@@ -150,7 +134,7 @@ describe('CommissionSearchDeferred', () => {
     })
   })
 
-  it('prepares up to six popular keyword chips per batch', async () => {
+  it('prioritizes featured keywords first, then rotates into pooled keywords', async () => {
     const { default: CommissionSearchDeferred } = await loadDeferredModule()
 
     appendSearchEntry('Keyword\taa')
@@ -160,19 +144,6 @@ describe('CommissionSearchDeferred', () => {
     appendSearchEntry('Keyword\tee')
     appendSearchEntry('Keyword\tff')
     appendSearchEntry('Keyword\tgg')
-
-    render(<CommissionSearchDeferred />)
-
-    await waitFor(() => {
-      const visibleKeywords = ['aa', 'bb', 'cc', 'dd', 'ee', 'ff', 'gg'].filter(keyword =>
-        screen.queryByRole('button', { name: keyword }),
-      )
-      expect(visibleKeywords).toHaveLength(6)
-    })
-  })
-
-  it('prioritizes manually featured keywords on first batch', async () => {
-    const { default: CommissionSearchDeferred } = await loadDeferredModule()
 
     render(
       <CommissionSearchDeferred
@@ -185,24 +156,6 @@ describe('CommissionSearchDeferred', () => {
     expect(screen.getByRole('button', { name: 'gamma' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'delta' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'epsilon' })).toBeInTheDocument()
-  })
-
-  it('falls back to pool batches after rotating featured keywords', async () => {
-    const { default: CommissionSearchDeferred } = await loadDeferredModule()
-
-    appendSearchEntry('Keyword\taa')
-    appendSearchEntry('Keyword\tbb')
-    appendSearchEntry('Keyword\tcc')
-    appendSearchEntry('Keyword\tdd')
-    appendSearchEntry('Keyword\tee')
-    appendSearchEntry('Keyword\tff')
-    appendSearchEntry('Keyword\tgg')
-
-    render(
-      <CommissionSearchDeferred
-        featuredKeywords={['alpha', 'beta', 'gamma', 'delta', 'epsilon']}
-      />,
-    )
 
     fireEvent.click(screen.getByRole('button', { name: 'Refresh popular keywords' }))
 

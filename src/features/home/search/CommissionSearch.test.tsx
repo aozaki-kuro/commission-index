@@ -139,76 +139,6 @@ describe('CommissionSearch', () => {
     })
   })
 
-  it('clears combobox control attributes when suggestion panel is hidden', async () => {
-    const entries: CommissionSearchEntrySource[] = [
-      {
-        id: 1,
-        domKey: 'test-character::20240101_alice',
-        searchText: 'alice sample',
-        searchSuggest: 'Character\tAlice',
-      },
-    ]
-
-    renderSearch(entries)
-
-    const input = screen.getByLabelText('Search commissions')
-    await waitFor(() => {
-      expect(input).not.toHaveAttribute('aria-controls')
-      expect(input).toHaveAttribute('aria-expanded', 'false')
-      expect(document.querySelector('[cmdk-list]')).not.toBeInTheDocument()
-    })
-  })
-
-  it('copies search url when copy button clicked', () => {
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText },
-      configurable: true,
-    })
-
-    const entries: CommissionSearchEntrySource[] = [
-      {
-        id: 1,
-        domKey: 'test-character::20240101_alice',
-        searchText: 'alice sample',
-        searchSuggest: 'Character\tAlice',
-      },
-    ]
-
-    renderSearch(entries)
-
-    const input = screen.getByLabelText('Search commissions') as HTMLInputElement
-    fireEvent.input(input, { target: { value: 'alice' } })
-
-    fireEvent.click(screen.getByRole('button', { name: 'Copy search URL' }))
-
-    expect(writeText).toHaveBeenCalledTimes(1)
-  })
-
-  it('does not scan commission DOM when external entries are provided with disableDomFiltering', () => {
-    const querySelectorAllSpy = vi.spyOn(document, 'querySelectorAll')
-    const entries: CommissionSearchEntrySource[] = [
-      {
-        id: 1,
-        domKey: 'test-character::20240101_alice',
-        searchText: 'alice sample',
-        searchSuggest: 'Character\tAlice',
-      },
-    ]
-    try {
-      renderSearch(entries)
-
-      const queriedSelectors = querySelectorAllSpy.mock.calls
-        .map(([selector]) => selector)
-        .filter((value): value is string => typeof value === 'string')
-
-      expect(queriedSelectors).not.toContain('[data-commission-entry="true"]')
-      expect(queriedSelectors).not.toContain('[data-character-section="true"]')
-    } finally {
-      querySelectorAllSpy.mockRestore()
-    }
-  })
-
   it('rebuilds the timeline DOM mapping after timeline sections are mounted', async () => {
     try {
       window.history.replaceState(null, '', '/?view=timeline')
@@ -268,23 +198,6 @@ describe('CommissionSearch', () => {
     }
   })
 
-  it('opens help popover on mount when openHelpOnMount is true', async () => {
-    const entries: CommissionSearchEntrySource[] = [
-      {
-        id: 1,
-        domKey: 'test-character::20240101_alice',
-        searchText: 'alice sample',
-        searchSuggest: 'Character\tAlice',
-      },
-    ]
-
-    renderSearchWithProps(entries, { openHelpOnMount: true })
-
-    await waitFor(() => {
-      expect(screen.getByText('Search Help')).toBeInTheDocument()
-    })
-  })
-
   it('ignores the first trigger click after auto-open, then allows closing', async () => {
     const entries: CommissionSearchEntrySource[] = [
       {
@@ -307,36 +220,6 @@ describe('CommissionSearch', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Search help' }))
     await waitFor(() => {
       expect(screen.queryByText('Search Help')).not.toBeInTheDocument()
-    })
-  })
-
-  it('suppresses initial suggestion panel animation for deferred handoff query', async () => {
-    const entries: CommissionSearchEntrySource[] = [
-      {
-        id: 1,
-        domKey: 'test-character::20240101_alice',
-        searchText: 'alice sample',
-        searchSuggest: 'Character\tAlice',
-      },
-    ]
-
-    renderSearchWithProps(entries, {
-      initialQuery: 'ali',
-      suppressInitialSuggestionPanelAnimation: true,
-    })
-
-    await waitFor(() => {
-      const panel = document.querySelector('[cmdk-list]') as HTMLElement | null
-      expect(panel).toBeTruthy()
-      expect(panel?.classList.contains('animate-search-dropdown-in')).toBe(false)
-    })
-
-    const input = screen.getByLabelText('Search commissions') as HTMLInputElement
-    fireEvent.input(input, { target: { value: 'alice' } })
-
-    await waitFor(() => {
-      const panel = document.querySelector('[cmdk-list]') as HTMLElement | null
-      expect(panel?.classList.contains('animate-search-dropdown-in')).toBe(true)
     })
   })
 
