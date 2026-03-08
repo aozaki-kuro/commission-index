@@ -112,6 +112,8 @@ Additional guidance:
 
 ## Change Log
 
+- Removed the React-only home locale context/provider and now pass locale into the search island via plain props.
+- Simplified home/admin search view-mode wiring to a direct URL/event subscription hook and removed the unused deferred panel provider path.
 - Restored unpublished `Want this` button client behavior with localStorage-backed disable/hydration flow after the Astro migration regression.
 - Removed unused React hamburger leftovers (`src/features/home/nav/Hamburger.tsx`, `src/features/home/nav/hamburger/MenuContent.tsx`, `src/features/home/nav/hamburger/CharacterMenuList.tsx`, `src/features/home/nav/hamburger/Icons.tsx`) after the Astro mobile menu migration.
 - Removed the deferred SearchShell handoff so home/admin search now render the real `CommissionSearch` immediately and only defer index construction.

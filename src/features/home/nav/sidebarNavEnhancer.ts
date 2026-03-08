@@ -158,7 +158,7 @@ export const mountSidebarNavEnhancer = ({
 
   const syncActiveDots = () => {
     const mode = getCurrentMode(win)
-    const activeTitleId = resolveActiveTitleId({ root: navRoot, mode, win, doc })
+    const activeTitleId = resolveActiveTitleId({ root: navRoot, mode })
     const activePanel = getVisibleNavPanel(navRoot, mode)
 
     const allDots = navRoot.querySelectorAll<HTMLElement>('[data-sidebar-dot-for]')

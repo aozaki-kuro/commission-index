@@ -3,7 +3,7 @@ import { Command, CommandInput, CommandItem, CommandList } from '#components/ui/
 import { Popover, PopoverTrigger } from '#components/ui/popover'
 import { useCommissionViewMode } from '#features/home/commission/CommissionViewMode'
 import { STALE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/staleCharactersEvent'
-import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
+import { resolveHomeControls } from '#features/home/i18n/homeLocale'
 import CommissionSearchHelpPopover from '#features/home/search/CommissionSearchHelpPopover'
 import PopularKeywordsRow from '#features/home/search/PopularKeywordsRow'
 import {
@@ -476,6 +476,7 @@ const syncStaleDividerVisibility = ({
 }
 
 interface CommissionSearchProps {
+  locale?: string
   disableDomFiltering?: boolean
   onQueryChange?: (query: string) => void
   onMatchedIdsChange?: (matchedIds: Set<number>) => void
@@ -492,6 +493,7 @@ interface CommissionSearchProps {
 }
 
 const CommissionSearch = ({
+  locale,
   disableDomFiltering = false,
   onQueryChange,
   onMatchedIdsChange,
@@ -506,8 +508,8 @@ const CommissionSearch = ({
   suppressInitialSuggestionPanelAnimation = false,
   suggestionAliasGroups = [],
 }: CommissionSearchProps = {}) => {
-  const { mode } = useCommissionViewMode()
-  const { controls } = useHomeLocaleMessages()
+  const mode = useCommissionViewMode()
+  const controls = resolveHomeControls(locale)
   const suggestionSourceLabels = useMemo(
     () =>
       ({
@@ -1058,7 +1060,7 @@ const CommissionSearch = ({
                 </Button>
               </PopoverTrigger>
 
-              <CommissionSearchHelpPopover onOpenChange={setIsHelpOpen} />
+              <CommissionSearchHelpPopover controls={controls} onOpenChange={setIsHelpOpen} />
             </Popover>
 
             <Button

@@ -3,6 +3,12 @@ export type HomeLocale = (typeof HOME_LOCALES)[number]
 
 export const DEFAULT_HOME_LOCALE: HomeLocale = 'en'
 
+export interface HomeLocaleOption {
+  locale: HomeLocale
+  label: string
+  href: string
+}
+
 const HOME_LOCALE_SET = new Set<string>(HOME_LOCALES)
 
 type SearchHelpRow = {
@@ -440,6 +446,11 @@ export const normalizeHomeLocale = (locale?: string | null): HomeLocale => {
 
 export const getHomeLocaleMessages = (locale?: string | null) =>
   HOME_LOCALE_MESSAGES[normalizeHomeLocale(locale)]
+
+export const resolveHomeLocaleMessages = (locale?: string | null) => getHomeLocaleMessages(locale)
+
+export const resolveHomeControls = (locale?: string | null) =>
+  resolveHomeLocaleMessages(locale).controls
 
 export const HOME_LOCALE_SWITCH_ITEMS = HOME_LOCALES.map(locale => ({
   locale,

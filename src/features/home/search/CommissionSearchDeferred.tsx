@@ -3,7 +3,7 @@ import CommissionSearch, {
   type CommissionSearchEntrySource,
   type SearchSuggestionAliasGroup,
 } from '#features/home/search/CommissionSearch'
-import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
+import { resolveHomeControls } from '#features/home/i18n/homeLocale'
 import {
   buildPopularKeywordPoolFromSuggestTexts,
   dedupeKeywords,
@@ -167,15 +167,17 @@ const buildPopularKeywordPoolFromEntries = (entries: CommissionSearchEntrySource
   )
 
 interface CommissionSearchDeferredProps {
+  locale?: string
   featuredKeywords?: string[]
   suggestionAliasGroups?: SearchSuggestionAliasGroup[]
 }
 
 export default function CommissionSearchDeferred({
+  locale,
   featuredKeywords = [],
   suggestionAliasGroups = [],
 }: CommissionSearchDeferredProps = {}) {
-  const { controls } = useHomeLocaleMessages()
+  const controls = resolveHomeControls(locale)
   const shouldLoadExternalEntries = Boolean(import.meta.env?.PROD)
   const [popularKeywordPage, setPopularKeywordPage] = useState(0)
   const [hasDismissedFeaturedKeywords, setHasDismissedFeaturedKeywords] = useState(false)
@@ -280,6 +282,7 @@ export default function CommissionSearchDeferred({
   return (
     <CommissionSearch
       deferIndexInit
+      locale={locale}
       externalEntries={externalEntries ?? undefined}
       popularKeywords={popularKeywords}
       refreshPopularSearchLabel={controls.refreshPopularSearchLabel}

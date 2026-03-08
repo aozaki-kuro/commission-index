@@ -1,16 +1,16 @@
 import { Button } from '#components/ui/button'
 import { PopoverContent } from '#components/ui/popover'
-import { useHomeLocaleMessages } from '#features/home/i18n/HomeLocaleContext'
+import type { HomeLocaleMessages } from '#features/home/i18n/homeLocale'
 
 type CommissionSearchHelpPopoverProps = {
+  controls: HomeLocaleMessages['controls']
   onOpenChange: (open: boolean) => void
 }
 
 export default function CommissionSearchHelpPopover({
+  controls,
   onOpenChange,
 }: CommissionSearchHelpPopoverProps) {
-  const { controls } = useHomeLocaleMessages()
-
   return (
     <PopoverContent
       side="bottom"

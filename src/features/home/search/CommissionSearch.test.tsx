@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { CommissionViewModeProvider } from '#features/home/commission/CommissionViewMode'
 import { STALE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/staleCharactersEvent'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import CommissionSearch, { type CommissionSearchEntrySource } from './CommissionSearch'
@@ -15,28 +14,15 @@ vi.mock('#lib/analytics/track', () => ({
 }))
 
 const renderSearch = (externalEntries: CommissionSearchEntrySource[]) =>
-  render(
-    <CommissionViewModeProvider>
-      <CommissionSearch disableDomFiltering externalEntries={externalEntries} />
-    </CommissionViewModeProvider>,
-  )
+  render(<CommissionSearch disableDomFiltering externalEntries={externalEntries} />)
 
 const renderSearchWithProps = (
   externalEntries: CommissionSearchEntrySource[],
   props: Partial<NonNullable<Parameters<typeof CommissionSearch>[0]>> = {},
-) =>
-  render(
-    <CommissionViewModeProvider>
-      <CommissionSearch disableDomFiltering externalEntries={externalEntries} {...props} />
-    </CommissionViewModeProvider>,
-  )
+) => render(<CommissionSearch disableDomFiltering externalEntries={externalEntries} {...props} />)
 
 const renderSearchWithDomFiltering = (externalEntries: CommissionSearchEntrySource[]) =>
-  render(
-    <CommissionViewModeProvider>
-      <CommissionSearch externalEntries={externalEntries} />
-    </CommissionViewModeProvider>,
-  )
+  render(<CommissionSearch externalEntries={externalEntries} />)
 
 describe('CommissionSearch', () => {
   beforeAll(() => {
