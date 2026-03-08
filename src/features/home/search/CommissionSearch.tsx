@@ -2,11 +2,17 @@ import { Button } from '#components/ui/button'
 import { Command, CommandInput, CommandItem, CommandList } from '#components/ui/command'
 import { Popover, PopoverTrigger } from '#components/ui/popover'
 import { useCommissionViewMode } from '#features/home/commission/CommissionViewMode'
-import { STALE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/staleCharactersEvent'
+import {
+  STALE_CHARACTERS_COLLAPSED_EVENT,
+  STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT,
+  STALE_CHARACTERS_LOADED_EVENT,
+  STALE_CHARACTERS_LOAD_REQUEST_EVENT,
+} from '#features/home/commission/staleCharactersEvent'
 import { resolveHomeControls } from '#features/home/i18n/homeLocale'
 import CommissionSearchHelpPopover from '#features/home/search/CommissionSearchHelpPopover'
 import PopularKeywordsRow from '#features/home/search/PopularKeywordsRow'
 import {
+  type KeyboardEvent,
   type MouseEvent,
   useCallback,
   useDeferredValue,
@@ -79,6 +85,7 @@ const shouldUseTapLikeFocus = () => {
   return hasTouchPoints || hasCoarsePointer
 }
 const MIN_TRACK_QUERY_LENGTH = 2
+const LOAD_STALE_COMMAND_VALUE = '__load-stale__'
 
 const buildSearchUrl = (rawQuery: string) => {
   const url = new URL(window.location.href)
@@ -160,6 +167,60 @@ const finalizeSearchIndex = (
   suggestions: collectSuggestions(entries),
 })
 
+const getDisplayMetrics = ({
+  entries,
+  matchedIds,
+  disableDomFiltering,
+  hasDeferredQuery,
+  mode,
+  staleLoaded,
+}: {
+  entries: Entry[]
+  matchedIds: Set<number>
+  disableDomFiltering: boolean
+  hasDeferredQuery: boolean
+  mode: 'character' | 'timeline'
+  staleLoaded: boolean
+}) => {
+  if (disableDomFiltering) {
+    const visibleEntriesCount = entries.length
+    return {
+      visibleEntriesCount,
+      visibleMatchedCount: hasDeferredQuery ? matchedIds.size : visibleEntriesCount,
+      hiddenStaleMatchedCount: 0,
+    }
+  }
+
+  let visibleEntriesCount = 0
+  let visibleMatchedCount = 0
+  let hiddenStaleMatchedCount = 0
+  const canHaveHiddenStaleMatches = mode === 'character' && !staleLoaded
+
+  for (const entry of entries) {
+    const isVisible = Boolean(entry.element)
+    if (isVisible) {
+      visibleEntriesCount += 1
+    }
+
+    if (!hasDeferredQuery || !matchedIds.has(entry.id)) continue
+
+    if (isVisible) {
+      visibleMatchedCount += 1
+      continue
+    }
+
+    if (canHaveHiddenStaleMatches) {
+      hiddenStaleMatchedCount += 1
+    }
+  }
+
+  return {
+    visibleEntriesCount,
+    visibleMatchedCount: hasDeferredQuery ? visibleMatchedCount : visibleEntriesCount,
+    hiddenStaleMatchedCount,
+  }
+}
+
 const getActiveCommissionViewRoot = (viewMode: 'character' | 'timeline'): ParentNode | Document => {
   if (typeof window === 'undefined') return document
 
@@ -209,13 +270,13 @@ const buildSearchIndex = (
   externalEntries?: CommissionSearchEntrySource[],
   options?: {
     skipDomContext?: boolean
-    includeOnlyMountedExternalEntries?: boolean
+    domSnapshotKey?: string
   },
 ): SearchIndex => {
   if (typeof window === 'undefined') return createEmptySearchIndex()
 
+  void options?.domSnapshotKey
   const shouldSkipDomContext = options?.skipDomContext === true
-  const includeOnlyMountedExternalEntries = options?.includeOnlyMountedExternalEntries === true
   const domContext = shouldSkipDomContext
     ? {
         domEntries: [] as Array<{ element: HTMLElement; sectionId?: string; domKey?: string }>,
@@ -232,11 +293,7 @@ const buildSearchIndex = (
         .map(entry => [entry.domKey as string, entry] as const),
     )
 
-    const entriesSource = includeOnlyMountedExternalEntries
-      ? externalEntries.filter(entry => domEntryByKey.has(entry.domKey))
-      : externalEntries
-
-    const entries = entriesSource.map(entry => {
+    const entries = externalEntries.map(entry => {
       const domEntry = domEntryByKey.get(entry.domKey)
       return {
         id: entry.id,
@@ -556,29 +613,22 @@ const CommissionSearch = ({
   const ignoreNextHelpTriggerClickRef = useRef(openHelpOnMount)
   const [isHelpOpen, setIsHelpOpen] = useState(openHelpOnMount)
   const [copyState, setCopyState] = useState<'idle' | 'success'>('idle')
-  const [activeSuggestionTerm, setActiveSuggestionTerm] = useState('')
+  const [activeCommandValue, setActiveCommandValue] = useState('')
+  const [isSuggestionPanelDismissed, setIsSuggestionPanelDismissed] = useState(false)
   const [staleLoaded, setStaleLoaded] = useState(getCharacterPanelStaleLoaded)
   const [isIndexReady, setIsIndexReady] = useState(
     () => !deferIndexInit || !!initialQuery || !!initialUrlQuery,
   )
   const shouldBuildIndex = isIndexReady || !deferIndexInit || !!query || !!initialUrlQuery
   const shouldSkipDomContext = disableDomFiltering && Boolean(externalEntries)
-  const includeOnlyMountedExternalEntries =
-    mode === 'character' && Boolean(externalEntries) && !staleLoaded && !shouldSkipDomContext
 
   const index = useMemo(() => {
     if (!shouldBuildIndex) return createEmptySearchIndex()
     return buildSearchIndex(mode, externalEntries, {
+      domSnapshotKey: staleLoaded ? 'stale-loaded' : 'stale-collapsed',
       skipDomContext: shouldSkipDomContext,
-      includeOnlyMountedExternalEntries,
     })
-  }, [
-    externalEntries,
-    includeOnlyMountedExternalEntries,
-    mode,
-    shouldBuildIndex,
-    shouldSkipDomContext,
-  ])
+  }, [externalEntries, mode, shouldBuildIndex, shouldSkipDomContext, staleLoaded])
   const [hydratedIndex, setHydratedIndex] = useState<SearchIndex | null>(null)
   const resolvedIndex = useMemo(
     () => (hydratedIndex && hydratedIndex.entries === index.entries ? hydratedIndex : index),
@@ -610,14 +660,28 @@ const CommissionSearch = ({
 
     syncStaleLoaded()
     window.addEventListener(STALE_CHARACTERS_LOADED_EVENT, syncStaleLoaded)
+    window.addEventListener(STALE_CHARACTERS_COLLAPSED_EVENT, syncStaleLoaded)
     return () => {
       window.removeEventListener(STALE_CHARACTERS_LOADED_EVENT, syncStaleLoaded)
+      window.removeEventListener(STALE_CHARACTERS_COLLAPSED_EVENT, syncStaleLoaded)
     }
   }, [])
 
   const matchedIds = useMemo(
     () => getMatchedEntryIds(deferredQuery, resolvedIndex),
     [deferredQuery, resolvedIndex],
+  )
+  const { visibleEntriesCount, visibleMatchedCount, hiddenStaleMatchedCount } = useMemo(
+    () =>
+      getDisplayMetrics({
+        entries: resolvedIndex.entries,
+        matchedIds,
+        disableDomFiltering,
+        hasDeferredQuery,
+        mode,
+        staleLoaded,
+      }),
+    [disableDomFiltering, hasDeferredQuery, matchedIds, mode, resolvedIndex.entries, staleLoaded],
   )
 
   const suggestionContextMatchedIds = useMemo(() => {
@@ -670,15 +734,38 @@ const CommissionSearch = ({
         relatedSuggestionTermsMap.get(normalizeSuggestionTermKey(suggestion.term)) ?? [],
     }))
   }, [controls, filteredSuggestions, relatedSuggestionTermsMap, suggestionSourceLabels])
-  const shouldShowSuggestionPanel = hasQuery && suggestionViewModels.length > 0
+  const shouldShowHiddenStaleNotice = hiddenStaleMatchedCount > 0
+  const shouldShowSuggestionPanel =
+    !isSuggestionPanelDismissed &&
+    hasQuery &&
+    (suggestionViewModels.length > 0 || shouldShowHiddenStaleNotice)
+  const visibleStatusMessage = useMemo(
+    () =>
+      hasDeferredQuery
+        ? controls.formatSearchResultsStatus(visibleMatchedCount, visibleEntriesCount)
+        : controls.formatSearchClearedStatus(visibleEntriesCount),
+    [controls, hasDeferredQuery, visibleEntriesCount, visibleMatchedCount],
+  )
+  const hiddenStaleNoticeMessage = useMemo(
+    () => controls.formatHiddenStaleResultsNotice(hiddenStaleMatchedCount),
+    [controls, hiddenStaleMatchedCount],
+  )
 
-  const resolvedActiveSuggestionTerm = useMemo(() => {
-    if (suggestionViewModels.length === 0) return ''
-    if (suggestionViewModels.some(item => item.term === activeSuggestionTerm)) {
-      return activeSuggestionTerm
+  const resolvedActiveCommandValue = useMemo(() => {
+    if (shouldShowHiddenStaleNotice && activeCommandValue === LOAD_STALE_COMMAND_VALUE) {
+      return LOAD_STALE_COMMAND_VALUE
     }
-    return suggestionViewModels[0].term
-  }, [activeSuggestionTerm, suggestionViewModels])
+
+    if (suggestionViewModels.some(item => item.term === activeCommandValue)) {
+      return activeCommandValue
+    }
+
+    if (suggestionViewModels.length > 0) {
+      return suggestionViewModels[0].term
+    }
+
+    return shouldShowHiddenStaleNotice ? LOAD_STALE_COMMAND_VALUE : ''
+  }, [activeCommandValue, shouldShowHiddenStaleNotice, suggestionViewModels])
   const shouldSuppressHandoffPanelAnimation =
     suppressInitialSuggestionPanelAnimation && !!initialQuery && query === initialQuery
   const shouldAnimateSuggestionPanel = !shouldSuppressHandoffPanelAnimation
@@ -711,13 +798,12 @@ const CommissionSearch = ({
   ])
 
   useEffect(() => {
-    const entriesCount = resolvedIndex.entries.length
-    const statusMessage = hasDeferredQuery
-      ? controls.formatSearchResultsStatus(matchedIds.size, entriesCount)
-      : controls.formatSearchClearedStatus(entriesCount)
+    const statusMessage = shouldShowHiddenStaleNotice
+      ? `${visibleStatusMessage} ${hiddenStaleNoticeMessage}`
+      : visibleStatusMessage
 
     if (disableDomFiltering) {
-      if (liveRef.current && entriesCount > 0) {
+      if (liveRef.current && visibleEntriesCount > 0) {
         setTextContentIfChanged(liveRef.current, statusMessage)
       }
       return
@@ -757,7 +843,7 @@ const CommissionSearch = ({
     previousMatchedIdsRef.current = matchedIds
     previousFilterIndexRef.current = resolvedIndex
 
-    if (entriesCount === 0) {
+    if (visibleEntriesCount === 0) {
       return
     }
 
@@ -784,7 +870,18 @@ const CommissionSearch = ({
     if (didLayoutChange) {
       dispatchSidebarSearchState()
     }
-  }, [controls, disableDomFiltering, hasDeferredQuery, matchedIds, resolvedIndex])
+  }, [
+    controls,
+    disableDomFiltering,
+    hasDeferredQuery,
+    hiddenStaleMatchedCount,
+    matchedIds,
+    resolvedIndex,
+    hiddenStaleNoticeMessage,
+    shouldShowHiddenStaleNotice,
+    visibleEntriesCount,
+    visibleStatusMessage,
+  ])
 
   useEffect(() => {
     if (didAutoJumpRef.current || !initialUrlQuery) return
@@ -872,6 +969,7 @@ const CommissionSearch = ({
 
   const clearSearch = useCallback(() => {
     setInputQuery('')
+    setIsSuggestionPanelDismissed(false)
     setCopyState('idle')
     clearSearchQueryParamInAddress()
     inputRef.current?.focus()
@@ -881,10 +979,20 @@ const CommissionSearch = ({
     if (deferIndexInit) setIsIndexReady(true)
   }, [deferIndexInit])
 
+  const requestStaleCharactersLoad = useCallback(() => {
+    window.dispatchEvent(new Event(STALE_CHARACTERS_LOAD_REQUEST_EVENT))
+  }, [])
+
+  const requestStaleCharactersCollapse = useCallback(() => {
+    window.dispatchEvent(new Event(STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT))
+  }, [])
+
   const applySuggestion = useCallback(
     (suggestion: string | null) => {
       if (!suggestion) return
 
+      requestStaleCharactersCollapse()
+      setIsSuggestionPanelDismissed(true)
       const nextQueryWithSeparator = applySuggestionToQuery(query, suggestion)
 
       setInputQuery(nextQueryWithSeparator)
@@ -903,13 +1011,15 @@ const CommissionSearch = ({
         inputRef.current.setSelectionRange(rafCursor, rafCursor)
       })
     },
-    [query],
+    [query, requestStaleCharactersCollapse],
   )
 
   const applyPopularKeyword = useCallback(
     (keyword: string) => {
       if (!keyword) return
 
+      requestStaleCharactersCollapse()
+      setIsSuggestionPanelDismissed(true)
       const nextQuery = applySuggestionToQuery('', keyword)
       if (!nextQuery.trim()) return
       ensureIndexReady()
@@ -924,7 +1034,7 @@ const CommissionSearch = ({
         input.setSelectionRange(cursor, cursor)
       })
     },
-    [ensureIndexReady],
+    [ensureIndexReady, requestStaleCharactersCollapse],
   )
 
   const prepareSearchHelp = useCallback(() => {
@@ -939,6 +1049,18 @@ const CommissionSearch = ({
     event.preventDefault()
     event.stopPropagation()
   }, [])
+
+  const handleInputKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key !== 'Escape' || !shouldShowSuggestionPanel) return
+
+      setIsSuggestionPanelDismissed(true)
+      setActiveCommandValue('')
+      event.preventDefault()
+      event.stopPropagation()
+    },
+    [shouldShowSuggestionPanel],
+  )
 
   return (
     <section id="commission-search" className="mt-4 mb-8 md:mt-4 md:mb-10 lg:mt-6 lg:mb-12">
@@ -957,8 +1079,8 @@ const CommissionSearch = ({
           <div className="absolute inset-y-0 right-2 left-8 flex items-center gap-2">
             <Command
               shouldFilter={false}
-              value={resolvedActiveSuggestionTerm}
-              onValueChange={setActiveSuggestionTerm}
+              value={resolvedActiveCommandValue}
+              onValueChange={setActiveCommandValue}
               className="relative h-full w-full overflow-visible bg-transparent"
             >
               <label htmlFor="commission-search-input" className="sr-only">
@@ -971,10 +1093,13 @@ const CommissionSearch = ({
                 value={query}
                 onFocus={() => {
                   if (deferIndexInit) setIsIndexReady(true)
+                  setIsSuggestionPanelDismissed(false)
                 }}
+                onKeyDown={handleInputKeyDown}
                 onValueChange={value => {
                   if (deferIndexInit) setIsIndexReady(true)
                   setInputQuery(normalizeQuotedTokenBoundary(value))
+                  setIsSuggestionPanelDismissed(false)
                   setCopyState('idle')
                 }}
                 placeholder={controls.searchPlaceholder}
@@ -1029,6 +1154,28 @@ const CommissionSearch = ({
                       </CommandItem>
                     )
                   })}
+
+                  {shouldShowHiddenStaleNotice ? (
+                    <div className="mt-1 border-t border-gray-200/80 pt-1 dark:border-gray-700/80">
+                      <CommandItem
+                        value={LOAD_STALE_COMMAND_VALUE}
+                        onSelect={() => requestStaleCharactersLoad()}
+                        className="cursor-pointer px-3 py-2 font-mono text-gray-700 data-[selected=true]:bg-gray-900/6 data-[selected=true]:text-gray-900 dark:text-gray-300 dark:data-[selected=true]:bg-white/10 dark:data-[selected=true]:text-white"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[12px] leading-4">
+                            {hiddenStaleNoticeMessage}
+                          </p>
+                          <p className="mt-0.5 text-[11px] leading-4 text-gray-500 dark:text-gray-400">
+                            {visibleStatusMessage}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-[11px] leading-4 text-gray-500 dark:text-gray-400">
+                          {controls.loadStaleCharacters}
+                        </span>
+                      </CommandItem>
+                    </div>
+                  ) : null}
                 </CommandList>
               ) : null}
             </Command>

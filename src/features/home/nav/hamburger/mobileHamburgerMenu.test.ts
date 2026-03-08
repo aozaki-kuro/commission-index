@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { STALE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/staleCharactersEvent'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { MENU_TRANSITION_MS } from './constants'
@@ -46,11 +47,27 @@ const renderMenu = () => {
             <button data-mobile-character-section-toggle="true" data-mobile-character-section-key="stale" aria-expanded="false">
               <span data-mobile-character-section-chevron="true"></span>
             </button>
-            <div data-mobile-character-section-panel="stale" hidden></div>
+            <div data-mobile-character-section-panel="stale" hidden>
+              <a
+                href="#stale-item"
+                data-mobile-nav-link="true"
+                data-mobile-nav-character-status="stale"
+                data-mobile-nav-section-id="stale-item"
+              >
+                Stale
+              </a>
+            </div>
           </section>
           <div data-mobile-hamburger-nav-panel="character"></div>
           <div data-mobile-hamburger-nav-panel="timeline" class="hidden"></div>
-          <a href="#active-item" data-mobile-nav-link="true" data-mobile-nav-section-id="active-item">Active</a>
+          <a
+            href="#active-item"
+            data-mobile-nav-link="true"
+            data-mobile-nav-character-status="active"
+            data-mobile-nav-section-id="active-item"
+          >
+            Active
+          </a>
           <a href="/?view=timeline#year-2025" data-mobile-nav-link="true" data-mobile-nav-section-id="year-2025">Year</a>
         </div>
       </div>
@@ -68,6 +85,16 @@ const getSearchAction = () =>
 const getTimelineToggle = () =>
   document.querySelector<HTMLButtonElement>(
     '[data-mobile-hamburger-view-mode-toggle="true"][data-view-mode="timeline"]',
+  )
+const getStaleSectionToggle = () =>
+  document.querySelector<HTMLButtonElement>(
+    '[data-mobile-character-section-toggle="true"][data-mobile-character-section-key="stale"]',
+  )
+const getStaleSectionPanel = () =>
+  document.querySelector<HTMLElement>('[data-mobile-character-section-panel="stale"]')
+const getStaleLink = () =>
+  document.querySelector<HTMLAnchorElement>(
+    '[data-mobile-nav-link="true"][data-mobile-nav-character-status="stale"]',
   )
 
 describe('mobileHamburgerMenu', () => {
@@ -147,6 +174,61 @@ describe('mobileHamburgerMenu', () => {
     expect(window.location.search).toBe('?view=timeline')
     expect(timelineToggle?.getAttribute('aria-pressed')).toBe('true')
 
+    cleanup()
+  })
+
+  it('requests stale loading when opening the stale section', () => {
+    const requestStaleLoad = vi.fn()
+    const cleanup = mountMobileHamburgerMenu({
+      deps: { requestStaleLoad },
+    })
+
+    getToggle()!.click()
+    getStaleSectionToggle()!.click()
+
+    expect(requestStaleLoad).toHaveBeenCalledTimes(1)
+    expect(getStaleSectionToggle()?.getAttribute('aria-expanded')).toBe('true')
+    expect(getStaleSectionPanel()?.hidden).toBe(false)
+
+    cleanup()
+  })
+
+  it('loads stale characters and jumps when a stale link is selected before load', () => {
+    const trackEvent = vi.fn()
+    const scrollToHashWithoutWrite = vi.fn()
+    const requestStaleLoad = vi.fn(() => {
+      const characterPanel = document.createElement('div')
+      characterPanel.dataset.commissionViewPanel = 'character'
+      characterPanel.dataset.staleLoaded = 'true'
+      document.body.append(characterPanel)
+
+      const staleSection = document.createElement('section')
+      staleSection.id = 'stale-item'
+      document.body.append(staleSection)
+
+      window.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
+    })
+
+    const cleanup = mountMobileHamburgerMenu({
+      deps: { requestStaleLoad, scrollToHashWithoutWrite, trackEvent },
+    })
+
+    getToggle()!.click()
+    getStaleLink()!.click()
+
+    expect(requestStaleLoad).toHaveBeenCalledTimes(1)
+    expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#stale-item')
+    expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.sidebarNavUsed, {
+      source: 'character_link',
+      nav_surface: 'hamburger',
+      view_mode: 'character',
+      item_count: 3,
+      character_name: 'Stale',
+      section_id: 'stale-item',
+    })
+    expect(getRoot()?.dataset.mobileHamburgerOpen).toBe('false')
+
+    vi.advanceTimersByTime(MENU_TRANSITION_MS)
     cleanup()
   })
 

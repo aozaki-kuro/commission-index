@@ -93,6 +93,7 @@ export interface HomeLocaleMessages {
     formatMatchCount: (count: number) => string
     formatSearchResultsStatus: (matchedCount: number, entriesCount: number) => string
     formatSearchClearedStatus: (entriesCount: number) => string
+    formatHiddenStaleResultsNotice: (count: number) => string
     searchHelpTitle: string
     searchHelpIntro: string
     searchHelpSyntaxHeader: string
@@ -190,6 +191,8 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
         `Search results: ${matchedCount} of ${entriesCount} commissions shown.`,
       formatSearchClearedStatus: entriesCount =>
         `Search cleared. Showing all ${entriesCount} commissions.`,
+      formatHiddenStaleResultsNotice: count =>
+        `${count} matching stale commission${count === 1 ? ' is' : 's are'} hidden.`,
       searchHelpTitle: 'Search Help',
       searchHelpIntro: 'Type one or more keywords to filter commissions.',
       searchHelpSyntaxHeader: 'Syntax',
@@ -300,6 +303,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       formatSearchResultsStatus: (matchedCount, entriesCount) =>
         `搜尋結果：顯示 ${matchedCount} / ${entriesCount} 筆委託。`,
       formatSearchClearedStatus: entriesCount => `已清除搜尋，顯示全部 ${entriesCount} 筆委託。`,
+      formatHiddenStaleResultsNotice: count => `另有 ${count} 筆命中的停更委託尚未展開。`,
       searchHelpTitle: '搜尋說明',
       searchHelpIntro: '輸入一個或多個關鍵字來篩選委託。',
       searchHelpSyntaxHeader: '語法',
@@ -410,6 +414,8 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
         `検索結果：${entriesCount}件中 ${matchedCount}件を表示。`,
       formatSearchClearedStatus: entriesCount =>
         `検索をクリアしました。全 ${entriesCount}件を表示。`,
+      formatHiddenStaleResultsNotice: count =>
+        `一致した停止中コミッションが未展開のまま ${count} 件あります。`,
       searchHelpTitle: '検索ヘルプ',
       searchHelpIntro: '1つ以上のキーワードでコミッションを絞り込みます。',
       searchHelpSyntaxHeader: '構文',

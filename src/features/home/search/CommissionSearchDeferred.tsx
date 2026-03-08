@@ -12,6 +12,8 @@ import {
 const MAX_FEATURED_KEYWORDS = 6
 const MAX_VISIBLE_POPULAR_KEYWORDS = 6
 const HOME_SEARCH_INDEX_URL = '/search/home-search-entries.json'
+const COMMISSION_ENTRY_SELECTOR = '[data-commission-entry="true"]'
+const STALE_TEMPLATE_SELECTOR = 'template[data-stale-sections-template="true"]'
 
 let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
 let homeSearchEntriesPromise: Promise<CommissionSearchEntrySource[]> | null = null
@@ -148,15 +150,34 @@ const collapseAliasKeywordVariants = (
   return collapsedKeywords
 }
 
-const buildPopularKeywordPoolFromDom = () => {
+const buildSearchEntriesFromDom = (): CommissionSearchEntrySource[] => {
   if (typeof document === 'undefined') return []
-  const suggestTexts = Array.from(
-    document.querySelectorAll<HTMLElement>('[data-commission-entry="true"]'),
-  )
-    .map(element => element.dataset.searchSuggest ?? '')
-    .filter((suggestText): suggestText is string => Boolean(suggestText))
 
-  return buildPopularKeywordPoolFromSuggestTexts(suggestTexts)
+  const visibleEntries = Array.from(
+    document.querySelectorAll<HTMLElement>(COMMISSION_ENTRY_SELECTOR),
+  )
+  const staleTemplateEntries = Array.from(
+    document.querySelectorAll<HTMLTemplateElement>(STALE_TEMPLATE_SELECTOR),
+  ).flatMap(template =>
+    Array.from(template.content.querySelectorAll<HTMLElement>(COMMISSION_ENTRY_SELECTOR)),
+  )
+
+  const entries: CommissionSearchEntrySource[] = []
+
+  ;[...visibleEntries, ...staleTemplateEntries].forEach((element, id) => {
+    const domKey = element.dataset.commissionSearchKey
+    const searchText = element.dataset.searchText
+    if (!domKey || !searchText) return
+
+    entries.push({
+      id,
+      domKey,
+      searchText,
+      searchSuggest: element.dataset.searchSuggest,
+    })
+  })
+
+  return entries
 }
 
 const buildPopularKeywordPoolFromEntries = (entries: CommissionSearchEntrySource[]) =>
@@ -178,16 +199,18 @@ export default function CommissionSearchDeferred({
   suggestionAliasGroups = [],
 }: CommissionSearchDeferredProps = {}) {
   const controls = resolveHomeControls(locale)
-  const shouldLoadExternalEntries = Boolean(import.meta.env?.PROD)
+  const shouldLoadFetchedEntries = Boolean(import.meta.env?.PROD)
   const [popularKeywordPage, setPopularKeywordPage] = useState(0)
   const [hasDismissedFeaturedKeywords, setHasDismissedFeaturedKeywords] = useState(false)
-  const [popularKeywordPool, setPopularKeywordPool] = useState<string[]>(() =>
-    shouldLoadExternalEntries && cachedHomeSearchEntries
-      ? buildPopularKeywordPoolFromEntries(cachedHomeSearchEntries)
-      : [],
-  )
   const [externalEntries, setExternalEntries] = useState<CommissionSearchEntrySource[] | null>(
-    () => (shouldLoadExternalEntries ? cachedHomeSearchEntries : null),
+    () => {
+      if (shouldLoadFetchedEntries) return cachedHomeSearchEntries
+      const entries = buildSearchEntriesFromDom()
+      return entries.length > 0 ? entries : null
+    },
+  )
+  const [popularKeywordPool, setPopularKeywordPool] = useState<string[]>(() =>
+    externalEntries ? buildPopularKeywordPoolFromEntries(externalEntries) : [],
   )
 
   const dedupedFeaturedKeywordBatch = useMemo(
@@ -205,7 +228,7 @@ export default function CommissionSearchDeferred({
   )
 
   useEffect(() => {
-    if (shouldLoadExternalEntries) {
+    if (shouldLoadFetchedEntries) {
       if (cachedHomeSearchEntries) return
 
       let active = true
@@ -243,13 +266,15 @@ export default function CommissionSearchDeferred({
     }
 
     const rafId = window.requestAnimationFrame(() => {
-      setPopularKeywordPool(buildPopularKeywordPoolFromDom())
+      const entries = buildSearchEntriesFromDom()
+      setExternalEntries(entries.length > 0 ? entries : null)
+      setPopularKeywordPool(buildPopularKeywordPoolFromEntries(entries))
     })
 
     return () => {
       window.cancelAnimationFrame(rafId)
     }
-  }, [shouldLoadExternalEntries])
+  }, [shouldLoadFetchedEntries])
 
   const dedupedPopularKeywordPool = useMemo(
     () =>

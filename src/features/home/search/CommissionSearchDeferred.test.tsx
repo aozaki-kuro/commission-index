@@ -37,8 +37,33 @@ describe('CommissionSearchDeferred', () => {
     const element = document.createElement('article')
     element.dataset.commissionEntry = 'true'
     element.dataset.searchSuggest = searchSuggest
+    element.dataset.searchText = searchSuggest.replaceAll('\n', ' ').toLowerCase()
+    element.dataset.commissionSearchKey = `visible-${appendedEntries.length}`
     document.body.appendChild(element)
     appendedEntries.push(element)
+  }
+
+  const appendStaleTemplateEntry = ({
+    searchText,
+    searchSuggest,
+  }: {
+    searchText: string
+    searchSuggest: string
+  }) => {
+    const template = document.createElement('template')
+    template.dataset.staleSectionsTemplate = 'true'
+    template.innerHTML = `
+      <section>
+        <article
+          data-commission-entry="true"
+          data-commission-search-key="stale-template"
+          data-search-text="${searchText}"
+          data-search-suggest="${searchSuggest}"
+        ></article>
+      </section>
+    `
+    document.body.appendChild(template)
+    appendedEntries.push(template)
   }
 
   beforeEach(() => {
@@ -64,6 +89,31 @@ describe('CommissionSearchDeferred', () => {
         deferIndexInit: true,
       }),
     )
+  })
+
+  it('passes template-backed stale entries to search in development', async () => {
+    const { default: CommissionSearchDeferred } = await loadDeferredModule()
+
+    appendSearchEntry('Keyword\tvisible')
+    appendStaleTemplateEntry({
+      searchText: 'staleword hidden',
+      searchSuggest: 'Character\tStale',
+    })
+
+    render(<CommissionSearchDeferred />)
+
+    await waitFor(() => {
+      expect(mockCommissionSearch).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          externalEntries: expect.arrayContaining([
+            expect.objectContaining({
+              domKey: 'stale-template',
+              searchText: 'staleword hidden',
+            }),
+          ]),
+        }),
+      )
+    })
   })
 
   it('deduplicates creator aliases to a single popular term', async () => {

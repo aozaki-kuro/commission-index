@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import {
+  STALE_CHARACTERS_COLLAPSED_EVENT,
+  STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT,
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_LOAD_REQUEST_EVENT,
 } from '#features/home/commission/staleCharactersEvent'
@@ -59,5 +61,31 @@ describe('mountStaleCharactersLoader', () => {
 
     expect(document.getElementById('section-stale')).toBeTruthy()
     cleanup()
+  })
+
+  it('collapses loaded stale sections when requested', () => {
+    renderFixture()
+    const onCollapsed = vi.fn()
+    window.addEventListener(STALE_CHARACTERS_COLLAPSED_EVENT, onCollapsed)
+
+    const cleanup = mountStaleCharactersLoader()
+    window.dispatchEvent(new Event(STALE_CHARACTERS_LOAD_REQUEST_EVENT))
+    window.dispatchEvent(new Event(STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT))
+
+    expect(document.getElementById('section-stale')).toBeNull()
+    expect(
+      document
+        .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+        ?.getAttribute('data-stale-loaded'),
+    ).toBe('false')
+    expect(
+      document
+        .querySelector<HTMLElement>('[data-stale-sections-placeholder="true"]')
+        ?.classList.contains('hidden'),
+    ).toBe(false)
+    expect(onCollapsed).toHaveBeenCalledTimes(1)
+
+    cleanup()
+    window.removeEventListener(STALE_CHARACTERS_COLLAPSED_EVENT, onCollapsed)
   })
 })
