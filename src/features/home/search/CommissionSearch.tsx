@@ -1,16 +1,17 @@
 import { Button } from '#components/ui/button'
-import { Command, CommandInput, CommandItem, CommandList } from '#components/ui/command'
+import { Command, CommandInput } from '#components/ui/command'
 import { Popover, PopoverTrigger } from '#components/ui/popover'
 import { useCommissionViewMode } from '#features/home/commission/CommissionViewMode'
-import {
-  STALE_CHARACTERS_COLLAPSED_EVENT,
-  STALE_CHARACTERS_LOADED_EVENT,
-  STALE_CHARACTERS_LOAD_REQUEST_EVENT,
-} from '#features/home/commission/staleCharactersEvent'
-import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
+import { STALE_CHARACTERS_LOAD_REQUEST_EVENT } from '#features/home/commission/staleCharactersEvent'
 import { resolveHomeControls } from '#features/home/i18n/homeLocale'
 import CommissionSearchHelpPopover from '#features/home/search/CommissionSearchHelpPopover'
+import CommissionSearchSuggestionDropdown, {
+  LOAD_STALE_COMMAND_VALUE,
+  type SuggestionViewModel,
+} from '#features/home/search/CommissionSearchSuggestionDropdown'
 import PopularKeywordsRow from '#features/home/search/PopularKeywordsRow'
+import { useSearchPanelLoadedState } from '#features/home/search/useSearchPanelLoadedState'
+import { useSuggestionPanelController } from '#features/home/search/useSuggestionPanelController'
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -85,7 +86,6 @@ const shouldUseTapLikeFocus = () => {
   return hasTouchPoints || hasCoarsePointer
 }
 const MIN_TRACK_QUERY_LENGTH = 2
-const LOAD_STALE_COMMAND_VALUE = '__load-stale__'
 
 const buildSearchUrl = (rawQuery: string) => {
   const url = new URL(window.location.href)
@@ -119,22 +119,6 @@ const setTextContentIfChanged = (element: HTMLElement | null, message: string) =
 const getUrlQuerySnapshot = () => {
   if (typeof window === 'undefined') return ''
   return new URLSearchParams(window.location.search).get('q') ?? ''
-}
-
-const getCharacterPanelStaleLoaded = () => {
-  if (typeof document === 'undefined') return false
-  return (
-    document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')?.dataset
-      .staleLoaded === 'true'
-  )
-}
-
-const getTimelinePanelLoaded = () => {
-  if (typeof document === 'undefined') return false
-  return (
-    document.querySelector<HTMLElement>('[data-commission-view-panel="timeline"]')?.dataset
-      .timelineLoaded === 'true'
-  )
 }
 
 const parsedSuggestionRowsCache = new Map<string, ReturnType<typeof parseSuggestionRows>>()
@@ -392,13 +376,6 @@ const buildRelatedSuggestionTermsMap = (
   )
 }
 
-type SuggestionViewModel = {
-  term: string
-  matchCountLabel: string
-  sourcesLabel: string
-  relatedTerms: string[]
-}
-
 const toggleHiddenClass = (element: HTMLElement, shouldHide: boolean) => {
   const isHidden = element.classList.contains('hidden')
   if (isHidden === shouldHide) return false
@@ -609,10 +586,8 @@ const CommissionSearch = ({
       }
     }, [deferredQuery])
 
-  const searchRootRef = useRef<HTMLElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const liveRef = useRef<HTMLParagraphElement>(null)
-  const suppressNextInputFocusOpenRef = useRef(false)
   const didAutoJumpRef = useRef(false)
   const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const previousMatchedIdsRef = useRef<Set<number>>(new Set())
@@ -625,11 +600,10 @@ const CommissionSearch = ({
   const [copyState, setCopyState] = useState<'idle' | 'success'>('idle')
   const [activeCommandValue, setActiveCommandValue] = useState('')
   const [isSuggestionPanelDismissed, setIsSuggestionPanelDismissed] = useState(false)
-  const [staleLoaded, setStaleLoaded] = useState(getCharacterPanelStaleLoaded)
-  const [timelineLoaded, setTimelineLoaded] = useState(getTimelinePanelLoaded)
   const [isIndexReady, setIsIndexReady] = useState(
     () => !deferIndexInit || !!initialQuery || !!initialUrlQuery,
   )
+  const { staleLoaded, timelineLoaded } = useSearchPanelLoadedState()
   const shouldBuildIndex = isIndexReady || !deferIndexInit || !!query || !!initialUrlQuery
   const shouldSkipDomContext = disableDomFiltering && Boolean(externalEntries)
   const domSnapshotKey = `${staleLoaded ? 'stale-loaded' : 'stale-collapsed'}:${timelineLoaded ? 'timeline-loaded' : 'timeline-pending'}`
@@ -664,32 +638,6 @@ const CommissionSearch = ({
       active = false
     }
   }, [index, resolvedIndex.fuse])
-
-  useEffect(() => {
-    const syncStaleLoaded = () => {
-      setStaleLoaded(getCharacterPanelStaleLoaded())
-    }
-
-    syncStaleLoaded()
-    window.addEventListener(STALE_CHARACTERS_LOADED_EVENT, syncStaleLoaded)
-    window.addEventListener(STALE_CHARACTERS_COLLAPSED_EVENT, syncStaleLoaded)
-    return () => {
-      window.removeEventListener(STALE_CHARACTERS_LOADED_EVENT, syncStaleLoaded)
-      window.removeEventListener(STALE_CHARACTERS_COLLAPSED_EVENT, syncStaleLoaded)
-    }
-  }, [])
-
-  useEffect(() => {
-    const syncTimelineLoaded = () => {
-      setTimelineLoaded(getTimelinePanelLoaded())
-    }
-
-    syncTimelineLoaded()
-    window.addEventListener(TIMELINE_VIEW_LOADED_EVENT, syncTimelineLoaded)
-    return () => {
-      window.removeEventListener(TIMELINE_VIEW_LOADED_EVENT, syncTimelineLoaded)
-    }
-  }, [])
 
   const matchedIds = useMemo(
     () => getMatchedEntryIds(deferredQuery, resolvedIndex),
@@ -965,34 +913,14 @@ const CommissionSearch = ({
     [],
   )
 
-  useEffect(() => {
-    if (!shouldShowSuggestionPanel) return
+  const showSuggestionPanel = useCallback(() => {
+    setIsSuggestionPanelDismissed(false)
+  }, [])
 
-    const dismissSuggestionPanel = () => {
-      setIsSuggestionPanelDismissed(true)
-      setActiveCommandValue('')
-    }
-
-    const handleWindowPointerDown = (event: PointerEvent) => {
-      const target = event.target
-      if (!(target instanceof Node)) return
-      if (searchRootRef.current?.contains(target)) return
-      dismissSuggestionPanel()
-    }
-
-    const handleWindowKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.defaultPrevented || event.key !== 'Escape') return
-      dismissSuggestionPanel()
-    }
-
-    window.addEventListener('pointerdown', handleWindowPointerDown, true)
-    window.addEventListener('keydown', handleWindowKeyDown)
-
-    return () => {
-      window.removeEventListener('pointerdown', handleWindowPointerDown, true)
-      window.removeEventListener('keydown', handleWindowKeyDown)
-    }
-  }, [shouldShowSuggestionPanel])
+  const dismissSuggestionPanel = useCallback(() => {
+    setIsSuggestionPanelDismissed(true)
+    setActiveCommandValue('')
+  }, [])
 
   const setCopyFeedback = useCallback(() => {
     setCopyState('success')
@@ -1020,77 +948,66 @@ const CommissionSearch = ({
     }
   }, [controls.searchUrlCopied, controls.searchUrlCopyFailed, hasQuery, query, setCopyFeedback])
 
-  const clearSearch = useCallback(() => {
-    setInputQuery('')
-    setIsSuggestionPanelDismissed(false)
-    setCopyState('idle')
-    clearSearchQueryParamInAddress()
-    inputRef.current?.focus()
-  }, [])
-
   const ensureIndexReady = useCallback(() => {
     if (deferIndexInit) setIsIndexReady(true)
   }, [deferIndexInit])
+
+  const clearSearch = useCallback(() => {
+    setInputQuery('')
+    showSuggestionPanel()
+    setCopyState('idle')
+    clearSearchQueryParamInAddress()
+    inputRef.current?.focus()
+  }, [showSuggestionPanel])
 
   const requestStaleCharactersLoad = useCallback(() => {
     window.dispatchEvent(new Event(STALE_CHARACTERS_LOAD_REQUEST_EVENT))
   }, [])
 
-  const focusInputAfterSelection = useCallback(
+  const { focusInputAfterSelection, searchRootRef, shouldSuppressInputFocusOpen } =
+    useSuggestionPanelController({
+      inputRef,
+      shouldShowSuggestionPanel,
+      dismissSuggestionPanel,
+    })
+
+  const applySelectedQuery = useCallback(
     (nextQuery: string, options?: { preventScroll?: boolean }) => {
-      suppressNextInputFocusOpenRef.current = true
+      dismissSuggestionPanel()
+      setInputQuery(nextQuery)
+      setCopyState('idle')
 
-      requestAnimationFrame(() => {
-        const input = inputRef.current
-        if (input) {
-          input.focus(options)
-          const cursor = nextQuery.length
-          input.setSelectionRange(cursor, cursor)
-        }
+      const input = inputRef.current
+      if (input) {
+        input.value = nextQuery
+        const cursor = nextQuery.length
+        input.setSelectionRange(cursor, cursor)
+      }
 
-        requestAnimationFrame(() => {
-          suppressNextInputFocusOpenRef.current = false
-        })
-      })
+      focusInputAfterSelection(nextQuery, options)
     },
-    [],
+    [dismissSuggestionPanel, focusInputAfterSelection],
   )
 
   const applySuggestion = useCallback(
     (suggestion: string | null) => {
       if (!suggestion) return
-
-      setIsSuggestionPanelDismissed(true)
-      const nextQueryWithSeparator = applySuggestionToQuery(query, suggestion)
-
-      setInputQuery(nextQueryWithSeparator)
-      setCopyState('idle')
-
-      const cursor = nextQueryWithSeparator.length
-      if (inputRef.current) {
-        inputRef.current.value = nextQueryWithSeparator
-        inputRef.current.setSelectionRange(cursor, cursor)
-      }
-
-      focusInputAfterSelection(nextQueryWithSeparator)
+      applySelectedQuery(applySuggestionToQuery(query, suggestion))
     },
-    [focusInputAfterSelection, query],
+    [applySelectedQuery, query],
   )
 
   const applyPopularKeyword = useCallback(
     (keyword: string) => {
       if (!keyword) return
 
-      setIsSuggestionPanelDismissed(true)
       const nextQuery = applySuggestionToQuery('', keyword)
       if (!nextQuery.trim()) return
-      ensureIndexReady()
-      setInputQuery(nextQuery)
-      setCopyState('idle')
 
-      focusInputAfterSelection(nextQuery, { preventScroll: true })
+      ensureIndexReady()
+      applySelectedQuery(nextQuery, { preventScroll: true })
     },
-    [ensureIndexReady, focusInputAfterSelection],
+    [applySelectedQuery, ensureIndexReady],
   )
 
   const prepareSearchHelp = useCallback(() => {
@@ -1110,12 +1027,11 @@ const CommissionSearch = ({
     (event: KeyboardEvent<HTMLInputElement>) => {
       if (event.key !== 'Escape' || !shouldShowSuggestionPanel) return
 
-      setIsSuggestionPanelDismissed(true)
-      setActiveCommandValue('')
+      dismissSuggestionPanel()
       event.preventDefault()
       event.stopPropagation()
     },
-    [shouldShowSuggestionPanel],
+    [dismissSuggestionPanel, shouldShowSuggestionPanel],
   )
 
   return (
@@ -1152,18 +1068,15 @@ const CommissionSearch = ({
                 id="commission-search-input"
                 value={query}
                 onFocus={() => {
-                  if (deferIndexInit) setIsIndexReady(true)
-                  if (suppressNextInputFocusOpenRef.current) {
-                    suppressNextInputFocusOpenRef.current = false
-                    return
-                  }
-                  setIsSuggestionPanelDismissed(false)
+                  ensureIndexReady()
+                  if (shouldSuppressInputFocusOpen()) return
+                  showSuggestionPanel()
                 }}
                 onKeyDown={handleInputKeyDown}
                 onValueChange={value => {
-                  if (deferIndexInit) setIsIndexReady(true)
+                  ensureIndexReady()
                   setInputQuery(normalizeQuotedTokenBoundary(value))
-                  setIsSuggestionPanelDismissed(false)
+                  showSuggestionPanel()
                   setCopyState('idle')
                 }}
                 placeholder={controls.searchPlaceholder}
@@ -1172,76 +1085,20 @@ const CommissionSearch = ({
                 className="peer m-0 flex h-10 w-full origin-[left_center] transform-[translateY(0.5px)_scale(0.8)] appearance-none rounded-md bg-transparent p-0 pr-24 font-mono text-[16px] leading-5 tracking-[0.01em] outline-none placeholder:text-gray-400"
               />
 
-              {shouldShowSuggestionPanel ? (
-                <CommandList
-                  className={`${shouldAnimateSuggestionPanel ? 'animate-search-dropdown-in' : ''} absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 max-h-[min(70vh,28rem)] overflow-y-auto overscroll-contain rounded-lg border border-gray-300/80 bg-white/95 py-1 text-sm shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm motion-reduce:animate-none dark:border-gray-700 dark:bg-black/90`}
-                >
-                  {suggestionViewModels.map(suggestion => {
-                    return (
-                      <CommandItem
-                        key={suggestion.term}
-                        value={suggestion.term}
-                        onSelect={() => applySuggestion(suggestion.term)}
-                        className="cursor-pointer px-3 py-1.5 font-mono text-gray-700 data-[selected=true]:bg-gray-900/6 data-[selected=true]:text-gray-900 dark:text-gray-300 dark:data-[selected=true]:bg-white/10 dark:data-[selected=true]:text-white"
-                      >
-                        <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-3 gap-y-0.5">
-                          <span className="flex min-w-0 items-center gap-1.5">
-                            {suggestionIsExclusion ? (
-                              <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                                NOT
-                              </span>
-                            ) : suggestionOperator === 'or' ? (
-                              <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                                OR
-                              </span>
-                            ) : suggestionOperator === 'and' ? (
-                              <span className="shrink-0 rounded border border-gray-300/90 bg-gray-100/85 px-1 py-0.5 text-[9px] leading-none tracking-[0.06em] text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                                AND
-                              </span>
-                            ) : null}
-                            <span className="flex min-w-0 items-baseline gap-1 truncate">
-                              <span className="truncate">{suggestion.term}</span>
-                              {suggestion.relatedTerms.length > 0 ? (
-                                <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
-                                  ({suggestion.relatedTerms.join(' / ')})
-                                </span>
-                              ) : null}
-                            </span>
-                          </span>
-                          <span className="col-start-2 row-span-2 self-center text-right text-[11px] leading-4 text-gray-500 tabular-nums dark:text-gray-400">
-                            {suggestion.matchCountLabel}
-                          </span>
-                          <span className="truncate text-[11px] leading-4 text-gray-500 dark:text-gray-400">
-                            {controls.sourcePrefix} {suggestion.sourcesLabel}
-                          </span>
-                        </div>
-                      </CommandItem>
-                    )
-                  })}
-
-                  {shouldShowHiddenStaleNotice ? (
-                    <div className="mt-1 border-t border-gray-200/80 pt-1 dark:border-gray-700/80">
-                      <CommandItem
-                        value={LOAD_STALE_COMMAND_VALUE}
-                        onSelect={() => requestStaleCharactersLoad()}
-                        className="cursor-pointer px-3 py-2 font-mono text-gray-700 data-[selected=true]:bg-gray-900/6 data-[selected=true]:text-gray-900 dark:text-gray-300 dark:data-[selected=true]:bg-white/10 dark:data-[selected=true]:text-white"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[12px] leading-4">
-                            {hiddenStaleNoticeMessage}
-                          </p>
-                          <p className="mt-0.5 text-[11px] leading-4 text-gray-500 dark:text-gray-400">
-                            {visibleStatusMessage}
-                          </p>
-                        </div>
-                        <span className="shrink-0 text-[11px] leading-4 text-gray-500 dark:text-gray-400">
-                          {controls.loadStaleCharacters}
-                        </span>
-                      </CommandItem>
-                    </div>
-                  ) : null}
-                </CommandList>
-              ) : null}
+              <CommissionSearchSuggestionDropdown
+                shouldShow={shouldShowSuggestionPanel}
+                shouldAnimate={shouldAnimateSuggestionPanel}
+                suggestionViewModels={suggestionViewModels}
+                suggestionIsExclusion={suggestionIsExclusion}
+                suggestionOperator={suggestionOperator}
+                sourcePrefix={controls.sourcePrefix}
+                shouldShowHiddenStaleNotice={shouldShowHiddenStaleNotice}
+                hiddenStaleNoticeMessage={hiddenStaleNoticeMessage}
+                visibleStatusMessage={visibleStatusMessage}
+                loadStaleCharactersLabel={controls.loadStaleCharacters}
+                onSelectSuggestion={applySuggestion}
+                onLoadStaleCharacters={requestStaleCharactersLoad}
+              />
             </Command>
 
             <Popover open={isHelpOpen} onOpenChange={setIsHelpOpen}>
