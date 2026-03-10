@@ -88,7 +88,8 @@ Run checks in this order before pushing:
 2. `bun run lint` — run ESLint with auto-fix (`eslint --fix`) and resolve any remaining issues.
 3. `bun run check` — run Astro type-check diagnostics for `.astro`/TypeScript integration.
 4. `bun run test` — run unit/component tests (Vitest).
-5. `bun run build` — required for commits that change runtime behavior, data access, routes, configs, or component logic.
+5. `bun run test:visual` — run Playwright visual regression when changing layout, iconography, spacing, floating menus, or admin/home shells.
+6. `bun run build` — required for commits that change runtime behavior, data access, routes, configs, or component logic.
 
 Additional guidance:
 
@@ -99,6 +100,12 @@ Additional guidance:
   - `src/admin/*`, `#admin/actions`, `server/adminApi.ts`, `src/lib/admin/db.ts`, `astro.config.ts`
   - Rendering/component logic in `src/components/*` and `src/pages/*`
   - Search/filter/date parsing logic or other user-visible behavior in `src/lib/*` and `data/*`
+- Run `bun run test:visual` whenever you modify:
+  - `src/features/home/search/*`
+  - `src/features/home/nav/*`
+  - `src/features/home/nav/hamburger/*`
+  - `src/features/admin/suggestion/*`
+  - icon sizing/placement in shared UI primitives such as `src/components/ui/*`
 
 ## Server Runtime Architecture
 
@@ -140,6 +147,7 @@ Additional guidance:
 - Added stale character lazy-loading pipeline (`template` + loader script + sidebar/search sync events) to reduce initial DOM size while preserving navigation discoverability.
 - Added timeline lazy-mount pipeline (`template` + loader script + search/sidebar sync events) so the hidden timeline view no longer doubles the initial homepage DOM.
 - Collapsed most home side-effect entrypoints into `HomeClientScript.astro` + `homePageClient.ts` to reduce initial module requests without changing DOM contracts.
+- Added Playwright visual regression baselines for home search/nav shells, mobile floating menus, and the admin featured-keyword dashboard.
 
 ## Code Style
 
