@@ -238,7 +238,10 @@ describe('CommissionSearch', () => {
       renderSearchWithProps(entries, {
         popularKeywords: ['Kanaut Nishe', 'sample'],
         refreshPopularSearchLabel: 'Refresh popular keywords',
+        onRotatePopularKeywords: vi.fn(),
       })
+
+      expect(screen.getByRole('button', { name: 'Refresh popular keywords' })).toBeInTheDocument()
 
       const input = screen.getByLabelText('Search commissions') as HTMLInputElement
       fireEvent.click(screen.getByRole('button', { name: 'Kanaut Nishe' }))

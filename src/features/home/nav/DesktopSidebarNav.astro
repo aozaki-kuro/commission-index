@@ -1,5 +1,12 @@
 ---
 import type { HomeLocaleMessages, HomeLocaleOption } from '#features/home/i18n/homeLocale'
+import {
+  IconChevronDown,
+  IconChevronRight,
+  IconFlare,
+  IconLayoutDashboard,
+  IconZoom,
+} from '@tabler/icons-react'
 import { buildCharacterNavItems, type CharacterNavItem } from '#lib/characters/nav'
 
 interface CharacterDisplay {
@@ -30,16 +37,11 @@ const staleCharacterNavItems = buildCharacterNavItems(stale)
   <div class="sticky top-4 mr-8 space-y-2">
     <div class="space-y-4 pb-2">
       <div class="relative flex min-h-5 items-center pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
-        <svg
-          viewBox="0 0 24 24"
-          class="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-all duration-300"
-          fill="none"
-          stroke="currentColor"
+        <IconZoom
+          className="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-all duration-300"
+          stroke={1.95}
           aria-hidden="true"
-        >
-          <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.4-4.4" />
-          <circle cx="11" cy="11" r="6" stroke-width="2" />
-        </svg>
+        />
         <a
           href="#commission-search"
           data-sidebar-search-link="true"
@@ -55,14 +57,11 @@ const staleCharacterNavItems = buildCharacterNavItems(stale)
           class="relative flex min-h-5 cursor-pointer list-none items-center pl-4 text-gray-700 no-underline transition-colors hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
           aria-label={localeSwitcherLabel}
         >
-          <svg
-            viewBox="0 0 12 12"
-            class="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-colors duration-200 group-hover:text-gray-500 dark:group-hover:text-gray-300"
-            fill="currentColor"
+          <IconChevronDown
+            className="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-colors duration-200 group-hover:text-gray-500 dark:group-hover:text-gray-300"
+            stroke={2.2}
             aria-hidden="true"
-          >
-            <path d="M2 4h8L6 9z" />
-          </svg>
+          />
           <span class="font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200">
             {localeSwitcherLabel}
           </span>
@@ -142,20 +141,11 @@ const staleCharacterNavItems = buildCharacterNavItems(stale)
       {
         import.meta.env.DEV ? (
           <div class="relative flex min-h-5 items-center pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
-            <svg
-              viewBox="0 0 24 24"
-              class="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-all duration-300"
-              fill="none"
-              stroke="currentColor"
+            <IconLayoutDashboard
+              className="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-all duration-300"
+              stroke={1.9}
               aria-hidden="true"
-            >
-              <path
-                d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l2.5-2.5a5.8 5.8 0 0 1-7.4 7.4l-6.5 6.5a1.8 1.8 0 1 1-2.5-2.5l6.5-6.5a5.8 5.8 0 0 1 7.4-7.4l-3 3Z"
-                stroke-width="1.8"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+            />
             <a href="/admin" class="font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200">
               Admin
             </a>
@@ -178,14 +168,11 @@ const staleCharacterNavItems = buildCharacterNavItems(stale)
           activeCharacterNavItems.length > 0 ? (
             <li>
               <div class="relative flex min-h-5 items-center pl-4 text-gray-700 dark:text-gray-200">
-                <svg
-                  viewBox="0 0 12 12"
-                  class="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400"
-                  fill="currentColor"
+                <IconFlare
+                  className="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400"
+                  stroke={1.95}
                   aria-hidden="true"
-                >
-                  <path d="M2 4h8L6 9z" />
-                </svg>
+                />
                 <span class="font-mono text-sm leading-5 font-bold">{controls.activeCharacters}</span>
               </div>
             </li>
@@ -219,14 +206,11 @@ const staleCharacterNavItems = buildCharacterNavItems(stale)
                   data-load-stale-characters="true"
                   class="relative flex min-h-5 cursor-pointer list-none items-center pl-4 text-gray-700 transition-colors hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
                 >
-                  <svg
-                    viewBox="0 0 12 12"
-                    class="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-transform duration-200 group-open:rotate-90"
-                    fill="currentColor"
+                  <IconChevronRight
+                    className="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-transform duration-200 group-open:rotate-90"
+                    stroke={2.2}
                     aria-hidden="true"
-                  >
-                    <path d="M4 2 9 6 4 10z" />
-                  </svg>
+                  />
                   <span class="font-mono text-sm leading-5 font-bold">{controls.staleCharacters}</span>
                 </summary>
 

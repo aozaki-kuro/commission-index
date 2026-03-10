@@ -1,4 +1,5 @@
 import { Button } from '#components/ui/button'
+import { IconRefresh } from '@tabler/icons-react'
 import type { CSSProperties, Ref } from 'react'
 
 interface PopularKeywordsRowProps {
@@ -25,29 +26,10 @@ const PopularKeywordsRow = ({
   return (
     <div
       ref={rowRef}
-      className="mt-2 flex min-h-8 w-full items-center gap-1.5 overflow-hidden text-xs text-gray-500 dark:text-gray-400"
+      className="mt-2 flex min-h-8 w-full items-center gap-2 overflow-hidden text-xs text-gray-500 dark:text-gray-400"
       style={style}
     >
-      {onRotate ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 shrink-0 rounded-full border border-gray-300/70 text-gray-500 transition-transform duration-200 hover:rotate-90 hover:text-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          aria-label={refreshLabel || 'Refresh keywords'}
-          onClick={() => onRotate()}
-        >
-          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor">
-            <path
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M21 12a9 9 0 0 1-15.4 6.4M3 12a9 9 0 0 1 15.4-6.4M3 4v5h5M16 15h5v5"
-            />
-          </svg>
-        </Button>
-      ) : null}
-      <ul className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-x-auto pr-0.5">
+      <ul className="flex min-w-0 flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto pr-0.5">
         {keywords.map((keyword, index) => (
           <li key={keyword} className={`shrink-0 ${index >= 4 ? 'hidden lg:block' : ''}`}>
             <button
@@ -61,6 +43,18 @@ const PopularKeywordsRow = ({
           </li>
         ))}
       </ul>
+      {onRotate ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0 rounded-full border border-gray-200/80 bg-white/70 text-gray-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-[color,border-color,background-color,box-shadow] duration-200 hover:border-gray-400 hover:bg-white hover:text-gray-900 hover:shadow-[0_4px_14px_rgba(0,0,0,0.08)] dark:border-gray-700 dark:bg-black/35 dark:text-gray-400 dark:hover:border-gray-500 dark:hover:bg-black/55 dark:hover:text-gray-100 dark:hover:shadow-[0_4px_14px_rgba(0,0,0,0.22)]"
+          aria-label={refreshLabel || 'Refresh keywords'}
+          onClick={() => onRotate()}
+        >
+          <IconRefresh className="h-4 w-4" stroke={1.85} aria-hidden="true" />
+        </Button>
+      ) : null}
     </div>
   )
 }

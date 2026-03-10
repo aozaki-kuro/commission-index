@@ -1,4 +1,10 @@
 ---
+import {
+  IconChevronDown,
+  IconMenu2,
+  IconX,
+  IconZoom,
+} from '@tabler/icons-react'
 import type { CharacterNavItem } from '#lib/characters/nav'
 import { buildCharacterNavItems } from '#lib/characters/nav'
 import type { HomeLocaleMessages } from '#features/home/i18n/homeLocale'
@@ -56,29 +62,24 @@ const utilityActionTextClassName = 'font-mono text-base leading-6 font-bold no-u
     aria-label={controls.openNavigationMenu}
   >
     <span class="sr-only" data-mobile-hamburger-toggle-label>{controls.openNavigationMenu}</span>
-    <svg
+    <span
       data-mobile-hamburger-toggle-icon="true"
-      class="h-5 w-5 transform transition-transform duration-300"
-      fill="none"
-      viewBox="0 0 24 24"
-      stroke="currentColor"
+      class="inline-flex h-5 w-5 transform items-center justify-center transition-transform duration-300"
+      aria-hidden="true"
     >
-      <path
+      <IconMenu2
         data-mobile-hamburger-icon-menu="true"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width={2}
-        d="M4 6h16M4 12h16M4 18h16"
+        className="h-5 w-5"
+        stroke={2}
+        aria-hidden="true"
       />
-      <path
+      <IconX
         data-mobile-hamburger-icon-close="true"
-        class="hidden"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width={2}
-        d="M6 18L18 6M6 6l12 12"
+        className="hidden h-5 w-5"
+        stroke={2}
+        aria-hidden="true"
       />
-    </svg>
+    </span>
   </button>
 
   <div
@@ -99,16 +100,11 @@ const utilityActionTextClassName = 'font-mono text-base leading-6 font-bold no-u
               class={`${utilityActionButtonClassName} cursor-pointer appearance-none border-0 bg-transparent p-0 text-left no-underline`.trim()}
             >
               <span class={utilityActionTextClassName}>{controls.search}</span>
-              <svg
-                viewBox="0 0 24 24"
-                class="h-3.5 w-3.5 text-gray-500 transition-colors"
-                fill="none"
-                stroke="currentColor"
+              <IconZoom
+                className="h-3.5 w-3.5 text-gray-500 transition-colors"
+                stroke={1.95}
                 aria-hidden="true"
-              >
-                <path stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.4-4.4" />
-                <circle cx="11" cy="11" r="6" stroke-width="2" />
-              </svg>
+              />
             </button>
           </li>
 
@@ -163,15 +159,12 @@ const utilityActionTextClassName = 'font-mono text-base leading-6 font-bold no-u
               <p class="text-base leading-6 font-bold text-gray-700 dark:text-gray-200">
                 {controls.activeCharacters}
               </p>
-              <svg
+              <IconChevronDown
                 data-mobile-character-section-chevron="true"
-                class="h-4 w-4 rotate-180 text-gray-600 transition-transform duration-200 dark:text-gray-300"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width={2} d="M19 9l-7 7-7-7" />
-              </svg>
+                className="h-4 w-4 rotate-180 text-gray-600 transition-transform duration-200 dark:text-gray-300"
+                stroke={2}
+                aria-hidden="true"
+              />
             </button>
             <div id="mobile-active-characters" data-mobile-character-section-panel="active" class="mt-1">
               {
@@ -212,15 +205,12 @@ const utilityActionTextClassName = 'font-mono text-base leading-6 font-bold no-u
               <p class="text-base leading-6 font-bold text-gray-700 dark:text-gray-200">
                 {controls.staleCharacters}
               </p>
-              <svg
+              <IconChevronDown
                 data-mobile-character-section-chevron="true"
-                class="h-4 w-4 text-gray-600 transition-transform duration-200 dark:text-gray-300"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width={2} d="M19 9l-7 7-7-7" />
-              </svg>
+                className="h-4 w-4 text-gray-600 transition-transform duration-200 dark:text-gray-300"
+                stroke={2}
+                aria-hidden="true"
+              />
             </button>
             <div
               id="mobile-stale-characters"

@@ -1,6 +1,7 @@
 ---
 import type { HomeLocaleOption } from '#features/home/i18n/homeLocale'
 import { STYLES } from '#features/home/nav/hamburger/constants'
+import { IconLanguage } from '@tabler/icons-react'
 
 interface MobileLanguageMenuProps {
   locale: string
@@ -30,14 +31,7 @@ const backdropStyle = {
         class={`${STYLES.floatingButton} list-none cursor-pointer [&::-webkit-details-marker]:hidden`}
       >
         <span class="sr-only">{localeSwitcherLabel}</span>
-        <svg viewBox="0 0 24 24" class="h-5 w-5" fill="none" stroke="currentColor" aria-hidden="true">
-          <path d="m5 8 6 6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-          <path d="m4 14 6-6 2-3" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-          <path d="M2 5h12" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-          <path d="M7 2h1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-          <path d="m22 22-5-10-5 10" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-          <path d="M14 18h6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
+        <IconLanguage className="h-6 w-6" stroke={1.7} aria-hidden="true" />
       </summary>
 
       <ul

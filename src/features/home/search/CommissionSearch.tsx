@@ -13,6 +13,7 @@ import type {
 } from '#features/home/search/commissionSearchIndex'
 import { useCommissionSearchModel } from '#features/home/search/useCommissionSearchModel'
 import { useSuggestionPanelController } from '#features/home/search/useSuggestionPanelController'
+import { IconCheck, IconHelpCircle, IconSearch, IconShare3, IconX } from '@tabler/icons-react'
 import {
   type KeyboardEvent,
   type MouseEvent,
@@ -317,15 +318,11 @@ const CommissionSearch = ({
     >
       <div className="flex h-12 items-center justify-end">
         <div className="relative h-11 w-full overflow-visible border-b border-gray-300/80 bg-transparent text-gray-700 dark:border-gray-700 dark:text-gray-300">
-          <svg
-            viewBox="0 0 24 24"
+          <IconSearch
             className="absolute top-1/2 left-2.5 h-3.5 w-3.5 shrink-0 -translate-y-1/2 opacity-70"
-            fill="none"
-            stroke="currentColor"
-          >
-            <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="m21 21-4.4-4.4" />
-            <circle cx="11" cy="11" r="6" strokeWidth="2" />
-          </svg>
+            stroke={2}
+            aria-hidden="true"
+          />
 
           <div className="absolute inset-y-0 right-2 left-8 flex items-center gap-2">
             <Command
@@ -357,7 +354,7 @@ const CommissionSearch = ({
                 placeholder={controls.searchPlaceholder}
                 autoComplete="off"
                 aria-label={controls.searchCommissions}
-                className="peer m-0 flex h-10 w-full origin-[left_center] transform-[translateY(0.5px)_scale(0.8)] appearance-none rounded-md bg-transparent p-0 pr-24 font-mono text-[16px] leading-5 tracking-[0.01em] outline-none placeholder:text-gray-400"
+                className="peer m-0 flex h-10 w-full origin-[left_center] transform-[scale(0.8)] appearance-none rounded-md bg-transparent p-0 pr-24 font-mono text-[16px] leading-5 tracking-[0.01em] outline-none placeholder:text-gray-400"
               />
 
               <CommissionSearchSuggestionDropdown
@@ -390,16 +387,7 @@ const CommissionSearch = ({
                   }`}
                   aria-label={controls.searchHelp}
                 >
-                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
-                    <circle cx="12" cy="12" r="9" strokeWidth="2" />
-                    <path
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9.6 9.2a2.6 2.6 0 1 1 4.8 1.4c-.6.8-1.4 1.2-2 1.8-.4.4-.6.9-.6 1.6"
-                    />
-                    <circle cx="12" cy="17.3" r="0.8" fill="currentColor" stroke="none" />
-                  </svg>
+                  <IconHelpCircle className="h-5 w-5" stroke={2} aria-hidden="true" />
                 </Button>
               </PopoverTrigger>
 
@@ -421,26 +409,9 @@ const CommissionSearch = ({
               }
             >
               {copyState === 'success' ? (
-                <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor">
-                  <path
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M5.6 12.3L10 16.7l8.4-9.4"
-                  />
-                </svg>
+                <IconCheck className="h-4.5 w-4.5" stroke={2.2} aria-hidden="true" />
               ) : (
-                <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" stroke="currentColor">
-                  <circle cx="18" cy="5.5" r="2.3" strokeWidth="2" />
-                  <circle cx="6" cy="12" r="2.3" strokeWidth="2" />
-                  <circle cx="18" cy="18.5" r="2.3" strokeWidth="2" />
-                  <path
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M8.2 11l7.6-4.1M8.2 13l7.6 4.1"
-                  />
-                </svg>
+                <IconShare3 className="h-4.5 w-4.5" stroke={2} aria-hidden="true" />
               )}
             </Button>
 
@@ -454,10 +425,7 @@ const CommissionSearch = ({
               }`}
               aria-label={controls.clearSearch}
             >
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor">
-                <path strokeWidth="2.2" strokeLinecap="round" d="M6 6l12 12" />
-                <path strokeWidth="2.2" strokeLinecap="round" d="M18 6L6 18" />
-              </svg>
+              <IconX className="h-5 w-5" stroke={2.2} aria-hidden="true" />
             </Button>
           </div>
         </div>
