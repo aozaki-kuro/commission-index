@@ -263,6 +263,20 @@ describe('CommissionSearch', () => {
     }
   })
 
+  it('calls the popular keyword rotate handler from the refresh button', () => {
+    const onRotatePopularKeywords = vi.fn()
+
+    renderSearchWithProps([], {
+      popularKeywords: ['Kanaut Nishe', 'sample'],
+      refreshPopularSearchLabel: 'Refresh popular keywords',
+      onRotatePopularKeywords,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh popular keywords' }))
+
+    expect(onRotatePopularKeywords).toHaveBeenCalledTimes(1)
+  })
+
   it('shows shared alias suffix for keyword and character suggestions', async () => {
     const entries: CommissionSearchEntrySource[] = [
       {
