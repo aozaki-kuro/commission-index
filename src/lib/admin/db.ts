@@ -210,6 +210,34 @@ const normalizeKeyword = (value?: string | null): string | null => {
   return normalizeKeywordAliases(keywords).join(', ')
 }
 
+type NormalizedCommissionMutation = {
+  characterId: number
+  fileName: string
+  links: string
+  design: string | null
+  description: string | null
+  keyword: string | null
+  hidden: number
+}
+
+const normalizeCommissionMutation = (input: {
+  characterId: number
+  fileName: string
+  links: string[]
+  design?: string | null
+  description?: string | null
+  keyword?: string | null
+  hidden?: boolean
+}): NormalizedCommissionMutation => ({
+  characterId: input.characterId,
+  fileName: input.fileName.trim(),
+  links: JSON.stringify(input.links),
+  design: input.design ?? null,
+  description: input.description ?? null,
+  keyword: normalizeKeyword(input.keyword),
+  hidden: input.hidden ? 1 : 0,
+})
+
 const openDatabase = (readonly: boolean) => {
   ensureDatabaseExists()
 
@@ -946,10 +974,23 @@ export const updateCommission = (input: {
   ensureWritable()
 
   return withWritableDatabase(db => {
-    const fileName = input.fileName.trim()
+    const normalizedInput = normalizeCommissionMutation(input)
     const currentCommission = db
-      .prepare('SELECT file_name as fileName FROM commissions WHERE id = @id')
-      .get({ id: input.id }) as { fileName: string } | undefined
+      .prepare(
+        `
+        SELECT
+          character_id as characterId,
+          file_name as fileName,
+          links as links,
+          design as design,
+          description as description,
+          keyword as keyword,
+          hidden as hidden
+        FROM commissions
+        WHERE id = @id
+      `,
+      )
+      .get({ id: input.id }) as NormalizedCommissionMutation | undefined
 
     if (!currentCommission) {
       throw new Error('Commission not found.')
@@ -961,6 +1002,21 @@ export const updateCommission = (input: {
 
     if (!characterRecord) {
       throw new Error('Selected character does not exist.')
+    }
+
+    normalizedInput.characterId = characterRecord.id
+
+    const isUnchanged =
+      currentCommission.characterId === normalizedInput.characterId &&
+      currentCommission.fileName === normalizedInput.fileName &&
+      currentCommission.links === normalizedInput.links &&
+      currentCommission.design === normalizedInput.design &&
+      currentCommission.description === normalizedInput.description &&
+      currentCommission.keyword === normalizedInput.keyword &&
+      currentCommission.hidden === normalizedInput.hidden
+
+    if (isUnchanged) {
+      return false
     }
 
     db.prepare(
@@ -978,14 +1034,10 @@ export const updateCommission = (input: {
     `,
     ).run({
       id: input.id,
-      characterId: characterRecord.id,
-      fileName,
-      links: JSON.stringify(input.links),
-      design: input.design ?? null,
-      description: input.description ?? null,
-      keyword: normalizeKeyword(input.keyword),
-      hidden: input.hidden ? 1 : 0,
+      ...normalizedInput,
     })
+
+    return true
   })
 }
 

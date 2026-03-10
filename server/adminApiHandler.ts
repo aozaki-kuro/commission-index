@@ -378,11 +378,13 @@ export const handleAdminApiRequest = async (request: Request) => {
       const validation = validateCommissionFields(fields)
       if (validation) return failure(validation)
 
-      updateCommission({
+      const didUpdate = updateCommission({
         id,
         ...fields,
       })
-      await regeneratePublicAssets('update-commission')
+      if (didUpdate) {
+        await regeneratePublicAssets('update-commission')
+      }
       return success(`Commission "${fields.fileName}" updated.`)
     } catch (error) {
       return handleWriteError(error, 'Failed to update commission.')

@@ -1,4 +1,6 @@
 import Database from 'better-sqlite3'
+import { createHash } from 'node:crypto'
+import fs from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import { resetModulesInTempDir, setupTempCommissionDb } from '../../../test/utils/tempCommissionDb'
 
@@ -8,6 +10,9 @@ const loadAdminDbInTempDir = async () => {
   const adminDb = await import('./db')
   return { adminDb, dbPath }
 }
+
+const hashFile = (filePath: string) =>
+  createHash('sha256').update(fs.readFileSync(filePath)).digest('hex')
 
 describe('admin db commission and character operations (sqlite integration)', () => {
   it('creates, updates, and deletes commissions with normalized stored values', async () => {
@@ -62,27 +67,48 @@ describe('admin db commission and character operations (sqlite integration)', ()
     expect(inserted?.keyword).toBe('foo, bar, baz')
     expect(inserted?.hidden).toBe(1)
 
-    adminDb.updateCommission({
-      id: inserted!.id,
-      characterId: targetCharacter!.id,
-      fileName: originalFileName,
-      links: ['https://example.com/updated'],
-      design: null,
-      description: null,
-      keyword: 'alpha; alpha；beta',
-      hidden: false,
-    })
+    const beforeNoopHash = hashFile(dbPath)
 
-    adminDb.updateCommission({
-      id: inserted!.id,
-      characterId: targetCharacter!.id,
-      fileName: renamedFileName,
-      links: ['https://example.com/updated'],
-      design: undefined,
-      description: undefined,
-      keyword: 'alpha; alpha；beta',
-      hidden: false,
-    })
+    expect(
+      adminDb.updateCommission({
+        id: inserted!.id,
+        characterId: targetCharacter!.id,
+        fileName: ` ${originalFileName} `,
+        links: ['https://example.com/a', 'https://example.com/b'],
+        design: 'design note',
+        description: 'description note',
+        keyword: 'foo, bar, foo\nbaz',
+        hidden: true,
+      }),
+    ).toBe(false)
+
+    expect(hashFile(dbPath)).toBe(beforeNoopHash)
+
+    expect(
+      adminDb.updateCommission({
+        id: inserted!.id,
+        characterId: targetCharacter!.id,
+        fileName: originalFileName,
+        links: ['https://example.com/updated'],
+        design: null,
+        description: null,
+        keyword: 'alpha; alpha；beta',
+        hidden: false,
+      }),
+    ).toBe(true)
+
+    expect(
+      adminDb.updateCommission({
+        id: inserted!.id,
+        characterId: targetCharacter!.id,
+        fileName: renamedFileName,
+        links: ['https://example.com/updated'],
+        design: undefined,
+        description: undefined,
+        keyword: 'alpha; alpha；beta',
+        hidden: false,
+      }),
+    ).toBe(true)
 
     const updated = writableDb
       .prepare(
