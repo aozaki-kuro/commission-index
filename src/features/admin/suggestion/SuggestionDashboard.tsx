@@ -15,6 +15,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { IconGripHorizontal, IconX } from '@tabler/icons-react'
 import { saveHomeFeaturedKeywordsAction } from '#admin/actions'
 import FormStatusIndicator from '#admin/FormStatusIndicator'
 import { INITIAL_FORM_STATE } from '#admin/types'
@@ -72,9 +73,7 @@ const SortableKeywordItem = ({ keyword, onRemove }: SortableKeywordItemProps) =>
         {...attributes}
         {...listeners}
       >
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 8h12M6 16h12" />
-        </svg>
+        <IconGripHorizontal className="h-4 w-4" stroke={2} aria-hidden="true" />
       </button>
 
       <span className="min-w-0 flex-1 truncate font-mono text-xs text-gray-800 dark:text-gray-200">
@@ -87,14 +86,7 @@ const SortableKeywordItem = ({ keyword, onRemove }: SortableKeywordItemProps) =>
         className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-transparent text-gray-400 transition hover:text-red-500 dark:text-gray-500 dark:hover:text-red-300"
         aria-label={`Remove ${keyword}`}
       >
-        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path
-            d="M18 6L6 18M6 6l12 12"
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <IconX className="h-4 w-4" stroke={2} aria-hidden="true" />
       </button>
     </li>
   )

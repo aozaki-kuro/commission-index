@@ -1,3 +1,4 @@
+import { IconCheck } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 
 import type { FormStatus } from './types'
@@ -56,18 +57,7 @@ const FormStatusIndicator = ({
       className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400"
       aria-live="polite"
     >
-      <svg
-        className="h-3.5 w-3.5"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M3.5 8.5 6.5 11.5 12.5 4.5" />
-      </svg>
+      <IconCheck className="h-3.5 w-3.5" stroke={1.8} aria-hidden="true" />
       {text}
     </span>
   )

@@ -1,5 +1,6 @@
 import { CommissionHiddenSwitch } from './components/CommissionFormFields'
 import CommissionSharedFields from './components/CommissionSharedFields'
+import { IconUpload } from '@tabler/icons-react'
 import { useActionState, useEffect, useRef, useState, useTransition, type ChangeEvent } from 'react'
 
 import type { CharacterRow } from '#lib/admin/db'
@@ -203,19 +204,11 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
               className="absolute right-3 bottom-3 inline-flex h-9 w-9 translate-y-1 scale-95 items-center justify-center rounded-full border border-white/20 bg-black/55 text-white opacity-0 shadow-[0_8px_18px_-8px_rgba(0,0,0,0.75)] backdrop-blur-sm transition-all duration-200 ease-out group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100 group-hover:shadow-[0_10px_24px_-8px_rgba(0,0,0,0.8)] focus-visible:translate-y-0 focus-visible:scale-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-white/90 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-black/65 dark:text-white"
               aria-label={`Reupload source image for ${commission.fileName}`}
             >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={1.8}
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              <IconUpload
                 className="h-4 w-4 transition group-hover:brightness-110"
-              >
-                <path d="M12 16V4" />
-                <path d="M8.5 7.5L12 4l3.5 3.5" />
-                <path d="M4 14.5V18a2 2 0 002 2h12a2 2 0 002-2v-3.5" />
-              </svg>
+                stroke={1.8}
+                aria-hidden="true"
+              />
             </button>
           </div>
 

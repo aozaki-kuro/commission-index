@@ -1,30 +1,13 @@
 import * as React from 'react'
 import * as SelectPrimitive from '@radix-ui/react-select'
+import { IconCheck, IconChevronDown } from '@tabler/icons-react'
 import { cn } from '#lib/utils/cn'
 
 const ChevronDown = () => (
-  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-4 w-4 text-gray-400">
-    <path
-      d="M6 8l4 4 4-4"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
+  <IconChevronDown className="h-4 w-4 text-gray-400" stroke={1.7} aria-hidden="true" />
 )
 
-const Check = () => (
-  <svg viewBox="0 0 20 20" fill="none" aria-hidden="true" className="h-4 w-4">
-    <path
-      d="M5.5 10.5l3 3 6-7"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-)
+const Check = () => <IconCheck className="h-4 w-4" stroke={1.8} aria-hidden="true" />
 
 const Select = SelectPrimitive.Root
 const SelectGroup = SelectPrimitive.Group

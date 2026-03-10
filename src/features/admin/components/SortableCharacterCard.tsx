@@ -1,5 +1,6 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { IconGripHorizontal, IconPencil, IconX } from '@tabler/icons-react'
 import { Button } from '#components/ui/button'
 import { Skeleton } from '#components/ui/skeleton'
 import { Suspense, lazy, type KeyboardEvent, type MouseEvent } from 'react'
@@ -140,14 +141,7 @@ const SortableCharacterCard = ({
             }
             disabled={isDeleting || disableDrag}
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 8h16M4 16h16"
-              />
-            </svg>
+            <IconGripHorizontal className="h-5 w-5" stroke={2} aria-hidden="true" />
           </Button>
 
           {isEditing ? (
@@ -219,14 +213,7 @@ const SortableCharacterCard = ({
                     aria-label={`Rename ${character.name}`}
                     aria-disabled={isDeleting}
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                      />
-                    </svg>
+                    <IconPencil className="h-4 w-4" stroke={2} aria-hidden="true" />
                   </span>
                 </div>
 
@@ -247,14 +234,7 @@ const SortableCharacterCard = ({
                 disabled={isDeleting}
                 aria-label={`Remove ${character.name}`}
               >
-                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                  <path
-                    d="M18 6L6 18M6 6l12 12"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+                <IconX className="h-4 w-4" stroke={2} aria-hidden="true" />
               </Button>
             </>
           )}

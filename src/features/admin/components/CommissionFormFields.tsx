@@ -1,3 +1,4 @@
+import { IconChevronDown } from '@tabler/icons-react'
 import { type ChangeEvent, type ComponentPropsWithoutRef } from 'react'
 import { formControlStyles } from '../uiStyles'
 
@@ -76,20 +77,11 @@ export const CommissionCharacterField = ({
             </option>
           ))}
         </select>
-        <svg
-          viewBox="0 0 20 20"
-          fill="none"
-          aria-hidden="true"
+        <IconChevronDown
           className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400"
-        >
-          <path
-            d="M6 8l4 4 4-4"
-            stroke="currentColor"
-            strokeWidth={1.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+          stroke={1.7}
+          aria-hidden="true"
+        />
       </div>
       <p className={fieldDescriptionStyles}>Choose the character this commission belongs to.</p>
     </div>
