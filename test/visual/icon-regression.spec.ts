@@ -116,6 +116,17 @@ test.describe('home desktop shells', () => {
 test.describe('home mobile floating menus', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
+  test('mobile home shell stays visually stable', async ({ page }) => {
+    await page.goto('/')
+    await page.locator('#commission-search-input').waitFor()
+    await prepareStablePage(page)
+
+    await expectUnionToMatchSnapshot(page, 'mobile-home-shell.png', [
+      page.locator('#commission-search'),
+      page.locator('[data-mobile-view-tabs="true"]'),
+    ])
+  })
+
   test('mobile language menu stays visually stable when open', async ({ page }) => {
     await page.goto('/')
     const trigger = page.locator('[data-mobile-language-menu="true"] > summary')
