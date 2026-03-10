@@ -175,7 +175,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       openNavigationMenu: 'Open navigation menu',
       loadingCharacters: 'Loading characters...',
       loadingYears: 'Loading years...',
-      loadStaleCharacters: 'Load stale characters',
+      loadStaleCharacters: 'Load',
       staleCharactersCollapsedTitle: 'Archived characters stay folded by default',
       staleCharactersCollapsedHint: 'Expand only when you want to browse the older entries.',
       activeCharacters: 'Active Characters',
@@ -195,7 +195,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       formatSearchClearedStatus: entriesCount =>
         `Search cleared. Showing all ${entriesCount} commissions.`,
       formatHiddenStaleResultsNotice: count =>
-        `${count} matching stale commission${count === 1 ? ' is' : 's are'} hidden.`,
+        `${count} stale match${count === 1 ? '' : 'es'} hidden.`,
       searchHelpTitle: 'Search Help',
       searchHelpIntro: 'Type one or more keywords to filter commissions.',
       searchHelpSyntaxHeader: 'Syntax',
@@ -290,7 +290,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       openNavigationMenu: '開啟導覽選單',
       loadingCharacters: '載入角色中...',
       loadingYears: '載入年份中...',
-      loadStaleCharacters: '載入停更角色',
+      loadStaleCharacters: '載入',
       staleCharactersCollapsedTitle: '停更角色預設會先收起',
       staleCharactersCollapsedHint: '想查看較舊的委託時，再展開即可。',
       activeCharacters: '活躍角色',
@@ -308,7 +308,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       formatSearchResultsStatus: (matchedCount, entriesCount) =>
         `搜尋結果：顯示 ${matchedCount} / ${entriesCount} 筆委託。`,
       formatSearchClearedStatus: entriesCount => `已清除搜尋，顯示全部 ${entriesCount} 筆委託。`,
-      formatHiddenStaleResultsNotice: count => `另有 ${count} 筆命中的停更委託尚未展開。`,
+      formatHiddenStaleResultsNotice: count => `另有 ${count} 筆停更結果未展開。`,
       searchHelpTitle: '搜尋說明',
       searchHelpIntro: '輸入一個或多個關鍵字來篩選委託。',
       searchHelpSyntaxHeader: '語法',
@@ -402,7 +402,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       openNavigationMenu: 'ナビゲーションメニューを開く',
       loadingCharacters: 'キャラクターを読み込み中...',
       loadingYears: '年別一覧を読み込み中...',
-      loadStaleCharacters: '停止中キャラクターを読み込む',
+      loadStaleCharacters: '読み込む',
       staleCharactersCollapsedTitle: '停止中キャラクターは初期表示では折りたたまれます',
       staleCharactersCollapsedHint: '過去のコミッションを見たいときだけ展開できます。',
       activeCharacters: '進行中キャラクター',
@@ -421,8 +421,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
         `検索結果：${entriesCount}件中 ${matchedCount}件を表示。`,
       formatSearchClearedStatus: entriesCount =>
         `検索をクリアしました。全 ${entriesCount}件を表示。`,
-      formatHiddenStaleResultsNotice: count =>
-        `一致した停止中コミッションが未展開のまま ${count} 件あります。`,
+      formatHiddenStaleResultsNotice: count => `停止中の一致 ${count} 件が未展開です。`,
       searchHelpTitle: '検索ヘルプ',
       searchHelpIntro: '1つ以上のキーワードでコミッションを絞り込みます。',
       searchHelpSyntaxHeader: '構文',

@@ -331,8 +331,8 @@ describe('CommissionSearch', () => {
         screen.getAllByText(/Search results: 0 of 1 commissions shown\./).length,
       ).toBeGreaterThan(0)
     })
-    expect(screen.getByText('1 matching stale commission is hidden.')).toBeInTheDocument()
-    expect(screen.getByText('Load stale characters')).toBeInTheDocument()
+    expect(screen.getByText('1 stale match hidden.')).toBeInTheDocument()
+    expect(screen.getByText('Load')).toBeInTheDocument()
 
     const panel = document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')
     panel?.setAttribute('data-stale-loaded', 'true')
@@ -348,7 +348,7 @@ describe('CommissionSearch', () => {
     await waitFor(() => {
       expect(screen.getByText('Search results: 1 of 2 commissions shown.')).toBeInTheDocument()
     })
-    expect(screen.queryByText('1 matching stale commission is hidden.')).not.toBeInTheDocument()
+    expect(screen.queryByText('1 stale match hidden.')).not.toBeInTheDocument()
   })
 
   it('keeps hidden stale notice working for non-stale-prefixed dom keys', async () => {
@@ -379,8 +379,8 @@ describe('CommissionSearch', () => {
     fireEvent.input(input, { target: { value: 'hidden' } })
 
     await waitFor(() => {
-      expect(screen.getByText('1 matching stale commission is hidden.')).toBeInTheDocument()
-      expect(screen.getByText('Load stale characters')).toBeInTheDocument()
+      expect(screen.getByText('1 stale match hidden.')).toBeInTheDocument()
+      expect(screen.getByText('Load')).toBeInTheDocument()
       expect(input).toHaveAttribute('aria-expanded', 'true')
     })
   })
@@ -414,7 +414,7 @@ describe('CommissionSearch', () => {
 
     await waitFor(() => {
       expect(document.querySelector('[cmdk-list]')).toBeInTheDocument()
-      expect(screen.getByText('1 matching stale commission is hidden.')).toBeInTheDocument()
+      expect(screen.getByText('1 stale match hidden.')).toBeInTheDocument()
     })
 
     fireEvent.pointerDown(document.body)
@@ -498,7 +498,7 @@ describe('CommissionSearch', () => {
     await waitFor(() => {
       expect(document.querySelector('[cmdk-list]')).toBeInTheDocument()
       expect(screen.getByText('Nanashi')).toBeInTheDocument()
-      expect(screen.getByText('Load stale characters')).toBeInTheDocument()
+      expect(screen.getByText('Load')).toBeInTheDocument()
     })
 
     fireEvent.blur(input)
@@ -549,7 +549,7 @@ describe('CommissionSearch', () => {
       await waitFor(() => {
         expect(document.querySelector('[cmdk-list]')).toBeInTheDocument()
         expect(screen.getByText('Nanashi')).toBeInTheDocument()
-        expect(screen.queryByText('Load stale characters')).not.toBeInTheDocument()
+        expect(screen.queryByText('Load')).not.toBeInTheDocument()
       })
 
       fireEvent.click(screen.getByText('Nanashi'))
@@ -608,7 +608,7 @@ describe('CommissionSearch', () => {
     await waitFor(() => {
       expect(document.querySelector('[cmdk-list]')).toBeInTheDocument()
       expect(screen.getByText('Nanashi')).toBeInTheDocument()
-      expect(screen.getByText('Load stale characters')).toBeInTheDocument()
+      expect(screen.getByText('Load')).toBeInTheDocument()
     })
 
     fireEvent.click(screen.getByText('Nanashi'))
@@ -649,7 +649,7 @@ describe('CommissionSearch', () => {
       const input = screen.getByLabelText('Search commissions') as HTMLInputElement
       fireEvent.input(input, { target: { value: 'staleword' } })
 
-      const itemLabel = await screen.findByText('Load stale characters')
+      const itemLabel = await screen.findByText('Load')
       fireEvent.click(itemLabel)
 
       expect(
@@ -694,7 +694,7 @@ describe('CommissionSearch', () => {
       fireEvent.focus(input)
       fireEvent.input(input, { target: { value: 'nana' } })
 
-      const staleItem = await screen.findByText('Load stale characters')
+      const staleItem = await screen.findByText('Load')
 
       fireEvent.keyDown(input, { key: 'ArrowDown' })
 

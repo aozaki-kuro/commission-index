@@ -93,10 +93,12 @@ const CommissionSearchSuggestionDropdown = ({
           <CommandItem
             value={LOAD_STALE_COMMAND_VALUE}
             onSelect={onLoadStaleCharacters}
-            className="cursor-pointer px-3 py-2 font-mono text-gray-700 data-[selected=true]:bg-gray-900/6 data-[selected=true]:text-gray-900 dark:text-gray-300 dark:data-[selected=true]:bg-white/10 dark:data-[selected=true]:text-white"
+            className="items-start gap-3 px-3 py-2 font-mono text-gray-700 data-[selected=true]:bg-gray-900/6 data-[selected=true]:text-gray-900 dark:text-gray-300 dark:data-[selected=true]:bg-white/10 dark:data-[selected=true]:text-white"
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] leading-4">{hiddenStaleNoticeMessage}</p>
+              <p className="text-[12px] leading-4 break-words whitespace-normal">
+                {hiddenStaleNoticeMessage}
+              </p>
               <p className="mt-0.5 text-[11px] leading-4 text-gray-500 dark:text-gray-400">
                 {visibleStatusMessage}
               </p>
