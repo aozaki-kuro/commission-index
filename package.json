@@ -49,7 +49,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.7",
-    "@astrojs/react": "^4.4.2",
+    "@astrojs/react": "^5.0.0",
     "@eslint/js": "^9.39.4",
     "@j178/prek": "^0.3.5",
     "@playwright/test": "^1.58.2",
@@ -61,7 +61,7 @@
     "@types/node": "^25.4.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "astro": "^5.18.0",
+    "astro": "^6.0.0",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
