@@ -3,7 +3,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { IconGripHorizontal, IconPencil, IconX } from '@tabler/icons-react'
 import { Button } from '#components/ui/button'
 import { Skeleton } from '#components/ui/skeleton'
-import { Suspense, lazy, type KeyboardEvent, type MouseEvent } from 'react'
+import { Suspense, lazy, type KeyboardEvent } from 'react'
 
 import type { CharacterRow, CommissionRow } from '#lib/admin/db'
 
@@ -37,7 +37,6 @@ interface SortableCharacterCardProps {
   onDeleteCommission: (commissionId: number) => void
   charactersForSelect: CharacterRow[]
   buttonRefFor: (id: number) => (el: HTMLButtonElement | null) => void
-  getButtonRef: (id: number) => HTMLButtonElement | null
   isEditing: boolean
   editingValue: string
   onStartEdit: () => void
@@ -62,7 +61,6 @@ const SortableCharacterCard = ({
   onDeleteCommission,
   charactersForSelect,
   buttonRefFor,
-  getButtonRef,
   isEditing,
   editingValue,
   onStartEdit,
@@ -76,6 +74,7 @@ const SortableCharacterCard = ({
 }: SortableCharacterCardProps) => {
   const character = item.data
   const sectionId = `admin-character-${character.id}`
+  const panelId = `${sectionId}-panel`
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: character.id,
     disabled: disableDrag || isDeleting,
@@ -85,24 +84,6 @@ const SortableCharacterCard = ({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.55 : 1,
-  }
-
-  const triggerDisclosureToggle = () => {
-    onToggle()
-  }
-
-  const handleHeaderClick = (event: MouseEvent<HTMLDivElement>) => {
-    const disclosureButton = getButtonRef(character.id)
-    if (!disclosureButton) return
-    if (disclosureButton.contains(event.target as Node)) return
-    triggerDisclosureToggle()
-  }
-
-  const handleHeaderKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault()
-      triggerDisclosureToggle()
-    }
   }
 
   return (
@@ -115,13 +96,7 @@ const SortableCharacterCard = ({
       data-total-commissions={totalCommissions}
     >
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white/95 shadow-sm ring-1 ring-gray-900/5 transition dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10">
-        <div
-          className="flex items-center gap-3 bg-white/90 px-5 py-3 dark:bg-gray-900/40"
-          role="button"
-          tabIndex={0}
-          onClick={handleHeaderClick}
-          onKeyDown={handleHeaderKeyDown}
-        >
+        <div className="flex items-center gap-3 bg-white/90 px-5 py-3 dark:bg-gray-900/40">
           <Button
             type="button"
             variant="ghost"
@@ -179,12 +154,13 @@ const SortableCharacterCard = ({
               <button
                 ref={buttonRefFor(character.id)}
                 type="button"
-                onClick={(event: MouseEvent) => {
+                onClick={event => {
                   event.preventDefault()
                   onToggle()
                 }}
                 className="flex flex-1 items-center justify-between gap-3 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:focus-visible:ring-offset-gray-900"
                 aria-expanded={isOpen}
+                aria-controls={panelId}
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <span
@@ -194,33 +170,27 @@ const SortableCharacterCard = ({
                   <span className="truncate text-base font-semibold text-gray-800 dark:text-gray-100">
                     {character.name}
                   </span>
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={event => {
-                      event.stopPropagation()
-                      event.preventDefault()
-                      onStartEdit()
-                    }}
-                    onKeyDown={event => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault()
-                        event.stopPropagation()
-                        onStartEdit()
-                      }
-                    }}
-                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-transparent text-gray-400 transition hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white dark:text-gray-400 dark:hover:text-gray-200 dark:focus-visible:ring-offset-gray-900"
-                    aria-label={`Rename ${character.name}`}
-                    aria-disabled={isDeleting}
-                  >
-                    <IconPencil className="h-4 w-4" stroke={2} aria-hidden="true" />
-                  </span>
                 </div>
 
-                <span className="w-24 text-right font-mono text-xs font-normal text-gray-500 dark:text-gray-300">
+                <span className="w-24 shrink-0 text-right font-mono text-xs font-normal text-gray-500 dark:text-gray-300">
                   {totalCommissions} entries
                 </span>
               </button>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-transparent text-gray-400 transition hover:text-gray-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:ring-offset-white disabled:cursor-not-allowed disabled:text-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:focus-visible:ring-offset-gray-900 dark:disabled:text-gray-600"
+                onClick={event => {
+                  event.stopPropagation()
+                  onStartEdit()
+                }}
+                disabled={isDeleting}
+                aria-label={`Rename ${character.name}`}
+              >
+                <IconPencil className="h-4 w-4" stroke={2} aria-hidden="true" />
+              </Button>
 
               <Button
                 type="button"
@@ -241,6 +211,7 @@ const SortableCharacterCard = ({
         </div>
 
         <div
+          id={panelId}
           className={`grid ${reduceMotion ? '' : 'transition-[grid-template-rows] duration-200 ease-in-out'} ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
         >
           <div className="overflow-hidden">

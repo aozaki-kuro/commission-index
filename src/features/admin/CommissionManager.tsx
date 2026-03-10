@@ -204,10 +204,6 @@ const CommissionManager = ({
     },
     [],
   )
-  const getButtonRef = useCallback(
-    (characterId: number) => buttonRefs.current[characterId] ?? null,
-    [],
-  )
 
   const handleToggle = useCallback(
     (characterId: number) => {
@@ -317,7 +313,6 @@ const CommissionManager = ({
                   }}
                   charactersForSelect={orderedCharacters}
                   buttonRefFor={buttonRefFor}
-                  getButtonRef={getButtonRef}
                   isEditing={editing?.id === character.id}
                   editingValue={editing?.id === character.id ? editing.value : character.name}
                   onStartEdit={() => startEditingName(character)}
