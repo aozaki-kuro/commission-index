@@ -6,6 +6,33 @@ import { getAdminBootstrapData } from '#lib/admin/db'
 import BaseLayout from '#layouts/BaseLayout.astro'
 
 const initialPayload = getAdminBootstrapData()
+const tabStorageKey = 'admin-dashboard-tab-index'
+const tabCount = 2
+
+const readTabIndexFromCookie = (cookieHeader: string | null): number | undefined => {
+  if (!cookieHeader) return undefined
+
+  for (const chunk of cookieHeader.split(';')) {
+    const [rawName, ...rest] = chunk.trim().split('=')
+    if (rawName !== tabStorageKey) continue
+
+    const rawValue = rest.join('=')
+    try {
+      const parsed = Number(decodeURIComponent(rawValue))
+      if (Number.isFinite(parsed) && parsed >= 0 && parsed < tabCount) {
+        return parsed
+      }
+    } catch {
+      return undefined
+    }
+
+    return undefined
+  }
+
+  return undefined
+}
+
+const initialTabIndex = readTabIndexFromCookie(Astro.request.headers.get('cookie'))
 ---
 
 <BaseLayout title="Admin" canonicalPath="/admin">
@@ -23,7 +50,11 @@ const initialPayload = getAdminBootstrapData()
 
         <AdminSectionNav current="admin" />
 
-        <AdminDashboardIsland client:load initialPayload={initialPayload} />
+        <AdminDashboardIsland
+          client:load
+          initialPayload={initialPayload}
+          initialTabIndex={initialTabIndex}
+        />
       </div>
     ) : (
       <NotFoundPage />

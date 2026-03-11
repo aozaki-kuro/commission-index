@@ -9,6 +9,7 @@ interface AdminDashboardProps {
   characters: CharacterRow[]
   creatorAliases: CreatorAliasRow[]
   commissionSearchRows: AdminCommissionSearchRow[]
+  initialTabIndex?: number
 }
 
 const tabs = ['Create', 'Existing'] as const
@@ -18,8 +19,11 @@ const AdminDashboard = ({
   characters,
   creatorAliases,
   commissionSearchRows,
+  initialTabIndex,
 }: AdminDashboardProps) => {
-  const [selectedIndex, setSelectedIndex] = useStoredTabIndex(tabStorageKey, tabs.length)
+  const [selectedIndex, setSelectedIndex] = useStoredTabIndex(tabStorageKey, tabs.length, {
+    initialIndex: initialTabIndex,
+  })
 
   const characterOptions = characters.map(c => ({
     id: c.id,

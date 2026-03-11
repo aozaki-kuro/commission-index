@@ -6,6 +6,7 @@ import type { AdminBootstrapData } from '#lib/admin/db'
 
 interface AdminDashboardIslandProps {
   initialPayload?: AdminBootstrapData | null
+  initialTabIndex?: number
 }
 
 const scrollStorageKey = 'admin-dashboard-scroll'
@@ -62,7 +63,10 @@ const writeStoredScrollTop = () => {
   window.sessionStorage.setItem(scrollStorageKey, JSON.stringify(state))
 }
 
-const AdminDashboardIsland = ({ initialPayload = null }: AdminDashboardIslandProps) => {
+const AdminDashboardIsland = ({
+  initialPayload = null,
+  initialTabIndex,
+}: AdminDashboardIslandProps) => {
   const { payload, errorMessage, isLoading, reload } = useAdminBootstrap<AdminBootstrapData>({
     initialPayload,
     errorFallback: 'Failed to load admin data.',
@@ -207,6 +211,7 @@ const AdminDashboardIsland = ({ initialPayload = null }: AdminDashboardIslandPro
         characters={payload.characters}
         creatorAliases={payload.creatorAliases}
         commissionSearchRows={payload.commissionSearchRows}
+        initialTabIndex={initialTabIndex}
       />
 
       <div className="fixed right-4 bottom-4 z-50 flex flex-col items-end gap-2">
