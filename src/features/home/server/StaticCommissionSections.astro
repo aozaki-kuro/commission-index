@@ -140,3 +140,111 @@ const staleCommissionCount = staleChars.reduce(
     </template>
   </div>
 </div>
+
+<script is:inline>
+  const initialMode =
+    new URLSearchParams(window.location.search).get('view') === 'timeline'
+      ? 'timeline'
+      : 'character'
+
+  if (initialMode === 'timeline') {
+    const setCommissionPanelState = (panelName, active) => {
+      const panel = document.querySelector(`[data-commission-view-panel="${panelName}"]`)
+      if (!(panel instanceof HTMLElement)) return
+
+      panel.dataset.commissionViewActive = active ? 'true' : 'false'
+      panel.classList.toggle('hidden', !active)
+    }
+
+    const preloadTimelineSections = () => {
+      const panel = document.querySelector('[data-commission-view-panel="timeline"]')
+      if (!(panel instanceof HTMLElement)) return
+      if (panel.dataset.timelineLoaded === 'true') return
+
+      const container = panel.querySelector('[data-timeline-sections-container="true"]')
+      const template = panel.querySelector('template[data-timeline-sections-template="true"]')
+      if (!(container instanceof HTMLElement) || !(template instanceof HTMLTemplateElement)) return
+
+      container.replaceChildren(template.content.cloneNode(true))
+      panel.dataset.timelineLoaded = 'true'
+    }
+
+    const syncPanelGroupVisibility = ({ panelSelector, dataKey }) => {
+      document.querySelectorAll(panelSelector).forEach(panel => {
+        if (!(panel instanceof HTMLElement)) return
+        panel.classList.toggle('hidden', panel.dataset[dataKey] !== initialMode)
+      })
+    }
+
+    const syncToggleGroupState = ({
+      toggleSelector,
+      indicatorSelector,
+      activeTextClasses,
+      inactiveTextClasses,
+      activeIndicatorClasses,
+      inactiveIndicatorClasses,
+    }) => {
+      document.querySelectorAll(toggleSelector).forEach(button => {
+        if (!(button instanceof HTMLButtonElement)) return
+
+        const active = button.dataset.viewMode === initialMode
+        button.setAttribute('aria-pressed', String(active))
+
+        activeTextClasses.forEach(className => {
+          button.classList.toggle(className, active)
+        })
+        inactiveTextClasses.forEach(className => {
+          button.classList.toggle(className, !active)
+        })
+
+        const indicator = button.querySelector(indicatorSelector)
+        if (!(indicator instanceof HTMLElement)) return
+
+        activeIndicatorClasses.forEach(className => {
+          indicator.classList.toggle(className, active)
+        })
+        inactiveIndicatorClasses.forEach(className => {
+          indicator.classList.toggle(className, !active)
+        })
+      })
+    }
+
+    setCommissionPanelState('character', false)
+    preloadTimelineSections()
+    setCommissionPanelState('timeline', true)
+
+    syncPanelGroupVisibility({
+      panelSelector: '[data-sidebar-nav-panel]',
+      dataKey: 'sidebarNavPanel',
+    })
+    syncPanelGroupVisibility({
+      panelSelector: '[data-mobile-hamburger-nav-panel]',
+      dataKey: 'mobileHamburgerNavPanel',
+    })
+
+    syncToggleGroupState({
+      toggleSelector: '[data-sidebar-view-mode-toggle="true"]',
+      indicatorSelector: '[data-sidebar-view-mode-indicator]',
+      activeTextClasses: ['text-gray-900', 'dark:text-white'],
+      inactiveTextClasses: ['text-gray-700', 'dark:text-gray-200'],
+      activeIndicatorClasses: ['scale-100', 'opacity-100'],
+      inactiveIndicatorClasses: ['scale-0', 'opacity-0'],
+    })
+    syncToggleGroupState({
+      toggleSelector: '[data-mobile-view-mode-toggle="true"]',
+      indicatorSelector: '[data-mobile-view-mode-indicator]',
+      activeTextClasses: ['text-gray-700', 'dark:text-gray-300'],
+      inactiveTextClasses: ['text-gray-500', 'dark:text-gray-500'],
+      activeIndicatorClasses: ['w-full', 'opacity-100'],
+      inactiveIndicatorClasses: ['w-0', 'opacity-0'],
+    })
+    syncToggleGroupState({
+      toggleSelector: '[data-mobile-hamburger-view-mode-toggle="true"]',
+      indicatorSelector: '[data-mobile-hamburger-view-mode-indicator="true"]',
+      activeTextClasses: ['text-gray-900', 'dark:text-white'],
+      inactiveTextClasses: ['text-gray-700', 'dark:text-gray-200'],
+      activeIndicatorClasses: ['scale-100', 'opacity-100'],
+      inactiveIndicatorClasses: ['scale-0', 'opacity-0'],
+    })
+  }
+</script>

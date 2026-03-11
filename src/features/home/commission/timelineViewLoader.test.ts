@@ -70,4 +70,38 @@ describe('mountTimelineViewLoader', () => {
 
     cleanup()
   })
+
+  it('does not remount or re-scroll when timeline sections were already preloaded', () => {
+    renderFixture()
+    window.history.replaceState(null, '', '/?view=timeline#timeline-year-2025')
+
+    const panel = document.querySelector<HTMLElement>('[data-commission-view-panel="timeline"]')
+    const container = document.querySelector<HTMLElement>(
+      '[data-timeline-sections-container="true"]',
+    )
+    panel?.setAttribute('data-timeline-loaded', 'true')
+    container?.insertAdjacentHTML('beforeend', '<section id="timeline-year-2025"></section>')
+
+    const onLoaded = vi.fn()
+    const onSidebarSync = vi.fn()
+    const scrollToHashWithoutWrite = vi.fn()
+
+    window.addEventListener(TIMELINE_VIEW_LOADED_EVENT, onLoaded)
+    window.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSidebarSync)
+
+    const cleanup = mountTimelineViewLoader({
+      deps: {
+        scrollToHashWithoutWrite,
+      },
+    })
+
+    expect(document.querySelectorAll('#timeline-year-2025')).toHaveLength(1)
+    expect(onLoaded).not.toHaveBeenCalled()
+    expect(onSidebarSync).not.toHaveBeenCalled()
+    expect(scrollToHashWithoutWrite).not.toHaveBeenCalled()
+
+    cleanup()
+    window.removeEventListener(TIMELINE_VIEW_LOADED_EVENT, onLoaded)
+    window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSidebarSync)
+  })
 })
