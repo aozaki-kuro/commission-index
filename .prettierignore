@@ -1,2 +1,5 @@
 .next
-pnpm-lock.yaml
+.astro
+node_modules
+dist
+bun.lock
