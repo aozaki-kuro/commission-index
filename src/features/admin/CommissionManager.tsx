@@ -19,7 +19,7 @@ import { fetchCharacterCommissionsAction } from '#admin/actions'
 import CharacterDeleteDialog from './components/CharacterDeleteDialog'
 import SortableCharacterCard from './components/SortableCharacterCard'
 import SortableDivider from './components/SortableDivider'
-import useCommissionManager, { DIVIDER_ID } from './hooks/useCommissionManager'
+import useCommissionManager, { DIVIDER_ID, type ListItem } from './hooks/useCommissionManager'
 import { buildAdminCommissionSearchMetadata } from './search/commissionSearchMetadata'
 
 interface CommissionManagerProps {
@@ -27,6 +27,8 @@ interface CommissionManagerProps {
   creatorAliases: CreatorAliasRow[]
   commissionSearchRows: AdminCommissionSearchRow[]
 }
+
+const MAX_AUTO_LOAD_SEARCH_CHARACTERS = 8
 
 const CommissionManager = ({
   characters,
@@ -37,8 +39,8 @@ const CommissionManager = ({
   const [loadingCharacterIds, setLoadingCharacterIds] = useState<Set<number>>(new Set())
   const [loadedCharacterIds, setLoadedCharacterIds] = useState<Set<number>>(new Set())
   const [loadError, setLoadError] = useState<string | null>(null)
-  const loadingCharacterIdsRef = useRef<Set<number>>(new Set())
   const loadedCharacterIdsRef = useRef<Set<number>>(new Set())
+  const inFlightLoadPromisesRef = useRef<Map<number, Promise<void>>>(new Map())
   const {
     list,
     commissionMap,
@@ -71,6 +73,18 @@ const CommissionManager = ({
   const [hasAppliedSearchQuery, setHasAppliedSearchQuery] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const dividerIndex = list.findIndex(i => i.type === 'divider')
+  const characterNameSnapshot = useMemo(
+    () =>
+      JSON.stringify(
+        list
+          .filter(
+            (item): item is Extract<ListItem, { type: 'character' }> => item.type === 'character',
+          )
+          .map(item => [item.data.id, item.data.name] as const)
+          .sort(([leftId], [rightId]) => leftId - rightId),
+      ),
+    [list],
+  )
   const creatorAliasesMap = useMemo(
     () => new Map(creatorAliases.map(row => [row.creatorName, row.aliases] as const)),
     [creatorAliases],
@@ -86,16 +100,8 @@ const CommissionManager = ({
     return next
   }, [commissionMap])
   const characterNameById = useMemo(
-    () =>
-      new Map(
-        list
-          .filter(
-            (item): item is Extract<(typeof list)[number], { type: 'character' }> =>
-              item.type === 'character',
-          )
-          .map(item => [item.data.id, item.data.name] as const),
-      ),
-    [list],
+    () => new Map<number, string>(JSON.parse(characterNameSnapshot) as Array<[number, string]>),
+    [characterNameSnapshot],
   )
 
   const commissionSearchEntries = useMemo<CommissionSearchEntrySource[]>(
@@ -141,6 +147,19 @@ const CommissionManager = ({
     }
     return next
   }, [commissionSearchRows, effectiveMatchedCommissionIds, hasAppliedSearchQuery])
+  const autoLoadSearchCharacterIds = useMemo(() => {
+    if (!hasAppliedSearchQuery) return new Set<number>()
+
+    const next = new Set<number>()
+    for (const item of list) {
+      if (item.type !== 'character') continue
+      if (!matchedCharacterIds.has(item.data.id)) continue
+      next.add(item.data.id)
+      if (next.size >= MAX_AUTO_LOAD_SEARCH_CHARACTERS) break
+    }
+
+    return next
+  }, [hasAppliedSearchQuery, list, matchedCharacterIds])
 
   const visibleCommissionsByCharacter = useMemo(() => {
     if (!hasAppliedSearchQuery) return sortedLoadedCommissionsByCharacter
@@ -155,15 +174,19 @@ const CommissionManager = ({
     return next
   }, [effectiveMatchedCommissionIds, hasAppliedSearchQuery, sortedLoadedCommissionsByCharacter])
 
-  const loadCharacterCommissions = useCallback((characterId: number) => {
-    if (loadedCharacterIdsRef.current.has(characterId)) return
-    if (loadingCharacterIdsRef.current.has(characterId)) return
+  const loadCharacterCommissions = useCallback((characterId: number): Promise<void> => {
+    if (loadedCharacterIdsRef.current.has(characterId)) {
+      return Promise.resolve()
+    }
+    const inFlight = inFlightLoadPromisesRef.current.get(characterId)
+    if (inFlight) {
+      return inFlight
+    }
 
-    loadingCharacterIdsRef.current.add(characterId)
     setLoadingCharacterIds(prev => new Set(prev).add(characterId))
     setLoadError(null)
 
-    fetchCharacterCommissionsAction(characterId)
+    const request = fetchCharacterCommissionsAction(characterId)
       .then(commissions => {
         setLoadedCommissions(prev => [
           ...prev.filter(commission => commission.characterId !== characterId),
@@ -177,13 +200,16 @@ const CommissionManager = ({
         setLoadError(message)
       })
       .finally(() => {
-        loadingCharacterIdsRef.current.delete(characterId)
         setLoadingCharacterIds(prev => {
           const next = new Set(prev)
           next.delete(characterId)
           return next
         })
+        inFlightLoadPromisesRef.current.delete(characterId)
       })
+    inFlightLoadPromisesRef.current.set(characterId, request)
+
+    return request
   }, [])
 
   const handleSearchQueryChange = useCallback(
@@ -209,7 +235,7 @@ const CommissionManager = ({
     (characterId: number) => {
       const isOpening = !openIds.has(characterId)
       if (isOpening) {
-        loadCharacterCommissions(characterId)
+        void loadCharacterCommissions(characterId)
       }
 
       toggleCharacterOpen(characterId)
@@ -228,15 +254,25 @@ const CommissionManager = ({
   )
 
   useEffect(() => {
-    if (!hasAppliedSearchQuery) return
-    matchedCharacterIds.forEach(characterId => {
-      loadCharacterCommissions(characterId)
-    })
-  }, [hasAppliedSearchQuery, loadCharacterCommissions, matchedCharacterIds])
+    if (!hasAppliedSearchQuery || autoLoadSearchCharacterIds.size === 0) return
+
+    let active = true
+    const loadInSequence = async () => {
+      for (const characterId of autoLoadSearchCharacterIds) {
+        if (!active) return
+        await loadCharacterCommissions(characterId)
+      }
+    }
+    void loadInSequence()
+
+    return () => {
+      active = false
+    }
+  }, [autoLoadSearchCharacterIds, hasAppliedSearchQuery, loadCharacterCommissions])
 
   useEffect(() => {
     openIds.forEach(characterId => {
-      loadCharacterCommissions(characterId)
+      void loadCharacterCommissions(characterId)
     })
   }, [loadCharacterCommissions, openIds])
 
@@ -292,7 +328,8 @@ const CommissionManager = ({
                 visibleCommissionsByCharacter.get(character.id) ?? []
 
               const isActive = dividerIndex === -1 ? true : index < dividerIndex
-              const shouldAutoOpen = hasAppliedSearchQuery && matchedCharacterIds.has(character.id)
+              const shouldAutoOpen =
+                hasAppliedSearchQuery && autoLoadSearchCharacterIds.has(character.id)
 
               return (
                 <SortableCharacterCard

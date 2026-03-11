@@ -40,6 +40,9 @@ const shouldUseTapLikeFocus = () => {
   const hasCoarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false
   return hasTouchPoints || hasCoarsePointer
 }
+const EMPTY_POPULAR_KEYWORDS: string[] = []
+const EMPTY_SUGGESTION_ALIAS_GROUPS: SearchSuggestionAliasGroup[] = []
+
 const buildSearchUrl = (rawQuery: string) => {
   const url = new URL(window.location.href)
   if (normalizeQuery(rawQuery)) url.searchParams.set('q', rawQuery)
@@ -80,11 +83,11 @@ const CommissionSearch = ({
   autoFocusOnMount = false,
   deferIndexInit = false,
   openHelpOnMount = false,
-  popularKeywords = [],
+  popularKeywords = EMPTY_POPULAR_KEYWORDS,
   refreshPopularSearchLabel = '',
   onRotatePopularKeywords,
   suppressInitialSuggestionPanelAnimation = false,
-  suggestionAliasGroups = [],
+  suggestionAliasGroups = EMPTY_SUGGESTION_ALIAS_GROUPS,
 }: CommissionSearchProps = {}) => {
   const mode = useCommissionViewMode()
   const controls = resolveHomeControls(locale)

@@ -101,6 +101,7 @@ type BetterSqlite3Database = Database.Database
 
 const isDevelopment = process.env.NODE_ENV !== 'production'
 const databasePath = path.join(process.cwd(), 'data', 'commissions.db')
+let hasCommissionKeywordColumnCache: boolean | null = null
 
 const ensureDatabaseExists = () => {
   if (!fs.existsSync(databasePath)) {
@@ -108,16 +109,34 @@ const ensureDatabaseExists = () => {
   }
 }
 
-const hasCommissionKeywordColumn = (db: BetterSqlite3Database): boolean => {
+const hasCommissionKeywordColumn = (
+  db: BetterSqlite3Database,
+  options?: { useCache?: boolean },
+): boolean => {
+  const useCache = options?.useCache !== false
+  if (useCache && hasCommissionKeywordColumnCache !== null) {
+    return hasCommissionKeywordColumnCache
+  }
+
   const columns = db.prepare('PRAGMA table_info(commissions)').all() as Array<{
     name?: string | null
   }>
-  return columns.some(column => column.name === 'keyword')
+  const hasColumn = columns.some(column => column.name === 'keyword')
+  if (useCache) {
+    hasCommissionKeywordColumnCache = hasColumn
+  }
+  return hasColumn
 }
 
 const ensureCommissionKeywordColumn = (db: BetterSqlite3Database) => {
-  if (hasCommissionKeywordColumn(db)) return
+  const hasColumn = hasCommissionKeywordColumn(db, { useCache: false })
+  if (hasColumn) {
+    hasCommissionKeywordColumnCache = true
+    return
+  }
+
   db.prepare('ALTER TABLE commissions ADD COLUMN keyword TEXT').run()
+  hasCommissionKeywordColumnCache = true
 }
 
 const hasCreatorAliasesTable = (db: BetterSqlite3Database): boolean => {
