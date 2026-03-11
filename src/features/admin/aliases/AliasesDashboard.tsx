@@ -48,6 +48,22 @@ const SaveButton = ({ label }: { label: string }) => {
   )
 }
 
+const tabListStyles =
+  'grid w-full gap-2 rounded-2xl border border-gray-200 bg-white/90 p-1.5 shadow-sm ring-1 ring-gray-900/5 backdrop-blur-sm sm:grid-cols-3 dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10'
+const tabTriggerStyles =
+  'inline-flex items-center justify-between gap-2 rounded-xl border border-transparent px-3 py-2.5 text-sm text-gray-700 transition focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:outline-none hover:border-gray-300/80 hover:bg-white dark:text-gray-300 dark:hover:border-gray-600 dark:hover:bg-gray-800/70 dark:focus-visible:ring-offset-gray-900 data-[state=active]:border-gray-900/15 data-[state=active]:bg-white data-[state=active]:text-gray-900 data-[state=active]:shadow-sm dark:data-[state=active]:border-gray-100/20 dark:data-[state=active]:bg-gray-100 dark:data-[state=active]:text-gray-900'
+const tabCountStyles =
+  'inline-flex min-w-7 items-center justify-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200'
+const panelHeaderTitleStyles = 'text-base font-semibold text-gray-900 dark:text-gray-100'
+const panelHeaderDescriptionStyles = 'text-sm text-gray-600 dark:text-gray-300'
+const tableShellStyles = 'space-y-0'
+const tableHeaderStyles =
+  'hidden gap-4 border-b border-gray-200/80 px-4 py-2 text-xs font-semibold tracking-wide text-gray-500 uppercase md:grid dark:border-gray-700/80 dark:text-gray-300'
+const tableRowStyles = 'grid gap-4 px-4 py-3 md:items-center'
+const tableDividerStyles = 'border-t border-gray-200/80 dark:border-gray-700/80'
+const characterGridTemplate = 'md:grid-cols-[minmax(10rem,16rem)_minmax(0,1fr)]'
+const creatorGridTemplate = characterGridTemplate
+
 const CharacterAliasesPanel = ({ characters }: { characters: CharacterAliasRow[] }) => {
   const [state, formAction] = useActionState(saveCharacterAliasesBatchAction, INITIAL_FORM_STATE)
   const [drafts, setDrafts] = useState<Record<string, string>>(() =>
@@ -69,7 +85,15 @@ const CharacterAliasesPanel = ({ characters }: { characters: CharacterAliasRow[]
     <form action={formAction} className={adminSurfaceStyles}>
       <input type="hidden" name="rowsJson" value={rowsPayload} />
 
-      <div className="mb-4 flex justify-end">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h3 className={panelHeaderTitleStyles}>Character aliases</h3>
+          <p className={panelHeaderDescriptionStyles}>
+            Character aliases have top priority over creator and keyword aliases for duplicate
+            terms.
+          </p>
+        </div>
+
         <div className="flex flex-wrap items-center justify-end gap-3">
           <FormStatusIndicator
             status={state.status}
@@ -81,23 +105,19 @@ const CharacterAliasesPanel = ({ characters }: { characters: CharacterAliasRow[]
         </div>
       </div>
 
-      <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
-        Character aliases have top priority over creator and keyword aliases for duplicate terms.
-      </p>
-
-      <div className="mb-4 hidden grid-cols-[minmax(10rem,16rem)_minmax(0,1fr)] gap-4 text-xs font-semibold tracking-wide text-gray-500 uppercase md:grid dark:text-gray-300">
-        <div>Character</div>
-        <div>Aliases</div>
-      </div>
-
       {characters.length === 0 ? (
         <p className="text-sm text-gray-600 dark:text-gray-300">No characters available.</p>
       ) : (
-        <div className="space-y-0">
+        <div className={tableShellStyles}>
+          <div className={`${tableHeaderStyles} ${characterGridTemplate}`}>
+            <div>Character</div>
+            <div>Aliases</div>
+          </div>
+
           {characters.map(row => (
             <div
               key={row.characterName}
-              className="grid gap-4 border-t border-gray-200/80 py-4 first:border-t-0 first:pt-0 md:grid-cols-[minmax(10rem,16rem)_minmax(0,1fr)] md:items-center dark:border-gray-700/80"
+              className={`${tableRowStyles} ${characterGridTemplate} ${tableDividerStyles} first:border-t-0`}
             >
               <div className="space-y-1">
                 <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -153,7 +173,14 @@ const CreatorAliasesPanel = ({ creators }: { creators: CreatorAliasRow[] }) => {
     <form action={formAction} className={adminSurfaceStyles}>
       <input type="hidden" name="rowsJson" value={rowsPayload} />
 
-      <div className="mb-4 flex justify-end">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h3 className={panelHeaderTitleStyles}>Creator aliases</h3>
+          <p className={panelHeaderDescriptionStyles}>
+            Edit romanized aliases for creators with CJK names to stabilize search matching.
+          </p>
+        </div>
+
         <div className="flex flex-wrap items-center justify-end gap-3">
           <FormStatusIndicator
             status={state.status}
@@ -165,21 +192,21 @@ const CreatorAliasesPanel = ({ creators }: { creators: CreatorAliasRow[] }) => {
         </div>
       </div>
 
-      <div className="mb-4 hidden grid-cols-[minmax(12rem,18rem)_minmax(0,1fr)] gap-4 text-xs font-semibold tracking-wide text-gray-500 uppercase md:grid dark:text-gray-300">
-        <div>Creator</div>
-        <div>Alias</div>
-      </div>
-
       {visibleCreators.length === 0 ? (
         <p className="text-sm text-gray-600 dark:text-gray-300">
           No creators available for alias editing.
         </p>
       ) : (
-        <div className="space-y-0">
+        <div className={tableShellStyles}>
+          <div className={`${tableHeaderStyles} ${creatorGridTemplate}`}>
+            <div>Creator</div>
+            <div>Aliases</div>
+          </div>
+
           {visibleCreators.map(row => (
             <div
               key={row.creatorName}
-              className="grid gap-4 border-t border-gray-200/80 py-4 first:border-t-0 first:pt-0 md:grid-cols-[minmax(12rem,18rem)_minmax(0,1fr)] md:items-center dark:border-gray-700/80"
+              className={`${tableRowStyles} ${creatorGridTemplate} ${tableDividerStyles} first:border-t-0`}
             >
               <div className="space-y-1">
                 <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -230,7 +257,15 @@ const KeywordAliasesPanel = ({ keywords }: { keywords: KeywordAliasRow[] }) => {
     <form action={formAction} className={adminSurfaceStyles}>
       <input type="hidden" name="rowsJson" value={rowsPayload} />
 
-      <div className="mb-4 flex justify-end">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h3 className={panelHeaderTitleStyles}>Keyword aliases</h3>
+          <p className={panelHeaderDescriptionStyles}>
+            Keywords duplicated in character or creator aliases are hidden here to avoid mapping
+            conflicts.
+          </p>
+        </div>
+
         <div className="flex flex-wrap items-center justify-end gap-3">
           <FormStatusIndicator
             status={state.status}
@@ -242,25 +277,21 @@ const KeywordAliasesPanel = ({ keywords }: { keywords: KeywordAliasRow[] }) => {
         </div>
       </div>
 
-      <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
-        Keywords duplicated in Characters/Creator are hidden here to avoid mapping conflicts.
-      </p>
-
-      <div className="mb-4 hidden grid-cols-[minmax(10rem,16rem)_minmax(0,1fr)] gap-4 text-xs font-semibold tracking-wide text-gray-500 uppercase md:grid dark:text-gray-300">
-        <div>Base keyword</div>
-        <div>Aliases</div>
-      </div>
-
       {keywords.length === 0 ? (
         <p className="text-sm text-gray-600 dark:text-gray-300">
           No keywords available yet. Add keywords to commissions first.
         </p>
       ) : (
-        <div className="space-y-0">
+        <div className={tableShellStyles}>
+          <div className={`${tableHeaderStyles} ${characterGridTemplate}`}>
+            <div>Base keyword</div>
+            <div>Aliases</div>
+          </div>
+
           {keywords.map(row => (
             <div
               key={row.baseKeyword}
-              className="grid gap-4 border-t border-gray-200/80 py-4 first:border-t-0 first:pt-0 md:grid-cols-[minmax(10rem,16rem)_minmax(0,1fr)] md:items-center dark:border-gray-700/80"
+              className={`${tableRowStyles} ${characterGridTemplate} ${tableDividerStyles} first:border-t-0`}
             >
               <div className="space-y-1">
                 <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -293,42 +324,47 @@ const KeywordAliasesPanel = ({ keywords }: { keywords: KeywordAliasRow[] }) => {
 
 const AliasesDashboard = ({ characters, creators, keywords }: AliasesDashboardProps) => {
   return (
-    <Tabs defaultValue="character">
-      <TabsList className="flex w-full gap-2 rounded-xl border border-gray-200 bg-white/80 p-1 text-sm font-medium shadow-sm backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/60">
-        <TabsTrigger
-          value="character"
-          className="flex-1 rounded-lg px-4 py-2.5 text-center transition-colors duration-200 ease-out focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:outline-none data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-sm dark:text-gray-300 dark:hover:bg-gray-800/60 dark:focus-visible:ring-offset-gray-900 dark:data-[state=active]:bg-gray-100 dark:data-[state=active]:text-gray-900"
-        >
-          Character Aliases
-        </TabsTrigger>
-        <TabsTrigger
-          value="creator"
-          className="flex-1 rounded-lg px-4 py-2.5 text-center transition-colors duration-200 ease-out focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:outline-none data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-sm dark:text-gray-300 dark:hover:bg-gray-800/60 dark:focus-visible:ring-offset-gray-900 dark:data-[state=active]:bg-gray-100 dark:data-[state=active]:text-gray-900"
-        >
-          Creator Aliases
-        </TabsTrigger>
-        <TabsTrigger
-          value="keyword"
-          className="flex-1 rounded-lg px-4 py-2.5 text-center transition-colors duration-200 ease-out focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white focus-visible:outline-none data-[state=active]:bg-gray-900 data-[state=active]:text-white data-[state=active]:shadow-sm dark:text-gray-300 dark:hover:bg-gray-800/60 dark:focus-visible:ring-offset-gray-900 dark:data-[state=active]:bg-gray-100 dark:data-[state=active]:text-gray-900"
-        >
-          Keyword Aliases
-        </TabsTrigger>
-      </TabsList>
+    <section className="space-y-5">
+      <header className="space-y-1">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Alias mapping</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          Keep search synonyms consistent across character, creator, and keyword dimensions.
+        </p>
+      </header>
 
-      <div className="mt-6 space-y-8">
-        <TabsContent value="character" className="focus:outline-none">
-          <CharacterAliasesPanel characters={characters} />
-        </TabsContent>
+      <Tabs defaultValue="character">
+        <TabsList className={tabListStyles}>
+          <TabsTrigger value="character" className={tabTriggerStyles}>
+            <span>Character</span>
+            <span className={tabCountStyles}>{characters.length}</span>
+          </TabsTrigger>
+          <TabsTrigger value="creator" className={tabTriggerStyles}>
+            <span>Creator</span>
+            <span className={tabCountStyles}>
+              {creators.filter(row => hasCjkCharacter(row.creatorName)).length}
+            </span>
+          </TabsTrigger>
+          <TabsTrigger value="keyword" className={tabTriggerStyles}>
+            <span>Keyword</span>
+            <span className={tabCountStyles}>{keywords.length}</span>
+          </TabsTrigger>
+        </TabsList>
 
-        <TabsContent value="creator" className="focus:outline-none">
-          <CreatorAliasesPanel creators={creators} />
-        </TabsContent>
+        <div className="mt-5 space-y-6">
+          <TabsContent value="character">
+            <CharacterAliasesPanel characters={characters} />
+          </TabsContent>
 
-        <TabsContent value="keyword" className="focus:outline-none">
-          <KeywordAliasesPanel keywords={keywords} />
-        </TabsContent>
-      </div>
-    </Tabs>
+          <TabsContent value="creator">
+            <CreatorAliasesPanel creators={creators} />
+          </TabsContent>
+
+          <TabsContent value="keyword">
+            <KeywordAliasesPanel keywords={keywords} />
+          </TabsContent>
+        </div>
+      </Tabs>
+    </section>
   )
 }
 

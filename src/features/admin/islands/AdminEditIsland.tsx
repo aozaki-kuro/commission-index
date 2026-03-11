@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { refreshAssetsAction } from '#admin/actions'
-import AdminDashboard from '#admin/AdminDashboard'
+import CommissionManager from '#admin/CommissionManager'
 import { useAdminBootstrap } from '#admin/hooks/useAdminBootstrap'
 import type { AdminBootstrapData } from '#lib/admin/db'
 
-interface AdminDashboardIslandProps {
+interface AdminEditIslandProps {
   initialPayload?: AdminBootstrapData | null
-  initialTabIndex?: number
 }
 
 const scrollStorageKey = 'admin-dashboard-scroll'
@@ -63,10 +62,7 @@ const writeStoredScrollTop = () => {
   window.sessionStorage.setItem(scrollStorageKey, JSON.stringify(state))
 }
 
-const AdminDashboardIsland = ({
-  initialPayload = null,
-  initialTabIndex,
-}: AdminDashboardIslandProps) => {
+const AdminEditIsland = ({ initialPayload = null }: AdminEditIslandProps) => {
   const { payload, errorMessage, isLoading, reload } = useAdminBootstrap<AdminBootstrapData>({
     initialPayload,
     errorFallback: 'Failed to load admin data.',
@@ -207,12 +203,13 @@ const AdminDashboardIsland = ({
 
   return (
     <>
-      <AdminDashboard
-        characters={payload.characters}
-        creatorAliases={payload.creatorAliases}
-        commissionSearchRows={payload.commissionSearchRows}
-        initialTabIndex={initialTabIndex}
-      />
+      <section className="space-y-6">
+        <CommissionManager
+          characters={payload.characters}
+          creatorAliases={payload.creatorAliases}
+          commissionSearchRows={payload.commissionSearchRows}
+        />
+      </section>
 
       <div className="fixed right-4 bottom-4 z-50 flex flex-col items-end gap-2">
         {refreshMessage ? (
@@ -233,4 +230,4 @@ const AdminDashboardIsland = ({
   )
 }
 
-export default AdminDashboardIsland
+export default AdminEditIsland

@@ -3,6 +3,75 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { CommissionCharacterField } from './CommissionFormFields'
 
+vi.mock('#components/ui/select', async () => {
+  const React = await import('react')
+
+  type SelectContextValue = {
+    value?: string
+    disabled?: boolean
+    onValueChange?: (value: string) => void
+  }
+
+  const SelectContext = React.createContext<SelectContextValue | null>(null)
+
+  const Select = ({
+    value,
+    disabled,
+    onValueChange,
+    children,
+  }: {
+    value?: string
+    disabled?: boolean
+    onValueChange?: (value: string) => void
+    children: React.ReactNode
+  }) => (
+    <SelectContext.Provider value={{ value, disabled, onValueChange }}>
+      {children}
+    </SelectContext.Provider>
+  )
+
+  const SelectTrigger = ({
+    children,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    children: React.ReactNode
+  }) => {
+    const context = React.useContext(SelectContext)
+
+    return (
+      <button {...props} type="button" disabled={context?.disabled}>
+        {children}
+      </button>
+    )
+  }
+
+  const SelectValue = ({ placeholder }: { placeholder?: string }) => <span>{placeholder}</span>
+
+  const SelectContent = ({ children }: { children: React.ReactNode }) => <div>{children}</div>
+
+  const SelectItem = ({ value, children }: { value: string; children: React.ReactNode }) => {
+    const context = React.useContext(SelectContext)
+    return (
+      <button
+        type="button"
+        role="option"
+        aria-selected={context?.value === value}
+        onClick={() => context?.onValueChange?.(value)}
+      >
+        {children}
+      </button>
+    )
+  }
+
+  return {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+  }
+})
+
 describe('CommissionCharacterField', () => {
   it('updates the selected character when choosing an option', () => {
     const handleChange = vi.fn()
@@ -18,9 +87,7 @@ describe('CommissionCharacterField', () => {
       />,
     )
 
-    fireEvent.change(screen.getByLabelText('Character'), {
-      target: { value: '1' },
-    })
+    fireEvent.click(screen.getByRole('option', { name: 'Alice' }))
 
     expect(handleChange).toHaveBeenCalledWith(1)
   })

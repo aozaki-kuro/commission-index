@@ -1,60 +1,160 @@
 ---
 import NotFoundPage from '#components/shared/NotFoundPage.astro'
 import AdminSectionNav from '#admin/AdminSectionNav.astro'
-import AdminDashboardIsland from '#admin/islands/AdminDashboardIsland'
-import { getAdminBootstrapData } from '#lib/admin/db'
+import {
+  getAdminAliasesData,
+  getAdminBootstrapData,
+  getHomeFeaturedSearchKeywords,
+} from '#lib/admin/db'
 import BaseLayout from '#layouts/BaseLayout.astro'
 
-const initialPayload = getAdminBootstrapData()
-const tabStorageKey = 'admin-dashboard-tab-index'
-const tabCount = 2
+const adminBootstrap = getAdminBootstrapData()
+const aliasesData = getAdminAliasesData()
+const featuredKeywords = getHomeFeaturedSearchKeywords()
 
-const readTabIndexFromCookie = (cookieHeader: string | null): number | undefined => {
-  if (!cookieHeader) return undefined
-
-  for (const chunk of cookieHeader.split(';')) {
-    const [rawName, ...rest] = chunk.trim().split('=')
-    if (rawName !== tabStorageKey) continue
-
-    const rawValue = rest.join('=')
-    try {
-      const parsed = Number(decodeURIComponent(rawValue))
-      if (Number.isFinite(parsed) && parsed >= 0 && parsed < tabCount) {
-        return parsed
-      }
-    } catch {
-      return undefined
-    }
-
-    return undefined
-  }
-
-  return undefined
-}
-
-const initialTabIndex = readTabIndexFromCookie(Astro.request.headers.get('cookie'))
+const totalCharacters = adminBootstrap.characters.length
+const activeCharacters = adminBootstrap.characters.filter(row => row.status === 'active').length
+const staleCharacters = totalCharacters - activeCharacters
+const totalCommissions = adminBootstrap.characters.reduce(
+  (count, row) => count + row.commissionCount,
+  0,
+)
+const creatorAliasCount = aliasesData.creatorAliases.length
+const characterAliasCount = aliasesData.characterAliases.length
+const keywordAliasCount = aliasesData.keywordAliases.length
+const latestCommissions = [...adminBootstrap.commissionSearchRows]
+  .sort((left, right) => right.fileName.localeCompare(left.fileName))
+  .slice(0, 10)
 ---
 
-<BaseLayout title="Admin" canonicalPath="/admin">
+<BaseLayout title="Admin Overview" canonicalPath="/admin">
   {
     import.meta.env.DEV ? (
       <div class="mx-auto max-w-5xl space-y-6 px-4 pt-6 pb-10 lg:px-0">
         <header class="space-y-2">
           <h1 class="text-2xl leading-tight font-semibold text-gray-900 dark:text-gray-100">
-            Commission Index Admin
+            Admin Overview
           </h1>
           <p class="text-sm text-gray-600 dark:text-gray-300">
-            Create new entries, reprioritize characters, and curate the commission archive.
+            Snapshot of content volume and maintenance workstreams.
           </p>
         </header>
 
-        <AdminSectionNav current="admin" />
+        <AdminSectionNav current="overview" />
 
-        <AdminDashboardIsland
-          client:load
-          initialPayload={initialPayload}
-          initialTabIndex={initialTabIndex}
-        />
+        <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <article class="rounded-2xl border border-gray-200 bg-white/90 p-5 shadow-sm ring-1 ring-gray-900/5 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10">
+            <p class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
+              Characters
+            </p>
+            <p class="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+              {totalCharacters}
+            </p>
+            <p class="mt-2 text-xs text-gray-600 dark:text-gray-300">
+              Active {activeCharacters} / Stale {staleCharacters}
+            </p>
+          </article>
+
+          <article class="rounded-2xl border border-gray-200 bg-white/90 p-5 shadow-sm ring-1 ring-gray-900/5 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10">
+            <p class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
+              Commissions
+            </p>
+            <p class="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+              {totalCommissions}
+            </p>
+            <p class="mt-2 text-xs text-gray-600 dark:text-gray-300">
+              Indexed entries available for admin search.
+            </p>
+          </article>
+
+          <article class="rounded-2xl border border-gray-200 bg-white/90 p-5 shadow-sm ring-1 ring-gray-900/5 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10">
+            <p class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
+              Alias Rows
+            </p>
+            <p class="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+              {characterAliasCount + creatorAliasCount + keywordAliasCount}
+            </p>
+            <p class="mt-2 text-xs text-gray-600 dark:text-gray-300">
+              Character {characterAliasCount} / Creator {creatorAliasCount} / Keyword{' '}
+              {keywordAliasCount}
+            </p>
+          </article>
+
+          <article class="rounded-2xl border border-gray-200 bg-white/90 p-5 shadow-sm ring-1 ring-gray-900/5 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10">
+            <p class="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
+              Featured Keywords
+            </p>
+            <p class="mt-2 text-3xl font-semibold text-gray-900 dark:text-gray-100">
+              {featuredKeywords.length}
+            </p>
+            <p class="mt-2 text-xs text-gray-600 dark:text-gray-300">
+              Curated home suggestions.
+            </p>
+          </article>
+        </section>
+
+        <section class="rounded-2xl border border-gray-200 bg-white/90 p-5 shadow-sm ring-1 ring-gray-900/5 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10">
+          <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Quick actions</h2>
+          <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">
+            Split workflows for faster maintenance.
+          </p>
+          <div class="mt-4 grid gap-3 sm:grid-cols-2">
+            <a
+              href="/admin/create"
+              class="inline-flex items-center justify-between rounded-xl border border-gray-300/80 bg-white px-4 py-3 text-sm font-medium text-gray-800 transition hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-950/40 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:text-gray-100"
+            >
+              Create entries
+              <span aria-hidden="true">→</span>
+            </a>
+            <a
+              href="/admin/edit"
+              class="inline-flex items-center justify-between rounded-xl border border-gray-300/80 bg-white px-4 py-3 text-sm font-medium text-gray-800 transition hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-950/40 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:text-gray-100"
+            >
+              Edit existing
+              <span aria-hidden="true">→</span>
+            </a>
+            <a
+              href="/admin/aliases"
+              class="inline-flex items-center justify-between rounded-xl border border-gray-300/80 bg-white px-4 py-3 text-sm font-medium text-gray-800 transition hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-950/40 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:text-gray-100"
+            >
+              Manage aliases
+              <span aria-hidden="true">→</span>
+            </a>
+            <a
+              href="/admin/suggestion"
+              class="inline-flex items-center justify-between rounded-xl border border-gray-300/80 bg-white px-4 py-3 text-sm font-medium text-gray-800 transition hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-950/40 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:text-gray-100"
+            >
+              Curate suggestions
+              <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </section>
+
+        <section class="rounded-2xl border border-gray-200 bg-white/90 p-5 shadow-sm ring-1 ring-gray-900/5 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">Latest entries</h2>
+            <a class="text-xs text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100" href="/admin/edit">
+              Open edit view
+            </a>
+          </div>
+
+          {latestCommissions.length === 0 ? (
+            <p class="mt-4 text-sm text-gray-600 dark:text-gray-300">No commissions found.</p>
+          ) : (
+            <ol class="mt-4 space-y-2">
+              {
+                latestCommissions.map(item => (
+                  <li class="flex items-center justify-between gap-3 rounded-lg border border-gray-200/80 bg-white/80 px-3 py-2 text-xs dark:border-gray-700 dark:bg-gray-950/40">
+                    <span class="min-w-0 truncate font-mono text-gray-800 dark:text-gray-100">
+                      {item.fileName}
+                    </span>
+                    <span class="shrink-0 text-gray-500 dark:text-gray-300">{item.characterName}</span>
+                  </li>
+                ))
+              }
+            </ol>
+          )}
+        </section>
       </div>
     ) : (
       <NotFoundPage />

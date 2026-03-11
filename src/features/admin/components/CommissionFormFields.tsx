@@ -1,4 +1,10 @@
-import { IconChevronDown } from '@tabler/icons-react'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '#components/ui/select'
 import { type ChangeEvent, type ComponentPropsWithoutRef } from 'react'
 import { formControlStyles } from '../uiStyles'
 
@@ -51,38 +57,30 @@ export const CommissionCharacterField = ({
 }: CommissionCharacterFieldProps) => {
   const hasCharacters = options.length > 0
   const isDisabled = disabled || !hasCharacters
+  const selectedCharacterValue =
+    selectedCharacterId === null ? undefined : String(selectedCharacterId)
 
   return (
     <div className="space-y-1">
       <label className={fieldLabelStyles}>Character</label>
-      <div className="relative">
-        <select
-          value={selectedCharacterId === null ? '' : String(selectedCharacterId)}
-          onChange={event => {
-            const nextValue = event.target.value
-            onChange(nextValue ? Number(nextValue) : null)
-          }}
-          disabled={isDisabled}
-          aria-label="Character"
-          className={`${formControlStyles} h-auto w-full appearance-none py-2.5 pr-10 ${
-            isDisabled ? 'cursor-not-allowed opacity-70' : ''
-          }`}
-        >
-          <option value="" disabled>
-            {hasCharacters ? 'Select character' : 'No characters available'}
-          </option>
+      <Select
+        value={selectedCharacterValue}
+        onValueChange={value => onChange(value ? Number(value) : null)}
+        disabled={isDisabled}
+      >
+        <SelectTrigger aria-label="Character" className={`${formControlStyles} h-auto py-2.5`}>
+          <SelectValue
+            placeholder={hasCharacters ? 'Select character' : 'No characters available'}
+          />
+        </SelectTrigger>
+        <SelectContent>
           {options.map(option => (
-            <option key={option.id} value={String(option.id)}>
+            <SelectItem key={option.id} value={String(option.id)}>
               {option.name}
-            </option>
+            </SelectItem>
           ))}
-        </select>
-        <IconChevronDown
-          className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 text-gray-400"
-          stroke={1.7}
-          aria-hidden="true"
-        />
-      </div>
+        </SelectContent>
+      </Select>
       <p className={fieldDescriptionStyles}>Choose the character this commission belongs to.</p>
     </div>
   )

@@ -1,5 +1,5 @@
 ---
-type AdminSection = 'admin' | 'aliases' | 'suggestion'
+type AdminSection = 'create' | 'edit' | 'overview' | 'aliases' | 'suggestion'
 
 interface Props {
   current: AdminSection
@@ -8,7 +8,9 @@ interface Props {
 const { current } = Astro.props as Props
 
 const sectionLinks: Array<{ key: AdminSection; label: string; href: string }> = [
-  { key: 'admin', label: 'Admin', href: '/admin' },
+  { key: 'overview', label: 'Overview', href: '/admin' },
+  { key: 'create', label: 'Create', href: '/admin/create' },
+  { key: 'edit', label: 'Edit', href: '/admin/edit' },
   { key: 'aliases', label: 'Aliases', href: '/admin/aliases' },
   { key: 'suggestion', label: 'Suggestion', href: '/admin/suggestion' },
 ]

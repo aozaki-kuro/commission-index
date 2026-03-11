@@ -63,15 +63,20 @@ This repository contains an Astro 6 static site with React 19 islands, written i
 
 - Admin routes are Astro page shells in dev-only entrypoints:
   - `src/devAdmin/pages/adminIndex.astro`
+  - `src/devAdmin/pages/adminCreate.astro`
+  - `src/devAdmin/pages/adminEdit.astro`
   - `src/devAdmin/pages/adminAliases.astro`
   - `src/devAdmin/pages/adminSuggestion.astro`
 - Static page structure (title/description/navigation/fallback) stays in Astro templates.
 - Admin interactive state is isolated to React islands:
-  - `src/features/admin/islands/AdminDashboardIsland.tsx`
+  - `src/features/admin/islands/AdminCreateIsland.tsx`
+  - `src/features/admin/islands/AdminEditIsland.tsx`
   - `src/features/admin/islands/AliasesDashboardIsland.tsx`
   - `src/features/admin/islands/AdminSuggestionIsland.tsx`
 - Feature-heavy admin UI remains React:
-  - `src/features/admin/AdminDashboard.tsx`
+  - `src/features/admin/AddCharacterForm.tsx`
+  - `src/features/admin/AddCommissionForm.tsx`
+  - `src/features/admin/CommissionManager.tsx`
   - `src/features/admin/aliases/AliasesDashboard.tsx`
   - `src/features/admin/suggestion/SuggestionDashboard.tsx`
   - form/dnd/search subcomponents in `src/features/admin/*`
@@ -131,6 +136,7 @@ Additional guidance:
 
 ## Change Log
 
+- Split admin maintenance workflow into dedicated `/admin/create` and `/admin/edit` routes, converted `/admin` into an overview dashboard, and reordered section nav so overview is first.
 - Aligned the project with Astro 6 defaults by making `redirectToDefaultLocale` explicit, removing Vite plugin type annotations that conflict with Astro's config typing, and documenting CSP guardrails instead of enabling an unstable path in the current stack.
 - Added an empty `src/content.config.ts` so Astro dev no longer warns when the project does not use content collections.
 - Removed the React-only home locale context/provider and now pass locale into the search island via plain props.

@@ -185,120 +185,135 @@ const SuggestionDashboard = ({ featuredKeywords, keywordOptions }: SuggestionDas
   }
 
   return (
-    <form action={formAction} className={adminSurfaceStyles}>
-      <input type="hidden" name="keywordsJson" value={keywordsJson} />
-
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-            Featured keywords ({selectedKeywords.length}/{MAX_FEATURED_KEYWORDS})
-          </p>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <FormStatusIndicator
-              status={state.status}
-              message={state.message}
-              successLabel="Saved"
-              errorFallback="Unable to save featured keywords."
-            />
-            <SaveButton />
-          </div>
-        </div>
-
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          Home first batch uses these keywords first, then rotates to random suggestions.
+    <section className="space-y-5">
+      <header className="space-y-1">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          Suggestion curation
+        </h2>
+        <p className="text-sm text-gray-600 dark:text-gray-300">
+          Configure the first-batch home keyword suggestions and keep ordering fully deterministic.
         </p>
-      </div>
+      </header>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div className="space-y-3 rounded-xl border border-gray-200/80 bg-white/70 p-4 dark:border-gray-700/80 dark:bg-gray-900/30">
-          <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
-            Selected order
-          </p>
+      <form action={formAction} className="space-y-5">
+        <input type="hidden" name="keywordsJson" value={keywordsJson} />
 
-          {selectedKeywords.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              No featured keywords yet. Add up to six.
+        <section className={adminSurfaceStyles}>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              Featured keywords ({selectedKeywords.length}/{MAX_FEATURED_KEYWORDS})
             </p>
-          ) : (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
-              <SortableContext items={selectedKeywords} strategy={verticalListSortingStrategy}>
-                <ul className="space-y-2">
-                  {selectedKeywords.map(keyword => (
-                    <SortableKeywordItem key={keyword} keyword={keyword} onRemove={removeKeyword} />
-                  ))}
-                </ul>
-              </SortableContext>
-            </DndContext>
-          )}
-        </div>
 
-        <div className="space-y-3 rounded-xl border border-gray-200/80 bg-white/70 p-4 dark:border-gray-700/80 dark:bg-gray-900/30">
-          <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
-            Add keywords
-          </p>
-
-          <div className="flex items-center gap-2">
-            <input
-              type="text"
-              value={manualInput}
-              onChange={event => setManualInput(event.target.value)}
-              className={formControlStyles}
-              placeholder="Type keyword and add"
-              disabled={!canAddMore}
-            />
-            <Button type="button" size="sm" onClick={handleManualAdd} disabled={!canAddMore}>
-              Add
-            </Button>
-          </div>
-
-          <input
-            type="search"
-            value={searchInput}
-            onChange={event => setSearchInput(event.target.value)}
-            className={formControlStyles}
-            placeholder="Filter keyword options"
-          />
-
-          <div className="max-h-72 overflow-y-auto">
-            <div className="flex flex-wrap gap-2">
-              {availableKeywords.length === 0 ? (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  No keyword options available.
-                </p>
-              ) : (
-                availableKeywords.map(keyword => {
-                  const isSelected = normalizedSelectedKeywordKeySet.has(
-                    normalizeKeywordKey(keyword),
-                  )
-
-                  return (
-                    <button
-                      key={keyword}
-                      type="button"
-                      aria-pressed={isSelected}
-                      onClick={() => toggleKeyword(keyword)}
-                      disabled={!isSelected && !canAddMore}
-                      className={`rounded-full border px-2.5 py-1 font-mono text-[11px] transition ${
-                        isSelected
-                          ? 'border-gray-700 bg-gray-900 text-white dark:border-gray-300 dark:bg-gray-100 dark:text-gray-900'
-                          : 'border-gray-300/80 bg-white/80 text-gray-700 hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:bg-black/40 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:text-gray-100'
-                      } disabled:cursor-not-allowed disabled:opacity-50`}
-                    >
-                      {keyword}
-                    </button>
-                  )
-                })
-              )}
+            <div className="flex flex-wrap items-center gap-3">
+              <FormStatusIndicator
+                status={state.status}
+                message={state.message}
+                successLabel="Saved"
+                errorFallback="Unable to save featured keywords."
+              />
+              <SaveButton />
             </div>
           </div>
+
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Home first batch uses these keywords first, then rotates to random suggestions.
+          </p>
+        </section>
+
+        <div className="grid gap-5 xl:grid-cols-2">
+          <section className={adminSurfaceStyles}>
+            <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
+              Selected order
+            </p>
+
+            {selectedKeywords.length === 0 ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                No featured keywords yet. Add up to six.
+              </p>
+            ) : (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext items={selectedKeywords} strategy={verticalListSortingStrategy}>
+                  <ul className="space-y-2">
+                    {selectedKeywords.map(keyword => (
+                      <SortableKeywordItem
+                        key={keyword}
+                        keyword={keyword}
+                        onRemove={removeKeyword}
+                      />
+                    ))}
+                  </ul>
+                </SortableContext>
+              </DndContext>
+            )}
+          </section>
+
+          <section className={adminSurfaceStyles}>
+            <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
+              Add keywords
+            </p>
+
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={manualInput}
+                onChange={event => setManualInput(event.target.value)}
+                className={formControlStyles}
+                placeholder="Type keyword and add"
+                disabled={!canAddMore}
+              />
+              <Button type="button" size="sm" onClick={handleManualAdd} disabled={!canAddMore}>
+                Add
+              </Button>
+            </div>
+
+            <input
+              type="search"
+              value={searchInput}
+              onChange={event => setSearchInput(event.target.value)}
+              className={formControlStyles}
+              placeholder="Filter keyword options"
+            />
+
+            <div className="max-h-72 overflow-y-auto">
+              <div className="flex flex-wrap gap-2">
+                {availableKeywords.length === 0 ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    No keyword options available.
+                  </p>
+                ) : (
+                  availableKeywords.map(keyword => {
+                    const isSelected = normalizedSelectedKeywordKeySet.has(
+                      normalizeKeywordKey(keyword),
+                    )
+
+                    return (
+                      <button
+                        key={keyword}
+                        type="button"
+                        aria-pressed={isSelected}
+                        onClick={() => toggleKeyword(keyword)}
+                        disabled={!isSelected && !canAddMore}
+                        className={`rounded-full border px-2.5 py-1 font-mono text-[11px] transition ${
+                          isSelected
+                            ? 'border-gray-700 bg-gray-900 text-white dark:border-gray-300 dark:bg-gray-100 dark:text-gray-900'
+                            : 'border-gray-300/80 bg-white/80 text-gray-700 hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:bg-black/40 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:text-gray-100'
+                        } disabled:cursor-not-allowed disabled:opacity-50`}
+                      >
+                        {keyword}
+                      </button>
+                    )
+                  })
+                )}
+              </div>
+            </div>
+          </section>
         </div>
-      </div>
-    </form>
+      </form>
+    </section>
   )
 }
 
