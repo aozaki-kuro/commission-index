@@ -8,6 +8,7 @@ This repository contains an Astro 6 static site with React 19 islands, written i
 - **Framework:** Astro + Tailwind CSS + selective React islands (`@astrojs/react`).
 - **Astro 6 guardrails:**
   - Keep `i18n.routing.redirectToDefaultLocale` explicit whenever `/` is a real page and must not silently inherit future default changes.
+  - Keep `src/content.config.ts` present even when empty. It exists to satisfy Astro's content bootstrap and suppress the dev-only `Content config not loaded` warning; do not add collections unless the project actually adopts them.
   - If the project ever adopts Astro content collections, use the Content Layer API only: `src/content.config.ts` + `astro/loaders` + `astro/zod`. Do not introduce legacy collections.
   - Do not enable Astro CSP casually. In the current stack it still carries validation friction (`dev` cannot verify it, and Shiki inline styles conflict with it). If you revisit it later, use `security.csp` and remember that analytics needs `https://sight.crystallize.cc` on the script allowlist.
 - **Path aliases:** Prefer `#layouts/*`, `#features/*`, `#components/*`, `#images/*`, `#data/*`, `#lib/*`, `#styles/*`, `#config/*`, and `#admin/*` (`#admin/actions` points to the HTTP client action wrappers).
@@ -131,6 +132,7 @@ Additional guidance:
 ## Change Log
 
 - Aligned the project with Astro 6 defaults by making `redirectToDefaultLocale` explicit, removing Vite plugin type annotations that conflict with Astro's config typing, and documenting CSP guardrails instead of enabling an unstable path in the current stack.
+- Added an empty `src/content.config.ts` so Astro dev no longer warns when the project does not use content collections.
 - Removed the React-only home locale context/provider and now pass locale into the search island via plain props.
 - Simplified home/admin search view-mode wiring to a direct URL/event subscription hook and removed the unused deferred panel provider path.
 - Restored unpublished `Want this` button client behavior with localStorage-backed disable/hydration flow after the Astro migration regression.
