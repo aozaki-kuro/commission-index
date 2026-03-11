@@ -1,11 +1,15 @@
 # AGENTS
 
-This repository contains an Astro 5 static site with React 19 islands, written in TypeScript and managed with Bun.
+This repository contains an Astro 6 static site with React 19 islands, written in TypeScript and managed with Bun.
 
 ## Development Notes
 
-- **Runtime & package manager:** Node 22 via [mise](https://mise.jdx.dev) and `bun` for all commands.
+- **Runtime & package manager:** Node 24 via [mise](https://mise.jdx.dev) and `bun` for all commands.
 - **Framework:** Astro + Tailwind CSS + selective React islands (`@astrojs/react`).
+- **Astro 6 guardrails:**
+  - Keep `i18n.routing.redirectToDefaultLocale` explicit whenever `/` is a real page and must not silently inherit future default changes.
+  - If the project ever adopts Astro content collections, use the Content Layer API only: `src/content.config.ts` + `astro/loaders` + `astro/zod`. Do not introduce legacy collections.
+  - Do not enable Astro CSP casually. In the current stack it still carries validation friction (`dev` cannot verify it, and Shiki inline styles conflict with it). If you revisit it later, use `security.csp` and remember that analytics needs `https://sight.crystallize.cc` on the script allowlist.
 - **Path aliases:** Prefer `#layouts/*`, `#features/*`, `#components/*`, `#images/*`, `#data/*`, `#lib/*`, `#styles/*`, `#config/*`, and `#admin/*` (`#admin/actions` points to the HTTP client action wrappers).
 - **Data source:** Commission content lives in `data/commissions.db`; access it through `data/sqlite.ts` (Bun uses `bun:sqlite`, Node falls back to `better-sqlite3`).
   - Admin-managed search configuration tables include `character_aliases`, `creator_aliases`, `keyword_aliases`, and `home_featured_search_keywords`.
@@ -28,6 +32,7 @@ This repository contains an Astro 5 static site with React 19 islands, written i
   - `src/layouts/AnalyticsScript.astro`
   - `src/features/home/commission/CommissionImageNoticeScript.astro`
   - `src/features/home/dev/DevLiveRefreshScript.astro`
+- Astro 6 preserves relative `script` / `style` / `link` order. Treat the current order of home/layout script components as behavior, not formatting, and smoke-test home/admin when reordering them.
 - Home runtime side-effect bootstrapping is centralized in:
   - `src/features/home/homePageClient.ts`
 - Home unpublished-interest button state is centralized in:
@@ -117,12 +122,15 @@ Additional guidance:
   - `server/adminApiHandler.ts`
 - Shared Node/Web bridge helpers:
   - `server/httpBridge.ts`
+- Shared Astro/Vite config typing helper:
+  - `server/astroVitePluginType.ts`
 - Asset pipeline integration:
   - `server/assetsPipelineAstro.ts`
   - `server/assetsSyncCli.ts`
 
 ## Change Log
 
+- Aligned the project with Astro 6 defaults by making `redirectToDefaultLocale` explicit, removing Vite plugin type annotations that conflict with Astro's config typing, and documenting CSP guardrails instead of enabling an unstable path in the current stack.
 - Removed the React-only home locale context/provider and now pass locale into the search island via plain props.
 - Simplified home/admin search view-mode wiring to a direct URL/event subscription hook and removed the unused deferred panel provider path.
 - Restored unpublished `Want this` button client behavior with localStorage-backed disable/hydration flow after the Astro migration regression.

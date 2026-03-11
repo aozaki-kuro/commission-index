@@ -1,8 +1,8 @@
 import path from 'node:path'
 import { defineConfig, fontProviders } from 'astro/config'
 import react from '@astrojs/react'
-import type { Plugin } from 'vite'
 import tsconfigPaths from 'vite-tsconfig-paths'
+import type { AstroVitePlugin } from './server/astroVitePluginType'
 import { assetsPipelineIntegration } from './server/assetsPipelineAstro'
 import { devAdminApiPlugin, devAdminRoutesIntegration } from './server/devAdminAstro'
 
@@ -11,7 +11,7 @@ const isSourceImagePath = (filePath: string) => {
   return /(^|\/)data\/images\/.+\.(jpe?g|png)$/.test(normalized)
 }
 
-const devSourceImageWatchPlugin = (): Plugin => ({
+const devSourceImageWatchPlugin = (): AstroVitePlugin => ({
   name: 'dev-source-image-watch',
   apply: 'serve',
   configureServer(server) {
@@ -36,6 +36,7 @@ export default defineConfig({
     locales: ['en', 'zh-tw', 'ja'],
     routing: {
       prefixDefaultLocale: false,
+      redirectToDefaultLocale: false,
     },
   },
 

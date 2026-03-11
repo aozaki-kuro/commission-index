@@ -1,10 +1,10 @@
 import type { AstroIntegration } from 'astro'
-import type { Plugin } from 'vite'
+import type { AstroVitePlugin } from './astroVitePluginType'
 import { toWebRequest, writeNodeResponse } from './httpBridge'
 
 const ADMIN_API_PREFIX = '/api/admin/'
 
-export const devAdminApiPlugin = (): Plugin => ({
+export const devAdminApiPlugin = (): AstroVitePlugin => ({
   name: 'dev-admin-api',
   configureServer(server) {
     server.middlewares.use(async (req, res, next) => {
