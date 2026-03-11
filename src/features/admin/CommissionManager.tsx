@@ -21,6 +21,11 @@ import SortableCharacterCard from './components/SortableCharacterCard'
 import SortableDivider from './components/SortableDivider'
 import useCommissionManager, { DIVIDER_ID, type ListItem } from './hooks/useCommissionManager'
 import { buildAdminCommissionSearchMetadata } from './search/commissionSearchMetadata'
+import {
+  areNumberSetsEqual,
+  buildCommissionToCharacterMap,
+  collectMatchedCharacterIds,
+} from './search/matchedCharacterIds'
 
 interface CommissionManagerProps {
   characters: CharacterRow[]
@@ -126,6 +131,10 @@ const CommissionManager = ({
       }),
     [characterNameById, commissionSearchRows, creatorAliasesMap],
   )
+  const commissionToCharacterIdMap = useMemo(
+    () => buildCommissionToCharacterMap(commissionSearchRows),
+    [commissionSearchRows],
+  )
   const allCommissionIds = useMemo(
     () => new Set(commissionSearchEntries.map(entry => entry.id)),
     [commissionSearchEntries],
@@ -139,14 +148,8 @@ const CommissionManager = ({
 
   const matchedCharacterIds = useMemo(() => {
     if (!hasAppliedSearchQuery) return new Set<number>()
-    const next = new Set<number>()
-    for (const row of commissionSearchRows) {
-      if (effectiveMatchedCommissionIds.has(row.id)) {
-        next.add(row.characterId)
-      }
-    }
-    return next
-  }, [commissionSearchRows, effectiveMatchedCommissionIds, hasAppliedSearchQuery])
+    return collectMatchedCharacterIds(effectiveMatchedCommissionIds, commissionToCharacterIdMap)
+  }, [commissionToCharacterIdMap, effectiveMatchedCommissionIds, hasAppliedSearchQuery])
   const autoLoadSearchCharacterIds = useMemo(() => {
     if (!hasAppliedSearchQuery) return new Set<number>()
 
@@ -214,7 +217,7 @@ const CommissionManager = ({
 
   const handleSearchQueryChange = useCallback(
     (query: string) => {
-      setSearchQuery(query)
+      setSearchQuery(previous => (previous === query ? previous : query))
       const nextHasQuery = normalizeQuery(query).length > 0
       setHasAppliedSearchQuery(prev => (prev === nextHasQuery ? prev : nextHasQuery))
       if (!nextHasQuery) {
@@ -223,6 +226,12 @@ const CommissionManager = ({
     },
     [closeAllCharacterOpen],
   )
+
+  const handleMatchedIdsChange = useCallback((nextMatchedIds: Set<number>) => {
+    setMatchedCommissionIds(previous =>
+      areNumberSetsEqual(previous, nextMatchedIds) ? previous : nextMatchedIds,
+    )
+  }, [])
 
   const buttonRefFor = useCallback(
     (characterId: number) => (el: HTMLButtonElement | null) => {
@@ -305,7 +314,7 @@ const CommissionManager = ({
         externalEntries={commissionSearchEntries}
         initialQuery={searchQuery || undefined}
         onQueryChange={handleSearchQueryChange}
-        onMatchedIdsChange={setMatchedCommissionIds}
+        onMatchedIdsChange={handleMatchedIdsChange}
       />
 
       <div className="animate-[tabFade_260ms_ease-out] space-y-4">
