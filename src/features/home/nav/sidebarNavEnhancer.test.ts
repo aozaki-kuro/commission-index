@@ -152,6 +152,81 @@ describe('sidebarNavEnhancer', () => {
     cleanup()
   })
 
+  it('reuses panel title mapping across scroll frames', () => {
+    const cleanup = mountSidebarNavEnhancer()
+    const getElementByIdSpy = vi.spyOn(document, 'getElementById')
+    getElementByIdSpy.mockClear()
+    window.dispatchEvent(new Event('scroll'))
+    window.dispatchEvent(new Event('scroll'))
+
+    expect(getElementByIdSpy).not.toHaveBeenCalled()
+
+    getElementByIdSpy.mockRestore()
+    cleanup()
+  })
+
+  it('invalidates cached panel title mapping on sidebar search sync events', () => {
+    const cleanup = mountSidebarNavEnhancer()
+    const characterPanel = document.querySelector<HTMLElement>(
+      '[data-sidebar-nav-panel="character"]',
+    )
+    characterPanel?.insertAdjacentHTML(
+      'beforeend',
+      `
+        <li>
+          <span data-sidebar-dot-for="title-beta" class="scale-0 opacity-0"></span>
+          <a href="#section-beta" data-sidebar-character-link="true" data-sidebar-character-status="active" data-sidebar-title-id="title-beta">Beta</a>
+        </li>
+      `,
+    )
+
+    const alphaTitle = document.getElementById('title-alpha') as HTMLElement
+    const betaTitle = document.createElement('h2')
+    betaTitle.id = 'title-beta'
+    document.body.append(betaTitle)
+    const betaSection = document.createElement('section')
+    betaSection.id = 'section-beta'
+    document.body.append(betaSection)
+
+    alphaTitle.getBoundingClientRect = () =>
+      ({
+        top: -200,
+        bottom: -160,
+        left: 0,
+        right: 0,
+        width: 200,
+        height: 40,
+        x: 0,
+        y: -200,
+        toJSON: () => ({}),
+      }) as DOMRect
+    alphaTitle.getClientRects = () => [] as unknown as DOMRectList
+
+    betaTitle.getBoundingClientRect = () =>
+      ({
+        top: 120,
+        bottom: 160,
+        left: 0,
+        right: 0,
+        width: 200,
+        height: 40,
+        x: 0,
+        y: 120,
+        toJSON: () => ({}),
+      }) as DOMRect
+    betaTitle.getClientRects = () => [betaTitle.getBoundingClientRect()] as unknown as DOMRectList
+
+    window.dispatchEvent(new Event(SIDEBAR_SEARCH_STATE_EVENT))
+    window.dispatchEvent(new Event('scroll'))
+    const betaDot = document.querySelector<HTMLElement>('[data-sidebar-dot-for="title-beta"]')
+    expect(betaDot?.classList.contains('scale-100')).toBe(true)
+    expect(betaDot?.classList.contains('opacity-100')).toBe(true)
+
+    betaSection.remove()
+    betaTitle.remove()
+    cleanup()
+  })
+
   it('keeps the first character dot active near the top like timeline mode', () => {
     const title = document.getElementById('title-alpha')
     const introduction = document.getElementById('title-introduction')

@@ -67,6 +67,19 @@ const getUrlQuerySnapshot = () => {
   return new URLSearchParams(window.location.search).get('q') ?? ''
 }
 
+export const getDomSnapshotKeyForMode = ({
+  mode,
+  staleLoaded,
+  timelineLoaded,
+}: {
+  mode: 'character' | 'timeline'
+  staleLoaded: boolean
+  timelineLoaded: boolean
+}) =>
+  mode === 'character'
+    ? `character:${staleLoaded ? 'stale-loaded' : 'stale-collapsed'}`
+    : `timeline:${timelineLoaded ? 'timeline-loaded' : 'timeline-pending'}`
+
 export const useCommissionSearchModel = ({
   activeCommandValue,
   controls,
@@ -122,7 +135,11 @@ export const useCommissionSearchModel = ({
   const { staleLoaded, timelineLoaded } = useSearchPanelLoadedState()
   const shouldBuildIndex = isIndexReady || !deferIndexInit || !!query || !!initialUrlQuery
   const shouldSkipDomContext = disableDomFiltering && Boolean(externalEntries)
-  const domSnapshotKey = `${staleLoaded ? 'stale-loaded' : 'stale-collapsed'}:${timelineLoaded ? 'timeline-loaded' : 'timeline-pending'}`
+  const domSnapshotKey = getDomSnapshotKeyForMode({
+    mode,
+    staleLoaded,
+    timelineLoaded,
+  })
 
   const index = useMemo(() => {
     if (!shouldBuildIndex) return createEmptySearchIndex()

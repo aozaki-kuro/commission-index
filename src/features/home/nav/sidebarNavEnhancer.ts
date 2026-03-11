@@ -54,6 +54,13 @@ type MountSidebarNavEnhancerOptions = {
   deps?: Partial<SidebarNavEnhancerDeps>
 }
 
+type SidebarActivePanelSnapshot = {
+  mode: CommissionViewMode
+  panel: HTMLElement | null
+  titleIds: string[]
+  titleElements: HTMLElement[]
+}
+
 const defaultDeps: SidebarNavEnhancerDeps = {
   trackEvent: trackRybbitEvent,
   jumpToSearch: jumpToCommissionSearch,
@@ -71,8 +78,7 @@ const getVisibleSidebarItemCount = (root: HTMLElement, mode: CommissionViewMode)
   getVisibleNavPanel(root, mode)?.querySelectorAll<HTMLAnchorElement>(CHARACTER_LINK_SELECTOR)
     .length ?? 0
 
-const getVisibleTitleIds = (root: HTMLElement, mode: CommissionViewMode) => {
-  const panel = getVisibleNavPanel(root, mode)
+const getVisibleTitleIds = (panel: HTMLElement | null) => {
   if (!panel) return []
 
   return Array.from(panel.querySelectorAll<HTMLAnchorElement>(CHARACTER_LINK_SELECTOR))
@@ -99,9 +105,25 @@ const toggleViewModeButtonState = (button: HTMLButtonElement, active: boolean) =
   }
 }
 
-const resolveActiveTitleId = ({ root, mode }: { root: HTMLElement; mode: CommissionViewMode }) => {
-  const titleIds = getVisibleTitleIds(root, mode)
+const createActivePanelSnapshot = ({
+  mode,
+  panel,
+}: {
+  mode: CommissionViewMode
+  panel: HTMLElement | null
+}): SidebarActivePanelSnapshot => {
+  const titleIds = getVisibleTitleIds(panel)
   const titleElements = resolveElementsByIds(titleIds)
+
+  return {
+    mode,
+    panel,
+    titleIds,
+    titleElements,
+  }
+}
+
+const resolveActiveTitleId = (titleElements: HTMLElement[]) => {
   if (titleElements.length === 0) return ''
 
   return getActiveSectionId(titleElements, getScrollThreshold())
@@ -120,8 +142,29 @@ export const mountSidebarNavEnhancer = ({
   let clearHashRafId: number | null = null
   let syncLinksRafId: number | null = null
   let syncDotsRafId: number | null = null
+  let activePanelSnapshot: SidebarActivePanelSnapshot | null = null
   let hasTrackedSidebarSearchUsage = false
   let disposed = false
+
+  const clearActivePanelSnapshot = () => {
+    activePanelSnapshot = null
+  }
+
+  const getActivePanelSnapshot = () => {
+    const mode = getCurrentMode(win)
+    const panel = getVisibleNavPanel(navRoot, mode)
+    if (
+      activePanelSnapshot &&
+      activePanelSnapshot.mode === mode &&
+      activePanelSnapshot.panel === panel
+    ) {
+      return activePanelSnapshot
+    }
+
+    const nextSnapshot = createActivePanelSnapshot({ mode, panel })
+    activePanelSnapshot = nextSnapshot
+    return nextSnapshot
+  }
 
   const syncViewModeControls = () => {
     const mode = getCurrentMode(win)
@@ -156,9 +199,9 @@ export const mountSidebarNavEnhancer = ({
   }
 
   const syncActiveDots = () => {
-    const mode = getCurrentMode(win)
-    const activeTitleId = resolveActiveTitleId({ root: navRoot, mode })
-    const activePanel = getVisibleNavPanel(navRoot, mode)
+    const activeSnapshot = getActivePanelSnapshot()
+    const activeTitleId = resolveActiveTitleId(activeSnapshot.titleElements)
+    const activePanel = activeSnapshot.panel
 
     const allDots = navRoot.querySelectorAll<HTMLElement>('[data-sidebar-dot-for]')
     allDots.forEach(dot => {
@@ -172,31 +215,48 @@ export const mountSidebarNavEnhancer = ({
   const scheduleClearHashIfTargetIsStale = () => {
     if (clearHashRafId !== null) return
 
-    clearHashRafId = win.requestAnimationFrame(() => {
+    let didRunSynchronously = false
+    const frameId = win.requestAnimationFrame(() => {
+      didRunSynchronously = true
       clearHashRafId = null
       deps.clearHash()
     })
+    clearHashRafId = didRunSynchronously ? null : frameId
   }
 
-  const scheduleSyncCharacterLinkAvailability = () => {
+  const scheduleSyncCharacterLinkAvailability = ({
+    invalidateSnapshot = false,
+  }: {
+    invalidateSnapshot?: boolean
+  } = {}) => {
+    if (invalidateSnapshot) {
+      clearActivePanelSnapshot()
+    }
     if (syncLinksRafId !== null) return
 
-    syncLinksRafId = win.requestAnimationFrame(() => {
+    let didRunSynchronously = false
+    const frameId = win.requestAnimationFrame(() => {
+      didRunSynchronously = true
       syncLinksRafId = null
       syncCharacterLinkAvailability()
     })
+    syncLinksRafId = didRunSynchronously ? null : frameId
   }
 
   const scheduleSyncActiveDots = () => {
     if (syncDotsRafId !== null) return
 
-    syncDotsRafId = win.requestAnimationFrame(() => {
+    let didRunSynchronously = false
+    const frameId = win.requestAnimationFrame(() => {
+      didRunSynchronously = true
       syncDotsRafId = null
       syncActiveDots()
     })
+    syncDotsRafId = didRunSynchronously ? null : frameId
   }
 
   const syncAll = () => {
+    clearActivePanelSnapshot()
     syncViewModeControls()
     scheduleSyncCharacterLinkAvailability()
     scheduleSyncActiveDots()
@@ -251,7 +311,10 @@ export const mountSidebarNavEnhancer = ({
   }
 
   const onStaleStateChanged = (event: Event) => {
+    clearActivePanelSnapshot()
     setStaleDetailsVisibility(resolveVisibilityFromStateEvent(event))
+    scheduleSyncCharacterLinkAvailability()
+    scheduleSyncActiveDots()
   }
 
   const trackSidebarCharacterClick = (link: HTMLAnchorElement) => {
@@ -329,7 +392,7 @@ export const mountSidebarNavEnhancer = ({
       const href = characterLink.getAttribute('href')
       const onStaleLoaded = () => {
         deps.scrollToHashWithoutWrite(href)
-        scheduleSyncCharacterLinkAvailability()
+        scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })
         scheduleSyncActiveDots()
       }
 
@@ -353,6 +416,15 @@ export const mountSidebarNavEnhancer = ({
   }
 
   const staleDetails = navRoot.querySelector<HTMLDetailsElement>(STALE_DETAILS_SELECTOR)
+  const onSidebarSearchState = () => {
+    scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })
+    scheduleSyncActiveDots()
+    scheduleClearHashIfTargetIsStale()
+  }
+  const onViewModeMaybeChanged = () => {
+    clearActivePanelSnapshot()
+    syncAll()
+  }
 
   controlsRoot.addEventListener('click', onSidebarClick)
   if (controlsRoot !== navRoot) {
@@ -362,12 +434,10 @@ export const mountSidebarNavEnhancer = ({
   win.addEventListener('scroll', scheduleSyncActiveDots, { passive: true })
   win.addEventListener('resize', scheduleSyncActiveDots)
   win.addEventListener('scroll', scheduleClearHashIfTargetIsStale, { passive: true })
-  win.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleSyncCharacterLinkAvailability)
-  win.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleSyncActiveDots)
-  win.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleClearHashIfTargetIsStale)
+  win.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSidebarSearchState)
   win.addEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStaleStateChanged)
-  win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, syncAll)
-  win.addEventListener('popstate', syncAll)
+  win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onViewModeMaybeChanged)
+  win.addEventListener('popstate', onViewModeMaybeChanged)
 
   syncAll()
   setStaleDetailsVisibility(isStaleCharactersVisible(doc) ? 'visible' : 'hidden')
@@ -384,12 +454,10 @@ export const mountSidebarNavEnhancer = ({
     win.removeEventListener('scroll', scheduleSyncActiveDots)
     win.removeEventListener('resize', scheduleSyncActiveDots)
     win.removeEventListener('scroll', scheduleClearHashIfTargetIsStale)
-    win.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleSyncCharacterLinkAvailability)
-    win.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleSyncActiveDots)
-    win.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleClearHashIfTargetIsStale)
+    win.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSidebarSearchState)
     win.removeEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStaleStateChanged)
-    win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, syncAll)
-    win.removeEventListener('popstate', syncAll)
+    win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onViewModeMaybeChanged)
+    win.removeEventListener('popstate', onViewModeMaybeChanged)
 
     if (clearHashRafId !== null) {
       win.cancelAnimationFrame(clearHashRafId)

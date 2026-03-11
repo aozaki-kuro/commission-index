@@ -45,15 +45,37 @@ export interface CommissionSearchEntrySource {
 
 const normalizeSuggestionTermKey = (term: string) => term.trim().toLowerCase()
 
+const MAX_PARSED_SUGGESTION_ROWS_CACHE_SIZE = 400
 const parsedSuggestionRowsCache = new Map<string, ReturnType<typeof parseSuggestionRows>>()
+
+const setParsedSuggestionRowsCacheEntry = (
+  key: string,
+  value: ReturnType<typeof parseSuggestionRows>,
+) => {
+  if (parsedSuggestionRowsCache.has(key)) {
+    parsedSuggestionRowsCache.delete(key)
+  }
+
+  parsedSuggestionRowsCache.set(key, value)
+  if (parsedSuggestionRowsCache.size > MAX_PARSED_SUGGESTION_ROWS_CACHE_SIZE) {
+    const oldestKey = parsedSuggestionRowsCache.keys().next().value
+    if (oldestKey !== undefined) {
+      parsedSuggestionRowsCache.delete(oldestKey)
+    }
+  }
+
+  return value
+}
 
 const getParsedSuggestionRows = (searchSuggest = '') => {
   const cached = parsedSuggestionRowsCache.get(searchSuggest)
-  if (cached) return cached
+  if (cached) {
+    setParsedSuggestionRowsCacheEntry(searchSuggest, cached)
+    return cached
+  }
 
   const parsed = parseSuggestionRows(searchSuggest)
-  parsedSuggestionRowsCache.set(searchSuggest, parsed)
-  return parsed
+  return setParsedSuggestionRowsCacheEntry(searchSuggest, parsed)
 }
 
 export const createEmptySearchIndex = (): SearchIndex => ({
