@@ -3,8 +3,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT,
-  STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_LOAD_REQUEST_EVENT,
+  STALE_CHARACTERS_STATE_CHANGE_EVENT,
 } from '#features/home/commission/staleCharactersEvent'
 import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
@@ -360,7 +360,11 @@ describe('CommissionSearch', () => {
     staleSection.innerHTML =
       '<div data-commission-entry="true" data-character-section-id="stale" data-commission-search-key="stale::20240102_stale"></div>'
     panel?.append(staleSection)
-    window.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
+    window.dispatchEvent(
+      new CustomEvent(STALE_CHARACTERS_STATE_CHANGE_EVENT, {
+        detail: { visibility: 'visible', loaded: true },
+      }),
+    )
 
     await waitFor(() => {
       expect(screen.getByText('Search results: 1 of 2 commissions shown.')).toBeInTheDocument()

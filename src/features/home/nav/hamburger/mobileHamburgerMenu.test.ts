@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
-import { STALE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/staleCharactersEvent'
+import {
+  STALE_CHARACTERS_LOADED_EVENT,
+  STALE_CHARACTERS_STATE_CHANGE_EVENT,
+} from '#features/home/commission/staleCharactersEvent'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { MENU_TRANSITION_MS } from './constants'
@@ -178,15 +181,15 @@ describe('mobileHamburgerMenu', () => {
   })
 
   it('requests stale loading when opening the stale section', () => {
-    const requestStaleLoad = vi.fn()
+    const requestStaleVisibility = vi.fn()
     const cleanup = mountMobileHamburgerMenu({
-      deps: { requestStaleLoad },
+      deps: { requestStaleVisibility },
     })
 
     getToggle()!.click()
     getStaleSectionToggle()!.click()
 
-    expect(requestStaleLoad).toHaveBeenCalledTimes(1)
+    expect(requestStaleVisibility).toHaveBeenCalledWith(window, 'visible')
     expect(getStaleSectionToggle()?.getAttribute('aria-expanded')).toBe('true')
     expect(getStaleSectionPanel()?.hidden).toBe(false)
 
@@ -196,10 +199,11 @@ describe('mobileHamburgerMenu', () => {
   it('loads stale characters and jumps when a stale link is selected before load', () => {
     const trackEvent = vi.fn()
     const scrollToHashWithoutWrite = vi.fn()
-    const requestStaleLoad = vi.fn(() => {
+    const requestStaleVisibility = vi.fn(() => {
       const characterPanel = document.createElement('div')
       characterPanel.dataset.commissionViewPanel = 'character'
       characterPanel.dataset.staleLoaded = 'true'
+      characterPanel.dataset.staleVisibility = 'visible'
       document.body.append(characterPanel)
 
       const staleSection = document.createElement('section')
@@ -210,13 +214,13 @@ describe('mobileHamburgerMenu', () => {
     })
 
     const cleanup = mountMobileHamburgerMenu({
-      deps: { requestStaleLoad, scrollToHashWithoutWrite, trackEvent },
+      deps: { requestStaleVisibility, scrollToHashWithoutWrite, trackEvent },
     })
 
     getToggle()!.click()
     getStaleLink()!.click()
 
-    expect(requestStaleLoad).toHaveBeenCalledTimes(1)
+    expect(requestStaleVisibility).toHaveBeenCalledWith(window, 'visible')
     expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#stale-item')
     expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.sidebarNavUsed, {
       source: 'character_link',
@@ -232,7 +236,7 @@ describe('mobileHamburgerMenu', () => {
     cleanup()
   })
 
-  it('re-syncs link availability on sidebar search state and view mode event', () => {
+  it('re-syncs link availability on stale state, sidebar search state, and view mode event', () => {
     const syncLinkAvailability = vi.fn()
     const cleanup = mountMobileHamburgerMenu({
       deps: { syncLinkAvailability },
@@ -240,11 +244,18 @@ describe('mobileHamburgerMenu', () => {
 
     expect(syncLinkAvailability).toHaveBeenCalledTimes(1)
 
-    window.dispatchEvent(new Event(SIDEBAR_SEARCH_STATE_EVENT))
+    window.dispatchEvent(
+      new CustomEvent(STALE_CHARACTERS_STATE_CHANGE_EVENT, {
+        detail: { visibility: 'visible', loaded: true },
+      }),
+    )
     expect(syncLinkAvailability).toHaveBeenCalledTimes(2)
 
-    window.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
+    window.dispatchEvent(new Event(SIDEBAR_SEARCH_STATE_EVENT))
     expect(syncLinkAvailability).toHaveBeenCalledTimes(3)
+
+    window.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
+    expect(syncLinkAvailability).toHaveBeenCalledTimes(4)
 
     cleanup()
   })

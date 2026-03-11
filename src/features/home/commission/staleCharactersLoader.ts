@@ -1,8 +1,11 @@
 import {
+  dispatchStaleCharactersStateChange,
   STALE_CHARACTERS_COLLAPSED_EVENT,
   STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT,
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_LOAD_REQUEST_EVENT,
+  readStaleCharactersStateFromPanel,
+  writeStaleCharactersState,
 } from '#features/home/commission/staleCharactersEvent'
 import { getHashTarget, scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import { dispatchSidebarSearchState } from '#lib/navigation/sidebarSearchState'
@@ -13,7 +16,7 @@ const STALE_TEMPLATE_SELECTOR = 'template[data-stale-sections-template="true"]'
 const STALE_CONTAINER_SELECTOR = '[data-stale-sections-container="true"]'
 const STALE_LOAD_TRIGGER_SELECTOR = '[data-load-stale-characters="true"]'
 
-const isStaleLoaded = (panel: HTMLElement | null) => panel?.dataset.staleLoaded === 'true'
+const isStaleLoaded = (panel: HTMLElement | null) => readStaleCharactersStateFromPanel(panel).loaded
 
 type StaleCharactersLoaderDeps = {
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
@@ -70,9 +73,10 @@ const loadStaleSections = (win: Window, panel: HTMLElement | null) => {
   if (!panel || isStaleLoaded(panel)) return false
   if (!mountTemplateContent(panel)) return false
 
-  panel.dataset.staleLoaded = 'true'
+  const state = writeStaleCharactersState(panel, 'visible')
   hidePlaceholder(panel)
   dispatchSidebarSearchState()
+  dispatchStaleCharactersStateChange(win, state)
   win.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
   return true
 }
@@ -84,9 +88,10 @@ const collapseStaleSections = (win: Window, panel: HTMLElement | null) => {
   if (!container) return false
 
   container.replaceChildren()
-  panel.dataset.staleLoaded = 'false'
+  const state = writeStaleCharactersState(panel, 'hidden')
   showPlaceholder(panel)
   dispatchSidebarSearchState()
+  dispatchStaleCharactersStateChange(win, state)
   win.dispatchEvent(new Event(STALE_CHARACTERS_COLLAPSED_EVENT))
   return true
 }

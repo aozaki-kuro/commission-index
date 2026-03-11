@@ -21,7 +21,11 @@ import type { CommissionViewMode } from '#features/home/commission/CommissionVie
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import {
   STALE_CHARACTERS_LOADED_EVENT,
-  STALE_CHARACTERS_LOAD_REQUEST_EVENT,
+  STALE_CHARACTERS_STATE_CHANGE_EVENT,
+  isStaleCharactersVisible,
+  requestStaleCharactersVisibility,
+  type StaleCharactersState,
+  type StaleCharactersVisibility,
 } from '#features/home/commission/staleCharactersEvent'
 
 const SIDEBAR_ROOT_ID = 'Character List'
@@ -41,7 +45,7 @@ type SidebarNavEnhancerDeps = {
   jumpToSearch: typeof jumpToCommissionSearch
   clearHash: typeof clearHashIfTargetIsStale
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
-  requestStaleLoad: (win: Window) => void
+  requestStaleVisibility: (win: Window, visibility: StaleCharactersVisibility) => void
 }
 
 type MountSidebarNavEnhancerOptions = {
@@ -55,19 +59,13 @@ const defaultDeps: SidebarNavEnhancerDeps = {
   jumpToSearch: jumpToCommissionSearch,
   clearHash: clearHashIfTargetIsStale,
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
-  requestStaleLoad: win => {
-    win.dispatchEvent(new Event(STALE_CHARACTERS_LOAD_REQUEST_EVENT))
-  },
+  requestStaleVisibility: requestStaleCharactersVisibility,
 }
 
 const getCurrentMode = (win: Window): CommissionViewMode => readCommissionViewMode(win)
 
 const getVisibleNavPanel = (root: HTMLElement, mode: CommissionViewMode) =>
   root.querySelector<HTMLElement>(`${NAV_PANEL_SELECTOR}[data-sidebar-nav-panel="${mode}"]`)
-
-const isStaleCharacterLoaded = (doc: Document) =>
-  doc.querySelector<HTMLElement>('[data-commission-view-panel="character"]')?.dataset
-    .staleLoaded === 'true'
 
 const getVisibleSidebarItemCount = (root: HTMLElement, mode: CommissionViewMode) =>
   getVisibleNavPanel(root, mode)?.querySelectorAll<HTMLAnchorElement>(CHARACTER_LINK_SELECTOR)
@@ -208,7 +206,52 @@ export const mountSidebarNavEnhancer = ({
   const openStaleDetails = () => {
     const staleDetails = navRoot.querySelector<HTMLDetailsElement>(STALE_DETAILS_SELECTOR)
     if (!staleDetails) return
+    if (staleDetails.open) return
     staleDetails.open = true
+  }
+
+  const closeStaleDetails = () => {
+    const staleDetails = navRoot.querySelector<HTMLDetailsElement>(STALE_DETAILS_SELECTOR)
+    if (!staleDetails) return
+    if (!staleDetails.open) return
+    staleDetails.open = false
+  }
+
+  const setStaleDetailsVisibility = (visibility: StaleCharactersVisibility) => {
+    if (visibility === 'visible') {
+      openStaleDetails()
+      return
+    }
+
+    closeStaleDetails()
+  }
+
+  const resolveVisibilityFromStateEvent = (event: Event): StaleCharactersVisibility => {
+    if (event instanceof CustomEvent && event.detail && typeof event.detail === 'object') {
+      const visibility = (event.detail as Partial<StaleCharactersState>).visibility
+      if (visibility === 'visible' || visibility === 'hidden') return visibility
+    }
+
+    return isStaleCharactersVisible(doc) ? 'visible' : 'hidden'
+  }
+
+  const onStaleDetailsToggle = (event: Event) => {
+    const staleDetails = event.currentTarget
+    if (!(staleDetails instanceof HTMLDetailsElement)) return
+
+    const nextVisibility: StaleCharactersVisibility = staleDetails.open ? 'visible' : 'hidden'
+    const currentVisibility: StaleCharactersVisibility = isStaleCharactersVisible(doc)
+      ? 'visible'
+      : 'hidden'
+    if (nextVisibility === currentVisibility) {
+      return
+    }
+
+    deps.requestStaleVisibility(win, nextVisibility)
+  }
+
+  const onStaleStateChanged = (event: Event) => {
+    setStaleDetailsVisibility(resolveVisibilityFromStateEvent(event))
   }
 
   const trackSidebarCharacterClick = (link: HTMLAnchorElement) => {
@@ -269,7 +312,7 @@ export const mountSidebarNavEnhancer = ({
     if (
       staleLoadTrigger &&
       staleLoadTrigger.closest(STALE_DETAILS_SELECTOR) &&
-      !isStaleCharacterLoaded(doc)
+      !isStaleCharactersVisible(doc)
     ) {
       event.preventDefault()
       openStaleDetails()
@@ -280,7 +323,7 @@ export const mountSidebarNavEnhancer = ({
     if (!characterLink) return
 
     const isStaleLink = characterLink.dataset.sidebarCharacterStatus === 'stale'
-    if (isStaleLink && !isStaleCharacterLoaded(doc)) {
+    if (isStaleLink && !isStaleCharactersVisible(doc)) {
       event.preventDefault()
 
       const href = characterLink.getAttribute('href')
@@ -291,7 +334,7 @@ export const mountSidebarNavEnhancer = ({
       }
 
       win.addEventListener(STALE_CHARACTERS_LOADED_EVENT, onStaleLoaded, { once: true })
-      deps.requestStaleLoad(win)
+      deps.requestStaleVisibility(win, 'visible')
       trackSidebarCharacterClick(characterLink)
       return
     }
@@ -309,21 +352,25 @@ export const mountSidebarNavEnhancer = ({
     trackSidebarCharacterClick(characterLink)
   }
 
+  const staleDetails = navRoot.querySelector<HTMLDetailsElement>(STALE_DETAILS_SELECTOR)
+
   controlsRoot.addEventListener('click', onSidebarClick)
   if (controlsRoot !== navRoot) {
     navRoot.addEventListener('click', onSidebarClick)
   }
+  staleDetails?.addEventListener('toggle', onStaleDetailsToggle)
   win.addEventListener('scroll', scheduleSyncActiveDots, { passive: true })
   win.addEventListener('resize', scheduleSyncActiveDots)
   win.addEventListener('scroll', scheduleClearHashIfTargetIsStale, { passive: true })
   win.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleSyncCharacterLinkAvailability)
   win.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleSyncActiveDots)
   win.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleClearHashIfTargetIsStale)
-  win.addEventListener(STALE_CHARACTERS_LOADED_EVENT, openStaleDetails)
+  win.addEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStaleStateChanged)
   win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, syncAll)
   win.addEventListener('popstate', syncAll)
 
   syncAll()
+  setStaleDetailsVisibility(isStaleCharactersVisible(doc) ? 'visible' : 'hidden')
 
   return () => {
     if (disposed) return
@@ -333,13 +380,14 @@ export const mountSidebarNavEnhancer = ({
     if (controlsRoot !== navRoot) {
       navRoot.removeEventListener('click', onSidebarClick)
     }
+    staleDetails?.removeEventListener('toggle', onStaleDetailsToggle)
     win.removeEventListener('scroll', scheduleSyncActiveDots)
     win.removeEventListener('resize', scheduleSyncActiveDots)
     win.removeEventListener('scroll', scheduleClearHashIfTargetIsStale)
     win.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleSyncCharacterLinkAvailability)
     win.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleSyncActiveDots)
     win.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, scheduleClearHashIfTargetIsStale)
-    win.removeEventListener(STALE_CHARACTERS_LOADED_EVENT, openStaleDetails)
+    win.removeEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStaleStateChanged)
     win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, syncAll)
     win.removeEventListener('popstate', syncAll)
 

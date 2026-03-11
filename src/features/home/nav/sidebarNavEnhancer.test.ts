@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
+import { STALE_CHARACTERS_STATE_CHANGE_EVENT } from '#features/home/commission/staleCharactersEvent'
 import { mountSidebarNavEnhancer } from './sidebarNavEnhancer'
 
 const renderSidebarRoot = () => {
@@ -40,7 +41,7 @@ const renderSidebarRoot = () => {
     <section id="section-alpha"></section>
     <h2 id="timeline-title-2026"></h2>
     <section id="timeline-year-2026"></section>
-    <div data-commission-view-panel="character" data-stale-loaded="false"></div>
+    <div data-commission-view-panel="character" data-stale-loaded="false" data-stale-visibility="hidden"></div>
   `
 }
 
@@ -237,10 +238,14 @@ describe('sidebarNavEnhancer', () => {
 
   it('requests stale loading then scrolls when stale link is clicked', () => {
     const scrollToHashWithoutWrite = vi.fn()
-    const requestStaleLoad = vi.fn(win => {
+    const requestStaleVisibility = vi.fn((win, visibility: 'visible' | 'hidden') => {
+      expect(visibility).toBe('visible')
       const staleSection = document.createElement('section')
       staleSection.id = 'section-stale'
       document.body.append(staleSection)
+      document
+        .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+        ?.setAttribute('data-stale-visibility', 'visible')
       document
         .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
         ?.setAttribute('data-stale-loaded', 'true')
@@ -250,7 +255,7 @@ describe('sidebarNavEnhancer', () => {
     const cleanup = mountSidebarNavEnhancer({
       deps: {
         scrollToHashWithoutWrite,
-        requestStaleLoad,
+        requestStaleVisibility,
       },
     })
 
@@ -259,8 +264,35 @@ describe('sidebarNavEnhancer', () => {
     ).find(link => link.getAttribute('href') === '#section-stale')
     staleLink?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
-    expect(requestStaleLoad).toHaveBeenCalledTimes(1)
+    expect(requestStaleVisibility).toHaveBeenCalledTimes(1)
     expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-stale')
+
+    cleanup()
+  })
+
+  it('collapses stale sections when stale details close after content is loaded', () => {
+    document
+      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+      ?.setAttribute('data-stale-loaded', 'true')
+    document
+      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+      ?.setAttribute('data-stale-visibility', 'visible')
+
+    const requestStaleVisibility = vi.fn()
+    const cleanup = mountSidebarNavEnhancer({
+      deps: {
+        requestStaleVisibility,
+      },
+    })
+
+    const staleDetails = document.querySelector<HTMLDetailsElement>(
+      '[data-sidebar-stale-details="true"]',
+    )
+    staleDetails!.open = true
+    staleDetails!.open = false
+    staleDetails?.dispatchEvent(new Event('toggle'))
+
+    expect(requestStaleVisibility).toHaveBeenCalledWith(window, 'hidden')
 
     cleanup()
   })
@@ -272,9 +304,42 @@ describe('sidebarNavEnhancer', () => {
     expect(staleDetails?.open).toBe(false)
 
     const cleanup = mountSidebarNavEnhancer()
-    window.dispatchEvent(new Event('home:stale-loaded'))
+    document
+      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+      ?.setAttribute('data-stale-visibility', 'visible')
+    document
+      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+      ?.setAttribute('data-stale-loaded', 'true')
+    window.dispatchEvent(
+      new CustomEvent(STALE_CHARACTERS_STATE_CHANGE_EVENT, {
+        detail: { visibility: 'visible', loaded: true },
+      }),
+    )
 
     expect(staleDetails?.open).toBe(true)
+    cleanup()
+  })
+
+  it('closes stale details when stale sections collapse externally', () => {
+    const staleDetails = document.querySelector<HTMLDetailsElement>(
+      '[data-sidebar-stale-details="true"]',
+    )
+    staleDetails!.open = true
+
+    const cleanup = mountSidebarNavEnhancer()
+    document
+      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+      ?.setAttribute('data-stale-visibility', 'hidden')
+    document
+      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+      ?.setAttribute('data-stale-loaded', 'false')
+    window.dispatchEvent(
+      new CustomEvent(STALE_CHARACTERS_STATE_CHANGE_EVENT, {
+        detail: { visibility: 'hidden', loaded: false },
+      }),
+    )
+
+    expect(staleDetails?.open).toBe(false)
     cleanup()
   })
 })

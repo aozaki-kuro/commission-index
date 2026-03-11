@@ -2,7 +2,10 @@ import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import {
   STALE_CHARACTERS_LOADED_EVENT,
-  STALE_CHARACTERS_LOAD_REQUEST_EVENT,
+  STALE_CHARACTERS_STATE_CHANGE_EVENT,
+  isStaleCharactersVisible,
+  requestStaleCharactersVisibility,
+  type StaleCharactersVisibility,
 } from '#features/home/commission/staleCharactersEvent'
 import {
   readCommissionViewMode,
@@ -41,7 +44,7 @@ type MobileHamburgerMenuDeps = {
   jumpToSearch: typeof jumpToCommissionSearch
   syncLinkAvailability: typeof syncHiddenSectionLinkAvailability
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
-  requestStaleLoad: (win: Window) => void
+  requestStaleVisibility: (win: Window, visibility: StaleCharactersVisibility) => void
 }
 
 type MountMobileHamburgerMenuOptions = {
@@ -57,9 +60,7 @@ const defaultDeps: MobileHamburgerMenuDeps = {
   jumpToSearch: jumpToCommissionSearch,
   syncLinkAvailability: syncHiddenSectionLinkAvailability,
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
-  requestStaleLoad: win => {
-    win.dispatchEvent(new Event(STALE_CHARACTERS_LOAD_REQUEST_EVENT))
-  },
+  requestStaleVisibility: requestStaleCharactersVisibility,
 }
 
 const resolveCharacterSectionKeyFromElement = (
@@ -82,10 +83,6 @@ const readAgeGateOpen = (doc: Document) => {
   if (doc.documentElement.dataset.ageGateOpen === 'true') return true
   return doc.querySelector<HTMLElement>(AGE_GATE_ROOT_SELECTOR)?.dataset.state === 'open'
 }
-
-const isStaleCharacterLoaded = (doc: Document) =>
-  doc.querySelector<HTMLElement>('[data-commission-view-panel="character"]')?.dataset
-    .staleLoaded === 'true'
 
 const setHtmlScrollLocked = (doc: Document, locked: boolean) => {
   const html = doc.documentElement
@@ -373,8 +370,8 @@ export const mountMobileHamburgerMenu = ({
       if (!sectionKey) return
       expandedCharacterSection = sectionKey
       syncCharacterSectionState()
-      if (sectionKey === 'stale' && !isStaleCharacterLoaded(doc)) {
-        deps.requestStaleLoad(win)
+      if (sectionKey === 'stale' && !isStaleCharactersVisible(doc)) {
+        deps.requestStaleVisibility(win, 'visible')
       }
       return
     }
@@ -392,7 +389,7 @@ export const mountMobileHamburgerMenu = ({
     const navLink = target.closest<HTMLAnchorElement>(NAV_LINK_SELECTOR)
     if (!navLink) return
     const isStaleLink = navLink.dataset.mobileNavCharacterStatus === 'stale'
-    if (isStaleLink && !isStaleCharacterLoaded(doc)) {
+    if (isStaleLink && !isStaleCharactersVisible(doc)) {
       event.preventDefault()
 
       const href = navLink.getAttribute('href')
@@ -402,7 +399,7 @@ export const mountMobileHamburgerMenu = ({
       }
 
       win.addEventListener(STALE_CHARACTERS_LOADED_EVENT, onStaleLoaded, { once: true })
-      deps.requestStaleLoad(win)
+      deps.requestStaleVisibility(win, 'visible')
 
       const mode = readCommissionViewMode(win)
       const sectionId = navLink.dataset.mobileNavSectionId ?? 'unknown'
@@ -496,7 +493,7 @@ export const mountMobileHamburgerMenu = ({
   doc.addEventListener('keydown', onDocumentKeyDown)
   win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onViewModeChanged)
   win.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSearchStateChanged)
-  win.addEventListener(STALE_CHARACTERS_LOADED_EVENT, onStaleLoaded)
+  win.addEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStaleLoaded)
   win.addEventListener('popstate', onPopState)
   win.addEventListener(AGE_GATE_STATE_EVENT, onAgeGateStateChanged)
 
@@ -521,7 +518,7 @@ export const mountMobileHamburgerMenu = ({
     doc.removeEventListener('keydown', onDocumentKeyDown)
     win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onViewModeChanged)
     win.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSearchStateChanged)
-    win.removeEventListener(STALE_CHARACTERS_LOADED_EVENT, onStaleLoaded)
+    win.removeEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStaleLoaded)
     win.removeEventListener('popstate', onPopState)
     win.removeEventListener(AGE_GATE_STATE_EVENT, onAgeGateStateChanged)
   }

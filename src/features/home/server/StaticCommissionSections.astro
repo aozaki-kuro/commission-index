@@ -40,7 +40,12 @@ const staleCommissionCount = staleChars.reduce(
 ---
 
 <div id="--------Commissions--------">
-  <div data-commission-view-panel="character" data-commission-view-active="true" data-stale-loaded="false">
+  <div
+    data-commission-view-panel="character"
+    data-commission-view-active="true"
+    data-stale-loaded="false"
+    data-stale-visibility="hidden"
+  >
     {
       activeChars.map(chara => (
         <Listing
