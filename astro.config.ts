@@ -38,17 +38,17 @@ export default defineConfig({
       prefixDefaultLocale: false,
     },
   },
-  experimental: {
-    fonts: [
-      {
-        provider: fontProviders.fontsource(),
-        name: 'IBM Plex Sans',
-        cssVariable: '--font-ibm-plex-sans',
-        weights: [400, 600],
-        styles: ['normal'],
-      },
-    ],
-  },
+
+  fonts: [
+    {
+      provider: fontProviders.fontsource(),
+      name: 'IBM Plex Sans',
+      cssVariable: '--font-ibm-plex-sans',
+      weights: [400, 600],
+      styles: ['normal'],
+    },
+  ],
+
   integrations: [react(), assetsPipelineIntegration(), devAdminRoutesIntegration()],
   vite: {
     plugins: [tsconfigPaths(), devAdminApiPlugin(), devSourceImageWatchPlugin()],
