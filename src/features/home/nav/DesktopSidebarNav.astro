@@ -28,6 +28,10 @@ const { active, stale, monthNavItems, locale, localeOptions, localeSwitcherLabel
 
 const activeCharacterNavItems = buildCharacterNavItems(active)
 const staleCharacterNavItems = buildCharacterNavItems(stale)
+const sidebarLeadSlotClass = 'flex h-5 w-3 shrink-0 items-center justify-center mr-1'
+const sidebarLabelClass =
+  'font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200 '
+const sidebarNavLinkClass = 'flex items-center gap-1 font-mono text-sm no-underline transition-colors duration-200 mb-3'
 ---
 
 <aside
@@ -36,16 +40,14 @@ const staleCharacterNavItems = buildCharacterNavItems(stale)
 >
   <div class="sticky top-4 mr-8 space-y-2">
     <div class="space-y-4 pb-2">
-      <div class="relative flex min-h-5 items-center pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
-        <IconZoom
-          className="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-all duration-300"
-          stroke={1.95}
-          aria-hidden="true"
-        />
+      <div class="flex min-h-5 items-center gap-1 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
+        <span class={sidebarLeadSlotClass} aria-hidden="true">
+          <IconZoom className="h-3 w-3 text-gray-400 transition-all duration-300" stroke={1.95} />
+        </span>
         <a
           href="#commission-search"
           data-sidebar-search-link="true"
-          class="font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200"
+          class={sidebarLabelClass}
         >
           {controls.search}
         </a>
@@ -54,17 +56,16 @@ const staleCharacterNavItems = buildCharacterNavItems(stale)
       <details data-sidebar-locale-menu class="group relative">
         <summary
           data-link-style="true"
-          class="relative flex min-h-5 cursor-pointer list-none items-center pl-4 text-gray-700 no-underline transition-colors hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
+          class="flex min-h-5 cursor-pointer list-none items-center gap-1 text-gray-700 no-underline transition-colors hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
           aria-label={localeSwitcherLabel}
         >
-          <IconChevronDown
-            className="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-colors duration-200 group-hover:text-gray-500 dark:group-hover:text-gray-300"
-            stroke={2.2}
-            aria-hidden="true"
-          />
-          <span class="font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200">
-            {localeSwitcherLabel}
+          <span class={sidebarLeadSlotClass} aria-hidden="true">
+            <IconChevronDown
+              className="h-3 w-3 text-gray-400 transition-colors duration-200 group-hover:text-gray-500 dark:group-hover:text-gray-300"
+              stroke={2.2}
+            />
           </span>
+          <span class={sidebarLabelClass}>{localeSwitcherLabel}</span>
         </summary>
 
         <ul
@@ -107,14 +108,15 @@ const staleCharacterNavItems = buildCharacterNavItems(stale)
           data-view-mode="character"
           aria-pressed="true"
           data-link-style="true"
-          class="relative flex min-h-5 w-full cursor-pointer appearance-none items-center border-0 bg-transparent p-0 pl-4 text-left text-gray-900 no-underline transition-colors hover:text-gray-900 dark:text-white dark:hover:text-white"
+          class="flex min-h-5 w-full cursor-pointer appearance-none items-center gap-1 border-0 bg-transparent p-0 text-left text-gray-900 no-underline transition-colors hover:text-gray-900 dark:text-white dark:hover:text-white"
         >
-          <span
-            data-sidebar-view-mode-indicator
-            class="absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-500 scale-100 opacity-100 transition-all duration-300"
-            aria-hidden="true"
-          />
-          <span class="font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200">
+          <span class={sidebarLeadSlotClass} aria-hidden="true">
+            <span
+              data-sidebar-view-mode-indicator
+              class="h-1.5 w-1.5 rounded-full bg-gray-500 scale-100 opacity-100 transition-all duration-300"
+            />
+          </span>
+          <span class={sidebarLabelClass}>
             {controls.byCharacter}
           </span>
         </button>
@@ -125,14 +127,15 @@ const staleCharacterNavItems = buildCharacterNavItems(stale)
           data-view-mode="timeline"
           aria-pressed="false"
           data-link-style="true"
-          class="relative flex min-h-5 w-full cursor-pointer appearance-none items-center border-0 bg-transparent p-0 pl-4 text-left text-gray-700 no-underline transition-colors hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
+          class="flex min-h-5 w-full cursor-pointer appearance-none items-center gap-1 border-0 bg-transparent p-0 text-left text-gray-700 no-underline transition-colors hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
         >
-          <span
-            data-sidebar-view-mode-indicator
-            class="absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-500 scale-0 opacity-0 transition-all duration-300"
-            aria-hidden="true"
-          />
-          <span class="font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200">
+          <span class={sidebarLeadSlotClass} aria-hidden="true">
+            <span
+              data-sidebar-view-mode-indicator
+              class="h-1.5 w-1.5 rounded-full bg-gray-500 scale-0 opacity-0 transition-all duration-300"
+            />
+          </span>
+          <span class={sidebarLabelClass}>
             {controls.byDate}
           </span>
         </button>
@@ -140,13 +143,14 @@ const staleCharacterNavItems = buildCharacterNavItems(stale)
 
       {
         import.meta.env.DEV ? (
-          <div class="relative flex min-h-5 items-center pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
-            <IconLayoutDashboard
-              className="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-all duration-300"
-              stroke={1.9}
-              aria-hidden="true"
-            />
-            <a href="/admin" class="font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200">
+          <div class="flex min-h-5 items-center gap-1 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
+            <span class={sidebarLeadSlotClass} aria-hidden="true">
+              <IconLayoutDashboard
+                className="h-3 w-3 text-gray-400 transition-all duration-300"
+                stroke={1.9}
+              />
+            </span>
+            <a href="/admin" class={sidebarLabelClass}>
               Admin
             </a>
           </div>
@@ -167,12 +171,10 @@ const staleCharacterNavItems = buildCharacterNavItems(stale)
         {
           activeCharacterNavItems.length > 0 ? (
             <li>
-              <div class="relative flex min-h-5 items-center pl-4 text-gray-700 dark:text-gray-200">
-                <IconFlare
-                  className="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400"
-                  stroke={1.95}
-                  aria-hidden="true"
-                />
+              <div class="flex min-h-5 items-center gap-1 text-gray-700 dark:text-gray-200 pb-1">
+                <span class={sidebarLeadSlotClass} aria-hidden="true">
+                  <IconFlare className="h-3 w-3 text-gray-400" stroke={1.95} />
+                </span>
                 <span class="font-mono text-sm leading-5 font-bold">{controls.activeCharacters}</span>
               </div>
             </li>
@@ -180,19 +182,21 @@ const staleCharacterNavItems = buildCharacterNavItems(stale)
         }
         {
           activeCharacterNavItems.map(({ displayName, sectionHash, titleId, sectionId }) => (
-            <li class="relative pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
-              <span
-                data-sidebar-dot-for={titleId}
-                class="absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-400 scale-0 opacity-0 transition-all duration-300"
-              />
+            <li class="text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
               <a
                 href={sectionHash}
                 data-sidebar-character-link="true"
                 data-sidebar-character-status="active"
                 data-sidebar-title-id={titleId}
-                class="font-mono text-sm no-underline transition-colors duration-200"
+                class={sidebarNavLinkClass}
                 data-sidebar-section-id={sectionId}
               >
+                <span class={sidebarLeadSlotClass} aria-hidden="true">
+                  <span
+                    data-sidebar-dot-for={titleId}
+                    class="h-1.5 w-1.5 rounded-full bg-gray-400 scale-0 opacity-0 transition-all duration-300"
+                  />
+                </span>
                 {displayName}
               </a>
             </li>
@@ -204,34 +208,37 @@ const staleCharacterNavItems = buildCharacterNavItems(stale)
               <details class="group" data-sidebar-stale-details="true">
                 <summary
                   data-load-stale-characters="true"
-                  class="relative flex min-h-5 cursor-pointer list-none items-center pl-4 text-gray-700 transition-colors hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
+                  class="flex min-h-5 cursor-pointer list-none items-center gap-1 text-gray-700 transition-colors hover:text-gray-900 dark:text-gray-200 dark:hover:text-white"
                 >
-                  <IconChevronRight
-                    className="absolute top-1/2 left-0 h-3 w-3 -translate-x-1 -translate-y-1/2 text-gray-400 transition-transform duration-200 group-open:rotate-90"
-                    stroke={2.2}
-                    aria-hidden="true"
-                  />
+                  <span class={sidebarLeadSlotClass} aria-hidden="true">
+                    <IconChevronRight
+                      className="h-3 w-3 text-gray-400 transition-transform duration-200 group-open:rotate-90"
+                      stroke={2.2}
+                    />
+                  </span>
                   <span class="font-mono text-sm leading-5 font-bold">{controls.staleCharacters}</span>
                 </summary>
 
                 <ul class="mt-4 space-y-2">
                   {
                     staleCharacterNavItems.map(({ displayName, sectionHash, titleId, sectionId }) => (
-                      <li class="relative pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
-                        <span
-                          data-sidebar-dot-for={titleId}
-                          class="absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-400 scale-0 opacity-0 transition-all duration-300"
-                        />
+                      <li class="text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
                         <a
                           href={sectionHash}
                           data-sidebar-character-link="true"
                           data-sidebar-character-status="stale"
                           data-sidebar-title-id={titleId}
-                          class="pointer-events-none cursor-not-allowed font-mono text-sm text-gray-500 no-underline opacity-70 transition-colors duration-200 dark:text-gray-400"
+                          class="pointer-events-none flex items-center gap-1 cursor-not-allowed font-mono text-sm text-gray-500 no-underline opacity-70 transition-colors duration-200 dark:text-gray-400 pb-1"
                           data-sidebar-section-id={sectionId}
                           aria-disabled="true"
                           tabindex="-1"
                         >
+                          <span class={sidebarLeadSlotClass} aria-hidden="true">
+                            <span
+                              data-sidebar-dot-for={titleId}
+                              class="h-1.5 w-1.5 rounded-full bg-gray-400 scale-0 opacity-0 transition-all duration-300"
+                            />
+                          </span>
                           {displayName}
                         </a>
                       </li>
@@ -247,19 +254,21 @@ const staleCharacterNavItems = buildCharacterNavItems(stale)
       <ul data-sidebar-nav-panel="timeline" class="hidden space-y-2">
         {
           monthNavItems.map(({ displayName, sectionHash, titleId, sectionId }) => (
-            <li class="relative pl-4 text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
-              <span
-                data-sidebar-dot-for={titleId}
-                class="absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gray-400 scale-0 opacity-0 transition-all duration-300"
-              />
+            <li class="text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white">
               <a
                 href={sectionHash}
                 data-sidebar-character-link="true"
                 data-sidebar-character-status="active"
                 data-sidebar-title-id={titleId}
-                class="font-mono text-sm no-underline transition-colors duration-200"
+                class={sidebarNavLinkClass}
                 data-sidebar-section-id={sectionId}
               >
+                <span class={sidebarLeadSlotClass} aria-hidden="true">
+                  <span
+                    data-sidebar-dot-for={titleId}
+                    class="h-1.5 w-1.5 rounded-full bg-gray-400 scale-0 opacity-0 transition-all duration-300"
+                  />
+                </span>
                 {displayName}
               </a>
             </li>
