@@ -22,7 +22,7 @@ import { INITIAL_FORM_STATE } from '#admin/types'
 import { adminSurfaceStyles, formControlStyles } from '#admin/uiStyles'
 import { Button } from '#components/ui/button'
 import { dedupeKeywords } from '#lib/search/popularKeywords'
-import { useActionState, useMemo, useState } from 'react'
+import { useActionState, useDeferredValue, useMemo, useState } from 'react'
 import { useFormStatus } from 'react-dom'
 
 interface SuggestionDashboardProps {
@@ -31,6 +31,8 @@ interface SuggestionDashboardProps {
 }
 
 const MAX_FEATURED_KEYWORDS = 6
+const MAX_KEYWORD_OPTIONS = 240
+const MAX_VISIBLE_AVAILABLE_KEYWORDS = 120
 
 const normalizeKeyword = (value: string) => value.trim().replace(/\s+/g, ' ')
 const normalizeKeywordKey = (value: string) => normalizeKeyword(value).toLowerCase()
@@ -96,6 +98,7 @@ const SuggestionDashboard = ({ featuredKeywords, keywordOptions }: SuggestionDas
   const [state, formAction] = useActionState(saveHomeFeaturedKeywordsAction, INITIAL_FORM_STATE)
   const [manualInput, setManualInput] = useState('')
   const [searchInput, setSearchInput] = useState('')
+  const deferredSearchInput = useDeferredValue(searchInput)
   const [selectedKeywords, setSelectedKeywords] = useState(() =>
     dedupeKeywords(featuredKeywords, MAX_FEATURED_KEYWORDS),
   )
@@ -103,14 +106,24 @@ const SuggestionDashboard = ({ featuredKeywords, keywordOptions }: SuggestionDas
     () => new Set(selectedKeywords.map(normalizeKeywordKey)),
     [selectedKeywords],
   )
+  const dedupedKeywordOptions = useMemo(
+    () => dedupeKeywords(keywordOptions, MAX_KEYWORD_OPTIONS),
+    [keywordOptions],
+  )
+  const normalizedSearchQuery = useMemo(
+    () => normalizeKeywordKey(deferredSearchInput),
+    [deferredSearchInput],
+  )
 
   const availableKeywords = useMemo(() => {
-    const filtered = dedupeKeywords(keywordOptions, 240).filter(keyword => {
-      if (!searchInput.trim()) return true
-      return keyword.toLowerCase().includes(searchInput.trim().toLowerCase())
-    })
-    return filtered.slice(0, 120)
-  }, [keywordOptions, searchInput])
+    if (!normalizedSearchQuery) {
+      return dedupedKeywordOptions.slice(0, MAX_VISIBLE_AVAILABLE_KEYWORDS)
+    }
+
+    return dedupedKeywordOptions
+      .filter(keyword => normalizeKeywordKey(keyword).includes(normalizedSearchQuery))
+      .slice(0, MAX_VISIBLE_AVAILABLE_KEYWORDS)
+  }, [dedupedKeywordOptions, normalizedSearchQuery])
 
   const keywordsJson = useMemo(() => JSON.stringify(selectedKeywords), [selectedKeywords])
   const canAddMore = selectedKeywords.length < MAX_FEATURED_KEYWORDS
@@ -123,22 +136,31 @@ const SuggestionDashboard = ({ featuredKeywords, keywordOptions }: SuggestionDas
 
   const addKeyword = (rawKeyword: string) => {
     const keyword = normalizeKeyword(rawKeyword)
-    if (!keyword || !canAddMore) return
+    if (!keyword) return
 
-    const keywordKey = normalizeKeywordKey(keyword)
-    if (normalizedSelectedKeywordKeySet.has(keywordKey)) return
+    setSelectedKeywords(previous => {
+      if (previous.length >= MAX_FEATURED_KEYWORDS) return previous
+      const keywordKey = normalizeKeywordKey(keyword)
+      const hasDuplicate = previous.some(item => normalizeKeywordKey(item) === keywordKey)
+      if (hasDuplicate) return previous
+      return [...previous, keyword]
+    })
+  }
 
-    setSelectedKeywords(previous => [...previous, keyword])
+  const removeKeywordByKey = (keywordKey: string) => {
+    setSelectedKeywords(previous =>
+      previous.filter(item => normalizeKeywordKey(item) !== keywordKey),
+    )
   }
 
   const removeKeyword = (keyword: string) => {
-    setSelectedKeywords(previous => previous.filter(item => item !== keyword))
+    removeKeywordByKey(normalizeKeywordKey(keyword))
   }
 
   const toggleKeyword = (keyword: string) => {
     const keywordKey = normalizeKeywordKey(keyword)
     if (normalizedSelectedKeywordKeySet.has(keywordKey)) {
-      removeKeyword(keyword)
+      removeKeywordByKey(keywordKey)
       return
     }
 
