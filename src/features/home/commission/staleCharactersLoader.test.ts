@@ -63,6 +63,35 @@ describe('mountStaleCharactersLoader', () => {
     cleanup()
   })
 
+  it('loads stale sections from an initial hash target inside the template', () => {
+    renderFixture()
+    window.history.replaceState(null, '', '#section-stale')
+
+    const requestAnimationFrameSpy = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation(callback => {
+        callback(0)
+        return 1
+      })
+    const scrollToHashWithoutWrite = vi.fn()
+
+    const cleanup = mountStaleCharactersLoader({
+      deps: { scrollToHashWithoutWrite },
+    })
+
+    expect(document.getElementById('section-stale')).toBeTruthy()
+    expect(
+      document
+        .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+        ?.getAttribute('data-stale-loaded'),
+    ).toBe('true')
+    expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-stale')
+
+    cleanup()
+    requestAnimationFrameSpy.mockRestore()
+    window.history.replaceState(null, '', '/')
+  })
+
   it('collapses loaded stale sections when requested', () => {
     renderFixture()
     const onCollapsed = vi.fn()
