@@ -80,6 +80,14 @@ export const getDomSnapshotKeyForMode = ({
     ? `character:${staleLoaded ? 'stale-loaded' : 'stale-collapsed'}`
     : `timeline:${timelineLoaded ? 'timeline-loaded' : 'timeline-pending'}`
 
+export const resolveEffectiveDomSnapshotKey = ({
+  domSnapshotKey,
+  skipDomContext,
+}: {
+  domSnapshotKey: string
+  skipDomContext: boolean
+}) => (skipDomContext ? 'skip-dom-context' : domSnapshotKey)
+
 export const useCommissionSearchModel = ({
   activeCommandValue,
   controls,
@@ -140,14 +148,18 @@ export const useCommissionSearchModel = ({
     staleLoaded,
     timelineLoaded,
   })
+  const effectiveDomSnapshotKey = resolveEffectiveDomSnapshotKey({
+    domSnapshotKey,
+    skipDomContext: shouldSkipDomContext,
+  })
 
   const index = useMemo(() => {
     if (!shouldBuildIndex) return createEmptySearchIndex()
     return buildSearchIndex(mode, externalEntries, {
-      domSnapshotKey,
+      domSnapshotKey: effectiveDomSnapshotKey,
       skipDomContext: shouldSkipDomContext,
     })
-  }, [domSnapshotKey, externalEntries, mode, shouldBuildIndex, shouldSkipDomContext])
+  }, [effectiveDomSnapshotKey, externalEntries, mode, shouldBuildIndex, shouldSkipDomContext])
   const [hydratedIndex, setHydratedIndex] = useState<SearchIndex | null>(null)
   const resolvedIndex = useMemo(
     () => (hydratedIndex && hydratedIndex.entries === index.entries ? hydratedIndex : index),

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { getDomSnapshotKeyForMode } from './useCommissionSearchModel'
+import {
+  getDomSnapshotKeyForMode,
+  resolveEffectiveDomSnapshotKey,
+} from './useCommissionSearchModel'
 
 describe('getDomSnapshotKeyForMode', () => {
   it('changes character snapshot key only when staleLoaded changes', () => {
@@ -42,5 +45,30 @@ describe('getDomSnapshotKeyForMode', () => {
 
     expect(before).toBe(unrelatedStaleChange)
     expect(timelineChange).not.toBe(before)
+  })
+})
+
+describe('resolveEffectiveDomSnapshotKey', () => {
+  it('uses a stable key when dom context is skipped', () => {
+    const first = resolveEffectiveDomSnapshotKey({
+      domSnapshotKey: 'character:stale-collapsed',
+      skipDomContext: true,
+    })
+    const second = resolveEffectiveDomSnapshotKey({
+      domSnapshotKey: 'character:stale-loaded',
+      skipDomContext: true,
+    })
+
+    expect(first).toBe('skip-dom-context')
+    expect(second).toBe(first)
+  })
+
+  it('keeps the mode snapshot key when dom context is enabled', () => {
+    const key = resolveEffectiveDomSnapshotKey({
+      domSnapshotKey: 'timeline:timeline-loaded',
+      skipDomContext: false,
+    })
+
+    expect(key).toBe('timeline:timeline-loaded')
   })
 })
