@@ -21,10 +21,31 @@ const isStaleLoaded = (panel: HTMLElement | null) => readStaleCharactersStateFro
 
 type StaleCharactersLoaderDeps = {
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
+  restoreScrollPosition: (win: Window, position: { x: number; y: number }) => void
 }
 
 const defaultDeps: StaleCharactersLoaderDeps = {
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
+  restoreScrollPosition: (win, position) => {
+    const scrollingElement = win.document.scrollingElement
+    if (scrollingElement) {
+      scrollingElement.scrollLeft = position.x
+      scrollingElement.scrollTop = position.y
+      return
+    }
+
+    if (win.navigator.userAgent.includes('jsdom')) {
+      return
+    }
+
+    if (typeof win.scrollTo !== 'function') return
+
+    try {
+      win.scrollTo(position.x, position.y)
+    } catch {
+      // jsdom does not implement scrolling; treat it as a no-op there.
+    }
+  },
 }
 
 const mountTemplateContent = (panel: HTMLElement) => {
@@ -68,8 +89,33 @@ const templateContainsHashTarget = (panel: HTMLElement, hash: string) => {
   return templateContentContainsElementId(template.content, id)
 }
 
-const loadStaleSections = (win: Window, panel: HTMLElement | null) => {
+const scheduleScrollRestore = ({
+  deps,
+  position,
+  win,
+}: {
+  deps: StaleCharactersLoaderDeps
+  position: { x: number; y: number }
+  win: Window
+}) => {
+  win.requestAnimationFrame(() => {
+    deps.restoreScrollPosition(win, position)
+  })
+}
+
+const loadStaleSections = ({
+  deps,
+  preserveScroll,
+  win,
+  panel,
+}: {
+  deps: StaleCharactersLoaderDeps
+  preserveScroll: boolean
+  win: Window
+  panel: HTMLElement | null
+}) => {
   if (!panel || isStaleLoaded(panel)) return false
+  const scrollPosition = preserveScroll ? { x: win.scrollX, y: win.scrollY } : null
   if (!mountTemplateContent(panel)) return false
 
   const state = writeStaleCharactersState(panel, 'visible')
@@ -77,12 +123,26 @@ const loadStaleSections = (win: Window, panel: HTMLElement | null) => {
   dispatchSidebarSearchState()
   dispatchStaleCharactersStateChange(win, state)
   win.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
+  if (scrollPosition) {
+    scheduleScrollRestore({ deps, position: scrollPosition, win })
+  }
   return true
 }
 
-const collapseStaleSections = (win: Window, panel: HTMLElement | null) => {
+const collapseStaleSections = ({
+  deps,
+  preserveScroll,
+  win,
+  panel,
+}: {
+  deps: StaleCharactersLoaderDeps
+  preserveScroll: boolean
+  win: Window
+  panel: HTMLElement | null
+}) => {
   if (!panel || !isStaleLoaded(panel)) return false
 
+  const scrollPosition = preserveScroll ? { x: win.scrollX, y: win.scrollY } : null
   const container = panel.querySelector<HTMLElement>(STALE_CONTAINER_SELECTOR)
   if (!container) return false
 
@@ -92,6 +152,9 @@ const collapseStaleSections = (win: Window, panel: HTMLElement | null) => {
   dispatchSidebarSearchState()
   dispatchStaleCharactersStateChange(win, state)
   win.dispatchEvent(new Event(STALE_CHARACTERS_COLLAPSED_EVENT))
+  if (scrollPosition) {
+    scheduleScrollRestore({ deps, position: scrollPosition, win })
+  }
   return true
 }
 
@@ -114,15 +177,15 @@ export const mountStaleCharactersLoader = ({
     const trigger = target.closest<HTMLElement>(STALE_LOAD_TRIGGER_SELECTOR)
     if (!trigger) return
 
-    loadStaleSections(win, panel)
+    loadStaleSections({ deps, preserveScroll: true, win, panel })
   }
 
   const onLoadRequest = () => {
-    loadStaleSections(win, panel)
+    loadStaleSections({ deps, preserveScroll: true, win, panel })
   }
 
   const onCollapseRequest = () => {
-    collapseStaleSections(win, panel)
+    collapseStaleSections({ deps, preserveScroll: true, win, panel })
   }
 
   const syncHashTarget = () => {
@@ -130,7 +193,7 @@ export const mountStaleCharactersLoader = ({
     if (!hash || isStaleLoaded(panel)) return
     if (getHashTarget(hash)) return
     if (!templateContainsHashTarget(panel, hash)) return
-    if (!loadStaleSections(win, panel)) return
+    if (!loadStaleSections({ deps, preserveScroll: false, win, panel })) return
 
     win.requestAnimationFrame(() => {
       deps.scrollToHashWithoutWrite(hash)

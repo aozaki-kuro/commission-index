@@ -24,6 +24,32 @@ const renderFixture = () => {
 }
 
 describe('mountStaleCharactersLoader', () => {
+  it('restores scroll position after manual stale expansion', () => {
+    renderFixture()
+    Object.defineProperty(window, 'scrollX', { value: 24, configurable: true })
+    Object.defineProperty(window, 'scrollY', { value: 480, configurable: true })
+    const requestAnimationFrameSpy = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation(callback => {
+        callback(0)
+        return 1
+      })
+    const restoreScrollPosition = vi.fn()
+
+    const cleanup = mountStaleCharactersLoader({
+      deps: { restoreScrollPosition },
+    })
+    document
+      .querySelector<HTMLElement>('[data-load-stale-characters="true"]')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+    expect(restoreScrollPosition).toHaveBeenCalledTimes(1)
+    expect(restoreScrollPosition).toHaveBeenCalledWith(window, { x: 24, y: 480 })
+
+    cleanup()
+    requestAnimationFrameSpy.mockRestore()
+  })
+
   it('injects stale sections and dispatches loaded + sidebar sync events', () => {
     renderFixture()
     const onLoaded = vi.fn()
@@ -97,9 +123,10 @@ describe('mountStaleCharactersLoader', () => {
         return 1
       })
     const scrollToHashWithoutWrite = vi.fn()
+    const restoreScrollPosition = vi.fn()
 
     const cleanup = mountStaleCharactersLoader({
-      deps: { scrollToHashWithoutWrite },
+      deps: { restoreScrollPosition, scrollToHashWithoutWrite },
     })
 
     expect(document.getElementById('section-stale')).toBeTruthy()
@@ -109,6 +136,7 @@ describe('mountStaleCharactersLoader', () => {
         ?.getAttribute('data-stale-loaded'),
     ).toBe('true')
     expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-stale-20240101')
+    expect(restoreScrollPosition).not.toHaveBeenCalled()
 
     cleanup()
     requestAnimationFrameSpy.mockRestore()
