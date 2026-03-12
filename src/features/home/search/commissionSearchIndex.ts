@@ -48,6 +48,13 @@ const normalizeSuggestionTermKey = (term: string) => term.trim().toLowerCase()
 const MAX_PARSED_SUGGESTION_ROWS_CACHE_SIZE = 400
 const parsedSuggestionRowsCache = new Map<string, ReturnType<typeof parseSuggestionRows>>()
 const externalEntryCache = new WeakMap<CommissionSearchEntrySource[], Entry[]>()
+const stableEntryDerivedStateCache = new WeakMap<
+  Entry[],
+  {
+    entryById: Map<number, Entry>
+    suggestions: Suggestion[]
+  }
+>()
 
 const setParsedSuggestionRowsCacheEntry = (
   key: string,
@@ -94,6 +101,19 @@ const getCachedExternalEntries = (externalEntries: CommissionSearchEntrySource[]
   return nextEntries
 }
 
+const getStableEntryDerivedState = (entries: Entry[]) => {
+  const cached = stableEntryDerivedStateCache.get(entries)
+  if (cached) return cached
+
+  const next = {
+    entryById: new Map(entries.map(entry => [entry.id, entry])),
+    suggestions: collectSuggestions(entries),
+  }
+
+  stableEntryDerivedStateCache.set(entries, next)
+  return next
+}
+
 export const createEmptySearchIndex = (): SearchIndex => ({
   entries: [],
   entryById: new Map(),
@@ -134,14 +154,18 @@ const finalizeSearchIndex = (
     sections?: Section[]
     staleDivider?: HTMLElement | null
   } = {},
-): SearchIndex => ({
-  ...createSearchIndex(entries),
-  ...collectVisibilityMetrics(entries),
-  entryById: new Map(entries.map(entry => [entry.id, entry])),
-  sections,
-  staleDivider,
-  suggestions: collectSuggestions(entries),
-})
+): SearchIndex => {
+  const { entryById, suggestions } = getStableEntryDerivedState(entries)
+
+  return {
+    ...createSearchIndex(entries),
+    ...collectVisibilityMetrics(entries),
+    entryById,
+    sections,
+    staleDivider,
+    suggestions,
+  }
+}
 
 export const getDisplayMetrics = ({
   searchIndex,

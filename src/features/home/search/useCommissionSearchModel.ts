@@ -3,7 +3,6 @@ import {
   type SuggestionViewModel,
 } from '#features/home/search/CommissionSearchSuggestionDropdown'
 import { requestActiveCharactersLoad } from '#features/home/commission/activeCharactersEvent'
-import { requestSectionEntriesLoad } from '#features/home/commission/sectionEntriesEvent'
 import {
   buildRelatedSuggestionTermsMap,
   buildSearchIndex,
@@ -90,18 +89,16 @@ export const subscribeToUrlQuerySnapshot = (onStoreChange: () => void) => {
 export const getDomSnapshotKeyForMode = ({
   activeLoaded,
   mode,
-  pendingSectionEntriesCount,
   staleLoaded,
   timelineLoaded,
 }: {
   activeLoaded: boolean
   mode: 'character' | 'timeline'
-  pendingSectionEntriesCount: number
   staleLoaded: boolean
   timelineLoaded: boolean
 }) =>
   mode === 'character'
-    ? `character:${activeLoaded ? 'active-loaded' : 'active-pending'}:${staleLoaded ? 'stale-loaded' : 'stale-collapsed'}:section-entries-${pendingSectionEntriesCount}`
+    ? `character:${activeLoaded ? 'active-loaded' : 'active-pending'}:${staleLoaded ? 'stale-loaded' : 'stale-collapsed'}`
     : `timeline:${timelineLoaded ? 'timeline-loaded' : 'timeline-pending'}`
 
 export const resolveEffectiveDomSnapshotKey = ({
@@ -164,14 +161,12 @@ export const useCommissionSearchModel = ({
     () => !deferIndexInit || !!initialQuery || !!initialUrlQuery,
   )
   const [shouldWarmFuse, setShouldWarmFuse] = useState(() => !!initialQuery || !!initialUrlQuery)
-  const { activeLoaded, pendingSectionEntriesCount, staleLoaded, timelineLoaded } =
-    useSearchPanelLoadedState()
+  const { activeLoaded, staleLoaded, timelineLoaded } = useSearchPanelLoadedState()
   const shouldBuildIndex = isIndexReady || !deferIndexInit || !!query || !!initialUrlQuery
   const shouldSkipDomContext = disableDomFiltering && Boolean(externalEntries)
   const domSnapshotKey = getDomSnapshotKeyForMode({
     activeLoaded,
     mode,
-    pendingSectionEntriesCount,
     staleLoaded,
     timelineLoaded,
   })
@@ -184,17 +179,6 @@ export const useCommissionSearchModel = ({
     if (disableDomFiltering || mode !== 'character' || !hasQuery || activeLoaded) return
     requestActiveCharactersLoad(window)
   }, [activeLoaded, disableDomFiltering, hasQuery, mode])
-
-  useEffect(() => {
-    if (
-      disableDomFiltering ||
-      mode !== 'character' ||
-      !hasQuery ||
-      pendingSectionEntriesCount === 0
-    )
-      return
-    requestSectionEntriesLoad(window)
-  }, [disableDomFiltering, hasQuery, mode, pendingSectionEntriesCount])
 
   const index = useMemo(() => {
     if (!shouldBuildIndex) return createEmptySearchIndex()

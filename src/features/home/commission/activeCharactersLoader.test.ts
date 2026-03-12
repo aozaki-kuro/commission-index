@@ -50,9 +50,7 @@ describe('mountActiveCharactersLoader', () => {
     renderFixture()
     document.querySelector('template[data-active-sections-template="true"]')!.innerHTML = `
       <section id="section-beta"></section>
-      <template data-section-entries-template="true">
-        <article id="section-beta-20240101"></article>
-      </template>
+      <article id="section-beta-20240101"></article>
     `
     window.history.replaceState(null, '', '#section-beta-20240101')
 

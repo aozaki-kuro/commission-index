@@ -29,6 +29,7 @@ export type SuggestionEntryLike = {
 }
 
 export type SearchIndexLike<T extends SearchEntryLike> = {
+  cacheKey?: object
   entries: T[]
   allIds: Set<number>
   strictTermIndex?: Map<string, Set<number>>
@@ -83,6 +84,7 @@ const BASE_SEARCH_FUSE_OPTIONS = {
 let fuseModulePromise: Promise<typeof import('fuse.js')> | null = null
 const EMPTY_IDS = new Set<number>()
 const EMPTY_STRING_SET = new Set<string>()
+const searchIndexCache = new WeakMap<SearchEntryLike[], SearchIndexLike<SearchEntryLike>>()
 const matchedIdsCache = new WeakMap<object, Map<string, Set<number>>>()
 const strictTermMatchesCache = new WeakMap<object, Map<string, Set<number>>>()
 const preparedSuggestionsCache = new WeakMap<Suggestion[], PreparedSuggestion[]>()
@@ -108,11 +110,15 @@ const setLruCacheEntry = <K, V>(cache: Map<K, V>, key: K, value: V, limit: numbe
   return value
 }
 
+const getStrictTermCacheKey = <T extends SearchEntryLike>(index: SearchIndexLike<T>) =>
+  index.cacheKey ?? (index as object)
+
 const getQueryCache = <T extends SearchEntryLike>(index: SearchIndexLike<T>) => {
-  const cached = matchedIdsCache.get(index as object)
+  const cacheKey = index.fuse ?? index.cacheKey ?? (index as object)
+  const cached = matchedIdsCache.get(cacheKey)
   if (cached) return cached
   const next = new Map<string, Set<number>>()
-  matchedIdsCache.set(index as object, next)
+  matchedIdsCache.set(cacheKey, next)
   return next
 }
 
@@ -140,10 +146,11 @@ const getPreparedSuggestions = (suggestions: Suggestion[]) => {
 }
 
 const getStrictTermCache = <T extends SearchEntryLike>(index: SearchIndexLike<T>) => {
-  const cached = strictTermMatchesCache.get(index as object)
+  const cacheKey = getStrictTermCacheKey(index)
+  const cached = strictTermMatchesCache.get(cacheKey)
   if (cached) return cached
   const next = new Map<string, Set<number>>()
-  strictTermMatchesCache.set(index as object, next)
+  strictTermMatchesCache.set(cacheKey, next)
   return next
 }
 
@@ -553,12 +560,21 @@ export const createSearchFuse = async <T extends SearchEntryLike>(entries: T[]) 
   })
 }
 
-export const createSearchIndex = <T extends SearchEntryLike>(entries: T[]): SearchIndexLike<T> => ({
-  entries,
-  allIds: new Set(entries.map(entry => entry.id)),
-  strictTermIndex: buildStrictTermIndex(entries),
-  fuse: null,
-})
+export const createSearchIndex = <T extends SearchEntryLike>(entries: T[]): SearchIndexLike<T> => {
+  const cached = searchIndexCache.get(entries)
+  if (cached) return cached as SearchIndexLike<T>
+
+  const next: SearchIndexLike<T> = {
+    cacheKey: entries,
+    entries,
+    allIds: new Set(entries.map(entry => entry.id)),
+    strictTermIndex: buildStrictTermIndex(entries),
+    fuse: null,
+  }
+
+  searchIndexCache.set(entries, next)
+  return next
+}
 
 export const hydrateSearchIndexFuse = async <
   T extends SearchEntryLike,

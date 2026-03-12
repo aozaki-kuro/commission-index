@@ -12,28 +12,24 @@ describe('getDomSnapshotKeyForMode', () => {
     const before = getDomSnapshotKeyForMode({
       activeLoaded: false,
       mode: 'character',
-      pendingSectionEntriesCount: 2,
       staleLoaded: false,
       timelineLoaded: false,
     })
     const unrelatedTimelineChange = getDomSnapshotKeyForMode({
       activeLoaded: false,
       mode: 'character',
-      pendingSectionEntriesCount: 2,
       staleLoaded: false,
       timelineLoaded: true,
     })
     const activeChange = getDomSnapshotKeyForMode({
       activeLoaded: true,
       mode: 'character',
-      pendingSectionEntriesCount: 2,
       staleLoaded: false,
       timelineLoaded: true,
     })
     const staleChange = getDomSnapshotKeyForMode({
       activeLoaded: true,
       mode: 'character',
-      pendingSectionEntriesCount: 2,
       staleLoaded: true,
       timelineLoaded: true,
     })
@@ -47,46 +43,24 @@ describe('getDomSnapshotKeyForMode', () => {
     const before = getDomSnapshotKeyForMode({
       activeLoaded: false,
       mode: 'timeline',
-      pendingSectionEntriesCount: 3,
       staleLoaded: false,
       timelineLoaded: false,
     })
     const unrelatedStaleChange = getDomSnapshotKeyForMode({
       activeLoaded: true,
       mode: 'timeline',
-      pendingSectionEntriesCount: 1,
       staleLoaded: true,
       timelineLoaded: false,
     })
     const timelineChange = getDomSnapshotKeyForMode({
       activeLoaded: true,
       mode: 'timeline',
-      pendingSectionEntriesCount: 0,
       staleLoaded: true,
       timelineLoaded: true,
     })
 
     expect(before).toBe(unrelatedStaleChange)
     expect(timelineChange).not.toBe(before)
-  })
-
-  it('changes character snapshot key when pending section-entry templates change', () => {
-    const before = getDomSnapshotKeyForMode({
-      activeLoaded: true,
-      mode: 'character',
-      pendingSectionEntriesCount: 2,
-      staleLoaded: false,
-      timelineLoaded: false,
-    })
-    const after = getDomSnapshotKeyForMode({
-      activeLoaded: true,
-      mode: 'character',
-      pendingSectionEntriesCount: 1,
-      staleLoaded: false,
-      timelineLoaded: false,
-    })
-
-    expect(after).not.toBe(before)
   })
 })
 

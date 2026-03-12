@@ -1,22 +1,28 @@
+const INACTIVE_VIEW_PANEL_SELECTOR =
+  '[data-commission-view-panel][data-commission-view-active="false"]'
+const ACTIVE_VIEW_PANEL_SELECTOR =
+  '[data-commission-view-panel][data-commission-view-active="true"]'
+
+const escapeAttributeSelectorValue = (value: string) =>
+  value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+
+const getExactIdSelector = (id: string) => `[id="${escapeAttributeSelectorValue(id)}"]`
+
 export const getHashTarget = (hash: string): HTMLElement | null => {
   if (!hash || !hash.startsWith('#')) return null
 
   const id = decodeURIComponent(hash.slice(1))
   if (!id) return null
 
-  const candidates = Array.from(document.querySelectorAll<HTMLElement>('[id]')).filter(
-    element => element.id === id,
-  )
-  if (candidates.length === 0) return null
+  const directMatch = document.getElementById(id)
+  if (!directMatch) return null
 
-  // Same entry can exist in both "character" and "timeline" panels.
-  // Prefer targets inside the active view panel to avoid scrolling hidden content.
-  return (
-    candidates.find(
-      element =>
-        !element.closest('[data-commission-view-panel][data-commission-view-active="false"]'),
-    ) ?? candidates[0]
-  )
+  if (!directMatch.closest(INACTIVE_VIEW_PANEL_SELECTOR)) {
+    return directMatch
+  }
+
+  const activePanel = document.querySelector<HTMLElement>(ACTIVE_VIEW_PANEL_SELECTOR)
+  return activePanel?.querySelector<HTMLElement>(getExactIdSelector(id)) ?? directMatch
 }
 
 export const getHashFromHref = (rawHref: string | null): string => {

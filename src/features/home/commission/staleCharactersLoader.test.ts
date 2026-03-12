@@ -110,9 +110,7 @@ describe('mountStaleCharactersLoader', () => {
     renderFixture()
     document.querySelector('template[data-stale-sections-template="true"]')!.innerHTML = `
       <section id="section-stale"></section>
-      <template data-section-entries-template="true">
-        <article id="section-stale-20240101"></article>
-      </template>
+      <article id="section-stale-20240101"></article>
     `
     window.history.replaceState(null, '', '#section-stale-20240101')
 

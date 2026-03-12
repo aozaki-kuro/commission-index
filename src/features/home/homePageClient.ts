@@ -3,7 +3,6 @@ import { trackRybbitEvent } from '#lib/analytics/track'
 import { mountActiveCharactersLoader } from '#features/home/commission/activeCharactersLoader'
 import { mountCommissionViewModeDomSync } from '#features/home/commission/commissionViewModeDomSync'
 import { mountMobileViewModeTabs } from '#features/home/commission/mobileViewModeTabs'
-import { mountSectionEntriesLoader } from '#features/home/commission/sectionEntriesLoader'
 import { mountStaleCharactersLoader } from '#features/home/commission/staleCharactersLoader'
 import { mountTimelineViewLoader } from '#features/home/commission/timelineViewLoader'
 import { mountUnpublishedInterestButtons } from '#features/home/commission/unpublishedInterestClient'
@@ -16,7 +15,6 @@ type Cleanup = () => void
 type HomePageClientDeps = {
   mountCommissionViewModeDomSync: () => Cleanup
   mountActiveCharactersLoader: () => Cleanup
-  mountSectionEntriesLoader: () => Cleanup
   mountStaleCharactersLoader: () => Cleanup
   mountTimelineViewLoader: () => Cleanup
   mountSidebarNavEnhancer: () => Cleanup
@@ -33,7 +31,6 @@ type MountHomePageClientOptions = {
 const defaultDeps: HomePageClientDeps = {
   mountCommissionViewModeDomSync: () => mountCommissionViewModeDomSync(),
   mountActiveCharactersLoader: () => mountActiveCharactersLoader(),
-  mountSectionEntriesLoader: () => mountSectionEntriesLoader(),
   mountStaleCharactersLoader: () => mountStaleCharactersLoader(),
   mountTimelineViewLoader: () => mountTimelineViewLoader(),
   mountSidebarNavEnhancer: () => mountSidebarNavEnhancer(),
@@ -53,7 +50,6 @@ export const mountHomePageClient = ({ deps: depsOverrides }: MountHomePageClient
   const mounts = [
     deps.mountCommissionViewModeDomSync,
     deps.mountActiveCharactersLoader,
-    deps.mountSectionEntriesLoader,
     deps.mountStaleCharactersLoader,
     deps.mountTimelineViewLoader,
     deps.mountSidebarNavEnhancer,

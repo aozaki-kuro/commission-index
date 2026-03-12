@@ -25,6 +25,7 @@ export interface CharacterRecord {
 }
 
 const isDevelopment = process.env.NODE_ENV === 'development'
+let commissionKeywordColumnSupport: boolean | null = null
 
 // 将数据库中的 JSON 字符串解析为链接数组，确保异常时返回空数组
 const parseLinks = (raw?: string | null): string[] => {
@@ -39,8 +40,10 @@ const parseLinks = (raw?: string | null): string[] => {
 }
 
 const hasCommissionKeywordColumn = (): boolean => {
+  if (commissionKeywordColumnSupport !== null) return commissionKeywordColumnSupport
   const columns = queryAll<{ name: string }>('PRAGMA table_info(commissions)')
-  return columns.some(column => column.name === 'keyword')
+  commissionKeywordColumnSupport = columns.some(column => column.name === 'keyword')
+  return commissionKeywordColumnSupport
 }
 
 // 将数据库行转换为具备排序信息的角色记录列表

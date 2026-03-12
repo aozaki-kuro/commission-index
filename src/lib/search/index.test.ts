@@ -1,7 +1,7 @@
 import Fuse from 'fuse.js'
 import { getCommissionData } from '#data/commissionData'
 import { flattenCommissions, parseCommissionFileName } from '#lib/commissions/index'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   applySuggestionToQuery,
   buildStrictTermIndex,
@@ -180,5 +180,52 @@ describe('search utils (trimmed + real db sample)', () => {
 
   it('replaces an equivalent multi-word query with a single quoted phrase', () => {
     expect(applySuggestionToQuery('Kanaut Nishe', 'Kanaut Nishe')).toBe('"Kanaut Nishe" ')
+  })
+
+  it('reuses query cache across index wrappers that share a fuse instance', () => {
+    const entries: Entry[] = [{ id: 1, searchText: 'lucia maid outfit' }]
+    const fuse = {
+      search: vi.fn(() => [{ item: entries[0] }]),
+    } as unknown as Fuse<Entry>
+    const firstIndex: SearchIndexLike<Entry> = {
+      entries,
+      allIds: new Set([1]),
+      strictTermIndex: new Map(),
+      fuse,
+    }
+    const secondIndex: SearchIndexLike<Entry> = {
+      ...firstIndex,
+    }
+
+    const firstMatch = getMatchedEntryIds('luc', firstIndex)
+    const secondMatch = getMatchedEntryIds('luc', secondIndex)
+
+    expect(fuse.search).toHaveBeenCalledTimes(1)
+    expect(secondMatch).toBe(firstMatch)
+  })
+
+  it('does not reuse non-fuse fallback cache after fuse hydration', () => {
+    const entries: Entry[] = [{ id: 1, searchText: 'lucia maid outfit' }]
+    const coldIndex: SearchIndexLike<Entry> = {
+      cacheKey: entries,
+      entries,
+      allIds: new Set([1]),
+      strictTermIndex: new Map(),
+      fuse: null,
+    }
+    const fuse = {
+      search: vi.fn(() => [{ item: entries[0] }]),
+    } as unknown as Fuse<Entry>
+    const warmIndex: SearchIndexLike<Entry> = {
+      ...coldIndex,
+      fuse,
+    }
+
+    expect(getMatchedEntryIds('luc', coldIndex).size).toBe(0)
+
+    const warmMatch = getMatchedEntryIds('luc', warmIndex)
+
+    expect(fuse.search).toHaveBeenCalledTimes(1)
+    expect(warmMatch).toEqual(new Set([1]))
   })
 })

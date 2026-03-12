@@ -77,14 +77,12 @@ describe('CommissionSearchDeferred', () => {
     template.dataset.activeSectionsTemplate = 'true'
     template.innerHTML = `
       <section>
-        <template data-section-entries-template="true">
-          <article
-            data-commission-entry="true"
-            data-commission-search-key="active-template"
-            data-search-text="${searchText}"
-            data-search-suggest="${searchSuggest}"
-          ></article>
-        </template>
+        <article
+          data-commission-entry="true"
+          data-commission-search-key="active-template"
+          data-search-text="${searchText}"
+          data-search-suggest="${searchSuggest}"
+        ></article>
       </section>
     `
     document.body.appendChild(template)

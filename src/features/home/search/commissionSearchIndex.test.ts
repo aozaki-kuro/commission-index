@@ -92,6 +92,10 @@ describe('commissionSearchIndex', () => {
     const second = buildSearchIndex('character', externalEntries)
 
     expect(second.entries).toBe(firstEntries)
+    expect(second.allIds).toBe(first.allIds)
+    expect(second.strictTermIndex).toBe(first.strictTermIndex)
+    expect(second.entryById).toBe(first.entryById)
+    expect(second.suggestions).toBe(first.suggestions)
     expect(second.entries[0]?.element).not.toBe(firstElement)
     expect(second.entries[0]?.element).toBeUndefined()
     expect(second.entries[0]?.sectionId).toBeUndefined()
