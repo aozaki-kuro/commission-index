@@ -32,7 +32,7 @@ const {
 } =
   Astro.props as StaticCommissionSectionsProps
 const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
-const MAX_INITIAL_ACTIVE_SECTIONS = 2
+const MAX_INITIAL_ACTIVE_SECTIONS = 1
 const initialActiveChars = activeChars.slice(0, MAX_INITIAL_ACTIVE_SECTIONS)
 const deferredActiveChars = activeChars.slice(MAX_INITIAL_ACTIVE_SECTIONS)
 const hasDeferredActiveChars = deferredActiveChars.length > 0
