@@ -6,6 +6,7 @@ import { mountMobileViewModeTabs } from '#features/home/commission/mobileViewMod
 import { mountStaleCharactersLoader } from '#features/home/commission/staleCharactersLoader'
 import { mountTimelineViewLoader } from '#features/home/commission/timelineViewLoader'
 import { mountUnpublishedInterestButtons } from '#features/home/commission/unpublishedInterestClient'
+import { mountHomeScrollRestore } from '#features/home/homeScrollRestore'
 import { mountSidebarNavEnhancer } from '#features/home/nav/sidebarNavEnhancer'
 import { mountMobileHamburgerMenu } from '#features/home/nav/hamburger/mobileHamburgerMenu'
 import { mountMobileLanguageMenu } from '#features/home/nav/hamburger/mobileLanguageMenu'
@@ -17,6 +18,7 @@ type HomePageClientDeps = {
   mountActiveCharactersLoader: () => Cleanup
   mountStaleCharactersLoader: () => Cleanup
   mountTimelineViewLoader: () => Cleanup
+  mountHomeScrollRestore: () => Cleanup
   mountSidebarNavEnhancer: () => Cleanup
   mountMobileHamburgerMenu: () => Cleanup
   mountMobileLanguageMenu: () => Cleanup
@@ -33,6 +35,7 @@ const defaultDeps: HomePageClientDeps = {
   mountActiveCharactersLoader: () => mountActiveCharactersLoader(),
   mountStaleCharactersLoader: () => mountStaleCharactersLoader(),
   mountTimelineViewLoader: () => mountTimelineViewLoader(),
+  mountHomeScrollRestore: () => mountHomeScrollRestore(),
   mountSidebarNavEnhancer: () => mountSidebarNavEnhancer(),
   mountMobileHamburgerMenu: () => mountMobileHamburgerMenu(),
   mountMobileLanguageMenu: () => mountMobileLanguageMenu(),
@@ -52,6 +55,7 @@ export const mountHomePageClient = ({ deps: depsOverrides }: MountHomePageClient
     deps.mountActiveCharactersLoader,
     deps.mountStaleCharactersLoader,
     deps.mountTimelineViewLoader,
+    deps.mountHomeScrollRestore,
     deps.mountSidebarNavEnhancer,
     deps.mountMobileHamburgerMenu,
     deps.mountMobileLanguageMenu,

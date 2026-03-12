@@ -36,6 +36,8 @@ This repository contains an Astro 6 static site with React 19 islands, written i
 - Astro 6 preserves relative `script` / `style` / `link` order. Treat the current order of home/layout script components as behavior, not formatting, and smoke-test home/admin when reordering them.
 - Home runtime side-effect bootstrapping is centralized in:
   - `src/features/home/homePageClient.ts`
+- Home refresh scroll restoration is centralized in:
+  - `src/features/home/homeScrollRestore.ts`
 - Home unpublished-interest button state is centralized in:
   - `src/features/home/commission/unpublishedInterestClient.ts`
 - Home active character lazy-mount behavior is centralized in:
@@ -171,6 +173,7 @@ Additional guidance:
 - Collapsed most home side-effect entrypoints into `HomeClientScript.astro` + `homePageClient.ts` to reduce initial module requests without changing DOM contracts.
 - Added Playwright visual regression baselines for home search/nav shells, mobile floating menus, and the admin featured-keyword dashboard.
 - Removed the per-section commission-entry lazy-mount layer so sidebar and update-link anchor jumps stay stable after section templates mount.
+- Added home-side reload scroll restoration so lazy-mounted sections can rehydrate before restoring the reader's saved position.
 
 ## Code Style
 
