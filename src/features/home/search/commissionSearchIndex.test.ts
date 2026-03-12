@@ -58,4 +58,44 @@ describe('commissionSearchIndex', () => {
 
     expect(afterOverflow.entries[0]?.suggestionRows).not.toBe(firstRows)
   })
+
+  it('reuses cached external entries while refreshing dom visibility context', () => {
+    const externalEntries = [
+      buildEntry({ id: 1, domKey: 'first', searchSuggest: 'Keyword\tmaid' }),
+      buildEntry({ id: 2, domKey: 'second', searchSuggest: 'Keyword\tbutler' }),
+    ]
+
+    document.body.innerHTML = `
+      <section data-character-section="true" id="alpha">
+        <article
+          data-commission-entry="true"
+          data-character-section-id="alpha"
+          data-commission-search-key="first"
+        ></article>
+      </section>
+    `
+
+    const first = buildSearchIndex('character', externalEntries)
+    const firstEntries = first.entries
+    const firstElement = first.entries[0]?.element
+
+    document.body.innerHTML = `
+      <section data-character-section="true" id="beta">
+        <article
+          data-commission-entry="true"
+          data-character-section-id="beta"
+          data-commission-search-key="second"
+        ></article>
+      </section>
+    `
+
+    const second = buildSearchIndex('character', externalEntries)
+
+    expect(second.entries).toBe(firstEntries)
+    expect(second.entries[0]?.element).not.toBe(firstElement)
+    expect(second.entries[0]?.element).toBeUndefined()
+    expect(second.entries[0]?.sectionId).toBeUndefined()
+    expect(second.entries[1]?.element).toBeInstanceOf(HTMLElement)
+    expect(second.entries[1]?.sectionId).toBe('beta')
+  })
 })

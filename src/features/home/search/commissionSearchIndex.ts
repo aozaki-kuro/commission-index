@@ -47,6 +47,7 @@ const normalizeSuggestionTermKey = (term: string) => term.trim().toLowerCase()
 
 const MAX_PARSED_SUGGESTION_ROWS_CACHE_SIZE = 400
 const parsedSuggestionRowsCache = new Map<string, ReturnType<typeof parseSuggestionRows>>()
+const externalEntryCache = new WeakMap<CommissionSearchEntrySource[], Entry[]>()
 
 const setParsedSuggestionRowsCacheEntry = (
   key: string,
@@ -76,6 +77,21 @@ const getParsedSuggestionRows = (searchSuggest = '') => {
 
   const parsed = parseSuggestionRows(searchSuggest)
   return setParsedSuggestionRowsCacheEntry(searchSuggest, parsed)
+}
+
+const getCachedExternalEntries = (externalEntries: CommissionSearchEntrySource[]) => {
+  const cached = externalEntryCache.get(externalEntries)
+  if (cached) return cached
+
+  const nextEntries: Entry[] = externalEntries.map(entry => ({
+    id: entry.id,
+    domKey: entry.domKey,
+    searchText: entry.searchText.toLowerCase(),
+    suggestionRows: getParsedSuggestionRows(entry.searchSuggest ?? ''),
+  }))
+
+  externalEntryCache.set(externalEntries, nextEntries)
+  return nextEntries
 }
 
 export const createEmptySearchIndex = (): SearchIndex => ({
@@ -254,17 +270,12 @@ export const buildSearchIndex = (
         .map(entry => [entry.domKey as string, entry] as const),
     )
 
-    const entries = externalEntries.map(entry => {
-      const domEntry = domEntryByKey.get(entry.domKey)
-      return {
-        id: entry.id,
-        domKey: entry.domKey,
-        searchText: entry.searchText.toLowerCase(),
-        suggestionRows: getParsedSuggestionRows(entry.searchSuggest ?? ''),
-        element: domEntry?.element,
-        sectionId: domEntry?.sectionId,
-      }
-    })
+    const entries = getCachedExternalEntries(externalEntries)
+    for (const entry of entries) {
+      const domEntry = domEntryByKey.get(entry.domKey ?? '')
+      entry.element = domEntry?.element
+      entry.sectionId = domEntry?.sectionId
+    }
 
     return finalizeSearchIndex(entries, { sections, staleDivider })
   }

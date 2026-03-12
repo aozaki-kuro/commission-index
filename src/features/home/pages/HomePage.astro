@@ -13,12 +13,14 @@ import MobileHamburgerMenu from '#features/home/nav/hamburger/MobileHamburgerMen
 import MobileLanguageMenu from '#features/home/nav/hamburger/MobileLanguageMenu.astro'
 import StaticCommissionSections from '#features/home/server/StaticCommissionSections.astro'
 import AgeGateScript from '#features/home/warning/AgeGateScript.astro'
-import { getCharacterAliases, getCharacterAliasesMap } from '#data/characterAliases'
+import { getCharacterAliases } from '#data/characterAliases'
 import { getHomeFeaturedSearchKeywords } from '#data/homeFeaturedSearchKeywords'
-import { getKeywordAliases, getKeywordAliasesMap } from '#data/keywordAliases'
+import { getKeywordAliases } from '#data/keywordAliases'
+import { normalizeCharacterAliasKey } from '#lib/characterAliases/shared'
 import { homeUpdateSummary } from '#lib/generated/homeUpdateSummary'
 import { buildSitePayload } from '#lib/home/buildSitePayload'
 import { listMissingSourceImages, resolveSourceImageByCommissionFileName } from '#lib/images/sourceImageRegistry'
+import { normalizeKeywordAliasKey } from '#lib/keywordAliases/shared'
 import { buildCommissionDataMap, buildCreatorAliasesMap } from '#lib/sitePayload'
 import BaseLayout from '#layouts/BaseLayout.astro'
 import {
@@ -47,8 +49,24 @@ const characterAliases = getCharacterAliases()
 const keywordAliases = getKeywordAliases()
 const commissionMap = buildCommissionDataMap(payload.commissionData)
 const creatorAliasesMap = buildCreatorAliasesMap(payload.creatorAliases)
-const characterAliasesMap = getCharacterAliasesMap()
-const keywordAliasesMap = getKeywordAliasesMap()
+const characterAliasesMap = new Map(
+  characterAliases
+    .map(row => {
+      const key = normalizeCharacterAliasKey(row.characterName)
+      if (!key) return null
+      return [key, row.aliases] as const
+    })
+    .filter((entry): entry is readonly [string, string[]] => Boolean(entry)),
+)
+const keywordAliasesMap = new Map(
+  keywordAliases
+    .map(row => {
+      const key = normalizeKeywordAliasKey(row.baseKeyword)
+      if (!key) return null
+      return [key, row.aliases] as const
+    })
+    .filter((entry): entry is readonly [string, string[]] => Boolean(entry)),
+)
 const suggestionAliasGroups = [
   ...characterAliases.map(row => ({
     term: row.characterName,

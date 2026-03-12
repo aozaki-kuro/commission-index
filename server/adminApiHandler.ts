@@ -194,6 +194,16 @@ const parseJsonBody = async (request: Request): Promise<Record<string, unknown>>
   return payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {}
 }
 
+const parseStructuredArray = <T>(value: unknown, fallbackFieldValue?: unknown): T[] => {
+  if (Array.isArray(value)) {
+    return value as T[]
+  }
+
+  const rawValue = fallbackFieldValue ?? value ?? '[]'
+  const parsed = JSON.parse(String(rawValue)) as unknown
+  return Array.isArray(parsed) ? (parsed as T[]) : []
+}
+
 const parseCharacterStatus = (value: unknown): CharacterStatus =>
   String(value) === 'stale' ? 'stale' : 'active'
 
@@ -433,12 +443,11 @@ export const handleAdminApiRequest = async (request: Request) => {
   if (request.method === 'POST' && pathname === '/api/admin/aliases/batch') {
     try {
       const body = await parseJsonBody(request)
-      const rowsJson = String(body.rowsJson ?? '[]')
-      const parsedRows = JSON.parse(rowsJson) as Array<{
+      const parsedRows = parseStructuredArray<{
         creatorName?: string
         alias?: string
         aliases?: string[] | string
-      }>
+      }>(body.rows, body.rowsJson)
       const rows = parsedRows.map(row => ({
         creatorName: row.creatorName ?? '',
         aliases: row.aliases ?? row.alias ?? '',
@@ -454,12 +463,11 @@ export const handleAdminApiRequest = async (request: Request) => {
   if (request.method === 'POST' && pathname === '/api/admin/character-aliases/batch') {
     try {
       const body = await parseJsonBody(request)
-      const rowsJson = String(body.rowsJson ?? '[]')
-      const parsedRows = JSON.parse(rowsJson) as Array<{
+      const parsedRows = parseStructuredArray<{
         characterName?: string
         alias?: string
         aliases?: string[] | string
-      }>
+      }>(body.rows, body.rowsJson)
       const rows = parsedRows.map(row => ({
         characterName: row.characterName ?? '',
         aliases: row.aliases ?? row.alias ?? '',
@@ -475,12 +483,11 @@ export const handleAdminApiRequest = async (request: Request) => {
   if (request.method === 'POST' && pathname === '/api/admin/keyword-aliases/batch') {
     try {
       const body = await parseJsonBody(request)
-      const rowsJson = String(body.rowsJson ?? '[]')
-      const parsedRows = JSON.parse(rowsJson) as Array<{
+      const parsedRows = parseStructuredArray<{
         baseKeyword?: string
         alias?: string
         aliases?: string[] | string
-      }>
+      }>(body.rows, body.rowsJson)
       const rows = parsedRows.map(row => ({
         baseKeyword: row.baseKeyword ?? '',
         aliases: row.aliases ?? row.alias ?? '',
@@ -496,9 +503,7 @@ export const handleAdminApiRequest = async (request: Request) => {
   if (request.method === 'POST' && pathname === '/api/admin/suggestion') {
     try {
       const body = await parseJsonBody(request)
-      const keywordsJson = String(body.keywordsJson ?? '[]')
-      const parsedKeywords = JSON.parse(keywordsJson) as unknown
-      const keywords = Array.isArray(parsedKeywords) ? parsedKeywords.map(String) : []
+      const keywords = parseStructuredArray<unknown>(body.keywords, body.keywordsJson).map(String)
 
       saveHomeFeaturedSearchKeywords(keywords)
       return success('Home featured keywords saved.')

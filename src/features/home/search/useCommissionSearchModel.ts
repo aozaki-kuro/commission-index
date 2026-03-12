@@ -204,10 +204,20 @@ export const useCommissionSearchModel = ({
     })
   }, [effectiveDomSnapshotKey, externalEntries, mode, shouldBuildIndex, shouldSkipDomContext])
   const [hydratedIndex, setHydratedIndex] = useState<SearchIndex | null>(null)
-  const resolvedIndex = useMemo(
-    () => (hydratedIndex && hydratedIndex.entries === index.entries ? hydratedIndex : index),
-    [hydratedIndex, index],
-  )
+  const resolvedIndex = useMemo(() => {
+    if (!hydratedIndex || hydratedIndex.entries !== index.entries) {
+      return index
+    }
+
+    if (index.fuse) {
+      return index
+    }
+
+    return {
+      ...index,
+      fuse: hydratedIndex.fuse,
+    }
+  }, [hydratedIndex, index])
   const shouldHydrateFuse = shouldWarmFuse || hasQuery
 
   useEffect(() => {

@@ -11,6 +11,16 @@ const toErrorState = (error: unknown, fallback: string): FormState => ({
   message: error instanceof Error ? error.message : fallback,
 })
 
+const parseJsonFormField = <T>(formData: FormData, fieldName: string, fallback: T): T => {
+  try {
+    const raw = formData.get(fieldName)?.toString() ?? ''
+    if (!raw) return fallback
+    return JSON.parse(raw) as T
+  } catch {
+    return fallback
+  }
+}
+
 const parseResponse = async (response: Response): Promise<FormState> => {
   try {
     const payload = (await response.json()) as Partial<AdminApiResponse> | null
@@ -189,7 +199,7 @@ export const saveCreatorAliasesBatchAction = async (
     const response = await fetch('/api/admin/aliases/batch', {
       method: 'POST',
       body: JSON.stringify({
-        rowsJson: formData.get('rowsJson')?.toString() ?? '[]',
+        rows: parseJsonFormField(formData, 'rowsJson', []),
       }),
       headers: {
         'Content-Type': 'application/json',
@@ -210,7 +220,7 @@ export const saveCharacterAliasesBatchAction = async (
     const response = await fetch('/api/admin/character-aliases/batch', {
       method: 'POST',
       body: JSON.stringify({
-        rowsJson: formData.get('rowsJson')?.toString() ?? '[]',
+        rows: parseJsonFormField(formData, 'rowsJson', []),
       }),
       headers: {
         'Content-Type': 'application/json',
@@ -231,7 +241,7 @@ export const saveKeywordAliasesBatchAction = async (
     const response = await fetch('/api/admin/keyword-aliases/batch', {
       method: 'POST',
       body: JSON.stringify({
-        rowsJson: formData.get('rowsJson')?.toString() ?? '[]',
+        rows: parseJsonFormField(formData, 'rowsJson', []),
       }),
       headers: {
         'Content-Type': 'application/json',
@@ -252,7 +262,7 @@ export const saveHomeFeaturedKeywordsAction = async (
     const response = await fetch('/api/admin/suggestion', {
       method: 'POST',
       body: JSON.stringify({
-        keywordsJson: formData.get('keywordsJson')?.toString() ?? '[]',
+        keywords: parseJsonFormField(formData, 'keywordsJson', []),
       }),
       headers: {
         'Content-Type': 'application/json',

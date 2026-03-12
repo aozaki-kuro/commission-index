@@ -6,13 +6,13 @@ interface CharacterProps {
   DisplayName: string
 }
 
-interface CommissionStatus {
+export interface CommissionStatus {
   active: CharacterProps[]
   stale: CharacterProps[]
 }
 
 // 将角色记录划分为 active/stale 状态供前端消费
-const buildStatus = (records: CharacterRecord[]): CommissionStatus => {
+export const buildCharacterStatus = (records: CharacterRecord[]): CommissionStatus => {
   const active: CharacterProps[] = []
   const stale: CharacterProps[] = []
 
@@ -25,9 +25,9 @@ const buildStatus = (records: CharacterRecord[]): CommissionStatus => {
   return { active, stale }
 }
 
-const staticCharacterStatus: CommissionStatus = buildStatus(characterRecords)
+const staticCharacterStatus: CommissionStatus = buildCharacterStatus(characterRecords)
 
 export const getCharacterStatus = (): CommissionStatus =>
-  isDevelopment ? buildStatus(getCharacterRecords()) : staticCharacterStatus
+  isDevelopment ? buildCharacterStatus(getCharacterRecords()) : staticCharacterStatus
 
 export const characterStatus: CommissionStatus = staticCharacterStatus

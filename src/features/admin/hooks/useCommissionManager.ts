@@ -37,11 +37,13 @@ type StoredOpenState = {
 
 type CharacterOrderSaveQueueOptions = {
   onSaved: () => void
+  onError: (message: string) => void
   saveOrder: (payload: CharacterOrderPayload) => Promise<FormState>
 }
 
 export const createLatestCharacterOrderSaveQueue = ({
   onSaved,
+  onError,
   saveOrder,
 }: CharacterOrderSaveQueueOptions) => {
   let requestedVersion = 0
@@ -60,9 +62,13 @@ export const createLatestCharacterOrderSaveQueue = ({
         const result = await saveOrder(payload)
         if (!disposed && result.status === 'success' && targetVersion === requestedVersion) {
           onSaved()
+        } else if (!disposed && result.status === 'error' && targetVersion === requestedVersion) {
+          onError(result.message ?? 'Unable to save character order.')
         }
       } catch {
-        // Keep drag-sort persistence silent to avoid layout shift in the list UI.
+        if (!disposed && targetVersion === requestedVersion) {
+          onError('Unable to save character order.')
+        }
       }
 
       completedVersion = targetVersion
@@ -197,6 +203,9 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
     orderSaveQueueRef.current = createLatestCharacterOrderSaveQueue({
       saveOrder: saveCharacterOrder,
       onSaved: notifyDataUpdate,
+      onError: message => {
+        setFeedback({ type: 'error', text: message })
+      },
     })
   }
 

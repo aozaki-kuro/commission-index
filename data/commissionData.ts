@@ -5,7 +5,7 @@ import { CharacterRecord, characterRecords, getCharacterRecords } from './commis
 const isDevelopment = process.env.NODE_ENV === 'development'
 
 // 将角色记录转换为页面消费的数据结构，并按时间倒序
-const buildCommissionData = (records: CharacterRecord[]): Props =>
+export const buildCommissionData = (records: CharacterRecord[]): Props =>
   filterHiddenCommissions(
     records.map(record => ({
       Character: record.name,
