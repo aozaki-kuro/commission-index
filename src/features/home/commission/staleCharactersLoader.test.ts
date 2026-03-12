@@ -82,7 +82,13 @@ describe('mountStaleCharactersLoader', () => {
 
   it('loads stale sections from an initial hash target inside the template', () => {
     renderFixture()
-    window.history.replaceState(null, '', '#section-stale')
+    document.querySelector('template[data-stale-sections-template="true"]')!.innerHTML = `
+      <section id="section-stale"></section>
+      <template data-section-entries-template="true">
+        <article id="section-stale-20240101"></article>
+      </template>
+    `
+    window.history.replaceState(null, '', '#section-stale-20240101')
 
     const requestAnimationFrameSpy = vi
       .spyOn(window, 'requestAnimationFrame')
@@ -102,7 +108,7 @@ describe('mountStaleCharactersLoader', () => {
         .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
         ?.getAttribute('data-stale-loaded'),
     ).toBe('true')
-    expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-stale')
+    expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-stale-20240101')
 
     cleanup()
     requestAnimationFrameSpy.mockRestore()

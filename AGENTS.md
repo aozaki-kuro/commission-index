@@ -41,6 +41,9 @@ This repository contains an Astro 6 static site with React 19 islands, written i
 - Home active character lazy-mount behavior is centralized in:
   - `src/features/home/commission/activeCharactersLoader.ts`
   - `src/features/home/commission/activeCharactersEvent.ts`
+- Home per-section commission-entry lazy-mount behavior is centralized in:
+  - `src/features/home/commission/sectionEntriesLoader.ts`
+  - `src/features/home/commission/sectionEntriesEvent.ts`
 - Home timeline lazy-mount behavior is centralized in:
   - `src/features/home/commission/timelineViewLoader.ts`
 - Home desktop navigation behavior is centralized in:
@@ -60,6 +63,7 @@ This repository contains an Astro 6 static site with React 19 islands, written i
   - Prefer optimizing index/data loading behind a stable UI shell over lazy-loading the entire search island. If revisiting async loading, prove identical DOM footprint before and after hydration.
 - Shared pure rendering helpers:
   - `src/features/home/commission/linkDisplay.ts` (link sanitization/priority selection)
+  - `src/features/home/commission/templateContentLookup.ts` (recursive template-content id lookup for deferred hash/search flows)
   - `src/lib/images/sourceImageRegistry.ts` (source image lookup by commission fileName)
 
 ## Admin Rendering Architecture
@@ -164,6 +168,7 @@ Additional guidance:
 - Added character alias management (`character_aliases`) to `/admin/aliases` and unified search-suggestion alias display mapping with source priority (`character > creator > keyword`).
 - Added shared server request/response bridge utility and test coverage.
 - Added active-character lazy-mount pipeline (`template` + loader script + navigation/search load requests) so the home page no longer renders every active character section up front.
+- Added per-section commission-entry lazy-mount pipeline (`template` + loader script + search/hash/viewport load requests) so each visible character section only ships its first batch of cards in the initial DOM.
 - Added stale character lazy-loading pipeline (`template` + loader script + sidebar/search sync events) to reduce initial DOM size while preserving navigation discoverability.
 - Added timeline lazy-mount pipeline (`template` + loader script + search/sidebar sync events) so the hidden timeline view no longer doubles the initial homepage DOM.
 - Collapsed most home side-effect entrypoints into `HomeClientScript.astro` + `homePageClient.ts` to reduce initial module requests without changing DOM contracts.

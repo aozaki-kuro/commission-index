@@ -13,8 +13,6 @@ const MAX_FEATURED_KEYWORDS = 6
 const MAX_VISIBLE_POPULAR_KEYWORDS = 6
 const HOME_SEARCH_INDEX_URL = '/search/home-search-entries.json'
 const COMMISSION_ENTRY_SELECTOR = '[data-commission-entry="true"]'
-const ACTIVE_TEMPLATE_SELECTOR = 'template[data-active-sections-template="true"]'
-const STALE_TEMPLATE_SELECTOR = 'template[data-stale-sections-template="true"]'
 
 let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
 let homeSearchEntriesPromise: Promise<CommissionSearchEntrySource[]> | null = null
@@ -52,6 +50,15 @@ const getPopularKeywordBatch = (keywords: string[], page: number, batchSize: num
 }
 
 const normalizeKeywordVariantKey = (value: string) => value.trim().toLowerCase()
+
+const collectSearchEntryElementsFromNode = (root: ParentNode): HTMLElement[] => {
+  const directEntries = Array.from(root.querySelectorAll<HTMLElement>(COMMISSION_ENTRY_SELECTOR))
+  const nestedTemplateEntries = Array.from(
+    root.querySelectorAll<HTMLTemplateElement>('template'),
+  ).flatMap(template => collectSearchEntryElementsFromNode(template.content))
+
+  return [...directEntries, ...nestedTemplateEntries]
+}
 
 const buildAliasKeyLookup = (aliasGroups: SearchSuggestionAliasGroup[]) => {
   const keyToGroup = new Map<string, string>()
@@ -154,23 +161,8 @@ const collapseAliasKeywordVariants = (
 const buildSearchEntriesFromDom = (): CommissionSearchEntrySource[] => {
   if (typeof document === 'undefined') return []
 
-  const visibleEntries = Array.from(
-    document.querySelectorAll<HTMLElement>(COMMISSION_ENTRY_SELECTOR),
-  )
-  const activeTemplateEntries = Array.from(
-    document.querySelectorAll<HTMLTemplateElement>(ACTIVE_TEMPLATE_SELECTOR),
-  ).flatMap(template =>
-    Array.from(template.content.querySelectorAll<HTMLElement>(COMMISSION_ENTRY_SELECTOR)),
-  )
-  const staleTemplateEntries = Array.from(
-    document.querySelectorAll<HTMLTemplateElement>(STALE_TEMPLATE_SELECTOR),
-  ).flatMap(template =>
-    Array.from(template.content.querySelectorAll<HTMLElement>(COMMISSION_ENTRY_SELECTOR)),
-  )
-
   const entriesByKey = new Map<string, Omit<CommissionSearchEntrySource, 'id'>>()
-
-  ;[...visibleEntries, ...activeTemplateEntries, ...staleTemplateEntries].forEach(element => {
+  collectSearchEntryElementsFromNode(document).forEach(element => {
     const domKey = element.dataset.commissionSearchKey
     const searchText = element.dataset.searchText
     if (!domKey || !searchText || entriesByKey.has(domKey)) return

@@ -7,6 +7,7 @@ import {
   readStaleCharactersStateFromPanel,
   writeStaleCharactersState,
 } from '#features/home/commission/staleCharactersEvent'
+import { templateContentContainsElementId } from '#features/home/commission/templateContentLookup'
 import { getHashTarget, scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import { dispatchSidebarSearchState } from '#lib/navigation/sidebarSearchState'
 
@@ -64,9 +65,7 @@ const templateContainsHashTarget = (panel: HTMLElement, hash: string) => {
   const template = panel.querySelector<HTMLTemplateElement>(STALE_TEMPLATE_SELECTOR)
   if (!template) return false
 
-  return Array.from(template.content.querySelectorAll<HTMLElement>('[id]')).some(
-    element => element.id === id,
-  )
+  return templateContentContainsElementId(template.content, id)
 }
 
 const loadStaleSections = (win: Window, panel: HTMLElement | null) => {

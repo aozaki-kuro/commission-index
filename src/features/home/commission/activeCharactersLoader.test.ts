@@ -48,7 +48,13 @@ describe('mountActiveCharactersLoader', () => {
 
   it('loads deferred active sections for an initial hash target and scrolls after mount', () => {
     renderFixture()
-    window.history.replaceState(null, '', '#section-beta')
+    document.querySelector('template[data-active-sections-template="true"]')!.innerHTML = `
+      <section id="section-beta"></section>
+      <template data-section-entries-template="true">
+        <article id="section-beta-20240101"></article>
+      </template>
+    `
+    window.history.replaceState(null, '', '#section-beta-20240101')
 
     const requestAnimationFrameSpy = vi
       .spyOn(window, 'requestAnimationFrame')
@@ -63,7 +69,7 @@ describe('mountActiveCharactersLoader', () => {
     })
 
     expect(document.getElementById('section-beta')).toBeTruthy()
-    expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-beta')
+    expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-beta-20240101')
 
     cleanup()
     requestAnimationFrameSpy.mockRestore()

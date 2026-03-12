@@ -1,3 +1,5 @@
+import { templateContentContainsElementId } from '#features/home/commission/templateContentLookup'
+
 export const ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT = 'home:active-characters-load-request'
 export const ACTIVE_CHARACTERS_LOADED_EVENT = 'home:active-characters-loaded'
 
@@ -35,9 +37,7 @@ export const hasDeferredActiveCharacterTarget = (
   const template = doc.querySelector<HTMLTemplateElement>(ACTIVE_TEMPLATE_SELECTOR)
   if (!template) return false
 
-  return Array.from(template.content.querySelectorAll<HTMLElement>('[id]')).some(
-    element => element.id === sectionId,
-  )
+  return templateContentContainsElementId(template.content, sectionId)
 }
 
 export const requestActiveCharactersLoad = (win: Window) => {

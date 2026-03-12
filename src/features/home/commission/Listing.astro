@@ -25,17 +25,22 @@ const {
 } = Astro.props as ListingProps
 const resolvedLocale = normalizeHomeLocale(locale)
 const messages = getHomeLocaleMessages(resolvedLocale)
+const MAX_INITIAL_SECTION_ENTRIES = 4
 const sectionId = getCharacterSectionId(Character)
 const titleId = getCharacterTitleId(Character)
 const sectionHash = getCharacterSectionHash(Character)
 const characterData = commissionMap.get(Character)
 const commissions = characterData?.Commissions ?? []
+const initialCommissions = commissions.slice(0, MAX_INITIAL_SECTION_ENTRIES)
+const deferredCommissions = commissions.slice(MAX_INITIAL_SECTION_ENTRIES)
+const hasDeferredCommissions = deferredCommissions.length > 0
 ---
 
 <div
   id={sectionId}
   data-character-section="true"
   data-character-status={status}
+  data-section-entries-loaded={hasDeferredCommissions ? 'false' : 'true'}
   data-total-commissions={commissions.length}
   class="pb-6"
 >
@@ -53,19 +58,48 @@ const commissions = characterData?.Commissions ?? []
     commissions.length === 0 ? (
       <p class="my-4">{messages.listing.toBeAnnounced}</p>
     ) : (
-      <CommissionEntries
-        locale={resolvedLocale}
-        entries={commissions.map(commission => ({
-          character: Character,
-          commission,
-          sectionId,
-          entryKey: `${Character}:${commission.fileName}`,
-          entryAnchorPrefix: sectionId,
-        }))}
-        characterAliasesMap={characterAliasesMap}
-        creatorAliasesMap={creatorAliasesMap}
-        keywordAliasesMap={keywordAliasesMap}
-      />
+      <>
+        <CommissionEntries
+          locale={resolvedLocale}
+          entries={initialCommissions.map(commission => ({
+            character: Character,
+            commission,
+            sectionId,
+            entryKey: `${Character}:${commission.fileName}`,
+            entryAnchorPrefix: sectionId,
+          }))}
+          characterAliasesMap={characterAliasesMap}
+          creatorAliasesMap={creatorAliasesMap}
+          keywordAliasesMap={keywordAliasesMap}
+        />
+        {
+          hasDeferredCommissions ? (
+            <>
+              <div data-section-entries-container="true" />
+              <div
+                data-section-entries-sentinel="true"
+                aria-hidden="true"
+                class="h-px overflow-hidden opacity-0 pointer-events-none"
+              />
+              <template data-section-entries-template="true">
+                <CommissionEntries
+                  locale={resolvedLocale}
+                  entries={deferredCommissions.map(commission => ({
+                    character: Character,
+                    commission,
+                    sectionId,
+                    entryKey: `${Character}:${commission.fileName}`,
+                    entryAnchorPrefix: sectionId,
+                  }))}
+                  characterAliasesMap={characterAliasesMap}
+                  creatorAliasesMap={creatorAliasesMap}
+                  keywordAliasesMap={keywordAliasesMap}
+                />
+              </template>
+            </>
+          ) : null
+        }
+      </>
     )
   }
 </div>
