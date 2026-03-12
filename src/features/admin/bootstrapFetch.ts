@@ -28,6 +28,38 @@ const sleep = (ms: number, signal?: AbortSignal) =>
     }
   })
 
+const createAbortController = (signal?: AbortSignal) => {
+  const controller = new AbortController()
+
+  if (!signal) {
+    return {
+      controller,
+      cleanup: () => {},
+    }
+  }
+
+  if (signal.aborted) {
+    controller.abort(signal.reason)
+    return {
+      controller,
+      cleanup: () => {},
+    }
+  }
+
+  const onAbort = () => {
+    controller.abort(signal.reason)
+  }
+
+  signal.addEventListener('abort', onAbort, { once: true })
+
+  return {
+    controller,
+    cleanup: () => {
+      signal.removeEventListener('abort', onAbort)
+    },
+  }
+}
+
 export const fetchAdminBootstrapWithRetry = async <TPayload>(
   options: FetchBootstrapOptions = {},
 ): Promise<TPayload> => {
@@ -40,16 +72,18 @@ export const fetchAdminBootstrapWithRetry = async <TPayload>(
   let lastError: unknown = null
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const { controller, cleanup } = createAbortController(signal)
+    let didTimeout = false
+    const timeoutId = setTimeout(() => {
+      didTimeout = true
+      controller.abort()
+    }, requestTimeoutMs)
+
     try {
-      const response = (await Promise.race([
-        fetch(endpoint, {
-          signal,
-          cache: 'no-store',
-        }),
-        sleep(requestTimeoutMs, signal).then(() => {
-          throw new Error(`Failed to load admin data: request timeout (${requestTimeoutMs}ms)`)
-        }),
-      ])) as Response
+      const response = await fetch(endpoint, {
+        signal: controller.signal,
+        cache: 'no-store',
+      })
       if (!response.ok) {
         throw new Error(`Failed to load admin data: ${response.status}`)
       }
@@ -58,10 +92,15 @@ export const fetchAdminBootstrapWithRetry = async <TPayload>(
       if (signal?.aborted) {
         throw error
       }
-      lastError = error
+      lastError = didTimeout
+        ? new Error(`Failed to load admin data: request timeout (${requestTimeoutMs}ms)`)
+        : error
       if (attempt < attempts) {
         await sleep(baseDelayMs * attempt, signal)
       }
+    } finally {
+      clearTimeout(timeoutId)
+      cleanup()
     }
   }
 

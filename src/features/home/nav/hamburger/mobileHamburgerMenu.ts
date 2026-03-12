@@ -8,6 +8,11 @@ import {
   type StaleCharactersVisibility,
 } from '#features/home/commission/staleCharactersEvent'
 import {
+  ACTIVE_CHARACTERS_LOADED_EVENT,
+  hasDeferredActiveCharacterTarget,
+  requestActiveCharactersLoad,
+} from '#features/home/commission/activeCharactersEvent'
+import {
   readCommissionViewMode,
   replaceCommissionViewModeInAddress,
   resolveCommissionViewModeFromElement,
@@ -44,6 +49,7 @@ type MobileHamburgerMenuDeps = {
   jumpToSearch: typeof jumpToCommissionSearch
   syncLinkAvailability: typeof syncHiddenSectionLinkAvailability
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
+  requestActiveLoad: (win: Window) => void
   requestStaleVisibility: (win: Window, visibility: StaleCharactersVisibility) => void
 }
 
@@ -60,6 +66,7 @@ const defaultDeps: MobileHamburgerMenuDeps = {
   jumpToSearch: jumpToCommissionSearch,
   syncLinkAvailability: syncHiddenSectionLinkAvailability,
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
+  requestActiveLoad: requestActiveCharactersLoad,
   requestStaleVisibility: requestStaleCharactersVisibility,
 }
 
@@ -291,6 +298,9 @@ export const mountMobileHamburgerMenu = ({
       root: navRoot,
       linkSelector: NAV_LINK_SELECTOR,
       getSectionId: link => link.dataset.mobileNavSectionId ?? null,
+      isDeferredTarget: (sectionId, link) =>
+        link.dataset.mobileNavCharacterStatus === 'active' &&
+        hasDeferredActiveCharacterTarget(doc, sectionId),
     })
   }
 
@@ -388,6 +398,40 @@ export const mountMobileHamburgerMenu = ({
 
     const navLink = target.closest<HTMLAnchorElement>(NAV_LINK_SELECTOR)
     if (!navLink) return
+
+    const deferredActiveSectionId =
+      navLink.dataset.mobileNavSectionId ?? navLink.getAttribute('href')
+    const isDeferredActiveLink =
+      navLink.dataset.mobileNavCharacterStatus === 'active' &&
+      hasDeferredActiveCharacterTarget(doc, deferredActiveSectionId)
+    if (isDeferredActiveLink) {
+      event.preventDefault()
+
+      const href = navLink.getAttribute('href')
+      const onActiveLoaded = () => {
+        deps.scrollToHashWithoutWrite(href)
+        syncLinkAvailability()
+      }
+
+      win.addEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, onActiveLoaded, { once: true })
+      deps.requestActiveLoad(win)
+
+      const mode = readCommissionViewMode(win)
+      const sectionId = navLink.dataset.mobileNavSectionId ?? 'unknown'
+      const characterName = navLink.textContent?.trim() || 'unknown'
+      deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
+        source: 'character_link',
+        nav_surface: 'hamburger',
+        view_mode: mode,
+        item_count: getVisibleItemCount(mode),
+        character_name: characterName,
+        section_id: sectionId,
+      })
+
+      closeMenu()
+      return
+    }
+
     const isStaleLink = navLink.dataset.mobileNavCharacterStatus === 'stale'
     if (isStaleLink && !isStaleCharactersVisible(doc)) {
       event.preventDefault()

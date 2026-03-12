@@ -27,6 +27,11 @@ import {
   type StaleCharactersState,
   type StaleCharactersVisibility,
 } from '#features/home/commission/staleCharactersEvent'
+import {
+  ACTIVE_CHARACTERS_LOADED_EVENT,
+  hasDeferredActiveCharacterTarget,
+  requestActiveCharactersLoad,
+} from '#features/home/commission/activeCharactersEvent'
 
 const SIDEBAR_ROOT_ID = 'Character List'
 const SIDEBAR_CONTROLS_ROOT_ID = 'Home Controls'
@@ -45,6 +50,7 @@ type SidebarNavEnhancerDeps = {
   jumpToSearch: typeof jumpToCommissionSearch
   clearHash: typeof clearHashIfTargetIsStale
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
+  requestActiveLoad: (win: Window) => void
   requestStaleVisibility: (win: Window, visibility: StaleCharactersVisibility) => void
 }
 
@@ -66,6 +72,7 @@ const defaultDeps: SidebarNavEnhancerDeps = {
   jumpToSearch: jumpToCommissionSearch,
   clearHash: clearHashIfTargetIsStale,
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
+  requestActiveLoad: requestActiveCharactersLoad,
   requestStaleVisibility: requestStaleCharactersVisibility,
 }
 
@@ -128,6 +135,9 @@ const resolveActiveTitleId = (titleElements: HTMLElement[]) => {
 
   return getActiveSectionId(titleElements, getScrollThreshold())
 }
+
+const resolveSectionIdFromHref = (rawHref: string | null) =>
+  rawHref?.startsWith('#') ? rawHref.slice(1) : null
 
 export const mountSidebarNavEnhancer = ({
   win = window,
@@ -192,9 +202,11 @@ export const mountSidebarNavEnhancer = ({
       root: panel,
       linkSelector: CHARACTER_LINK_SELECTOR,
       getSectionId: link => {
-        const rawHash = link.getAttribute('href')
-        return rawHash?.startsWith('#') ? rawHash.slice(1) : null
+        return resolveSectionIdFromHref(link.getAttribute('href'))
       },
+      isDeferredTarget: (sectionId, link) =>
+        link.dataset.sidebarCharacterStatus === 'active' &&
+        hasDeferredActiveCharacterTarget(doc, sectionId),
     })
   }
 
@@ -385,11 +397,29 @@ export const mountSidebarNavEnhancer = ({
     const characterLink = target.closest<HTMLAnchorElement>(CHARACTER_LINK_SELECTOR)
     if (!characterLink) return
 
+    const href = characterLink.getAttribute('href')
+    const isDeferredActiveLink =
+      characterLink.dataset.sidebarCharacterStatus === 'active' &&
+      hasDeferredActiveCharacterTarget(doc, href)
+    if (isDeferredActiveLink) {
+      event.preventDefault()
+
+      const onActiveLoaded = () => {
+        deps.scrollToHashWithoutWrite(href)
+        scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })
+        scheduleSyncActiveDots()
+      }
+
+      win.addEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, onActiveLoaded, { once: true })
+      deps.requestActiveLoad(win)
+      trackSidebarCharacterClick(characterLink)
+      return
+    }
+
     const isStaleLink = characterLink.dataset.sidebarCharacterStatus === 'stale'
     if (isStaleLink && !isStaleCharactersVisible(doc)) {
       event.preventDefault()
 
-      const href = characterLink.getAttribute('href')
       const onStaleLoaded = () => {
         deps.scrollToHashWithoutWrite(href)
         scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })

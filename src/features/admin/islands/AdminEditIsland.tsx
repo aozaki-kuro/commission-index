@@ -10,6 +10,7 @@ interface AdminEditIslandProps {
 
 const scrollStorageKey = 'admin-dashboard-scroll'
 const scrollExpiryMs = 10 * 60 * 1000
+const scrollPersistThrottleMs = 200
 
 type StoredScrollState = {
   top: number
@@ -82,32 +83,32 @@ const AdminEditIsland = ({ initialPayload = null }: AdminEditIslandProps) => {
   useEffect(() => {
     if (typeof window === 'undefined') return
 
-    let frameId: number | null = null
+    let timeoutId: number | null = null
 
     const persistNow = () => {
-      if (frameId !== null) {
-        window.cancelAnimationFrame(frameId)
-        frameId = null
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+        timeoutId = null
       }
       writeStoredScrollTop()
     }
 
     const schedulePersist = () => {
-      if (frameId !== null) return
-      frameId = window.requestAnimationFrame(() => {
-        frameId = null
+      if (timeoutId !== null) return
+      timeoutId = window.setTimeout(() => {
+        timeoutId = null
         writeStoredScrollTop()
-      })
+      }, scrollPersistThrottleMs)
     }
 
-    schedulePersist()
+    persistNow()
     window.addEventListener('scroll', schedulePersist, { passive: true })
     window.addEventListener('pagehide', persistNow)
     window.addEventListener('beforeunload', persistNow)
 
     return () => {
-      if (frameId !== null) {
-        window.cancelAnimationFrame(frameId)
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
       }
       window.removeEventListener('scroll', schedulePersist)
       window.removeEventListener('pagehide', persistNow)

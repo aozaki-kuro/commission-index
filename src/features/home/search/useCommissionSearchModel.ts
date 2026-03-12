@@ -2,6 +2,7 @@ import {
   LOAD_STALE_COMMAND_VALUE,
   type SuggestionViewModel,
 } from '#features/home/search/CommissionSearchSuggestionDropdown'
+import { requestActiveCharactersLoad } from '#features/home/commission/activeCharactersEvent'
 import {
   buildRelatedSuggestionTermsMap,
   buildSearchIndex,
@@ -61,23 +62,43 @@ interface UseCommissionSearchModelOptions {
 
 const MIN_TRACK_QUERY_LENGTH = 2
 const EMPTY_RELATED_SUGGESTION_TERMS_MAP = new Map<string, string[]>()
+const SEARCH_QUERY_LOCATION_CHANGE_EVENT = 'home:search-query-location-change'
 
 const getUrlQuerySnapshot = () => {
   if (typeof window === 'undefined') return ''
   return new URLSearchParams(window.location.search).get('q') ?? ''
 }
 
+export const dispatchSearchQueryLocationChange = () => {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event(SEARCH_QUERY_LOCATION_CHANGE_EVENT))
+}
+
+export const subscribeToUrlQuerySnapshot = (onStoreChange: () => void) => {
+  if (typeof window === 'undefined') return () => {}
+
+  window.addEventListener('popstate', onStoreChange)
+  window.addEventListener(SEARCH_QUERY_LOCATION_CHANGE_EVENT, onStoreChange)
+
+  return () => {
+    window.removeEventListener('popstate', onStoreChange)
+    window.removeEventListener(SEARCH_QUERY_LOCATION_CHANGE_EVENT, onStoreChange)
+  }
+}
+
 export const getDomSnapshotKeyForMode = ({
+  activeLoaded,
   mode,
   staleLoaded,
   timelineLoaded,
 }: {
+  activeLoaded: boolean
   mode: 'character' | 'timeline'
   staleLoaded: boolean
   timelineLoaded: boolean
 }) =>
   mode === 'character'
-    ? `character:${staleLoaded ? 'stale-loaded' : 'stale-collapsed'}`
+    ? `character:${activeLoaded ? 'active-loaded' : 'active-pending'}:${staleLoaded ? 'stale-loaded' : 'stale-collapsed'}`
     : `timeline:${timelineLoaded ? 'timeline-loaded' : 'timeline-pending'}`
 
 export const resolveEffectiveDomSnapshotKey = ({
@@ -113,7 +134,7 @@ export const useCommissionSearchModel = ({
     [controls.sourceCharacter, controls.sourceCreator, controls.sourceDate, controls.sourceKeyword],
   )
   const initialUrlQuery = useSyncExternalStore(
-    () => () => {},
+    subscribeToUrlQuerySnapshot,
     getUrlQuerySnapshot,
     () => '',
   )
@@ -140,10 +161,11 @@ export const useCommissionSearchModel = ({
     () => !deferIndexInit || !!initialQuery || !!initialUrlQuery,
   )
   const [shouldWarmFuse, setShouldWarmFuse] = useState(() => !!initialQuery || !!initialUrlQuery)
-  const { staleLoaded, timelineLoaded } = useSearchPanelLoadedState()
+  const { activeLoaded, staleLoaded, timelineLoaded } = useSearchPanelLoadedState()
   const shouldBuildIndex = isIndexReady || !deferIndexInit || !!query || !!initialUrlQuery
   const shouldSkipDomContext = disableDomFiltering && Boolean(externalEntries)
   const domSnapshotKey = getDomSnapshotKeyForMode({
+    activeLoaded,
     mode,
     staleLoaded,
     timelineLoaded,
@@ -152,6 +174,11 @@ export const useCommissionSearchModel = ({
     domSnapshotKey,
     skipDomContext: shouldSkipDomContext,
   })
+
+  useEffect(() => {
+    if (mode !== 'character' || !hasQuery || activeLoaded) return
+    requestActiveCharactersLoad(window)
+  }, [activeLoaded, hasQuery, mode])
 
   const index = useMemo(() => {
     if (!shouldBuildIndex) return createEmptySearchIndex()

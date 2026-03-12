@@ -6,7 +6,7 @@ import {
   useSensors,
 } from '@dnd-kit/core'
 import { arrayMove as dndArrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-import { useCallback, useEffect, useMemo, useState, useTransition } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 
 import { deleteCharacterAction, renameCharacter, saveCharacterOrder } from '#admin/actions'
 import type { CharacterRow, CharacterStatus, CommissionRow } from '#lib/admin/db'
@@ -28,10 +28,68 @@ export type FormFeedback = { type: 'success' | 'error'; text: string } | null
 
 type EditingState = { id: number; value: string } | null
 type DeletingState = number | null
+type CharacterOrderPayload = { active: number[]; stale: number[] }
 
 type StoredOpenState = {
   ids: number[]
   timestamp: number
+}
+
+type CharacterOrderSaveQueueOptions = {
+  onSaved: () => void
+  saveOrder: (payload: CharacterOrderPayload) => Promise<FormState>
+}
+
+export const createLatestCharacterOrderSaveQueue = ({
+  onSaved,
+  saveOrder,
+}: CharacterOrderSaveQueueOptions) => {
+  let requestedVersion = 0
+  let completedVersion = 0
+  let latestPayload: CharacterOrderPayload | null = null
+  let runningPromise: Promise<void> | null = null
+  let disposed = false
+
+  const runLoop = async () => {
+    while (!disposed && completedVersion < requestedVersion) {
+      const targetVersion = requestedVersion
+      const payload = latestPayload
+      if (!payload) break
+
+      try {
+        const result = await saveOrder(payload)
+        if (!disposed && result.status === 'success' && targetVersion === requestedVersion) {
+          onSaved()
+        }
+      } catch {
+        // Keep drag-sort persistence silent to avoid layout shift in the list UI.
+      }
+
+      completedVersion = targetVersion
+    }
+  }
+
+  const ensureRunning = () => {
+    if (runningPromise) return
+
+    runningPromise = runLoop().finally(() => {
+      runningPromise = null
+      if (!disposed && completedVersion < requestedVersion) {
+        ensureRunning()
+      }
+    })
+  }
+
+  return {
+    enqueue(payload: CharacterOrderPayload) {
+      latestPayload = payload
+      requestedVersion += 1
+      ensureRunning()
+    },
+    dispose() {
+      disposed = true
+    },
+  }
 }
 
 const readOpenIdsFromStorage = (): Set<number> => {
@@ -126,12 +184,21 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
   const [commissionMap, setCommissionMap] = useState(initialMap)
   const [list, setList] = useState<ListItem[]>(initialList)
   const [feedback, setFeedback] = useState<FormFeedback>(null)
-  const [, startSaveTransition] = useTransition()
   const [editing, setEditing] = useState<EditingState>(null)
   const [, startRenameTransition] = useTransition()
   const [deletingId, setDeletingId] = useState<DeletingState>(null)
   const [isDeletePending, startDeleteTransition] = useTransition()
   const [confirmingCharacter, setConfirmingCharacter] = useState<CharacterRow | null>(null)
+  const orderSaveQueueRef = useRef<ReturnType<typeof createLatestCharacterOrderSaveQueue> | null>(
+    null,
+  )
+
+  if (orderSaveQueueRef.current == null) {
+    orderSaveQueueRef.current = createLatestCharacterOrderSaveQueue({
+      saveOrder: saveCharacterOrder,
+      onSaved: notifyDataUpdate,
+    })
+  }
 
   const closeConfirmDialog = () => setConfirmingCharacter(null)
 
@@ -166,6 +233,13 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
     return () => clearTimeout(timer)
   }, [feedback])
 
+  useEffect(() => {
+    const orderSaveQueue = orderSaveQueueRef.current
+    return () => {
+      orderSaveQueue?.dispose()
+    }
+  }, [])
+
   const handleDeleteCommission = useCallback((characterId: number, commissionId: number) => {
     setCommissionMap(prev => {
       const next = new Map(prev)
@@ -188,36 +262,25 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
       : { type: 'success', text: state.message ?? 'Saved.' }
   }, [])
 
-  const persistOrder = useCallback(
-    (currentList: ListItem[]) => {
-      const dividerIndex = currentList.findIndex(i => i.type === 'divider')
-      if (dividerIndex === -1) return
+  const persistOrder = useCallback((currentList: ListItem[]) => {
+    const dividerIndex = currentList.findIndex(i => i.type === 'divider')
+    if (dividerIndex === -1) return
 
-      const activeIds = currentList
-        .slice(0, dividerIndex)
-        .filter((i): i is CharacterItem => i.type === 'character')
-        .map(i => i.data.id)
+    const activeIds = currentList
+      .slice(0, dividerIndex)
+      .filter((i): i is CharacterItem => i.type === 'character')
+      .map(i => i.data.id)
 
-      const staleIds = currentList
-        .slice(dividerIndex + 1)
-        .filter((i): i is CharacterItem => i.type === 'character')
-        .map(i => i.data.id)
+    const staleIds = currentList
+      .slice(dividerIndex + 1)
+      .filter((i): i is CharacterItem => i.type === 'character')
+      .map(i => i.data.id)
 
-      startSaveTransition(() => {
-        saveCharacterOrder({
-          active: activeIds,
-          stale: staleIds,
-        })
-          .then(result => {
-            if (result.status === 'success') notifyDataUpdate()
-          })
-          .catch(() => {
-            // Keep drag-sort persistence silent to avoid layout shift in the list UI.
-          })
-      })
-    },
-    [startSaveTransition],
-  )
+    orderSaveQueueRef.current?.enqueue({
+      active: activeIds,
+      stale: staleIds,
+    })
+  }, [])
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),

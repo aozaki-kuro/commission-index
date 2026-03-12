@@ -13,6 +13,7 @@ const MAX_FEATURED_KEYWORDS = 6
 const MAX_VISIBLE_POPULAR_KEYWORDS = 6
 const HOME_SEARCH_INDEX_URL = '/search/home-search-entries.json'
 const COMMISSION_ENTRY_SELECTOR = '[data-commission-entry="true"]'
+const ACTIVE_TEMPLATE_SELECTOR = 'template[data-active-sections-template="true"]'
 const STALE_TEMPLATE_SELECTOR = 'template[data-stale-sections-template="true"]'
 
 let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
@@ -156,28 +157,35 @@ const buildSearchEntriesFromDom = (): CommissionSearchEntrySource[] => {
   const visibleEntries = Array.from(
     document.querySelectorAll<HTMLElement>(COMMISSION_ENTRY_SELECTOR),
   )
+  const activeTemplateEntries = Array.from(
+    document.querySelectorAll<HTMLTemplateElement>(ACTIVE_TEMPLATE_SELECTOR),
+  ).flatMap(template =>
+    Array.from(template.content.querySelectorAll<HTMLElement>(COMMISSION_ENTRY_SELECTOR)),
+  )
   const staleTemplateEntries = Array.from(
     document.querySelectorAll<HTMLTemplateElement>(STALE_TEMPLATE_SELECTOR),
   ).flatMap(template =>
     Array.from(template.content.querySelectorAll<HTMLElement>(COMMISSION_ENTRY_SELECTOR)),
   )
 
-  const entries: CommissionSearchEntrySource[] = []
+  const entriesByKey = new Map<string, Omit<CommissionSearchEntrySource, 'id'>>()
 
-  ;[...visibleEntries, ...staleTemplateEntries].forEach((element, id) => {
+  ;[...visibleEntries, ...activeTemplateEntries, ...staleTemplateEntries].forEach(element => {
     const domKey = element.dataset.commissionSearchKey
     const searchText = element.dataset.searchText
-    if (!domKey || !searchText) return
+    if (!domKey || !searchText || entriesByKey.has(domKey)) return
 
-    entries.push({
-      id,
+    entriesByKey.set(domKey, {
       domKey,
       searchText,
       searchSuggest: element.dataset.searchSuggest,
     })
   })
 
-  return entries
+  return Array.from(entriesByKey.values()).map((entry, id) => ({
+    id,
+    ...entry,
+  }))
 }
 
 const buildPopularKeywordPoolFromEntries = (entries: CommissionSearchEntrySource[]) =>

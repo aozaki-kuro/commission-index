@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { ACTIVE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/activeCharactersEvent'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { STALE_CHARACTERS_STATE_CHANGE_EVENT } from '#features/home/commission/staleCharactersEvent'
 import { mountSidebarNavEnhancer } from './sidebarNavEnhancer'
@@ -343,6 +344,62 @@ describe('sidebarNavEnhancer', () => {
     expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-stale')
 
     cleanup()
+  })
+
+  it('keeps deferred active links enabled and loads them on click', () => {
+    document.querySelector<HTMLElement>('[data-sidebar-nav-panel="character"]')?.insertAdjacentHTML(
+      'beforeend',
+      `
+        <li>
+          <span data-sidebar-dot-for="title-beta" class="scale-0 opacity-0"></span>
+          <a href="#section-beta" data-sidebar-character-link="true" data-sidebar-character-status="active" data-sidebar-title-id="title-beta">Beta</a>
+        </li>
+      `,
+    )
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      `
+        <template data-active-sections-template="true">
+          <h2 id="title-beta"></h2>
+          <section id="section-beta"></section>
+        </template>
+      `,
+    )
+
+    const scrollToHashWithoutWrite = vi.fn()
+    const requestActiveLoad = vi.fn(win => {
+      const title = document.createElement('h2')
+      title.id = 'title-beta'
+      document.body.append(title)
+
+      const section = document.createElement('section')
+      section.id = 'section-beta'
+      document.body.append(section)
+
+      win.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOADED_EVENT))
+    })
+
+    const cleanup = mountSidebarNavEnhancer({
+      deps: {
+        requestActiveLoad,
+        scrollToHashWithoutWrite,
+      },
+    })
+
+    const betaLink = Array.from(
+      document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]'),
+    ).find(link => link.getAttribute('href') === '#section-beta')
+
+    expect(betaLink?.getAttribute('aria-disabled')).toBeNull()
+    betaLink?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+    expect(requestActiveLoad).toHaveBeenCalledWith(window)
+    expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-beta')
+
+    cleanup()
+    document.getElementById('title-beta')?.remove()
+    document.getElementById('section-beta')?.remove()
+    document.querySelector('template[data-active-sections-template="true"]')?.remove()
   })
 
   it('collapses stale sections when stale details close after content is loaded', () => {

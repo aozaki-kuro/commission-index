@@ -1,4 +1,8 @@
 import {
+  ACTIVE_CHARACTERS_LOADED_EVENT,
+  readActiveCharactersLoadedState,
+} from '#features/home/commission/activeCharactersEvent'
+import {
   STALE_CHARACTERS_COLLAPSED_EVENT,
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
@@ -7,6 +11,7 @@ import {
 import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
 import { useEffect, useState } from 'react'
 
+const getCharacterPanelActiveLoaded = () => readActiveCharactersLoadedState()
 const getCharacterPanelStaleLoaded = () => readStaleCharactersState().loaded
 
 const getTimelinePanelLoaded = () => {
@@ -18,8 +23,22 @@ const getTimelinePanelLoaded = () => {
 }
 
 export const useSearchPanelLoadedState = () => {
+  const [activeLoaded, setActiveLoaded] = useState(getCharacterPanelActiveLoaded)
   const [staleLoaded, setStaleLoaded] = useState(getCharacterPanelStaleLoaded)
   const [timelineLoaded, setTimelineLoaded] = useState(getTimelinePanelLoaded)
+
+  useEffect(() => {
+    const syncActiveLoaded = () => {
+      setActiveLoaded(getCharacterPanelActiveLoaded())
+    }
+
+    syncActiveLoaded()
+    window.addEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, syncActiveLoaded)
+
+    return () => {
+      window.removeEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, syncActiveLoaded)
+    }
+  }, [])
 
   useEffect(() => {
     const syncStaleLoaded = () => {
@@ -52,6 +71,7 @@ export const useSearchPanelLoadedState = () => {
   }, [])
 
   return {
+    activeLoaded,
     staleLoaded,
     timelineLoaded,
   }

@@ -32,6 +32,10 @@ const {
 } =
   Astro.props as StaticCommissionSectionsProps
 const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
+const MAX_INITIAL_ACTIVE_SECTIONS = 2
+const initialActiveChars = activeChars.slice(0, MAX_INITIAL_ACTIVE_SECTIONS)
+const deferredActiveChars = activeChars.slice(MAX_INITIAL_ACTIVE_SECTIONS)
+const hasDeferredActiveChars = deferredActiveChars.length > 0
 const staleCharacterCount = staleChars.length
 const staleCommissionCount = staleChars.reduce(
   (count, chara) => count + (commissionMap.get(chara.DisplayName)?.Commissions.length ?? 0),
@@ -43,11 +47,12 @@ const staleCommissionCount = staleChars.reduce(
   <div
     data-commission-view-panel="character"
     data-commission-view-active="true"
+    data-active-sections-loaded={hasDeferredActiveChars ? 'false' : 'true'}
     data-stale-loaded="false"
     data-stale-visibility="hidden"
   >
     {
-      activeChars.map(chara => (
+      initialActiveChars.map(chara => (
         <Listing
           locale={locale}
           Character={chara.DisplayName}
@@ -58,6 +63,33 @@ const staleCommissionCount = staleChars.reduce(
           keywordAliasesMap={keywordAliasesMap}
         />
       ))
+    }
+    {
+      hasDeferredActiveChars ? (
+        <>
+          <div data-active-sections-container="true" />
+          <div
+            data-active-sections-sentinel="true"
+            aria-hidden="true"
+            class="h-px overflow-hidden opacity-0 pointer-events-none"
+          />
+          <template data-active-sections-template="true">
+            {
+              deferredActiveChars.map(chara => (
+                <Listing
+                  locale={locale}
+                  Character={chara.DisplayName}
+                  status="active"
+                  commissionMap={commissionMap}
+                  characterAliasesMap={characterAliasesMap}
+                  creatorAliasesMap={creatorAliasesMap}
+                  keywordAliasesMap={keywordAliasesMap}
+                />
+              ))
+            }
+          </template>
+        </>
+      ) : null
     }
     {
       staleChars.length > 0 ? (

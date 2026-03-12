@@ -38,6 +38,9 @@ This repository contains an Astro 6 static site with React 19 islands, written i
   - `src/features/home/homePageClient.ts`
 - Home unpublished-interest button state is centralized in:
   - `src/features/home/commission/unpublishedInterestClient.ts`
+- Home active character lazy-mount behavior is centralized in:
+  - `src/features/home/commission/activeCharactersLoader.ts`
+  - `src/features/home/commission/activeCharactersEvent.ts`
 - Home timeline lazy-mount behavior is centralized in:
   - `src/features/home/commission/timelineViewLoader.ts`
 - Home desktop navigation behavior is centralized in:
@@ -160,6 +163,7 @@ Additional guidance:
 - Added keyword alias management (`keyword_aliases`) to `/admin/aliases` with shadcn tabs and bootstrap/action API wiring.
 - Added character alias management (`character_aliases`) to `/admin/aliases` and unified search-suggestion alias display mapping with source priority (`character > creator > keyword`).
 - Added shared server request/response bridge utility and test coverage.
+- Added active-character lazy-mount pipeline (`template` + loader script + navigation/search load requests) so the home page no longer renders every active character section up front.
 - Added stale character lazy-loading pipeline (`template` + loader script + sidebar/search sync events) to reduce initial DOM size while preserving navigation discoverability.
 - Added timeline lazy-mount pipeline (`template` + loader script + search/sidebar sync events) so the hidden timeline view no longer doubles the initial homepage DOM.
 - Collapsed most home side-effect entrypoints into `HomeClientScript.astro` + `homePageClient.ts` to reduce initial module requests without changing DOM contracts.

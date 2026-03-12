@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT } from '#features/home/commission/activeCharactersEvent'
 import {
   STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT,
   STALE_CHARACTERS_LOAD_REQUEST_EVENT,
@@ -195,6 +196,47 @@ describe('CommissionSearch', () => {
       })
     } finally {
       window.history.replaceState(null, '', '/')
+    }
+  })
+
+  it('requests deferred active sections when character search starts with dom filtering', async () => {
+    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+    document.body.innerHTML = `
+      <div
+        data-commission-view-panel="character"
+        data-commission-view-active="true"
+        data-active-sections-loaded="false"
+        data-stale-loaded="false"
+        data-stale-visibility="hidden"
+      ></div>
+    `
+
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'section-alpha::20240101_alice',
+        searchText: 'alice sample',
+        searchSuggest: 'Character\tAlice',
+      },
+    ]
+
+    try {
+      renderSearchWithDomFiltering(entries)
+
+      fireEvent.input(screen.getByLabelText('Search commissions'), {
+        target: { value: 'ali' },
+      })
+
+      await waitFor(() => {
+        expect(
+          dispatchEventSpy.mock.calls.some(
+            ([event]) =>
+              event instanceof Event && event.type === ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT,
+          ),
+        ).toBe(true)
+      })
+    } finally {
+      dispatchEventSpy.mockRestore()
     }
   })
 

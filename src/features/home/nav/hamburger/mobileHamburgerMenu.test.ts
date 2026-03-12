@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { ACTIVE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/activeCharactersEvent'
 import {
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
@@ -98,6 +99,10 @@ const getStaleSectionPanel = () =>
 const getStaleLink = () =>
   document.querySelector<HTMLAnchorElement>(
     '[data-mobile-nav-link="true"][data-mobile-nav-character-status="stale"]',
+  )
+const getActiveLink = () =>
+  document.querySelector<HTMLAnchorElement>(
+    '[data-mobile-nav-link="true"][data-mobile-nav-character-status="active"]',
   )
 
 describe('mobileHamburgerMenu', () => {
@@ -234,6 +239,51 @@ describe('mobileHamburgerMenu', () => {
 
     vi.advanceTimersByTime(MENU_TRANSITION_MS)
     cleanup()
+  })
+
+  it('keeps deferred active links enabled and loads them on click', () => {
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      `
+        <template data-active-sections-template="true">
+          <section id="active-item"></section>
+        </template>
+      `,
+    )
+
+    const trackEvent = vi.fn()
+    const scrollToHashWithoutWrite = vi.fn()
+    const requestActiveLoad = vi.fn(win => {
+      const activeSection = document.createElement('section')
+      activeSection.id = 'active-item'
+      document.body.append(activeSection)
+      win.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOADED_EVENT))
+    })
+
+    const cleanup = mountMobileHamburgerMenu({
+      deps: { requestActiveLoad, scrollToHashWithoutWrite, trackEvent },
+    })
+
+    getToggle()!.click()
+
+    expect(getActiveLink()?.getAttribute('aria-disabled')).toBeNull()
+    getActiveLink()!.click()
+
+    expect(requestActiveLoad).toHaveBeenCalledWith(window)
+    expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#active-item')
+    expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.sidebarNavUsed, {
+      source: 'character_link',
+      nav_surface: 'hamburger',
+      view_mode: 'character',
+      item_count: 3,
+      character_name: 'Active',
+      section_id: 'active-item',
+    })
+
+    vi.advanceTimersByTime(MENU_TRANSITION_MS)
+    cleanup()
+    document.getElementById('active-item')?.remove()
+    document.querySelector('template[data-active-sections-template="true"]')?.remove()
   })
 
   it('re-syncs link availability on stale state, sidebar search state, and view mode event', () => {

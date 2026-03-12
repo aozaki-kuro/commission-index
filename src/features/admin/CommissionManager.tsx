@@ -78,18 +78,6 @@ const CommissionManager = ({
   const [hasAppliedSearchQuery, setHasAppliedSearchQuery] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const dividerIndex = list.findIndex(i => i.type === 'divider')
-  const characterNameSnapshot = useMemo(
-    () =>
-      JSON.stringify(
-        list
-          .filter(
-            (item): item is Extract<ListItem, { type: 'character' }> => item.type === 'character',
-          )
-          .map(item => [item.data.id, item.data.name] as const)
-          .sort(([leftId], [rightId]) => leftId - rightId),
-      ),
-    [list],
-  )
   const creatorAliasesMap = useMemo(
     () => new Map(creatorAliases.map(row => [row.creatorName, row.aliases] as const)),
     [creatorAliases],
@@ -105,8 +93,15 @@ const CommissionManager = ({
     return next
   }, [commissionMap])
   const characterNameById = useMemo(
-    () => new Map<number, string>(JSON.parse(characterNameSnapshot) as Array<[number, string]>),
-    [characterNameSnapshot],
+    () =>
+      new Map<number, string>(
+        list
+          .filter(
+            (item): item is Extract<ListItem, { type: 'character' }> => item.type === 'character',
+          )
+          .map(item => [item.data.id, item.data.name] as const),
+      ),
+    [list],
   )
 
   const commissionSearchEntries = useMemo<CommissionSearchEntrySource[]>(

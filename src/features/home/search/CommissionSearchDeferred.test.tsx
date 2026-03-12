@@ -66,6 +66,29 @@ describe('CommissionSearchDeferred', () => {
     appendedEntries.push(template)
   }
 
+  const appendActiveTemplateEntry = ({
+    searchText,
+    searchSuggest,
+  }: {
+    searchText: string
+    searchSuggest: string
+  }) => {
+    const template = document.createElement('template')
+    template.dataset.activeSectionsTemplate = 'true'
+    template.innerHTML = `
+      <section>
+        <article
+          data-commission-entry="true"
+          data-commission-search-key="active-template"
+          data-search-text="${searchText}"
+          data-search-suggest="${searchSuggest}"
+        ></article>
+      </section>
+    `
+    document.body.appendChild(template)
+    appendedEntries.push(template)
+  }
+
   beforeEach(() => {
     mockCommissionSearch.mockClear()
     window.history.replaceState(null, '', '/')
@@ -91,10 +114,14 @@ describe('CommissionSearchDeferred', () => {
     )
   })
 
-  it('passes template-backed stale entries to search in development', async () => {
+  it('passes template-backed active and stale entries to search in development', async () => {
     const { default: CommissionSearchDeferred } = await loadDeferredModule()
 
     appendSearchEntry('Keyword\tvisible')
+    appendActiveTemplateEntry({
+      searchText: 'activeword hidden',
+      searchSuggest: 'Character\tActive',
+    })
     appendStaleTemplateEntry({
       searchText: 'staleword hidden',
       searchSuggest: 'Character\tStale',
@@ -106,6 +133,10 @@ describe('CommissionSearchDeferred', () => {
       expect(mockCommissionSearch).toHaveBeenLastCalledWith(
         expect.objectContaining({
           externalEntries: expect.arrayContaining([
+            expect.objectContaining({
+              domKey: 'active-template',
+              searchText: 'activeword hidden',
+            }),
             expect.objectContaining({
               domKey: 'stale-template',
               searchText: 'staleword hidden',

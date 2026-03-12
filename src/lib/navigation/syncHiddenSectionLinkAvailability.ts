@@ -10,6 +10,7 @@ interface SyncHiddenSectionLinkAvailabilityOptions {
   root: ParentNode
   linkSelector: string
   getSectionId: (link: HTMLAnchorElement) => string | null
+  isDeferredTarget?: (sectionId: string, link: HTMLAnchorElement) => boolean
 }
 
 const setLinkDisabledState = (link: HTMLAnchorElement, disabled: boolean) => {
@@ -29,13 +30,17 @@ export const syncHiddenSectionLinkAvailability = ({
   root,
   linkSelector,
   getSectionId,
+  isDeferredTarget,
 }: SyncHiddenSectionLinkAvailabilityOptions) => {
   const links = root.querySelectorAll<HTMLAnchorElement>(linkSelector)
 
   for (const link of links) {
     const sectionId = getSectionId(link)
     const section = sectionId ? document.getElementById(sectionId) : null
-    const isDisabled = !section || section.classList.contains('hidden')
+    const isDisabled =
+      !section && sectionId
+        ? !isDeferredTarget?.(sectionId, link)
+        : !section || section.classList.contains('hidden')
     setLinkDisabledState(link, isDisabled)
   }
 }

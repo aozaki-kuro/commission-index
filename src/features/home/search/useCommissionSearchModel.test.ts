@@ -1,43 +1,59 @@
-import { describe, expect, it } from 'vitest'
+// @vitest-environment jsdom
+import { describe, expect, it, vi } from 'vitest'
 import {
+  dispatchSearchQueryLocationChange,
   getDomSnapshotKeyForMode,
   resolveEffectiveDomSnapshotKey,
+  subscribeToUrlQuerySnapshot,
 } from './useCommissionSearchModel'
 
 describe('getDomSnapshotKeyForMode', () => {
-  it('changes character snapshot key only when staleLoaded changes', () => {
+  it('changes character snapshot key when activeLoaded or staleLoaded changes', () => {
     const before = getDomSnapshotKeyForMode({
+      activeLoaded: false,
       mode: 'character',
       staleLoaded: false,
       timelineLoaded: false,
     })
     const unrelatedTimelineChange = getDomSnapshotKeyForMode({
+      activeLoaded: false,
+      mode: 'character',
+      staleLoaded: false,
+      timelineLoaded: true,
+    })
+    const activeChange = getDomSnapshotKeyForMode({
+      activeLoaded: true,
       mode: 'character',
       staleLoaded: false,
       timelineLoaded: true,
     })
     const staleChange = getDomSnapshotKeyForMode({
+      activeLoaded: true,
       mode: 'character',
       staleLoaded: true,
       timelineLoaded: true,
     })
 
     expect(before).toBe(unrelatedTimelineChange)
-    expect(staleChange).not.toBe(before)
+    expect(activeChange).not.toBe(before)
+    expect(staleChange).not.toBe(activeChange)
   })
 
   it('changes timeline snapshot key only when timelineLoaded changes', () => {
     const before = getDomSnapshotKeyForMode({
+      activeLoaded: false,
       mode: 'timeline',
       staleLoaded: false,
       timelineLoaded: false,
     })
     const unrelatedStaleChange = getDomSnapshotKeyForMode({
+      activeLoaded: true,
       mode: 'timeline',
       staleLoaded: true,
       timelineLoaded: false,
     })
     const timelineChange = getDomSnapshotKeyForMode({
+      activeLoaded: true,
       mode: 'timeline',
       staleLoaded: true,
       timelineLoaded: true,
@@ -70,5 +86,27 @@ describe('resolveEffectiveDomSnapshotKey', () => {
     })
 
     expect(key).toBe('timeline:timeline-loaded')
+  })
+})
+
+describe('subscribeToUrlQuerySnapshot', () => {
+  it('notifies listeners for popstate changes', () => {
+    const onStoreChange = vi.fn()
+    const unsubscribe = subscribeToUrlQuerySnapshot(onStoreChange)
+
+    window.dispatchEvent(new PopStateEvent('popstate'))
+
+    expect(onStoreChange).toHaveBeenCalledTimes(1)
+    unsubscribe()
+  })
+
+  it('notifies listeners for explicit location query updates', () => {
+    const onStoreChange = vi.fn()
+    const unsubscribe = subscribeToUrlQuerySnapshot(onStoreChange)
+
+    dispatchSearchQueryLocationChange()
+
+    expect(onStoreChange).toHaveBeenCalledTimes(1)
+    unsubscribe()
   })
 })

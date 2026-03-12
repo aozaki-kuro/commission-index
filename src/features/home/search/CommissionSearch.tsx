@@ -11,7 +11,10 @@ import type {
   CommissionSearchEntrySource,
   SearchSuggestionAliasGroup,
 } from '#features/home/search/commissionSearchIndex'
-import { useCommissionSearchModel } from '#features/home/search/useCommissionSearchModel'
+import {
+  dispatchSearchQueryLocationChange,
+  useCommissionSearchModel,
+} from '#features/home/search/useCommissionSearchModel'
 import { useSuggestionPanelController } from '#features/home/search/useSuggestionPanelController'
 import { IconCheck, IconHelpCircle, IconSearch, IconShare3, IconX } from '@tabler/icons-react'
 import {
@@ -54,6 +57,7 @@ const clearSearchQueryParamInAddress = () => {
   const url = new URL(window.location.href)
   url.searchParams.delete('q')
   window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+  dispatchSearchQueryLocationChange()
 }
 
 interface CommissionSearchProps {
