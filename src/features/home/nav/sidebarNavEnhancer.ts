@@ -111,9 +111,6 @@ const getVisibleTitleIds = (panel: HTMLElement | null) => {
     .filter((id): id is string => Boolean(id))
 }
 
-const escapeAttributeSelectorValue = (value: string) =>
-  value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-
 const toggleDotState = (dot: HTMLElement, active: boolean) => {
   dot.classList.toggle(ACTIVE_DOT_CLASSES[0], active)
   dot.classList.toggle(ACTIVE_DOT_CLASSES[1], active)
@@ -175,6 +172,7 @@ export const mountSidebarNavEnhancer = ({
   let syncDotsRafId: number | null = null
   let activePanelSnapshot: SidebarActivePanelSnapshot | null = null
   let activeDots: HTMLElement[] = []
+  const panelDotIndexCache = new WeakMap<HTMLElement, Map<string, HTMLElement[]>>()
   let dotsInitialized = false
   let hasTrackedSidebarSearchUsage = false
   let disposed = false
@@ -191,6 +189,28 @@ export const mountSidebarNavEnhancer = ({
     dotsInitialized = true
   }
 
+  const getPanelDotIndex = (panel: HTMLElement) => {
+    const cachedIndex = panelDotIndexCache.get(panel)
+    if (cachedIndex) return cachedIndex
+
+    const nextIndex = new Map<string, HTMLElement[]>()
+    panel.querySelectorAll<HTMLElement>(SIDEBAR_DOT_SELECTOR).forEach(dot => {
+      const titleId = dot.dataset.sidebarDotFor
+      if (!titleId) return
+
+      const dots = nextIndex.get(titleId)
+      if (dots) {
+        dots.push(dot)
+        return
+      }
+
+      nextIndex.set(titleId, [dot])
+    })
+
+    panelDotIndexCache.set(panel, nextIndex)
+    return nextIndex
+  }
+
   const resolveActiveDots = ({
     panel,
     titleId,
@@ -200,11 +220,7 @@ export const mountSidebarNavEnhancer = ({
   }) => {
     if (!panel || !titleId) return []
 
-    return Array.from(
-      panel.querySelectorAll<HTMLElement>(
-        `[data-sidebar-dot-for="${escapeAttributeSelectorValue(titleId)}"]`,
-      ),
-    )
+    return getPanelDotIndex(panel).get(titleId) ?? []
   }
 
   const syncActiveDotSet = (nextDots: HTMLElement[]) => {
