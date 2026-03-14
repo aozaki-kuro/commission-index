@@ -3,6 +3,7 @@ import {
   resolveHomeCharacterTargetBatch,
 } from '#features/home/commission/homeCharacterBatchManifest'
 import { templateContentContainsElementId } from '#features/home/commission/templateContentLookup'
+import { readCommissionViewMode } from '#features/home/commission/viewModeState'
 
 export const STALE_CHARACTERS_SHOW_REQUEST_EVENT = 'home:stale-show-request'
 export const STALE_CHARACTERS_LOAD_REQUEST_EVENT = 'home:stale-load-request'
@@ -12,9 +13,12 @@ export const STALE_CHARACTERS_COLLAPSED_EVENT = 'home:stale-collapsed'
 export const STALE_CHARACTERS_STATE_CHANGE_EVENT = 'home:stale-state-change'
 
 const CHARACTER_PANEL_SELECTOR = '[data-commission-view-panel="character"]'
+const FIRST_STALE_SECTION_SELECTOR =
+  '[data-character-section="true"][data-character-status="stale"]'
 const STALE_TEMPLATE_SELECTOR = 'template[data-stale-sections-template="true"]'
 const STALE_DEFERRED_TEMPLATE_SELECTOR = 'template[data-stale-deferred-sections-template="true"]'
 const STALE_VISIBILITY_STORAGE_KEY = 'home:stale-visibility'
+const STALE_VIEWPORT_FOCUS_RATIO = 0.5
 
 export type StaleCharactersVisibility = 'visible' | 'hidden'
 
@@ -178,6 +182,49 @@ export const persistStaleCharactersVisibility = (
   } catch {
     // Ignore storage write failures so stale toggling keeps working.
   }
+}
+
+export const resolveReloadStaleCharactersVisibility = ({
+  doc,
+  win,
+}: {
+  doc?: Document
+  win?: Window
+}): StaleCharactersVisibility => {
+  const resolvedWindow = win ?? (typeof window !== 'undefined' ? window : null)
+  const resolvedDocument = doc ?? (typeof document !== 'undefined' ? document : null)
+  if (!resolvedWindow || !resolvedDocument) return 'hidden'
+
+  if (readCommissionViewMode(resolvedWindow) !== 'character') {
+    return 'hidden'
+  }
+
+  if (!isStaleCharactersVisible(resolvedDocument)) {
+    return 'hidden'
+  }
+
+  const firstStaleSection = resolvedDocument.querySelector<HTMLElement>(
+    FIRST_STALE_SECTION_SELECTOR,
+  )
+  if (!firstStaleSection) {
+    return 'visible'
+  }
+
+  const staleStartY = firstStaleSection.getBoundingClientRect().top + resolvedWindow.scrollY
+  const viewportFocusY =
+    resolvedWindow.scrollY + resolvedWindow.innerHeight * STALE_VIEWPORT_FOCUS_RATIO
+
+  return viewportFocusY >= staleStartY ? 'visible' : 'hidden'
+}
+
+export const persistReloadStaleCharactersVisibility = ({
+  doc,
+  win,
+}: {
+  doc?: Document
+  win: Window
+}) => {
+  persistStaleCharactersVisibility(win, resolveReloadStaleCharactersVisibility({ doc, win }))
 }
 
 const getDeferredStaleTemplate = (doc: Document) => {

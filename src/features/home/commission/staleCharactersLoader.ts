@@ -1,5 +1,6 @@
 import {
   dispatchStaleCharactersStateChange,
+  persistReloadStaleCharactersVisibility,
   persistStaleCharactersVisibility,
   readSavedStaleCharactersVisibility,
   readStaleCharactersLoadedBatchCount,
@@ -428,11 +429,16 @@ export const mountStaleCharactersLoader = ({
     loadedBatchCount: readStaleCharactersLoadedBatchCount(doc),
     visibility: readStaleCharactersStateFromPanel(panel).visibility,
   })
+  const persistReloadVisibility = () => {
+    persistReloadStaleCharactersVisibility({ doc, win })
+  }
   panel.addEventListener('click', onPanelClick)
   win.addEventListener(STALE_CHARACTERS_SHOW_REQUEST_EVENT, onShowRequest)
   win.addEventListener(STALE_CHARACTERS_LOAD_REQUEST_EVENT, onLoadRequest)
   win.addEventListener(STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT, onCollapseRequest)
   win.addEventListener('hashchange', syncHashTarget)
+  win.addEventListener('pagehide', persistReloadVisibility)
+  win.addEventListener('beforeunload', persistReloadVisibility)
   restoreSavedVisibility()
   syncHashTarget()
   syncAutoLoad()
@@ -445,5 +451,7 @@ export const mountStaleCharactersLoader = ({
     win.removeEventListener(STALE_CHARACTERS_LOAD_REQUEST_EVENT, onLoadRequest)
     win.removeEventListener(STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT, onCollapseRequest)
     win.removeEventListener('hashchange', syncHashTarget)
+    win.removeEventListener('pagehide', persistReloadVisibility)
+    win.removeEventListener('beforeunload', persistReloadVisibility)
   }
 }

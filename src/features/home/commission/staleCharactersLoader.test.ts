@@ -20,6 +20,40 @@ const flushAsyncWork = async () => {
   await Promise.resolve()
 }
 
+const setScrollEnvironment = ({
+  innerHeight = 800,
+  x = 0,
+  y = 0,
+}: {
+  innerHeight?: number
+  x?: number
+  y?: number
+}) => {
+  Object.defineProperty(window, 'scrollX', { configurable: true, value: x, writable: true })
+  Object.defineProperty(window, 'scrollY', { configurable: true, value: y, writable: true })
+  Object.defineProperty(window, 'innerHeight', {
+    configurable: true,
+    value: innerHeight,
+    writable: true,
+  })
+}
+
+const mockAbsoluteTop = (element: HTMLElement, absoluteTop: number) => {
+  element.getBoundingClientRect = () =>
+    ({
+      top: absoluteTop - window.scrollY,
+      bottom: absoluteTop - window.scrollY + 120,
+      left: 0,
+      right: 100,
+      width: 100,
+      height: 120,
+      x: 0,
+      y: absoluteTop - window.scrollY,
+      toJSON: () => ({}),
+    }) as DOMRect
+  element.getClientRects = () => [element.getBoundingClientRect()] as unknown as DOMRectList
+}
+
 const renderFixture = () => {
   document.body.innerHTML = `
     <div data-commission-view-panel="character" data-stale-loaded="false" data-stale-visibility="hidden">
@@ -55,6 +89,7 @@ describe('mountStaleCharactersLoader', () => {
   beforeEach(() => {
     window.sessionStorage.clear()
     window.history.replaceState(null, '', '/')
+    setScrollEnvironment({})
   })
 
   it('restores scroll position after manual stale expansion', async () => {
@@ -365,5 +400,47 @@ describe('mountStaleCharactersLoader', () => {
     cleanup()
     window.removeEventListener(STALE_CHARACTERS_COLLAPSED_EVENT, onCollapsed)
     window.removeEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStateChanged)
+  })
+
+  it('overrides saved stale visibility to hidden when reload starts from the active region', () => {
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-stale-loaded="true" data-stale-visibility="visible">
+        <div data-stale-sections-container="true">
+          <section id="section-stale" data-character-section="true" data-character-status="stale"></section>
+        </div>
+      </div>
+    `
+    const staleSection = document.getElementById('section-stale') as HTMLElement
+    mockAbsoluteTop(staleSection, 1600)
+    setScrollEnvironment({ y: 200 })
+    persistStaleCharactersVisibility(window, 'visible')
+
+    const cleanup = mountStaleCharactersLoader()
+    window.dispatchEvent(new Event('pagehide'))
+
+    expect(readSavedStaleCharactersVisibility(window)).toBe('hidden')
+
+    cleanup()
+  })
+
+  it('keeps saved stale visibility visible when reload starts from the stale region', () => {
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-stale-loaded="true" data-stale-visibility="visible">
+        <div data-stale-sections-container="true">
+          <section id="section-stale" data-character-section="true" data-character-status="stale"></section>
+        </div>
+      </div>
+    `
+    const staleSection = document.getElementById('section-stale') as HTMLElement
+    mockAbsoluteTop(staleSection, 1600)
+    setScrollEnvironment({ y: 1300 })
+    persistStaleCharactersVisibility(window, 'visible')
+
+    const cleanup = mountStaleCharactersLoader()
+    window.dispatchEvent(new Event('pagehide'))
+
+    expect(readSavedStaleCharactersVisibility(window)).toBe('visible')
+
+    cleanup()
   })
 })
