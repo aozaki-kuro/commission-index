@@ -12,6 +12,14 @@ import {
 import { mountStaleCharactersLoader } from '#features/home/commission/staleCharactersLoader'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 
+const flushAsyncWork = async () => {
+  await Promise.resolve()
+  await Promise.resolve()
+  await Promise.resolve()
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
 const renderFixture = () => {
   document.body.innerHTML = `
     <div data-commission-view-panel="character" data-stale-loaded="false" data-stale-visibility="hidden">
@@ -49,7 +57,7 @@ describe('mountStaleCharactersLoader', () => {
     window.history.replaceState(null, '', '/')
   })
 
-  it('restores scroll position after manual stale expansion', () => {
+  it('restores scroll position after manual stale expansion', async () => {
     renderFixture()
     Object.defineProperty(window, 'scrollX', { value: 24, configurable: true })
     Object.defineProperty(window, 'scrollY', { value: 480, configurable: true })
@@ -67,6 +75,7 @@ describe('mountStaleCharactersLoader', () => {
     document
       .querySelector<HTMLElement>('[data-load-stale-characters="true"]')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flushAsyncWork()
 
     expect(restoreScrollPosition).toHaveBeenCalledTimes(1)
     expect(restoreScrollPosition).toHaveBeenCalledWith(window, { x: 24, y: 480 })
@@ -75,7 +84,7 @@ describe('mountStaleCharactersLoader', () => {
     requestAnimationFrameSpy.mockRestore()
   })
 
-  it('injects stale sections and dispatches loaded + sidebar sync events', () => {
+  it('injects stale sections and dispatches loaded + sidebar sync events', async () => {
     renderFixture()
     const onLoaded = vi.fn()
     const onSidebarSync = vi.fn()
@@ -88,6 +97,7 @@ describe('mountStaleCharactersLoader', () => {
     document
       .querySelector<HTMLElement>('[data-load-stale-characters="true"]')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flushAsyncWork()
 
     expect(document.getElementById('section-stale')).toBeTruthy()
     expect(
@@ -107,9 +117,16 @@ describe('mountStaleCharactersLoader', () => {
     ).toBe(true)
     expect(onLoaded).toHaveBeenCalledTimes(1)
     expect(onSidebarSync).toHaveBeenCalledTimes(1)
-    expect(onStateChanged).toHaveBeenCalledTimes(1)
+    expect(onStateChanged).toHaveBeenCalledTimes(2)
     expect(
       (onStateChanged.mock.calls[0]?.[0] as CustomEvent<{ visibility: string; loaded: boolean }>)
+        .detail,
+    ).toEqual({
+      visibility: 'visible',
+      loaded: false,
+    })
+    expect(
+      (onStateChanged.mock.calls[1]?.[0] as CustomEvent<{ visibility: string; loaded: boolean }>)
         .detail,
     ).toEqual({
       visibility: 'visible',
@@ -122,16 +139,17 @@ describe('mountStaleCharactersLoader', () => {
     window.removeEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStateChanged)
   })
 
-  it('supports global request event', () => {
+  it('supports global request event', async () => {
     renderFixture()
     const cleanup = mountStaleCharactersLoader()
     window.dispatchEvent(new Event(STALE_CHARACTERS_LOAD_REQUEST_EVENT))
+    await flushAsyncWork()
 
     expect(document.getElementById('section-stale')).toBeTruthy()
     cleanup()
   })
 
-  it('skips scroll restoration when the stale load request opts out', () => {
+  it('skips scroll restoration when the stale load request opts out', async () => {
     renderDeferredFixture()
     Object.defineProperty(window, 'scrollX', { value: 24, configurable: true })
     Object.defineProperty(window, 'scrollY', { value: 480, configurable: true })
@@ -149,9 +167,10 @@ describe('mountStaleCharactersLoader', () => {
 
     window.dispatchEvent(
       new CustomEvent(STALE_CHARACTERS_LOAD_REQUEST_EVENT, {
-        detail: { preserveScroll: false },
+        detail: { preserveScroll: false, strategy: 'all' },
       }),
     )
+    await flushAsyncWork()
 
     expect(document.getElementById('section-stale-initial')).toBeTruthy()
     expect(document.getElementById('section-stale-deferred')).toBeTruthy()
@@ -161,7 +180,7 @@ describe('mountStaleCharactersLoader', () => {
     requestAnimationFrameSpy.mockRestore()
   })
 
-  it('keeps deferred stale sections pending until a later full-load request', () => {
+  it('keeps deferred stale sections pending until a later full-load request', async () => {
     renderDeferredFixture()
     const onLoaded = vi.fn()
     const observe = vi.fn()
@@ -189,6 +208,7 @@ describe('mountStaleCharactersLoader', () => {
     document
       .querySelector<HTMLElement>('[data-load-stale-characters="true"]')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    await flushAsyncWork()
 
     expect(document.getElementById('section-stale-initial')).toBeTruthy()
     expect(document.getElementById('section-stale-deferred')).toBeNull()
@@ -202,9 +222,10 @@ describe('mountStaleCharactersLoader', () => {
         .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
         ?.getAttribute('data-stale-loaded'),
     ).toBe('false')
-    expect(onLoaded).not.toHaveBeenCalled()
+    expect(onLoaded).toHaveBeenCalledTimes(1)
 
     window.dispatchEvent(new Event(STALE_CHARACTERS_LOAD_REQUEST_EVENT))
+    await flushAsyncWork()
 
     expect(document.getElementById('section-stale-deferred')).toBeTruthy()
     expect(
@@ -212,7 +233,7 @@ describe('mountStaleCharactersLoader', () => {
         .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
         ?.getAttribute('data-stale-loaded'),
     ).toBe('true')
-    expect(onLoaded).toHaveBeenCalledTimes(1)
+    expect(onLoaded).toHaveBeenCalledTimes(2)
     expect(observe).toHaveBeenCalledTimes(1)
     expect(disconnect).toHaveBeenCalled()
 
@@ -221,7 +242,7 @@ describe('mountStaleCharactersLoader', () => {
     window.removeEventListener(STALE_CHARACTERS_LOADED_EVENT, onLoaded)
   })
 
-  it('restores stale visibility from the current tab session on mount', () => {
+  it('restores stale visibility from the current tab session on mount', async () => {
     renderDeferredFixture()
     const observe = vi.fn()
     const disconnect = vi.fn()
@@ -245,6 +266,7 @@ describe('mountStaleCharactersLoader', () => {
     vi.stubGlobal('IntersectionObserver', MockIntersectionObserver)
 
     const cleanup = mountStaleCharactersLoader()
+    await flushAsyncWork()
 
     expect(readSavedStaleCharactersVisibility(window)).toBe('visible')
     expect(document.getElementById('section-stale-initial')).toBeTruthy()
@@ -265,7 +287,7 @@ describe('mountStaleCharactersLoader', () => {
     vi.unstubAllGlobals()
   })
 
-  it('loads stale sections from an initial hash target inside the template', () => {
+  it('loads stale sections from an initial hash target inside the template', async () => {
     renderFixture()
     document.querySelector('template[data-stale-sections-template="true"]')!.innerHTML = `
       <section id="section-stale"></section>
@@ -285,6 +307,7 @@ describe('mountStaleCharactersLoader', () => {
     const cleanup = mountStaleCharactersLoader({
       deps: { restoreScrollPosition, scrollToHashWithoutWrite },
     })
+    await flushAsyncWork()
 
     expect(document.getElementById('section-stale')).toBeTruthy()
     expect(
@@ -300,7 +323,7 @@ describe('mountStaleCharactersLoader', () => {
     window.history.replaceState(null, '', '/')
   })
 
-  it('collapses loaded stale sections when requested', () => {
+  it('collapses loaded stale sections when requested', async () => {
     renderFixture()
     const onCollapsed = vi.fn()
     const onStateChanged = vi.fn()
@@ -309,6 +332,7 @@ describe('mountStaleCharactersLoader', () => {
 
     const cleanup = mountStaleCharactersLoader()
     window.dispatchEvent(new Event(STALE_CHARACTERS_LOAD_REQUEST_EVENT))
+    await flushAsyncWork()
     window.dispatchEvent(new Event(STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT))
 
     expect(document.getElementById('section-stale')).toBeNull()
@@ -328,14 +352,15 @@ describe('mountStaleCharactersLoader', () => {
         ?.classList.contains('hidden'),
     ).toBe(false)
     expect(onCollapsed).toHaveBeenCalledTimes(1)
-    expect(onStateChanged).toHaveBeenCalledTimes(2)
+    expect(onStateChanged).toHaveBeenCalledTimes(3)
     expect(
-      (onStateChanged.mock.calls[1]?.[0] as CustomEvent<{ visibility: string; loaded: boolean }>)
+      (onStateChanged.mock.calls[2]?.[0] as CustomEvent<{ visibility: string; loaded: boolean }>)
         .detail,
     ).toEqual({
       visibility: 'hidden',
       loaded: false,
     })
+    expect(readSavedStaleCharactersVisibility(window)).toBe('hidden')
 
     cleanup()
     window.removeEventListener(STALE_CHARACTERS_COLLAPSED_EVENT, onCollapsed)

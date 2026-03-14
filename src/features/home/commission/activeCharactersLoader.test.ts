@@ -7,6 +7,14 @@ import {
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { mountActiveCharactersLoader } from './activeCharactersLoader'
 
+const flushAsyncWork = async () => {
+  await Promise.resolve()
+  await Promise.resolve()
+  await Promise.resolve()
+  await Promise.resolve()
+  await Promise.resolve()
+}
+
 const renderFixture = () => {
   document.body.innerHTML = `
     <div data-commission-view-panel="character" data-active-sections-loaded="false">
@@ -21,7 +29,7 @@ const renderFixture = () => {
 }
 
 describe('mountActiveCharactersLoader', () => {
-  it('loads deferred active sections on global request and dispatches sync events', () => {
+  it('loads deferred active sections on global request and dispatches sync events', async () => {
     renderFixture()
 
     const onLoaded = vi.fn()
@@ -31,6 +39,7 @@ describe('mountActiveCharactersLoader', () => {
 
     const cleanup = mountActiveCharactersLoader()
     window.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT))
+    await flushAsyncWork()
 
     expect(document.getElementById('section-beta')).toBeTruthy()
     expect(
@@ -46,7 +55,7 @@ describe('mountActiveCharactersLoader', () => {
     window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSidebarSync)
   })
 
-  it('loads deferred active sections for an initial hash target and scrolls after mount', () => {
+  it('loads deferred active sections for an initial hash target and scrolls after mount', async () => {
     renderFixture()
     document.querySelector('template[data-active-sections-template="true"]')!.innerHTML = `
       <section id="section-beta"></section>
@@ -65,6 +74,7 @@ describe('mountActiveCharactersLoader', () => {
     const cleanup = mountActiveCharactersLoader({
       deps: { scrollToHashWithoutWrite },
     })
+    await flushAsyncWork()
 
     expect(document.getElementById('section-beta')).toBeTruthy()
     expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-beta-20240101')
@@ -74,7 +84,7 @@ describe('mountActiveCharactersLoader', () => {
     window.history.replaceState(null, '', '/')
   })
 
-  it('loads deferred active sections when the sentinel enters the preload range', () => {
+  it('loads deferred active sections when the sentinel enters the preload range', async () => {
     renderFixture()
 
     const observe = vi.fn()
@@ -111,6 +121,7 @@ describe('mountActiveCharactersLoader', () => {
     vi.stubGlobal('IntersectionObserver', MockIntersectionObserver)
 
     const cleanup = mountActiveCharactersLoader()
+    await flushAsyncWork()
 
     expect(document.getElementById('section-beta')).toBeTruthy()
     expect(observe).toHaveBeenCalledTimes(1)

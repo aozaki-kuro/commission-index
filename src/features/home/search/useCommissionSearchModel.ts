@@ -182,7 +182,7 @@ export const useCommissionSearchModel = ({
 
   useEffect(() => {
     if (disableDomFiltering || mode !== 'character' || !hasQuery || activeLoaded) return
-    requestActiveCharactersLoad(window)
+    requestActiveCharactersLoad(window, { strategy: 'all' })
   }, [activeLoaded, disableDomFiltering, hasQuery, mode])
 
   const index = useMemo(() => {

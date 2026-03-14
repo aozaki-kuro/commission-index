@@ -407,7 +407,8 @@ describe('sidebarNavEnhancer', () => {
     )
 
     const scrollToHashWithoutWrite = vi.fn()
-    const requestActiveLoad = vi.fn(win => {
+    const requestActiveLoad = vi.fn((win, options?: { strategy?: string; targetId?: string }) => {
+      expect(options).toEqual({ strategy: 'target', targetId: '#section-beta' })
       const title = document.createElement('h2')
       title.id = 'title-beta'
       document.body.append(title)
@@ -433,7 +434,10 @@ describe('sidebarNavEnhancer', () => {
     expect(betaLink?.getAttribute('aria-disabled')).toBeNull()
     betaLink?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
-    expect(requestActiveLoad).toHaveBeenCalledWith(window)
+    expect(requestActiveLoad).toHaveBeenCalledWith(window, {
+      strategy: 'target',
+      targetId: '#section-beta',
+    })
     expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-beta')
 
     cleanup()
@@ -467,13 +471,19 @@ describe('sidebarNavEnhancer', () => {
       )
 
     const scrollToHashWithoutWrite = vi.fn()
-    const requestStaleLoad = vi.fn((win, options?: { preserveScroll?: boolean }) => {
-      expect(options).toEqual({ preserveScroll: false })
-      const section = document.createElement('section')
-      section.id = 'section-stale-deferred'
-      document.body.append(section)
-      win.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
-    })
+    const requestStaleLoad = vi.fn(
+      (win, options?: { preserveScroll?: boolean; strategy?: string; targetId?: string }) => {
+        expect(options).toEqual({
+          preserveScroll: false,
+          strategy: 'target',
+          targetId: '#section-stale-deferred',
+        })
+        const section = document.createElement('section')
+        section.id = 'section-stale-deferred'
+        document.body.append(section)
+        win.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
+      },
+    )
 
     const cleanup = mountSidebarNavEnhancer({
       deps: {
@@ -488,7 +498,11 @@ describe('sidebarNavEnhancer', () => {
 
     staleLink?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
-    expect(requestStaleLoad).toHaveBeenCalledWith(window, { preserveScroll: false })
+    expect(requestStaleLoad).toHaveBeenCalledWith(window, {
+      preserveScroll: false,
+      strategy: 'target',
+      targetId: '#section-stale-deferred',
+    })
     expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-stale-deferred')
 
     cleanup()

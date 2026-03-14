@@ -244,7 +244,7 @@ const CommissionSearch = ({
   }, [setInputQuery, showSuggestionPanel])
 
   const handleStaleCharactersLoadRequest = useCallback(() => {
-    dispatchStaleCharactersLoad(window)
+    dispatchStaleCharactersLoad(window, { strategy: 'all', preserveScroll: true })
   }, [])
 
   const { focusInputAfterSelection, searchRootRef, shouldSuppressInputFocusOpen } =

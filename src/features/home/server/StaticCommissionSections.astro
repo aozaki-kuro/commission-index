@@ -4,6 +4,10 @@ import type { TimelineYearGroup } from '#lib/commissions/timeline'
 import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
 import Listing from '#features/home/commission/Listing.astro'
 import TimelineView from '#features/home/commission/TimelineView.astro'
+import {
+  buildHomeCharacterBatchManifest,
+  buildHomeCharacterBatchPlan,
+} from '#features/home/server/homeCharacterBatches'
 
 type CharacterDisplay = {
   DisplayName: string
@@ -32,14 +36,19 @@ const {
 } =
   Astro.props as StaticCommissionSectionsProps
 const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
-const MAX_INITIAL_ACTIVE_SECTIONS = 1
-const MAX_INITIAL_STALE_SECTIONS = 1
-const initialActiveChars = activeChars.slice(0, MAX_INITIAL_ACTIVE_SECTIONS)
-const deferredActiveChars = activeChars.slice(MAX_INITIAL_ACTIVE_SECTIONS)
-const hasDeferredActiveChars = deferredActiveChars.length > 0
-const initialStaleChars = staleChars.slice(0, MAX_INITIAL_STALE_SECTIONS)
-const deferredStaleChars = staleChars.slice(MAX_INITIAL_STALE_SECTIONS)
-const hasDeferredStaleChars = deferredStaleChars.length > 0
+const resolvedLocale = normalizeHomeLocale(locale)
+const batchPlan = buildHomeCharacterBatchPlan({
+  activeChars,
+  staleChars,
+  commissionMap,
+})
+const batchManifest = buildHomeCharacterBatchManifest({
+  locale: resolvedLocale,
+  plan: batchPlan,
+})
+const initialActiveChars = batchPlan.active.initialCharacters
+const hasDeferredActiveChars = batchPlan.active.totalBatches > 0
+const hasDeferredStaleChars = batchPlan.stale.totalBatches > 0
 const staleCharacterCount = staleChars.length
 const staleCommissionCount = staleChars.reduce(
   (count, chara) => count + (commissionMap.get(chara.DisplayName)?.Commissions.length ?? 0),
@@ -52,14 +61,16 @@ const staleCommissionCount = staleChars.reduce(
     data-commission-view-panel="character"
     data-commission-view-active="true"
     data-active-sections-loaded={hasDeferredActiveChars ? 'false' : 'true'}
+    data-active-batches-loaded-count="0"
     data-stale-loaded="false"
     data-stale-visibility="hidden"
+    data-stale-batches-loaded-count="0"
   >
     {
-      initialActiveChars.map(chara => (
+      initialActiveChars.map(characterName => (
         <Listing
           locale={locale}
-          Character={chara.DisplayName}
+          Character={characterName}
           status="active"
           commissionMap={commissionMap}
           characterAliasesMap={characterAliasesMap}
@@ -77,21 +88,6 @@ const staleCommissionCount = staleChars.reduce(
             aria-hidden="true"
             class="h-px overflow-hidden opacity-0 pointer-events-none"
           />
-          <template data-active-sections-template="true">
-            {
-              deferredActiveChars.map(chara => (
-                <Listing
-                  locale={locale}
-                  Character={chara.DisplayName}
-                  status="active"
-                  commissionMap={commissionMap}
-                  characterAliasesMap={characterAliasesMap}
-                  creatorAliasesMap={creatorAliasesMap}
-                  keywordAliasesMap={keywordAliasesMap}
-                />
-              ))
-            }
-          </template>
         </>
       ) : null
     }
@@ -140,52 +136,18 @@ const staleCommissionCount = staleChars.reduce(
               </button>
             </div>
           </div>
+          <div data-stale-divider="true" class="hidden pb-8">
+            <hr />
+          </div>
           <div data-stale-sections-container="true" />
-          <template data-stale-sections-template="true">
-            <div data-stale-divider="true" class="pb-8">
-              <hr />
-            </div>
-            {
-              initialStaleChars.map(chara => (
-                <Listing
-                  locale={locale}
-                  Character={chara.DisplayName}
-                  status="stale"
-                  commissionMap={commissionMap}
-                  characterAliasesMap={characterAliasesMap}
-                  creatorAliasesMap={creatorAliasesMap}
-                  keywordAliasesMap={keywordAliasesMap}
-                />
-              ))
-            }
-            {
-              hasDeferredStaleChars ? (
-                <>
-                  <div data-stale-deferred-sections-container="true" />
-                  <div
-                    data-stale-deferred-sections-sentinel="true"
-                    aria-hidden="true"
-                    class="h-px overflow-hidden opacity-0 pointer-events-none"
-                  />
-                  <template data-stale-deferred-sections-template="true">
-                    {
-                      deferredStaleChars.map(chara => (
-                        <Listing
-                          locale={locale}
-                          Character={chara.DisplayName}
-                          status="stale"
-                          commissionMap={commissionMap}
-                          characterAliasesMap={characterAliasesMap}
-                          creatorAliasesMap={creatorAliasesMap}
-                          keywordAliasesMap={keywordAliasesMap}
-                        />
-                      ))
-                    }
-                  </template>
-                </>
-              ) : null
-            }
-          </template>
+          <div
+            data-stale-deferred-sections-sentinel="true"
+            aria-hidden="true"
+            class:list={[
+              'h-px overflow-hidden opacity-0 pointer-events-none',
+              !hasDeferredStaleChars && 'hidden',
+            ]}
+          />
         </>
       ) : null
     }
@@ -207,6 +169,12 @@ const staleCommissionCount = staleChars.reduce(
       />
     </template>
   </div>
+  <script
+    is:inline
+    type="application/json"
+    data-home-character-batch-manifest="true"
+    set:html={JSON.stringify(batchManifest)}
+  />
 </div>
 
 <script is:inline>

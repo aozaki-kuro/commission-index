@@ -36,6 +36,7 @@ import {
   ACTIVE_CHARACTERS_LOADED_EVENT,
   hasDeferredActiveCharacterTarget,
   requestActiveCharactersLoad,
+  type RequestActiveCharactersLoadOptions,
 } from '#features/home/commission/activeCharactersEvent'
 
 const SIDEBAR_ROOT_ID = 'Character List'
@@ -55,7 +56,7 @@ type SidebarNavEnhancerDeps = {
   jumpToSearch: typeof jumpToCommissionSearch
   clearHash: typeof clearHashIfTargetIsStale
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
-  requestActiveLoad: (win: Window) => void
+  requestActiveLoad: (win: Window, options?: RequestActiveCharactersLoadOptions) => void
   requestStaleLoad: (win: Window, options?: RequestStaleCharactersLoadOptions) => void
   requestStaleVisibility: (win: Window, visibility: StaleCharactersVisibility) => void
 }
@@ -421,7 +422,7 @@ export const mountSidebarNavEnhancer = ({
       }
 
       win.addEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, onActiveLoaded, { once: true })
-      deps.requestActiveLoad(win)
+      deps.requestActiveLoad(win, { strategy: 'target', targetId: href ?? undefined })
       trackSidebarCharacterClick(characterLink)
       return
     }
@@ -439,7 +440,11 @@ export const mountSidebarNavEnhancer = ({
       }
 
       win.addEventListener(STALE_CHARACTERS_LOADED_EVENT, onStaleLoaded, { once: true })
-      deps.requestStaleLoad(win, { preserveScroll: false })
+      deps.requestStaleLoad(win, {
+        preserveScroll: false,
+        strategy: 'target',
+        targetId: href ?? undefined,
+      })
       trackSidebarCharacterClick(characterLink)
       return
     }

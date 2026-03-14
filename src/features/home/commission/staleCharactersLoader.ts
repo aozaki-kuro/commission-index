@@ -2,35 +2,36 @@ import {
   dispatchStaleCharactersStateChange,
   persistStaleCharactersVisibility,
   readSavedStaleCharactersVisibility,
+  readStaleCharactersLoadedBatchCount,
+  readStaleCharactersStateFromPanel,
+  resolveDeferredStaleCharacterBatch,
+  shouldPreserveScrollOnStaleLoadRequest,
   STALE_CHARACTERS_COLLAPSED_EVENT,
   STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT,
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_LOAD_REQUEST_EVENT,
   STALE_CHARACTERS_SHOW_REQUEST_EVENT,
-  hasDeferredStaleCharacterTarget,
-  readStaleCharactersStateFromPanel,
-  shouldPreserveScrollOnStaleLoadRequest,
+  writeStaleCharactersLoadedBatchCount,
   writeStaleCharactersState,
-  isStaleCharactersVisible,
+  type RequestStaleCharactersLoadOptions,
   type StaleCharactersState,
 } from '#features/home/commission/staleCharactersEvent'
-import { templateContentContainsElementId } from '#features/home/commission/templateContentLookup'
+import {
+  fetchHomeCharacterBatch,
+  getHomeCharacterBatchTotalCount,
+  mountLegacyHomeCharacterBatch,
+  mountHomeCharacterBatch,
+} from '#features/home/commission/homeCharacterBatchClient'
 import { getHashTarget, scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import { dispatchSidebarSearchState } from '#lib/navigation/sidebarSearchState'
 
 const CHARACTER_PANEL_SELECTOR = '[data-commission-view-panel="character"]'
 const STALE_PLACEHOLDER_SELECTOR = '[data-stale-sections-placeholder="true"]'
-const STALE_TEMPLATE_SELECTOR = 'template[data-stale-sections-template="true"]'
-const STALE_CONTAINER_SELECTOR = '[data-stale-sections-container="true"]'
-const STALE_DEFERRED_TEMPLATE_SELECTOR = 'template[data-stale-deferred-sections-template="true"]'
-const STALE_DEFERRED_CONTAINER_SELECTOR = '[data-stale-deferred-sections-container="true"]'
-const STALE_DEFERRED_SENTINEL_SELECTOR = '[data-stale-deferred-sections-sentinel="true"]'
 const STALE_LOAD_TRIGGER_SELECTOR = '[data-load-stale-characters="true"]'
+const STALE_DIVIDER_SELECTOR = '[data-stale-divider="true"]'
+const STALE_CONTAINER_SELECTOR = '[data-stale-sections-container="true"]'
+const STALE_DEFERRED_SENTINEL_SELECTOR = '[data-stale-deferred-sections-sentinel="true"]'
 const STALE_PRELOAD_MARGIN_PX = 1200
-
-const isStaleLoaded = (panel: HTMLElement | null) => readStaleCharactersStateFromPanel(panel).loaded
-const isStaleVisible = (panel: HTMLElement | null) =>
-  readStaleCharactersStateFromPanel(panel).visibility === 'visible'
 
 type StaleCharactersLoaderDeps = {
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
@@ -66,54 +67,11 @@ const defaultDeps: StaleCharactersLoaderDeps = {
   },
 }
 
-const mountTemplateContent = (panel: HTMLElement) => {
-  const template = panel.querySelector<HTMLTemplateElement>(STALE_TEMPLATE_SELECTOR)
-  const container = panel.querySelector<HTMLElement>(STALE_CONTAINER_SELECTOR)
-  if (!template || !container) return false
+const shouldLoadForSentinel = (win: Window, sentinel: HTMLElement | null) => {
+  if (!sentinel) return false
 
-  container.replaceChildren(template.content.cloneNode(true))
-  return true
-}
-
-const mountDeferredTemplateContent = (panel: HTMLElement) => {
-  const template = panel.querySelector<HTMLTemplateElement>(STALE_DEFERRED_TEMPLATE_SELECTOR)
-  const container = panel.querySelector<HTMLElement>(STALE_DEFERRED_CONTAINER_SELECTOR)
-  if (!template || !container) return false
-
-  container.replaceChildren(template.content.cloneNode(true))
-  return true
-}
-
-const hidePlaceholder = (panel: HTMLElement) => {
-  const placeholder = panel.querySelector<HTMLElement>(STALE_PLACEHOLDER_SELECTOR)
-  if (!placeholder) return
-  placeholder.classList.add('hidden')
-}
-
-const showPlaceholder = (panel: HTMLElement) => {
-  const placeholder = panel.querySelector<HTMLElement>(STALE_PLACEHOLDER_SELECTOR)
-  if (!placeholder) return
-  placeholder.classList.remove('hidden')
-}
-
-const getDecodedHashId = (hash: string) => {
-  if (!hash.startsWith('#')) return ''
-
-  try {
-    return decodeURIComponent(hash.slice(1))
-  } catch {
-    return ''
-  }
-}
-
-const templateContainsHashTarget = (panel: HTMLElement, hash: string) => {
-  const id = getDecodedHashId(hash)
-  if (!id) return false
-
-  const template = panel.querySelector<HTMLTemplateElement>(STALE_TEMPLATE_SELECTOR)
-  if (!template) return false
-
-  return templateContentContainsElementId(template.content, id)
+  const rect = sentinel.getBoundingClientRect()
+  return rect.top <= win.innerHeight + STALE_PRELOAD_MARGIN_PX
 }
 
 const scheduleScrollRestore = ({
@@ -133,96 +91,11 @@ const scheduleScrollRestore = ({
 const dispatchState = (win: Window, state: StaleCharactersState) => {
   persistStaleCharactersVisibility(win, state.visibility)
   dispatchStaleCharactersStateChange(win, state)
-  if (state.loaded) {
-    win.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
-  }
 }
 
-const showStaleSections = ({ win, panel }: { win: Window; panel: HTMLElement | null }) => {
-  if (!panel || isStaleVisible(panel)) return false
-  if (!mountTemplateContent(panel)) return false
-
-  const state = writeStaleCharactersState(panel, {
-    visibility: 'visible',
-    loaded: !panel.querySelector(STALE_DEFERRED_TEMPLATE_SELECTOR),
-  })
-  hidePlaceholder(panel)
-  dispatchSidebarSearchState()
-  dispatchState(win, state)
-  return true
-}
-
-const loadDeferredStaleSections = ({ win, panel }: { win: Window; panel: HTMLElement | null }) => {
-  if (!panel || !isStaleVisible(panel) || isStaleLoaded(panel)) return false
-  if (!mountDeferredTemplateContent(panel)) return false
-
-  panel.querySelector<HTMLTemplateElement>(STALE_DEFERRED_TEMPLATE_SELECTOR)?.remove()
-  panel.querySelector<HTMLElement>(STALE_DEFERRED_SENTINEL_SELECTOR)?.remove()
-  const state = writeStaleCharactersState(panel, {
-    visibility: 'visible',
-    loaded: true,
-  })
-  dispatchSidebarSearchState()
-  dispatchState(win, state)
-  return true
-}
-
-const mutateWithOptionalScrollRestore = ({
-  deps,
-  preserveScroll,
-  run,
-  win,
-}: {
-  deps: StaleCharactersLoaderDeps
-  preserveScroll: boolean
-  run: () => boolean
-  win: Window
-}) => {
-  const scrollPosition = preserveScroll ? { x: win.scrollX, y: win.scrollY } : null
-  const didChange = run()
-  if (didChange && scrollPosition) {
-    scheduleScrollRestore({ deps, position: scrollPosition, win })
-  }
-  return didChange
-}
-
-const ensureStaleSectionsFullyLoaded = ({
-  win,
-  panel,
-}: {
-  win: Window
-  panel: HTMLElement | null
-}) => {
-  if (!panel) return false
-
-  const didShow = showStaleSections({ win, panel })
-  if (isStaleLoaded(panel)) return didShow
-
-  return loadDeferredStaleSections({ win, panel }) || didShow
-}
-
-const shouldLoadForSentinel = (win: Window, sentinel: HTMLElement | null) => {
-  if (!sentinel) return false
-
-  const rect = sentinel.getBoundingClientRect()
-  return rect.top <= win.innerHeight + STALE_PRELOAD_MARGIN_PX
-}
-
-const collapseStaleSections = ({ win, panel }: { win: Window; panel: HTMLElement | null }) => {
-  if (!panel || !isStaleVisible(panel)) return false
-  const container = panel.querySelector<HTMLElement>(STALE_CONTAINER_SELECTOR)
-  if (!container) return false
-
-  container.replaceChildren()
-  const state = writeStaleCharactersState(panel, {
-    visibility: 'hidden',
-    loaded: false,
-  })
-  showPlaceholder(panel)
-  dispatchSidebarSearchState()
-  dispatchStaleCharactersStateChange(win, state)
-  win.dispatchEvent(new Event(STALE_CHARACTERS_COLLAPSED_EVENT))
-  return true
+const readRequestOptions = (event: Event): RequestStaleCharactersLoadOptions => {
+  if (!(event instanceof CustomEvent)) return {}
+  return event.detail ?? {}
 }
 
 export const mountStaleCharactersLoader = ({
@@ -235,10 +108,45 @@ export const mountStaleCharactersLoader = ({
   deps?: Partial<StaleCharactersLoaderDeps>
 } = {}) => {
   const panel = doc.querySelector<HTMLElement>(CHARACTER_PANEL_SELECTOR)
-  if (!panel) return () => {}
+  const container = panel?.querySelector<HTMLElement>(STALE_CONTAINER_SELECTOR) ?? null
+  if (!panel || !container) return () => {}
+
   const deps = { ...defaultDeps, ...depsOverrides }
   const winWithIntersectionObserver = win as WindowWithIntersectionObserver
+  const placeholder = panel.querySelector<HTMLElement>(STALE_PLACEHOLDER_SELECTOR)
+  const divider = panel.querySelector<HTMLElement>(STALE_DIVIDER_SELECTOR)
   let intersectionObserver: IntersectionObserver | null = null
+  let queue = Promise.resolve(false)
+
+  const setPlaceholderHidden = (hidden: boolean) => {
+    if (!placeholder) return
+    placeholder.classList.toggle('hidden', hidden)
+  }
+
+  const setDividerHidden = (hidden: boolean) => {
+    if (!divider) return
+    divider.classList.toggle('hidden', hidden)
+  }
+
+  const updateLoadedState = ({
+    loadedBatchCount,
+    visibility,
+  }: {
+    loadedBatchCount: number
+    visibility: 'hidden' | 'visible'
+  }) => {
+    writeStaleCharactersLoadedBatchCount(panel, loadedBatchCount)
+    const totalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'stale' })
+    const state = writeStaleCharactersState(panel, {
+      visibility,
+      loaded: loadedBatchCount >= totalBatchCount,
+    })
+
+    setPlaceholderHidden(visibility === 'visible')
+    setDividerHidden(visibility !== 'visible' || loadedBatchCount === 0)
+
+    return state
+  }
 
   const stopAutoLoad = () => {
     if (intersectionObserver) {
@@ -252,7 +160,8 @@ export const mountStaleCharactersLoader = ({
 
   const syncAutoLoad = () => {
     stopAutoLoad()
-    if (!isStaleVisible(panel) || isStaleLoaded(panel)) return
+    const state = readStaleCharactersStateFromPanel(panel)
+    if (state.visibility !== 'visible' || state.loaded) return
 
     const sentinel = panel.querySelector<HTMLElement>(STALE_DEFERRED_SENTINEL_SELECTOR)
     const IntersectionObserverCtor = winWithIntersectionObserver.IntersectionObserver
@@ -274,71 +183,145 @@ export const mountStaleCharactersLoader = ({
     syncByViewport()
   }
 
+  const loadBatchesThrough = async (targetBatchIndex: number) => {
+    let didChange = false
+    let loadedBatchCount = readStaleCharactersLoadedBatchCount(doc)
+    const totalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'stale' })
+    if (loadedBatchCount >= totalBatchCount) {
+      updateLoadedState({ loadedBatchCount, visibility: 'visible' })
+      return false
+    }
+
+    const finalBatchIndex = Math.min(targetBatchIndex, totalBatchCount - 1)
+    for (let batchIndex = loadedBatchCount; batchIndex <= finalBatchIndex; batchIndex += 1) {
+      const payload = await fetchHomeCharacterBatch({ batchIndex, doc, status: 'stale' })
+      if (payload) {
+        mountHomeCharacterBatch({ container, payload })
+      } else if (!mountLegacyHomeCharacterBatch({ batchIndex, container, doc, status: 'stale' })) {
+        break
+      }
+
+      loadedBatchCount = batchIndex + 1
+      didChange = true
+    }
+
+    updateLoadedState({ loadedBatchCount, visibility: 'visible' })
+    if (didChange) {
+      dispatchSidebarSearchState()
+    }
+
+    return didChange
+  }
+
+  const queueLoad = (options: RequestStaleCharactersLoadOptions = {}) => {
+    const run = async () => {
+      const preserveScroll = options.preserveScroll ?? false
+      const scrollPosition = preserveScroll ? { x: win.scrollX, y: win.scrollY } : null
+      const totalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'stale' })
+      const strategy = options.strategy ?? 'next'
+      const loadedBatchCount = readStaleCharactersLoadedBatchCount(doc)
+      const targetBatchIndex =
+        strategy === 'all'
+          ? totalBatchCount - 1
+          : strategy === 'target'
+            ? (resolveDeferredStaleCharacterBatch(doc, options.targetId) ?? loadedBatchCount)
+            : loadedBatchCount
+
+      let didChange = false
+      let currentState = updateLoadedState({ loadedBatchCount, visibility: 'visible' })
+      dispatchState(win, currentState)
+
+      if (loadedBatchCount < totalBatchCount && targetBatchIndex >= loadedBatchCount) {
+        didChange = await loadBatchesThrough(targetBatchIndex)
+        const nextState = readStaleCharactersStateFromPanel(panel)
+        if (
+          nextState.visibility !== currentState.visibility ||
+          nextState.loaded !== currentState.loaded
+        ) {
+          currentState = nextState
+          dispatchState(win, currentState)
+        }
+      }
+
+      if (scrollPosition && (didChange || currentState.visibility === 'visible')) {
+        scheduleScrollRestore({ deps, position: scrollPosition, win })
+      }
+
+      if (didChange) {
+        win.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
+      }
+      syncAutoLoad()
+      return didChange
+    }
+
+    queue = queue.then(run).catch(error => {
+      console.error(error)
+      return false
+    })
+
+    return queue
+  }
+
+  const collapseStaleSections = () => {
+    const state = readStaleCharactersStateFromPanel(panel)
+    if (state.visibility !== 'visible') return false
+
+    container.replaceChildren()
+    const nextState = updateLoadedState({
+      loadedBatchCount: 0,
+      visibility: 'hidden',
+    })
+    dispatchSidebarSearchState()
+    dispatchState(win, nextState)
+    win.dispatchEvent(new Event(STALE_CHARACTERS_COLLAPSED_EVENT))
+    return true
+  }
+
   const syncByViewport = () => {
-    if (!isStaleVisible(panel) || isStaleLoaded(panel)) {
+    const state = readStaleCharactersStateFromPanel(panel)
+    if (state.visibility !== 'visible' || state.loaded) {
       stopAutoLoad()
       return
     }
 
     const sentinel = panel.querySelector<HTMLElement>(STALE_DEFERRED_SENTINEL_SELECTOR)
     if (!shouldLoadForSentinel(win, sentinel)) return
-    if (!loadDeferredStaleSections({ win, panel })) return
-
-    stopAutoLoad()
-  }
-
-  const onClick = (event: MouseEvent) => {
-    const target = event.target
-    if (!(target instanceof Element)) return
-    const trigger = target.closest<HTMLElement>(STALE_LOAD_TRIGGER_SELECTOR)
-    if (!trigger) return
-
-    if (
-      !mutateWithOptionalScrollRestore({
-        deps,
-        preserveScroll: true,
-        run: () => showStaleSections({ win, panel }),
-        win,
-      })
-    ) {
-      return
-    }
-
-    syncAutoLoad()
+    void queueLoad({ preserveScroll: false, strategy: 'next' })
   }
 
   const onShowRequest = () => {
-    if (!showStaleSections({ win, panel })) return
-    syncAutoLoad()
+    void queueLoad({
+      preserveScroll: true,
+      strategy: 'next',
+    })
+  }
+
+  const onPanelClick = (event: MouseEvent) => {
+    const target = event.target
+    if (!(target instanceof Element)) return
+    if (!target.closest(STALE_LOAD_TRIGGER_SELECTOR)) return
+
+    event.preventDefault()
+    onShowRequest()
   }
 
   const onLoadRequest = (event: Event) => {
-    if (
-      !mutateWithOptionalScrollRestore({
-        deps,
-        preserveScroll: shouldPreserveScrollOnStaleLoadRequest(event),
-        run: () => ensureStaleSectionsFullyLoaded({ win, panel }),
-        win,
-      })
-    ) {
-      return
-    }
+    const options = readRequestOptions(event)
+    const strategy =
+      options.strategy ??
+      (options.targetId ? 'target' : shouldPreserveScrollOnStaleLoadRequest(event) ? 'all' : 'next')
 
-    syncAutoLoad()
+    void queueLoad({
+      ...options,
+      strategy,
+      preserveScroll: shouldPreserveScrollOnStaleLoadRequest(event),
+    })
   }
 
   const onCollapseRequest = () => {
-    if (
-      !mutateWithOptionalScrollRestore({
-        deps,
-        preserveScroll: true,
-        run: () => collapseStaleSections({ win, panel }),
-        win,
-      })
-    ) {
-      return
-    }
-
+    const scrollPosition = { x: win.scrollX, y: win.scrollY }
+    if (!collapseStaleSections()) return
+    scheduleScrollRestore({ deps, position: scrollPosition, win })
     stopAutoLoad()
   }
 
@@ -346,30 +329,33 @@ export const mountStaleCharactersLoader = ({
     const hash = win.location.hash
     if (!hash) return
     if (getHashTarget(hash)) return
-    if (!templateContainsHashTarget(panel, hash)) return
 
-    if (!isStaleCharactersVisible(doc)) {
-      showStaleSections({ win, panel })
-    }
+    const batchIndex = resolveDeferredStaleCharacterBatch(doc, hash)
+    if (batchIndex === null) return
 
-    if (!getHashTarget(hash) && hasDeferredStaleCharacterTarget(doc, hash)) {
-      loadDeferredStaleSections({ win, panel })
-    }
-
-    if (!getHashTarget(hash)) return
-    syncAutoLoad()
-
-    win.requestAnimationFrame(() => {
+    void queueLoad({
+      preserveScroll: false,
+      strategy: 'target',
+      targetId: hash,
+    }).then(didChange => {
+      if (!didChange || !win.location.hash) return
       deps.scrollToHashWithoutWrite(hash)
     })
   }
 
   const restoreSavedVisibility = () => {
     if (readSavedStaleCharactersVisibility(win) !== 'visible') return
-    showStaleSections({ win, panel })
+    void queueLoad({
+      preserveScroll: true,
+      strategy: 'next',
+    })
   }
 
-  doc.addEventListener('click', onClick)
+  updateLoadedState({
+    loadedBatchCount: readStaleCharactersLoadedBatchCount(doc),
+    visibility: readStaleCharactersStateFromPanel(panel).visibility,
+  })
+  panel.addEventListener('click', onPanelClick)
   win.addEventListener(STALE_CHARACTERS_SHOW_REQUEST_EVENT, onShowRequest)
   win.addEventListener(STALE_CHARACTERS_LOAD_REQUEST_EVENT, onLoadRequest)
   win.addEventListener(STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT, onCollapseRequest)
@@ -380,7 +366,7 @@ export const mountStaleCharactersLoader = ({
 
   return () => {
     stopAutoLoad()
-    doc.removeEventListener('click', onClick)
+    panel.removeEventListener('click', onPanelClick)
     win.removeEventListener(STALE_CHARACTERS_SHOW_REQUEST_EVENT, onShowRequest)
     win.removeEventListener(STALE_CHARACTERS_LOAD_REQUEST_EVENT, onLoadRequest)
     win.removeEventListener(STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT, onCollapseRequest)

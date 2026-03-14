@@ -1,14 +1,21 @@
 import {
   ACTIVE_CHARACTERS_LOADED_EVENT,
   ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT,
-  hasDeferredActiveCharacterTarget,
+  readActiveCharactersLoadedBatchCount,
   readActiveCharactersLoadedState,
+  resolveDeferredActiveCharacterBatch,
+  type RequestActiveCharactersLoadOptions,
 } from '#features/home/commission/activeCharactersEvent'
+import {
+  fetchHomeCharacterBatch,
+  getHomeCharacterBatchTotalCount,
+  mountLegacyHomeCharacterBatch,
+  mountHomeCharacterBatch,
+} from '#features/home/commission/homeCharacterBatchClient'
 import { getHashTarget, scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import { dispatchSidebarSearchState } from '#lib/navigation/sidebarSearchState'
 
 const CHARACTER_PANEL_SELECTOR = '[data-commission-view-panel="character"]'
-const ACTIVE_TEMPLATE_SELECTOR = 'template[data-active-sections-template="true"]'
 const ACTIVE_CONTAINER_SELECTOR = '[data-active-sections-container="true"]'
 const ACTIVE_SENTINEL_SELECTOR = '[data-active-sections-sentinel="true"]'
 const ACTIVE_PRELOAD_MARGIN_PX = 1200
@@ -34,40 +41,16 @@ const defaultDeps: ActiveCharactersLoaderDeps = {
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
 }
 
-const mountTemplateContent = (panel: HTMLElement) => {
-  const template = panel.querySelector<HTMLTemplateElement>(ACTIVE_TEMPLATE_SELECTOR)
-  const container = panel.querySelector<HTMLElement>(ACTIVE_CONTAINER_SELECTOR)
-  if (!template || !container) return false
-
-  container.replaceChildren(template.content.cloneNode(true))
-  return true
-}
-
-const loadActiveSections = ({
-  win,
-  panel,
-  deps,
-}: {
-  win: Window
-  panel: HTMLElement | null
-  deps: ActiveCharactersLoaderDeps
-}) => {
-  if (!panel || readActiveCharactersLoadedState(panel.ownerDocument)) return false
-  if (!mountTemplateContent(panel)) return false
-
-  panel.dataset.activeSectionsLoaded = 'true'
-  panel.querySelector<HTMLTemplateElement>(ACTIVE_TEMPLATE_SELECTOR)?.remove()
-  panel.querySelector<HTMLElement>(ACTIVE_SENTINEL_SELECTOR)?.remove()
-  deps.dispatchSidebarSync()
-  win.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOADED_EVENT))
-  return true
-}
-
 const shouldLoadForSentinel = (win: Window, sentinel: HTMLElement | null) => {
   if (!sentinel) return false
 
   const rect = sentinel.getBoundingClientRect()
   return rect.top <= win.innerHeight + ACTIVE_PRELOAD_MARGIN_PX
+}
+
+const readRequestOptions = (event: Event): RequestActiveCharactersLoadOptions => {
+  if (!(event instanceof CustomEvent)) return {}
+  return event.detail ?? {}
 }
 
 export const mountActiveCharactersLoader = ({
@@ -76,11 +59,19 @@ export const mountActiveCharactersLoader = ({
   deps: depsOverrides,
 }: MountActiveCharactersLoaderOptions = {}) => {
   const panel = doc.querySelector<HTMLElement>(CHARACTER_PANEL_SELECTOR)
-  if (!panel) return () => {}
+  const container = panel?.querySelector<HTMLElement>(ACTIVE_CONTAINER_SELECTOR) ?? null
+  if (!panel || !container) return () => {}
 
   const deps = { ...defaultDeps, ...depsOverrides }
   const winWithIntersectionObserver = win as WindowWithIntersectionObserver
   let intersectionObserver: IntersectionObserver | null = null
+  let queue = Promise.resolve(false)
+
+  const updateLoadedState = (loadedBatchCount: number) => {
+    panel.dataset.activeBatchesLoadedCount = String(loadedBatchCount)
+    const totalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'active' })
+    panel.dataset.activeSectionsLoaded = loadedBatchCount >= totalBatchCount ? 'true' : 'false'
+  }
 
   const stopAutoLoad = () => {
     if (intersectionObserver) {
@@ -92,42 +83,10 @@ export const mountActiveCharactersLoader = ({
     win.removeEventListener('resize', syncByViewport)
   }
 
-  const syncByViewport = () => {
-    if (readActiveCharactersLoadedState(doc)) {
-      stopAutoLoad()
-      return
-    }
-
-    const sentinel = panel.querySelector<HTMLElement>(ACTIVE_SENTINEL_SELECTOR)
-    if (!shouldLoadForSentinel(win, sentinel)) return
-    if (!loadActiveSections({ win, panel, deps })) return
-
+  const syncAutoLoad = () => {
     stopAutoLoad()
-  }
+    if (readActiveCharactersLoadedState(doc)) return
 
-  const syncHashTarget = () => {
-    const hash = win.location.hash
-    if (!hash || readActiveCharactersLoadedState(doc)) return
-    if (getHashTarget(hash)) return
-    if (!hasDeferredActiveCharacterTarget(doc, hash)) return
-    if (!loadActiveSections({ win, panel, deps })) return
-
-    stopAutoLoad()
-    win.requestAnimationFrame(() => {
-      deps.scrollToHashWithoutWrite(hash)
-    })
-  }
-
-  const onLoadRequest = () => {
-    if (!loadActiveSections({ win, panel, deps })) return
-    stopAutoLoad()
-  }
-
-  win.addEventListener(ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT, onLoadRequest)
-  win.addEventListener('hashchange', syncHashTarget)
-  syncHashTarget()
-
-  if (!readActiveCharactersLoadedState(doc)) {
     const sentinel = panel.querySelector<HTMLElement>(ACTIVE_SENTINEL_SELECTOR)
     const IntersectionObserverCtor = winWithIntersectionObserver.IntersectionObserver
     if (sentinel && typeof IntersectionObserverCtor === 'function') {
@@ -140,12 +99,118 @@ export const mountActiveCharactersLoader = ({
       )
       intersectionObserver = observer
       observer.observe(sentinel)
-    } else {
-      win.addEventListener('scroll', syncByViewport, { passive: true })
-      win.addEventListener('resize', syncByViewport)
-      syncByViewport()
+      return
     }
+
+    win.addEventListener('scroll', syncByViewport, { passive: true })
+    win.addEventListener('resize', syncByViewport)
+    syncByViewport()
   }
+
+  const loadBatchesThrough = async (targetBatchIndex: number) => {
+    let didChange = false
+    let loadedBatchCount = readActiveCharactersLoadedBatchCount(doc)
+    const totalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'active' })
+
+    if (loadedBatchCount >= totalBatchCount) {
+      updateLoadedState(loadedBatchCount)
+      return false
+    }
+
+    const finalBatchIndex = Math.min(targetBatchIndex, totalBatchCount - 1)
+    for (let batchIndex = loadedBatchCount; batchIndex <= finalBatchIndex; batchIndex += 1) {
+      const payload = await fetchHomeCharacterBatch({ batchIndex, doc, status: 'active' })
+      if (payload) {
+        mountHomeCharacterBatch({ container, payload })
+      } else if (!mountLegacyHomeCharacterBatch({ batchIndex, container, doc, status: 'active' })) {
+        break
+      }
+
+      loadedBatchCount = batchIndex + 1
+      didChange = true
+    }
+
+    updateLoadedState(loadedBatchCount)
+    if (didChange) {
+      deps.dispatchSidebarSync()
+    }
+
+    return didChange
+  }
+
+  const queueLoad = (options: RequestActiveCharactersLoadOptions = {}) => {
+    const run = async () => {
+      if (readActiveCharactersLoadedState(doc)) {
+        syncAutoLoad()
+        return false
+      }
+
+      const loadedBatchCount = readActiveCharactersLoadedBatchCount(doc)
+      const totalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'active' })
+      if (loadedBatchCount >= totalBatchCount) {
+        updateLoadedState(loadedBatchCount)
+        syncAutoLoad()
+        return false
+      }
+
+      const strategy = options.strategy ?? 'next'
+      const targetBatchIndex =
+        strategy === 'all'
+          ? totalBatchCount - 1
+          : strategy === 'target'
+            ? (resolveDeferredActiveCharacterBatch(doc, options.targetId) ?? loadedBatchCount)
+            : loadedBatchCount
+
+      const didChange = await loadBatchesThrough(targetBatchIndex)
+      if (didChange) {
+        win.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOADED_EVENT))
+      }
+      syncAutoLoad()
+      return didChange
+    }
+
+    queue = queue.then(run).catch(error => {
+      console.error(error)
+      return false
+    })
+
+    return queue
+  }
+
+  const syncByViewport = () => {
+    if (readActiveCharactersLoadedState(doc)) {
+      stopAutoLoad()
+      return
+    }
+
+    const sentinel = panel.querySelector<HTMLElement>(ACTIVE_SENTINEL_SELECTOR)
+    if (!shouldLoadForSentinel(win, sentinel)) return
+    void queueLoad({ strategy: 'next' })
+  }
+
+  const syncHashTarget = () => {
+    const hash = win.location.hash
+    if (!hash || readActiveCharactersLoadedState(doc)) return
+    if (getHashTarget(hash)) return
+
+    const batchIndex = resolveDeferredActiveCharacterBatch(doc, hash)
+    if (batchIndex === null) return
+
+    void queueLoad({ strategy: 'target', targetId: hash }).then(didChange => {
+      if (!didChange || !win.location.hash) return
+      deps.scrollToHashWithoutWrite(hash)
+    })
+  }
+
+  const onLoadRequest = (event: Event) => {
+    void queueLoad(readRequestOptions(event))
+  }
+
+  updateLoadedState(readActiveCharactersLoadedBatchCount(doc))
+  win.addEventListener(ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT, onLoadRequest)
+  win.addEventListener('hashchange', syncHashTarget)
+  syncHashTarget()
+  syncAutoLoad()
 
   return () => {
     stopAutoLoad()

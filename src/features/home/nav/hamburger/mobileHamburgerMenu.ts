@@ -15,6 +15,7 @@ import {
   ACTIVE_CHARACTERS_LOADED_EVENT,
   hasDeferredActiveCharacterTarget,
   requestActiveCharactersLoad,
+  type RequestActiveCharactersLoadOptions,
 } from '#features/home/commission/activeCharactersEvent'
 import {
   readCommissionViewMode,
@@ -54,7 +55,7 @@ type MobileHamburgerMenuDeps = {
   jumpToSearch: typeof jumpToCommissionSearch
   syncLinkAvailability: typeof syncHiddenSectionLinkAvailability
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
-  requestActiveLoad: (win: Window) => void
+  requestActiveLoad: (win: Window, options?: RequestActiveCharactersLoadOptions) => void
   requestStaleLoad: (win: Window, options?: RequestStaleCharactersLoadOptions) => void
   requestStaleVisibility: (win: Window, visibility: StaleCharactersVisibility) => void
 }
@@ -424,7 +425,10 @@ export const mountMobileHamburgerMenu = ({
       }
 
       win.addEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, onActiveLoaded, { once: true })
-      deps.requestActiveLoad(win)
+      deps.requestActiveLoad(win, {
+        strategy: 'target',
+        targetId: href ?? deferredActiveSectionId ?? undefined,
+      })
 
       const mode = readCommissionViewMode(win)
       const sectionId = navLink.dataset.mobileNavSectionId ?? 'unknown'
@@ -460,7 +464,11 @@ export const mountMobileHamburgerMenu = ({
       }
 
       win.addEventListener(STALE_CHARACTERS_LOADED_EVENT, onStaleLoaded, { once: true })
-      deps.requestStaleLoad(win, { preserveScroll: false })
+      deps.requestStaleLoad(win, {
+        preserveScroll: false,
+        strategy: 'target',
+        targetId: href ?? navLink.dataset.mobileNavSectionId ?? undefined,
+      })
 
       const mode = readCommissionViewMode(win)
       const sectionId = navLink.dataset.mobileNavSectionId ?? 'unknown'

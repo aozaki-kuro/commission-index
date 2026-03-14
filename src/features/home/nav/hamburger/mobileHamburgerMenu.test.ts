@@ -262,7 +262,8 @@ describe('mobileHamburgerMenu', () => {
 
     const trackEvent = vi.fn()
     const scrollToHashWithoutWrite = vi.fn()
-    const requestActiveLoad = vi.fn(win => {
+    const requestActiveLoad = vi.fn((win, options?: { strategy?: string; targetId?: string }) => {
+      expect(options).toEqual({ strategy: 'target', targetId: '#active-item' })
       const activeSection = document.createElement('section')
       activeSection.id = 'active-item'
       document.body.append(activeSection)
@@ -278,7 +279,10 @@ describe('mobileHamburgerMenu', () => {
     expect(getActiveLink()?.getAttribute('aria-disabled')).toBeNull()
     getActiveLink()!.click()
 
-    expect(requestActiveLoad).toHaveBeenCalledWith(window)
+    expect(requestActiveLoad).toHaveBeenCalledWith(window, {
+      strategy: 'target',
+      targetId: '#active-item',
+    })
     expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#active-item')
     expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.sidebarNavUsed, {
       source: 'character_link',
@@ -311,13 +315,19 @@ describe('mobileHamburgerMenu', () => {
 
     const trackEvent = vi.fn()
     const scrollToHashWithoutWrite = vi.fn()
-    const requestStaleLoad = vi.fn((win, options?: { preserveScroll?: boolean }) => {
-      expect(options).toEqual({ preserveScroll: false })
-      const section = document.createElement('section')
-      section.id = 'stale-item'
-      document.body.append(section)
-      win.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
-    })
+    const requestStaleLoad = vi.fn(
+      (win, options?: { preserveScroll?: boolean; strategy?: string; targetId?: string }) => {
+        expect(options).toEqual({
+          preserveScroll: false,
+          strategy: 'target',
+          targetId: '#stale-item',
+        })
+        const section = document.createElement('section')
+        section.id = 'stale-item'
+        document.body.append(section)
+        win.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
+      },
+    )
 
     const cleanup = mountMobileHamburgerMenu({
       deps: { requestStaleLoad, scrollToHashWithoutWrite, trackEvent },
@@ -326,7 +336,11 @@ describe('mobileHamburgerMenu', () => {
     getToggle()!.click()
     getStaleLink()!.click()
 
-    expect(requestStaleLoad).toHaveBeenCalledWith(window, { preserveScroll: false })
+    expect(requestStaleLoad).toHaveBeenCalledWith(window, {
+      preserveScroll: false,
+      strategy: 'target',
+      targetId: '#stale-item',
+    })
     expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#stale-item')
     expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.sidebarNavUsed, {
       source: 'character_link',

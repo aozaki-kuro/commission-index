@@ -47,6 +47,15 @@ This repository contains an Astro 6 static site with React 19 islands, written i
 - Home stale character lazy-mount behavior is centralized in:
   - `src/features/home/commission/staleCharactersLoader.ts`
   - `src/features/home/commission/staleCharactersEvent.ts`
+- Home active/stale batch planning and payload generation are centralized in:
+  - `src/features/home/server/homeCharacterBatches.ts`
+  - `src/features/home/server/homeCharacterBatchPayload.ts`
+  - `src/pages/search/home-character-batches/[locale]/[status]/[batch].json.ts`
+- Home active/stale batch manifest parsing, fetching, and DOM rendering are centralized in:
+  - `src/features/home/commission/homeCharacterBatchManifest.ts`
+  - `src/features/home/commission/homeCharacterBatchClient.ts`
+  - `src/features/home/commission/homeCharacterBatchPayload.ts`
+  - `src/features/home/commission/homeCharacterBatchRender.ts`
 - Home timeline lazy-mount behavior is centralized in:
   - `src/features/home/commission/timelineViewLoader.ts`
 - Home desktop navigation behavior is centralized in:
@@ -64,6 +73,7 @@ This repository contains an Astro 6 static site with React 19 islands, written i
   - Keep the search UI itself synchronously rendered and layout-stable on first paint; do not reintroduce shell-to-real-content swaps that cause visible jump, drift, or delayed keyword chips.
   - `dev` search may read DOM metadata, but `build` output cannot rely on `data-search-*` attributes being present; production search must keep `/search/home-search-entries.json` as a valid index source.
   - Prefer optimizing index/data loading behind a stable UI shell over lazy-loading the entire search island. If revisiting async loading, prove identical DOM footprint before and after hydration.
+  - Active/stale deferred sections now resolve through an inline manifest plus external batch JSON. Preserve the existing `id` / `data-*` DOM contracts inside batch payloads so sidebar, hamburger, hash navigation, and search stay deterministic.
   - `data-stale-visibility` means the stale group is expanded; `data-stale-loaded` means deferred stale sections are fully mounted. Preserve that distinction when touching search/nav/scroll-restore state.
   - Character/stale section templates must mount with their full entry list intact. Do not reintroduce per-section entry lazy mounts above anchor targets; they break deterministic sidebar/hash navigation.
 - Shared pure rendering helpers:
@@ -181,6 +191,7 @@ Additional guidance:
 - Added Playwright visual regression baselines for home search/nav shells, mobile floating menus, and the admin featured-keyword dashboard.
 - Removed the per-section commission-entry lazy-mount layer so sidebar and update-link anchor jumps stay stable after section templates mount.
 - Added home-side reload scroll restoration so lazy-mounted sections can rehydrate before restoring the reader's saved position.
+- Replaced embedded active/stale deferred section templates with inline manifest + external batch JSON payloads so the home page can lazy-load section batches more aggressively without sacrificing deterministic sidebar/hash/refresh restore behavior.
 
 ## Code Style
 

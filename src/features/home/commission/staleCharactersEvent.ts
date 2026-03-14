@@ -1,3 +1,7 @@
+import {
+  hasDeferredHomeCharacterTarget,
+  resolveHomeCharacterTargetBatch,
+} from '#features/home/commission/homeCharacterBatchManifest'
 import { templateContentContainsElementId } from '#features/home/commission/templateContentLookup'
 
 export const STALE_CHARACTERS_SHOW_REQUEST_EVENT = 'home:stale-show-request'
@@ -16,6 +20,8 @@ export type StaleCharactersVisibility = 'visible' | 'hidden'
 
 export type RequestStaleCharactersLoadOptions = {
   preserveScroll?: boolean
+  strategy?: 'next' | 'all' | 'target'
+  targetId?: string
 }
 
 export type StaleCharactersState = {
@@ -55,6 +61,15 @@ const resolveVisibility = (panel: HTMLElement | null | undefined): StaleCharacte
 const resolveLoaded = (panel: HTMLElement | null | undefined) =>
   panel?.dataset.staleLoaded === 'true'
 
+export const readStaleCharactersLoadedBatchCount = (doc?: Document) => {
+  const resolvedDocument = doc ?? (typeof document !== 'undefined' ? document : null)
+  if (!resolvedDocument) return 0
+
+  const panel = resolvedDocument.querySelector<HTMLElement>(CHARACTER_PANEL_SELECTOR)
+  const value = Number(panel?.dataset.staleBatchesLoadedCount ?? '0')
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0
+}
+
 export const readStaleCharactersStateFromPanel = (
   panel: HTMLElement | null | undefined,
 ): StaleCharactersState => {
@@ -83,6 +98,10 @@ export const writeStaleCharactersState = (
   panel.dataset.staleVisibility = state.visibility
   panel.dataset.staleLoaded = state.loaded ? 'true' : 'false'
   return readStaleCharactersStateFromPanel(panel)
+}
+
+export const writeStaleCharactersLoadedBatchCount = (panel: HTMLElement, count: number) => {
+  panel.dataset.staleBatchesLoadedCount = String(Math.max(0, Math.floor(count)))
 }
 
 export const dispatchStaleCharactersStateChange = (win: Window, state: StaleCharactersState) => {
@@ -172,6 +191,10 @@ const getDeferredStaleTemplate = (doc: Document) => {
 }
 
 export const hasStaleCharacterTarget = (doc: Document, rawSectionId: string | null | undefined) => {
+  if (hasDeferredHomeCharacterTarget({ doc, rawTargetId: rawSectionId, status: 'stale' })) {
+    return true
+  }
+
   const sectionId = normalizeSectionId(rawSectionId)
   if (!sectionId) return false
 
@@ -185,6 +208,10 @@ export const hasDeferredStaleCharacterTarget = (
   doc: Document,
   rawSectionId: string | null | undefined,
 ) => {
+  if (hasDeferredHomeCharacterTarget({ doc, rawTargetId: rawSectionId, status: 'stale' })) {
+    return true
+  }
+
   const sectionId = normalizeSectionId(rawSectionId)
   if (!sectionId) return false
   if (doc.getElementById(sectionId)) return false
@@ -193,4 +220,27 @@ export const hasDeferredStaleCharacterTarget = (
   if (!template) return false
 
   return templateContentContainsElementId(template.content, sectionId)
+}
+
+export const resolveDeferredStaleCharacterBatch = (
+  doc: Document,
+  rawSectionId: string | null | undefined,
+) => {
+  const resolvedBatch = resolveHomeCharacterTargetBatch({
+    doc,
+    rawTargetId: rawSectionId,
+    status: 'stale',
+  })
+  if (resolvedBatch !== null) return resolvedBatch
+
+  const sectionId = normalizeSectionId(rawSectionId)
+  if (!sectionId || doc.getElementById(sectionId)) return null
+
+  const rootTemplate = doc.querySelector<HTMLTemplateElement>(STALE_TEMPLATE_SELECTOR)
+  if (rootTemplate && templateContentContainsElementId(rootTemplate.content, sectionId)) {
+    return 0
+  }
+
+  const template = getDeferredStaleTemplate(doc)
+  return template && templateContentContainsElementId(template.content, sectionId) ? 1 : null
 }

@@ -5,17 +5,18 @@ import {
 } from '#features/home/commission/activeCharactersEvent'
 import {
   STALE_CHARACTERS_LOADED_EVENT,
+  readStaleCharactersLoadedBatchCount,
   readStaleCharactersState,
   requestStaleCharactersLoad,
   type RequestStaleCharactersLoadOptions,
 } from '#features/home/commission/staleCharactersEvent'
 import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '#features/home/homeScrollRestoreAbort'
+import { getHomeCharacterBatchTotalCount } from '#features/home/commission/homeCharacterBatchClient'
 import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import { readCommissionViewMode } from '#features/home/commission/viewModeState'
 
 const HOME_SCROLL_STATE_STORAGE_KEY = 'home:scroll-state'
-const STALE_TEMPLATE_SELECTOR = 'template[data-stale-sections-template="true"]'
 const TIMELINE_PANEL_SELECTOR = '[data-commission-view-panel="timeline"]'
 const TIMELINE_TEMPLATE_SELECTOR = 'template[data-timeline-sections-template="true"]'
 
@@ -147,7 +148,8 @@ const needsMoreContentForRestore = (win: Window, savedState: SavedHomeScrollStat
   savedState.y > getMaxScrollableY(win) + 1
 
 const hasPendingStaleSections = (doc: Document) =>
-  Boolean(doc.querySelector<HTMLTemplateElement>(STALE_TEMPLATE_SELECTOR))
+  readStaleCharactersLoadedBatchCount(doc) <
+  getHomeCharacterBatchTotalCount({ doc, status: 'stale' })
 
 const isTimelineLoaded = (doc: Document) =>
   doc.querySelector<HTMLElement>(TIMELINE_PANEL_SELECTOR)?.dataset.timelineLoaded === 'true'
@@ -260,7 +262,7 @@ export const mountHomeScrollRestore = ({
       }
 
       if (!readStaleCharactersState(doc).loaded && hasPendingStaleSections(doc)) {
-        deps.requestStaleLoad(win, { preserveScroll: false })
+        deps.requestStaleLoad(win, { preserveScroll: false, strategy: 'next' })
         return
       }
     }
