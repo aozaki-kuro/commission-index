@@ -13,6 +13,7 @@ const ACTIVE_TEMPLATE_SELECTOR = 'template[data-active-sections-template="true"]
 export type RequestActiveCharactersLoadOptions = {
   strategy?: 'next' | 'all' | 'target'
   targetId?: string
+  targetBatchCount?: number
 }
 
 const normalizeSectionId = (rawValue: string | null | undefined) => {

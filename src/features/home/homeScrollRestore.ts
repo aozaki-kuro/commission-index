@@ -1,7 +1,9 @@
 import {
   ACTIVE_CHARACTERS_LOADED_EVENT,
+  readActiveCharactersLoadedBatchCount,
   readActiveCharactersLoadedState,
   requestActiveCharactersLoad,
+  type RequestActiveCharactersLoadOptions,
 } from '#features/home/commission/activeCharactersEvent'
 import {
   STALE_CHARACTERS_LOADED_EVENT,
@@ -20,6 +22,7 @@ const HOME_SCROLL_STATE_STORAGE_KEY = 'home:scroll-state'
 const HOME_SCROLL_RESTORING_ATTRIBUTE = 'data-home-scroll-restoring'
 const TIMELINE_PANEL_SELECTOR = '[data-commission-view-panel="timeline"]'
 const TIMELINE_TEMPLATE_SELECTOR = 'template[data-timeline-sections-template="true"]'
+const RESTORE_BATCH_WINDOW = 4
 
 type Cleanup = () => void
 
@@ -32,7 +35,7 @@ type SavedHomeScrollState = {
 
 type HomeScrollRestoreDeps = {
   readNavigationType: (win: Window) => string
-  requestActiveLoad: (win: Window) => void
+  requestActiveLoad: (win: Window, options?: RequestActiveCharactersLoadOptions) => void
   requestStaleLoad: (win: Window, options?: RequestStaleCharactersLoadOptions) => void
   requestTimelineLoad: (win: Window) => void
   restoreScrollPosition: (win: Window, position: { x: number; y: number }) => void
@@ -272,12 +275,17 @@ export const mountHomeScrollRestore = ({
 
     if (needsMoreContentForRestore(win, savedState)) {
       if (!readActiveCharactersLoadedState(doc)) {
-        deps.requestActiveLoad(win)
+        deps.requestActiveLoad(win, {
+          targetBatchCount: readActiveCharactersLoadedBatchCount(doc) + RESTORE_BATCH_WINDOW,
+        })
         return
       }
 
       if (!readStaleCharactersState(doc).loaded && hasPendingStaleSections(doc)) {
-        deps.requestStaleLoad(win, { preserveScroll: false, strategy: 'next' })
+        deps.requestStaleLoad(win, {
+          preserveScroll: false,
+          targetBatchCount: readStaleCharactersLoadedBatchCount(doc) + RESTORE_BATCH_WINDOW,
+        })
         return
       }
     }

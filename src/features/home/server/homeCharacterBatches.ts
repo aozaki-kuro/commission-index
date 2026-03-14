@@ -34,9 +34,9 @@ export type HomeCharacterBatchManifest = {
 }
 
 const ACTIVE_INITIAL_SECTION_COUNT = 1
-const ACTIVE_BATCH_SIZE = 6
+const ACTIVE_BATCH_SIZE = 1
 const STALE_FIRST_BATCH_SIZE = 1
-const STALE_BATCH_SIZE = 6
+const STALE_BATCH_SIZE = 1
 
 const chunk = (values: string[], batchSize: number) => {
   if (values.length === 0) return []

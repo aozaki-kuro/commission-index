@@ -32,6 +32,7 @@ const STALE_DIVIDER_SELECTOR = '[data-stale-divider="true"]'
 const STALE_CONTAINER_SELECTOR = '[data-stale-sections-container="true"]'
 const STALE_DEFERRED_SENTINEL_SELECTOR = '[data-stale-deferred-sections-sentinel="true"]'
 const STALE_PRELOAD_MARGIN_PX = 1200
+const STALE_BATCH_FETCH_CONCURRENCY = 4
 
 type StaleCharactersLoaderDeps = {
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
@@ -193,8 +194,23 @@ export const mountStaleCharactersLoader = ({
     }
 
     const finalBatchIndex = Math.min(targetBatchIndex, totalBatchCount - 1)
+    const payloadRequests = new Map<number, ReturnType<typeof fetchHomeCharacterBatch>>()
+    const queueBatchFetch = (batchIndex: number) => {
+      if (batchIndex > finalBatchIndex || payloadRequests.has(batchIndex)) return
+      payloadRequests.set(batchIndex, fetchHomeCharacterBatch({ batchIndex, doc, status: 'stale' }))
+    }
+
+    for (
+      let batchIndex = loadedBatchCount;
+      batchIndex <= Math.min(finalBatchIndex, loadedBatchCount + STALE_BATCH_FETCH_CONCURRENCY - 1);
+      batchIndex += 1
+    ) {
+      queueBatchFetch(batchIndex)
+    }
+
     for (let batchIndex = loadedBatchCount; batchIndex <= finalBatchIndex; batchIndex += 1) {
-      const payload = await fetchHomeCharacterBatch({ batchIndex, doc, status: 'stale' })
+      queueBatchFetch(batchIndex + STALE_BATCH_FETCH_CONCURRENCY - 1)
+      const payload = await payloadRequests.get(batchIndex)
       if (payload) {
         mountHomeCharacterBatch({ container, payload })
       } else if (!mountLegacyHomeCharacterBatch({ batchIndex, container, doc, status: 'stale' })) {
@@ -220,8 +236,9 @@ export const mountStaleCharactersLoader = ({
       const totalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'stale' })
       const strategy = options.strategy ?? 'next'
       const loadedBatchCount = readStaleCharactersLoadedBatchCount(doc)
-      const targetBatchIndex =
-        strategy === 'all'
+      const targetBatchIndex = Number.isInteger(options.targetBatchCount)
+        ? Math.max(loadedBatchCount, Number(options.targetBatchCount) - 1)
+        : strategy === 'all'
           ? totalBatchCount - 1
           : strategy === 'target'
             ? (resolveDeferredStaleCharacterBatch(doc, options.targetId) ?? loadedBatchCount)

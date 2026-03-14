@@ -22,6 +22,7 @@ export type RequestStaleCharactersLoadOptions = {
   preserveScroll?: boolean
   strategy?: 'next' | 'all' | 'target'
   targetId?: string
+  targetBatchCount?: number
 }
 
 export type StaleCharactersState = {

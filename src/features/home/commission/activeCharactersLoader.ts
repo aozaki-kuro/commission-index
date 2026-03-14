@@ -19,6 +19,7 @@ const CHARACTER_PANEL_SELECTOR = '[data-commission-view-panel="character"]'
 const ACTIVE_CONTAINER_SELECTOR = '[data-active-sections-container="true"]'
 const ACTIVE_SENTINEL_SELECTOR = '[data-active-sections-sentinel="true"]'
 const ACTIVE_PRELOAD_MARGIN_PX = 1200
+const ACTIVE_BATCH_FETCH_CONCURRENCY = 4
 
 type ActiveCharactersLoaderDeps = {
   dispatchSidebarSync: typeof dispatchSidebarSearchState
@@ -118,8 +119,27 @@ export const mountActiveCharactersLoader = ({
     }
 
     const finalBatchIndex = Math.min(targetBatchIndex, totalBatchCount - 1)
+    const payloadRequests = new Map<number, ReturnType<typeof fetchHomeCharacterBatch>>()
+    const queueBatchFetch = (batchIndex: number) => {
+      if (batchIndex > finalBatchIndex || payloadRequests.has(batchIndex)) return
+      payloadRequests.set(
+        batchIndex,
+        fetchHomeCharacterBatch({ batchIndex, doc, status: 'active' }),
+      )
+    }
+
+    for (
+      let batchIndex = loadedBatchCount;
+      batchIndex <=
+      Math.min(finalBatchIndex, loadedBatchCount + ACTIVE_BATCH_FETCH_CONCURRENCY - 1);
+      batchIndex += 1
+    ) {
+      queueBatchFetch(batchIndex)
+    }
+
     for (let batchIndex = loadedBatchCount; batchIndex <= finalBatchIndex; batchIndex += 1) {
-      const payload = await fetchHomeCharacterBatch({ batchIndex, doc, status: 'active' })
+      queueBatchFetch(batchIndex + ACTIVE_BATCH_FETCH_CONCURRENCY - 1)
+      const payload = await payloadRequests.get(batchIndex)
       if (payload) {
         mountHomeCharacterBatch({ container, payload })
       } else if (!mountLegacyHomeCharacterBatch({ batchIndex, container, doc, status: 'active' })) {
@@ -154,8 +174,9 @@ export const mountActiveCharactersLoader = ({
       }
 
       const strategy = options.strategy ?? 'next'
-      const targetBatchIndex =
-        strategy === 'all'
+      const targetBatchIndex = Number.isInteger(options.targetBatchCount)
+        ? Math.max(loadedBatchCount, Number(options.targetBatchCount) - 1)
+        : strategy === 'all'
           ? totalBatchCount - 1
           : strategy === 'target'
             ? (resolveDeferredActiveCharacterBatch(doc, options.targetId) ?? loadedBatchCount)

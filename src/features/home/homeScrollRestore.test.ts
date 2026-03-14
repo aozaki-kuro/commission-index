@@ -98,6 +98,9 @@ describe('mountHomeScrollRestore', () => {
     })
 
     expect(requestActiveLoad).toHaveBeenCalledTimes(1)
+    expect(requestActiveLoad).toHaveBeenCalledWith(window, {
+      targetBatchCount: 4,
+    })
     expect(restoreScrollPosition).not.toHaveBeenCalled()
 
     document
@@ -150,7 +153,7 @@ describe('mountHomeScrollRestore', () => {
 
     expect(requestStaleLoad).toHaveBeenCalledWith(window, {
       preserveScroll: false,
-      strategy: 'next',
+      targetBatchCount: 4,
     })
     expect(restoreScrollPosition).not.toHaveBeenCalled()
 
@@ -201,7 +204,7 @@ describe('mountHomeScrollRestore', () => {
 
     expect(requestStaleLoad).toHaveBeenCalledWith(window, {
       preserveScroll: false,
-      strategy: 'next',
+      targetBatchCount: 4,
     })
     window.dispatchEvent(new Event(HOME_SCROLL_RESTORE_ABORT_EVENT))
 
