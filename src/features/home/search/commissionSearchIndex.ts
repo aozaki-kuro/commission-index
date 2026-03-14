@@ -368,7 +368,7 @@ export function buildRelatedSuggestionTermsMap(entries: SuggestionEntryLike[], a
   return new Map(
     Array.from(related.entries(), ([key, terms]) => [
       key,
-      terms.toSorted((left, right) => left.localeCompare(right, 'ja')),
+      [...terms].toSorted((left, right) => left.localeCompare(right, 'ja')),
     ]),
   )
 }

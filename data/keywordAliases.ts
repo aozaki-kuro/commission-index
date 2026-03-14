@@ -74,7 +74,7 @@ export function getKeywordAliases(): KeywordAliasRow[] {
     })
   })
 
-  const result = aliasMap.values().toSorted((a, b) =>
+  const result = [...aliasMap.values()].toSorted((a, b) =>
     a.baseKeyword.localeCompare(b.baseKeyword, 'ja'))
 
   if (!isDevelopment) {

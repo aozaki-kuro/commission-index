@@ -66,7 +66,7 @@ export function buildPopularKeywordPoolFromSuggestTexts(suggestTexts: Iterable<s
     }
   }
 
-  return termStats.values().toSorted((a, b) => {
+  return [...termStats.values()].toSorted((a, b) => {
     if (a.count !== b.count)
       return b.count - a.count
     return a.term.localeCompare(b.term)

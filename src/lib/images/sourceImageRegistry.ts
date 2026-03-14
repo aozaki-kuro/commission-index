@@ -155,5 +155,5 @@ export function listMissingSourceImages(commissionFileNames: string[], lookup: S
     }
   }
 
-  return missing.toSorted((a, b) => a.localeCompare(b))
+  return [...missing].toSorted((a, b) => a.localeCompare(b))
 }

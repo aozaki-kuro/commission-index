@@ -79,7 +79,7 @@ function buildCharacterRecords(rows: CharacterRow[]): CharacterRecord[] {
     })
   })
 
-  return characters.values().toSorted((a, b) => a.sortOrder - b.sortOrder)
+  return [...characters.values()].toSorted((a, b) => a.sortOrder - b.sortOrder)
 }
 
 // 从 SQLite 读取角色与委托信息（开发环境实时读取，生产走缓存）

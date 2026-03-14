@@ -827,7 +827,7 @@ export function collectSuggestions(entries: SuggestionEntryLike[]) {
   return Array.from(suggestionCounts.values(), item => ({
     term: item.term,
     count: item.count,
-    sources: item.sources.toSorted((a, b) => sourceOrder[a] - sourceOrder[b]),
+    sources: [...item.sources].toSorted((a, b) => sourceOrder[a] - sourceOrder[b]),
   }))
     .sort((a, b) => b.count - a.count || a.term.localeCompare(b.term))
 }

@@ -75,7 +75,7 @@ export function getCharacterAliases(): CharacterAliasRow[] {
     })
   })
 
-  const result = aliasMap.values().toSorted((a, b) =>
+  const result = [...aliasMap.values()].toSorted((a, b) =>
     a.characterName.localeCompare(b.characterName, 'ja'))
 
   if (!isDevelopment) {

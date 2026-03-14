@@ -63,5 +63,5 @@ export function flattenCommissions(data: Props, predicate?: (character: Characte
  * Deduplicate and sort commissions by latest file name.
  */
 export function collectUniqueCommissions(commissions: CommissionWithCharacter[]): CommissionWithCharacter[] {
-  return mergePartsAndPreviews(commissions).values().toSorted(sortCommissionsByDate)
+  return [...mergePartsAndPreviews(commissions).values()].toSorted(sortCommissionsByDate)
 }
