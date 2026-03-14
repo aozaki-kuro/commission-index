@@ -355,7 +355,6 @@ export const mountSidebarNavEnhancer = ({
 
   const syncAll = () => {
     clearActivePanelSnapshot()
-    resetAllDots()
     syncViewModeControls()
     scheduleSyncCharacterLinkAvailability()
     scheduleSyncActiveDots()
