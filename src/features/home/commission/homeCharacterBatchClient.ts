@@ -93,6 +93,35 @@ export const fetchHomeCharacterBatch = async ({
   return request
 }
 
+export const prefetchHomeCharacterBatches = ({
+  doc,
+  startBatchIndex,
+  status,
+  targetBatchIndex,
+}: {
+  doc: Document
+  startBatchIndex: number
+  status: HomeCharacterBatchStatus
+  targetBatchIndex: number
+}) => {
+  const totalBatchCount = getHomeCharacterBatchTotalCount({ doc, status })
+  if (totalBatchCount <= 0) return
+
+  const firstBatchIndex = Math.max(0, Math.floor(startBatchIndex))
+  const finalBatchIndex = Math.min(Math.floor(targetBatchIndex), totalBatchCount - 1)
+  if (finalBatchIndex < firstBatchIndex) return
+
+  for (let batchIndex = firstBatchIndex; batchIndex <= finalBatchIndex; batchIndex += 1) {
+    void fetchHomeCharacterBatch({ batchIndex, doc, status }).catch(() => {
+      // Ignore prefetch failures and fall back to on-demand loading later.
+    })
+  }
+}
+
+export const clearHomeCharacterBatchRequestCacheForTests = () => {
+  batchRequestCache.clear()
+}
+
 export const mountHomeCharacterBatch = ({
   container,
   payload,

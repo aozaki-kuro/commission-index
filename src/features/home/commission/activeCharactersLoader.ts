@@ -11,6 +11,7 @@ import {
   getHomeCharacterBatchTotalCount,
   mountLegacyHomeCharacterBatch,
   mountHomeCharacterBatch,
+  prefetchHomeCharacterBatches,
 } from '#features/home/commission/homeCharacterBatchClient'
 import { getHashTarget, scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import { dispatchSidebarSearchState } from '#lib/navigation/sidebarSearchState'
@@ -20,6 +21,9 @@ const ACTIVE_CONTAINER_SELECTOR = '[data-active-sections-container="true"]'
 const ACTIVE_SENTINEL_SELECTOR = '[data-active-sections-sentinel="true"]'
 const ACTIVE_PRELOAD_MARGIN_PX = 1200
 const ACTIVE_BATCH_FETCH_CONCURRENCY = 4
+const ACTIVE_IDLE_PREFETCH_BATCH_COUNT = 2
+const ACTIVE_IDLE_PREFETCH_TIMEOUT_MS = 1200
+const ACTIVE_IDLE_PREFETCH_FALLBACK_DELAY_MS = 180
 
 type ActiveCharactersLoaderDeps = {
   dispatchSidebarSync: typeof dispatchSidebarSearchState
@@ -35,6 +39,8 @@ type MountActiveCharactersLoaderOptions = {
 type WindowWithIntersectionObserver = Window &
   typeof globalThis & {
     IntersectionObserver?: typeof IntersectionObserver
+    requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
+    cancelIdleCallback?: (handle: number) => void
   }
 
 const defaultDeps: ActiveCharactersLoaderDeps = {
@@ -67,6 +73,7 @@ export const mountActiveCharactersLoader = ({
   const winWithIntersectionObserver = win as WindowWithIntersectionObserver
   let intersectionObserver: IntersectionObserver | null = null
   let queue = Promise.resolve(false)
+  let cancelIdlePrefetch: (() => void) | null = null
 
   const updateLoadedState = (loadedBatchCount: number) => {
     panel.dataset.activeBatchesLoadedCount = String(loadedBatchCount)
@@ -84,9 +91,49 @@ export const mountActiveCharactersLoader = ({
     win.removeEventListener('resize', syncByViewport)
   }
 
+  const stopIdlePrefetch = () => {
+    cancelIdlePrefetch?.()
+    cancelIdlePrefetch = null
+  }
+
+  const scheduleIdlePrefetch = () => {
+    stopIdlePrefetch()
+
+    const loadedBatchCount = readActiveCharactersLoadedBatchCount(doc)
+    const totalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'active' })
+    if (loadedBatchCount >= totalBatchCount) return
+
+    const task = () => {
+      prefetchHomeCharacterBatches({
+        doc,
+        startBatchIndex: loadedBatchCount,
+        status: 'active',
+        targetBatchIndex: loadedBatchCount + ACTIVE_IDLE_PREFETCH_BATCH_COUNT - 1,
+      })
+    }
+
+    if (typeof winWithIntersectionObserver.requestIdleCallback === 'function') {
+      const handle = winWithIntersectionObserver.requestIdleCallback(task, {
+        timeout: ACTIVE_IDLE_PREFETCH_TIMEOUT_MS,
+      })
+      cancelIdlePrefetch = () => {
+        winWithIntersectionObserver.cancelIdleCallback?.(handle)
+      }
+      return
+    }
+
+    const timeoutHandle = win.setTimeout(task, ACTIVE_IDLE_PREFETCH_FALLBACK_DELAY_MS)
+    cancelIdlePrefetch = () => {
+      win.clearTimeout(timeoutHandle)
+    }
+  }
+
   const syncAutoLoad = () => {
     stopAutoLoad()
-    if (readActiveCharactersLoadedState(doc)) return
+    if (readActiveCharactersLoadedState(doc)) {
+      stopIdlePrefetch()
+      return
+    }
 
     const sentinel = panel.querySelector<HTMLElement>(ACTIVE_SENTINEL_SELECTOR)
     const IntersectionObserverCtor = winWithIntersectionObserver.IntersectionObserver
@@ -100,11 +147,13 @@ export const mountActiveCharactersLoader = ({
       )
       intersectionObserver = observer
       observer.observe(sentinel)
+      scheduleIdlePrefetch()
       return
     }
 
     win.addEventListener('scroll', syncByViewport, { passive: true })
     win.addEventListener('resize', syncByViewport)
+    scheduleIdlePrefetch()
     syncByViewport()
   }
 
@@ -235,6 +284,7 @@ export const mountActiveCharactersLoader = ({
 
   return () => {
     stopAutoLoad()
+    stopIdlePrefetch()
     win.removeEventListener(ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT, onLoadRequest)
     win.removeEventListener('hashchange', syncHashTarget)
   }

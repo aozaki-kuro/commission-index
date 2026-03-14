@@ -21,6 +21,7 @@ import {
   getHomeCharacterBatchTotalCount,
   mountLegacyHomeCharacterBatch,
   mountHomeCharacterBatch,
+  prefetchHomeCharacterBatches,
 } from '#features/home/commission/homeCharacterBatchClient'
 import { getHashTarget, scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import { dispatchSidebarSearchState } from '#lib/navigation/sidebarSearchState'
@@ -33,6 +34,9 @@ const STALE_CONTAINER_SELECTOR = '[data-stale-sections-container="true"]'
 const STALE_DEFERRED_SENTINEL_SELECTOR = '[data-stale-deferred-sections-sentinel="true"]'
 const STALE_PRELOAD_MARGIN_PX = 1200
 const STALE_BATCH_FETCH_CONCURRENCY = 4
+const STALE_IDLE_PREFETCH_BATCH_COUNT = 2
+const STALE_IDLE_PREFETCH_TIMEOUT_MS = 1200
+const STALE_IDLE_PREFETCH_FALLBACK_DELAY_MS = 180
 
 type StaleCharactersLoaderDeps = {
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
@@ -42,6 +46,8 @@ type StaleCharactersLoaderDeps = {
 type WindowWithIntersectionObserver = Window &
   typeof globalThis & {
     IntersectionObserver?: typeof IntersectionObserver
+    requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
+    cancelIdleCallback?: (handle: number) => void
   }
 
 const defaultDeps: StaleCharactersLoaderDeps = {
@@ -118,6 +124,7 @@ export const mountStaleCharactersLoader = ({
   const divider = panel.querySelector<HTMLElement>(STALE_DIVIDER_SELECTOR)
   let intersectionObserver: IntersectionObserver | null = null
   let queue = Promise.resolve(false)
+  let cancelIdlePrefetch: (() => void) | null = null
 
   const setPlaceholderHidden = (hidden: boolean) => {
     if (!placeholder) return
@@ -159,14 +166,58 @@ export const mountStaleCharactersLoader = ({
     win.removeEventListener('resize', syncByViewport)
   }
 
+  const stopIdlePrefetch = () => {
+    cancelIdlePrefetch?.()
+    cancelIdlePrefetch = null
+  }
+
+  const scheduleIdlePrefetch = () => {
+    stopIdlePrefetch()
+
+    const loadedBatchCount = readStaleCharactersLoadedBatchCount(doc)
+    const totalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'stale' })
+    if (loadedBatchCount >= totalBatchCount) return
+
+    const task = () => {
+      prefetchHomeCharacterBatches({
+        doc,
+        startBatchIndex: loadedBatchCount,
+        status: 'stale',
+        targetBatchIndex: loadedBatchCount + STALE_IDLE_PREFETCH_BATCH_COUNT - 1,
+      })
+    }
+
+    if (typeof winWithIntersectionObserver.requestIdleCallback === 'function') {
+      const handle = winWithIntersectionObserver.requestIdleCallback(task, {
+        timeout: STALE_IDLE_PREFETCH_TIMEOUT_MS,
+      })
+      cancelIdlePrefetch = () => {
+        winWithIntersectionObserver.cancelIdleCallback?.(handle)
+      }
+      return
+    }
+
+    const timeoutHandle = win.setTimeout(task, STALE_IDLE_PREFETCH_FALLBACK_DELAY_MS)
+    cancelIdlePrefetch = () => {
+      win.clearTimeout(timeoutHandle)
+    }
+  }
+
   const syncAutoLoad = () => {
     stopAutoLoad()
     const state = readStaleCharactersStateFromPanel(panel)
-    if (state.visibility !== 'visible' || state.loaded) return
+    if (state.loaded) {
+      stopIdlePrefetch()
+      return
+    }
 
     const sentinel = panel.querySelector<HTMLElement>(STALE_DEFERRED_SENTINEL_SELECTOR)
     const IntersectionObserverCtor = winWithIntersectionObserver.IntersectionObserver
-    if (sentinel && typeof IntersectionObserverCtor === 'function') {
+    if (
+      state.visibility === 'visible' &&
+      sentinel &&
+      typeof IntersectionObserverCtor === 'function'
+    ) {
       const observer = new IntersectionObserverCtor(
         (entries: IntersectionObserverEntry[]) => {
           if (!entries.some(entry => entry.isIntersecting)) return
@@ -176,12 +227,17 @@ export const mountStaleCharactersLoader = ({
       )
       intersectionObserver = observer
       observer.observe(sentinel)
+      scheduleIdlePrefetch()
       return
     }
 
-    win.addEventListener('scroll', syncByViewport, { passive: true })
-    win.addEventListener('resize', syncByViewport)
-    syncByViewport()
+    if (state.visibility === 'visible') {
+      win.addEventListener('scroll', syncByViewport, { passive: true })
+      win.addEventListener('resize', syncByViewport)
+      syncByViewport()
+    }
+
+    scheduleIdlePrefetch()
   }
 
   const loadBatchesThrough = async (targetBatchIndex: number) => {
@@ -383,6 +439,7 @@ export const mountStaleCharactersLoader = ({
 
   return () => {
     stopAutoLoad()
+    stopIdlePrefetch()
     panel.removeEventListener('click', onPanelClick)
     win.removeEventListener(STALE_CHARACTERS_SHOW_REQUEST_EVENT, onShowRequest)
     win.removeEventListener(STALE_CHARACTERS_LOAD_REQUEST_EVENT, onLoadRequest)
