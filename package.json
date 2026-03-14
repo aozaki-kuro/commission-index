@@ -65,11 +65,11 @@
     "wrangler": "^4.73.0"
   },
   "lint-staged": {
-    "*.{js,mjs,cjs,jsx,ts,tsx}": [
-      "bun lint"
+    "*": [
+      "eslint --fix"
     ],
-    "*.{json,css,md,mdx,jsonc}": [
-      "bun lint"
+    "*.{md,mdx}": [
+      "prettier --write"
     ]
   }
 }
