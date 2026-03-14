@@ -166,6 +166,11 @@ export const mountSidebarNavEnhancer = ({
   const navRoot = doc.getElementById(SIDEBAR_ROOT_ID)
   if (!navRoot) return () => {}
   const controlsRoot = doc.getElementById(SIDEBAR_CONTROLS_ROOT_ID) ?? navRoot
+  const viewModeToggles = Array.from(
+    controlsRoot.querySelectorAll<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR),
+  )
+  const navPanels = Array.from(navRoot.querySelectorAll<HTMLElement>(NAV_PANEL_SELECTOR))
+  const allSidebarDots = Array.from(navRoot.querySelectorAll<HTMLElement>(SIDEBAR_DOT_SELECTOR))
 
   let clearHashRafId: number | null = null
   let syncLinksRafId: number | null = null
@@ -182,7 +187,7 @@ export const mountSidebarNavEnhancer = ({
   }
 
   const resetAllDots = () => {
-    navRoot.querySelectorAll<HTMLElement>(SIDEBAR_DOT_SELECTOR).forEach(dot => {
+    allSidebarDots.forEach(dot => {
       toggleDotState(dot, false)
     })
     activeDots = []
@@ -259,16 +264,14 @@ export const mountSidebarNavEnhancer = ({
   const syncViewModeControls = () => {
     const mode = getCurrentMode(win)
 
-    const toggles = controlsRoot.querySelectorAll<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR)
-    toggles.forEach(toggle => {
+    viewModeToggles.forEach(toggle => {
       const toggleMode = resolveCommissionViewModeFromElement(toggle)
       const active = toggleMode === mode
       toggle.setAttribute('aria-pressed', String(active))
       toggleViewModeButtonState(toggle, active)
     })
 
-    const panels = navRoot.querySelectorAll<HTMLElement>(NAV_PANEL_SELECTOR)
-    panels.forEach(panel => {
+    navPanels.forEach(panel => {
       panel.classList.toggle('hidden', panel.dataset.sidebarNavPanel !== mode)
     })
   }
