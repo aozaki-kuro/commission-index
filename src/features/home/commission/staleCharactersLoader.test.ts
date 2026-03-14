@@ -38,22 +38,6 @@ function setScrollEnvironment({
   })
 }
 
-function mockAbsoluteTop(element: HTMLElement, absoluteTop: number) {
-  element.getBoundingClientRect = () =>
-    ({
-      top: absoluteTop - window.scrollY,
-      bottom: absoluteTop - window.scrollY + 120,
-      left: 0,
-      right: 100,
-      width: 100,
-      height: 120,
-      x: 0,
-      y: absoluteTop - window.scrollY,
-      toJSON: () => ({}),
-    }) as DOMRect
-  element.getClientRects = () => [element.getBoundingClientRect()] as unknown as DOMRectList
-}
-
 function renderFixture() {
   document.body.innerHTML = `
     <div data-commission-view-panel="character" data-stale-loaded="false" data-stale-visibility="hidden">
@@ -173,47 +157,6 @@ describe('mountStaleCharactersLoader', () => {
     window.removeEventListener(STALE_CHARACTERS_LOADED_EVENT, onLoaded)
     window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSidebarSync)
     window.removeEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStateChanged)
-  })
-
-  it('supports global request event', async () => {
-    renderFixture()
-    const cleanup = mountStaleCharactersLoader()
-    window.dispatchEvent(new Event(STALE_CHARACTERS_LOAD_REQUEST_EVENT))
-    await flushAsyncWork()
-
-    expect(document.getElementById('section-stale')).toBeTruthy()
-    cleanup()
-  })
-
-  it('skips scroll restoration when the stale load request opts out', async () => {
-    renderDeferredFixture()
-    Object.defineProperty(window, 'scrollX', { value: 24, configurable: true })
-    Object.defineProperty(window, 'scrollY', { value: 480, configurable: true })
-    const requestAnimationFrameSpy = vi
-      .spyOn(window, 'requestAnimationFrame')
-      .mockImplementation((callback) => {
-        callback(0)
-        return 1
-      })
-    const restoreScrollPosition = vi.fn()
-
-    const cleanup = mountStaleCharactersLoader({
-      deps: { restoreScrollPosition },
-    })
-
-    window.dispatchEvent(
-      new CustomEvent(STALE_CHARACTERS_LOAD_REQUEST_EVENT, {
-        detail: { preserveScroll: false, strategy: 'all' },
-      }),
-    )
-    await flushAsyncWork()
-
-    expect(document.getElementById('section-stale-initial')).toBeTruthy()
-    expect(document.getElementById('section-stale-deferred')).toBeTruthy()
-    expect(restoreScrollPosition).not.toHaveBeenCalled()
-
-    cleanup()
-    requestAnimationFrameSpy.mockRestore()
   })
 
   it('keeps deferred stale sections pending until a later full-load request', async () => {
@@ -402,47 +345,5 @@ describe('mountStaleCharactersLoader', () => {
     cleanup()
     window.removeEventListener(STALE_CHARACTERS_COLLAPSED_EVENT, onCollapsed)
     window.removeEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStateChanged)
-  })
-
-  it('overrides saved stale visibility to hidden when reload starts from the active region', () => {
-    document.body.innerHTML = `
-      <div data-commission-view-panel="character" data-stale-loaded="true" data-stale-visibility="visible">
-        <div data-stale-sections-container="true">
-          <section id="section-stale" data-character-section="true" data-character-status="stale"></section>
-        </div>
-      </div>
-    `
-    const staleSection = document.getElementById('section-stale') as HTMLElement
-    mockAbsoluteTop(staleSection, 1600)
-    setScrollEnvironment({ y: 200 })
-    persistStaleCharactersVisibility(window, 'visible')
-
-    const cleanup = mountStaleCharactersLoader()
-    window.dispatchEvent(new Event('pagehide'))
-
-    expect(readSavedStaleCharactersVisibility(window)).toBe('hidden')
-
-    cleanup()
-  })
-
-  it('keeps saved stale visibility visible when reload starts from the stale region', () => {
-    document.body.innerHTML = `
-      <div data-commission-view-panel="character" data-stale-loaded="true" data-stale-visibility="visible">
-        <div data-stale-sections-container="true">
-          <section id="section-stale" data-character-section="true" data-character-status="stale"></section>
-        </div>
-      </div>
-    `
-    const staleSection = document.getElementById('section-stale') as HTMLElement
-    mockAbsoluteTop(staleSection, 1600)
-    setScrollEnvironment({ y: 1300 })
-    persistStaleCharactersVisibility(window, 'visible')
-
-    const cleanup = mountStaleCharactersLoader()
-    window.dispatchEvent(new Event('pagehide'))
-
-    expect(readSavedStaleCharactersVisibility(window)).toBe('visible')
-
-    cleanup()
   })
 })

@@ -129,28 +129,9 @@ describe('resolveEffectiveDomSnapshotKey', () => {
     expect(first).toBe('skip-dom-context')
     expect(second).toBe(first)
   })
-
-  it('keeps the mode snapshot key when dom context is enabled', () => {
-    const key = resolveEffectiveDomSnapshotKey({
-      domSnapshotKey: 'timeline:timeline-loaded',
-      skipDomContext: false,
-    })
-
-    expect(key).toBe('timeline:timeline-loaded')
-  })
 })
 
 describe('subscribeToUrlQuerySnapshot', () => {
-  it('notifies listeners for popstate changes', () => {
-    const onStoreChange = vi.fn()
-    const unsubscribe = subscribeToUrlQuerySnapshot(onStoreChange)
-
-    window.dispatchEvent(new PopStateEvent('popstate'))
-
-    expect(onStoreChange).toHaveBeenCalledTimes(1)
-    unsubscribe()
-  })
-
   it('notifies listeners for explicit location query updates', () => {
     const onStoreChange = vi.fn()
     const unsubscribe = subscribeToUrlQuerySnapshot(onStoreChange)

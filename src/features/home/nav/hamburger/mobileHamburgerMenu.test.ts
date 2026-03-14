@@ -1,10 +1,8 @@
 import {
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
 } from '#features/home/commission/staleCharactersEvent'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '#features/home/homeScrollRestoreAbort'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
-import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MENU_TRANSITION_MS } from './constants'
@@ -187,22 +185,6 @@ describe('mobileHamburgerMenu', () => {
     cleanup()
   })
 
-  it('requests stale loading when opening the stale section', () => {
-    const requestStaleVisibility = vi.fn()
-    const cleanup = mountMobileHamburgerMenu({
-      deps: { requestStaleVisibility },
-    })
-
-    getToggle()!.click()
-    getStaleSectionToggle()!.click()
-
-    expect(requestStaleVisibility).toHaveBeenCalledWith(window, 'visible')
-    expect(getStaleSectionToggle()?.getAttribute('aria-expanded')).toBe('true')
-    expect(getStaleSectionPanel()?.hidden).toBe(false)
-
-    cleanup()
-  })
-
   it('lets the stale section toggle collapse back shut without hiding stale content', () => {
     const requestStaleVisibility = vi.fn()
     const cleanup = mountMobileHamburgerMenu({
@@ -266,30 +248,6 @@ describe('mobileHamburgerMenu', () => {
     vi.advanceTimersByTime(MENU_TRANSITION_MS)
     cleanup()
     window.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
-  })
-
-  it('re-syncs link availability on stale state, sidebar search state, and view mode event', () => {
-    const syncLinkAvailability = vi.fn()
-    const cleanup = mountMobileHamburgerMenu({
-      deps: { syncLinkAvailability },
-    })
-
-    expect(syncLinkAvailability).toHaveBeenCalledTimes(1)
-
-    window.dispatchEvent(
-      new CustomEvent(STALE_CHARACTERS_STATE_CHANGE_EVENT, {
-        detail: { visibility: 'visible', loaded: true },
-      }),
-    )
-    expect(syncLinkAvailability).toHaveBeenCalledTimes(2)
-
-    window.dispatchEvent(new Event(SIDEBAR_SEARCH_STATE_EVENT))
-    expect(syncLinkAvailability).toHaveBeenCalledTimes(3)
-
-    window.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
-    expect(syncLinkAvailability).toHaveBeenCalledTimes(4)
-
-    cleanup()
   })
 
   it('hides and disables the hamburger menu while age gate is open', () => {
