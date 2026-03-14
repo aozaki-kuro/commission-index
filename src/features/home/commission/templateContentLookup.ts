@@ -1,40 +1,36 @@
-const escapeAttributeSelectorValue = (value: string) =>
-  value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+let templateContentIdIndexCache = new WeakMap<ParentNode, Set<string>>()
 
-let templateContentIdLookupCache = new WeakMap<ParentNode, Map<string, boolean>>()
+const buildTemplateContentIdIndex = (root: ParentNode): Set<string> => {
+  const idIndex = new Set<string>()
 
-const readCachedLookup = (root: ParentNode, id: string) => {
-  const cacheById = templateContentIdLookupCache.get(root)
-  if (!cacheById) return null
-  return cacheById.get(id) ?? null
+  root.querySelectorAll<HTMLElement>('[id]').forEach(element => {
+    if (!element.id) return
+    idIndex.add(element.id)
+  })
+
+  root.querySelectorAll<HTMLTemplateElement>('template').forEach(template => {
+    for (const id of buildTemplateContentIdIndex(template.content)) {
+      idIndex.add(id)
+    }
+  })
+
+  return idIndex
 }
 
-const writeCachedLookup = (root: ParentNode, id: string, matched: boolean) => {
-  const cacheById = templateContentIdLookupCache.get(root) ?? new Map<string, boolean>()
-  cacheById.set(id, matched)
-  templateContentIdLookupCache.set(root, cacheById)
-  return matched
+const getTemplateContentIdIndex = (root: ParentNode): Set<string> => {
+  const cached = templateContentIdIndexCache.get(root)
+  if (cached) return cached
+
+  const index = buildTemplateContentIdIndex(root)
+  templateContentIdIndexCache.set(root, index)
+  return index
 }
 
 export const templateContentContainsElementId = (root: ParentNode, id: string): boolean => {
   if (!id) return false
-
-  const cached = readCachedLookup(root, id)
-  if (cached !== null) return cached
-
-  if (root.querySelector<HTMLElement>(`[id="${escapeAttributeSelectorValue(id)}"]`)) {
-    return writeCachedLookup(root, id, true)
-  }
-
-  return writeCachedLookup(
-    root,
-    id,
-    Array.from(root.querySelectorAll<HTMLTemplateElement>('template')).some(template =>
-      templateContentContainsElementId(template.content, id),
-    ),
-  )
+  return getTemplateContentIdIndex(root).has(id)
 }
 
 export const clearTemplateContentLookupCacheForTests = () => {
-  templateContentIdLookupCache = new WeakMap<ParentNode, Map<string, boolean>>()
+  templateContentIdIndexCache = new WeakMap<ParentNode, Set<string>>()
 }
