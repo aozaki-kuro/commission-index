@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { ACTIVE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/activeCharactersEvent'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
-import { STALE_CHARACTERS_STATE_CHANGE_EVENT } from '#features/home/commission/staleCharactersEvent'
+import {
+  STALE_CHARACTERS_LOADED_EVENT,
+  STALE_CHARACTERS_STATE_CHANGE_EVENT,
+} from '#features/home/commission/staleCharactersEvent'
 import { mountSidebarNavEnhancer } from './sidebarNavEnhancer'
 
 const renderSidebarRoot = () => {
@@ -324,8 +327,12 @@ describe('sidebarNavEnhancer', () => {
         ?.setAttribute('data-stale-visibility', 'visible')
       document
         .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
-        ?.setAttribute('data-stale-loaded', 'true')
-      win.dispatchEvent(new Event('home:stale-loaded'))
+        ?.setAttribute('data-stale-loaded', 'false')
+      win.dispatchEvent(
+        new CustomEvent(STALE_CHARACTERS_STATE_CHANGE_EVENT, {
+          detail: { visibility: 'visible', loaded: false },
+        }),
+      )
     })
 
     const cleanup = mountSidebarNavEnhancer({
@@ -400,6 +407,59 @@ describe('sidebarNavEnhancer', () => {
     document.getElementById('title-beta')?.remove()
     document.getElementById('section-beta')?.remove()
     document.querySelector('template[data-active-sections-template="true"]')?.remove()
+  })
+
+  it('requests deferred stale loading without scroll preservation when a stale target is clicked', () => {
+    document
+      .querySelector<HTMLDetailsElement>('[data-sidebar-stale-details="true"]')
+      ?.insertAdjacentHTML(
+        'beforeend',
+        `
+          <a href="#section-stale-deferred" data-sidebar-character-link="true" data-sidebar-character-status="stale" data-sidebar-title-id="title-stale-deferred">Deferred Stale</a>
+        `,
+      )
+    document
+      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+      ?.insertAdjacentHTML(
+        'beforeend',
+        `
+          <template data-stale-sections-template="true">
+            <section id="section-stale-initial"></section>
+            <div data-stale-deferred-sections-container="true"></div>
+            <template data-stale-deferred-sections-template="true">
+              <section id="section-stale-deferred"></section>
+            </template>
+          </template>
+        `,
+      )
+
+    const scrollToHashWithoutWrite = vi.fn()
+    const requestStaleLoad = vi.fn((win, options?: { preserveScroll?: boolean }) => {
+      expect(options).toEqual({ preserveScroll: false })
+      const section = document.createElement('section')
+      section.id = 'section-stale-deferred'
+      document.body.append(section)
+      win.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
+    })
+
+    const cleanup = mountSidebarNavEnhancer({
+      deps: {
+        requestStaleLoad,
+        scrollToHashWithoutWrite,
+      },
+    })
+
+    const staleLink = Array.from(
+      document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]'),
+    ).find(link => link.getAttribute('href') === '#section-stale-deferred')
+
+    staleLink?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+    expect(requestStaleLoad).toHaveBeenCalledWith(window, { preserveScroll: false })
+    expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-stale-deferred')
+
+    cleanup()
+    document.getElementById('section-stale-deferred')?.remove()
   })
 
   it('collapses stale sections when stale details close after content is loaded', () => {

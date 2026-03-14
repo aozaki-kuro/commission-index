@@ -2,7 +2,7 @@ import { Button } from '#components/ui/button'
 import { Command, CommandInput } from '#components/ui/command'
 import { Popover, PopoverTrigger } from '#components/ui/popover'
 import { useCommissionViewMode } from '#features/home/commission/CommissionViewMode'
-import { requestStaleCharactersVisibility } from '#features/home/commission/staleCharactersEvent'
+import { requestStaleCharactersLoad as dispatchStaleCharactersLoad } from '#features/home/commission/staleCharactersEvent'
 import { resolveHomeControls } from '#features/home/i18n/homeLocale'
 import CommissionSearchHelpPopover from '#features/home/search/CommissionSearchHelpPopover'
 import CommissionSearchSuggestionDropdown from '#features/home/search/CommissionSearchSuggestionDropdown'
@@ -243,8 +243,8 @@ const CommissionSearch = ({
     inputRef.current?.focus()
   }, [setInputQuery, showSuggestionPanel])
 
-  const requestStaleCharactersLoad = useCallback(() => {
-    requestStaleCharactersVisibility(window, 'visible')
+  const handleStaleCharactersLoadRequest = useCallback(() => {
+    dispatchStaleCharactersLoad(window)
   }, [])
 
   const { focusInputAfterSelection, searchRootRef, shouldSuppressInputFocusOpen } =
@@ -376,7 +376,7 @@ const CommissionSearch = ({
                 visibleStatusMessage={visibleStatusMessage}
                 loadStaleCharactersLabel={controls.loadStaleCharacters}
                 onSelectSuggestion={applySuggestion}
-                onLoadStaleCharacters={requestStaleCharactersLoad}
+                onLoadStaleCharacters={handleStaleCharactersLoadRequest}
               />
             </Command>
 

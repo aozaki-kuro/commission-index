@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  persistStaleCharactersVisibility,
+  readSavedStaleCharactersVisibility,
   STALE_CHARACTERS_COLLAPSED_EVENT,
   STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT,
   STALE_CHARACTERS_LOADED_EVENT,
@@ -23,7 +25,30 @@ const renderFixture = () => {
   `
 }
 
+const renderDeferredFixture = () => {
+  document.body.innerHTML = `
+    <div data-commission-view-panel="character" data-stale-loaded="false" data-stale-visibility="hidden">
+      <div data-stale-sections-placeholder="true"></div>
+      <button type="button" data-load-stale-characters="true">Load</button>
+      <div data-stale-sections-container="true"></div>
+      <template data-stale-sections-template="true">
+        <section id="section-stale-initial"></section>
+        <div data-stale-deferred-sections-container="true"></div>
+        <div data-stale-deferred-sections-sentinel="true"></div>
+        <template data-stale-deferred-sections-template="true">
+          <section id="section-stale-deferred"></section>
+        </template>
+      </template>
+    </div>
+  `
+}
+
 describe('mountStaleCharactersLoader', () => {
+  beforeEach(() => {
+    window.sessionStorage.clear()
+    window.history.replaceState(null, '', '/')
+  })
+
   it('restores scroll position after manual stale expansion', () => {
     renderFixture()
     Object.defineProperty(window, 'scrollX', { value: 24, configurable: true })
@@ -104,6 +129,140 @@ describe('mountStaleCharactersLoader', () => {
 
     expect(document.getElementById('section-stale')).toBeTruthy()
     cleanup()
+  })
+
+  it('skips scroll restoration when the stale load request opts out', () => {
+    renderDeferredFixture()
+    Object.defineProperty(window, 'scrollX', { value: 24, configurable: true })
+    Object.defineProperty(window, 'scrollY', { value: 480, configurable: true })
+    const requestAnimationFrameSpy = vi
+      .spyOn(window, 'requestAnimationFrame')
+      .mockImplementation(callback => {
+        callback(0)
+        return 1
+      })
+    const restoreScrollPosition = vi.fn()
+
+    const cleanup = mountStaleCharactersLoader({
+      deps: { restoreScrollPosition },
+    })
+
+    window.dispatchEvent(
+      new CustomEvent(STALE_CHARACTERS_LOAD_REQUEST_EVENT, {
+        detail: { preserveScroll: false },
+      }),
+    )
+
+    expect(document.getElementById('section-stale-initial')).toBeTruthy()
+    expect(document.getElementById('section-stale-deferred')).toBeTruthy()
+    expect(restoreScrollPosition).not.toHaveBeenCalled()
+
+    cleanup()
+    requestAnimationFrameSpy.mockRestore()
+  })
+
+  it('keeps deferred stale sections pending until a later full-load request', () => {
+    renderDeferredFixture()
+    const onLoaded = vi.fn()
+    const observe = vi.fn()
+    const disconnect = vi.fn()
+
+    class MockIntersectionObserver {
+      constructor(_callback: IntersectionObserverCallback) {}
+
+      observe = observe
+      disconnect = disconnect
+      unobserve() {}
+      takeRecords() {
+        return []
+      }
+
+      readonly root = null
+      readonly rootMargin = ''
+      readonly thresholds = []
+    }
+
+    window.addEventListener(STALE_CHARACTERS_LOADED_EVENT, onLoaded)
+    vi.stubGlobal('IntersectionObserver', MockIntersectionObserver)
+
+    const cleanup = mountStaleCharactersLoader()
+    document
+      .querySelector<HTMLElement>('[data-load-stale-characters="true"]')
+      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+    expect(document.getElementById('section-stale-initial')).toBeTruthy()
+    expect(document.getElementById('section-stale-deferred')).toBeNull()
+    expect(
+      document
+        .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+        ?.getAttribute('data-stale-visibility'),
+    ).toBe('visible')
+    expect(
+      document
+        .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+        ?.getAttribute('data-stale-loaded'),
+    ).toBe('false')
+    expect(onLoaded).not.toHaveBeenCalled()
+
+    window.dispatchEvent(new Event(STALE_CHARACTERS_LOAD_REQUEST_EVENT))
+
+    expect(document.getElementById('section-stale-deferred')).toBeTruthy()
+    expect(
+      document
+        .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+        ?.getAttribute('data-stale-loaded'),
+    ).toBe('true')
+    expect(onLoaded).toHaveBeenCalledTimes(1)
+    expect(observe).toHaveBeenCalledTimes(1)
+    expect(disconnect).toHaveBeenCalled()
+
+    cleanup()
+    vi.unstubAllGlobals()
+    window.removeEventListener(STALE_CHARACTERS_LOADED_EVENT, onLoaded)
+  })
+
+  it('restores stale visibility from the current tab session on mount', () => {
+    renderDeferredFixture()
+    const observe = vi.fn()
+    const disconnect = vi.fn()
+
+    class MockIntersectionObserver {
+      constructor(_callback: IntersectionObserverCallback) {}
+
+      observe = observe
+      disconnect = disconnect
+      unobserve() {}
+      takeRecords() {
+        return []
+      }
+
+      readonly root = null
+      readonly rootMargin = ''
+      readonly thresholds = []
+    }
+
+    persistStaleCharactersVisibility(window, 'visible')
+    vi.stubGlobal('IntersectionObserver', MockIntersectionObserver)
+
+    const cleanup = mountStaleCharactersLoader()
+
+    expect(readSavedStaleCharactersVisibility(window)).toBe('visible')
+    expect(document.getElementById('section-stale-initial')).toBeTruthy()
+    expect(document.getElementById('section-stale-deferred')).toBeNull()
+    expect(
+      document
+        .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+        ?.getAttribute('data-stale-visibility'),
+    ).toBe('visible')
+    expect(
+      document
+        .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+        ?.getAttribute('data-stale-loaded'),
+    ).toBe('false')
+    expect(observe).toHaveBeenCalledTimes(1)
+
+    cleanup()
+    vi.unstubAllGlobals()
   })
 
   it('loads stale sections from an initial hash target inside the template', () => {

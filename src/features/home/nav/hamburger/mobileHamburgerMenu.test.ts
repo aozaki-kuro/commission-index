@@ -205,17 +205,21 @@ describe('mobileHamburgerMenu', () => {
     const trackEvent = vi.fn()
     const scrollToHashWithoutWrite = vi.fn()
     const requestStaleVisibility = vi.fn(() => {
-      const characterPanel = document.createElement('div')
-      characterPanel.dataset.commissionViewPanel = 'character'
-      characterPanel.dataset.staleLoaded = 'true'
-      characterPanel.dataset.staleVisibility = 'visible'
-      document.body.append(characterPanel)
-
       const staleSection = document.createElement('section')
       staleSection.id = 'stale-item'
       document.body.append(staleSection)
 
-      window.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
+      document
+        .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+        ?.setAttribute('data-stale-loaded', 'false')
+      document
+        .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+        ?.setAttribute('data-stale-visibility', 'visible')
+      window.dispatchEvent(
+        new CustomEvent(STALE_CHARACTERS_STATE_CHANGE_EVENT, {
+          detail: { visibility: 'visible', loaded: false },
+        }),
+      )
     })
 
     const cleanup = mountMobileHamburgerMenu({
@@ -284,6 +288,54 @@ describe('mobileHamburgerMenu', () => {
     cleanup()
     document.getElementById('active-item')?.remove()
     document.querySelector('template[data-active-sections-template="true"]')?.remove()
+  })
+
+  it('requests deferred stale loading without scroll preservation when a stale target is clicked', () => {
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      `
+        <template data-stale-sections-template="true">
+          <section id="stale-item-initial"></section>
+          <div data-stale-deferred-sections-container="true"></div>
+          <template data-stale-deferred-sections-template="true">
+            <section id="stale-item"></section>
+          </template>
+        </template>
+      `,
+    )
+
+    const trackEvent = vi.fn()
+    const scrollToHashWithoutWrite = vi.fn()
+    const requestStaleLoad = vi.fn((win, options?: { preserveScroll?: boolean }) => {
+      expect(options).toEqual({ preserveScroll: false })
+      const section = document.createElement('section')
+      section.id = 'stale-item'
+      document.body.append(section)
+      win.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
+    })
+
+    const cleanup = mountMobileHamburgerMenu({
+      deps: { requestStaleLoad, scrollToHashWithoutWrite, trackEvent },
+    })
+
+    getToggle()!.click()
+    getStaleLink()!.click()
+
+    expect(requestStaleLoad).toHaveBeenCalledWith(window, { preserveScroll: false })
+    expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#stale-item')
+    expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.sidebarNavUsed, {
+      source: 'character_link',
+      nav_surface: 'hamburger',
+      view_mode: 'character',
+      item_count: 3,
+      character_name: 'Stale',
+      section_id: 'stale-item',
+    })
+
+    vi.advanceTimersByTime(MENU_TRANSITION_MS)
+    cleanup()
+    document.getElementById('stale-item')?.remove()
+    document.querySelector('template[data-stale-sections-template="true"]')?.remove()
   })
 
   it('re-syncs link availability on stale state, sidebar search state, and view mode event', () => {

@@ -13,30 +13,42 @@ describe('getDomSnapshotKeyForMode', () => {
       activeLoaded: false,
       mode: 'character',
       staleLoaded: false,
+      staleVisible: false,
       timelineLoaded: false,
     })
     const unrelatedTimelineChange = getDomSnapshotKeyForMode({
       activeLoaded: false,
       mode: 'character',
       staleLoaded: false,
+      staleVisible: false,
       timelineLoaded: true,
     })
     const activeChange = getDomSnapshotKeyForMode({
       activeLoaded: true,
       mode: 'character',
       staleLoaded: false,
+      staleVisible: false,
+      timelineLoaded: true,
+    })
+    const staleVisibleChange = getDomSnapshotKeyForMode({
+      activeLoaded: true,
+      mode: 'character',
+      staleLoaded: false,
+      staleVisible: true,
       timelineLoaded: true,
     })
     const staleChange = getDomSnapshotKeyForMode({
       activeLoaded: true,
       mode: 'character',
       staleLoaded: true,
+      staleVisible: true,
       timelineLoaded: true,
     })
 
     expect(before).toBe(unrelatedTimelineChange)
     expect(activeChange).not.toBe(before)
-    expect(staleChange).not.toBe(activeChange)
+    expect(staleVisibleChange).not.toBe(activeChange)
+    expect(staleChange).not.toBe(staleVisibleChange)
   })
 
   it('changes timeline snapshot key only when timelineLoaded changes', () => {
@@ -44,18 +56,21 @@ describe('getDomSnapshotKeyForMode', () => {
       activeLoaded: false,
       mode: 'timeline',
       staleLoaded: false,
+      staleVisible: false,
       timelineLoaded: false,
     })
     const unrelatedStaleChange = getDomSnapshotKeyForMode({
       activeLoaded: true,
       mode: 'timeline',
       staleLoaded: true,
+      staleVisible: true,
       timelineLoaded: false,
     })
     const timelineChange = getDomSnapshotKeyForMode({
       activeLoaded: true,
       mode: 'timeline',
       staleLoaded: true,
+      staleVisible: true,
       timelineLoaded: true,
     })
 
@@ -67,7 +82,7 @@ describe('getDomSnapshotKeyForMode', () => {
 describe('resolveEffectiveDomSnapshotKey', () => {
   it('uses a stable key when dom context is skipped', () => {
     const first = resolveEffectiveDomSnapshotKey({
-      domSnapshotKey: 'character:stale-collapsed',
+      domSnapshotKey: 'character:stale-hidden',
       skipDomContext: true,
     })
     const second = resolveEffectiveDomSnapshotKey({

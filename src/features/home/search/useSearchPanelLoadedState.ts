@@ -6,6 +6,7 @@ import {
   STALE_CHARACTERS_COLLAPSED_EVENT,
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
+  isStaleCharactersVisible,
   readStaleCharactersState,
 } from '#features/home/commission/staleCharactersEvent'
 import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
@@ -13,6 +14,7 @@ import { useEffect, useState } from 'react'
 
 const getCharacterPanelActiveLoaded = () => readActiveCharactersLoadedState()
 const getCharacterPanelStaleLoaded = () => readStaleCharactersState().loaded
+const getCharacterPanelStaleVisible = () => isStaleCharactersVisible()
 
 const getTimelinePanelLoaded = () => {
   if (typeof document === 'undefined') return false
@@ -25,6 +27,7 @@ const getTimelinePanelLoaded = () => {
 export const useSearchPanelLoadedState = () => {
   const [activeLoaded, setActiveLoaded] = useState(getCharacterPanelActiveLoaded)
   const [staleLoaded, setStaleLoaded] = useState(getCharacterPanelStaleLoaded)
+  const [staleVisible, setStaleVisible] = useState(getCharacterPanelStaleVisible)
   const [timelineLoaded, setTimelineLoaded] = useState(getTimelinePanelLoaded)
 
   useEffect(() => {
@@ -43,6 +46,7 @@ export const useSearchPanelLoadedState = () => {
   useEffect(() => {
     const syncStaleLoaded = () => {
       setStaleLoaded(getCharacterPanelStaleLoaded())
+      setStaleVisible(getCharacterPanelStaleVisible())
     }
 
     syncStaleLoaded()
@@ -73,6 +77,7 @@ export const useSearchPanelLoadedState = () => {
   return {
     activeLoaded,
     staleLoaded,
+    staleVisible,
     timelineLoaded,
   }
 }

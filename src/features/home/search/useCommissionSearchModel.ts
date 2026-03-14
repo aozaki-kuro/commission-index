@@ -90,15 +90,19 @@ export const getDomSnapshotKeyForMode = ({
   activeLoaded,
   mode,
   staleLoaded,
+  staleVisible,
   timelineLoaded,
 }: {
   activeLoaded: boolean
   mode: 'character' | 'timeline'
   staleLoaded: boolean
+  staleVisible: boolean
   timelineLoaded: boolean
 }) =>
   mode === 'character'
-    ? `character:${activeLoaded ? 'active-loaded' : 'active-pending'}:${staleLoaded ? 'stale-loaded' : 'stale-collapsed'}`
+    ? `character:${activeLoaded ? 'active-loaded' : 'active-pending'}:${
+        staleLoaded ? 'stale-loaded' : staleVisible ? 'stale-visible' : 'stale-hidden'
+      }`
     : `timeline:${timelineLoaded ? 'timeline-loaded' : 'timeline-pending'}`
 
 export const resolveEffectiveDomSnapshotKey = ({
@@ -161,13 +165,14 @@ export const useCommissionSearchModel = ({
     () => !deferIndexInit || !!initialQuery || !!initialUrlQuery,
   )
   const [shouldWarmFuse, setShouldWarmFuse] = useState(() => !!initialQuery || !!initialUrlQuery)
-  const { activeLoaded, staleLoaded, timelineLoaded } = useSearchPanelLoadedState()
+  const { activeLoaded, staleLoaded, staleVisible, timelineLoaded } = useSearchPanelLoadedState()
   const shouldBuildIndex = isIndexReady || !deferIndexInit || !!query || !!initialUrlQuery
   const shouldSkipDomContext = disableDomFiltering && Boolean(externalEntries)
   const domSnapshotKey = getDomSnapshotKeyForMode({
     activeLoaded,
     mode,
     staleLoaded,
+    staleVisible,
     timelineLoaded,
   })
   const effectiveDomSnapshotKey = resolveEffectiveDomSnapshotKey({

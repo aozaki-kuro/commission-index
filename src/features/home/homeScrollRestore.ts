@@ -6,7 +6,7 @@ import {
 import {
   STALE_CHARACTERS_LOADED_EVENT,
   readStaleCharactersState,
-  requestStaleCharactersVisibility,
+  requestStaleCharactersLoad,
 } from '#features/home/commission/staleCharactersEvent'
 import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
@@ -29,7 +29,7 @@ type SavedHomeScrollState = {
 type HomeScrollRestoreDeps = {
   readNavigationType: (win: Window) => string
   requestActiveLoad: (win: Window) => void
-  requestStaleVisibility: (win: Window, visibility: 'visible' | 'hidden') => void
+  requestStaleLoad: (win: Window) => void
   requestTimelineLoad: (win: Window) => void
   restoreScrollPosition: (win: Window, position: { x: number; y: number }) => void
 }
@@ -46,7 +46,7 @@ const defaultDeps: HomeScrollRestoreDeps = {
     return navigationEntry && 'type' in navigationEntry ? String(navigationEntry.type) : ''
   },
   requestActiveLoad: requestActiveCharactersLoad,
-  requestStaleVisibility: requestStaleCharactersVisibility,
+  requestStaleLoad: requestStaleCharactersLoad,
   requestTimelineLoad: win => {
     win.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
   },
@@ -221,7 +221,7 @@ export const mountHomeScrollRestore = ({
       }
 
       if (!readStaleCharactersState(doc).loaded && hasPendingStaleSections(doc)) {
-        deps.requestStaleVisibility(win, 'visible')
+        deps.requestStaleLoad(win)
         return
       }
     }

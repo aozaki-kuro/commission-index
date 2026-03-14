@@ -43,6 +43,9 @@ This repository contains an Astro 6 static site with React 19 islands, written i
 - Home active character lazy-mount behavior is centralized in:
   - `src/features/home/commission/activeCharactersLoader.ts`
   - `src/features/home/commission/activeCharactersEvent.ts`
+- Home stale character lazy-mount behavior is centralized in:
+  - `src/features/home/commission/staleCharactersLoader.ts`
+  - `src/features/home/commission/staleCharactersEvent.ts`
 - Home timeline lazy-mount behavior is centralized in:
   - `src/features/home/commission/timelineViewLoader.ts`
 - Home desktop navigation behavior is centralized in:
@@ -60,6 +63,7 @@ This repository contains an Astro 6 static site with React 19 islands, written i
   - Keep the search UI itself synchronously rendered and layout-stable on first paint; do not reintroduce shell-to-real-content swaps that cause visible jump, drift, or delayed keyword chips.
   - `dev` search may read DOM metadata, but `build` output cannot rely on `data-search-*` attributes being present; production search must keep `/search/home-search-entries.json` as a valid index source.
   - Prefer optimizing index/data loading behind a stable UI shell over lazy-loading the entire search island. If revisiting async loading, prove identical DOM footprint before and after hydration.
+  - `data-stale-visibility` means the stale group is expanded; `data-stale-loaded` means deferred stale sections are fully mounted. Preserve that distinction when touching search/nav/scroll-restore state.
   - Character/stale section templates must mount with their full entry list intact. Do not reintroduce per-section entry lazy mounts above anchor targets; they break deterministic sidebar/hash navigation.
 - Shared pure rendering helpers:
   - `src/features/home/commission/linkDisplay.ts` (link sanitization/priority selection)
@@ -169,6 +173,7 @@ Additional guidance:
 - Added shared server request/response bridge utility and test coverage.
 - Added active-character lazy-mount pipeline (`template` + loader script + navigation/search load requests) so the home page no longer renders every active character section up front.
 - Added stale character lazy-loading pipeline (`template` + loader script + sidebar/search sync events) to reduce initial DOM size while preserving navigation discoverability.
+- Split stale state into `visibility` vs `loaded`, and made manual stale expansion mirror active by mounting the first stale section immediately and deferring the remainder behind a sentinel/full-load request path.
 - Added timeline lazy-mount pipeline (`template` + loader script + search/sidebar sync events) so the hidden timeline view no longer doubles the initial homepage DOM.
 - Collapsed most home side-effect entrypoints into `HomeClientScript.astro` + `homePageClient.ts` to reduce initial module requests without changing DOM contracts.
 - Added Playwright visual regression baselines for home search/nav shells, mobile floating menus, and the admin featured-keyword dashboard.

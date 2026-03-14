@@ -33,9 +33,13 @@ const {
   Astro.props as StaticCommissionSectionsProps
 const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
 const MAX_INITIAL_ACTIVE_SECTIONS = 1
+const MAX_INITIAL_STALE_SECTIONS = 1
 const initialActiveChars = activeChars.slice(0, MAX_INITIAL_ACTIVE_SECTIONS)
 const deferredActiveChars = activeChars.slice(MAX_INITIAL_ACTIVE_SECTIONS)
 const hasDeferredActiveChars = deferredActiveChars.length > 0
+const initialStaleChars = staleChars.slice(0, MAX_INITIAL_STALE_SECTIONS)
+const deferredStaleChars = staleChars.slice(MAX_INITIAL_STALE_SECTIONS)
+const hasDeferredStaleChars = deferredStaleChars.length > 0
 const staleCharacterCount = staleChars.length
 const staleCommissionCount = staleChars.reduce(
   (count, chara) => count + (commissionMap.get(chara.DisplayName)?.Commissions.length ?? 0),
@@ -142,7 +146,7 @@ const staleCommissionCount = staleChars.reduce(
               <hr />
             </div>
             {
-              staleChars.map(chara => (
+              initialStaleChars.map(chara => (
                 <Listing
                   locale={locale}
                   Character={chara.DisplayName}
@@ -153,6 +157,33 @@ const staleCommissionCount = staleChars.reduce(
                   keywordAliasesMap={keywordAliasesMap}
                 />
               ))
+            }
+            {
+              hasDeferredStaleChars ? (
+                <>
+                  <div data-stale-deferred-sections-container="true" />
+                  <div
+                    data-stale-deferred-sections-sentinel="true"
+                    aria-hidden="true"
+                    class="h-px overflow-hidden opacity-0 pointer-events-none"
+                  />
+                  <template data-stale-deferred-sections-template="true">
+                    {
+                      deferredStaleChars.map(chara => (
+                        <Listing
+                          locale={locale}
+                          Character={chara.DisplayName}
+                          status="stale"
+                          commissionMap={commissionMap}
+                          characterAliasesMap={characterAliasesMap}
+                          creatorAliasesMap={creatorAliasesMap}
+                          keywordAliasesMap={keywordAliasesMap}
+                        />
+                      ))
+                    }
+                  </template>
+                </>
+              ) : null
             }
           </template>
         </>

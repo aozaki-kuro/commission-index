@@ -128,7 +128,7 @@ describe('mountHomeScrollRestore', () => {
       }),
     )
 
-    const requestStaleVisibility = vi.fn()
+    const requestStaleLoad = vi.fn()
     const restoreScrollPosition = vi.fn()
     const requestAnimationFrameSpy = vi
       .spyOn(window, 'requestAnimationFrame')
@@ -140,12 +140,12 @@ describe('mountHomeScrollRestore', () => {
     const cleanup = mountHomeScrollRestore({
       deps: {
         readNavigationType: () => 'reload',
-        requestStaleVisibility,
+        requestStaleLoad,
         restoreScrollPosition,
       },
     })
 
-    expect(requestStaleVisibility).toHaveBeenCalledWith(window, 'visible')
+    expect(requestStaleLoad).toHaveBeenCalledWith(window)
     expect(restoreScrollPosition).not.toHaveBeenCalled()
 
     document

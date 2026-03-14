@@ -22,8 +22,12 @@ import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/vie
 import {
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
+  hasDeferredStaleCharacterTarget,
+  hasStaleCharacterTarget,
   isStaleCharactersVisible,
+  requestStaleCharactersLoad,
   requestStaleCharactersVisibility,
+  type RequestStaleCharactersLoadOptions,
   type StaleCharactersState,
   type StaleCharactersVisibility,
 } from '#features/home/commission/staleCharactersEvent'
@@ -51,6 +55,7 @@ type SidebarNavEnhancerDeps = {
   clearHash: typeof clearHashIfTargetIsStale
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
   requestActiveLoad: (win: Window) => void
+  requestStaleLoad: (win: Window, options?: RequestStaleCharactersLoadOptions) => void
   requestStaleVisibility: (win: Window, visibility: StaleCharactersVisibility) => void
 }
 
@@ -73,6 +78,7 @@ const defaultDeps: SidebarNavEnhancerDeps = {
   clearHash: clearHashIfTargetIsStale,
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
   requestActiveLoad: requestActiveCharactersLoad,
+  requestStaleLoad: requestStaleCharactersLoad,
   requestStaleVisibility: requestStaleCharactersVisibility,
 }
 
@@ -205,8 +211,10 @@ export const mountSidebarNavEnhancer = ({
         return resolveSectionIdFromHref(link.getAttribute('href'))
       },
       isDeferredTarget: (sectionId, link) =>
-        link.dataset.sidebarCharacterStatus === 'active' &&
-        hasDeferredActiveCharacterTarget(doc, sectionId),
+        (link.dataset.sidebarCharacterStatus === 'active' &&
+          hasDeferredActiveCharacterTarget(doc, sectionId)) ||
+        (link.dataset.sidebarCharacterStatus === 'stale' &&
+          hasStaleCharacterTarget(doc, sectionId)),
     })
   }
 
@@ -417,7 +425,8 @@ export const mountSidebarNavEnhancer = ({
     }
 
     const isStaleLink = characterLink.dataset.sidebarCharacterStatus === 'stale'
-    if (isStaleLink && !isStaleCharactersVisible(doc)) {
+    const isDeferredStaleLink = isStaleLink && hasDeferredStaleCharacterTarget(doc, href)
+    if (isDeferredStaleLink) {
       event.preventDefault()
 
       const onStaleLoaded = () => {
@@ -427,6 +436,25 @@ export const mountSidebarNavEnhancer = ({
       }
 
       win.addEventListener(STALE_CHARACTERS_LOADED_EVENT, onStaleLoaded, { once: true })
+      deps.requestStaleLoad(win, { preserveScroll: false })
+      trackSidebarCharacterClick(characterLink)
+      return
+    }
+
+    if (isStaleLink && !isStaleCharactersVisible(doc)) {
+      event.preventDefault()
+
+      const onStaleShown = (staleEvent: Event) => {
+        if (!(staleEvent instanceof CustomEvent) || staleEvent.detail?.visibility !== 'visible') {
+          return
+        }
+
+        deps.scrollToHashWithoutWrite(href)
+        scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })
+        scheduleSyncActiveDots()
+      }
+
+      win.addEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStaleShown, { once: true })
       deps.requestStaleVisibility(win, 'visible')
       trackSidebarCharacterClick(characterLink)
       return

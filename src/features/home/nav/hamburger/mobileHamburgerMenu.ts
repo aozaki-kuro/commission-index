@@ -3,8 +3,12 @@ import { trackRybbitEvent } from '#lib/analytics/track'
 import {
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
+  hasDeferredStaleCharacterTarget,
+  hasStaleCharacterTarget,
   isStaleCharactersVisible,
+  requestStaleCharactersLoad,
   requestStaleCharactersVisibility,
+  type RequestStaleCharactersLoadOptions,
   type StaleCharactersVisibility,
 } from '#features/home/commission/staleCharactersEvent'
 import {
@@ -50,6 +54,7 @@ type MobileHamburgerMenuDeps = {
   syncLinkAvailability: typeof syncHiddenSectionLinkAvailability
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
   requestActiveLoad: (win: Window) => void
+  requestStaleLoad: (win: Window, options?: RequestStaleCharactersLoadOptions) => void
   requestStaleVisibility: (win: Window, visibility: StaleCharactersVisibility) => void
 }
 
@@ -67,6 +72,7 @@ const defaultDeps: MobileHamburgerMenuDeps = {
   syncLinkAvailability: syncHiddenSectionLinkAvailability,
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
   requestActiveLoad: requestActiveCharactersLoad,
+  requestStaleLoad: requestStaleCharactersLoad,
   requestStaleVisibility: requestStaleCharactersVisibility,
 }
 
@@ -299,8 +305,10 @@ export const mountMobileHamburgerMenu = ({
       linkSelector: NAV_LINK_SELECTOR,
       getSectionId: link => link.dataset.mobileNavSectionId ?? null,
       isDeferredTarget: (sectionId, link) =>
-        link.dataset.mobileNavCharacterStatus === 'active' &&
-        hasDeferredActiveCharacterTarget(doc, sectionId),
+        (link.dataset.mobileNavCharacterStatus === 'active' &&
+          hasDeferredActiveCharacterTarget(doc, sectionId)) ||
+        (link.dataset.mobileNavCharacterStatus === 'stale' &&
+          hasStaleCharacterTarget(doc, sectionId)),
     })
   }
 
@@ -433,7 +441,13 @@ export const mountMobileHamburgerMenu = ({
     }
 
     const isStaleLink = navLink.dataset.mobileNavCharacterStatus === 'stale'
-    if (isStaleLink && !isStaleCharactersVisible(doc)) {
+    const isDeferredStaleLink =
+      isStaleLink &&
+      hasDeferredStaleCharacterTarget(
+        doc,
+        navLink.dataset.mobileNavSectionId ?? navLink.getAttribute('href'),
+      )
+    if (isDeferredStaleLink) {
       event.preventDefault()
 
       const href = navLink.getAttribute('href')
@@ -443,6 +457,37 @@ export const mountMobileHamburgerMenu = ({
       }
 
       win.addEventListener(STALE_CHARACTERS_LOADED_EVENT, onStaleLoaded, { once: true })
+      deps.requestStaleLoad(win, { preserveScroll: false })
+
+      const mode = readCommissionViewMode(win)
+      const sectionId = navLink.dataset.mobileNavSectionId ?? 'unknown'
+      const characterName = navLink.textContent?.trim() || 'unknown'
+      deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
+        source: 'character_link',
+        nav_surface: 'hamburger',
+        view_mode: mode,
+        item_count: getVisibleItemCount(mode),
+        character_name: characterName,
+        section_id: sectionId,
+      })
+
+      closeMenu()
+      return
+    }
+    if (isStaleLink && !isStaleCharactersVisible(doc)) {
+      event.preventDefault()
+
+      const href = navLink.getAttribute('href')
+      const onStaleShown = (staleEvent: Event) => {
+        if (!(staleEvent instanceof CustomEvent) || staleEvent.detail?.visibility !== 'visible') {
+          return
+        }
+
+        deps.scrollToHashWithoutWrite(href)
+        syncLinkAvailability()
+      }
+
+      win.addEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStaleShown, { once: true })
       deps.requestStaleVisibility(win, 'visible')
 
       const mode = readCommissionViewMode(win)
