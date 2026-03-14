@@ -1,8 +1,16 @@
 import { Button } from '#components/ui/button'
 import { Command, CommandInput } from '#components/ui/command'
 import { Popover, PopoverTrigger } from '#components/ui/popover'
+import { readActiveCharactersLoadedBatchCount } from '#features/home/commission/activeCharactersEvent'
+import {
+  getHomeCharacterBatchTotalCount,
+  prefetchHomeCharacterBatches,
+} from '#features/home/commission/homeCharacterBatchClient'
 import { useCommissionViewMode } from '#features/home/commission/CommissionViewMode'
-import { requestStaleCharactersLoad as dispatchStaleCharactersLoad } from '#features/home/commission/staleCharactersEvent'
+import {
+  requestStaleCharactersLoad as dispatchStaleCharactersLoad,
+  readStaleCharactersLoadedBatchCount,
+} from '#features/home/commission/staleCharactersEvent'
 import { resolveHomeControls } from '#features/home/i18n/homeLocale'
 import CommissionSearchHelpPopover from '#features/home/search/CommissionSearchHelpPopover'
 import CommissionSearchSuggestionDropdown from '#features/home/search/CommissionSearchSuggestionDropdown'
@@ -45,6 +53,7 @@ const shouldUseTapLikeFocus = () => {
 }
 const EMPTY_POPULAR_KEYWORDS: string[] = []
 const EMPTY_SUGGESTION_ALIAS_GROUPS: SearchSuggestionAliasGroup[] = []
+type CharacterBatchPrefetchStatus = 'active' | 'stale'
 
 const buildSearchUrl = (rawQuery: string) => {
   const url = new URL(window.location.href)
@@ -99,6 +108,10 @@ const CommissionSearch = ({
   const didAutoJumpRef = useRef(false)
   const copyResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const ignoreNextHelpTriggerClickRef = useRef(openHelpOnMount)
+  const prefetchedBatchStatusesRef = useRef<Record<CharacterBatchPrefetchStatus, boolean>>({
+    active: false,
+    stale: false,
+  })
   const [isHelpOpen, setIsHelpOpen] = useState(openHelpOnMount)
   const [copyState, setCopyState] = useState<'idle' | 'success'>('idle')
   const [activeCommandValue, setActiveCommandValue] = useState('')
@@ -247,6 +260,43 @@ const CommissionSearch = ({
     dispatchStaleCharactersLoad(window, { strategy: 'all', preserveScroll: true })
   }, [])
 
+  const prefetchDeferredCharacterBatches = useCallback(
+    (status: CharacterBatchPrefetchStatus) => {
+      if (mode !== 'character' || typeof document === 'undefined') return
+      if (prefetchedBatchStatusesRef.current[status]) return
+
+      const totalBatchCount = getHomeCharacterBatchTotalCount({ doc: document, status })
+      if (totalBatchCount <= 0) return
+
+      const startBatchIndex =
+        status === 'active'
+          ? readActiveCharactersLoadedBatchCount(document)
+          : readStaleCharactersLoadedBatchCount(document)
+      const targetBatchIndex = totalBatchCount - 1
+
+      prefetchedBatchStatusesRef.current[status] = true
+      if (targetBatchIndex < startBatchIndex) return
+
+      prefetchHomeCharacterBatches({
+        doc: document,
+        startBatchIndex,
+        status,
+        targetBatchIndex,
+      })
+    },
+    [mode],
+  )
+
+  const prepareSearchInteraction = useCallback(() => {
+    ensureSearchRuntimeReady()
+    prefetchDeferredCharacterBatches('active')
+  }, [ensureSearchRuntimeReady, prefetchDeferredCharacterBatches])
+
+  useEffect(() => {
+    if (!shouldShowHiddenStaleNotice) return
+    prefetchDeferredCharacterBatches('stale')
+  }, [prefetchDeferredCharacterBatches, shouldShowHiddenStaleNotice])
+
   const { focusInputAfterSelection, searchRootRef, shouldSuppressInputFocusOpen } =
     useSuggestionPanelController({
       inputRef,
@@ -346,8 +396,9 @@ const CommissionSearch = ({
                 ref={inputRef}
                 id="commission-search-input"
                 value={query}
+                onPointerDown={prepareSearchInteraction}
                 onFocus={() => {
-                  ensureSearchRuntimeReady()
+                  prepareSearchInteraction()
                   if (shouldSuppressInputFocusOpen()) return
                   showSuggestionPanel()
                 }}
@@ -442,7 +493,7 @@ const CommissionSearch = ({
         keywords={popularKeywords}
         refreshLabel={refreshPopularSearchLabel}
         onRotate={onRotatePopularKeywords}
-        onKeywordPointerDown={ensureIndexReady}
+        onKeywordPointerDown={prepareSearchInteraction}
         onKeywordSelect={applyPopularKeyword}
       />
 

@@ -3,6 +3,7 @@ import {
   type SuggestionViewModel,
 } from '#features/home/search/CommissionSearchSuggestionDropdown'
 import { requestActiveCharactersLoad } from '#features/home/commission/activeCharactersEvent'
+import { requestStaleCharactersLoad } from '#features/home/commission/staleCharactersEvent'
 import {
   buildRelatedSuggestionTermsMap,
   buildSearchIndex,
@@ -87,22 +88,26 @@ export const subscribeToUrlQuerySnapshot = (onStoreChange: () => void) => {
 }
 
 export const getDomSnapshotKeyForMode = ({
+  activeBatchCount,
   activeLoaded,
   mode,
+  staleBatchCount,
   staleLoaded,
   staleVisible,
   timelineLoaded,
 }: {
+  activeBatchCount: number
   activeLoaded: boolean
   mode: 'character' | 'timeline'
+  staleBatchCount: number
   staleLoaded: boolean
   staleVisible: boolean
   timelineLoaded: boolean
 }) =>
   mode === 'character'
-    ? `character:${activeLoaded ? 'active-loaded' : 'active-pending'}:${
-        staleLoaded ? 'stale-loaded' : staleVisible ? 'stale-visible' : 'stale-hidden'
-      }`
+    ? `character:active-${activeLoaded ? 'loaded' : 'pending'}-${activeBatchCount}:stale-${
+        staleLoaded ? 'loaded' : staleVisible ? 'visible' : 'hidden'
+      }-${staleBatchCount}`
     : `timeline:${timelineLoaded ? 'timeline-loaded' : 'timeline-pending'}`
 
 export const resolveEffectiveDomSnapshotKey = ({
@@ -165,12 +170,21 @@ export const useCommissionSearchModel = ({
     () => !deferIndexInit || !!initialQuery || !!initialUrlQuery,
   )
   const [shouldWarmFuse, setShouldWarmFuse] = useState(() => !!initialQuery || !!initialUrlQuery)
-  const { activeLoaded, staleLoaded, staleVisible, timelineLoaded } = useSearchPanelLoadedState()
+  const {
+    activeBatchCount,
+    activeLoaded,
+    staleBatchCount,
+    staleLoaded,
+    staleVisible,
+    timelineLoaded,
+  } = useSearchPanelLoadedState()
   const shouldBuildIndex = isIndexReady || !deferIndexInit || !!query || !!initialUrlQuery
   const shouldSkipDomContext = disableDomFiltering && Boolean(externalEntries)
   const domSnapshotKey = getDomSnapshotKeyForMode({
+    activeBatchCount,
     activeLoaded,
     mode,
+    staleBatchCount,
     staleLoaded,
     staleVisible,
     timelineLoaded,
@@ -184,6 +198,16 @@ export const useCommissionSearchModel = ({
     if (disableDomFiltering || mode !== 'character' || !hasQuery || activeLoaded) return
     requestActiveCharactersLoad(window, { strategy: 'all' })
   }, [activeLoaded, disableDomFiltering, hasQuery, mode])
+
+  useEffect(() => {
+    if (disableDomFiltering || mode !== 'character' || !hasQuery || !staleVisible || staleLoaded) {
+      return
+    }
+
+    // While searching, stale expansion should eagerly load all deferred stale batches
+    // so filtering can be applied across the full stale set without requiring extra scroll.
+    requestStaleCharactersLoad(window, { preserveScroll: true, strategy: 'all' })
+  }, [disableDomFiltering, hasQuery, mode, staleLoaded, staleVisible])
 
   const index = useMemo(() => {
     if (!shouldBuildIndex) return createEmptySearchIndex()

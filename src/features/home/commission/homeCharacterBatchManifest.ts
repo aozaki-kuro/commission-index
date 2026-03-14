@@ -5,7 +5,7 @@ import type {
 
 const MANIFEST_SELECTOR = 'script[data-home-character-batch-manifest="true"]'
 
-const manifestCache = new WeakMap<Document, HomeCharacterBatchManifest | null>()
+let manifestCache = new WeakMap<Document, HomeCharacterBatchManifest | null>()
 
 const normalizeTargetId = (rawValue: string | null | undefined) => {
   if (!rawValue) return ''
@@ -44,6 +44,15 @@ export const readHomeCharacterBatchManifest = (
     manifestCache.set(resolvedDocument, null)
     return null
   }
+}
+
+export const clearHomeCharacterBatchManifestCacheForTests = (doc?: Document) => {
+  if (doc) {
+    manifestCache.delete(doc)
+    return
+  }
+
+  manifestCache = new WeakMap<Document, HomeCharacterBatchManifest | null>()
 }
 
 export const hasDeferredHomeCharacterTarget = ({

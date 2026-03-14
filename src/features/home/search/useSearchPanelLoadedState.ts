@@ -1,5 +1,6 @@
 import {
   ACTIVE_CHARACTERS_LOADED_EVENT,
+  readActiveCharactersLoadedBatchCount,
   readActiveCharactersLoadedState,
 } from '#features/home/commission/activeCharactersEvent'
 import {
@@ -7,14 +8,17 @@ import {
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
   isStaleCharactersVisible,
+  readStaleCharactersLoadedBatchCount,
   readStaleCharactersState,
 } from '#features/home/commission/staleCharactersEvent'
 import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
 import { useEffect, useState } from 'react'
 
 const getCharacterPanelActiveLoaded = () => readActiveCharactersLoadedState()
+const getCharacterPanelActiveBatchCount = () => readActiveCharactersLoadedBatchCount()
 const getCharacterPanelStaleLoaded = () => readStaleCharactersState().loaded
 const getCharacterPanelStaleVisible = () => isStaleCharactersVisible()
+const getCharacterPanelStaleBatchCount = () => readStaleCharactersLoadedBatchCount()
 
 const getTimelinePanelLoaded = () => {
   if (typeof document === 'undefined') return false
@@ -26,13 +30,16 @@ const getTimelinePanelLoaded = () => {
 
 export const useSearchPanelLoadedState = () => {
   const [activeLoaded, setActiveLoaded] = useState(getCharacterPanelActiveLoaded)
+  const [activeBatchCount, setActiveBatchCount] = useState(getCharacterPanelActiveBatchCount)
   const [staleLoaded, setStaleLoaded] = useState(getCharacterPanelStaleLoaded)
   const [staleVisible, setStaleVisible] = useState(getCharacterPanelStaleVisible)
+  const [staleBatchCount, setStaleBatchCount] = useState(getCharacterPanelStaleBatchCount)
   const [timelineLoaded, setTimelineLoaded] = useState(getTimelinePanelLoaded)
 
   useEffect(() => {
     const syncActiveLoaded = () => {
       setActiveLoaded(getCharacterPanelActiveLoaded())
+      setActiveBatchCount(getCharacterPanelActiveBatchCount())
     }
 
     syncActiveLoaded()
@@ -47,6 +54,7 @@ export const useSearchPanelLoadedState = () => {
     const syncStaleLoaded = () => {
       setStaleLoaded(getCharacterPanelStaleLoaded())
       setStaleVisible(getCharacterPanelStaleVisible())
+      setStaleBatchCount(getCharacterPanelStaleBatchCount())
     }
 
     syncStaleLoaded()
@@ -76,8 +84,10 @@ export const useSearchPanelLoadedState = () => {
 
   return {
     activeLoaded,
+    activeBatchCount,
     staleLoaded,
     staleVisible,
+    staleBatchCount,
     timelineLoaded,
   }
 }

@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT } from '#features/home/commission/activeCharactersEvent'
+import { clearHomeCharacterBatchRequestCacheForTests } from '#features/home/commission/homeCharacterBatchClient'
+import { clearHomeCharacterBatchManifestCacheForTests } from '#features/home/commission/homeCharacterBatchManifest'
 import {
   STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT,
+  STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_LOAD_REQUEST_EVENT,
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
 } from '#features/home/commission/staleCharactersEvent'
@@ -47,6 +50,12 @@ describe('CommissionSearch', () => {
         writable: true,
       })
     }
+  })
+
+  afterEach(() => {
+    clearHomeCharacterBatchRequestCacheForTests()
+    clearHomeCharacterBatchManifestCacheForTests(document)
+    document.body.innerHTML = ''
   })
 
   it('applies suggestion from command list', async () => {
@@ -237,6 +246,114 @@ describe('CommissionSearch', () => {
       })
     } finally {
       dispatchEventSpy.mockRestore()
+    }
+  })
+
+  it('requests all stale batches when stale becomes visible during an active search', async () => {
+    const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
+    document.body.innerHTML = `
+      <div
+        data-commission-view-panel="character"
+        data-commission-view-active="true"
+        data-active-sections-loaded="true"
+        data-stale-loaded="false"
+        data-stale-visibility="hidden"
+      ></div>
+    `
+
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'active::20240101_alpha',
+        searchText: 'alpha',
+      },
+      {
+        id: 2,
+        domKey: 'stale::20240102_beta',
+        searchText: 'beta',
+      },
+    ]
+
+    try {
+      renderSearchWithDomFiltering(entries)
+
+      const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+      fireEvent.input(input, { target: { value: 'beta' } })
+
+      document
+        .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+        ?.setAttribute('data-stale-visibility', 'visible')
+
+      window.dispatchEvent(
+        new CustomEvent(STALE_CHARACTERS_STATE_CHANGE_EVENT, {
+          detail: { visibility: 'visible', loaded: false },
+        }),
+      )
+
+      await waitFor(() => {
+        expect(
+          dispatchEventSpy.mock.calls.some(([event]) => {
+            if (!(event instanceof CustomEvent)) return false
+            if (event.type !== STALE_CHARACTERS_LOAD_REQUEST_EVENT) return false
+            return event.detail?.strategy === 'all' && event.detail?.preserveScroll === true
+          }),
+        ).toBe(true)
+      })
+    } finally {
+      dispatchEventSpy.mockRestore()
+    }
+  })
+
+  it('prefetches deferred active batches on first search interaction', async () => {
+    document.body.innerHTML = `
+      <div
+        data-commission-view-panel="character"
+        data-commission-view-active="true"
+        data-active-sections-loaded="false"
+        data-active-batches-loaded-count="0"
+      ></div>
+      <script type="application/json" data-home-character-batch-manifest="true">
+        {"locale":"en","active":{"initialSectionIds":["alpha"],"totalBatches":3,"targetBatchById":{}},"stale":{"initialSectionIds":[],"totalBatches":2,"targetBatchById":{}}}
+      </script>
+    `
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ sections: [] }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+        },
+      }),
+    )
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'section-alpha::20240101_alice',
+        searchText: 'alice sample',
+      },
+    ]
+
+    try {
+      renderSearchWithDomFiltering(entries)
+
+      const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+      fireEvent.focus(input)
+
+      await waitFor(() => {
+        expect(fetchSpy).toHaveBeenCalledTimes(3)
+      })
+
+      fireEvent.blur(input)
+      fireEvent.focus(input)
+
+      expect(fetchSpy).toHaveBeenCalledTimes(3)
+      expect(fetchSpy.mock.calls.map(([url]) => url)).toEqual([
+        '/search/home-character-batches/en/active/0.json',
+        '/search/home-character-batches/en/active/1.json',
+        '/search/home-character-batches/en/active/2.json',
+      ])
+    } finally {
+      fetchSpy.mockRestore()
     }
   })
 
@@ -445,6 +562,133 @@ describe('CommissionSearch', () => {
       expect(screen.getByText('1 stale match hidden.')).toBeInTheDocument()
       expect(screen.getByText('Load')).toBeInTheDocument()
       expect(input).toHaveAttribute('aria-expanded', 'true')
+    })
+  })
+
+  it('prefetches stale batches once hidden stale matches are detected', async () => {
+    document.body.innerHTML = `
+      <div
+        data-commission-view-panel="character"
+        data-commission-view-active="true"
+        data-active-sections-loaded="true"
+        data-stale-loaded="false"
+        data-stale-batches-loaded-count="0"
+      >
+        <section id="active" data-character-section="true" data-character-status="active">
+          <div data-commission-entry="true" data-character-section-id="active" data-commission-search-key="active::20240101_visible"></div>
+        </section>
+      </div>
+      <script type="application/json" data-home-character-batch-manifest="true">
+        {"locale":"en","active":{"initialSectionIds":["alpha"],"totalBatches":1,"targetBatchById":{}},"stale":{"initialSectionIds":[],"totalBatches":2,"targetBatchById":{}}}
+      </script>
+    `
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ sections: [] }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+        },
+      }),
+    )
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'active::20240101_visible',
+        searchText: 'visible alpha',
+      },
+      {
+        id: 2,
+        domKey: 'stale::20240102_hidden',
+        searchText: 'hidden alpha',
+      },
+    ]
+
+    try {
+      renderSearchWithDomFiltering(entries)
+
+      const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+      fireEvent.input(input, { target: { value: 'hidden' } })
+
+      await waitFor(() => {
+        expect(screen.getByText('1 stale match hidden.')).toBeInTheDocument()
+        expect(fetchSpy).toHaveBeenCalledTimes(2)
+      })
+
+      expect(fetchSpy.mock.calls.map(([url]) => url)).toEqual([
+        '/search/home-character-batches/en/stale/0.json',
+        '/search/home-character-batches/en/stale/1.json',
+      ])
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
+  it('reapplies the active search filter as soon as stale batches mount', async () => {
+    document.body.innerHTML = `
+      <div
+        data-commission-view-panel="character"
+        data-commission-view-active="true"
+        data-active-sections-loaded="true"
+        data-stale-loaded="false"
+        data-stale-visibility="hidden"
+        data-stale-batches-loaded-count="0"
+      >
+        <section id="active" data-character-section="true" data-character-status="active">
+          <div data-commission-entry="true" data-character-section-id="active" data-commission-search-key="active::20240101_alpha"></div>
+        </section>
+      </div>
+    `
+
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'active::20240101_alpha',
+        searchText: 'alpha',
+      },
+      {
+        id: 2,
+        domKey: 'stale::20240102_beta',
+        searchText: 'beta',
+      },
+    ]
+
+    renderSearchWithDomFiltering(entries)
+
+    const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+    fireEvent.input(input, { target: { value: 'alpha' } })
+
+    await waitFor(() => {
+      expect(screen.getByText('Search results: 1 of 1 commissions shown.')).toBeInTheDocument()
+    })
+
+    const panel = document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+    panel?.setAttribute('data-stale-visibility', 'visible')
+    panel?.setAttribute('data-stale-batches-loaded-count', '1')
+
+    window.dispatchEvent(
+      new CustomEvent(STALE_CHARACTERS_STATE_CHANGE_EVENT, {
+        detail: { visibility: 'visible', loaded: false },
+      }),
+    )
+
+    const staleSection = document.createElement('section')
+    staleSection.id = 'stale'
+    staleSection.dataset.characterSection = 'true'
+    staleSection.dataset.characterStatus = 'stale'
+    staleSection.innerHTML =
+      '<div data-commission-entry="true" data-character-section-id="stale" data-commission-search-key="stale::20240102_beta"></div>'
+    panel?.append(staleSection)
+
+    window.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
+
+    await waitFor(() => {
+      expect(staleSection.classList.contains('hidden')).toBe(true)
+      expect(
+        staleSection
+          .querySelector<HTMLElement>('[data-commission-entry="true"]')
+          ?.classList.contains('hidden'),
+      ).toBe(true)
     })
   })
 
