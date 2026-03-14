@@ -137,10 +137,6 @@ const getMaxScrollableY = (win: Window) => {
 const needsMoreContentForRestore = (win: Window, savedState: SavedHomeScrollState) =>
   savedState.y > getMaxScrollableY(win) + 1
 
-const hasPendingStaleSections = (doc: Document) =>
-  readStaleCharactersLoadedBatchCount(doc) <
-  getHomeCharacterBatchTotalCount({ doc, status: 'stale' })
-
 const isTimelineLoaded = (doc: Document) =>
   doc.querySelector<HTMLElement>(TIMELINE_PANEL_SELECTOR)?.dataset.timelineLoaded === 'true'
 
@@ -213,6 +209,7 @@ export const mountHomeScrollRestore = ({
 
   let disposed = false
   let restored = false
+  const staleTotalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'stale' })
   const revealFallbackTimer = win.setTimeout(() => {
     revealRestoringShell(win)
   }, 3000)
@@ -229,13 +226,23 @@ export const mountHomeScrollRestore = ({
     writeScrollRestoration(win, originalScrollRestoration)
   }
 
-  const abortRestore = () => {
-    if (disposed || restored) return
+  const completeRestore = ({ schedule }: { schedule: boolean }) => {
+    if (restored) return
     restored = true
     clearSavedState(win)
     restoreBrowserScrollRestoration()
     win.clearTimeout(revealFallbackTimer)
+    if (schedule) {
+      scheduleRestore({ deps, savedState, win })
+      return
+    }
+
     revealRestoringShell(win)
+  }
+
+  const abortRestore = () => {
+    if (disposed) return
+    completeRestore({ schedule: false })
   }
 
   const tryRestore = () => {
@@ -247,11 +254,7 @@ export const mountHomeScrollRestore = ({
         return
       }
 
-      restored = true
-      clearSavedState(win)
-      restoreBrowserScrollRestoration()
-      win.clearTimeout(revealFallbackTimer)
-      scheduleRestore({ deps, savedState, win })
+      completeRestore({ schedule: true })
       return
     }
 
@@ -263,7 +266,10 @@ export const mountHomeScrollRestore = ({
         return
       }
 
-      if (!readStaleCharactersState(doc).loaded && hasPendingStaleSections(doc)) {
+      if (
+        !readStaleCharactersState(doc).loaded &&
+        readStaleCharactersLoadedBatchCount(doc) < staleTotalBatchCount
+      ) {
         deps.requestStaleLoad(win, {
           preserveScroll: false,
           targetBatchCount: readStaleCharactersLoadedBatchCount(doc) + RESTORE_BATCH_WINDOW,
@@ -272,11 +278,7 @@ export const mountHomeScrollRestore = ({
       }
     }
 
-    restored = true
-    clearSavedState(win)
-    restoreBrowserScrollRestoration()
-    win.clearTimeout(revealFallbackTimer)
-    scheduleRestore({ deps, savedState, win })
+    completeRestore({ schedule: true })
   }
 
   win.addEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, tryRestore)

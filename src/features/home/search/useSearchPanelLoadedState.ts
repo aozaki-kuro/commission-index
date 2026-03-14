@@ -7,18 +7,25 @@ import {
   STALE_CHARACTERS_COLLAPSED_EVENT,
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
-  isStaleCharactersVisible,
   readStaleCharactersLoadedBatchCount,
   readStaleCharactersState,
 } from '#features/home/commission/staleCharactersEvent'
 import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
 import { useEffect, useState } from 'react'
 
-const getCharacterPanelActiveLoaded = () => readActiveCharactersLoadedState()
-const getCharacterPanelActiveBatchCount = () => readActiveCharactersLoadedBatchCount()
-const getCharacterPanelStaleLoaded = () => readStaleCharactersState().loaded
-const getCharacterPanelStaleVisible = () => isStaleCharactersVisible()
-const getCharacterPanelStaleBatchCount = () => readStaleCharactersLoadedBatchCount()
+const readCharacterPanelActiveSnapshot = () => ({
+  loaded: readActiveCharactersLoadedState(),
+  batchCount: readActiveCharactersLoadedBatchCount(),
+})
+
+const readCharacterPanelStaleSnapshot = () => {
+  const state = readStaleCharactersState()
+  return {
+    loaded: state.loaded,
+    visible: state.visibility === 'visible',
+    batchCount: readStaleCharactersLoadedBatchCount(),
+  }
+}
 
 const getTimelinePanelLoaded = () => {
   if (typeof document === 'undefined') return false
@@ -28,18 +35,30 @@ const getTimelinePanelLoaded = () => {
   )
 }
 
+const readPanelLoadedStateSnapshot = () => {
+  const active = readCharacterPanelActiveSnapshot()
+  const stale = readCharacterPanelStaleSnapshot()
+  return {
+    activeLoaded: active.loaded,
+    activeBatchCount: active.batchCount,
+    staleLoaded: stale.loaded,
+    staleVisible: stale.visible,
+    staleBatchCount: stale.batchCount,
+    timelineLoaded: getTimelinePanelLoaded(),
+  }
+}
+
 export const useSearchPanelLoadedState = () => {
-  const [activeLoaded, setActiveLoaded] = useState(getCharacterPanelActiveLoaded)
-  const [activeBatchCount, setActiveBatchCount] = useState(getCharacterPanelActiveBatchCount)
-  const [staleLoaded, setStaleLoaded] = useState(getCharacterPanelStaleLoaded)
-  const [staleVisible, setStaleVisible] = useState(getCharacterPanelStaleVisible)
-  const [staleBatchCount, setStaleBatchCount] = useState(getCharacterPanelStaleBatchCount)
-  const [timelineLoaded, setTimelineLoaded] = useState(getTimelinePanelLoaded)
+  const [panelLoadedState, setPanelLoadedState] = useState(readPanelLoadedStateSnapshot)
 
   useEffect(() => {
     const syncActiveLoaded = () => {
-      setActiveLoaded(getCharacterPanelActiveLoaded())
-      setActiveBatchCount(getCharacterPanelActiveBatchCount())
+      const snapshot = readCharacterPanelActiveSnapshot()
+      setPanelLoadedState(previous => ({
+        ...previous,
+        activeLoaded: snapshot.loaded,
+        activeBatchCount: snapshot.batchCount,
+      }))
     }
 
     syncActiveLoaded()
@@ -52,9 +71,13 @@ export const useSearchPanelLoadedState = () => {
 
   useEffect(() => {
     const syncStaleLoaded = () => {
-      setStaleLoaded(getCharacterPanelStaleLoaded())
-      setStaleVisible(getCharacterPanelStaleVisible())
-      setStaleBatchCount(getCharacterPanelStaleBatchCount())
+      const snapshot = readCharacterPanelStaleSnapshot()
+      setPanelLoadedState(previous => ({
+        ...previous,
+        staleLoaded: snapshot.loaded,
+        staleVisible: snapshot.visible,
+        staleBatchCount: snapshot.batchCount,
+      }))
     }
 
     syncStaleLoaded()
@@ -71,7 +94,10 @@ export const useSearchPanelLoadedState = () => {
 
   useEffect(() => {
     const syncTimelineLoaded = () => {
-      setTimelineLoaded(getTimelinePanelLoaded())
+      setPanelLoadedState(previous => ({
+        ...previous,
+        timelineLoaded: getTimelinePanelLoaded(),
+      }))
     }
 
     syncTimelineLoaded()
@@ -83,11 +109,11 @@ export const useSearchPanelLoadedState = () => {
   }, [])
 
   return {
-    activeLoaded,
-    activeBatchCount,
-    staleLoaded,
-    staleVisible,
-    staleBatchCount,
-    timelineLoaded,
+    activeLoaded: panelLoadedState.activeLoaded,
+    activeBatchCount: panelLoadedState.activeBatchCount,
+    staleLoaded: panelLoadedState.staleLoaded,
+    staleVisible: panelLoadedState.staleVisible,
+    staleBatchCount: panelLoadedState.staleBatchCount,
+    timelineLoaded: panelLoadedState.timelineLoaded,
   }
 }

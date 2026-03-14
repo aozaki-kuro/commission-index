@@ -171,6 +171,7 @@ export const mountSidebarNavEnhancer = ({
   )
   const navPanels = Array.from(navRoot.querySelectorAll<HTMLElement>(NAV_PANEL_SELECTOR))
   const allSidebarDots = Array.from(navRoot.querySelectorAll<HTMLElement>(SIDEBAR_DOT_SELECTOR))
+  const staleDetails = navRoot.querySelector<HTMLDetailsElement>(STALE_DETAILS_SELECTOR)
 
   let clearHashRafId: number | null = null
   let syncLinksRafId: number | null = null
@@ -184,6 +185,26 @@ export const mountSidebarNavEnhancer = ({
 
   const clearActivePanelSnapshot = () => {
     activePanelSnapshot = null
+  }
+
+  const scheduleAnimationFrame = ({
+    rafId,
+    run,
+    setRafId,
+  }: {
+    rafId: number | null
+    run: () => void
+    setRafId: (nextRafId: number | null) => void
+  }) => {
+    if (rafId !== null) return
+
+    let didRunSynchronously = false
+    const frameId = win.requestAnimationFrame(() => {
+      didRunSynchronously = true
+      setRafId(null)
+      run()
+    })
+    setRafId(didRunSynchronously ? null : frameId)
   }
 
   const resetAllDots = () => {
@@ -311,15 +332,13 @@ export const mountSidebarNavEnhancer = ({
   }
 
   const scheduleClearHashIfTargetIsStale = () => {
-    if (clearHashRafId !== null) return
-
-    let didRunSynchronously = false
-    const frameId = win.requestAnimationFrame(() => {
-      didRunSynchronously = true
-      clearHashRafId = null
-      deps.clearHash()
+    scheduleAnimationFrame({
+      rafId: clearHashRafId,
+      run: deps.clearHash,
+      setRafId: nextRafId => {
+        clearHashRafId = nextRafId
+      },
     })
-    clearHashRafId = didRunSynchronously ? null : frameId
   }
 
   const scheduleSyncCharacterLinkAvailability = ({
@@ -330,27 +349,24 @@ export const mountSidebarNavEnhancer = ({
     if (invalidateSnapshot) {
       clearActivePanelSnapshot()
     }
-    if (syncLinksRafId !== null) return
 
-    let didRunSynchronously = false
-    const frameId = win.requestAnimationFrame(() => {
-      didRunSynchronously = true
-      syncLinksRafId = null
-      syncCharacterLinkAvailability()
+    scheduleAnimationFrame({
+      rafId: syncLinksRafId,
+      run: syncCharacterLinkAvailability,
+      setRafId: nextRafId => {
+        syncLinksRafId = nextRafId
+      },
     })
-    syncLinksRafId = didRunSynchronously ? null : frameId
   }
 
   const scheduleSyncActiveDots = () => {
-    if (syncDotsRafId !== null) return
-
-    let didRunSynchronously = false
-    const frameId = win.requestAnimationFrame(() => {
-      didRunSynchronously = true
-      syncDotsRafId = null
-      syncActiveDots()
+    scheduleAnimationFrame({
+      rafId: syncDotsRafId,
+      run: syncActiveDots,
+      setRafId: nextRafId => {
+        syncDotsRafId = nextRafId
+      },
     })
-    syncDotsRafId = didRunSynchronously ? null : frameId
   }
 
   const syncAll = () => {
@@ -362,14 +378,12 @@ export const mountSidebarNavEnhancer = ({
   }
 
   const openStaleDetails = () => {
-    const staleDetails = navRoot.querySelector<HTMLDetailsElement>(STALE_DETAILS_SELECTOR)
     if (!staleDetails) return
     if (staleDetails.open) return
     staleDetails.open = true
   }
 
   const closeStaleDetails = () => {
-    const staleDetails = navRoot.querySelector<HTMLDetailsElement>(STALE_DETAILS_SELECTOR)
     if (!staleDetails) return
     if (!staleDetails.open) return
     staleDetails.open = false
@@ -449,6 +463,30 @@ export const mountSidebarNavEnhancer = ({
     })
   }
 
+  const handleDeferredCharacterLinkLoad = ({
+    href,
+    link,
+    loadedEvent,
+    requestLoad,
+  }: {
+    href: string | null
+    link: HTMLAnchorElement
+    loadedEvent: string
+    requestLoad: () => void
+  }) => {
+    dispatchHomeScrollRestoreAbort(win)
+
+    const onLoaded = () => {
+      deps.scrollToHashWithoutWrite(href)
+      scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })
+      scheduleSyncActiveDots()
+    }
+
+    win.addEventListener(loadedEvent, onLoaded, { once: true })
+    requestLoad()
+    trackSidebarCharacterClick(link)
+  }
+
   const onSidebarClick = (event: MouseEvent) => {
     const target = event.target
     if (!(target instanceof Element)) return
@@ -511,17 +549,14 @@ export const mountSidebarNavEnhancer = ({
       hasDeferredActiveCharacterTarget(doc, href)
     if (isDeferredActiveLink) {
       event.preventDefault()
-      dispatchHomeScrollRestoreAbort(win)
-
-      const onActiveLoaded = () => {
-        deps.scrollToHashWithoutWrite(href)
-        scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })
-        scheduleSyncActiveDots()
-      }
-
-      win.addEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, onActiveLoaded, { once: true })
-      deps.requestActiveLoad(win, { strategy: 'target', targetId: href ?? undefined })
-      trackSidebarCharacterClick(characterLink)
+      handleDeferredCharacterLinkLoad({
+        href,
+        link: characterLink,
+        loadedEvent: ACTIVE_CHARACTERS_LOADED_EVENT,
+        requestLoad: () => {
+          deps.requestActiveLoad(win, { strategy: 'target', targetId: href ?? undefined })
+        },
+      })
       return
     }
 
@@ -529,21 +564,18 @@ export const mountSidebarNavEnhancer = ({
     const isDeferredStaleLink = isStaleLink && hasDeferredStaleCharacterTarget(doc, href)
     if (isDeferredStaleLink) {
       event.preventDefault()
-      dispatchHomeScrollRestoreAbort(win)
-
-      const onStaleLoaded = () => {
-        deps.scrollToHashWithoutWrite(href)
-        scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })
-        scheduleSyncActiveDots()
-      }
-
-      win.addEventListener(STALE_CHARACTERS_LOADED_EVENT, onStaleLoaded, { once: true })
-      deps.requestStaleLoad(win, {
-        preserveScroll: false,
-        strategy: 'target',
-        targetId: href ?? undefined,
+      handleDeferredCharacterLinkLoad({
+        href,
+        link: characterLink,
+        loadedEvent: STALE_CHARACTERS_LOADED_EVENT,
+        requestLoad: () => {
+          deps.requestStaleLoad(win, {
+            preserveScroll: false,
+            strategy: 'target',
+            targetId: href ?? undefined,
+          })
+        },
       })
-      trackSidebarCharacterClick(characterLink)
       return
     }
 
@@ -582,7 +614,6 @@ export const mountSidebarNavEnhancer = ({
     trackSidebarCharacterClick(characterLink)
   }
 
-  const staleDetails = navRoot.querySelector<HTMLDetailsElement>(STALE_DETAILS_SELECTOR)
   const onSidebarSearchState = () => {
     scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })
     scheduleSyncActiveDots()

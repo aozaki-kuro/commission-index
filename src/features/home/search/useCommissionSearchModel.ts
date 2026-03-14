@@ -118,6 +118,25 @@ export const resolveEffectiveDomSnapshotKey = ({
   skipDomContext: boolean
 }) => (skipDomContext ? 'skip-dom-context' : domSnapshotKey)
 
+const syncDeferredAllLoadRequest = ({
+  didRequestRef,
+  request,
+  shouldRequest,
+}: {
+  didRequestRef: { current: boolean }
+  request: () => void
+  shouldRequest: boolean
+}) => {
+  if (!shouldRequest) {
+    didRequestRef.current = false
+    return
+  }
+
+  if (didRequestRef.current) return
+  didRequestRef.current = true
+  request()
+}
+
 export const useCommissionSearchModel = ({
   activeCommandValue,
   controls,
@@ -197,31 +216,26 @@ export const useCommissionSearchModel = ({
   const didRequestStaleAllRef = useRef(false)
 
   useEffect(() => {
-    const shouldRequest = !disableDomFiltering && mode === 'character' && hasQuery && !activeLoaded
-    if (!shouldRequest) {
-      didRequestActiveAllRef.current = false
-      return
-    }
-
-    if (didRequestActiveAllRef.current) return
-    didRequestActiveAllRef.current = true
-    requestActiveCharactersLoad(window, { strategy: 'all' })
+    syncDeferredAllLoadRequest({
+      didRequestRef: didRequestActiveAllRef,
+      request: () => {
+        requestActiveCharactersLoad(window, { strategy: 'all' })
+      },
+      shouldRequest: !disableDomFiltering && mode === 'character' && hasQuery && !activeLoaded,
+    })
   }, [activeLoaded, disableDomFiltering, hasQuery, mode])
 
   useEffect(() => {
-    const shouldRequest =
-      !disableDomFiltering && mode === 'character' && hasQuery && staleVisible && !staleLoaded
-    if (!shouldRequest) {
-      didRequestStaleAllRef.current = false
-      return
-    }
-
-    if (didRequestStaleAllRef.current) return
-    didRequestStaleAllRef.current = true
-
-    // While searching, stale expansion should eagerly load all deferred stale batches
-    // so filtering can be applied across the full stale set without requiring extra scroll.
-    requestStaleCharactersLoad(window, { preserveScroll: true, strategy: 'all' })
+    syncDeferredAllLoadRequest({
+      didRequestRef: didRequestStaleAllRef,
+      request: () => {
+        // While searching, stale expansion should eagerly load all deferred stale batches
+        // so filtering can be applied across the full stale set without requiring extra scroll.
+        requestStaleCharactersLoad(window, { preserveScroll: true, strategy: 'all' })
+      },
+      shouldRequest:
+        !disableDomFiltering && mode === 'character' && hasQuery && staleVisible && !staleLoaded,
+    })
   }, [disableDomFiltering, hasQuery, mode, staleLoaded, staleVisible])
 
   const index = useMemo(() => {
@@ -417,14 +431,18 @@ export const useCommissionSearchModel = ({
     resolvedIndex.fuse,
   ])
 
-  const ensureIndexReady = useCallback(() => {
+  const setIndexReadyIfDeferred = useCallback(() => {
     if (deferIndexInit) setIsIndexReady(true)
   }, [deferIndexInit])
 
+  const ensureIndexReady = useCallback(() => {
+    setIndexReadyIfDeferred()
+  }, [setIndexReadyIfDeferred])
+
   const ensureSearchRuntimeReady = useCallback(() => {
-    if (deferIndexInit) setIsIndexReady(true)
+    setIndexReadyIfDeferred()
     setShouldWarmFuse(true)
-  }, [deferIndexInit])
+  }, [setIndexReadyIfDeferred])
 
   return {
     deferredQuery,

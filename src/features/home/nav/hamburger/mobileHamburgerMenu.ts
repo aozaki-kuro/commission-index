@@ -126,6 +126,9 @@ const readAgeGateOpen = (doc: Document) => {
   return doc.querySelector<HTMLElement>(AGE_GATE_ROOT_SELECTOR)?.dataset.state === 'open'
 }
 
+const resolveNavLinkTargetId = (link: HTMLAnchorElement) =>
+  link.dataset.mobileNavSectionId ?? link.getAttribute('href')
+
 const setHtmlScrollLocked = (doc: Document, locked: boolean) => {
   const html = doc.documentElement
   html.classList.toggle('overflow-hidden', locked)
@@ -369,7 +372,7 @@ export const mountMobileHamburgerMenu = ({
   }
 
   const prefetchNavLinkTarget = (link: HTMLAnchorElement) => {
-    const targetId = link.dataset.mobileNavSectionId ?? link.getAttribute('href')
+    const targetId = resolveNavLinkTargetId(link)
     if (link.dataset.mobileNavCharacterStatus === 'active') {
       deps.prefetchActiveTarget(doc, targetId)
       return
@@ -393,6 +396,33 @@ export const mountMobileHamburgerMenu = ({
       character_name: navLink.textContent?.trim() || 'unknown',
       section_id: navLink.dataset.mobileNavSectionId ?? 'unknown',
     })
+  }
+
+  const handleDeferredNavLinkLoad = ({
+    event,
+    href,
+    loadedEvent,
+    navLink,
+    requestLoad,
+  }: {
+    event: MouseEvent
+    href: string | null
+    loadedEvent: string
+    navLink: HTMLAnchorElement
+    requestLoad: () => void
+  }) => {
+    event.preventDefault()
+    dispatchHomeScrollRestoreAbort(win)
+
+    const onLoaded = () => {
+      deps.scrollToHashWithoutWrite(href)
+      syncLinkAvailability()
+    }
+
+    win.addEventListener(loadedEvent, onLoaded, { once: true })
+    requestLoad()
+    trackCharacterNavClick(navLink)
+    closeMenu()
   }
 
   const runSearchAction = () => {
@@ -491,56 +521,44 @@ export const mountMobileHamburgerMenu = ({
     const navLink = target.closest<HTMLAnchorElement>(NAV_LINK_SELECTOR)
     if (!navLink) return
 
-    const deferredActiveSectionId =
-      navLink.dataset.mobileNavSectionId ?? navLink.getAttribute('href')
+    const navTargetId = resolveNavLinkTargetId(navLink)
     const isDeferredActiveLink =
       navLink.dataset.mobileNavCharacterStatus === 'active' &&
-      hasDeferredActiveCharacterTarget(doc, deferredActiveSectionId)
+      hasDeferredActiveCharacterTarget(doc, navTargetId)
     if (isDeferredActiveLink) {
-      event.preventDefault()
-      dispatchHomeScrollRestoreAbort(win)
-
       const href = navLink.getAttribute('href')
-      const onActiveLoaded = () => {
-        deps.scrollToHashWithoutWrite(href)
-        syncLinkAvailability()
-      }
-
-      win.addEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, onActiveLoaded, { once: true })
-      deps.requestActiveLoad(win, {
-        strategy: 'target',
-        targetId: href ?? deferredActiveSectionId ?? undefined,
+      handleDeferredNavLinkLoad({
+        event,
+        href,
+        loadedEvent: ACTIVE_CHARACTERS_LOADED_EVENT,
+        navLink,
+        requestLoad: () => {
+          deps.requestActiveLoad(win, {
+            strategy: 'target',
+            targetId: href ?? navTargetId ?? undefined,
+          })
+        },
       })
-      trackCharacterNavClick(navLink)
-      closeMenu()
       return
     }
 
     const isStaleLink = navLink.dataset.mobileNavCharacterStatus === 'stale'
-    const isDeferredStaleLink =
-      isStaleLink &&
-      hasDeferredStaleCharacterTarget(
-        doc,
-        navLink.dataset.mobileNavSectionId ?? navLink.getAttribute('href'),
-      )
+    const isDeferredStaleLink = isStaleLink && hasDeferredStaleCharacterTarget(doc, navTargetId)
     if (isDeferredStaleLink) {
-      event.preventDefault()
-      dispatchHomeScrollRestoreAbort(win)
-
       const href = navLink.getAttribute('href')
-      const onStaleLoaded = () => {
-        deps.scrollToHashWithoutWrite(href)
-        syncLinkAvailability()
-      }
-
-      win.addEventListener(STALE_CHARACTERS_LOADED_EVENT, onStaleLoaded, { once: true })
-      deps.requestStaleLoad(win, {
-        preserveScroll: false,
-        strategy: 'target',
-        targetId: href ?? navLink.dataset.mobileNavSectionId ?? undefined,
+      handleDeferredNavLinkLoad({
+        event,
+        href,
+        loadedEvent: STALE_CHARACTERS_LOADED_EVENT,
+        navLink,
+        requestLoad: () => {
+          deps.requestStaleLoad(win, {
+            preserveScroll: false,
+            strategy: 'target',
+            targetId: href ?? navTargetId ?? undefined,
+          })
+        },
       })
-      trackCharacterNavClick(navLink)
-      closeMenu()
       return
     }
     if (isStaleLink && !isStaleCharactersVisible(doc)) {
@@ -594,11 +612,7 @@ export const mountMobileHamburgerMenu = ({
     syncUiState()
   }
 
-  const onSearchStateChanged = () => {
-    syncLinkAvailability()
-  }
-
-  const onStaleLoaded = () => {
+  const onLinkAvailabilityRelatedStateChanged = () => {
     syncLinkAvailability()
   }
 
@@ -633,8 +647,8 @@ export const mountMobileHamburgerMenu = ({
   backdrop.addEventListener('click', onBackdropClick)
   doc.addEventListener('keydown', onDocumentKeyDown)
   win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onViewModeChanged)
-  win.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSearchStateChanged)
-  win.addEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStaleLoaded)
+  win.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, onLinkAvailabilityRelatedStateChanged)
+  win.addEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onLinkAvailabilityRelatedStateChanged)
   win.addEventListener('popstate', onPopState)
   win.addEventListener(AGE_GATE_STATE_EVENT, onAgeGateStateChanged)
 
@@ -660,8 +674,11 @@ export const mountMobileHamburgerMenu = ({
     backdrop.removeEventListener('click', onBackdropClick)
     doc.removeEventListener('keydown', onDocumentKeyDown)
     win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onViewModeChanged)
-    win.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSearchStateChanged)
-    win.removeEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStaleLoaded)
+    win.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, onLinkAvailabilityRelatedStateChanged)
+    win.removeEventListener(
+      STALE_CHARACTERS_STATE_CHANGE_EVENT,
+      onLinkAvailabilityRelatedStateChanged,
+    )
     win.removeEventListener('popstate', onPopState)
     win.removeEventListener(AGE_GATE_STATE_EVENT, onAgeGateStateChanged)
   }

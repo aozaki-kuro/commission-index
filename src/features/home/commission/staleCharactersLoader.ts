@@ -105,6 +105,7 @@ export const mountStaleCharactersLoader = ({
   const winWithIntersectionObserver = win as WindowWithIntersectionObserver
   const placeholder = panel.querySelector<HTMLElement>(STALE_PLACEHOLDER_SELECTOR)
   const divider = panel.querySelector<HTMLElement>(STALE_DIVIDER_SELECTOR)
+  const staleTotalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'stale' })
   let intersectionObserver: IntersectionObserver | null = null
   let queue = Promise.resolve(false)
   let cancelIdlePrefetch: (() => void) | null = null
@@ -127,10 +128,9 @@ export const mountStaleCharactersLoader = ({
     visibility: 'hidden' | 'visible'
   }) => {
     writeStaleCharactersLoadedBatchCount(panel, loadedBatchCount)
-    const totalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'stale' })
     const state = writeStaleCharactersState(panel, {
       visibility,
-      loaded: loadedBatchCount >= totalBatchCount,
+      loaded: loadedBatchCount >= staleTotalBatchCount,
     })
 
     setPlaceholderHidden(visibility === 'visible')
@@ -158,8 +158,7 @@ export const mountStaleCharactersLoader = ({
     stopIdlePrefetch()
 
     const loadedBatchCount = readStaleCharactersLoadedBatchCount(doc)
-    const totalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'stale' })
-    if (loadedBatchCount >= totalBatchCount) return
+    if (loadedBatchCount >= staleTotalBatchCount) return
 
     const task = () => {
       prefetchHomeCharacterBatches({
@@ -226,13 +225,12 @@ export const mountStaleCharactersLoader = ({
   const loadBatchesThrough = async (targetBatchIndex: number) => {
     let didChange = false
     let loadedBatchCount = readStaleCharactersLoadedBatchCount(doc)
-    const totalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'stale' })
-    if (loadedBatchCount >= totalBatchCount) {
+    if (loadedBatchCount >= staleTotalBatchCount) {
       updateLoadedState({ loadedBatchCount, visibility: 'visible' })
       return false
     }
 
-    const finalBatchIndex = Math.min(targetBatchIndex, totalBatchCount - 1)
+    const finalBatchIndex = Math.min(targetBatchIndex, staleTotalBatchCount - 1)
     const payloadRequests = new Map<number, ReturnType<typeof fetchHomeCharacterBatch>>()
     const queueBatchFetch = (batchIndex: number) => {
       if (batchIndex > finalBatchIndex || payloadRequests.has(batchIndex)) return
@@ -272,13 +270,12 @@ export const mountStaleCharactersLoader = ({
     const run = async () => {
       const preserveScroll = options.preserveScroll ?? false
       const scrollPosition = preserveScroll ? { x: win.scrollX, y: win.scrollY } : null
-      const totalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'stale' })
       const strategy = options.strategy ?? 'next'
       const loadedBatchCount = readStaleCharactersLoadedBatchCount(doc)
       const targetBatchIndex = Number.isInteger(options.targetBatchCount)
         ? Math.max(loadedBatchCount, Number(options.targetBatchCount) - 1)
         : strategy === 'all'
-          ? totalBatchCount - 1
+          ? staleTotalBatchCount - 1
           : strategy === 'target'
             ? (resolveDeferredStaleCharacterBatch(doc, options.targetId) ?? loadedBatchCount)
             : loadedBatchCount
@@ -287,7 +284,7 @@ export const mountStaleCharactersLoader = ({
       let currentState = updateLoadedState({ loadedBatchCount, visibility: 'visible' })
       dispatchState(win, currentState)
 
-      if (loadedBatchCount < totalBatchCount && targetBatchIndex >= loadedBatchCount) {
+      if (loadedBatchCount < staleTotalBatchCount && targetBatchIndex >= loadedBatchCount) {
         didChange = await loadBatchesThrough(targetBatchIndex)
         const nextState = readStaleCharactersStateFromPanel(panel)
         if (
