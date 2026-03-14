@@ -170,7 +170,7 @@ const resolvedCanonicalPath =
     updateSummary={homeUpdateSummary}
   />
   <div class="relative mx-auto flex justify-center">
-    <div id="Main Contents" data-home-scroll-restore-shell="true" class="w-full max-w-2xl">
+    <div id="Main Contents" class="w-full max-w-2xl">
       <HomeControlsIsland
         client:load
         locale={resolvedLocale}
@@ -201,20 +201,22 @@ const resolvedCanonicalPath =
         stale={payload.characterStatus.stale}
         monthNavItems={payload.monthNavItems}
       />
-      <CommissionImageNoticeScript />
-      <StaticCommissionSections
-        locale={resolvedLocale}
-        activeChars={payload.characterStatus.active}
-        staleChars={payload.characterStatus.stale}
-        commissionMap={commissionMap}
-        characterAliasesMap={characterAliasesMap}
-        creatorAliasesMap={creatorAliasesMap}
-        keywordAliasesMap={keywordAliasesMap}
-        timelineGroups={payload.timelineGroups}
-      />
-      <HomeClientScript />
-      {import.meta.env.DEV ? <DevLiveRefreshScript /> : null}
-      <Footer locale={resolvedLocale} />
+      <div data-home-scroll-restore-shell="true">
+        <CommissionImageNoticeScript />
+        <StaticCommissionSections
+          locale={resolvedLocale}
+          activeChars={payload.characterStatus.active}
+          staleChars={payload.characterStatus.stale}
+          commissionMap={commissionMap}
+          characterAliasesMap={characterAliasesMap}
+          creatorAliasesMap={creatorAliasesMap}
+          keywordAliasesMap={keywordAliasesMap}
+          timelineGroups={payload.timelineGroups}
+        />
+        <HomeClientScript />
+        {import.meta.env.DEV ? <DevLiveRefreshScript /> : null}
+        <Footer locale={resolvedLocale} />
+      </div>
     </div>
   </div>
 </BaseLayout>
