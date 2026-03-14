@@ -446,6 +446,48 @@ describe('sidebarNavEnhancer', () => {
     document.querySelector('template[data-active-sections-template="true"]')?.remove()
   })
 
+  it('prefetches deferred character targets on preview interactions', () => {
+    document.querySelector<HTMLElement>('[data-sidebar-nav-panel="character"]')?.insertAdjacentHTML(
+      'beforeend',
+      `
+        <li>
+          <span data-sidebar-dot-for="title-beta" class="scale-0 opacity-0"></span>
+          <a href="#section-beta" data-sidebar-character-link="true" data-sidebar-character-status="active" data-sidebar-title-id="title-beta">Beta</a>
+        </li>
+      `,
+    )
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      `
+        <template data-active-sections-template="true">
+          <h2 id="title-beta"></h2>
+          <section id="section-beta"></section>
+        </template>
+      `,
+    )
+
+    const prefetchActiveTarget = vi.fn()
+    const cleanup = mountSidebarNavEnhancer({
+      deps: {
+        prefetchActiveTarget,
+      },
+    })
+
+    const betaLink = Array.from(
+      document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]'),
+    ).find(link => link.getAttribute('href') === '#section-beta')
+
+    betaLink?.dispatchEvent(new PointerEvent('pointerover', { bubbles: true }))
+    betaLink?.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+
+    expect(prefetchActiveTarget).toHaveBeenCalledTimes(2)
+    expect(prefetchActiveTarget).toHaveBeenNthCalledWith(1, document, '#section-beta')
+    expect(prefetchActiveTarget).toHaveBeenNthCalledWith(2, document, '#section-beta')
+
+    cleanup()
+    document.querySelector('template[data-active-sections-template="true"]')?.remove()
+  })
+
   it('requests deferred stale loading without scroll preservation when a stale target is clicked', () => {
     document
       .querySelector<HTMLDetailsElement>('[data-sidebar-stale-details="true"]')

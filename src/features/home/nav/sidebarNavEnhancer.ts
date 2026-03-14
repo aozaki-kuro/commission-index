@@ -26,8 +26,10 @@ import {
   hasDeferredStaleCharacterTarget,
   hasStaleCharacterTarget,
   isStaleCharactersVisible,
+  readStaleCharactersLoadedBatchCount,
   requestStaleCharactersLoad,
   requestStaleCharactersVisibility,
+  resolveDeferredStaleCharacterBatch,
   type RequestStaleCharactersLoadOptions,
   type StaleCharactersState,
   type StaleCharactersVisibility,
@@ -35,9 +37,12 @@ import {
 import {
   ACTIVE_CHARACTERS_LOADED_EVENT,
   hasDeferredActiveCharacterTarget,
+  readActiveCharactersLoadedBatchCount,
   requestActiveCharactersLoad,
+  resolveDeferredActiveCharacterBatch,
   type RequestActiveCharactersLoadOptions,
 } from '#features/home/commission/activeCharactersEvent'
+import { prefetchHomeCharacterBatches } from '#features/home/commission/homeCharacterBatchClient'
 
 const SIDEBAR_ROOT_ID = 'Character List'
 const SIDEBAR_CONTROLS_ROOT_ID = 'Home Controls'
@@ -56,6 +61,8 @@ type SidebarNavEnhancerDeps = {
   jumpToSearch: typeof jumpToCommissionSearch
   clearHash: typeof clearHashIfTargetIsStale
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
+  prefetchActiveTarget: (doc: Document, targetId: string | null | undefined) => void
+  prefetchStaleTarget: (doc: Document, targetId: string | null | undefined) => void
   requestActiveLoad: (win: Window, options?: RequestActiveCharactersLoadOptions) => void
   requestStaleLoad: (win: Window, options?: RequestStaleCharactersLoadOptions) => void
   requestStaleVisibility: (win: Window, visibility: StaleCharactersVisibility) => void
@@ -79,6 +86,8 @@ const defaultDeps: SidebarNavEnhancerDeps = {
   jumpToSearch: jumpToCommissionSearch,
   clearHash: clearHashIfTargetIsStale,
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
+  prefetchActiveTarget: prefetchDeferredActiveTarget,
+  prefetchStaleTarget: prefetchDeferredStaleTarget,
   requestActiveLoad: requestActiveCharactersLoad,
   requestStaleLoad: requestStaleCharactersLoad,
   requestStaleVisibility: requestStaleCharactersVisibility,
@@ -146,6 +155,35 @@ const resolveActiveTitleId = (titleElements: HTMLElement[]) => {
 
 const resolveSectionIdFromHref = (rawHref: string | null) =>
   rawHref?.startsWith('#') ? rawHref.slice(1) : null
+
+function prefetchDeferredActiveTarget(doc: Document, targetId: string | null | undefined) {
+  if (!hasDeferredActiveCharacterTarget(doc, targetId)) return
+
+  const batchIndex = resolveDeferredActiveCharacterBatch(doc, targetId)
+  if (batchIndex === null) return
+
+  prefetchHomeCharacterBatches({
+    doc,
+    startBatchIndex: readActiveCharactersLoadedBatchCount(doc),
+    status: 'active',
+    targetBatchIndex: batchIndex,
+  })
+}
+
+function prefetchDeferredStaleTarget(doc: Document, targetId: string | null | undefined) {
+  if (doc.getElementById(resolveSectionIdFromHref(String(targetId ?? '')) ?? '')) return
+  if (!hasStaleCharacterTarget(doc, targetId)) return
+
+  const batchIndex = resolveDeferredStaleCharacterBatch(doc, targetId)
+  if (batchIndex === null) return
+
+  prefetchHomeCharacterBatches({
+    doc,
+    startBatchIndex: readStaleCharactersLoadedBatchCount(doc),
+    status: 'stale',
+    targetBatchIndex: batchIndex,
+  })
+}
 
 export const mountSidebarNavEnhancer = ({
   win = window,
@@ -339,6 +377,28 @@ export const mountSidebarNavEnhancer = ({
     scheduleSyncActiveDots()
   }
 
+  const prefetchCharacterTarget = (link: HTMLAnchorElement) => {
+    const href = link.getAttribute('href')
+    if (link.dataset.sidebarCharacterStatus === 'active') {
+      deps.prefetchActiveTarget(doc, href)
+      return
+    }
+
+    if (link.dataset.sidebarCharacterStatus === 'stale') {
+      deps.prefetchStaleTarget(doc, href)
+    }
+  }
+
+  const onSidebarPreview = (event: Event) => {
+    const target = event.target
+    if (!(target instanceof Element)) return
+
+    const characterLink = target.closest<HTMLAnchorElement>(CHARACTER_LINK_SELECTOR)
+    if (!characterLink) return
+
+    prefetchCharacterTarget(characterLink)
+  }
+
   const trackSidebarCharacterClick = (link: HTMLAnchorElement) => {
     const mode = getCurrentMode(win)
     deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
@@ -499,6 +559,8 @@ export const mountSidebarNavEnhancer = ({
   if (controlsRoot !== navRoot) {
     navRoot.addEventListener('click', onSidebarClick)
   }
+  navRoot.addEventListener('pointerover', onSidebarPreview)
+  navRoot.addEventListener('focusin', onSidebarPreview)
   staleDetails?.addEventListener('toggle', onStaleDetailsToggle)
   win.addEventListener('scroll', scheduleSyncActiveDots, { passive: true })
   win.addEventListener('resize', scheduleSyncActiveDots)
@@ -519,6 +581,8 @@ export const mountSidebarNavEnhancer = ({
     if (controlsRoot !== navRoot) {
       navRoot.removeEventListener('click', onSidebarClick)
     }
+    navRoot.removeEventListener('pointerover', onSidebarPreview)
+    navRoot.removeEventListener('focusin', onSidebarPreview)
     staleDetails?.removeEventListener('toggle', onStaleDetailsToggle)
     win.removeEventListener('scroll', scheduleSyncActiveDots)
     win.removeEventListener('resize', scheduleSyncActiveDots)

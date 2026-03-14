@@ -6,17 +6,22 @@ import {
   hasDeferredStaleCharacterTarget,
   hasStaleCharacterTarget,
   isStaleCharactersVisible,
+  readStaleCharactersLoadedBatchCount,
   requestStaleCharactersLoad,
   requestStaleCharactersVisibility,
+  resolveDeferredStaleCharacterBatch,
   type RequestStaleCharactersLoadOptions,
   type StaleCharactersVisibility,
 } from '#features/home/commission/staleCharactersEvent'
 import {
   ACTIVE_CHARACTERS_LOADED_EVENT,
   hasDeferredActiveCharacterTarget,
+  readActiveCharactersLoadedBatchCount,
   requestActiveCharactersLoad,
+  resolveDeferredActiveCharacterBatch,
   type RequestActiveCharactersLoadOptions,
 } from '#features/home/commission/activeCharactersEvent'
+import { prefetchHomeCharacterBatches } from '#features/home/commission/homeCharacterBatchClient'
 import {
   readCommissionViewMode,
   replaceCommissionViewModeInAddress,
@@ -55,6 +60,8 @@ type MobileHamburgerMenuDeps = {
   jumpToSearch: typeof jumpToCommissionSearch
   syncLinkAvailability: typeof syncHiddenSectionLinkAvailability
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
+  prefetchActiveTarget: (doc: Document, targetId: string | null | undefined) => void
+  prefetchStaleTarget: (doc: Document, targetId: string | null | undefined) => void
   requestActiveLoad: (win: Window, options?: RequestActiveCharactersLoadOptions) => void
   requestStaleLoad: (win: Window, options?: RequestStaleCharactersLoadOptions) => void
   requestStaleVisibility: (win: Window, visibility: StaleCharactersVisibility) => void
@@ -68,11 +75,45 @@ type MountMobileHamburgerMenuOptions = {
 
 type CharacterSectionKey = 'active' | 'stale'
 
+const resolveSectionIdFromTarget = (rawTarget: string | null | undefined) =>
+  rawTarget?.startsWith('#') ? rawTarget.slice(1) : (rawTarget ?? null)
+
+const prefetchDeferredActiveTarget = (doc: Document, targetId: string | null | undefined) => {
+  if (!hasDeferredActiveCharacterTarget(doc, targetId)) return
+
+  const batchIndex = resolveDeferredActiveCharacterBatch(doc, targetId)
+  if (batchIndex === null) return
+
+  prefetchHomeCharacterBatches({
+    doc,
+    startBatchIndex: readActiveCharactersLoadedBatchCount(doc),
+    status: 'active',
+    targetBatchIndex: batchIndex,
+  })
+}
+
+const prefetchDeferredStaleTarget = (doc: Document, targetId: string | null | undefined) => {
+  if (doc.getElementById(resolveSectionIdFromTarget(targetId) ?? '')) return
+  if (!hasStaleCharacterTarget(doc, targetId)) return
+
+  const batchIndex = resolveDeferredStaleCharacterBatch(doc, targetId)
+  if (batchIndex === null) return
+
+  prefetchHomeCharacterBatches({
+    doc,
+    startBatchIndex: readStaleCharactersLoadedBatchCount(doc),
+    status: 'stale',
+    targetBatchIndex: batchIndex,
+  })
+}
+
 const defaultDeps: MobileHamburgerMenuDeps = {
   trackEvent: trackRybbitEvent,
   jumpToSearch: jumpToCommissionSearch,
   syncLinkAvailability: syncHiddenSectionLinkAvailability,
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
+  prefetchActiveTarget: prefetchDeferredActiveTarget,
+  prefetchStaleTarget: prefetchDeferredStaleTarget,
   requestActiveLoad: requestActiveCharactersLoad,
   requestStaleLoad: requestStaleCharactersLoad,
   requestStaleVisibility: requestStaleCharactersVisibility,
@@ -154,7 +195,7 @@ export const mountMobileHamburgerMenu = ({
   let hasTrackedHamburgerUsage = false
   let hasTrackedSearchUsage = false
   let didHandleSearchPointerDown = false
-  let expandedCharacterSection: CharacterSectionKey = 'active'
+  let expandedCharacterSection: CharacterSectionKey | null = 'active'
   let ageGateOpen = readAgeGateOpen(doc)
 
   const clearCloseTimer = () => {
@@ -320,6 +361,18 @@ export const mountMobileHamburgerMenu = ({
     syncLinkAvailability()
   }
 
+  const prefetchNavLinkTarget = (link: HTMLAnchorElement) => {
+    const targetId = link.dataset.mobileNavSectionId ?? link.getAttribute('href')
+    if (link.dataset.mobileNavCharacterStatus === 'active') {
+      deps.prefetchActiveTarget(doc, targetId)
+      return
+    }
+
+    if (link.dataset.mobileNavCharacterStatus === 'stale') {
+      deps.prefetchStaleTarget(doc, targetId)
+    }
+  }
+
   const getVisibleItemCount = (mode: CommissionViewMode) =>
     mode === 'timeline' ? timelineCount : activeCount + staleCount
 
@@ -350,6 +403,16 @@ export const mountMobileHamburgerMenu = ({
     event.preventDefault()
     didHandleSearchPointerDown = true
     runSearchAction()
+  }
+
+  const onNavPreview = (event: Event) => {
+    const target = event.target
+    if (!(target instanceof Element)) return
+
+    const navLink = target.closest<HTMLAnchorElement>(NAV_LINK_SELECTOR)
+    if (!navLink) return
+
+    prefetchNavLinkTarget(navLink)
   }
 
   const onRootClick = (event: MouseEvent) => {
@@ -388,9 +451,9 @@ export const mountMobileHamburgerMenu = ({
     if (characterSectionToggle) {
       const sectionKey = resolveCharacterSectionKeyFromElement(characterSectionToggle)
       if (!sectionKey) return
-      expandedCharacterSection = sectionKey
+      expandedCharacterSection = expandedCharacterSection === sectionKey ? null : sectionKey
       syncCharacterSectionState()
-      if (sectionKey === 'stale' && !isStaleCharactersVisible(doc)) {
+      if (expandedCharacterSection === 'stale' && !isStaleCharactersVisible(doc)) {
         deps.requestStaleVisibility(win, 'visible')
       }
       return
@@ -592,6 +655,8 @@ export const mountMobileHamburgerMenu = ({
 
   root.addEventListener('pointerdown', onRootPointerDown)
   root.addEventListener('click', onRootClick)
+  navRoot.addEventListener('pointerdown', onNavPreview)
+  navRoot.addEventListener('focusin', onNavPreview)
   backdrop.addEventListener('click', onBackdropClick)
   doc.addEventListener('keydown', onDocumentKeyDown)
   win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onViewModeChanged)
@@ -617,6 +682,8 @@ export const mountMobileHamburgerMenu = ({
 
     root.removeEventListener('pointerdown', onRootPointerDown)
     root.removeEventListener('click', onRootClick)
+    navRoot.removeEventListener('pointerdown', onNavPreview)
+    navRoot.removeEventListener('focusin', onNavPreview)
     backdrop.removeEventListener('click', onBackdropClick)
     doc.removeEventListener('keydown', onDocumentKeyDown)
     win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onViewModeChanged)

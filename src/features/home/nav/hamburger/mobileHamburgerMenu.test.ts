@@ -202,6 +202,23 @@ describe('mobileHamburgerMenu', () => {
     cleanup()
   })
 
+  it('lets the stale section toggle collapse back shut without hiding stale content', () => {
+    const requestStaleVisibility = vi.fn()
+    const cleanup = mountMobileHamburgerMenu({
+      deps: { requestStaleVisibility },
+    })
+
+    getToggle()!.click()
+    getStaleSectionToggle()!.click()
+    getStaleSectionToggle()!.click()
+
+    expect(requestStaleVisibility).toHaveBeenCalledTimes(1)
+    expect(getStaleSectionToggle()?.getAttribute('aria-expanded')).toBe('false')
+    expect(getStaleSectionPanel()?.hidden).toBe(true)
+
+    cleanup()
+  })
+
   it('loads stale characters and jumps when a stale link is selected before load', () => {
     const trackEvent = vi.fn()
     const scrollToHashWithoutWrite = vi.fn()
@@ -297,6 +314,46 @@ describe('mobileHamburgerMenu', () => {
     cleanup()
     document.getElementById('active-item')?.remove()
     document.querySelector('template[data-active-sections-template="true"]')?.remove()
+  })
+
+  it('prefetches deferred character targets before click handling', () => {
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      `
+        <template data-active-sections-template="true">
+          <section id="active-item"></section>
+        </template>
+        <template data-stale-sections-template="true">
+          <section id="stale-item-initial"></section>
+          <div data-stale-deferred-sections-container="true"></div>
+          <template data-stale-deferred-sections-template="true">
+            <section id="stale-item"></section>
+          </template>
+        </template>
+      `,
+    )
+
+    const prefetchActiveTarget = vi.fn()
+    const prefetchStaleTarget = vi.fn()
+
+    const cleanup = mountMobileHamburgerMenu({
+      deps: {
+        prefetchActiveTarget,
+        prefetchStaleTarget,
+      },
+    })
+
+    getToggle()!.click()
+    getActiveLink()!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    getStaleSectionToggle()!.click()
+    getStaleLink()!.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+
+    expect(prefetchActiveTarget).toHaveBeenCalledWith(document, 'active-item')
+    expect(prefetchStaleTarget).toHaveBeenCalledWith(document, 'stale-item')
+
+    cleanup()
+    document.querySelector('template[data-active-sections-template="true"]')?.remove()
+    document.querySelector('template[data-stale-sections-template="true"]')?.remove()
   })
 
   it('requests deferred stale loading without scroll preservation when a stale target is clicked', () => {
