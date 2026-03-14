@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { ACTIVE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/activeCharactersEvent'
+import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '#features/home/homeScrollRestoreAbort'
 import {
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
@@ -204,6 +205,7 @@ describe('mobileHamburgerMenu', () => {
   it('loads stale characters and jumps when a stale link is selected before load', () => {
     const trackEvent = vi.fn()
     const scrollToHashWithoutWrite = vi.fn()
+    const onRestoreAbort = vi.fn()
     const requestStaleVisibility = vi.fn(() => {
       const staleSection = document.createElement('section')
       staleSection.id = 'stale-item'
@@ -221,6 +223,7 @@ describe('mobileHamburgerMenu', () => {
         }),
       )
     })
+    window.addEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
 
     const cleanup = mountMobileHamburgerMenu({
       deps: { requestStaleVisibility, scrollToHashWithoutWrite, trackEvent },
@@ -230,6 +233,7 @@ describe('mobileHamburgerMenu', () => {
     getStaleLink()!.click()
 
     expect(requestStaleVisibility).toHaveBeenCalledWith(window, 'visible')
+    expect(onRestoreAbort).toHaveBeenCalledTimes(1)
     expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#stale-item')
     expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.sidebarNavUsed, {
       source: 'character_link',
@@ -243,6 +247,7 @@ describe('mobileHamburgerMenu', () => {
 
     vi.advanceTimersByTime(MENU_TRANSITION_MS)
     cleanup()
+    window.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
   })
 
   it('keeps deferred active links enabled and loads them on click', () => {
@@ -336,6 +341,44 @@ describe('mobileHamburgerMenu', () => {
     cleanup()
     document.getElementById('stale-item')?.remove()
     document.querySelector('template[data-stale-sections-template="true"]')?.remove()
+  })
+
+  it('treats an already-mounted stale target as non-deferred even when templates remain', () => {
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      `
+        <section id="stale-item"></section>
+        <div data-commission-view-panel="character" data-stale-loaded="true" data-stale-visibility="visible"></div>
+        <template data-stale-sections-template="true">
+          <section id="stale-item-initial"></section>
+          <div data-stale-deferred-sections-container="true"></div>
+          <template data-stale-deferred-sections-template="true">
+            <section id="stale-item"></section>
+          </template>
+        </template>
+      `,
+    )
+
+    const requestStaleLoad = vi.fn()
+    const onRestoreAbort = vi.fn()
+    window.addEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
+
+    const cleanup = mountMobileHamburgerMenu({
+      deps: { requestStaleLoad },
+    })
+
+    getToggle()!.click()
+    getStaleLink()!.click()
+
+    expect(requestStaleLoad).not.toHaveBeenCalled()
+    expect(onRestoreAbort).toHaveBeenCalledTimes(1)
+
+    vi.advanceTimersByTime(MENU_TRANSITION_MS)
+    cleanup()
+    window.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
+    document.getElementById('stale-item')?.remove()
+    document.querySelector('template[data-stale-sections-template="true"]')?.remove()
+    document.querySelector('[data-commission-view-panel="character"]')?.remove()
   })
 
   it('re-syncs link availability on stale state, sidebar search state, and view mode event', () => {

@@ -187,6 +187,7 @@ export const hasDeferredStaleCharacterTarget = (
 ) => {
   const sectionId = normalizeSectionId(rawSectionId)
   if (!sectionId) return false
+  if (doc.getElementById(sectionId)) return false
 
   const template = getDeferredStaleTemplate(doc)
   if (!template) return false

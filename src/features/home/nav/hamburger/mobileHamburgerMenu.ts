@@ -27,6 +27,7 @@ import { scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAncho
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '#lib/navigation/syncHiddenSectionLinkAvailability'
+import { dispatchHomeScrollRestoreAbort } from '#features/home/homeScrollRestoreAbort'
 import { MENU_TRANSITION_MS } from './constants'
 import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from './hamburgerMenuStateEvent'
 
@@ -414,6 +415,7 @@ export const mountMobileHamburgerMenu = ({
       hasDeferredActiveCharacterTarget(doc, deferredActiveSectionId)
     if (isDeferredActiveLink) {
       event.preventDefault()
+      dispatchHomeScrollRestoreAbort(win)
 
       const href = navLink.getAttribute('href')
       const onActiveLoaded = () => {
@@ -449,6 +451,7 @@ export const mountMobileHamburgerMenu = ({
       )
     if (isDeferredStaleLink) {
       event.preventDefault()
+      dispatchHomeScrollRestoreAbort(win)
 
       const href = navLink.getAttribute('href')
       const onStaleLoaded = () => {
@@ -476,6 +479,7 @@ export const mountMobileHamburgerMenu = ({
     }
     if (isStaleLink && !isStaleCharactersVisible(doc)) {
       event.preventDefault()
+      dispatchHomeScrollRestoreAbort(win)
 
       const href = navLink.getAttribute('href')
       const onStaleShown = (staleEvent: Event) => {
@@ -509,6 +513,8 @@ export const mountMobileHamburgerMenu = ({
       event.preventDefault()
       return
     }
+
+    dispatchHomeScrollRestoreAbort(win)
 
     const mode = readCommissionViewMode(win)
     const sectionId = navLink.dataset.mobileNavSectionId ?? 'unknown'

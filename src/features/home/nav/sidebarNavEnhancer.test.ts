@@ -7,6 +7,7 @@ import {
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
 } from '#features/home/commission/staleCharactersEvent'
+import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '#features/home/homeScrollRestoreAbort'
 import { mountSidebarNavEnhancer } from './sidebarNavEnhancer'
 
 const renderSidebarRoot = () => {
@@ -317,6 +318,7 @@ describe('sidebarNavEnhancer', () => {
 
   it('requests stale loading then scrolls when stale link is clicked', () => {
     const scrollToHashWithoutWrite = vi.fn()
+    const onRestoreAbort = vi.fn()
     const requestStaleVisibility = vi.fn((win, visibility: 'visible' | 'hidden') => {
       expect(visibility).toBe('visible')
       const staleSection = document.createElement('section')
@@ -334,6 +336,7 @@ describe('sidebarNavEnhancer', () => {
         }),
       )
     })
+    window.addEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
 
     const cleanup = mountSidebarNavEnhancer({
       deps: {
@@ -348,9 +351,39 @@ describe('sidebarNavEnhancer', () => {
     staleLink?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
     expect(requestStaleVisibility).toHaveBeenCalledTimes(1)
+    expect(onRestoreAbort).toHaveBeenCalledTimes(1)
     expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-stale')
 
     cleanup()
+    window.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
+  })
+
+  it('aborts pending scroll restore when a visible stale link is clicked', () => {
+    const staleSection = document.createElement('section')
+    staleSection.id = 'section-stale'
+    document.body.append(staleSection)
+    document
+      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+      ?.setAttribute('data-stale-visibility', 'visible')
+    document
+      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+      ?.setAttribute('data-stale-loaded', 'false')
+
+    const onRestoreAbort = vi.fn()
+    window.addEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
+
+    const cleanup = mountSidebarNavEnhancer()
+    const staleLink = Array.from(
+      document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]'),
+    ).find(link => link.getAttribute('href') === '#section-stale')
+
+    staleLink?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+    expect(onRestoreAbort).toHaveBeenCalledTimes(1)
+
+    cleanup()
+    window.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
+    staleSection.remove()
   })
 
   it('keeps deferred active links enabled and loads them on click', () => {
@@ -460,6 +493,58 @@ describe('sidebarNavEnhancer', () => {
 
     cleanup()
     document.getElementById('section-stale-deferred')?.remove()
+  })
+
+  it('treats an already-mounted stale target as non-deferred even when templates remain', () => {
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      `
+        <section id="section-stale"></section>
+      `,
+    )
+    document
+      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+      ?.setAttribute('data-stale-visibility', 'visible')
+    document
+      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+      ?.setAttribute('data-stale-loaded', 'true')
+    document
+      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+      ?.insertAdjacentHTML(
+        'beforeend',
+        `
+          <template data-stale-sections-template="true">
+            <section id="section-stale-initial"></section>
+            <div data-stale-deferred-sections-container="true"></div>
+            <template data-stale-deferred-sections-template="true">
+              <section id="section-stale"></section>
+            </template>
+          </template>
+        `,
+      )
+
+    const requestStaleLoad = vi.fn()
+    const onRestoreAbort = vi.fn()
+    window.addEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
+
+    const cleanup = mountSidebarNavEnhancer({
+      deps: {
+        requestStaleLoad,
+      },
+    })
+
+    const staleLink = Array.from(
+      document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]'),
+    ).find(link => link.getAttribute('href') === '#section-stale')
+    staleLink?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+
+    expect(requestStaleLoad).not.toHaveBeenCalled()
+    expect(onRestoreAbort).toHaveBeenCalledTimes(1)
+
+    cleanup()
+    window.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
+    document.querySelector('template[data-stale-sections-template="true"]')?.remove()
+    document.getElementById('section-stale')?.remove()
   })
 
   it('collapses stale sections when stale details close after content is loaded', () => {

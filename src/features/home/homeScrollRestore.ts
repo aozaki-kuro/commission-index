@@ -7,7 +7,9 @@ import {
   STALE_CHARACTERS_LOADED_EVENT,
   readStaleCharactersState,
   requestStaleCharactersLoad,
+  type RequestStaleCharactersLoadOptions,
 } from '#features/home/commission/staleCharactersEvent'
+import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '#features/home/homeScrollRestoreAbort'
 import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import { readCommissionViewMode } from '#features/home/commission/viewModeState'
@@ -29,7 +31,7 @@ type SavedHomeScrollState = {
 type HomeScrollRestoreDeps = {
   readNavigationType: (win: Window) => string
   requestActiveLoad: (win: Window) => void
-  requestStaleLoad: (win: Window) => void
+  requestStaleLoad: (win: Window, options?: RequestStaleCharactersLoadOptions) => void
   requestTimelineLoad: (win: Window) => void
   restoreScrollPosition: (win: Window, position: { x: number; y: number }) => void
 }
@@ -153,6 +155,23 @@ const isTimelineLoaded = (doc: Document) =>
 const hasPendingTimelineSections = (doc: Document) =>
   Boolean(doc.querySelector<HTMLTemplateElement>(TIMELINE_TEMPLATE_SELECTOR))
 
+const readScrollRestoration = (win: Window): ScrollRestoration | null => {
+  const history = win.history as History & { scrollRestoration?: ScrollRestoration }
+  if (history.scrollRestoration === 'auto' || history.scrollRestoration === 'manual') {
+    return history.scrollRestoration
+  }
+
+  return null
+}
+
+const writeScrollRestoration = (win: Window, mode: ScrollRestoration) => {
+  try {
+    ;(win.history as History & { scrollRestoration?: ScrollRestoration }).scrollRestoration = mode
+  } catch {
+    // Ignore unsupported browsers and keep restore flow running.
+  }
+}
+
 const scheduleRestore = ({
   deps,
   savedState,
@@ -198,6 +217,25 @@ export const mountHomeScrollRestore = ({
 
   let disposed = false
   let restored = false
+  const originalScrollRestoration = readScrollRestoration(win)
+  if (originalScrollRestoration && originalScrollRestoration !== 'manual') {
+    writeScrollRestoration(win, 'manual')
+  }
+
+  let restoredScrollRestoration = false
+  const restoreBrowserScrollRestoration = () => {
+    if (restoredScrollRestoration) return
+    restoredScrollRestoration = true
+    if (!originalScrollRestoration) return
+    writeScrollRestoration(win, originalScrollRestoration)
+  }
+
+  const abortRestore = () => {
+    if (disposed || restored) return
+    restored = true
+    clearSavedState(win)
+    restoreBrowserScrollRestoration()
+  }
 
   const tryRestore = () => {
     if (disposed || restored) return
@@ -210,6 +248,7 @@ export const mountHomeScrollRestore = ({
 
       restored = true
       clearSavedState(win)
+      restoreBrowserScrollRestoration()
       scheduleRestore({ deps, savedState, win })
       return
     }
@@ -221,13 +260,14 @@ export const mountHomeScrollRestore = ({
       }
 
       if (!readStaleCharactersState(doc).loaded && hasPendingStaleSections(doc)) {
-        deps.requestStaleLoad(win)
+        deps.requestStaleLoad(win, { preserveScroll: false })
         return
       }
     }
 
     restored = true
     clearSavedState(win)
+    restoreBrowserScrollRestoration()
     scheduleRestore({ deps, savedState, win })
   }
 
@@ -235,16 +275,19 @@ export const mountHomeScrollRestore = ({
   win.addEventListener(STALE_CHARACTERS_LOADED_EVENT, tryRestore)
   win.addEventListener(TIMELINE_VIEW_LOADED_EVENT, tryRestore)
   win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, tryRestore)
+  win.addEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, abortRestore)
 
   tryRestore()
 
   return () => {
     disposed = true
+    restoreBrowserScrollRestoration()
     win.removeEventListener('pagehide', persistNow)
     win.removeEventListener('beforeunload', persistNow)
     win.removeEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, tryRestore)
     win.removeEventListener(STALE_CHARACTERS_LOADED_EVENT, tryRestore)
     win.removeEventListener(TIMELINE_VIEW_LOADED_EVENT, tryRestore)
     win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, tryRestore)
+    win.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, abortRestore)
   }
 }

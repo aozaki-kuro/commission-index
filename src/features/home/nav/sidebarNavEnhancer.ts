@@ -12,6 +12,7 @@ import {
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '#lib/navigation/syncHiddenSectionLinkAvailability'
+import { dispatchHomeScrollRestoreAbort } from '#features/home/homeScrollRestoreAbort'
 import {
   readCommissionViewMode,
   replaceCommissionViewModeInAddress,
@@ -411,6 +412,7 @@ export const mountSidebarNavEnhancer = ({
       hasDeferredActiveCharacterTarget(doc, href)
     if (isDeferredActiveLink) {
       event.preventDefault()
+      dispatchHomeScrollRestoreAbort(win)
 
       const onActiveLoaded = () => {
         deps.scrollToHashWithoutWrite(href)
@@ -428,6 +430,7 @@ export const mountSidebarNavEnhancer = ({
     const isDeferredStaleLink = isStaleLink && hasDeferredStaleCharacterTarget(doc, href)
     if (isDeferredStaleLink) {
       event.preventDefault()
+      dispatchHomeScrollRestoreAbort(win)
 
       const onStaleLoaded = () => {
         deps.scrollToHashWithoutWrite(href)
@@ -443,6 +446,7 @@ export const mountSidebarNavEnhancer = ({
 
     if (isStaleLink && !isStaleCharactersVisible(doc)) {
       event.preventDefault()
+      dispatchHomeScrollRestoreAbort(win)
 
       const onStaleShown = (staleEvent: Event) => {
         if (!(staleEvent instanceof CustomEvent) || staleEvent.detail?.visibility !== 'visible') {
@@ -464,6 +468,8 @@ export const mountSidebarNavEnhancer = ({
       event.preventDefault()
       return
     }
+
+    dispatchHomeScrollRestoreAbort(win)
 
     if (getCurrentMode(win) === 'timeline') {
       event.preventDefault()

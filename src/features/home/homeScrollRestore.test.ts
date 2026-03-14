@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ACTIVE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/activeCharactersEvent'
 import { STALE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/staleCharactersEvent'
+import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '#features/home/homeScrollRestoreAbort'
 import { mountHomeScrollRestore } from './homeScrollRestore'
 
 const HOME_SCROLL_STATE_STORAGE_KEY = 'home:scroll-state'
@@ -145,7 +146,7 @@ describe('mountHomeScrollRestore', () => {
       },
     })
 
-    expect(requestStaleLoad).toHaveBeenCalledWith(window)
+    expect(requestStaleLoad).toHaveBeenCalledWith(window, { preserveScroll: false })
     expect(restoreScrollPosition).not.toHaveBeenCalled()
 
     document
@@ -162,5 +163,84 @@ describe('mountHomeScrollRestore', () => {
 
     cleanup()
     requestAnimationFrameSpy.mockRestore()
+  })
+
+  it('abandons pending restore once user navigation cancels it', () => {
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-active-sections-loaded="true" data-stale-loaded="false" data-stale-visibility="hidden">
+        <template data-stale-sections-template="true"><section id="section-stale"></section></template>
+      </div>
+    `
+    setScrollEnvironment({ scrollHeight: 3600 })
+    window.sessionStorage.setItem(
+      HOME_SCROLL_STATE_STORAGE_KEY,
+      JSON.stringify({
+        pathname: '/',
+        search: '',
+        x: 0,
+        y: 6000,
+      }),
+    )
+
+    const requestStaleLoad = vi.fn()
+    const restoreScrollPosition = vi.fn()
+
+    const cleanup = mountHomeScrollRestore({
+      deps: {
+        readNavigationType: () => 'reload',
+        requestStaleLoad,
+        restoreScrollPosition,
+      },
+    })
+
+    expect(requestStaleLoad).toHaveBeenCalledWith(window, { preserveScroll: false })
+    window.dispatchEvent(new Event(HOME_SCROLL_RESTORE_ABORT_EVENT))
+
+    document
+      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+      ?.setAttribute('data-stale-loaded', 'true')
+    document
+      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+      ?.setAttribute('data-stale-visibility', 'visible')
+    window.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
+
+    expect(restoreScrollPosition).not.toHaveBeenCalled()
+    expect(window.sessionStorage.getItem(HOME_SCROLL_STATE_STORAGE_KEY)).toBeNull()
+
+    cleanup()
+  })
+
+  it('temporarily switches history scroll restoration to manual during restore', () => {
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-active-sections-loaded="true" data-stale-loaded="false" data-stale-visibility="hidden">
+        <template data-stale-sections-template="true"><section id="section-stale"></section></template>
+      </div>
+    `
+    setScrollEnvironment({ scrollHeight: 3600 })
+    window.sessionStorage.setItem(
+      HOME_SCROLL_STATE_STORAGE_KEY,
+      JSON.stringify({
+        pathname: '/',
+        search: '',
+        x: 0,
+        y: 6000,
+      }),
+    )
+    ;(window.history as History & { scrollRestoration?: ScrollRestoration }).scrollRestoration =
+      'auto'
+
+    const requestStaleLoad = vi.fn()
+    const cleanup = mountHomeScrollRestore({
+      deps: {
+        readNavigationType: () => 'reload',
+        requestStaleLoad,
+      },
+    })
+
+    expect(window.history.scrollRestoration).toBe('manual')
+    window.dispatchEvent(new Event(HOME_SCROLL_RESTORE_ABORT_EVENT))
+    expect(window.history.scrollRestoration).toBe('auto')
+
+    cleanup()
   })
 })

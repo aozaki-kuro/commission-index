@@ -38,6 +38,7 @@ This repository contains an Astro 6 static site with React 19 islands, written i
   - `src/features/home/homePageClient.ts`
 - Home refresh scroll restoration is centralized in:
   - `src/features/home/homeScrollRestore.ts`
+  - `src/features/home/homeScrollRestoreAbort.ts`
 - Home unpublished-interest button state is centralized in:
   - `src/features/home/commission/unpublishedInterestClient.ts`
 - Home active character lazy-mount behavior is centralized in:
@@ -174,6 +175,7 @@ Additional guidance:
 - Added active-character lazy-mount pipeline (`template` + loader script + navigation/search load requests) so the home page no longer renders every active character section up front.
 - Added stale character lazy-loading pipeline (`template` + loader script + sidebar/search sync events) to reduce initial DOM size while preserving navigation discoverability.
 - Split stale state into `visibility` vs `loaded`, and made manual stale expansion mirror active by mounting the first stale section immediately and deferring the remainder behind a sentinel/full-load request path.
+- Added a shared home scroll-restore abort event so explicit sidebar/hamburger jumps can cancel pending reload restoration before it overrides the user's navigation.
 - Added timeline lazy-mount pipeline (`template` + loader script + search/sidebar sync events) so the hidden timeline view no longer doubles the initial homepage DOM.
 - Collapsed most home side-effect entrypoints into `HomeClientScript.astro` + `homePageClient.ts` to reduce initial module requests without changing DOM contracts.
 - Added Playwright visual regression baselines for home search/nav shells, mobile floating menus, and the admin featured-keyword dashboard.
