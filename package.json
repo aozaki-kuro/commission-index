@@ -31,7 +31,7 @@
     "@radix-ui/react-popover": "^1.1.15",
     "@radix-ui/react-slot": "^1.2.4",
     "@tabler/icons-react": "^3.40.0",
-    "better-sqlite3": "^12.6.2",
+    "better-sqlite3": "^12.8.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -57,10 +57,10 @@
     "@testing-library/react": "^16.3.2",
     "@types/better-sqlite3": "^7.6.13",
     "@types/eslint-plugin-jsx-a11y": "^6.10.1",
-    "@types/node": "^25.4.0",
+    "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "astro": "^6.0.2",
+    "astro": "^6.0.4",
     "sharp": "^0.34.5",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
@@ -71,7 +71,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "globals": "^17.4.0",
     "jsdom": "^28.1.0",
-    "lint-staged": "^16.3.3",
+    "lint-staged": "^16.4.0",
     "postcss": "^8.5.8",
     "prettier": "^3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
@@ -79,7 +79,7 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.0",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^4.0.18",
-    "wrangler": "^4.72.0"
+    "vitest": "^4.1.0",
+    "wrangler": "^4.73.0"
   }
 }
