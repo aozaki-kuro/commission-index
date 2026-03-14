@@ -55,6 +55,7 @@ const STALE_LOAD_TRIGGER_SELECTOR = '[data-load-stale-characters="true"]'
 
 const ACTIVE_DOT_CLASSES = ['scale-100', 'opacity-100'] as const
 const HIDDEN_DOT_CLASSES = ['scale-0', 'opacity-0'] as const
+const SIDEBAR_DOT_SELECTOR = '[data-sidebar-dot-for]'
 
 type SidebarNavEnhancerDeps = {
   trackEvent: typeof trackRybbitEvent
@@ -109,6 +110,9 @@ const getVisibleTitleIds = (panel: HTMLElement | null) => {
     .map(link => link.dataset.sidebarTitleId)
     .filter((id): id is string => Boolean(id))
 }
+
+const escapeAttributeSelectorValue = (value: string) =>
+  value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 
 const toggleDotState = (dot: HTMLElement, active: boolean) => {
   dot.classList.toggle(ACTIVE_DOT_CLASSES[0], active)
@@ -170,11 +174,54 @@ export const mountSidebarNavEnhancer = ({
   let syncLinksRafId: number | null = null
   let syncDotsRafId: number | null = null
   let activePanelSnapshot: SidebarActivePanelSnapshot | null = null
+  let activeDots: HTMLElement[] = []
+  let dotsInitialized = false
   let hasTrackedSidebarSearchUsage = false
   let disposed = false
 
   const clearActivePanelSnapshot = () => {
     activePanelSnapshot = null
+  }
+
+  const resetAllDots = () => {
+    navRoot.querySelectorAll<HTMLElement>(SIDEBAR_DOT_SELECTOR).forEach(dot => {
+      toggleDotState(dot, false)
+    })
+    activeDots = []
+    dotsInitialized = true
+  }
+
+  const resolveActiveDots = ({
+    panel,
+    titleId,
+  }: {
+    panel: HTMLElement | null
+    titleId: string
+  }) => {
+    if (!panel || !titleId) return []
+
+    return Array.from(
+      panel.querySelectorAll<HTMLElement>(
+        `[data-sidebar-dot-for="${escapeAttributeSelectorValue(titleId)}"]`,
+      ),
+    )
+  }
+
+  const syncActiveDotSet = (nextDots: HTMLElement[]) => {
+    const prevDotSet = new Set(activeDots)
+    const nextDotSet = new Set(nextDots)
+
+    for (const dot of activeDots) {
+      if (nextDotSet.has(dot)) continue
+      toggleDotState(dot, false)
+    }
+
+    for (const dot of nextDots) {
+      if (prevDotSet.has(dot)) continue
+      toggleDotState(dot, true)
+    }
+
+    activeDots = nextDots
   }
 
   const getActivePanelSnapshot = () => {
@@ -232,15 +279,16 @@ export const mountSidebarNavEnhancer = ({
   const syncActiveDots = () => {
     const activeSnapshot = getActivePanelSnapshot()
     const activeTitleId = resolveActiveTitleId(activeSnapshot.titleElements)
-    const activePanel = activeSnapshot.panel
+    if (!dotsInitialized) {
+      resetAllDots()
+    }
 
-    const allDots = navRoot.querySelectorAll<HTMLElement>('[data-sidebar-dot-for]')
-    allDots.forEach(dot => {
-      const panel = dot.closest<HTMLElement>(NAV_PANEL_SELECTOR)
-      const isCurrentPanel = panel === activePanel
-      const isActive = isCurrentPanel && dot.dataset.sidebarDotFor === activeTitleId
-      toggleDotState(dot, isActive)
-    })
+    syncActiveDotSet(
+      resolveActiveDots({
+        panel: activeSnapshot.panel,
+        titleId: activeTitleId,
+      }),
+    )
   }
 
   const scheduleClearHashIfTargetIsStale = () => {
@@ -288,6 +336,7 @@ export const mountSidebarNavEnhancer = ({
 
   const syncAll = () => {
     clearActivePanelSnapshot()
+    resetAllDots()
     syncViewModeControls()
     scheduleSyncCharacterLinkAvailability()
     scheduleSyncActiveDots()
