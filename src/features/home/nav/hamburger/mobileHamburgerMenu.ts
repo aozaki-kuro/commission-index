@@ -73,6 +73,12 @@ type MountMobileHamburgerMenuOptions = {
 }
 
 type CharacterSectionKey = 'active' | 'stale'
+type CharacterSectionNode = {
+  key: CharacterSectionKey
+  trigger: HTMLButtonElement | null
+  panel: HTMLElement | null
+  chevron: HTMLElement | null
+}
 
 const defaultDeps: MobileHamburgerMenuDeps = {
   trackEvent: trackRybbitEvent,
@@ -92,6 +98,19 @@ const resolveCharacterSectionKeyFromElement = (
   if (!target) return null
   const key = target.getAttribute('data-mobile-character-section-key')
   if (key === 'active' || key === 'stale') return key
+  return null
+}
+
+const resolveCharacterSectionKeyFromValue = (
+  value: string | undefined,
+): CharacterSectionKey | null => {
+  if (value === 'active' || value === 'stale') return value
+  return null
+}
+
+const resolveViewModeFromPanel = (panel: HTMLElement): CommissionViewMode | null => {
+  const mode = panel.dataset.mobileHamburgerNavPanel
+  if (mode === 'character' || mode === 'timeline') return mode
   return null
 }
 
@@ -147,6 +166,33 @@ export const mountMobileHamburgerMenu = ({
   const searchAction = root?.querySelector<HTMLButtonElement>(SEARCH_ACTION_SELECTOR) ?? null
   if (!root || !toggle || !toggleLabel || !backdrop || !panel || !navRoot || !searchAction)
     return () => {}
+
+  const viewModeToggles = Array.from(
+    root.querySelectorAll<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR),
+  )
+  const navPanels = Array.from(root.querySelectorAll<HTMLElement>(NAV_PANEL_SELECTOR))
+  const navPanelByMode = new Map<CommissionViewMode, HTMLElement>()
+  navPanels.forEach(panelNode => {
+    const mode = resolveViewModeFromPanel(panelNode)
+    if (!mode) return
+    navPanelByMode.set(mode, panelNode)
+  })
+  const characterSections: CharacterSectionNode[] = Array.from(
+    root.querySelectorAll<HTMLElement>(CHARACTER_SECTION_SELECTOR),
+  )
+    .map(section => {
+      const key = resolveCharacterSectionKeyFromValue(section.dataset.mobileCharacterSection)
+      if (!key) return null
+      return {
+        key,
+        trigger: section.querySelector<HTMLButtonElement>(CHARACTER_SECTION_TOGGLE_SELECTOR),
+        panel: section.querySelector<HTMLElement>(`[data-mobile-character-section-panel="${key}"]`),
+        chevron: section.querySelector<HTMLElement>(
+          '[data-mobile-character-section-chevron="true"]',
+        ),
+      }
+    })
+    .filter((section): section is CharacterSectionNode => Boolean(section))
 
   const activeCount = readCount(root.dataset.mobileHamburgerActiveCount)
   const staleCount = readCount(root.dataset.mobileHamburgerStaleCount)
@@ -275,43 +321,37 @@ export const mountMobileHamburgerMenu = ({
   }
 
   const syncCharacterSectionState = () => {
-    const sections = root.querySelectorAll<HTMLElement>(CHARACTER_SECTION_SELECTOR)
-    sections.forEach(section => {
-      const key = section.dataset.mobileCharacterSection as CharacterSectionKey | undefined
-      if (!key) return
-
-      const expanded = key === expandedCharacterSection
-      const trigger = section.querySelector<HTMLButtonElement>(CHARACTER_SECTION_TOGGLE_SELECTOR)
-      const panel = section.querySelector<HTMLElement>(
-        `[data-mobile-character-section-panel="${key}"]`,
-      )
-      const chevron = section.querySelector<HTMLElement>(
-        '[data-mobile-character-section-chevron="true"]',
-      )
-
-      trigger?.setAttribute('aria-expanded', String(expanded))
-      if (panel) panel.hidden = !expanded
-      chevron?.classList.toggle('rotate-180', expanded)
+    characterSections.forEach(section => {
+      const expanded = section.key === expandedCharacterSection
+      section.trigger?.setAttribute('aria-expanded', String(expanded))
+      if (section.panel) section.panel.hidden = !expanded
+      section.chevron?.classList.toggle('rotate-180', expanded)
     })
   }
 
   const syncViewModeState = () => {
     const mode = readCommissionViewMode(win)
-    const toggles = root.querySelectorAll<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR)
-    toggles.forEach(button => {
+    viewModeToggles.forEach(button => {
       const buttonMode = resolveCommissionViewModeFromElement(button)
       syncViewModeIndicatorState(button, buttonMode === mode)
     })
 
-    const panels = root.querySelectorAll<HTMLElement>(NAV_PANEL_SELECTOR)
-    panels.forEach(currentPanel => {
+    navPanels.forEach(currentPanel => {
       currentPanel.classList.toggle('hidden', currentPanel.dataset.mobileHamburgerNavPanel !== mode)
     })
   }
 
+  const resolveLinkAvailabilityRoot = (): ParentNode => {
+    const mode = readCommissionViewMode(win)
+    const currentPanel = navPanelByMode.get(mode)
+    if (!currentPanel) return navRoot
+
+    return currentPanel.querySelector(NAV_LINK_SELECTOR) ? currentPanel : navRoot
+  }
+
   const syncLinkAvailability = () => {
     deps.syncLinkAvailability({
-      root: navRoot,
+      root: resolveLinkAvailabilityRoot(),
       linkSelector: NAV_LINK_SELECTOR,
       getSectionId: link => link.dataset.mobileNavSectionId ?? null,
       isDeferredTarget: (sectionId, link) =>
