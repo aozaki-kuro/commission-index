@@ -62,6 +62,7 @@ describe('mountHomeScrollRestore', () => {
   })
 
   it('requests deferred active sections and restores the saved scroll on reload', () => {
+    document.documentElement.setAttribute('data-home-scroll-restoring', 'true')
     document.body.innerHTML = `
       <div data-commission-view-panel="character" data-active-sections-loaded="false" data-stale-loaded="false" data-stale-visibility="hidden">
         <div data-active-sections-container="true"></div>
@@ -107,6 +108,7 @@ describe('mountHomeScrollRestore', () => {
 
     expect(restoreScrollPosition).toHaveBeenCalledWith(window, { x: 0, y: 5000 })
     expect(window.sessionStorage.getItem(HOME_SCROLL_STATE_STORAGE_KEY)).toBeNull()
+    expect(document.documentElement.hasAttribute('data-home-scroll-restoring')).toBe(false)
 
     cleanup()
     requestAnimationFrameSpy.mockRestore()
@@ -169,6 +171,7 @@ describe('mountHomeScrollRestore', () => {
   })
 
   it('abandons pending restore once user navigation cancels it', () => {
+    document.documentElement.setAttribute('data-home-scroll-restoring', 'true')
     document.body.innerHTML = `
       <div data-commission-view-panel="character" data-active-sections-loaded="true" data-stale-loaded="false" data-stale-visibility="hidden">
         <template data-stale-sections-template="true"><section id="section-stale"></section></template>
@@ -212,6 +215,7 @@ describe('mountHomeScrollRestore', () => {
 
     expect(restoreScrollPosition).not.toHaveBeenCalled()
     expect(window.sessionStorage.getItem(HOME_SCROLL_STATE_STORAGE_KEY)).toBeNull()
+    expect(document.documentElement.hasAttribute('data-home-scroll-restoring')).toBe(false)
 
     cleanup()
   })

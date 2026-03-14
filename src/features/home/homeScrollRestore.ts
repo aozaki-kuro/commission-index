@@ -17,6 +17,7 @@ import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/vie
 import { readCommissionViewMode } from '#features/home/commission/viewModeState'
 
 const HOME_SCROLL_STATE_STORAGE_KEY = 'home:scroll-state'
+const HOME_SCROLL_RESTORING_ATTRIBUTE = 'data-home-scroll-restoring'
 const TIMELINE_PANEL_SELECTOR = '[data-commission-view-panel="timeline"]'
 const TIMELINE_TEMPLATE_SELECTOR = 'template[data-timeline-sections-template="true"]'
 
@@ -105,6 +106,10 @@ const clearSavedState = (win: Window) => {
   win.sessionStorage.removeItem(HOME_SCROLL_STATE_STORAGE_KEY)
 }
 
+const revealRestoringShell = (win: Window) => {
+  win.document.documentElement.removeAttribute(HOME_SCROLL_RESTORING_ATTRIBUTE)
+}
+
 const persistScrollState = (win: Window) => {
   if (win.location.hash) {
     clearSavedState(win)
@@ -186,6 +191,9 @@ const scheduleRestore = ({
   win.requestAnimationFrame(() => {
     win.requestAnimationFrame(() => {
       deps.restoreScrollPosition(win, { x: savedState.x, y: savedState.y })
+      win.requestAnimationFrame(() => {
+        revealRestoringShell(win)
+      })
     })
   })
 }
@@ -207,6 +215,7 @@ export const mountHomeScrollRestore = ({
   const navigationType = deps.readNavigationType(win)
   const shouldRestore = shouldRestoreSavedState({ navigationType, savedState, win })
   if (!shouldRestore || !savedState) {
+    revealRestoringShell(win)
     if (savedState && win.location.hash) {
       clearSavedState(win)
     }
@@ -219,6 +228,9 @@ export const mountHomeScrollRestore = ({
 
   let disposed = false
   let restored = false
+  const revealFallbackTimer = win.setTimeout(() => {
+    revealRestoringShell(win)
+  }, 3000)
   const originalScrollRestoration = readScrollRestoration(win)
   if (originalScrollRestoration && originalScrollRestoration !== 'manual') {
     writeScrollRestoration(win, 'manual')
@@ -237,6 +249,8 @@ export const mountHomeScrollRestore = ({
     restored = true
     clearSavedState(win)
     restoreBrowserScrollRestoration()
+    win.clearTimeout(revealFallbackTimer)
+    revealRestoringShell(win)
   }
 
   const tryRestore = () => {
@@ -251,6 +265,7 @@ export const mountHomeScrollRestore = ({
       restored = true
       clearSavedState(win)
       restoreBrowserScrollRestoration()
+      win.clearTimeout(revealFallbackTimer)
       scheduleRestore({ deps, savedState, win })
       return
     }
@@ -270,6 +285,7 @@ export const mountHomeScrollRestore = ({
     restored = true
     clearSavedState(win)
     restoreBrowserScrollRestoration()
+    win.clearTimeout(revealFallbackTimer)
     scheduleRestore({ deps, savedState, win })
   }
 
@@ -283,6 +299,8 @@ export const mountHomeScrollRestore = ({
 
   return () => {
     disposed = true
+    win.clearTimeout(revealFallbackTimer)
+    revealRestoringShell(win)
     restoreBrowserScrollRestoration()
     win.removeEventListener('pagehide', persistNow)
     win.removeEventListener('beforeunload', persistNow)

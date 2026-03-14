@@ -81,6 +81,7 @@ const canonicalUrl = new URL(canonicalPath, SiteMeta.canonicalUrl).toString()
         />
       ) : null
     }
+    <slot name="head" />
     <title>{pageTitle}</title>
   </head>
   <body>

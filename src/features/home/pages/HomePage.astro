@@ -126,6 +126,42 @@ const resolvedCanonicalPath =
 ---
 
 <BaseLayout priorityImage={await priorityImage} lang={messages.lang} canonicalPath={resolvedCanonicalPath}>
+  <style is:global slot="head">
+    html[data-home-scroll-restoring='true'] [data-home-scroll-restore-shell='true'] {
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
+  <script is:inline slot="head">
+    try {
+      const rawState = window.sessionStorage.getItem('home:scroll-state')
+      if (!rawState || window.location.hash) {
+        // noop
+      } else {
+        const navigationEntry = window.performance.getEntriesByType('navigation')[0]
+        const navigationType =
+          navigationEntry && 'type' in navigationEntry ? String(navigationEntry.type) : ''
+        const parsedState = JSON.parse(rawState)
+
+        if (
+          navigationType === 'reload' &&
+          parsedState &&
+          parsedState.pathname === window.location.pathname &&
+          parsedState.search === window.location.search
+        ) {
+          document.documentElement.dataset.homeScrollRestoring = 'true'
+
+          try {
+            window.history.scrollRestoration = 'manual'
+          } catch {
+            // Ignore unsupported browsers.
+          }
+        }
+      }
+    } catch {
+      // Ignore malformed session state and allow the page to render normally.
+    }
+  </script>
   <AgeGateScript locale={resolvedLocale} />
   <CommissionDescription
     locale={resolvedLocale}
@@ -134,7 +170,7 @@ const resolvedCanonicalPath =
     updateSummary={homeUpdateSummary}
   />
   <div class="relative mx-auto flex justify-center">
-    <div id="Main Contents" class="w-full max-w-2xl">
+    <div id="Main Contents" data-home-scroll-restore-shell="true" class="w-full max-w-2xl">
       <HomeControlsIsland
         client:load
         locale={resolvedLocale}
