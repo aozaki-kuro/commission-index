@@ -1,6 +1,7 @@
 import {
   resolveHomeCharacterTargetBatch,
   hasDeferredHomeCharacterTarget,
+  normalizeHomeCharacterTargetId,
 } from '#features/home/commission/homeCharacterBatchManifest'
 import { templateContentContainsElementId } from '#features/home/commission/templateContentLookup'
 
@@ -14,19 +15,6 @@ export type RequestActiveCharactersLoadOptions = {
   strategy?: 'next' | 'all' | 'target'
   targetId?: string
   targetBatchCount?: number
-}
-
-const normalizeSectionId = (rawValue: string | null | undefined) => {
-  if (!rawValue) return ''
-
-  const value = rawValue.startsWith('#') ? rawValue.slice(1) : rawValue
-  if (!value) return ''
-
-  try {
-    return decodeURIComponent(value)
-  } catch {
-    return ''
-  }
 }
 
 export const readActiveCharactersLoadedState = (doc?: Document) => {
@@ -54,7 +42,7 @@ export const hasDeferredActiveCharacterTarget = (
     return true
   }
 
-  const sectionId = normalizeSectionId(rawSectionId)
+  const sectionId = normalizeHomeCharacterTargetId(rawSectionId)
   if (!sectionId || doc.getElementById(sectionId)) return false
 
   const template = doc.querySelector<HTMLTemplateElement>(ACTIVE_TEMPLATE_SELECTOR)
@@ -72,7 +60,7 @@ export const resolveDeferredActiveCharacterBatch = (
   })
   if (resolvedBatch !== null) return resolvedBatch
 
-  const sectionId = normalizeSectionId(rawSectionId)
+  const sectionId = normalizeHomeCharacterTargetId(rawSectionId)
   if (!sectionId || doc.getElementById(sectionId)) return null
 
   const template = doc.querySelector<HTMLTemplateElement>(ACTIVE_TEMPLATE_SELECTOR)

@@ -193,16 +193,31 @@ export const useCommissionSearchModel = ({
     domSnapshotKey,
     skipDomContext: shouldSkipDomContext,
   })
+  const didRequestActiveAllRef = useRef(false)
+  const didRequestStaleAllRef = useRef(false)
 
   useEffect(() => {
-    if (disableDomFiltering || mode !== 'character' || !hasQuery || activeLoaded) return
+    const shouldRequest = !disableDomFiltering && mode === 'character' && hasQuery && !activeLoaded
+    if (!shouldRequest) {
+      didRequestActiveAllRef.current = false
+      return
+    }
+
+    if (didRequestActiveAllRef.current) return
+    didRequestActiveAllRef.current = true
     requestActiveCharactersLoad(window, { strategy: 'all' })
   }, [activeLoaded, disableDomFiltering, hasQuery, mode])
 
   useEffect(() => {
-    if (disableDomFiltering || mode !== 'character' || !hasQuery || !staleVisible || staleLoaded) {
+    const shouldRequest =
+      !disableDomFiltering && mode === 'character' && hasQuery && staleVisible && !staleLoaded
+    if (!shouldRequest) {
+      didRequestStaleAllRef.current = false
       return
     }
+
+    if (didRequestStaleAllRef.current) return
+    didRequestStaleAllRef.current = true
 
     // While searching, stale expansion should eagerly load all deferred stale batches
     // so filtering can be applied across the full stale set without requiring extra scroll.

@@ -21,15 +21,18 @@ import {
 import type { CommissionViewMode } from '#features/home/commission/CommissionViewModeSearch'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import {
+  prefetchDeferredActiveCharacterTarget,
+  prefetchDeferredStaleCharacterTarget,
+} from '#features/home/commission/deferredCharacterBatchPrefetch'
+import { normalizeHomeCharacterTargetId } from '#features/home/commission/homeCharacterBatchManifest'
+import {
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
   hasDeferredStaleCharacterTarget,
   hasStaleCharacterTarget,
   isStaleCharactersVisible,
-  readStaleCharactersLoadedBatchCount,
   requestStaleCharactersLoad,
   requestStaleCharactersVisibility,
-  resolveDeferredStaleCharacterBatch,
   type RequestStaleCharactersLoadOptions,
   type StaleCharactersState,
   type StaleCharactersVisibility,
@@ -37,12 +40,9 @@ import {
 import {
   ACTIVE_CHARACTERS_LOADED_EVENT,
   hasDeferredActiveCharacterTarget,
-  readActiveCharactersLoadedBatchCount,
   requestActiveCharactersLoad,
-  resolveDeferredActiveCharacterBatch,
   type RequestActiveCharactersLoadOptions,
 } from '#features/home/commission/activeCharactersEvent'
-import { prefetchHomeCharacterBatches } from '#features/home/commission/homeCharacterBatchClient'
 
 const SIDEBAR_ROOT_ID = 'Character List'
 const SIDEBAR_CONTROLS_ROOT_ID = 'Home Controls'
@@ -86,8 +86,8 @@ const defaultDeps: SidebarNavEnhancerDeps = {
   jumpToSearch: jumpToCommissionSearch,
   clearHash: clearHashIfTargetIsStale,
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
-  prefetchActiveTarget: prefetchDeferredActiveTarget,
-  prefetchStaleTarget: prefetchDeferredStaleTarget,
+  prefetchActiveTarget: prefetchDeferredActiveCharacterTarget,
+  prefetchStaleTarget: prefetchDeferredStaleCharacterTarget,
   requestActiveLoad: requestActiveCharactersLoad,
   requestStaleLoad: requestStaleCharactersLoad,
   requestStaleVisibility: requestStaleCharactersVisibility,
@@ -154,36 +154,7 @@ const resolveActiveTitleId = (titleElements: HTMLElement[]) => {
 }
 
 const resolveSectionIdFromHref = (rawHref: string | null) =>
-  rawHref?.startsWith('#') ? rawHref.slice(1) : null
-
-function prefetchDeferredActiveTarget(doc: Document, targetId: string | null | undefined) {
-  if (!hasDeferredActiveCharacterTarget(doc, targetId)) return
-
-  const batchIndex = resolveDeferredActiveCharacterBatch(doc, targetId)
-  if (batchIndex === null) return
-
-  prefetchHomeCharacterBatches({
-    doc,
-    startBatchIndex: readActiveCharactersLoadedBatchCount(doc),
-    status: 'active',
-    targetBatchIndex: batchIndex,
-  })
-}
-
-function prefetchDeferredStaleTarget(doc: Document, targetId: string | null | undefined) {
-  if (doc.getElementById(resolveSectionIdFromHref(String(targetId ?? '')) ?? '')) return
-  if (!hasStaleCharacterTarget(doc, targetId)) return
-
-  const batchIndex = resolveDeferredStaleCharacterBatch(doc, targetId)
-  if (batchIndex === null) return
-
-  prefetchHomeCharacterBatches({
-    doc,
-    startBatchIndex: readStaleCharactersLoadedBatchCount(doc),
-    status: 'stale',
-    targetBatchIndex: batchIndex,
-  })
-}
+  normalizeHomeCharacterTargetId(rawHref) || null
 
 export const mountSidebarNavEnhancer = ({
   win = window,

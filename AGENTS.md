@@ -39,6 +39,7 @@ This repository contains an Astro 6 static site with React 19 islands, written i
 - Home refresh scroll restoration is centralized in:
   - `src/features/home/homeScrollRestore.ts`
   - `src/features/home/homeScrollRestoreAbort.ts`
+  - `src/lib/navigation/restoreScrollPosition.ts`
 - Home unpublished-interest button state is centralized in:
   - `src/features/home/commission/unpublishedInterestClient.ts`
 - Home active character lazy-mount behavior is centralized in:
@@ -54,6 +55,7 @@ This repository contains an Astro 6 static site with React 19 islands, written i
 - Home active/stale batch manifest parsing, fetching, and DOM rendering are centralized in:
   - `src/features/home/commission/homeCharacterBatchManifest.ts`
   - `src/features/home/commission/homeCharacterBatchClient.ts`
+  - `src/features/home/commission/deferredCharacterBatchPrefetch.ts`
   - `src/features/home/commission/homeCharacterBatchPayload.ts`
   - `src/features/home/commission/homeCharacterBatchRender.ts`
 - Home timeline lazy-mount behavior is centralized in:
@@ -158,6 +160,9 @@ Additional guidance:
 
 ## Change Log
 
+- Consolidated deferred active/stale target prefetching into `src/features/home/commission/deferredCharacterBatchPrefetch.ts`, reused by sidebar + hamburger nav to remove duplicate batch-target logic.
+- Consolidated window scroll restoration behavior into `src/lib/navigation/restoreScrollPosition.ts` and reused it across stale loader + home reload restore.
+- Added search-side request de-dup guards so active/stale `strategy: 'all'` load requests are dispatched once per matching query state instead of repeating on every render.
 - Split admin maintenance workflow into dedicated `/admin/create` and `/admin/edit` routes, converted `/admin` into an overview dashboard, and reordered section nav so overview is first.
 - Aligned the project with Astro 6 defaults by making `redirectToDefaultLocale` explicit, removing Vite plugin type annotations that conflict with Astro's config typing, and documenting CSP guardrails instead of enabling an unstable path in the current stack.
 - Added an empty `src/content.config.ts` so Astro dev no longer warns when the project does not use content collections.

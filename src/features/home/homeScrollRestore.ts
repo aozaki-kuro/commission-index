@@ -17,6 +17,7 @@ import { getHomeCharacterBatchTotalCount } from '#features/home/commission/homeC
 import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import { readCommissionViewMode } from '#features/home/commission/viewModeState'
+import { restoreScrollPosition as restoreWindowScrollPosition } from '#lib/navigation/restoreScrollPosition'
 
 const HOME_SCROLL_STATE_STORAGE_KEY = 'home:scroll-state'
 const HOME_SCROLL_RESTORING_ATTRIBUTE = 'data-home-scroll-restoring'
@@ -57,26 +58,7 @@ const defaultDeps: HomeScrollRestoreDeps = {
   requestTimelineLoad: win => {
     win.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
   },
-  restoreScrollPosition: (win, position) => {
-    const scrollingElement = win.document.scrollingElement
-    if (scrollingElement) {
-      scrollingElement.scrollLeft = position.x
-      scrollingElement.scrollTop = position.y
-      return
-    }
-
-    if (win.navigator.userAgent.includes('jsdom')) {
-      return
-    }
-
-    if (typeof win.scrollTo !== 'function') return
-
-    try {
-      win.scrollTo(position.x, position.y)
-    } catch {
-      // jsdom does not implement scrolling; treat it as a no-op there.
-    }
-  },
+  restoreScrollPosition: restoreWindowScrollPosition,
 }
 
 const readSavedState = (win: Window): SavedHomeScrollState | null => {

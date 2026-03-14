@@ -6,22 +6,21 @@ import {
   hasDeferredStaleCharacterTarget,
   hasStaleCharacterTarget,
   isStaleCharactersVisible,
-  readStaleCharactersLoadedBatchCount,
   requestStaleCharactersLoad,
   requestStaleCharactersVisibility,
-  resolveDeferredStaleCharacterBatch,
   type RequestStaleCharactersLoadOptions,
   type StaleCharactersVisibility,
 } from '#features/home/commission/staleCharactersEvent'
 import {
   ACTIVE_CHARACTERS_LOADED_EVENT,
   hasDeferredActiveCharacterTarget,
-  readActiveCharactersLoadedBatchCount,
   requestActiveCharactersLoad,
-  resolveDeferredActiveCharacterBatch,
   type RequestActiveCharactersLoadOptions,
 } from '#features/home/commission/activeCharactersEvent'
-import { prefetchHomeCharacterBatches } from '#features/home/commission/homeCharacterBatchClient'
+import {
+  prefetchDeferredActiveCharacterTarget,
+  prefetchDeferredStaleCharacterTarget,
+} from '#features/home/commission/deferredCharacterBatchPrefetch'
 import {
   readCommissionViewMode,
   replaceCommissionViewModeInAddress,
@@ -75,45 +74,13 @@ type MountMobileHamburgerMenuOptions = {
 
 type CharacterSectionKey = 'active' | 'stale'
 
-const resolveSectionIdFromTarget = (rawTarget: string | null | undefined) =>
-  rawTarget?.startsWith('#') ? rawTarget.slice(1) : (rawTarget ?? null)
-
-const prefetchDeferredActiveTarget = (doc: Document, targetId: string | null | undefined) => {
-  if (!hasDeferredActiveCharacterTarget(doc, targetId)) return
-
-  const batchIndex = resolveDeferredActiveCharacterBatch(doc, targetId)
-  if (batchIndex === null) return
-
-  prefetchHomeCharacterBatches({
-    doc,
-    startBatchIndex: readActiveCharactersLoadedBatchCount(doc),
-    status: 'active',
-    targetBatchIndex: batchIndex,
-  })
-}
-
-const prefetchDeferredStaleTarget = (doc: Document, targetId: string | null | undefined) => {
-  if (doc.getElementById(resolveSectionIdFromTarget(targetId) ?? '')) return
-  if (!hasStaleCharacterTarget(doc, targetId)) return
-
-  const batchIndex = resolveDeferredStaleCharacterBatch(doc, targetId)
-  if (batchIndex === null) return
-
-  prefetchHomeCharacterBatches({
-    doc,
-    startBatchIndex: readStaleCharactersLoadedBatchCount(doc),
-    status: 'stale',
-    targetBatchIndex: batchIndex,
-  })
-}
-
 const defaultDeps: MobileHamburgerMenuDeps = {
   trackEvent: trackRybbitEvent,
   jumpToSearch: jumpToCommissionSearch,
   syncLinkAvailability: syncHiddenSectionLinkAvailability,
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
-  prefetchActiveTarget: prefetchDeferredActiveTarget,
-  prefetchStaleTarget: prefetchDeferredStaleTarget,
+  prefetchActiveTarget: prefetchDeferredActiveCharacterTarget,
+  prefetchStaleTarget: prefetchDeferredStaleCharacterTarget,
   requestActiveLoad: requestActiveCharactersLoad,
   requestStaleLoad: requestStaleCharactersLoad,
   requestStaleVisibility: requestStaleCharactersVisibility,
@@ -376,6 +343,18 @@ export const mountMobileHamburgerMenu = ({
   const getVisibleItemCount = (mode: CommissionViewMode) =>
     mode === 'timeline' ? timelineCount : activeCount + staleCount
 
+  const trackCharacterNavClick = (navLink: HTMLAnchorElement) => {
+    const mode = readCommissionViewMode(win)
+    deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
+      source: 'character_link',
+      nav_surface: 'hamburger',
+      view_mode: mode,
+      item_count: getVisibleItemCount(mode),
+      character_name: navLink.textContent?.trim() || 'unknown',
+      section_id: navLink.dataset.mobileNavSectionId ?? 'unknown',
+    })
+  }
+
   const runSearchAction = () => {
     const mode = readCommissionViewMode(win)
     if (!hasTrackedSearchUsage) {
@@ -492,19 +471,7 @@ export const mountMobileHamburgerMenu = ({
         strategy: 'target',
         targetId: href ?? deferredActiveSectionId ?? undefined,
       })
-
-      const mode = readCommissionViewMode(win)
-      const sectionId = navLink.dataset.mobileNavSectionId ?? 'unknown'
-      const characterName = navLink.textContent?.trim() || 'unknown'
-      deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
-        source: 'character_link',
-        nav_surface: 'hamburger',
-        view_mode: mode,
-        item_count: getVisibleItemCount(mode),
-        character_name: characterName,
-        section_id: sectionId,
-      })
-
+      trackCharacterNavClick(navLink)
       closeMenu()
       return
     }
@@ -532,19 +499,7 @@ export const mountMobileHamburgerMenu = ({
         strategy: 'target',
         targetId: href ?? navLink.dataset.mobileNavSectionId ?? undefined,
       })
-
-      const mode = readCommissionViewMode(win)
-      const sectionId = navLink.dataset.mobileNavSectionId ?? 'unknown'
-      const characterName = navLink.textContent?.trim() || 'unknown'
-      deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
-        source: 'character_link',
-        nav_surface: 'hamburger',
-        view_mode: mode,
-        item_count: getVisibleItemCount(mode),
-        character_name: characterName,
-        section_id: sectionId,
-      })
-
+      trackCharacterNavClick(navLink)
       closeMenu()
       return
     }
@@ -564,19 +519,7 @@ export const mountMobileHamburgerMenu = ({
 
       win.addEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStaleShown, { once: true })
       deps.requestStaleVisibility(win, 'visible')
-
-      const mode = readCommissionViewMode(win)
-      const sectionId = navLink.dataset.mobileNavSectionId ?? 'unknown'
-      const characterName = navLink.textContent?.trim() || 'unknown'
-      deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
-        source: 'character_link',
-        nav_surface: 'hamburger',
-        view_mode: mode,
-        item_count: getVisibleItemCount(mode),
-        character_name: characterName,
-        section_id: sectionId,
-      })
-
+      trackCharacterNavClick(navLink)
       closeMenu()
       return
     }
@@ -588,23 +531,13 @@ export const mountMobileHamburgerMenu = ({
     dispatchHomeScrollRestoreAbort(win)
 
     const mode = readCommissionViewMode(win)
-    const sectionId = navLink.dataset.mobileNavSectionId ?? 'unknown'
-    const characterName = navLink.textContent?.trim() || 'unknown'
 
     if (mode === 'timeline') {
       event.preventDefault()
       deps.scrollToHashWithoutWrite(navLink.getAttribute('href'))
     }
 
-    deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
-      source: 'character_link',
-      nav_surface: 'hamburger',
-      view_mode: mode,
-      item_count: getVisibleItemCount(mode),
-      character_name: characterName,
-      section_id: sectionId,
-    })
-
+    trackCharacterNavClick(navLink)
     closeMenu()
   }
 

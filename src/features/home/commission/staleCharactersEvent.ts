@@ -1,5 +1,6 @@
 import {
   hasDeferredHomeCharacterTarget,
+  normalizeHomeCharacterTargetId,
   resolveHomeCharacterTargetBatch,
 } from '#features/home/commission/homeCharacterBatchManifest'
 import { templateContentContainsElementId } from '#features/home/commission/templateContentLookup'
@@ -42,19 +43,6 @@ type SavedStaleCharactersVisibility = {
 const HIDDEN_STATE: StaleCharactersState = {
   visibility: 'hidden',
   loaded: false,
-}
-
-const normalizeSectionId = (rawValue: string | null | undefined) => {
-  if (!rawValue) return ''
-
-  const value = rawValue.startsWith('#') ? rawValue.slice(1) : rawValue
-  if (!value) return ''
-
-  try {
-    return decodeURIComponent(value)
-  } catch {
-    return ''
-  }
 }
 
 const resolveVisibility = (panel: HTMLElement | null | undefined): StaleCharactersVisibility => {
@@ -243,7 +231,7 @@ export const hasStaleCharacterTarget = (doc: Document, rawSectionId: string | nu
     return true
   }
 
-  const sectionId = normalizeSectionId(rawSectionId)
+  const sectionId = normalizeHomeCharacterTargetId(rawSectionId)
   if (!sectionId) return false
 
   const template = doc.querySelector<HTMLTemplateElement>(STALE_TEMPLATE_SELECTOR)
@@ -260,7 +248,7 @@ export const hasDeferredStaleCharacterTarget = (
     return true
   }
 
-  const sectionId = normalizeSectionId(rawSectionId)
+  const sectionId = normalizeHomeCharacterTargetId(rawSectionId)
   if (!sectionId) return false
   if (doc.getElementById(sectionId)) return false
 
@@ -281,7 +269,7 @@ export const resolveDeferredStaleCharacterBatch = (
   })
   if (resolvedBatch !== null) return resolvedBatch
 
-  const sectionId = normalizeSectionId(rawSectionId)
+  const sectionId = normalizeHomeCharacterTargetId(rawSectionId)
   if (!sectionId || doc.getElementById(sectionId)) return null
 
   const rootTemplate = doc.querySelector<HTMLTemplateElement>(STALE_TEMPLATE_SELECTOR)

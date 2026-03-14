@@ -25,6 +25,7 @@ import {
   prefetchHomeCharacterBatches,
 } from '#features/home/commission/homeCharacterBatchClient'
 import { getHashTarget, scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
+import { restoreScrollPosition as restoreWindowScrollPosition } from '#lib/navigation/restoreScrollPosition'
 import { dispatchSidebarSearchState } from '#lib/navigation/sidebarSearchState'
 
 const CHARACTER_PANEL_SELECTOR = '[data-commission-view-panel="character"]'
@@ -53,26 +54,7 @@ type WindowWithIntersectionObserver = Window &
 
 const defaultDeps: StaleCharactersLoaderDeps = {
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
-  restoreScrollPosition: (win, position) => {
-    const scrollingElement = win.document.scrollingElement
-    if (scrollingElement) {
-      scrollingElement.scrollLeft = position.x
-      scrollingElement.scrollTop = position.y
-      return
-    }
-
-    if (win.navigator.userAgent.includes('jsdom')) {
-      return
-    }
-
-    if (typeof win.scrollTo !== 'function') return
-
-    try {
-      win.scrollTo(position.x, position.y)
-    } catch {
-      // jsdom does not implement scrolling; treat it as a no-op there.
-    }
-  },
+  restoreScrollPosition: restoreWindowScrollPosition,
 }
 
 const shouldLoadForSentinel = (win: Window, sentinel: HTMLElement | null) => {

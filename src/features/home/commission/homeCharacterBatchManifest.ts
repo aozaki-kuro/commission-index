@@ -7,7 +7,7 @@ const MANIFEST_SELECTOR = 'script[data-home-character-batch-manifest="true"]'
 
 let manifestCache = new WeakMap<Document, HomeCharacterBatchManifest | null>()
 
-const normalizeTargetId = (rawValue: string | null | undefined) => {
+export const normalizeHomeCharacterTargetId = (rawValue: string | null | undefined) => {
   if (!rawValue) return ''
 
   const value = rawValue.startsWith('#') ? rawValue.slice(1) : rawValue
@@ -64,7 +64,7 @@ export const hasDeferredHomeCharacterTarget = ({
   rawTargetId: string | null | undefined
   status: HomeCharacterBatchStatus
 }) => {
-  const targetId = normalizeTargetId(rawTargetId)
+  const targetId = normalizeHomeCharacterTargetId(rawTargetId)
   if (!targetId) return false
   if (doc.getElementById(targetId)) return false
 
@@ -81,7 +81,7 @@ export const resolveHomeCharacterTargetBatch = ({
   rawTargetId: string | null | undefined
   status: HomeCharacterBatchStatus
 }) => {
-  const targetId = normalizeTargetId(rawTargetId)
+  const targetId = normalizeHomeCharacterTargetId(rawTargetId)
   if (!targetId) return null
 
   const manifest = readHomeCharacterBatchManifest(doc)
