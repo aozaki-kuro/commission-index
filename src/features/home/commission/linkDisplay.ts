@@ -16,7 +16,7 @@ export interface DisplayLinksSelection {
 
 export const COMMISSION_LINK_TEXT_CLASS = 'select-none underline underline-offset-2'
 
-const LINK_PRIORITY: Array<{ type: string; patterns: string[] }> = [
+const LINK_PRIORITY: Array<{ type: string, patterns: string[] }> = [
   { type: 'Twitter', patterns: ['twitter.com', 'x.com'] },
   { type: 'Pixiv', patterns: ['pixiv.net'] },
   { type: 'Nijie', patterns: ['nijie.info'] },
@@ -26,13 +26,14 @@ const LINK_PRIORITY: Array<{ type: string; patterns: string[] }> = [
   { type: 'Hedao', patterns: ['hedaoapp.com'] },
 ]
 
-export const sanitizeDisplayUrl = (url: string): string =>
-  url.includes('x.com') ? url.replace('x.com', 'twitter.com') : url
+export function sanitizeDisplayUrl(url: string): string {
+  return url.includes('x.com') ? url.replace('x.com', 'twitter.com') : url
+}
 
-export const selectDisplayLinks = ({
+export function selectDisplayLinks({
   links,
   designLink,
-}: DisplayLinksInput): DisplayLinksSelection => {
+}: DisplayLinksInput): DisplayLinksSelection {
   const hasDesign = Boolean(designLink)
   const maxLinks = hasDesign ? 2 : 3
 
@@ -57,7 +58,7 @@ export const selectDisplayLinks = ({
   }
 }
 
-export const hasDisplayableLinks = (props: DisplayLinksInput) => {
+export function hasDisplayableLinks(props: DisplayLinksInput) {
   const { mainLinks, designLink } = selectDisplayLinks(props)
   return mainLinks.length > 0 || Boolean(designLink)
 }

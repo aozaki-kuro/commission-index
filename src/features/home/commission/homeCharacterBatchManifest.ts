@@ -7,24 +7,26 @@ const MANIFEST_SELECTOR = 'script[data-home-character-batch-manifest="true"]'
 
 let manifestCache = new WeakMap<Document, HomeCharacterBatchManifest | null>()
 
-export const normalizeHomeCharacterTargetId = (rawValue: string | null | undefined) => {
-  if (!rawValue) return ''
+export function normalizeHomeCharacterTargetId(rawValue: string | null | undefined) {
+  if (!rawValue)
+    return ''
 
   const value = rawValue.startsWith('#') ? rawValue.slice(1) : rawValue
-  if (!value) return ''
+  if (!value)
+    return ''
 
   try {
     return decodeURIComponent(value)
-  } catch {
+  }
+  catch {
     return ''
   }
 }
 
-export const readHomeCharacterBatchManifest = (
-  doc?: Document,
-): HomeCharacterBatchManifest | null => {
+export function readHomeCharacterBatchManifest(doc?: Document): HomeCharacterBatchManifest | null {
   const resolvedDocument = doc ?? (typeof document !== 'undefined' ? document : null)
-  if (!resolvedDocument) return null
+  if (!resolvedDocument)
+    return null
 
   if (manifestCache.has(resolvedDocument)) {
     return manifestCache.get(resolvedDocument) ?? null
@@ -40,13 +42,14 @@ export const readHomeCharacterBatchManifest = (
     const manifest = JSON.parse(script.textContent) as HomeCharacterBatchManifest
     manifestCache.set(resolvedDocument, manifest)
     return manifest
-  } catch {
+  }
+  catch {
     manifestCache.set(resolvedDocument, null)
     return null
   }
 }
 
-export const clearHomeCharacterBatchManifestCacheForTests = (doc?: Document) => {
+export function clearHomeCharacterBatchManifestCacheForTests(doc?: Document) {
   if (doc) {
     manifestCache.delete(doc)
     return
@@ -55,7 +58,7 @@ export const clearHomeCharacterBatchManifestCacheForTests = (doc?: Document) => 
   manifestCache = new WeakMap<Document, HomeCharacterBatchManifest | null>()
 }
 
-export const hasDeferredHomeCharacterTarget = ({
+export function hasDeferredHomeCharacterTarget({
   doc,
   rawTargetId,
   status,
@@ -63,16 +66,18 @@ export const hasDeferredHomeCharacterTarget = ({
   doc: Document
   rawTargetId: string | null | undefined
   status: HomeCharacterBatchStatus
-}) => {
+}) {
   const targetId = normalizeHomeCharacterTargetId(rawTargetId)
-  if (!targetId) return false
-  if (doc.getElementById(targetId)) return false
+  if (!targetId)
+    return false
+  if (doc.getElementById(targetId))
+    return false
 
   const manifest = readHomeCharacterBatchManifest(doc)
   return manifest ? targetId in manifest[status].targetBatchById : false
 }
 
-export const resolveHomeCharacterTargetBatch = ({
+export function resolveHomeCharacterTargetBatch({
   doc,
   rawTargetId,
   status,
@@ -80,12 +85,14 @@ export const resolveHomeCharacterTargetBatch = ({
   doc: Document
   rawTargetId: string | null | undefined
   status: HomeCharacterBatchStatus
-}) => {
+}) {
   const targetId = normalizeHomeCharacterTargetId(rawTargetId)
-  if (!targetId) return null
+  if (!targetId)
+    return null
 
   const manifest = readHomeCharacterBatchManifest(doc)
-  if (!manifest) return null
+  if (!manifest)
+    return null
 
   const batchIndex = manifest[status].targetBatchById[targetId]
   return Number.isInteger(batchIndex) ? batchIndex : null

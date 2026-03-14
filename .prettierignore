@@ -1,5 +1,0 @@
-.next
-.astro
-node_modules
-dist
-bun.lock

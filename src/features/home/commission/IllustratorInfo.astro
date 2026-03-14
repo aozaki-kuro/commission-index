@@ -1,13 +1,13 @@
 ---
 import type { Commission } from '#data/types'
-import { parseAndFormatDate } from '#lib/date/format'
-import { parseCommissionFileName } from '#lib/commissions/index'
 import {
   COMMISSION_LINK_TEXT_CLASS,
   hasDisplayableLinks,
   selectDisplayLinks,
 } from '#features/home/commission/linkDisplay'
 import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
+import { parseCommissionFileName } from '#lib/commissions/index'
+import { parseAndFormatDate } from '#lib/date/format'
 
 interface IllustratorInfoProps {
   locale?: string
@@ -17,8 +17,8 @@ interface IllustratorInfoProps {
   className?: string
 }
 
-const { locale, commission, kebabName, showLinks = true, className = '' } =
-  Astro.props as IllustratorInfoProps
+const { locale, commission, kebabName, showLinks = true, className = '' }
+  = Astro.props as IllustratorInfoProps
 const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
 const { fileName, Description: description = '', Links: links, Design: designLink } = commission
 const { date, creator } = parseCommissionFileName(fileName)
@@ -38,34 +38,57 @@ const rootClass = `flex w-full flex-wrap items-center gap-y-2 font-mono text-xs 
 
 <div class={rootClass}>
   <div class="flex items-center">
-    <a href={linkId} class="mr-6 select-none text-gray-800 no-underline dark:text-gray-300! md:mr-16">
+    <a
+      href={linkId}
+      class="
+        mr-6 text-gray-800 no-underline select-none
+        md:mr-16
+        dark:text-gray-300!
+      "
+    >
       <time>{formattedDate}</time>
     </a>
 
     {
-      hasCreator ? (
+      hasCreator
+? (
         <span>{creator}</span>
-      ) : hasDescription ? (
+      )
+: hasDescription
+? (
         <span>{quotedDescription}</span>
-      ) : (
+      )
+: (
         <span>-</span>
       )
     }
 
     {
-      hasBoth ? (
+      hasBoth
+? (
         <>
-          <span class="mx-2 select-none md:mx-4">|</span>
+          <span class="
+            mx-2 select-none
+            md:mx-4
+          "
+          >|</span>
           <span>{quotedDescription}</span>
         </>
-      ) : null
+      )
+: null
     }
   </div>
 
-  <div class="ml-auto flex grow justify-end gap-2 md:gap-3">
+  <div class="
+    ml-auto flex grow justify-end gap-2
+    md:gap-3
+  "
+  >
     {
-      showLinks ? (
-        hasDisplayLinks ? (
+      showLinks
+? (
+        hasDisplayLinks
+? (
           <>
             {
               displayLinks.mainLinks.map(link => (
@@ -75,29 +98,41 @@ const rootClass = `flex w-full flex-wrap items-center gap-y-2 font-mono text-xs 
               ))
             }
             {
-              displayLinks.designLink ? (
+              displayLinks.designLink
+? (
                 <a href={displayLinks.designLink} class={COMMISSION_LINK_TEXT_CLASS} target="_blank">
                   {messages.listing.designLink}
                 </a>
-              ) : null
+              )
+: null
             }
           </>
-        ) : (
+        )
+: (
           <button
             type="button"
             aria-pressed="false"
             data-link-style="true"
-            class={`${COMMISSION_LINK_TEXT_CLASS} inline-flex cursor-pointer appearance-none items-center gap-2.5 border-0 bg-transparent p-0 disabled:cursor-default disabled:no-underline`}
+            class={`
+              ${COMMISSION_LINK_TEXT_CLASS}
+              inline-flex cursor-pointer appearance-none items-center gap-2.5
+              border-0 bg-transparent p-0
+              disabled:cursor-default disabled:no-underline
+            `}
             title={messages.listing.wantThisTitle}
             data-commission-interest-key={interestKey}
             data-commission-interest-recorded-label={messages.listing.wantThisRecorded}
             data-commission-interest-recorded-title={messages.listing.wantThisRecordedTitle}
           >
-            <span aria-hidden="true" class="h-1.5 w-1.5 rounded-full bg-current opacity-80" />
+            <span
+              aria-hidden="true"
+              class="size-1.5 rounded-full bg-current opacity-80"
+            />
             <span data-commission-interest-label>{messages.listing.wantThis}</span>
           </button>
         )
-      ) : null
+      )
+: null
     }
   </div>
 </div>

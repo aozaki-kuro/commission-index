@@ -1,13 +1,14 @@
+import type { CharacterStatus } from '#lib/admin/db'
+import type { ChangeEvent } from 'react'
+import { addCommissionAction } from '#admin/actions'
+import { useActionState, useEffect, useMemo, useState } from 'react'
+
+import { isValidCommissionFileName } from './commissionFileName'
 import {
   CommissionHiddenSwitch,
   CommissionSourceImageField,
 } from './components/CommissionFormFields'
 import CommissionSharedFields from './components/CommissionSharedFields'
-import { useActionState, useEffect, useMemo, useState, type ChangeEvent } from 'react'
-
-import type { CharacterStatus } from '#lib/admin/db'
-import { addCommissionAction } from '#admin/actions'
-import { isValidCommissionFileName } from './commissionFileName'
 import { notifyDataUpdate } from './dataUpdateSignal'
 import FormStatusIndicator from './FormStatusIndicator'
 import SubmitButton from './SubmitButton'
@@ -25,17 +26,18 @@ interface AddCommissionFormProps {
 }
 
 type SourceImageHintTone = 'default' | 'success' | 'error'
-const DEFAULT_SOURCE_IMAGE_HINT =
-  'Upload JPG/PNG. Source image is required and will be saved to data/images using this file name.'
+const DEFAULT_SOURCE_IMAGE_HINT
+  = 'Upload JPG/PNG. Source image is required and will be saved to data/images using this file name.'
 
-const extractFileNameStem = (fileName: string) => {
+function extractFileNameStem(fileName: string) {
   const trimmed = fileName.trim()
   const extIndex = trimmed.lastIndexOf('.')
-  if (extIndex <= 0) return trimmed
+  if (extIndex <= 0)
+    return trimmed
   return trimmed.slice(0, extIndex)
 }
 
-const AddCommissionForm = ({ characters }: AddCommissionFormProps) => {
+function AddCommissionForm({ characters }: AddCommissionFormProps) {
   const [state, formAction] = useActionState(addCommissionAction, INITIAL_FORM_STATE)
   const [characterId, setCharacterId] = useState<number | null>(null)
   const [isHidden, setIsHidden] = useState(false)
@@ -44,11 +46,12 @@ const AddCommissionForm = ({ characters }: AddCommissionFormProps) => {
   const [sourceImageHintTone, setSourceImageHintTone] = useState<SourceImageHintTone>('default')
 
   useEffect(() => {
-    if (state.status === 'success') notifyDataUpdate()
+    if (state.status === 'success')
+      notifyDataUpdate()
   }, [state.status])
 
   const options = useMemo(
-    () => [...characters].sort((a, b) => a.sortOrder - b.sortOrder),
+    () => characters.toSorted((a, b) => a.sortOrder - b.sortOrder),
     [characters],
   )
 
@@ -87,13 +90,26 @@ const AddCommissionForm = ({ characters }: AddCommissionFormProps) => {
   return (
     <form
       action={formAction}
-      className="flex min-w-[20rem] flex-1 flex-col gap-5 rounded-2xl border border-gray-200 bg-white/90 p-6 shadow-sm ring-1 ring-gray-900/5 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10"
+      className="
+        flex min-w-[20rem] flex-1 flex-col gap-5 rounded-2xl border
+        border-gray-200 bg-white/90 p-6 shadow-sm ring-1 ring-gray-900/5
+        backdrop-blur-sm
+        dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10
+      "
     >
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+        <h2 className="
+          text-lg font-semibold text-gray-900
+          dark:text-gray-100
+        "
+        >
           Add Commission Entry
         </h2>
-        <p className="text-sm text-gray-600 dark:text-gray-300">
+        <p className="
+          text-sm text-gray-600
+          dark:text-gray-300
+        "
+        >
           Append a new commission record to an existing character. Links accept multiple lines.
         </p>
       </div>

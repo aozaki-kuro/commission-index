@@ -1,18 +1,18 @@
-// @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   persistStaleCharactersVisibility,
   readSavedStaleCharactersVisibility,
-  STALE_CHARACTERS_COLLAPSED_EVENT,
   STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT,
-  STALE_CHARACTERS_LOADED_EVENT,
+  STALE_CHARACTERS_COLLAPSED_EVENT,
   STALE_CHARACTERS_LOAD_REQUEST_EVENT,
+  STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
 } from '#features/home/commission/staleCharactersEvent'
 import { mountStaleCharactersLoader } from '#features/home/commission/staleCharactersLoader'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const flushAsyncWork = async () => {
+async function flushAsyncWork() {
   await Promise.resolve()
   await Promise.resolve()
   await Promise.resolve()
@@ -20,7 +20,7 @@ const flushAsyncWork = async () => {
   await Promise.resolve()
 }
 
-const setScrollEnvironment = ({
+function setScrollEnvironment({
   innerHeight = 800,
   x = 0,
   y = 0,
@@ -28,7 +28,7 @@ const setScrollEnvironment = ({
   innerHeight?: number
   x?: number
   y?: number
-}) => {
+}) {
   Object.defineProperty(window, 'scrollX', { configurable: true, value: x, writable: true })
   Object.defineProperty(window, 'scrollY', { configurable: true, value: y, writable: true })
   Object.defineProperty(window, 'innerHeight', {
@@ -38,7 +38,7 @@ const setScrollEnvironment = ({
   })
 }
 
-const mockAbsoluteTop = (element: HTMLElement, absoluteTop: number) => {
+function mockAbsoluteTop(element: HTMLElement, absoluteTop: number) {
   element.getBoundingClientRect = () =>
     ({
       top: absoluteTop - window.scrollY,
@@ -54,7 +54,7 @@ const mockAbsoluteTop = (element: HTMLElement, absoluteTop: number) => {
   element.getClientRects = () => [element.getBoundingClientRect()] as unknown as DOMRectList
 }
 
-const renderFixture = () => {
+function renderFixture() {
   document.body.innerHTML = `
     <div data-commission-view-panel="character" data-stale-loaded="false" data-stale-visibility="hidden">
       <div data-stale-sections-placeholder="true"></div>
@@ -67,7 +67,7 @@ const renderFixture = () => {
   `
 }
 
-const renderDeferredFixture = () => {
+function renderDeferredFixture() {
   document.body.innerHTML = `
     <div data-commission-view-panel="character" data-stale-loaded="false" data-stale-visibility="hidden">
       <div data-stale-sections-placeholder="true"></div>
@@ -98,7 +98,7 @@ describe('mountStaleCharactersLoader', () => {
     Object.defineProperty(window, 'scrollY', { value: 480, configurable: true })
     const requestAnimationFrameSpy = vi
       .spyOn(window, 'requestAnimationFrame')
-      .mockImplementation(callback => {
+      .mockImplementation((callback) => {
         callback(0)
         return 1
       })
@@ -148,20 +148,21 @@ describe('mountStaleCharactersLoader', () => {
     expect(
       document
         .querySelector<HTMLElement>('[data-stale-sections-placeholder="true"]')
-        ?.classList.contains('hidden'),
+        ?.classList
+        .contains('hidden'),
     ).toBe(true)
     expect(onLoaded).toHaveBeenCalledTimes(1)
     expect(onSidebarSync).toHaveBeenCalledTimes(1)
     expect(onStateChanged).toHaveBeenCalledTimes(2)
     expect(
-      (onStateChanged.mock.calls[0]?.[0] as CustomEvent<{ visibility: string; loaded: boolean }>)
+      (onStateChanged.mock.calls[0]?.[0] as CustomEvent<{ visibility: string, loaded: boolean }>)
         .detail,
     ).toEqual({
       visibility: 'visible',
       loaded: false,
     })
     expect(
-      (onStateChanged.mock.calls[1]?.[0] as CustomEvent<{ visibility: string; loaded: boolean }>)
+      (onStateChanged.mock.calls[1]?.[0] as CustomEvent<{ visibility: string, loaded: boolean }>)
         .detail,
     ).toEqual({
       visibility: 'visible',
@@ -190,7 +191,7 @@ describe('mountStaleCharactersLoader', () => {
     Object.defineProperty(window, 'scrollY', { value: 480, configurable: true })
     const requestAnimationFrameSpy = vi
       .spyOn(window, 'requestAnimationFrame')
-      .mockImplementation(callback => {
+      .mockImplementation((callback) => {
         callback(0)
         return 1
       })
@@ -332,7 +333,7 @@ describe('mountStaleCharactersLoader', () => {
 
     const requestAnimationFrameSpy = vi
       .spyOn(window, 'requestAnimationFrame')
-      .mockImplementation(callback => {
+      .mockImplementation((callback) => {
         callback(0)
         return 1
       })
@@ -384,12 +385,13 @@ describe('mountStaleCharactersLoader', () => {
     expect(
       document
         .querySelector<HTMLElement>('[data-stale-sections-placeholder="true"]')
-        ?.classList.contains('hidden'),
+        ?.classList
+        .contains('hidden'),
     ).toBe(false)
     expect(onCollapsed).toHaveBeenCalledTimes(1)
     expect(onStateChanged).toHaveBeenCalledTimes(3)
     expect(
-      (onStateChanged.mock.calls[2]?.[0] as CustomEvent<{ visibility: string; loaded: boolean }>)
+      (onStateChanged.mock.calls[2]?.[0] as CustomEvent<{ visibility: string, loaded: boolean }>)
         .detail,
     ).toEqual({
       visibility: 'hidden',

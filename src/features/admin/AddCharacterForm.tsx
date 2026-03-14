@@ -1,3 +1,4 @@
+import { addCharacterAction } from '#admin/actions'
 import {
   Select,
   SelectContent,
@@ -5,9 +6,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '#components/ui/select'
-import { useActionState, useEffect, useMemo, useState } from 'react'
 
-import { addCharacterAction } from '#admin/actions'
+import { useActionState, useEffect, useMemo, useState } from 'react'
 import { notifyDataUpdate } from './dataUpdateSignal'
 import FormStatusIndicator from './FormStatusIndicator'
 import SubmitButton from './SubmitButton'
@@ -16,7 +16,7 @@ import { formControlStyles } from './uiStyles'
 
 type StatusValue = 'active' | 'stale'
 
-const statusOptions: Array<{ value: StatusValue; label: string }> = [
+const statusOptions: Array<{ value: StatusValue, label: string }> = [
   {
     value: 'active',
     label: 'Active',
@@ -27,12 +27,13 @@ const statusOptions: Array<{ value: StatusValue; label: string }> = [
   },
 ]
 
-const AddCharacterForm = () => {
+function AddCharacterForm() {
   const [state, formAction] = useActionState(addCharacterAction, INITIAL_FORM_STATE)
   const [status, setStatus] = useState<StatusValue>('active')
 
   useEffect(() => {
-    if (state.status === 'success') notifyDataUpdate()
+    if (state.status === 'success')
+      notifyDataUpdate()
   }, [state.status])
 
   const currentStatus = useMemo(
@@ -43,20 +44,42 @@ const AddCharacterForm = () => {
   return (
     <form
       action={formAction}
-      className="flex min-w-[20rem] flex-1 flex-col gap-5 rounded-2xl border border-gray-200 bg-white/90 p-6 shadow-sm ring-1 ring-gray-900/5 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10"
+      className="
+        flex min-w-[20rem] flex-1 flex-col gap-5 rounded-2xl border
+        border-gray-200 bg-white/90 p-6 shadow-sm ring-1 ring-gray-900/5
+        backdrop-blur-sm
+        dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10
+      "
     >
       <div className="space-y-1">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Add Character</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-300">
+        <h2 className="
+          text-lg font-semibold text-gray-900
+          dark:text-gray-100
+        "
+        >
+          Add Character
+        </h2>
+        <p className="
+          text-sm text-gray-600
+          dark:text-gray-300
+        "
+        >
           Register a new character to start tracking commissions.
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_14rem]">
+      <div className="
+        grid gap-4
+        sm:grid-cols-[minmax(0,1fr)_14rem]
+      "
+      >
         <div className="space-y-1">
           <label
             htmlFor="add-character-name"
-            className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300"
+            className="
+              text-xs font-semibold tracking-wide text-gray-500 uppercase
+              dark:text-gray-300
+            "
           >
             Name
           </label>
@@ -71,11 +94,19 @@ const AddCharacterForm = () => {
         </div>
 
         <div className="space-y-1">
-          <label className="text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300">
+          <label className="
+            text-xs font-semibold tracking-wide text-gray-500 uppercase
+            dark:text-gray-300
+          "
+          >
             Status
           </label>
           <Select value={status} onValueChange={value => setStatus(value as StatusValue)}>
-            <SelectTrigger className={`${formControlStyles} h-auto py-2.5`}>
+            <SelectTrigger className={`
+              ${formControlStyles}
+              h-auto py-2.5
+            `}
+            >
               <SelectValue aria-label={currentStatus.value} placeholder="Select status">
                 {currentStatus.label}
               </SelectValue>
@@ -88,7 +119,11 @@ const AddCharacterForm = () => {
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="
+            text-xs text-gray-500
+            dark:text-gray-400
+          "
+          >
             This controls where the character appears on the public roster.
           </p>
         </div>

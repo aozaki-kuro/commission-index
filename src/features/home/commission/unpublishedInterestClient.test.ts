@@ -2,7 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountUnpublishedInterestButtons } from './unpublishedInterestClient'
 
-const buildButtonMarkup = (commissionKey = 'artoria-pendragon-20240203') => `
+function buildButtonMarkup(commissionKey = 'artoria-pendragon-20240203') {
+  return `
   <button
     type="button"
     aria-pressed="false"
@@ -16,6 +17,7 @@ const buildButtonMarkup = (commissionKey = 'artoria-pendragon-20240203') => `
     <span data-commission-interest-label>Want this</span>
   </button>
 `
+}
 
 describe('unpublishedInterestClient', () => {
   beforeEach(() => {

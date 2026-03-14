@@ -6,13 +6,13 @@ import {
   prefetchHomeCharacterBatches,
 } from './homeCharacterBatchClient'
 
-const flushAsyncWork = async () => {
+async function flushAsyncWork() {
   await Promise.resolve()
   await Promise.resolve()
   await Promise.resolve()
 }
 
-const renderManifest = () => {
+function renderManifest() {
   document.body.innerHTML = `
     <script type="application/json" data-home-character-batch-manifest="true">
       {"locale":"en","active":{"initialSectionIds":["alpha"],"totalBatches":3,"targetBatchById":{}},"stale":{"initialSectionIds":[],"totalBatches":2,"targetBatchById":{}}}

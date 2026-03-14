@@ -1,15 +1,15 @@
 ---
 import type { Commission } from '#data/types'
+import IllustratorInfo from '#features/home/commission/IllustratorInfo.astro'
+import ProtectedCommissionImage from '#features/home/commission/ProtectedCommissionImage.astro'
+import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
 import { parseCommissionFileName } from '#lib/commissions'
+import { resolveSourceImageByCommissionFileName } from '#lib/images/sourceImageRegistry'
 import {
   buildCommissionSearchDomKey,
   buildCommissionSearchMetadata,
 } from '#lib/search/commissionSearchMetadata'
 import { getBaseFileName } from '#lib/utils/strings'
-import { resolveSourceImageByCommissionFileName } from '#lib/images/sourceImageRegistry'
-import IllustratorInfo from '#features/home/commission/IllustratorInfo.astro'
-import ProtectedCommissionImage from '#features/home/commission/ProtectedCommissionImage.astro'
-import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
 
 export interface CommissionRenderEntry {
   character: string
@@ -89,22 +89,50 @@ const shouldEmbedSearchMetadata = embedSearchMetadata ?? Boolean(import.meta.env
         {...searchAttributes}
       >
         {
-          showImage ? (
-            sourceImage ? (
+          showImage
+? (
+            sourceImage
+? (
               <ProtectedCommissionImage altText={altText} sourceImage={sourceImage} />
-            ) : (
-              <div data-commission-image="true" data-commission-alt={altText} class="relative">
-                <div class="aspect-1280/525 flex items-center justify-center bg-gray-100 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-300">
+            )
+: (
+              <div
+                data-commission-image="true"
+                data-commission-alt={altText}
+                class="relative"
+              >
+                <div class="
+                  flex aspect-1280/525 items-center justify-center bg-gray-100
+                  text-xs text-gray-500
+                  dark:bg-gray-800 dark:text-gray-300
+                "
+                >
                   {messages.listing.sourceImageNotFound}
                 </div>
               </div>
             )
-          ) : null
+          )
+: null
         }
         {
-          showCharacterLabel ? (
-            <div class={showImage ? 'mt-6 mb-2 md:mt-8 md:mb-4' : 'mt-2 mb-2 md:mb-4'}>
-              <div class="mb-2 font-mono text-xs text-gray-600 md:text-sm dark:text-gray-400">
+          showCharacterLabel
+? (
+            <div class={showImage
+? `
+  mt-6 mb-2
+  md:mt-8 md:mb-4
+`
+: `
+  my-2
+  md:mb-4
+`}
+            >
+              <div class="
+                mb-2 font-mono text-xs text-gray-600
+                md:text-sm
+                dark:text-gray-400
+              "
+              >
                 {character}
               </div>
               <IllustratorInfo
@@ -114,13 +142,22 @@ const shouldEmbedSearchMetadata = embedSearchMetadata ?? Boolean(import.meta.env
                 showLinks={showLinks}
               />
             </div>
-          ) : (
+          )
+: (
             <IllustratorInfo
               locale={resolvedLocale}
               commission={commission}
               kebabName={entryAnchorPrefix}
               showLinks={showLinks}
-              className={showImage ? 'mt-6 mb-2 md:mt-8 md:mb-4' : 'mt-2 mb-2 md:mb-4'}
+              className={showImage
+? `
+  mt-6 mb-2
+  md:mt-8 md:mb-4
+`
+: `
+  my-2
+  md:mb-4
+`}
             />
           )
         }

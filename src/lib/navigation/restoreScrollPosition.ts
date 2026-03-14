@@ -1,4 +1,4 @@
-export const restoreScrollPosition = (win: Window, position: { x: number; y: number }) => {
+export function restoreScrollPosition(win: Window, position: { x: number, y: number }) {
   const scrollingElement = win.document.scrollingElement
   if (scrollingElement) {
     scrollingElement.scrollLeft = position.x
@@ -10,11 +10,13 @@ export const restoreScrollPosition = (win: Window, position: { x: number; y: num
     return
   }
 
-  if (typeof win.scrollTo !== 'function') return
+  if (typeof win.scrollTo !== 'function')
+    return
 
   try {
     win.scrollTo(position.x, position.y)
-  } catch {
+  }
+  catch {
     // jsdom does not implement scrolling; treat it as a no-op there.
   }
 }

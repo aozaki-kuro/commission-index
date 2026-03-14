@@ -1,10 +1,10 @@
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
+import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
-import { TIMELINE_VIEW_LOADED_EVENT, mountTimelineViewLoader } from './timelineViewLoader'
-import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
+import { mountTimelineViewLoader, TIMELINE_VIEW_LOADED_EVENT } from './timelineViewLoader'
 
-const renderFixture = () => {
+function renderFixture() {
   document.body.innerHTML = `
     <div data-commission-view-panel="timeline" data-timeline-loaded="false" class="hidden">
       <div data-timeline-sections-container="true"></div>
@@ -25,7 +25,7 @@ describe('mountTimelineViewLoader', () => {
     const scrollToHashWithoutWrite = vi.fn()
     const requestAnimationFrameSpy = vi
       .spyOn(window, 'requestAnimationFrame')
-      .mockImplementation(callback => {
+      .mockImplementation((callback) => {
         callback(0)
         return 1
       })

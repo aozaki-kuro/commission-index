@@ -20,8 +20,8 @@
   :root {
     --font-sans: var(--font-ibm-plex-sans), sans-serif;
     --font-mono:
-      'Berkeley Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
-      'Courier New', monospace;
+      'Berkeley Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+      monospace;
     color-scheme: light dark;
     background-color: #fff;
   }

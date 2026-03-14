@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
 import type { AdminCommissionSearchRow } from '#lib/admin/db'
+import { describe, expect, it } from 'vitest'
 import {
   areNumberSetsEqual,
   buildCommissionToCharacterMap,
@@ -49,7 +49,7 @@ describe('matchedCharacterIds helpers', () => {
     const map = buildCommissionToCharacterMap(rows)
     const matchedCharacterIds = collectMatchedCharacterIds(new Set([1, 3, 999]), map)
 
-    expect([...matchedCharacterIds].sort((left, right) => left - right)).toEqual([11])
+    expect(matchedCharacterIds.toSorted((left, right) => left - right)).toEqual([11])
   })
 
   it('compares number sets by contents', () => {

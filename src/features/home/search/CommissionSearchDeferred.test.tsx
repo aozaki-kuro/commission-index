@@ -16,11 +16,13 @@ vi.mock('#features/home/search/CommissionSearch', () => ({
     return (
       <div data-testid="commission-search">
         <div data-testid="commission-search-defer-flag">{String(props.deferIndexInit)}</div>
-        {onRotate ? (
-          <button type="button" onClick={onRotate}>
-            {rotateLabel}
-          </button>
-        ) : null}
+        {onRotate
+          ? (
+              <button type="button" onClick={onRotate}>
+                {rotateLabel}
+              </button>
+            )
+          : null}
         {popularKeywords.map(keyword => (
           <button key={keyword} type="button">
             {keyword}
@@ -31,7 +33,7 @@ vi.mock('#features/home/search/CommissionSearch', () => ({
   },
 }))
 
-describe('CommissionSearchDeferred', () => {
+describe('commissionSearchDeferred', () => {
   const appendedEntries: HTMLElement[] = []
   const appendSearchEntry = (searchSuggest: string) => {
     const element = document.createElement('article')
@@ -200,7 +202,7 @@ describe('CommissionSearchDeferred', () => {
   })
 })
 
-const loadDeferredModule = async () => {
+async function loadDeferredModule() {
   vi.resetModules()
   return import('./CommissionSearchDeferred')
 }

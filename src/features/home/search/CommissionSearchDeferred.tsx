@@ -1,13 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import CommissionSearch, {
-  type CommissionSearchEntrySource,
-  type SearchSuggestionAliasGroup,
-} from '#features/home/search/CommissionSearch'
+import type { CommissionSearchEntrySource, SearchSuggestionAliasGroup } from '#features/home/search/CommissionSearch'
 import { resolveHomeControls } from '#features/home/i18n/homeLocale'
+import CommissionSearch from '#features/home/search/CommissionSearch'
 import {
   buildPopularKeywordPoolFromSuggestTexts,
   dedupeKeywords,
 } from '#lib/search/popularKeywords'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 const MAX_FEATURED_KEYWORDS = 6
 const MAX_VISIBLE_POPULAR_KEYWORDS = 6
@@ -17,18 +15,18 @@ const COMMISSION_ENTRY_SELECTOR = '[data-commission-entry="true"]'
 let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
 let homeSearchEntriesPromise: Promise<CommissionSearchEntrySource[]> | null = null
 
-const createSeededRandom = (seed: number) => {
-  let state = seed >>> 0 || 0x6d2b79f5
+function createSeededRandom(seed: number) {
+  let state = seed >>> 0 || 0x6D2B79F5
 
   return () => {
-    state += 0x6d2b79f5
+    state += 0x6D2B79F5
     let mixed = Math.imul(state ^ (state >>> 15), state | 1)
     mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61)
     return ((mixed ^ (mixed >>> 14)) >>> 0) / 4294967296
   }
 }
 
-const shuffleKeywords = (keywords: string[], seed: number) => {
+function shuffleKeywords(keywords: string[], seed: number) {
   const shuffled = [...keywords]
   const random = createSeededRandom(seed)
 
@@ -42,8 +40,9 @@ const shuffleKeywords = (keywords: string[], seed: number) => {
   return shuffled
 }
 
-const getPopularKeywordBatch = (keywords: string[], page: number, batchSize: number) => {
-  if (keywords.length <= batchSize) return keywords
+function getPopularKeywordBatch(keywords: string[], page: number, batchSize: number) {
+  if (keywords.length <= batchSize)
+    return keywords
 
   const seed = (keywords.length * 2654435761 + (page + 1) * 1013904223) >>> 0
   return shuffleKeywords(keywords, seed).slice(0, batchSize)
@@ -51,27 +50,24 @@ const getPopularKeywordBatch = (keywords: string[], page: number, batchSize: num
 
 const normalizeKeywordVariantKey = (value: string) => value.trim().toLowerCase()
 
-const collectSearchEntryElementsFromNode = (root: ParentNode): HTMLElement[] => {
-  const directEntries = Array.from(root.querySelectorAll<HTMLElement>(COMMISSION_ENTRY_SELECTOR))
-  const nestedTemplateEntries = Array.from(
-    root.querySelectorAll<HTMLTemplateElement>('template'),
-  ).flatMap(template => collectSearchEntryElementsFromNode(template.content))
+function collectSearchEntryElementsFromNode(root: ParentNode): HTMLElement[] {
+  const directEntries = [...root.querySelectorAll<HTMLElement>(COMMISSION_ENTRY_SELECTOR)]
+  const nestedTemplateEntries = [...root.querySelectorAll<HTMLTemplateElement>('template')].flatMap(template => collectSearchEntryElementsFromNode(template.content))
 
   return [...directEntries, ...nestedTemplateEntries]
 }
 
-const buildAliasKeyLookup = (aliasGroups: SearchSuggestionAliasGroup[]) => {
+function buildAliasKeyLookup(aliasGroups: SearchSuggestionAliasGroup[]) {
   const keyToGroup = new Map<string, string>()
 
   for (const group of aliasGroups) {
-    const normalizedTerms = Array.from(
-      [group.term, ...group.aliases]
-        .map(term => normalizeKeywordVariantKey(term))
-        .filter((term): term is string => Boolean(term)),
-    )
+    const normalizedTerms = [...[group.term, ...group.aliases]
+      .map(term => normalizeKeywordVariantKey(term))
+      .filter((term): term is string => Boolean(term))]
 
-    const uniqueTerms = Array.from(new Set(normalizedTerms))
-    if (uniqueTerms.length < 2) continue
+    const uniqueTerms = [...new Set(normalizedTerms)]
+    if (uniqueTerms.length < 2)
+      continue
 
     const existingGroup = uniqueTerms.map(term => keyToGroup.get(term)).find(Boolean)
     const groupKey = existingGroup ?? uniqueTerms[0]
@@ -84,31 +80,32 @@ const buildAliasKeyLookup = (aliasGroups: SearchSuggestionAliasGroup[]) => {
   return keyToGroup
 }
 
-const collapseAliasKeywordVariants = (
-  keywords: string[],
-  aliasGroups: SearchSuggestionAliasGroup[],
-  seed: number,
-) => {
-  if (keywords.length === 0 || aliasGroups.length === 0) return keywords
+function collapseAliasKeywordVariants(keywords: string[], aliasGroups: SearchSuggestionAliasGroup[], seed: number) {
+  if (keywords.length === 0 || aliasGroups.length === 0)
+    return keywords
 
   const aliasKeyLookup = buildAliasKeyLookup(aliasGroups)
-  if (aliasKeyLookup.size === 0) return keywords
+  if (aliasKeyLookup.size === 0)
+    return keywords
 
   const candidatesByGroup = new Map<string, string[]>()
   const seenCandidateKeysByGroup = new Map<string, Set<string>>()
 
   for (const keyword of keywords) {
     const normalizedKeyword = normalizeKeywordVariantKey(keyword)
-    if (!normalizedKeyword) continue
+    if (!normalizedKeyword)
+      continue
     const groupKey = aliasKeyLookup.get(normalizedKeyword)
-    if (!groupKey) continue
+    if (!groupKey)
+      continue
 
     let seenKeys = seenCandidateKeysByGroup.get(groupKey)
     if (!seenKeys) {
       seenKeys = new Set<string>()
       seenCandidateKeysByGroup.set(groupKey, seenKeys)
     }
-    if (seenKeys.has(normalizedKeyword)) continue
+    if (seenKeys.has(normalizedKeyword))
+      continue
     seenKeys.add(normalizedKeyword)
 
     const candidates = candidatesByGroup.get(groupKey) ?? []
@@ -119,7 +116,8 @@ const collapseAliasKeywordVariants = (
   const selectedTermByGroup = new Map<string, string>()
   const random = createSeededRandom(seed ^ candidatesByGroup.size)
   for (const [groupKey, candidates] of candidatesByGroup) {
-    if (candidates.length === 0) continue
+    if (candidates.length === 0)
+      continue
     if (candidates.length === 1) {
       selectedTermByGroup.set(groupKey, candidates[0])
       continue
@@ -135,21 +133,25 @@ const collapseAliasKeywordVariants = (
 
   for (const keyword of keywords) {
     const normalizedKeyword = normalizeKeywordVariantKey(keyword)
-    if (!normalizedKeyword) continue
+    if (!normalizedKeyword)
+      continue
 
     const groupKey = aliasKeyLookup.get(normalizedKeyword)
     if (!groupKey) {
-      if (emittedKeywordKeys.has(normalizedKeyword)) continue
+      if (emittedKeywordKeys.has(normalizedKeyword))
+        continue
       emittedKeywordKeys.add(normalizedKeyword)
       collapsedKeywords.push(keyword.trim())
       continue
     }
-    if (emittedAliasGroups.has(groupKey)) continue
+    if (emittedAliasGroups.has(groupKey))
+      continue
 
     emittedAliasGroups.add(groupKey)
     const selectedTerm = selectedTermByGroup.get(groupKey) ?? keyword.trim()
     const selectedTermKey = normalizeKeywordVariantKey(selectedTerm)
-    if (!selectedTermKey || emittedKeywordKeys.has(selectedTermKey)) continue
+    if (!selectedTermKey || emittedKeywordKeys.has(selectedTermKey))
+      continue
 
     emittedKeywordKeys.add(selectedTermKey)
     collapsedKeywords.push(selectedTerm)
@@ -158,14 +160,16 @@ const collapseAliasKeywordVariants = (
   return collapsedKeywords
 }
 
-const buildSearchEntriesFromDom = (): CommissionSearchEntrySource[] => {
-  if (typeof document === 'undefined') return []
+function buildSearchEntriesFromDom(): CommissionSearchEntrySource[] {
+  if (typeof document === 'undefined')
+    return []
 
   const entriesByKey = new Map<string, Omit<CommissionSearchEntrySource, 'id'>>()
-  collectSearchEntryElementsFromNode(document).forEach(element => {
+  collectSearchEntryElementsFromNode(document).forEach((element) => {
     const domKey = element.dataset.commissionSearchKey
     const searchText = element.dataset.searchText
-    if (!domKey || !searchText || entriesByKey.has(domKey)) return
+    if (!domKey || !searchText || entriesByKey.has(domKey))
+      return
 
     entriesByKey.set(domKey, {
       domKey,
@@ -174,18 +178,19 @@ const buildSearchEntriesFromDom = (): CommissionSearchEntrySource[] => {
     })
   })
 
-  return Array.from(entriesByKey.values()).map((entry, id) => ({
+  return Array.from(entriesByKey.values(), (entry, id) => ({
     id,
     ...entry,
   }))
 }
 
-const buildPopularKeywordPoolFromEntries = (entries: CommissionSearchEntrySource[]) =>
-  buildPopularKeywordPoolFromSuggestTexts(
+function buildPopularKeywordPoolFromEntries(entries: CommissionSearchEntrySource[]) {
+  return buildPopularKeywordPoolFromSuggestTexts(
     entries
       .map(entry => entry.searchSuggest ?? '')
       .filter((suggestText): suggestText is string => Boolean(suggestText)),
   )
+}
 
 interface CommissionSearchDeferredProps {
   locale?: string
@@ -204,7 +209,8 @@ export default function CommissionSearchDeferred({
   const [hasDismissedFeaturedKeywords, setHasDismissedFeaturedKeywords] = useState(false)
   const [externalEntries, setExternalEntries] = useState<CommissionSearchEntrySource[] | null>(
     () => {
-      if (shouldLoadFetchedEntries) return cachedHomeSearchEntries
+      if (shouldLoadFetchedEntries)
+        return cachedHomeSearchEntries
       const entries = buildSearchEntriesFromDom()
       return entries.length > 0 ? entries : null
     },
@@ -222,41 +228,43 @@ export default function CommissionSearchDeferred({
       collapseAliasKeywordVariants(
         dedupedFeaturedKeywordBatch,
         suggestionAliasGroups,
-        popularKeywordPage ^ 0x9e3779b9,
+        popularKeywordPage ^ 0x9E3779B9,
       ),
     [dedupedFeaturedKeywordBatch, popularKeywordPage, suggestionAliasGroups],
   )
 
   useEffect(() => {
     if (shouldLoadFetchedEntries) {
-      if (cachedHomeSearchEntries) return
+      if (cachedHomeSearchEntries)
+        return
 
       let active = true
       if (!homeSearchEntriesPromise) {
         homeSearchEntriesPromise = fetch(HOME_SEARCH_INDEX_URL)
-          .then(async response => {
+          .then(async (response) => {
             if (!response.ok) {
               throw new Error(`Failed to load search index: ${response.status}`)
             }
             return (await response.json()) as CommissionSearchEntrySource[]
           })
-          .then(entries => {
+          .then((entries) => {
             cachedHomeSearchEntries = entries
             return entries
           })
-          .catch(error => {
+          .catch((error) => {
             homeSearchEntriesPromise = null
             throw error
           })
       }
 
       void homeSearchEntriesPromise
-        .then(entries => {
-          if (!active) return
+        .then((entries) => {
+          if (!active)
+            return
           setExternalEntries(entries)
           setPopularKeywordPool(buildPopularKeywordPoolFromEntries(entries))
         })
-        .catch(error => {
+        .catch((error) => {
           console.error(error)
         })
 

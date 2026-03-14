@@ -1,33 +1,33 @@
 ---
-import { getImage } from 'astro:assets'
-import { getRelativeLocaleUrl } from 'astro:i18n'
+import { getCharacterAliases } from '#data/characterAliases'
+import { getHomeFeaturedSearchKeywords } from '#data/homeFeaturedSearchKeywords'
+import { getKeywordAliases } from '#data/keywordAliases'
 import CommissionDescription from '#features/home/blocks/Description.astro'
 import Footer from '#features/home/blocks/Footer.astro'
-import HomeClientScript from '#features/home/HomeClientScript.astro'
 import CommissionImageNoticeScript from '#features/home/commission/CommissionImageNoticeScript.astro'
 import MobileViewModeTabs from '#features/home/commission/MobileViewModeTabs.astro'
 import DevLiveRefreshScript from '#features/home/dev/DevLiveRefreshScript.astro'
+import HomeClientScript from '#features/home/HomeClientScript.astro'
+import {
+  getHomeLocaleMessages,
+  HOME_LOCALE_SWITCH_ITEMS,
+  normalizeHomeLocale,
+} from '#features/home/i18n/homeLocale'
 import HomeControlsIsland from '#features/home/islands/HomeControlsIsland'
 import DesktopSidebarNav from '#features/home/nav/DesktopSidebarNav.astro'
 import MobileHamburgerMenu from '#features/home/nav/hamburger/MobileHamburgerMenu.astro'
 import MobileLanguageMenu from '#features/home/nav/hamburger/MobileLanguageMenu.astro'
 import StaticCommissionSections from '#features/home/server/StaticCommissionSections.astro'
 import AgeGateScript from '#features/home/warning/AgeGateScript.astro'
-import { getCharacterAliases } from '#data/characterAliases'
-import { getHomeFeaturedSearchKeywords } from '#data/homeFeaturedSearchKeywords'
-import { getKeywordAliases } from '#data/keywordAliases'
+import BaseLayout from '#layouts/BaseLayout.astro'
 import { normalizeCharacterAliasKey } from '#lib/characterAliases/shared'
 import { homeUpdateSummary } from '#lib/generated/homeUpdateSummary'
 import { buildSitePayload } from '#lib/home/buildSitePayload'
 import { listMissingSourceImages, resolveSourceImageByCommissionFileName } from '#lib/images/sourceImageRegistry'
 import { normalizeKeywordAliasKey } from '#lib/keywordAliases/shared'
 import { buildCommissionDataMap, buildCreatorAliasesMap } from '#lib/sitePayload'
-import BaseLayout from '#layouts/BaseLayout.astro'
-import {
-  HOME_LOCALE_SWITCH_ITEMS,
-  getHomeLocaleMessages,
-  normalizeHomeLocale,
-} from '#features/home/i18n/homeLocale'
+import { getImage } from 'astro:assets'
+import { getRelativeLocaleUrl } from 'astro:i18n'
 
 interface HomePageProps {
   locale?: string
@@ -51,18 +51,20 @@ const commissionMap = buildCommissionDataMap(payload.commissionData)
 const creatorAliasesMap = buildCreatorAliasesMap(payload.creatorAliases)
 const characterAliasesMap = new Map(
   characterAliases
-    .map(row => {
+    .map((row) => {
       const key = normalizeCharacterAliasKey(row.characterName)
-      if (!key) return null
+      if (!key)
+return null
       return [key, row.aliases] as const
     })
     .filter((entry): entry is readonly [string, string[]] => Boolean(entry)),
 )
 const keywordAliasesMap = new Map(
   keywordAliases
-    .map(row => {
+    .map((row) => {
       const key = normalizeKeywordAliasKey(row.baseKeyword)
-      if (!key) return null
+      if (!key)
+return null
       return [key, row.aliases] as const
     })
     .filter((entry): entry is readonly [string, string[]] => Boolean(entry)),
@@ -93,13 +95,14 @@ if (missingSourceImages.length > 0) {
 
   if (import.meta.env.DEV) {
     console.warn(`[images] ${message}`)
-  } else {
+  }
+ else {
     throw new Error(message)
   }
 }
 
-const firstCharacterName =
-  payload.characterStatus.active[0]?.DisplayName ?? payload.characterStatus.stale[0]?.DisplayName
+const firstCharacterName
+  = payload.characterStatus.active[0]?.DisplayName ?? payload.characterStatus.stale[0]?.DisplayName
 const firstCommissionFileName = firstCharacterName
   ? commissionMap.get(firstCharacterName)?.Commissions?.[0]?.fileName
   : undefined
@@ -121,8 +124,8 @@ const priorityImage = firstSourceImage
       })))()
   : undefined
 
-const resolvedCanonicalPath =
-  canonicalPath ?? (resolvedLocale === 'en' ? '/' : `/${resolvedLocale}/`)
+const resolvedCanonicalPath
+  = canonicalPath ?? (resolvedLocale === 'en' ? '/' : `/${resolvedLocale}/`)
 ---
 
 <BaseLayout priorityImage={await priorityImage} lang={messages.lang} canonicalPath={resolvedCanonicalPath}>
@@ -137,28 +140,31 @@ const resolvedCanonicalPath =
       const rawState = window.sessionStorage.getItem('home:scroll-state')
       if (!rawState || window.location.hash) {
         // noop
-      } else {
+      }
+      else {
         const navigationEntry = window.performance.getEntriesByType('navigation')[0]
-        const navigationType =
-          navigationEntry && 'type' in navigationEntry ? String(navigationEntry.type) : ''
+        const navigationType
+          = navigationEntry && 'type' in navigationEntry ? String(navigationEntry.type) : ''
         const parsedState = JSON.parse(rawState)
 
         if (
-          navigationType === 'reload' &&
-          parsedState &&
-          parsedState.pathname === window.location.pathname &&
-          parsedState.search === window.location.search
+          navigationType === 'reload'
+          && parsedState
+          && parsedState.pathname === window.location.pathname
+          && parsedState.search === window.location.search
         ) {
           document.documentElement.dataset.homeScrollRestoring = 'true'
 
           try {
             window.history.scrollRestoration = 'manual'
-          } catch {
+          }
+          catch {
             // Ignore unsupported browsers.
           }
         }
       }
-    } catch {
+    }
+    catch {
       // Ignore malformed session state and allow the page to render normally.
     }
   </script>

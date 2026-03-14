@@ -2,11 +2,11 @@ const STORAGE_KEY_PREFIX = 'commission-index:unpublished-interest:'
 const BUTTON_SELECTOR = '[data-commission-interest-key]'
 const LABEL_SELECTOR = '[data-commission-interest-label]'
 
-type TrackProperties = {
+interface TrackProperties {
   sub_event: string
 }
 
-type MountUnpublishedInterestButtonsOptions = {
+interface MountUnpublishedInterestButtonsOptions {
   win?: Window
   doc?: Document
   trackEvent?: (properties: TrackProperties) => void
@@ -14,21 +14,23 @@ type MountUnpublishedInterestButtonsOptions = {
 
 const getStorageKey = (commissionKey: string) => `${STORAGE_KEY_PREFIX}${commissionKey}`
 
-const readRecordedState = (commissionKey: string, storage: Storage | undefined) => {
+function readRecordedState(commissionKey: string, storage: Storage | undefined) {
   try {
     return storage?.getItem(getStorageKey(commissionKey)) === '1'
-  } catch {
+  }
+  catch {
     return false
   }
 }
 
-const writeRecordedState = (commissionKey: string, storage: Storage | undefined) => {
+function writeRecordedState(commissionKey: string, storage: Storage | undefined) {
   try {
     storage?.setItem(getStorageKey(commissionKey), '1')
-  } catch {}
+  }
+  catch {}
 }
 
-const setButtonState = (button: HTMLButtonElement, recorded: boolean) => {
+function setButtonState(button: HTMLButtonElement, recorded: boolean) {
   const label = button.querySelector<HTMLSpanElement>(LABEL_SELECTOR)
   if (label) {
     if (!button.dataset.commissionInterestDefaultLabel) {
@@ -36,8 +38,8 @@ const setButtonState = (button: HTMLButtonElement, recorded: boolean) => {
     }
 
     label.textContent = recorded
-      ? (button.dataset.commissionInterestRecordedLabel ??
-        button.dataset.commissionInterestDefaultLabel)
+      ? (button.dataset.commissionInterestRecordedLabel
+        ?? button.dataset.commissionInterestDefaultLabel)
       : button.dataset.commissionInterestDefaultLabel
   }
 
@@ -50,10 +52,10 @@ const setButtonState = (button: HTMLButtonElement, recorded: boolean) => {
 
   if (recorded) {
     button.removeAttribute('data-link-style')
-    button.title =
-      button.dataset.commissionInterestRecordedTitle ??
-      button.dataset.commissionInterestDefaultTitle ??
-      ''
+    button.title
+      = button.dataset.commissionInterestRecordedTitle
+        ?? button.dataset.commissionInterestDefaultTitle
+        ?? ''
     return
   }
 
@@ -61,20 +63,22 @@ const setButtonState = (button: HTMLButtonElement, recorded: boolean) => {
   button.title = button.dataset.commissionInterestDefaultTitle ?? ''
 }
 
-export const mountUnpublishedInterestButtons = ({
+export function mountUnpublishedInterestButtons({
   win = window,
   doc = document,
   trackEvent,
-}: MountUnpublishedInterestButtonsOptions = {}) => {
-  const buttons = Array.from(doc.querySelectorAll<HTMLButtonElement>(BUTTON_SELECTOR))
+}: MountUnpublishedInterestButtonsOptions = {}) {
+  const buttons = [...doc.querySelectorAll<HTMLButtonElement>(BUTTON_SELECTOR)]
   const storage = win.localStorage
 
   const handleClick = (event: Event) => {
     const button = event.currentTarget
-    if (!(button instanceof HTMLButtonElement)) return
+    if (!(button instanceof HTMLButtonElement))
+      return
 
     const commissionKey = button.dataset.commissionInterestKey
-    if (!commissionKey || button.disabled) return
+    if (!commissionKey || button.disabled)
+      return
 
     setButtonState(button, true)
     writeRecordedState(commissionKey, storage)
@@ -83,7 +87,8 @@ export const mountUnpublishedInterestButtons = ({
 
   for (const button of buttons) {
     const commissionKey = button.dataset.commissionInterestKey
-    if (!commissionKey) continue
+    if (!commissionKey)
+      continue
 
     setButtonState(button, readRecordedState(commissionKey, storage))
     button.addEventListener('click', handleClick)

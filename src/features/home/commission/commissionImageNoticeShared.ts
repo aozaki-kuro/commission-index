@@ -1,4 +1,4 @@
-export type NoticeState = {
+export interface NoticeState {
   left: number
   top: number
   text: string
@@ -10,15 +10,18 @@ const NOTICE_WIDTH = 356
 const NOTICE_HEIGHT = 120
 const IMAGE_CONTAINER_SELECTOR = '[data-commission-image="true"]'
 
-export const buildNoticeFromContextMenu = (event: MouseEvent, win: Window): NoticeState | null => {
+export function buildNoticeFromContextMenu(event: MouseEvent, win: Window): NoticeState | null {
   const target = event.target
-  if (!(target instanceof Element)) return null
+  if (!(target instanceof Element))
+    return null
 
   const trigger = target.closest<HTMLElement>(IMAGE_CONTAINER_SELECTOR)
-  if (!trigger) return null
+  if (!trigger)
+    return null
 
   const altText = trigger.dataset.commissionAlt?.trim()
-  if (!altText) return null
+  if (!altText)
+    return null
 
   event.preventDefault()
   const left = Math.min(

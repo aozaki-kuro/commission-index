@@ -6,15 +6,11 @@ export interface AdminCommissionSearchMetadata {
   searchSuggestionText: string
 }
 
-const includeFileNameInSearchText = (baseSearchText: string, fileName: string) =>
-  `${baseSearchText} ${fileName}`.toLowerCase()
+function includeFileNameInSearchText(baseSearchText: string, fileName: string) {
+  return `${baseSearchText} ${fileName}`.toLowerCase()
+}
 
-export const buildAdminCommissionSearchMetadata = (
-  characterName: string,
-  commission: Pick<CommissionRow, 'fileName' | 'design' | 'description' | 'keyword'>,
-  creatorAliasesMap: Map<string, string[]>,
-  keywordAliasesMap?: Map<string, string[]>,
-): AdminCommissionSearchMetadata => {
+export function buildAdminCommissionSearchMetadata(characterName: string, commission: Pick<CommissionRow, 'fileName' | 'design' | 'description' | 'keyword'>, creatorAliasesMap: Map<string, string[]>, keywordAliasesMap?: Map<string, string[]>): AdminCommissionSearchMetadata {
   const metadata = buildCommissionSearchMetadata({
     characterName,
     fileName: commission.fileName,

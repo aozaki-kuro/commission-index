@@ -35,10 +35,6 @@
       "groupName": "eslint plugins and configs"
     },
     {
-      "matchPackageNames": ["prettier", "prettier-plugin-tailwindcss"],
-      "groupName": "prettier stack"
-    },
-    {
       "matchPackageNames": [
         "vitest",
         "jsdom",

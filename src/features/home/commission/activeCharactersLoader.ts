@@ -1,16 +1,17 @@
+import type { RequestActiveCharactersLoadOptions } from '#features/home/commission/activeCharactersEvent'
 import {
-  ACTIVE_CHARACTERS_LOADED_EVENT,
   ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT,
+  ACTIVE_CHARACTERS_LOADED_EVENT,
   readActiveCharactersLoadedBatchCount,
   readActiveCharactersLoadedState,
+
   resolveDeferredActiveCharacterBatch,
-  type RequestActiveCharactersLoadOptions,
 } from '#features/home/commission/activeCharactersEvent'
 import {
   fetchHomeCharacterBatch,
   getHomeCharacterBatchTotalCount,
-  mountLegacyHomeCharacterBatch,
   mountHomeCharacterBatch,
+  mountLegacyHomeCharacterBatch,
   prefetchHomeCharacterBatches,
 } from '#features/home/commission/homeCharacterBatchClient'
 import { getHashTarget, scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
@@ -25,19 +26,19 @@ const ACTIVE_IDLE_PREFETCH_BATCH_COUNT = 2
 const ACTIVE_IDLE_PREFETCH_TIMEOUT_MS = 1200
 const ACTIVE_IDLE_PREFETCH_FALLBACK_DELAY_MS = 180
 
-type ActiveCharactersLoaderDeps = {
+interface ActiveCharactersLoaderDeps {
   dispatchSidebarSync: typeof dispatchSidebarSearchState
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
 }
 
-type MountActiveCharactersLoaderOptions = {
+interface MountActiveCharactersLoaderOptions {
   win?: Window
   doc?: Document
   deps?: Partial<ActiveCharactersLoaderDeps>
 }
 
-type WindowWithIntersectionObserver = Window &
-  typeof globalThis & {
+type WindowWithIntersectionObserver = Window
+  & typeof globalThis & {
     IntersectionObserver?: typeof IntersectionObserver
     requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
     cancelIdleCallback?: (handle: number) => void
@@ -48,26 +49,29 @@ const defaultDeps: ActiveCharactersLoaderDeps = {
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
 }
 
-const shouldLoadForSentinel = (win: Window, sentinel: HTMLElement | null) => {
-  if (!sentinel) return false
+function shouldLoadForSentinel(win: Window, sentinel: HTMLElement | null) {
+  if (!sentinel)
+    return false
 
   const rect = sentinel.getBoundingClientRect()
   return rect.top <= win.innerHeight + ACTIVE_PRELOAD_MARGIN_PX
 }
 
-const readRequestOptions = (event: Event): RequestActiveCharactersLoadOptions => {
-  if (!(event instanceof CustomEvent)) return {}
+function readRequestOptions(event: Event): RequestActiveCharactersLoadOptions {
+  if (!(event instanceof CustomEvent))
+    return {}
   return event.detail ?? {}
 }
 
-export const mountActiveCharactersLoader = ({
+export function mountActiveCharactersLoader({
   win = window,
   doc = document,
   deps: depsOverrides,
-}: MountActiveCharactersLoaderOptions = {}) => {
+}: MountActiveCharactersLoaderOptions = {}) {
   const panel = doc.querySelector<HTMLElement>(CHARACTER_PANEL_SELECTOR)
   const container = panel?.querySelector<HTMLElement>(ACTIVE_CONTAINER_SELECTOR) ?? null
-  if (!panel || !container) return () => {}
+  if (!panel || !container)
+    return () => {}
 
   const deps = { ...defaultDeps, ...depsOverrides }
   const winWithIntersectionObserver = win as WindowWithIntersectionObserver
@@ -101,7 +105,8 @@ export const mountActiveCharactersLoader = ({
 
     const loadedBatchCount = readActiveCharactersLoadedBatchCount(doc)
     const totalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'active' })
-    if (loadedBatchCount >= totalBatchCount) return
+    if (loadedBatchCount >= totalBatchCount)
+      return
 
     const task = () => {
       prefetchHomeCharacterBatches({
@@ -135,12 +140,13 @@ export const mountActiveCharactersLoader = ({
       return
     }
 
-    const sentinel = panel.querySelector<HTMLElement>(ACTIVE_SENTINEL_SELECTOR)
+    const sentinel = panel?.querySelector<HTMLElement>(ACTIVE_SENTINEL_SELECTOR) ?? null
     const IntersectionObserverCtor = winWithIntersectionObserver.IntersectionObserver
     if (sentinel && typeof IntersectionObserverCtor === 'function') {
       const observer = new IntersectionObserverCtor(
         (entries: IntersectionObserverEntry[]) => {
-          if (!entries.some(entry => entry.isIntersecting)) return
+          if (!entries.some(entry => entry.isIntersecting))
+            return
           syncByViewport()
         },
         { rootMargin: `${ACTIVE_PRELOAD_MARGIN_PX}px 0px` },
@@ -170,7 +176,8 @@ export const mountActiveCharactersLoader = ({
     const finalBatchIndex = Math.min(targetBatchIndex, totalBatchCount - 1)
     const payloadRequests = new Map<number, ReturnType<typeof fetchHomeCharacterBatch>>()
     const queueBatchFetch = (batchIndex: number) => {
-      if (batchIndex > finalBatchIndex || payloadRequests.has(batchIndex)) return
+      if (batchIndex > finalBatchIndex || payloadRequests.has(batchIndex))
+        return
       payloadRequests.set(
         batchIndex,
         fetchHomeCharacterBatch({ batchIndex, doc, status: 'active' }),
@@ -179,8 +186,8 @@ export const mountActiveCharactersLoader = ({
 
     for (
       let batchIndex = loadedBatchCount;
-      batchIndex <=
-      Math.min(finalBatchIndex, loadedBatchCount + ACTIVE_BATCH_FETCH_CONCURRENCY - 1);
+      batchIndex
+      <= Math.min(finalBatchIndex, loadedBatchCount + ACTIVE_BATCH_FETCH_CONCURRENCY - 1);
       batchIndex += 1
     ) {
       queueBatchFetch(batchIndex)
@@ -191,7 +198,8 @@ export const mountActiveCharactersLoader = ({
       const payload = await payloadRequests.get(batchIndex)
       if (payload) {
         mountHomeCharacterBatch({ container, payload })
-      } else if (!mountLegacyHomeCharacterBatch({ batchIndex, container, doc, status: 'active' })) {
+      }
+      else if (!mountLegacyHomeCharacterBatch({ batchIndex, container, doc, status: 'active' })) {
         break
       }
 
@@ -239,7 +247,7 @@ export const mountActiveCharactersLoader = ({
       return didChange
     }
 
-    queue = queue.then(run).catch(error => {
+    queue = queue.then(run).catch((error) => {
       console.error(error)
       return false
     })
@@ -247,27 +255,32 @@ export const mountActiveCharactersLoader = ({
     return queue
   }
 
-  const syncByViewport = () => {
+  function syncByViewport() {
     if (readActiveCharactersLoadedState(doc)) {
       stopAutoLoad()
       return
     }
 
-    const sentinel = panel.querySelector<HTMLElement>(ACTIVE_SENTINEL_SELECTOR)
-    if (!shouldLoadForSentinel(win, sentinel)) return
+    const sentinel = panel?.querySelector<HTMLElement>(ACTIVE_SENTINEL_SELECTOR) ?? null
+    if (!shouldLoadForSentinel(win, sentinel))
+      return
     void queueLoad({ strategy: 'next' })
   }
 
   const syncHashTarget = () => {
     const hash = win.location.hash
-    if (!hash || readActiveCharactersLoadedState(doc)) return
-    if (getHashTarget(hash)) return
+    if (!hash || readActiveCharactersLoadedState(doc))
+      return
+    if (getHashTarget(hash))
+      return
 
     const batchIndex = resolveDeferredActiveCharacterBatch(doc, hash)
-    if (batchIndex === null) return
+    if (batchIndex === null)
+      return
 
-    void queueLoad({ strategy: 'target', targetId: hash }).then(didChange => {
-      if (!didChange || !win.location.hash) return
+    void queueLoad({ strategy: 'target', targetId: hash }).then((didChange) => {
+      if (!didChange || !win.location.hash)
+        return
       deps.scrollToHashWithoutWrite(hash)
     })
   }

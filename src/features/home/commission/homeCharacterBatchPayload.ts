@@ -1,6 +1,6 @@
 import type { HomeCharacterBatchStatus } from '#features/home/server/homeCharacterBatches'
 
-export type HomeCharacterBatchImagePayload = {
+export interface HomeCharacterBatchImagePayload {
   src: string
   srcSet: string
   sizes: string
@@ -8,12 +8,12 @@ export type HomeCharacterBatchImagePayload = {
   height: number
 }
 
-export type HomeCharacterBatchLinkPayload = {
+export interface HomeCharacterBatchLinkPayload {
   label: string
   url: string
 }
 
-export type HomeCharacterBatchInterestPayload = {
+export interface HomeCharacterBatchInterestPayload {
   key: string
   label: string
   title: string
@@ -21,7 +21,7 @@ export type HomeCharacterBatchInterestPayload = {
   recordedTitle: string
 }
 
-export type HomeCharacterBatchEntryPayload = {
+export interface HomeCharacterBatchEntryPayload {
   id: string
   sectionId: string
   searchKey: string
@@ -37,7 +37,7 @@ export type HomeCharacterBatchEntryPayload = {
   interest: HomeCharacterBatchInterestPayload | null
 }
 
-export type HomeCharacterBatchSectionPayload = {
+export interface HomeCharacterBatchSectionPayload {
   displayName: string
   status: HomeCharacterBatchStatus
   sectionId: string
@@ -48,7 +48,7 @@ export type HomeCharacterBatchSectionPayload = {
   entries: HomeCharacterBatchEntryPayload[]
 }
 
-export type HomeCharacterBatchPayload = {
+export interface HomeCharacterBatchPayload {
   batchIndex: number
   sections: HomeCharacterBatchSectionPayload[]
   status: HomeCharacterBatchStatus

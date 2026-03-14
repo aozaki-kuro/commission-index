@@ -1,3 +1,4 @@
+import type { SourceImageRecord } from './sourceImageRegistry'
 import { describe, expect, it } from 'vitest'
 import {
   buildSourceImageLookup,
@@ -5,15 +6,17 @@ import {
   normalizeSourceImageStem,
   resolveSourceImageByCommissionFileName,
   resolveSourceImageStem,
-  type SourceImageRecord,
+
 } from './sourceImageRegistry'
 
-const createMetadata = (label: string): ImageMetadata => ({
-  src: `/mock/${label}.jpg`,
-  width: 1000,
-  height: 500,
-  format: 'jpg',
-})
+function createMetadata(label: string): ImageMetadata {
+  return {
+    src: `/mock/${label}.jpg`,
+    width: 1000,
+    height: 500,
+    format: 'jpg',
+  }
+}
 
 describe('sourceImageRegistry', () => {
   it('normalizes stems consistently', () => {

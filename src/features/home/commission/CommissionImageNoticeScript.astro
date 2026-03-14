@@ -1,67 +1,70 @@
 <script>
-  import { trackRybbitEvent } from '#lib/analytics/track'
-  import { createCommissionImageVariantTracker } from '#features/home/commission/commissionImageVariantTracker'
-  import { buildNoticeFromContextMenu } from '#features/home/commission/commissionImageNoticeShared'
+import { buildNoticeFromContextMenu } from '#features/home/commission/commissionImageNoticeShared'
+import { createCommissionImageVariantTracker } from '#features/home/commission/commissionImageVariantTracker'
+import { trackRybbitEvent } from '#lib/analytics/track'
 
-  type NoticeClientModule = typeof import('#features/home/commission/commissionImageNoticeClient')
+type NoticeClientModule = typeof import('#features/home/commission/commissionImageNoticeClient')
 
-  let cachedNoticeClientModule: NoticeClientModule | null = null
-  let noticeClientPromise: Promise<NoticeClientModule> | null = null
-  let noticeCleanup: (() => void) | null = null
+let cachedNoticeClientModule: NoticeClientModule | null = null
+let noticeClientPromise: Promise<NoticeClientModule> | null = null
+let noticeCleanup: (() => void) | null = null
 
-  const loadNoticeClientModule = async (): Promise<NoticeClientModule> => {
-    if (cachedNoticeClientModule) return cachedNoticeClientModule
-    if (!noticeClientPromise) {
-      noticeClientPromise = import('#features/home/commission/commissionImageNoticeClient').then(
-        module => {
-          cachedNoticeClientModule = module
-          return module
-        },
-      )
-    }
-
-    return noticeClientPromise
+async function loadNoticeClientModule(): Promise<NoticeClientModule> {
+  if (cachedNoticeClientModule)
+    return cachedNoticeClientModule
+  if (!noticeClientPromise) {
+    noticeClientPromise = import('#features/home/commission/commissionImageNoticeClient').then(
+      (module) => {
+        cachedNoticeClientModule = module
+        return module
+      },
+    )
   }
 
-  const tracker = createCommissionImageVariantTracker(trackRybbitEvent, window, document)
+  return noticeClientPromise
+}
 
-  const onImageLoadCapture = (event: Event) => {
-    tracker.handleImageLoadCaptureEvent(event)
-  }
+const tracker = createCommissionImageVariantTracker(trackRybbitEvent, window, document)
 
-  document.addEventListener('load', onImageLoadCapture, true)
-  const cleanupIdleSampling = tracker.scheduleIdleSampling(() => {
-    tracker.sampleLoadedImagesNearViewport()
-  })
+function onImageLoadCapture(event: Event) {
+  tracker.handleImageLoadCaptureEvent(event)
+}
 
-  const onFirstContextMenu = (event: MouseEvent) => {
-    if (noticeCleanup) return
+document.addEventListener('load', onImageLoadCapture, true)
+const cleanupIdleSampling = tracker.scheduleIdleSampling(() => {
+  tracker.sampleLoadedImagesNearViewport()
+})
 
-    const initialNotice = buildNoticeFromContextMenu(event, window)
-    if (!initialNotice) return
+function onFirstContextMenu(event: MouseEvent) {
+  if (noticeCleanup)
+    return
 
+  const initialNotice = buildNoticeFromContextMenu(event, window)
+  if (!initialNotice)
+    return
+
+  document.removeEventListener('contextmenu', onFirstContextMenu)
+
+  void loadNoticeClientModule()
+    .then((module) => {
+      noticeCleanup = module.mountCommissionImageNoticeClient(initialNotice, window, document)
+    })
+    .catch(() => {
+      document.addEventListener('contextmenu', onFirstContextMenu)
+    })
+}
+
+document.addEventListener('contextmenu', onFirstContextMenu)
+
+window.addEventListener(
+  'pagehide',
+  () => {
+    document.removeEventListener('load', onImageLoadCapture, true)
     document.removeEventListener('contextmenu', onFirstContextMenu)
-
-    void loadNoticeClientModule()
-      .then(module => {
-        noticeCleanup = module.mountCommissionImageNoticeClient(initialNotice, window, document)
-      })
-      .catch(() => {
-        document.addEventListener('contextmenu', onFirstContextMenu)
-      })
-  }
-
-  document.addEventListener('contextmenu', onFirstContextMenu)
-
-  window.addEventListener(
-    'pagehide',
-    () => {
-      document.removeEventListener('load', onImageLoadCapture, true)
-      document.removeEventListener('contextmenu', onFirstContextMenu)
-      cleanupIdleSampling()
-      noticeCleanup?.()
-      noticeCleanup = null
-    },
-    { once: true },
-  )
+    cleanupIdleSampling()
+    noticeCleanup?.()
+    noticeCleanup = null
+  },
+  { once: true },
+)
 </script>

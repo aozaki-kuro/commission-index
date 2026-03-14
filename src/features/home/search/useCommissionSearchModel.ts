@@ -1,18 +1,19 @@
-import {
-  LOAD_STALE_COMMAND_VALUE,
-  type SuggestionViewModel,
-} from '#features/home/search/CommissionSearchSuggestionDropdown'
+import type { CommissionSearchEntrySource, SearchIndex, SearchSuggestionAliasGroup } from '#features/home/search/commissionSearchIndex'
+import type { SuggestionViewModel } from '#features/home/search/CommissionSearchSuggestionDropdown'
 import { requestActiveCharactersLoad } from '#features/home/commission/activeCharactersEvent'
 import { requestStaleCharactersLoad } from '#features/home/commission/staleCharactersEvent'
 import {
   buildRelatedSuggestionTermsMap,
   buildSearchIndex,
+
   createEmptySearchIndex,
   getDisplayMetrics,
-  type CommissionSearchEntrySource,
-  type SearchIndex,
-  type SearchSuggestionAliasGroup,
+
 } from '#features/home/search/commissionSearchIndex'
+import {
+  LOAD_STALE_COMMAND_VALUE,
+
+} from '#features/home/search/CommissionSearchSuggestionDropdown'
 import { useCommissionSearchDomSync } from '#features/home/search/useCommissionSearchDomSync'
 import { useSearchPanelLoadedState } from '#features/home/search/useSearchPanelLoadedState'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
@@ -35,7 +36,7 @@ import {
   useSyncExternalStore,
 } from 'react'
 
-type SearchControls = {
+interface SearchControls {
   sourceCharacter: string
   sourceCreator: string
   sourceKeyword: string
@@ -65,18 +66,21 @@ const MIN_TRACK_QUERY_LENGTH = 2
 const EMPTY_RELATED_SUGGESTION_TERMS_MAP = new Map<string, string[]>()
 const SEARCH_QUERY_LOCATION_CHANGE_EVENT = 'home:search-query-location-change'
 
-const getUrlQuerySnapshot = () => {
-  if (typeof window === 'undefined') return ''
+function getUrlQuerySnapshot() {
+  if (typeof window === 'undefined')
+    return ''
   return new URLSearchParams(window.location.search).get('q') ?? ''
 }
 
-export const dispatchSearchQueryLocationChange = () => {
-  if (typeof window === 'undefined') return
+export function dispatchSearchQueryLocationChange() {
+  if (typeof window === 'undefined')
+    return
   window.dispatchEvent(new Event(SEARCH_QUERY_LOCATION_CHANGE_EVENT))
 }
 
-export const subscribeToUrlQuerySnapshot = (onStoreChange: () => void) => {
-  if (typeof window === 'undefined') return () => {}
+export function subscribeToUrlQuerySnapshot(onStoreChange: () => void) {
+  if (typeof window === 'undefined')
+    return () => {}
 
   window.addEventListener('popstate', onStoreChange)
   window.addEventListener(SEARCH_QUERY_LOCATION_CHANGE_EVENT, onStoreChange)
@@ -87,7 +91,7 @@ export const subscribeToUrlQuerySnapshot = (onStoreChange: () => void) => {
   }
 }
 
-export const getDomSnapshotKeyForMode = ({
+export function getDomSnapshotKeyForMode({
   activeBatchCount,
   activeLoaded,
   mode,
@@ -103,22 +107,25 @@ export const getDomSnapshotKeyForMode = ({
   staleLoaded: boolean
   staleVisible: boolean
   timelineLoaded: boolean
-}) =>
-  mode === 'character'
+}) {
+  return mode === 'character'
     ? `character:active-${activeLoaded ? 'loaded' : 'pending'}-${activeBatchCount}:stale-${
-        staleLoaded ? 'loaded' : staleVisible ? 'visible' : 'hidden'
-      }-${staleBatchCount}`
+      staleLoaded ? 'loaded' : staleVisible ? 'visible' : 'hidden'
+    }-${staleBatchCount}`
     : `timeline:${timelineLoaded ? 'timeline-loaded' : 'timeline-pending'}`
+}
 
-export const resolveEffectiveDomSnapshotKey = ({
+export function resolveEffectiveDomSnapshotKey({
   domSnapshotKey,
   skipDomContext,
 }: {
   domSnapshotKey: string
   skipDomContext: boolean
-}) => (skipDomContext ? 'skip-dom-context' : domSnapshotKey)
+}) {
+  return skipDomContext ? 'skip-dom-context' : domSnapshotKey
+}
 
-const syncDeferredAllLoadRequest = ({
+function syncDeferredAllLoadRequest({
   didRequestRef,
   request,
   shouldRequest,
@@ -126,18 +133,19 @@ const syncDeferredAllLoadRequest = ({
   didRequestRef: { current: boolean }
   request: () => void
   shouldRequest: boolean
-}) => {
+}) {
   if (!shouldRequest) {
     didRequestRef.current = false
     return
   }
 
-  if (didRequestRef.current) return
+  if (didRequestRef.current)
+    return
   didRequestRef.current = true
   request()
 }
 
-export const useCommissionSearchModel = ({
+export function useCommissionSearchModel({
   activeCommandValue,
   controls,
   deferIndexInit,
@@ -150,7 +158,7 @@ export const useCommissionSearchModel = ({
   onQueryChange,
   suggestionAliasGroups,
   suppressInitialSuggestionPanelAnimation,
-}: UseCommissionSearchModelOptions) => {
+}: UseCommissionSearchModelOptions) {
   const suggestionSourceLabels = useMemo(
     () =>
       ({
@@ -173,8 +181,8 @@ export const useCommissionSearchModel = ({
   const hasQuery = !!normalizedQuery
   const normalizedDeferredQuery = normalizeQuery(deferredQuery)
   const hasDeferredQuery = !!normalizedDeferredQuery
-  const { suggestionQuery, suggestionContextQuery, suggestionOperator, suggestionIsExclusion } =
-    useMemo(() => {
+  const { suggestionQuery, suggestionContextQuery, suggestionOperator, suggestionIsExclusion }
+    = useMemo(() => {
       const parsed = parseSuggestionInputState(deferredQuery)
 
       return {
@@ -239,7 +247,8 @@ export const useCommissionSearchModel = ({
   }, [disableDomFiltering, hasQuery, mode, staleLoaded, staleVisible])
 
   const index = useMemo(() => {
-    if (!shouldBuildIndex) return createEmptySearchIndex()
+    if (!shouldBuildIndex)
+      return createEmptySearchIndex()
     return buildSearchIndex(mode, externalEntries, {
       domSnapshotKey: effectiveDomSnapshotKey,
       skipDomContext: shouldSkipDomContext,
@@ -270,8 +279,9 @@ export const useCommissionSearchModel = ({
       }
     }
 
-    void hydrateSearchIndexFuse(index).then(nextIndex => {
-      if (!active) return
+    void hydrateSearchIndexFuse(index).then((nextIndex) => {
+      if (!active)
+        return
       setHydratedIndex(nextIndex)
     })
 
@@ -352,10 +362,10 @@ export const useCommissionSearchModel = ({
   }, [controls, filteredSuggestions, relatedSuggestionTermsMap, suggestionSourceLabels])
 
   const shouldShowHiddenStaleNotice = hiddenStaleMatchedCount > 0
-  const shouldShowSuggestionPanel =
-    !isSuggestionPanelDismissed &&
-    hasQuery &&
-    (suggestionViewModels.length > 0 || shouldShowHiddenStaleNotice)
+  const shouldShowSuggestionPanel
+    = !isSuggestionPanelDismissed
+      && hasQuery
+      && (suggestionViewModels.length > 0 || shouldShowHiddenStaleNotice)
 
   const visibleStatusMessage = useMemo(
     () =>
@@ -385,8 +395,8 @@ export const useCommissionSearchModel = ({
     return shouldShowHiddenStaleNotice ? LOAD_STALE_COMMAND_VALUE : ''
   }, [activeCommandValue, shouldShowHiddenStaleNotice, suggestionViewModels])
 
-  const shouldSuppressHandoffPanelAnimation =
-    suppressInitialSuggestionPanelAnimation && !!initialQuery && query === initialQuery
+  const shouldSuppressHandoffPanelAnimation
+    = suppressInitialSuggestionPanelAnimation && !!initialQuery && query === initialQuery
   const shouldAnimateSuggestionPanel = !shouldSuppressHandoffPanelAnimation
   const statusMessage = useMemo(
     () =>
@@ -416,7 +426,8 @@ export const useCommissionSearchModel = ({
   useEffect(() => {
     if (normalizedDeferredQuery.length < MIN_TRACK_QUERY_LENGTH || hasTrackedSearchUsageRef.current)
       return
-    if (resolvedIndex.entries.length > 0 && !resolvedIndex.fuse) return
+    if (resolvedIndex.entries.length > 0 && !resolvedIndex.fuse)
+      return
     hasTrackedSearchUsageRef.current = true
 
     trackRybbitEvent(ANALYTICS_EVENTS.searchUsed, {
@@ -432,7 +443,8 @@ export const useCommissionSearchModel = ({
   ])
 
   const setIndexReadyIfDeferred = useCallback(() => {
-    if (deferIndexInit) setIsIndexReady(true)
+    if (deferIndexInit)
+      setIsIndexReady(true)
   }, [deferIndexInit])
 
   const ensureIndexReady = useCallback(() => {

@@ -1,9 +1,9 @@
 ---
 import type { CharacterCommissions } from '#data/types'
 import type { TimelineYearGroup } from '#lib/commissions/timeline'
-import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
 import Listing from '#features/home/commission/Listing.astro'
 import TimelineView from '#features/home/commission/TimelineView.astro'
+import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
 import {
   buildHomeCharacterBatchManifest,
   buildHomeCharacterBatchPlan,
@@ -33,8 +33,8 @@ const {
   characterAliasesMap,
   creatorAliasesMap,
   keywordAliasesMap,
-} =
-  Astro.props as StaticCommissionSectionsProps
+}
+  = Astro.props as StaticCommissionSectionsProps
 const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
 const resolvedLocale = normalizeHomeLocale(locale)
 const batchPlan = buildHomeCharacterBatchPlan({
@@ -80,47 +80,73 @@ const staleCommissionCount = staleChars.reduce(
       ))
     }
     {
-      hasDeferredActiveChars ? (
+      hasDeferredActiveChars
+? (
         <>
           <div data-active-sections-container="true" />
           <div
             data-active-sections-sentinel="true"
             aria-hidden="true"
-            class="h-px overflow-hidden opacity-0 pointer-events-none"
+            class="pointer-events-none h-px overflow-hidden opacity-0"
           />
         </>
-      ) : null
+      )
+: null
     }
     {
-      staleChars.length > 0 ? (
+      staleChars.length > 0
+? (
         <>
           <div data-stale-sections-placeholder="true" class="pb-10">
             <div class="pb-8">
               <hr />
             </div>
-            <div class="mx-auto max-w-lg text-center pt-6">
-              <p class="text-[11px] tracking-[0.08em] text-stone-500 dark:text-stone-400">
+            <div class="mx-auto max-w-lg pt-6 text-center">
+              <p class="
+                text-[11px] tracking-[0.08em] text-stone-500
+                dark:text-stone-400
+              "
+              >
                 {messages.controls.formatCollapsedStaleSummary(
                   staleCharacterCount,
                   staleCommissionCount,
                 )}
               </p>
 
-              <p class="mt-3 text-base leading-7 font-semibold text-stone-700 dark:text-stone-200">
+              <p class="
+                mt-3 text-base/7 font-semibold text-stone-700
+                dark:text-stone-200
+              "
+              >
                 {messages.controls.staleCharactersCollapsedTitle}
               </p>
-              <p class="mx-auto mt-1.5 max-w-md text-sm leading-6 text-stone-500 dark:text-stone-400">
+              <p class="
+                mx-auto mt-1.5 max-w-md text-sm/6 text-stone-500
+                dark:text-stone-400
+              "
+              >
                 {messages.controls.staleCharactersCollapsedHint}
               </p>
 
               <button
                 type="button"
                 data-load-stale-characters="true"
-                class="group mt-5 inline-flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-sm text-stone-600 transition-colors hover:text-stone-900 dark:text-stone-300 dark:hover:text-white"
+                class="
+                  group mt-5 inline-flex cursor-pointer items-center gap-1.5
+                  border-0 bg-transparent p-0 text-sm text-stone-600
+                  transition-colors
+                  hover:text-stone-900
+                  dark:text-stone-300
+                  dark:hover:text-white
+                "
               >
                 <svg
                   viewBox="0 0 24 24"
-                  class="h-4 w-4 text-stone-400 transition-transform duration-200 group-hover:translate-y-0.5 group-hover:text-current dark:text-stone-500"
+                  class="
+                    size-4 text-stone-400 transition-transform duration-200
+                    group-hover:translate-y-0.5 group-hover:text-current
+                    dark:text-stone-500
+                  "
                   fill="none"
                   stroke="currentColor"
                   aria-hidden="true"
@@ -144,12 +170,13 @@ const staleCommissionCount = staleChars.reduce(
             data-stale-deferred-sections-sentinel="true"
             aria-hidden="true"
             class:list={[
-              'h-px overflow-hidden opacity-0 pointer-events-none',
+              'pointer-events-none h-px overflow-hidden opacity-0',
               !hasDeferredStaleChars && 'hidden',
             ]}
           />
         </>
-      ) : null
+      )
+: null
     }
   </div>
 
@@ -178,109 +205,116 @@ const staleCommissionCount = staleChars.reduce(
 </div>
 
 <script is:inline>
-  const initialMode =
-    new URLSearchParams(window.location.search).get('view') === 'timeline'
-      ? 'timeline'
-      : 'character'
+const initialMode
+  = new URLSearchParams(window.location.search).get('view') === 'timeline'
+    ? 'timeline'
+    : 'character'
 
-  if (initialMode === 'timeline') {
-    const setCommissionPanelState = (panelName, active) => {
-      const panel = document.querySelector(`[data-commission-view-panel="${panelName}"]`)
-      if (!(panel instanceof HTMLElement)) return
+if (initialMode === 'timeline') {
+  const setCommissionPanelState = (panelName, active) => {
+    const panel = document.querySelector(`[data-commission-view-panel="${panelName}"]`)
+    if (!(panel instanceof HTMLElement))
+      return
 
-      panel.dataset.commissionViewActive = active ? 'true' : 'false'
-      panel.classList.toggle('hidden', !active)
-    }
+    panel.dataset.commissionViewActive = active ? 'true' : 'false'
+    panel.classList.toggle('hidden', !active)
+  }
 
-    const preloadTimelineSections = () => {
-      const panel = document.querySelector('[data-commission-view-panel="timeline"]')
-      if (!(panel instanceof HTMLElement)) return
-      if (panel.dataset.timelineLoaded === 'true') return
+  const preloadTimelineSections = () => {
+    const panel = document.querySelector('[data-commission-view-panel="timeline"]')
+    if (!(panel instanceof HTMLElement))
+      return
+    if (panel.dataset.timelineLoaded === 'true')
+      return
 
-      const container = panel.querySelector('[data-timeline-sections-container="true"]')
-      const template = panel.querySelector('template[data-timeline-sections-template="true"]')
-      if (!(container instanceof HTMLElement) || !(template instanceof HTMLTemplateElement)) return
+    const container = panel.querySelector('[data-timeline-sections-container="true"]')
+    const template = panel.querySelector('template[data-timeline-sections-template="true"]')
+    if (!(container instanceof HTMLElement) || !(template instanceof HTMLTemplateElement))
+      return
 
-      container.replaceChildren(template.content.cloneNode(true))
-      panel.dataset.timelineLoaded = 'true'
-    }
+    container.replaceChildren(template.content.cloneNode(true))
+    panel.dataset.timelineLoaded = 'true'
+  }
 
-    const syncPanelGroupVisibility = ({ panelSelector, dataKey }) => {
-      document.querySelectorAll(panelSelector).forEach(panel => {
-        if (!(panel instanceof HTMLElement)) return
-        panel.classList.toggle('hidden', panel.dataset[dataKey] !== initialMode)
-      })
-    }
-
-    const syncToggleGroupState = ({
-      toggleSelector,
-      indicatorSelector,
-      activeTextClasses,
-      inactiveTextClasses,
-      activeIndicatorClasses,
-      inactiveIndicatorClasses,
-    }) => {
-      document.querySelectorAll(toggleSelector).forEach(button => {
-        if (!(button instanceof HTMLButtonElement)) return
-
-        const active = button.dataset.viewMode === initialMode
-        button.setAttribute('aria-pressed', String(active))
-
-        activeTextClasses.forEach(className => {
-          button.classList.toggle(className, active)
-        })
-        inactiveTextClasses.forEach(className => {
-          button.classList.toggle(className, !active)
-        })
-
-        const indicator = button.querySelector(indicatorSelector)
-        if (!(indicator instanceof HTMLElement)) return
-
-        activeIndicatorClasses.forEach(className => {
-          indicator.classList.toggle(className, active)
-        })
-        inactiveIndicatorClasses.forEach(className => {
-          indicator.classList.toggle(className, !active)
-        })
-      })
-    }
-
-    setCommissionPanelState('character', false)
-    preloadTimelineSections()
-    setCommissionPanelState('timeline', true)
-
-    syncPanelGroupVisibility({
-      panelSelector: '[data-sidebar-nav-panel]',
-      dataKey: 'sidebarNavPanel',
-    })
-    syncPanelGroupVisibility({
-      panelSelector: '[data-mobile-hamburger-nav-panel]',
-      dataKey: 'mobileHamburgerNavPanel',
-    })
-
-    syncToggleGroupState({
-      toggleSelector: '[data-sidebar-view-mode-toggle="true"]',
-      indicatorSelector: '[data-sidebar-view-mode-indicator]',
-      activeTextClasses: ['text-gray-900', 'dark:text-white'],
-      inactiveTextClasses: ['text-gray-700', 'dark:text-gray-200'],
-      activeIndicatorClasses: ['scale-100', 'opacity-100'],
-      inactiveIndicatorClasses: ['scale-0', 'opacity-0'],
-    })
-    syncToggleGroupState({
-      toggleSelector: '[data-mobile-view-mode-toggle="true"]',
-      indicatorSelector: '[data-mobile-view-mode-indicator]',
-      activeTextClasses: ['text-gray-700', 'dark:text-gray-300'],
-      inactiveTextClasses: ['text-gray-500', 'dark:text-gray-500'],
-      activeIndicatorClasses: ['w-full', 'opacity-100'],
-      inactiveIndicatorClasses: ['w-0', 'opacity-0'],
-    })
-    syncToggleGroupState({
-      toggleSelector: '[data-mobile-hamburger-view-mode-toggle="true"]',
-      indicatorSelector: '[data-mobile-hamburger-view-mode-indicator="true"]',
-      activeTextClasses: ['text-gray-900', 'dark:text-white'],
-      inactiveTextClasses: ['text-gray-700', 'dark:text-gray-200'],
-      activeIndicatorClasses: ['scale-100', 'opacity-100'],
-      inactiveIndicatorClasses: ['scale-0', 'opacity-0'],
+  const syncPanelGroupVisibility = ({ panelSelector, dataKey }) => {
+    document.querySelectorAll(panelSelector).forEach((panel) => {
+      if (!(panel instanceof HTMLElement))
+        return
+      panel.classList.toggle('hidden', panel.dataset[dataKey] !== initialMode)
     })
   }
+
+  const syncToggleGroupState = ({
+    toggleSelector,
+    indicatorSelector,
+    activeTextClasses,
+    inactiveTextClasses,
+    activeIndicatorClasses,
+    inactiveIndicatorClasses,
+  }) => {
+    document.querySelectorAll(toggleSelector).forEach((button) => {
+      if (!(button instanceof HTMLButtonElement))
+        return
+
+      const active = button.dataset.viewMode === initialMode
+      button.setAttribute('aria-pressed', String(active))
+
+      activeTextClasses.forEach((className) => {
+        button.classList.toggle(className, active)
+      })
+      inactiveTextClasses.forEach((className) => {
+        button.classList.toggle(className, !active)
+      })
+
+      const indicator = button.querySelector(indicatorSelector)
+      if (!(indicator instanceof HTMLElement))
+        return
+
+      activeIndicatorClasses.forEach((className) => {
+        indicator.classList.toggle(className, active)
+      })
+      inactiveIndicatorClasses.forEach((className) => {
+        indicator.classList.toggle(className, !active)
+      })
+    })
+  }
+
+  setCommissionPanelState('character', false)
+  preloadTimelineSections()
+  setCommissionPanelState('timeline', true)
+
+  syncPanelGroupVisibility({
+    panelSelector: '[data-sidebar-nav-panel]',
+    dataKey: 'sidebarNavPanel',
+  })
+  syncPanelGroupVisibility({
+    panelSelector: '[data-mobile-hamburger-nav-panel]',
+    dataKey: 'mobileHamburgerNavPanel',
+  })
+
+  syncToggleGroupState({
+    toggleSelector: '[data-sidebar-view-mode-toggle="true"]',
+    indicatorSelector: '[data-sidebar-view-mode-indicator]',
+    activeTextClasses: ['text-gray-900', 'dark:text-white'],
+    inactiveTextClasses: ['text-gray-700', 'dark:text-gray-200'],
+    activeIndicatorClasses: ['scale-100', 'opacity-100'],
+    inactiveIndicatorClasses: ['scale-0', 'opacity-0'],
+  })
+  syncToggleGroupState({
+    toggleSelector: '[data-mobile-view-mode-toggle="true"]',
+    indicatorSelector: '[data-mobile-view-mode-indicator]',
+    activeTextClasses: ['text-gray-700', 'dark:text-gray-300'],
+    inactiveTextClasses: ['text-gray-500', 'dark:text-gray-500'],
+    activeIndicatorClasses: ['w-full', 'opacity-100'],
+    inactiveIndicatorClasses: ['w-0', 'opacity-0'],
+  })
+  syncToggleGroupState({
+    toggleSelector: '[data-mobile-hamburger-view-mode-toggle="true"]',
+    indicatorSelector: '[data-mobile-hamburger-view-mode-indicator="true"]',
+    activeTextClasses: ['text-gray-900', 'dark:text-white'],
+    inactiveTextClasses: ['text-gray-700', 'dark:text-gray-200'],
+    activeIndicatorClasses: ['scale-100', 'opacity-100'],
+    inactiveIndicatorClasses: ['scale-0', 'opacity-0'],
+  })
+}
 </script>

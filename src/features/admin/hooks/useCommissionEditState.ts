@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
 import type { CharacterRow } from '#lib/admin/db'
+import { useEffect, useMemo, useState } from 'react'
 
-type DeleteStatus = {
+interface DeleteStatus {
   type: 'success' | 'error'
   text: string
 }
@@ -22,12 +22,13 @@ interface UseCommissionEditStateParams {
   characters: CharacterRow[]
 }
 
-const buildImageSrc = (fileName: string) =>
-  `/api/admin/source-image/${encodeURIComponent(fileName)}`
+function buildImageSrc(fileName: string) {
+  return `/api/admin/source-image/${encodeURIComponent(fileName)}`
+}
 
-const useCommissionEditState = ({ commission, characters }: UseCommissionEditStateParams) => {
+function useCommissionEditState({ commission, characters }: UseCommissionEditStateParams) {
   const sortedCharacters = useMemo(
-    () => [...characters].sort((a, b) => a.sortOrder - b.sortOrder),
+    () => characters.toSorted((a, b) => a.sortOrder - b.sortOrder),
     [characters],
   )
 
@@ -49,8 +50,9 @@ const useCommissionEditState = ({ commission, characters }: UseCommissionEditSta
   const imageSrc = useMemo(() => buildImageSrc(fileName), [fileName])
 
   useEffect(() => {
-    if (!deleteStatus) return
-    const timer = setTimeout(() => setDeleteStatus(null), 2000)
+    if (!deleteStatus)
+      return
+    const timer = setTimeout(setDeleteStatus, 2000, null)
     return () => clearTimeout(timer)
   }, [deleteStatus])
 

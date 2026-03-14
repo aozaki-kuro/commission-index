@@ -1,12 +1,13 @@
-import { queryAll } from './sqlite'
+import process from 'node:process'
 import { normalizeCreatorName, parseAliasesJson } from '#lib/creatorAliases/shared'
+import { queryAll } from './sqlite'
 
-type CreatorAliasRow = {
+interface CreatorAliasRow {
   creatorName: string
   aliases: string[]
 }
 
-type RawCreatorAliasRow = {
+interface RawCreatorAliasRow {
   creatorName: string
   aliasesJson: string
 }
@@ -15,13 +16,13 @@ const isDevelopment = process.env.NODE_ENV === 'development'
 let cachedHasCreatorAliasesTable: boolean | null = null
 let cachedCreatorAliases: CreatorAliasRow[] | null = null
 
-const hasCreatorAliasesTable = (): boolean => {
+function hasCreatorAliasesTable(): boolean {
   if (!isDevelopment && cachedHasCreatorAliasesTable !== null) {
     return cachedHasCreatorAliasesTable
   }
 
   const rows = queryAll<{ name?: string }>(
-    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+    'SELECT name FROM sqlite_master WHERE type = \'table\' AND name = ? LIMIT 1',
     ['creator_aliases'],
   )
   const exists = rows[0]?.name === 'creator_aliases'
@@ -33,12 +34,13 @@ const hasCreatorAliasesTable = (): boolean => {
   return exists
 }
 
-export const getCreatorAliases = (): CreatorAliasRow[] => {
+export function getCreatorAliases(): CreatorAliasRow[] {
   if (!isDevelopment && cachedCreatorAliases) {
     return cachedCreatorAliases
   }
 
-  if (!hasCreatorAliasesTable()) return []
+  if (!hasCreatorAliasesTable())
+    return []
 
   const rows = queryAll<RawCreatorAliasRow>(
     `
@@ -51,18 +53,19 @@ export const getCreatorAliases = (): CreatorAliasRow[] => {
   )
 
   const aliasMap = new Map<string, string[]>()
-  rows.forEach(row => {
+  rows.forEach((row) => {
     const creatorName = normalizeCreatorName(row.creatorName)
-    if (!creatorName) return
+    if (!creatorName)
+      return
 
     const aliases = parseAliasesJson(row.aliasesJson)
     aliasMap.set(
       creatorName,
-      Array.from(new Set([...(aliasMap.get(creatorName) ?? []), ...aliases])),
+      [...new Set([...(aliasMap.get(creatorName) ?? []), ...aliases])],
     )
   })
 
-  const result = [...aliasMap.entries()].map(([creatorName, aliases]) => ({ creatorName, aliases }))
+  const result = Array.from(aliasMap.entries(), ([creatorName, aliases]) => ({ creatorName, aliases }))
 
   if (!isDevelopment) {
     cachedCreatorAliases = result
@@ -71,7 +74,8 @@ export const getCreatorAliases = (): CreatorAliasRow[] => {
   return result
 }
 
-export const getCreatorAliasesMap = () =>
-  new Map(getCreatorAliases().map(row => [row.creatorName, row.aliases] as const))
+export function getCreatorAliasesMap() {
+  return new Map(getCreatorAliases().map(row => [row.creatorName, row.aliases] as const))
+}
 
 export const normalizeCreatorSearchName = (value: string) => normalizeCreatorName(value)

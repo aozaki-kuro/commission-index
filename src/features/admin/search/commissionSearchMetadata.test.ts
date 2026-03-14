@@ -1,19 +1,21 @@
+import type { CommissionRow } from '#lib/admin/db'
 import { describe, expect, it } from 'vitest'
 import { buildAdminCommissionSearchMetadata } from './commissionSearchMetadata'
-import type { CommissionRow } from '#lib/admin/db'
 
-const baseCommission = (overrides: Partial<CommissionRow> = {}): CommissionRow => ({
-  id: 1,
-  characterId: 1,
-  characterName: 'L*cia',
-  fileName: '20240819_Q (part 2)',
-  links: [],
-  design: null,
-  description: 'Sample description',
-  keyword: 'tag, Tag；別名',
-  hidden: false,
-  ...overrides,
-})
+function baseCommission(overrides: Partial<CommissionRow> = {}): CommissionRow {
+  return {
+    id: 1,
+    characterId: 1,
+    characterName: 'L*cia',
+    fileName: '20240819_Q (part 2)',
+    links: [],
+    design: null,
+    description: 'Sample description',
+    keyword: 'tag, Tag；別名',
+    hidden: false,
+    ...overrides,
+  }
+}
 
 describe('buildAdminCommissionSearchMetadata', () => {
   it('builds search text and deduplicated suggestions with creator aliases', () => {

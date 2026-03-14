@@ -1,31 +1,36 @@
+import type { SearchIndex } from '#features/home/search/commissionSearchIndex'
 import { dispatchSidebarSearchState } from '#lib/navigation/sidebarSearchState'
 import { useEffect, useRef } from 'react'
-import type { SearchIndex } from '#features/home/search/commissionSearchIndex'
 
-const areSetsEqual = <T>(left: Set<T>, right: Set<T>) => {
-  if (left === right) return true
-  if (left.size !== right.size) return false
+function areSetsEqual<T>(left: Set<T>, right: Set<T>) {
+  if (left === right)
+    return true
+  if (left.size !== right.size)
+    return false
 
   for (const value of left) {
-    if (!right.has(value)) return false
+    if (!right.has(value))
+      return false
   }
 
   return true
 }
 
-const setTextContentIfChanged = (element: HTMLElement | null, message: string) => {
-  if (!element || element.textContent === message) return
+function setTextContentIfChanged(element: HTMLElement | null, message: string) {
+  if (!element || element.textContent === message)
+    return
   element.textContent = message
 }
 
-const toggleHiddenClass = (element: HTMLElement, shouldHide: boolean) => {
+function toggleHiddenClass(element: HTMLElement, shouldHide: boolean) {
   const isHidden = element.classList.contains('hidden')
-  if (isHidden === shouldHide) return false
+  if (isHidden === shouldHide)
+    return false
   element.classList.toggle('hidden', shouldHide)
   return true
 }
 
-const syncEntryVisibilityForIndexChange = ({
+function syncEntryVisibilityForIndexChange({
   entryById,
   matchedIds,
   hasDeferredQuery,
@@ -35,7 +40,7 @@ const syncEntryVisibilityForIndexChange = ({
   matchedIds: Set<number>
   hasDeferredQuery: boolean
   visibleSectionIds: Set<string> | null
-}) => {
+}) {
   let didLayoutChange = false
 
   for (const entry of entryById.values()) {
@@ -45,7 +50,8 @@ const syncEntryVisibilityForIndexChange = ({
       visibleSectionIds.add(entry.sectionId)
     }
 
-    if (!entry.element) continue
+    if (!entry.element)
+      continue
     if (toggleHiddenClass(entry.element, !isMatched)) {
       didLayoutChange = true
     }
@@ -54,7 +60,7 @@ const syncEntryVisibilityForIndexChange = ({
   return didLayoutChange
 }
 
-const syncEntryVisibilityForMatchedDiff = ({
+function syncEntryVisibilityForMatchedDiff({
   entryById,
   matchedIds,
   previousMatchedIds,
@@ -66,14 +72,16 @@ const syncEntryVisibilityForMatchedDiff = ({
   previousMatchedIds: Set<number>
   indexChanged: boolean
   visibleSectionIds: Set<string> | null
-}) => {
+}) {
   let didLayoutChange = false
 
   for (const id of previousMatchedIds) {
-    if (matchedIds.has(id)) continue
+    if (matchedIds.has(id))
+      continue
 
     const previousEntry = entryById.get(id)
-    if (!previousEntry?.element) continue
+    if (!previousEntry?.element)
+      continue
     if (toggleHiddenClass(previousEntry.element, true)) {
       didLayoutChange = true
     }
@@ -81,14 +89,16 @@ const syncEntryVisibilityForMatchedDiff = ({
 
   for (const id of matchedIds) {
     const entry = entryById.get(id)
-    if (!entry) continue
+    if (!entry)
+      continue
 
     if (visibleSectionIds && entry.sectionId) {
       visibleSectionIds.add(entry.sectionId)
     }
 
     const shouldEnsureVisible = indexChanged || !previousMatchedIds.has(id)
-    if (!shouldEnsureVisible || !entry.element) continue
+    if (!shouldEnsureVisible || !entry.element)
+      continue
 
     if (toggleHiddenClass(entry.element, false)) {
       didLayoutChange = true
@@ -98,7 +108,7 @@ const syncEntryVisibilityForMatchedDiff = ({
   return didLayoutChange
 }
 
-const syncSectionVisibility = ({
+function syncSectionVisibility({
   sections,
   hasDeferredQuery,
   visibleSectionIds,
@@ -108,7 +118,7 @@ const syncSectionVisibility = ({
   hasDeferredQuery: boolean
   visibleSectionIds: Set<string> | null
   sectionVisibilityById: Map<string, boolean>
-}) => {
+}) {
   let didLayoutChange = false
   let visibleActiveSections = 0
   let visibleStaleSections = 0
@@ -123,15 +133,18 @@ const syncSectionVisibility = ({
       }
     }
 
-    if (!visible || !hasDeferredQuery) continue
-    if (section.status === 'active') visibleActiveSections += 1
-    if (section.status === 'stale') visibleStaleSections += 1
+    if (!visible || !hasDeferredQuery)
+      continue
+    if (section.status === 'active')
+      visibleActiveSections += 1
+    if (section.status === 'stale')
+      visibleStaleSections += 1
   }
 
   return { didLayoutChange, visibleActiveSections, visibleStaleSections }
 }
 
-const syncStaleDividerVisibility = ({
+function syncStaleDividerVisibility({
   staleDivider,
   hasDeferredQuery,
   visibleActiveSections,
@@ -143,13 +156,13 @@ const syncStaleDividerVisibility = ({
   visibleActiveSections: number
   visibleStaleSections: number
   previousVisible: boolean
-}) => {
+}) {
   if (!staleDivider) {
     return { didLayoutChange: false, nextVisible: previousVisible }
   }
 
-  const shouldShowDivider =
-    !hasDeferredQuery || (visibleActiveSections > 0 && visibleStaleSections > 0)
+  const shouldShowDivider
+    = !hasDeferredQuery || (visibleActiveSections > 0 && visibleStaleSections > 0)
 
   if (shouldShowDivider === previousVisible) {
     return { didLayoutChange: false, nextVisible: previousVisible }
@@ -168,14 +181,14 @@ interface UseCommissionSearchDomSyncOptions {
   visibleEntriesCount: number
 }
 
-export const useCommissionSearchDomSync = ({
+export function useCommissionSearchDomSync({
   disableDomFiltering,
   hasDeferredQuery,
   matchedIds,
   resolvedIndex,
   statusMessage,
   visibleEntriesCount,
-}: UseCommissionSearchDomSyncOptions) => {
+}: UseCommissionSearchDomSyncOptions) {
   const liveRef = useRef<HTMLParagraphElement>(null)
   const previousMatchedIdsRef = useRef<Set<number>>(new Set())
   const previousFilterIndexRef = useRef<SearchIndex | null>(null)
@@ -203,16 +216,17 @@ export const useCommissionSearchDomSync = ({
     }
 
     if (indexChanged) {
-      didLayoutChange =
-        syncEntryVisibilityForIndexChange({
+      didLayoutChange
+        = syncEntryVisibilityForIndexChange({
           entryById,
           matchedIds,
           hasDeferredQuery,
           visibleSectionIds,
         }) || didLayoutChange
-    } else if (matchedIdsChanged) {
-      didLayoutChange =
-        syncEntryVisibilityForMatchedDiff({
+    }
+    else if (matchedIdsChanged) {
+      didLayoutChange
+        = syncEntryVisibilityForMatchedDiff({
           entryById,
           matchedIds,
           previousMatchedIds,

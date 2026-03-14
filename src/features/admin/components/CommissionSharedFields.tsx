@@ -31,7 +31,7 @@ interface CommissionSharedFieldsProps {
   onKeywordChange?: (value: string) => void
 }
 
-const CommissionSharedFields = ({
+function CommissionSharedFields({
   characterOptions,
   selectedCharacterId,
   onCharacterChange,
@@ -49,10 +49,14 @@ const CommissionSharedFields = ({
   descriptionPlaceholder,
   keywordValue,
   onKeywordChange,
-}: CommissionSharedFieldsProps) => {
+}: CommissionSharedFieldsProps) {
   return (
     <>
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="
+        grid gap-4
+        md:grid-cols-2
+      "
+      >
         <CommissionCharacterField
           options={characterOptions}
           selectedCharacterId={selectedCharacterId}

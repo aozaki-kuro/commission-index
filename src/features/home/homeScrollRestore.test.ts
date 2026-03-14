@@ -1,13 +1,13 @@
-// @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ACTIVE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/activeCharactersEvent'
 import { STALE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/staleCharactersEvent'
 import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '#features/home/homeScrollRestoreAbort'
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountHomeScrollRestore } from './homeScrollRestore'
 
 const HOME_SCROLL_STATE_STORAGE_KEY = 'home:scroll-state'
 
-const setScrollEnvironment = ({
+function setScrollEnvironment({
   scrollHeight,
   x = 0,
   y = 0,
@@ -15,7 +15,7 @@ const setScrollEnvironment = ({
   scrollHeight: number
   x?: number
   y?: number
-}) => {
+}) {
   Object.defineProperty(window, 'scrollX', { configurable: true, value: x, writable: true })
   Object.defineProperty(window, 'scrollY', { configurable: true, value: y, writable: true })
   Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800, writable: true })
@@ -84,7 +84,7 @@ describe('mountHomeScrollRestore', () => {
     const restoreScrollPosition = vi.fn()
     const requestAnimationFrameSpy = vi
       .spyOn(window, 'requestAnimationFrame')
-      .mockImplementation(callback => {
+      .mockImplementation((callback) => {
         callback(0)
         return 1
       })
@@ -138,7 +138,7 @@ describe('mountHomeScrollRestore', () => {
     const restoreScrollPosition = vi.fn()
     const requestAnimationFrameSpy = vi
       .spyOn(window, 'requestAnimationFrame')
-      .mockImplementation(callback => {
+      .mockImplementation((callback) => {
         callback(0)
         return 1
       })
@@ -239,8 +239,8 @@ describe('mountHomeScrollRestore', () => {
         y: 6000,
       }),
     )
-    ;(window.history as History & { scrollRestoration?: ScrollRestoration }).scrollRestoration =
-      'auto'
+    ;(window.history as History & { scrollRestoration?: ScrollRestoration }).scrollRestoration
+      = 'auto'
 
     const requestStaleLoad = vi.fn()
     const cleanup = mountHomeScrollRestore({

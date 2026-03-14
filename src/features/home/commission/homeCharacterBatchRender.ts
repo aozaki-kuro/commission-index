@@ -6,25 +6,25 @@ import type {
 
 const SECTION_CLASS = 'pb-6'
 const TITLE_CLASS = 'group relative mb-2 pt-4'
-const TITLE_LINK_CLASS =
-  'ml-2 font-bold text-gray-400 no-underline opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-gray-600'
+const TITLE_LINK_CLASS
+  = 'ml-2 font-bold text-gray-400 no-underline opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-gray-600'
 const EMPTY_STATE_CLASS = 'my-4'
 const ENTRY_CLASS = 'pt-4'
-const IMAGE_WRAPPER_CLASS =
-  "relative before:pointer-events-none before:absolute before:inset-0 before:animate-pulse before:bg-gray-200/80 before:content-[''] dark:before:bg-gray-700/60"
+const IMAGE_WRAPPER_CLASS
+  = 'relative before:pointer-events-none before:absolute before:inset-0 before:animate-pulse before:bg-gray-200/80 before:content-[\'\'] dark:before:bg-gray-700/60'
 const IMAGE_NODE_CLASS = 'pointer-events-none relative z-10 block w-full select-none'
-const IMAGE_FALLBACK_CLASS =
-  'aspect-1280/525 flex items-center justify-center bg-gray-100 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-300'
-const INFO_ROOT_CLASS =
-  'flex w-full flex-wrap items-center gap-y-2 font-mono text-xs text-gray-800 md:text-sm dark:text-gray-300 mt-6 mb-2 md:mt-8 md:mb-4'
-const INFO_TIME_LINK_CLASS =
-  'mr-6 select-none text-gray-800 no-underline dark:text-gray-300! md:mr-16'
+const IMAGE_FALLBACK_CLASS
+  = 'aspect-1280/525 flex items-center justify-center bg-gray-100 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-300'
+const INFO_ROOT_CLASS
+  = 'flex w-full flex-wrap items-center gap-y-2 font-mono text-xs text-gray-800 md:text-sm dark:text-gray-300 mt-6 mb-2 md:mt-8 md:mb-4'
+const INFO_TIME_LINK_CLASS
+  = 'mr-6 select-none text-gray-800 no-underline dark:text-gray-300! md:mr-16'
 const INFO_SEPARATOR_CLASS = 'mx-2 select-none md:mx-4'
 const LINKS_ROOT_CLASS = 'ml-auto flex grow justify-end gap-2 md:gap-3'
 const TEXT_LINK_CLASS = 'select-none underline underline-offset-2'
 const INTEREST_BUTTON_CLASS = `${TEXT_LINK_CLASS} inline-flex cursor-pointer appearance-none items-center gap-2.5 border-0 bg-transparent p-0 disabled:cursor-default disabled:no-underline`
 
-const appendTextElement = ({
+function appendTextElement({
   parent,
   tagName,
   text,
@@ -32,14 +32,14 @@ const appendTextElement = ({
   parent: HTMLElement
   tagName: 'p' | 'span'
   text: string
-}) => {
+}) {
   const element = document.createElement(tagName)
   element.textContent = text
   parent.append(element)
   return element
 }
 
-const renderEntryImage = (entry: HomeCharacterBatchEntryPayload) => {
+function renderEntryImage(entry: HomeCharacterBatchEntryPayload) {
   const wrapper = document.createElement('div')
   wrapper.dataset.commissionImage = 'true'
   wrapper.dataset.commissionAlt = entry.altText
@@ -72,9 +72,10 @@ const renderEntryImage = (entry: HomeCharacterBatchEntryPayload) => {
   return wrapper
 }
 
-const renderInterestButton = (entry: HomeCharacterBatchEntryPayload) => {
+function renderInterestButton(entry: HomeCharacterBatchEntryPayload) {
   const interest = entry.interest
-  if (!interest) return null
+  if (!interest)
+    return null
 
   const button = document.createElement('button')
   button.type = 'button'
@@ -99,7 +100,7 @@ const renderInterestButton = (entry: HomeCharacterBatchEntryPayload) => {
   return button
 }
 
-const renderEntryInfo = (entry: HomeCharacterBatchEntryPayload) => {
+function renderEntryInfo(entry: HomeCharacterBatchEntryPayload) {
   const root = document.createElement('div')
   root.className = INFO_ROOT_CLASS
 
@@ -130,7 +131,7 @@ const renderEntryInfo = (entry: HomeCharacterBatchEntryPayload) => {
   links.className = LINKS_ROOT_CLASS
 
   if (entry.links.length > 0) {
-    entry.links.forEach(link => {
+    entry.links.forEach((link) => {
       const anchor = document.createElement('a')
       anchor.href = link.url
       anchor.target = '_blank'
@@ -138,7 +139,8 @@ const renderEntryInfo = (entry: HomeCharacterBatchEntryPayload) => {
       anchor.textContent = link.label
       links.append(anchor)
     })
-  } else {
+  }
+  else {
     const interestButton = renderInterestButton(entry)
     if (interestButton) {
       links.append(interestButton)
@@ -149,7 +151,7 @@ const renderEntryInfo = (entry: HomeCharacterBatchEntryPayload) => {
   return root
 }
 
-const renderEntry = (entry: HomeCharacterBatchEntryPayload) => {
+function renderEntry(entry: HomeCharacterBatchEntryPayload) {
   const root = document.createElement('div')
   root.id = entry.id
   root.className = ENTRY_CLASS
@@ -163,7 +165,7 @@ const renderEntry = (entry: HomeCharacterBatchEntryPayload) => {
   return root
 }
 
-const renderSection = (section: HomeCharacterBatchSectionPayload) => {
+function renderSection(section: HomeCharacterBatchSectionPayload) {
   const root = document.createElement('div')
   root.id = section.sectionId
   root.dataset.characterSection = 'true'
@@ -191,16 +193,16 @@ const renderSection = (section: HomeCharacterBatchSectionPayload) => {
     return root
   }
 
-  section.entries.forEach(entry => {
+  section.entries.forEach((entry) => {
     root.append(renderEntry(entry))
   })
 
   return root
 }
 
-export const renderHomeCharacterBatchPayload = (payload: HomeCharacterBatchPayload) => {
+export function renderHomeCharacterBatchPayload(payload: HomeCharacterBatchPayload) {
   const fragment = document.createDocumentFragment()
-  payload.sections.forEach(section => {
+  payload.sections.forEach((section) => {
     fragment.append(renderSection(section))
   })
   return fragment

@@ -1,18 +1,19 @@
-import Database from 'better-sqlite3'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
+import Database from 'better-sqlite3'
 import { describe, expect, it } from 'vitest'
 import { resetModulesInTempDir, setupTempCommissionDb } from '../../../test/utils/tempCommissionDb'
 
-const loadAdminDbInTempDir = async () => {
+async function loadAdminDbInTempDir() {
   const { tempDir, dbPath } = setupTempCommissionDb('commission-index-admin-crud-')
   resetModulesInTempDir(tempDir)
   const adminDb = await import('./db')
   return { adminDb, dbPath }
 }
 
-const hashFile = (filePath: string) =>
-  createHash('sha256').update(fs.readFileSync(filePath)).digest('hex')
+function hashFile(filePath: string) {
+  return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex')
+}
 
 describe('admin db commission and character operations (sqlite integration)', () => {
   it('creates, updates, and deletes commissions with normalized stored values', async () => {
@@ -46,14 +47,14 @@ describe('admin db commission and character operations (sqlite integration)', ()
       )
       .get(originalFileName) as
       | {
-          id: number
-          fileName: string
-          links: string
-          design: string | null
-          description: string | null
-          keyword: string | null
-          hidden: number
-        }
+        id: number
+        fileName: string
+        links: string
+        design: string | null
+        description: string | null
+        keyword: string | null
+        hidden: number
+      }
       | undefined
 
     expect(inserted).toBeTruthy()
@@ -116,13 +117,13 @@ describe('admin db commission and character operations (sqlite integration)', ()
       )
       .get(inserted!.id) as
       | {
-          fileName: string
-          links: string
-          design: string | null
-          description: string | null
-          keyword: string | null
-          hidden: number
-        }
+        fileName: string
+        links: string
+        design: string | null
+        description: string | null
+        keyword: string | null
+        hidden: number
+      }
       | undefined
 
     expect(updated).toBeTruthy()
@@ -158,8 +159,8 @@ describe('admin db commission and character operations (sqlite integration)', ()
     expect(activeIds.length).toBeGreaterThan(0)
     expect(staleIds.length).toBeGreaterThan(0)
 
-    const nextActive = [...activeIds].reverse()
-    const nextStale = [...staleIds].reverse()
+    const nextActive = activeIds.toReversed()
+    const nextStale = staleIds.toReversed()
 
     adminDb.updateCharactersOrder({ active: nextActive, stale: nextStale })
 

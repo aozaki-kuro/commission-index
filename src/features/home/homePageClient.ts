@@ -1,5 +1,3 @@
-import { ANALYTICS_EVENTS } from '#lib/analytics/events'
-import { trackRybbitEvent } from '#lib/analytics/track'
 import { mountActiveCharactersLoader } from '#features/home/commission/activeCharactersLoader'
 import { mountCommissionViewModeDomSync } from '#features/home/commission/commissionViewModeDomSync'
 import { mountMobileViewModeTabs } from '#features/home/commission/mobileViewModeTabs'
@@ -7,13 +5,15 @@ import { mountStaleCharactersLoader } from '#features/home/commission/staleChara
 import { mountTimelineViewLoader } from '#features/home/commission/timelineViewLoader'
 import { mountUnpublishedInterestButtons } from '#features/home/commission/unpublishedInterestClient'
 import { mountHomeScrollRestore } from '#features/home/homeScrollRestore'
-import { mountSidebarNavEnhancer } from '#features/home/nav/sidebarNavEnhancer'
 import { mountMobileHamburgerMenu } from '#features/home/nav/hamburger/mobileHamburgerMenu'
 import { mountMobileLanguageMenu } from '#features/home/nav/hamburger/mobileLanguageMenu'
+import { mountSidebarNavEnhancer } from '#features/home/nav/sidebarNavEnhancer'
+import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { trackRybbitEvent } from '#lib/analytics/track'
 
 type Cleanup = () => void
 
-type HomePageClientDeps = {
+interface HomePageClientDeps {
   mountCommissionViewModeDomSync: () => Cleanup
   mountActiveCharactersLoader: () => Cleanup
   mountStaleCharactersLoader: () => Cleanup
@@ -26,7 +26,7 @@ type HomePageClientDeps = {
   mountUnpublishedInterestButtons: () => Cleanup
 }
 
-type MountHomePageClientOptions = {
+interface MountHomePageClientOptions {
   deps?: Partial<HomePageClientDeps>
 }
 
@@ -42,13 +42,15 @@ const defaultDeps: HomePageClientDeps = {
   mountMobileViewModeTabs: () => mountMobileViewModeTabs(),
   mountUnpublishedInterestButtons: () =>
     mountUnpublishedInterestButtons({
-      trackEvent: properties => {
-        trackRybbitEvent(ANALYTICS_EVENTS.iWantToSeeIt, properties)
+      trackEvent: (properties) => {
+        trackRybbitEvent(ANALYTICS_EVENTS.iWantToSeeIt, {
+          sub_event: properties.sub_event,
+        })
       },
     }),
 }
 
-export const mountHomePageClient = ({ deps: depsOverrides }: MountHomePageClientOptions = {}) => {
+export function mountHomePageClient({ deps: depsOverrides }: MountHomePageClientOptions = {}) {
   const deps = { ...defaultDeps, ...depsOverrides }
   const mounts = [
     deps.mountCommissionViewModeDomSync,
@@ -69,7 +71,8 @@ export const mountHomePageClient = ({ deps: depsOverrides }: MountHomePageClient
     for (const mount of mounts) {
       cleanups.push(mount())
     }
-  } catch (error) {
+  }
+  catch (error) {
     while (cleanups.length > 0) {
       cleanups.pop()?.()
     }

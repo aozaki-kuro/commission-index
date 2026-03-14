@@ -1,4 +1,6 @@
-import { CharacterRecord, characterRecords, getCharacterRecords } from './commissionRecords'
+import type { CharacterRecord } from './commissionRecords'
+import process from 'node:process'
+import { characterRecords, getCharacterRecords } from './commissionRecords'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
 
@@ -12,13 +14,14 @@ export interface CommissionStatus {
 }
 
 // 将角色记录划分为 active/stale 状态供前端消费
-export const buildCharacterStatus = (records: CharacterRecord[]): CommissionStatus => {
+export function buildCharacterStatus(records: CharacterRecord[]): CommissionStatus {
   const active: CharacterProps[] = []
   const stale: CharacterProps[] = []
 
-  records.forEach(record => {
+  records.forEach((record) => {
     const entry = { DisplayName: record.name }
-    if (record.status === 'active') active.push(entry)
+    if (record.status === 'active')
+      active.push(entry)
     else stale.push(entry)
   })
 
@@ -27,7 +30,8 @@ export const buildCharacterStatus = (records: CharacterRecord[]): CommissionStat
 
 const staticCharacterStatus: CommissionStatus = buildCharacterStatus(characterRecords)
 
-export const getCharacterStatus = (): CommissionStatus =>
-  isDevelopment ? buildCharacterStatus(getCharacterRecords()) : staticCharacterStatus
+export function getCharacterStatus(): CommissionStatus {
+  return isDevelopment ? buildCharacterStatus(getCharacterRecords()) : staticCharacterStatus
+}
 
 export const characterStatus: CommissionStatus = staticCharacterStatus

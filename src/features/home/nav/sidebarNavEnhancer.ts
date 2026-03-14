@@ -1,3 +1,35 @@
+import type { RequestActiveCharactersLoadOptions } from '#features/home/commission/activeCharactersEvent'
+import type { CommissionViewMode } from '#features/home/commission/CommissionViewModeSearch'
+import type { RequestStaleCharactersLoadOptions, StaleCharactersState, StaleCharactersVisibility } from '#features/home/commission/staleCharactersEvent'
+import {
+  ACTIVE_CHARACTERS_LOADED_EVENT,
+  hasDeferredActiveCharacterTarget,
+  requestActiveCharactersLoad,
+
+} from '#features/home/commission/activeCharactersEvent'
+import {
+  prefetchDeferredActiveCharacterTarget,
+  prefetchDeferredStaleCharacterTarget,
+} from '#features/home/commission/deferredCharacterBatchPrefetch'
+import { normalizeHomeCharacterTargetId } from '#features/home/commission/homeCharacterBatchManifest'
+import {
+  hasDeferredStaleCharacterTarget,
+  hasStaleCharacterTarget,
+  isStaleCharactersVisible,
+  requestStaleCharactersLoad,
+
+  requestStaleCharactersVisibility,
+  STALE_CHARACTERS_LOADED_EVENT,
+  STALE_CHARACTERS_STATE_CHANGE_EVENT,
+
+} from '#features/home/commission/staleCharactersEvent'
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
+import {
+  readCommissionViewMode,
+  replaceCommissionViewModeInAddress,
+  resolveCommissionViewModeFromElement,
+} from '#features/home/commission/viewModeState'
+import { dispatchHomeScrollRestoreAbort } from '#features/home/homeScrollRestoreAbort'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import {
@@ -12,37 +44,6 @@ import {
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '#lib/navigation/syncHiddenSectionLinkAvailability'
-import { dispatchHomeScrollRestoreAbort } from '#features/home/homeScrollRestoreAbort'
-import {
-  readCommissionViewMode,
-  replaceCommissionViewModeInAddress,
-  resolveCommissionViewModeFromElement,
-} from '#features/home/commission/viewModeState'
-import type { CommissionViewMode } from '#features/home/commission/CommissionViewModeSearch'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
-import {
-  prefetchDeferredActiveCharacterTarget,
-  prefetchDeferredStaleCharacterTarget,
-} from '#features/home/commission/deferredCharacterBatchPrefetch'
-import { normalizeHomeCharacterTargetId } from '#features/home/commission/homeCharacterBatchManifest'
-import {
-  STALE_CHARACTERS_LOADED_EVENT,
-  STALE_CHARACTERS_STATE_CHANGE_EVENT,
-  hasDeferredStaleCharacterTarget,
-  hasStaleCharacterTarget,
-  isStaleCharactersVisible,
-  requestStaleCharactersLoad,
-  requestStaleCharactersVisibility,
-  type RequestStaleCharactersLoadOptions,
-  type StaleCharactersState,
-  type StaleCharactersVisibility,
-} from '#features/home/commission/staleCharactersEvent'
-import {
-  ACTIVE_CHARACTERS_LOADED_EVENT,
-  hasDeferredActiveCharacterTarget,
-  requestActiveCharactersLoad,
-  type RequestActiveCharactersLoadOptions,
-} from '#features/home/commission/activeCharactersEvent'
 
 const SIDEBAR_ROOT_ID = 'Character List'
 const SIDEBAR_CONTROLS_ROOT_ID = 'Home Controls'
@@ -56,8 +57,9 @@ const STALE_LOAD_TRIGGER_SELECTOR = '[data-load-stale-characters="true"]'
 const ACTIVE_DOT_CLASSES = ['scale-100', 'opacity-100'] as const
 const HIDDEN_DOT_CLASSES = ['scale-0', 'opacity-0'] as const
 const SIDEBAR_DOT_SELECTOR = '[data-sidebar-dot-for]'
+const HASH_PREFIX_PATTERN = /^#/
 
-type SidebarNavEnhancerDeps = {
+interface SidebarNavEnhancerDeps {
   trackEvent: typeof trackRybbitEvent
   jumpToSearch: typeof jumpToCommissionSearch
   clearHash: typeof clearHashIfTargetIsStale
@@ -69,13 +71,13 @@ type SidebarNavEnhancerDeps = {
   requestStaleVisibility: (win: Window, visibility: StaleCharactersVisibility) => void
 }
 
-type MountSidebarNavEnhancerOptions = {
+interface MountSidebarNavEnhancerOptions {
   win?: Window
   doc?: Document
   deps?: Partial<SidebarNavEnhancerDeps>
 }
 
-type SidebarActivePanelSnapshot = {
+interface SidebarActivePanelSnapshot {
   mode: CommissionViewMode
   panel: HTMLElement | null
   titleIds: string[]
@@ -96,29 +98,30 @@ const defaultDeps: SidebarNavEnhancerDeps = {
 
 const getCurrentMode = (win: Window): CommissionViewMode => readCommissionViewMode(win)
 
-const getVisibleNavPanel = (root: HTMLElement, mode: CommissionViewMode) =>
-  root.querySelector<HTMLElement>(`${NAV_PANEL_SELECTOR}[data-sidebar-nav-panel="${mode}"]`)
+function getVisibleNavPanel(root: HTMLElement, mode: CommissionViewMode) {
+  return root.querySelector<HTMLElement>(`${NAV_PANEL_SELECTOR}[data-sidebar-nav-panel="${mode}"]`)
+}
 
-const getVisibleSidebarItemCount = (root: HTMLElement, mode: CommissionViewMode) =>
-  getVisibleNavPanel(root, mode)?.querySelectorAll<HTMLAnchorElement>(CHARACTER_LINK_SELECTOR)
-    .length ?? 0
+function getVisibleSidebarItemCount(root: HTMLElement, mode: CommissionViewMode) {
+  return getVisibleNavPanel(root, mode)?.querySelectorAll<HTMLAnchorElement>(CHARACTER_LINK_SELECTOR).length ?? 0
+}
 
-const getVisibleTitleIds = (panel: HTMLElement | null) => {
-  if (!panel) return []
+function getVisibleTitleIds(panel: HTMLElement | null) {
+  if (!panel)
+    return []
 
-  return Array.from(panel.querySelectorAll<HTMLAnchorElement>(CHARACTER_LINK_SELECTOR))
-    .map(link => link.dataset.sidebarTitleId)
+  return Array.from(panel.querySelectorAll<HTMLAnchorElement>(CHARACTER_LINK_SELECTOR), link => link.dataset.sidebarTitleId)
     .filter((id): id is string => Boolean(id))
 }
 
-const toggleDotState = (dot: HTMLElement, active: boolean) => {
+function toggleDotState(dot: HTMLElement, active: boolean) {
   dot.classList.toggle(ACTIVE_DOT_CLASSES[0], active)
   dot.classList.toggle(ACTIVE_DOT_CLASSES[1], active)
   dot.classList.toggle(HIDDEN_DOT_CLASSES[0], !active)
   dot.classList.toggle(HIDDEN_DOT_CLASSES[1], !active)
 }
 
-const toggleViewModeButtonState = (button: HTMLButtonElement, active: boolean) => {
+function toggleViewModeButtonState(button: HTMLButtonElement, active: boolean) {
   button.classList.toggle('text-gray-900', active)
   button.classList.toggle('dark:text-white', active)
   button.classList.toggle('text-gray-700', !active)
@@ -130,13 +133,13 @@ const toggleViewModeButtonState = (button: HTMLButtonElement, active: boolean) =
   }
 }
 
-const createActivePanelSnapshot = ({
+function createActivePanelSnapshot({
   mode,
   panel,
 }: {
   mode: CommissionViewMode
   panel: HTMLElement | null
-}): SidebarActivePanelSnapshot => {
+}): SidebarActivePanelSnapshot {
   const titleIds = getVisibleTitleIds(panel)
   const titleElements = resolveElementsByIds(titleIds)
 
@@ -148,29 +151,30 @@ const createActivePanelSnapshot = ({
   }
 }
 
-const resolveActiveTitleId = (titleElements: HTMLElement[]) => {
-  if (titleElements.length === 0) return ''
+function resolveActiveTitleId(titleElements: HTMLElement[]) {
+  if (titleElements.length === 0)
+    return ''
 
   return getActiveSectionId(titleElements, getScrollThreshold())
 }
 
-const resolveSectionIdFromHref = (rawHref: string | null) =>
-  normalizeHomeCharacterTargetId(rawHref) || null
+function resolveSectionIdFromHref(rawHref: string | null) {
+  return normalizeHomeCharacterTargetId(rawHref) || null
+}
 
-export const mountSidebarNavEnhancer = ({
+export function mountSidebarNavEnhancer({
   win = window,
   doc = document,
   deps: depsOverrides,
-}: MountSidebarNavEnhancerOptions = {}) => {
+}: MountSidebarNavEnhancerOptions = {}) {
   const deps = { ...defaultDeps, ...depsOverrides }
   const navRoot = doc.getElementById(SIDEBAR_ROOT_ID)
-  if (!navRoot) return () => {}
+  if (!navRoot)
+    return () => {}
   const controlsRoot = doc.getElementById(SIDEBAR_CONTROLS_ROOT_ID) ?? navRoot
-  const viewModeToggles = Array.from(
-    controlsRoot.querySelectorAll<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR),
-  )
-  const navPanels = Array.from(navRoot.querySelectorAll<HTMLElement>(NAV_PANEL_SELECTOR))
-  const allSidebarDots = Array.from(navRoot.querySelectorAll<HTMLElement>(SIDEBAR_DOT_SELECTOR))
+  const viewModeToggles = [...controlsRoot.querySelectorAll<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR)]
+  const navPanels = [...navRoot.querySelectorAll<HTMLElement>(NAV_PANEL_SELECTOR)]
+  const allSidebarDots = [...navRoot.querySelectorAll<HTMLElement>(SIDEBAR_DOT_SELECTOR)]
   const staleDetails = navRoot.querySelector<HTMLDetailsElement>(STALE_DETAILS_SELECTOR)
 
   let clearHashRafId: number | null = null
@@ -196,7 +200,8 @@ export const mountSidebarNavEnhancer = ({
     run: () => void
     setRafId: (nextRafId: number | null) => void
   }) => {
-    if (rafId !== null) return
+    if (rafId !== null)
+      return
 
     let didRunSynchronously = false
     const frameId = win.requestAnimationFrame(() => {
@@ -208,7 +213,7 @@ export const mountSidebarNavEnhancer = ({
   }
 
   const resetAllDots = () => {
-    allSidebarDots.forEach(dot => {
+    allSidebarDots.forEach((dot) => {
       toggleDotState(dot, false)
     })
     activeDots = []
@@ -217,12 +222,14 @@ export const mountSidebarNavEnhancer = ({
 
   const getPanelDotIndex = (panel: HTMLElement) => {
     const cachedIndex = panelDotIndexCache.get(panel)
-    if (cachedIndex) return cachedIndex
+    if (cachedIndex)
+      return cachedIndex
 
     const nextIndex = new Map<string, HTMLElement[]>()
-    panel.querySelectorAll<HTMLElement>(SIDEBAR_DOT_SELECTOR).forEach(dot => {
+    panel.querySelectorAll<HTMLElement>(SIDEBAR_DOT_SELECTOR).forEach((dot) => {
       const titleId = dot.dataset.sidebarDotFor
-      if (!titleId) return
+      if (!titleId)
+        return
 
       const dots = nextIndex.get(titleId)
       if (dots) {
@@ -244,7 +251,8 @@ export const mountSidebarNavEnhancer = ({
     panel: HTMLElement | null
     titleId: string
   }) => {
-    if (!panel || !titleId) return []
+    if (!panel || !titleId)
+      return []
 
     return getPanelDotIndex(panel).get(titleId) ?? []
   }
@@ -254,12 +262,14 @@ export const mountSidebarNavEnhancer = ({
     const nextDotSet = new Set(nextDots)
 
     for (const dot of activeDots) {
-      if (nextDotSet.has(dot)) continue
+      if (nextDotSet.has(dot))
+        continue
       toggleDotState(dot, false)
     }
 
     for (const dot of nextDots) {
-      if (prevDotSet.has(dot)) continue
+      if (prevDotSet.has(dot))
+        continue
       toggleDotState(dot, true)
     }
 
@@ -270,9 +280,9 @@ export const mountSidebarNavEnhancer = ({
     const mode = getCurrentMode(win)
     const panel = getVisibleNavPanel(navRoot, mode)
     if (
-      activePanelSnapshot &&
-      activePanelSnapshot.mode === mode &&
-      activePanelSnapshot.panel === panel
+      activePanelSnapshot
+      && activePanelSnapshot.mode === mode
+      && activePanelSnapshot.panel === panel
     ) {
       return activePanelSnapshot
     }
@@ -285,14 +295,14 @@ export const mountSidebarNavEnhancer = ({
   const syncViewModeControls = () => {
     const mode = getCurrentMode(win)
 
-    viewModeToggles.forEach(toggle => {
+    viewModeToggles.forEach((toggle) => {
       const toggleMode = resolveCommissionViewModeFromElement(toggle)
       const active = toggleMode === mode
       toggle.setAttribute('aria-pressed', String(active))
       toggleViewModeButtonState(toggle, active)
     })
 
-    navPanels.forEach(panel => {
+    navPanels.forEach((panel) => {
       panel.classList.toggle('hidden', panel.dataset.sidebarNavPanel !== mode)
     })
   }
@@ -300,19 +310,20 @@ export const mountSidebarNavEnhancer = ({
   const syncCharacterLinkAvailability = () => {
     const mode = getCurrentMode(win)
     const panel = getVisibleNavPanel(navRoot, mode)
-    if (!panel) return
+    if (!panel)
+      return
 
     syncHiddenSectionLinkAvailability({
       root: panel,
       linkSelector: CHARACTER_LINK_SELECTOR,
-      getSectionId: link => {
+      getSectionId: (link) => {
         return resolveSectionIdFromHref(link.getAttribute('href'))
       },
       isDeferredTarget: (sectionId, link) =>
-        (link.dataset.sidebarCharacterStatus === 'active' &&
-          hasDeferredActiveCharacterTarget(doc, sectionId)) ||
-        (link.dataset.sidebarCharacterStatus === 'stale' &&
-          hasStaleCharacterTarget(doc, sectionId)),
+        (link.dataset.sidebarCharacterStatus === 'active'
+          && hasDeferredActiveCharacterTarget(doc, sectionId))
+        || (link.dataset.sidebarCharacterStatus === 'stale'
+          && hasStaleCharacterTarget(doc, sectionId)),
     })
   }
 
@@ -335,7 +346,7 @@ export const mountSidebarNavEnhancer = ({
     scheduleAnimationFrame({
       rafId: clearHashRafId,
       run: deps.clearHash,
-      setRafId: nextRafId => {
+      setRafId: (nextRafId) => {
         clearHashRafId = nextRafId
       },
     })
@@ -353,7 +364,7 @@ export const mountSidebarNavEnhancer = ({
     scheduleAnimationFrame({
       rafId: syncLinksRafId,
       run: syncCharacterLinkAvailability,
-      setRafId: nextRafId => {
+      setRafId: (nextRafId) => {
         syncLinksRafId = nextRafId
       },
     })
@@ -363,7 +374,7 @@ export const mountSidebarNavEnhancer = ({
     scheduleAnimationFrame({
       rafId: syncDotsRafId,
       run: syncActiveDots,
-      setRafId: nextRafId => {
+      setRafId: (nextRafId) => {
         syncDotsRafId = nextRafId
       },
     })
@@ -378,14 +389,18 @@ export const mountSidebarNavEnhancer = ({
   }
 
   const openStaleDetails = () => {
-    if (!staleDetails) return
-    if (staleDetails.open) return
+    if (!staleDetails)
+      return
+    if (staleDetails.open)
+      return
     staleDetails.open = true
   }
 
   const closeStaleDetails = () => {
-    if (!staleDetails) return
-    if (!staleDetails.open) return
+    if (!staleDetails)
+      return
+    if (!staleDetails.open)
+      return
     staleDetails.open = false
   }
 
@@ -401,7 +416,8 @@ export const mountSidebarNavEnhancer = ({
   const resolveVisibilityFromStateEvent = (event: Event): StaleCharactersVisibility => {
     if (event instanceof CustomEvent && event.detail && typeof event.detail === 'object') {
       const visibility = (event.detail as Partial<StaleCharactersState>).visibility
-      if (visibility === 'visible' || visibility === 'hidden') return visibility
+      if (visibility === 'visible' || visibility === 'hidden')
+        return visibility
     }
 
     return isStaleCharactersVisible(doc) ? 'visible' : 'hidden'
@@ -409,7 +425,8 @@ export const mountSidebarNavEnhancer = ({
 
   const onStaleDetailsToggle = (event: Event) => {
     const staleDetails = event.currentTarget
-    if (!(staleDetails instanceof HTMLDetailsElement)) return
+    if (!(staleDetails instanceof HTMLDetailsElement))
+      return
 
     const nextVisibility: StaleCharactersVisibility = staleDetails.open ? 'visible' : 'hidden'
     const currentVisibility: StaleCharactersVisibility = isStaleCharactersVisible(doc)
@@ -443,10 +460,12 @@ export const mountSidebarNavEnhancer = ({
 
   const onSidebarPreview = (event: Event) => {
     const target = event.target
-    if (!(target instanceof Element)) return
+    if (!(target instanceof Element))
+      return
 
     const characterLink = target.closest<HTMLAnchorElement>(CHARACTER_LINK_SELECTOR)
-    if (!characterLink) return
+    if (!characterLink)
+      return
 
     prefetchCharacterTarget(characterLink)
   }
@@ -459,7 +478,7 @@ export const mountSidebarNavEnhancer = ({
       view_mode: mode,
       item_count: getVisibleSidebarItemCount(navRoot, mode),
       character_name: link.textContent?.trim() || 'unknown',
-      section_id: link.getAttribute('href')?.replace(/^#/, '') || 'unknown',
+      section_id: link.getAttribute('href')?.replace(HASH_PREFIX_PATTERN, '') || 'unknown',
     })
   }
 
@@ -489,13 +508,15 @@ export const mountSidebarNavEnhancer = ({
 
   const onSidebarClick = (event: MouseEvent) => {
     const target = event.target
-    if (!(target instanceof Element)) return
+    if (!(target instanceof Element))
+      return
 
     const modeToggleButton = target.closest<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR)
     if (modeToggleButton) {
       const currentMode = getCurrentMode(win)
       const nextMode = resolveCommissionViewModeFromElement(modeToggleButton)
-      if (!nextMode) return
+      if (!nextMode)
+        return
 
       deps.trackEvent(ANALYTICS_EVENTS.sidebarViewModeToggleUsed, {
         from_mode: currentMode,
@@ -504,7 +525,8 @@ export const mountSidebarNavEnhancer = ({
       })
       if (nextMode !== currentMode) {
         replaceCommissionViewModeInAddress(win, nextMode)
-      } else {
+      }
+      else {
         syncAll()
       }
       return
@@ -531,9 +553,9 @@ export const mountSidebarNavEnhancer = ({
 
     const staleLoadTrigger = target.closest<HTMLElement>(STALE_LOAD_TRIGGER_SELECTOR)
     if (
-      staleLoadTrigger &&
-      staleLoadTrigger.closest(STALE_DETAILS_SELECTOR) &&
-      !isStaleCharactersVisible(doc)
+      staleLoadTrigger
+      && staleLoadTrigger.closest(STALE_DETAILS_SELECTOR)
+      && !isStaleCharactersVisible(doc)
     ) {
       event.preventDefault()
       openStaleDetails()
@@ -541,12 +563,13 @@ export const mountSidebarNavEnhancer = ({
     }
 
     const characterLink = target.closest<HTMLAnchorElement>(CHARACTER_LINK_SELECTOR)
-    if (!characterLink) return
+    if (!characterLink)
+      return
 
     const href = characterLink.getAttribute('href')
-    const isDeferredActiveLink =
-      characterLink.dataset.sidebarCharacterStatus === 'active' &&
-      hasDeferredActiveCharacterTarget(doc, href)
+    const isDeferredActiveLink
+      = characterLink.dataset.sidebarCharacterStatus === 'active'
+        && hasDeferredActiveCharacterTarget(doc, href)
     if (isDeferredActiveLink) {
       event.preventDefault()
       handleDeferredCharacterLinkLoad({
@@ -643,7 +666,8 @@ export const mountSidebarNavEnhancer = ({
   setStaleDetailsVisibility(isStaleCharactersVisible(doc) ? 'visible' : 'hidden')
 
   return () => {
-    if (disposed) return
+    if (disposed)
+      return
     disposed = true
 
     controlsRoot.removeEventListener('click', onSidebarClick)

@@ -1,3 +1,5 @@
+import process from 'node:process'
+
 type LogLevel = 'info' | 'success' | 'warn' | 'error'
 
 const RESET = '\u001B[0m'
@@ -16,8 +18,9 @@ const timeFormatter = new Intl.DateTimeFormat('en-GB', {
 
 const supportsColor = () => Boolean(process.stdout.isTTY) && process.env.NO_COLOR === undefined
 
-const colorize = (value: string, color: string) =>
-  supportsColor() ? `${color}${value}${RESET}` : value
+function colorize(value: string, color: string) {
+  return supportsColor() ? `${color}${value}${RESET}` : value
+}
 
 const formatTime = () => colorize(timeFormatter.format(new Date()), DIM)
 
@@ -28,7 +31,7 @@ const levelMessageColor: Record<LogLevel, string | null> = {
   error: RED,
 }
 
-export const createAstroStyleLogger = (tag: string) => {
+export function createAstroStyleLogger(tag: string) {
   const tagLabel = colorize(`[${tag}]`, BLUE)
 
   const write = (level: LogLevel, message: string) => {
@@ -44,7 +47,7 @@ export const createAstroStyleLogger = (tag: string) => {
       console.warn(line)
       return
     }
-    console.log(line)
+    process.stdout.write(`${line}\n`)
   }
 
   return {

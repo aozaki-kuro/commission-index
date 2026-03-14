@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import process from 'node:process'
 import {
   getCommissionFileNameValidationError,
   normalizeCommissionFileName,
@@ -7,30 +8,37 @@ import {
 
 const SOURCE_IMAGES_DIR = path.join(process.cwd(), 'data', 'images')
 
-const resolveUploadExtension = (file: File): '.jpg' | '.png' | null => {
+function resolveUploadExtension(file: File): '.jpg' | '.png' | null {
   const mimeType = file.type.toLowerCase()
-  if (mimeType === 'image/jpeg') return '.jpg'
-  if (mimeType === 'image/png') return '.png'
+  if (mimeType === 'image/jpeg')
+    return '.jpg'
+  if (mimeType === 'image/png')
+    return '.png'
 
   const ext = path.extname(file.name).toLowerCase()
-  if (ext === '.jpg' || ext === '.jpeg') return '.jpg'
-  if (ext === '.png') return '.png'
+  if (ext === '.jpg' || ext === '.jpeg')
+    return '.jpg'
+  if (ext === '.png')
+    return '.png'
   return null
 }
 
-const validateCommissionFileName = (rawValue: string): string => {
+function validateCommissionFileName(rawValue: string): string {
   const validationError = getCommissionFileNameValidationError(rawValue)
-  if (validationError) throw new Error(validationError)
+  if (validationError)
+    throw new Error(validationError)
   return normalizeCommissionFileName(rawValue)
 }
 
-const ensureTargetNotExists = async (targetPath: string) => {
+async function ensureTargetNotExists(targetPath: string) {
   try {
     await fs.access(targetPath)
     throw new Error(`Source image already exists: ${path.basename(targetPath)}`)
-  } catch (error) {
+  }
+  catch (error) {
     const err = error as NodeJS.ErrnoException
-    if (err.code === 'ENOENT') return
+    if (err.code === 'ENOENT')
+      return
     throw error
   }
 }
@@ -45,7 +53,7 @@ export interface ResolvedSourceImagePath {
   mimeType: 'image/jpeg' | 'image/png'
 }
 
-const resolveTargetFromInput = async (input: { commissionFileName: string; file: File }) => {
+async function resolveTargetFromInput(input: { commissionFileName: string, file: File }) {
   const fileName = validateCommissionFileName(input.commissionFileName)
   if (input.file.size <= 0) {
     throw new Error('Uploaded image is empty.')
@@ -63,11 +71,11 @@ const resolveTargetFromInput = async (input: { commissionFileName: string; file:
   return { ext, targetPath, targetFileName }
 }
 
-const writeUploadedSourceImage = async (input: {
+async function writeUploadedSourceImage(input: {
   commissionFileName: string
   file: File
   overwrite: boolean
-}): Promise<SavedSourceImage> => {
+}): Promise<SavedSourceImage> {
   const { ext, targetPath, targetFileName } = await resolveTargetFromInput(input)
   if (!input.overwrite) {
     await ensureTargetNotExists(targetPath)
@@ -86,38 +94,38 @@ const writeUploadedSourceImage = async (input: {
   return { targetPath, targetFileName }
 }
 
-export const saveUploadedSourceImage = async (input: {
+export async function saveUploadedSourceImage(input: {
   commissionFileName: string
   file: File
-}): Promise<SavedSourceImage> => {
+}): Promise<SavedSourceImage> {
   return writeUploadedSourceImage({
     ...input,
     overwrite: false,
   })
 }
 
-export const replaceUploadedSourceImage = async (input: {
+export async function replaceUploadedSourceImage(input: {
   commissionFileName: string
   file: File
-}): Promise<SavedSourceImage> => {
+}): Promise<SavedSourceImage> {
   return writeUploadedSourceImage({
     ...input,
     overwrite: true,
   })
 }
 
-export const removeSourceImageFile = async (targetPath: string) => {
+export async function removeSourceImageFile(targetPath: string) {
   try {
     await fs.unlink(targetPath)
-  } catch (error) {
+  }
+  catch (error) {
     const err = error as NodeJS.ErrnoException
-    if (err.code !== 'ENOENT') throw error
+    if (err.code !== 'ENOENT')
+      throw error
   }
 }
 
-export const resolveSourceImagePathByStem = async (
-  rawCommissionFileName: string,
-): Promise<ResolvedSourceImagePath | null> => {
+export async function resolveSourceImagePathByStem(rawCommissionFileName: string): Promise<ResolvedSourceImagePath | null> {
   const fileName = validateCommissionFileName(rawCommissionFileName)
   const candidates: ResolvedSourceImagePath[] = [
     { filePath: path.join(SOURCE_IMAGES_DIR, `${fileName}.jpg`), mimeType: 'image/jpeg' },
@@ -129,9 +137,11 @@ export const resolveSourceImagePathByStem = async (
     try {
       await fs.access(candidate.filePath)
       return candidate
-    } catch (error) {
+    }
+    catch (error) {
       const err = error as NodeJS.ErrnoException
-      if (err.code !== 'ENOENT') throw error
+      if (err.code !== 'ENOENT')
+        throw error
     }
   }
 

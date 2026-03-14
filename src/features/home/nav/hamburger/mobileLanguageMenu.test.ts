@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from './hamburgerMenuStateEvent'
 import { mountMobileLanguageMenu } from './mobileLanguageMenu'
 
-const renderMenu = () => {
+function renderMenu() {
   document.body.innerHTML = `
     <div data-mobile-hamburger="true" data-mobile-hamburger-mounted="false"></div>
     <div data-mobile-language-menu-root="true" class="opacity-100">
@@ -23,12 +23,15 @@ const renderMenu = () => {
 }
 
 const getRoot = () => document.querySelector<HTMLElement>('[data-mobile-language-menu-root="true"]')
-const getAnchor = () =>
-  document.querySelector<HTMLElement>('[data-mobile-language-menu-anchor="true"]')
-const getMenu = () =>
-  document.querySelector<HTMLDetailsElement>('[data-mobile-language-menu="true"]')
-const getPanel = () =>
-  document.querySelector<HTMLElement>('[data-mobile-language-menu-panel="true"]')
+function getAnchor() {
+  return document.querySelector<HTMLElement>('[data-mobile-language-menu-anchor="true"]')
+}
+function getMenu() {
+  return document.querySelector<HTMLDetailsElement>('[data-mobile-language-menu="true"]')
+}
+function getPanel() {
+  return document.querySelector<HTMLElement>('[data-mobile-language-menu-panel="true"]')
+}
 
 describe('mobileLanguageMenu', () => {
   beforeEach(() => {

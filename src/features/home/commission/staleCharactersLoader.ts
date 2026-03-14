@@ -1,3 +1,11 @@
+import type { RequestStaleCharactersLoadOptions, StaleCharactersState } from '#features/home/commission/staleCharactersEvent'
+import {
+  fetchHomeCharacterBatch,
+  getHomeCharacterBatchTotalCount,
+  mountHomeCharacterBatch,
+  mountLegacyHomeCharacterBatch,
+  prefetchHomeCharacterBatches,
+} from '#features/home/commission/homeCharacterBatchClient'
 import {
   dispatchStaleCharactersStateChange,
   persistReloadStaleCharactersVisibility,
@@ -5,25 +13,18 @@ import {
   readSavedStaleCharactersVisibility,
   readStaleCharactersLoadedBatchCount,
   readStaleCharactersStateFromPanel,
+
   resolveDeferredStaleCharacterBatch,
   shouldPreserveScrollOnStaleLoadRequest,
-  STALE_CHARACTERS_COLLAPSED_EVENT,
   STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT,
-  STALE_CHARACTERS_LOADED_EVENT,
+  STALE_CHARACTERS_COLLAPSED_EVENT,
   STALE_CHARACTERS_LOAD_REQUEST_EVENT,
+  STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_SHOW_REQUEST_EVENT,
+
   writeStaleCharactersLoadedBatchCount,
   writeStaleCharactersState,
-  type RequestStaleCharactersLoadOptions,
-  type StaleCharactersState,
 } from '#features/home/commission/staleCharactersEvent'
-import {
-  fetchHomeCharacterBatch,
-  getHomeCharacterBatchTotalCount,
-  mountLegacyHomeCharacterBatch,
-  mountHomeCharacterBatch,
-  prefetchHomeCharacterBatches,
-} from '#features/home/commission/homeCharacterBatchClient'
 import { getHashTarget, scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import { restoreScrollPosition as restoreWindowScrollPosition } from '#lib/navigation/restoreScrollPosition'
 import { dispatchSidebarSearchState } from '#lib/navigation/sidebarSearchState'
@@ -40,13 +41,13 @@ const STALE_IDLE_PREFETCH_BATCH_COUNT = 2
 const STALE_IDLE_PREFETCH_TIMEOUT_MS = 1200
 const STALE_IDLE_PREFETCH_FALLBACK_DELAY_MS = 180
 
-type StaleCharactersLoaderDeps = {
+interface StaleCharactersLoaderDeps {
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
-  restoreScrollPosition: (win: Window, position: { x: number; y: number }) => void
+  restoreScrollPosition: (win: Window, position: { x: number, y: number }) => void
 }
 
-type WindowWithIntersectionObserver = Window &
-  typeof globalThis & {
+type WindowWithIntersectionObserver = Window
+  & typeof globalThis & {
     IntersectionObserver?: typeof IntersectionObserver
     requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
     cancelIdleCallback?: (handle: number) => void
@@ -57,38 +58,40 @@ const defaultDeps: StaleCharactersLoaderDeps = {
   restoreScrollPosition: restoreWindowScrollPosition,
 }
 
-const shouldLoadForSentinel = (win: Window, sentinel: HTMLElement | null) => {
-  if (!sentinel) return false
+function shouldLoadForSentinel(win: Window, sentinel: HTMLElement | null) {
+  if (!sentinel)
+    return false
 
   const rect = sentinel.getBoundingClientRect()
   return rect.top <= win.innerHeight + STALE_PRELOAD_MARGIN_PX
 }
 
-const scheduleScrollRestore = ({
+function scheduleScrollRestore({
   deps,
   position,
   win,
 }: {
   deps: StaleCharactersLoaderDeps
-  position: { x: number; y: number }
+  position: { x: number, y: number }
   win: Window
-}) => {
+}) {
   win.requestAnimationFrame(() => {
     deps.restoreScrollPosition(win, position)
   })
 }
 
-const dispatchState = (win: Window, state: StaleCharactersState) => {
+function dispatchState(win: Window, state: StaleCharactersState) {
   persistStaleCharactersVisibility(win, state.visibility)
   dispatchStaleCharactersStateChange(win, state)
 }
 
-const readRequestOptions = (event: Event): RequestStaleCharactersLoadOptions => {
-  if (!(event instanceof CustomEvent)) return {}
+function readRequestOptions(event: Event): RequestStaleCharactersLoadOptions {
+  if (!(event instanceof CustomEvent))
+    return {}
   return event.detail ?? {}
 }
 
-export const mountStaleCharactersLoader = ({
+export function mountStaleCharactersLoader({
   win = window,
   doc = document,
   deps: depsOverrides,
@@ -96,10 +99,11 @@ export const mountStaleCharactersLoader = ({
   win?: Window
   doc?: Document
   deps?: Partial<StaleCharactersLoaderDeps>
-} = {}) => {
+} = {}) {
   const panel = doc.querySelector<HTMLElement>(CHARACTER_PANEL_SELECTOR)
   const container = panel?.querySelector<HTMLElement>(STALE_CONTAINER_SELECTOR) ?? null
-  if (!panel || !container) return () => {}
+  if (!panel || !container)
+    return () => {}
 
   const deps = { ...defaultDeps, ...depsOverrides }
   const winWithIntersectionObserver = win as WindowWithIntersectionObserver
@@ -111,12 +115,14 @@ export const mountStaleCharactersLoader = ({
   let cancelIdlePrefetch: (() => void) | null = null
 
   const setPlaceholderHidden = (hidden: boolean) => {
-    if (!placeholder) return
+    if (!placeholder)
+      return
     placeholder.classList.toggle('hidden', hidden)
   }
 
   const setDividerHidden = (hidden: boolean) => {
-    if (!divider) return
+    if (!divider)
+      return
     divider.classList.toggle('hidden', hidden)
   }
 
@@ -158,7 +164,8 @@ export const mountStaleCharactersLoader = ({
     stopIdlePrefetch()
 
     const loadedBatchCount = readStaleCharactersLoadedBatchCount(doc)
-    if (loadedBatchCount >= staleTotalBatchCount) return
+    if (loadedBatchCount >= staleTotalBatchCount)
+      return
 
     const task = () => {
       prefetchHomeCharacterBatches({
@@ -193,16 +200,17 @@ export const mountStaleCharactersLoader = ({
       return
     }
 
-    const sentinel = panel.querySelector<HTMLElement>(STALE_DEFERRED_SENTINEL_SELECTOR)
+    const sentinel = panel?.querySelector<HTMLElement>(STALE_DEFERRED_SENTINEL_SELECTOR) ?? null
     const IntersectionObserverCtor = winWithIntersectionObserver.IntersectionObserver
     if (
-      state.visibility === 'visible' &&
-      sentinel &&
-      typeof IntersectionObserverCtor === 'function'
+      state.visibility === 'visible'
+      && sentinel
+      && typeof IntersectionObserverCtor === 'function'
     ) {
       const observer = new IntersectionObserverCtor(
         (entries: IntersectionObserverEntry[]) => {
-          if (!entries.some(entry => entry.isIntersecting)) return
+          if (!entries.some(entry => entry.isIntersecting))
+            return
           syncByViewport()
         },
         { rootMargin: `${STALE_PRELOAD_MARGIN_PX}px 0px` },
@@ -233,7 +241,8 @@ export const mountStaleCharactersLoader = ({
     const finalBatchIndex = Math.min(targetBatchIndex, staleTotalBatchCount - 1)
     const payloadRequests = new Map<number, ReturnType<typeof fetchHomeCharacterBatch>>()
     const queueBatchFetch = (batchIndex: number) => {
-      if (batchIndex > finalBatchIndex || payloadRequests.has(batchIndex)) return
+      if (batchIndex > finalBatchIndex || payloadRequests.has(batchIndex))
+        return
       payloadRequests.set(batchIndex, fetchHomeCharacterBatch({ batchIndex, doc, status: 'stale' }))
     }
 
@@ -250,7 +259,8 @@ export const mountStaleCharactersLoader = ({
       const payload = await payloadRequests.get(batchIndex)
       if (payload) {
         mountHomeCharacterBatch({ container, payload })
-      } else if (!mountLegacyHomeCharacterBatch({ batchIndex, container, doc, status: 'stale' })) {
+      }
+      else if (!mountLegacyHomeCharacterBatch({ batchIndex, container, doc, status: 'stale' })) {
         break
       }
 
@@ -288,8 +298,8 @@ export const mountStaleCharactersLoader = ({
         didChange = await loadBatchesThrough(targetBatchIndex)
         const nextState = readStaleCharactersStateFromPanel(panel)
         if (
-          nextState.visibility !== currentState.visibility ||
-          nextState.loaded !== currentState.loaded
+          nextState.visibility !== currentState.visibility
+          || nextState.loaded !== currentState.loaded
         ) {
           currentState = nextState
           dispatchState(win, currentState)
@@ -307,7 +317,7 @@ export const mountStaleCharactersLoader = ({
       return didChange
     }
 
-    queue = queue.then(run).catch(error => {
+    queue = queue.then(run).catch((error) => {
       console.error(error)
       return false
     })
@@ -317,7 +327,8 @@ export const mountStaleCharactersLoader = ({
 
   const collapseStaleSections = () => {
     const state = readStaleCharactersStateFromPanel(panel)
-    if (state.visibility !== 'visible') return false
+    if (state.visibility !== 'visible')
+      return false
 
     container.replaceChildren()
     const nextState = updateLoadedState({
@@ -330,15 +341,16 @@ export const mountStaleCharactersLoader = ({
     return true
   }
 
-  const syncByViewport = () => {
+  function syncByViewport() {
     const state = readStaleCharactersStateFromPanel(panel)
     if (state.visibility !== 'visible' || state.loaded) {
       stopAutoLoad()
       return
     }
 
-    const sentinel = panel.querySelector<HTMLElement>(STALE_DEFERRED_SENTINEL_SELECTOR)
-    if (!shouldLoadForSentinel(win, sentinel)) return
+    const sentinel = panel?.querySelector<HTMLElement>(STALE_DEFERRED_SENTINEL_SELECTOR) ?? null
+    if (!shouldLoadForSentinel(win, sentinel))
+      return
     void queueLoad({ preserveScroll: false, strategy: 'next' })
   }
 
@@ -351,8 +363,10 @@ export const mountStaleCharactersLoader = ({
 
   const onPanelClick = (event: MouseEvent) => {
     const target = event.target
-    if (!(target instanceof Element)) return
-    if (!target.closest(STALE_LOAD_TRIGGER_SELECTOR)) return
+    if (!(target instanceof Element))
+      return
+    if (!target.closest(STALE_LOAD_TRIGGER_SELECTOR))
+      return
 
     event.preventDefault()
     onShowRequest()
@@ -360,9 +374,9 @@ export const mountStaleCharactersLoader = ({
 
   const onLoadRequest = (event: Event) => {
     const options = readRequestOptions(event)
-    const strategy =
-      options.strategy ??
-      (options.targetId ? 'target' : shouldPreserveScrollOnStaleLoadRequest(event) ? 'all' : 'next')
+    const strategy
+      = options.strategy
+        ?? (options.targetId ? 'target' : shouldPreserveScrollOnStaleLoadRequest(event) ? 'all' : 'next')
 
     void queueLoad({
       ...options,
@@ -373,31 +387,37 @@ export const mountStaleCharactersLoader = ({
 
   const onCollapseRequest = () => {
     const scrollPosition = { x: win.scrollX, y: win.scrollY }
-    if (!collapseStaleSections()) return
+    if (!collapseStaleSections())
+      return
     scheduleScrollRestore({ deps, position: scrollPosition, win })
     stopAutoLoad()
   }
 
   const syncHashTarget = () => {
     const hash = win.location.hash
-    if (!hash) return
-    if (getHashTarget(hash)) return
+    if (!hash)
+      return
+    if (getHashTarget(hash))
+      return
 
     const batchIndex = resolveDeferredStaleCharacterBatch(doc, hash)
-    if (batchIndex === null) return
+    if (batchIndex === null)
+      return
 
     void queueLoad({
       preserveScroll: false,
       strategy: 'target',
       targetId: hash,
-    }).then(didChange => {
-      if (!didChange || !win.location.hash) return
+    }).then((didChange) => {
+      if (!didChange || !win.location.hash)
+        return
       deps.scrollToHashWithoutWrite(hash)
     })
   }
 
   const restoreSavedVisibility = () => {
-    if (readSavedStaleCharactersVisibility(win) !== 'visible') return
+    if (readSavedStaleCharactersVisibility(win) !== 'visible')
+      return
     void queueLoad({
       preserveScroll: true,
       strategy: 'next',

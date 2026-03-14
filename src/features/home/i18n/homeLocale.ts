@@ -11,7 +11,7 @@ export interface HomeLocaleOption {
 
 const HOME_LOCALE_SET = new Set<string>(HOME_LOCALES)
 
-type SearchHelpRow = {
+interface SearchHelpRow {
   syntax: string
   description: string
   example: string
@@ -108,7 +108,7 @@ export interface HomeLocaleMessages {
 }
 
 const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
-  en: {
+  'en': {
     lang: 'en',
     localeLabel: 'English',
     localeSwitcherLabel: 'Language',
@@ -336,7 +336,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       ],
     },
   },
-  ja: {
+  'ja': {
     lang: 'ja',
     localeLabel: '日本語',
     localeSwitcherLabel: '言語',
@@ -451,18 +451,20 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
   },
 }
 
-export const normalizeHomeLocale = (locale?: string | null): HomeLocale => {
+export function normalizeHomeLocale(locale?: string | null): HomeLocale {
   const normalized = locale?.toLowerCase() ?? DEFAULT_HOME_LOCALE
   return HOME_LOCALE_SET.has(normalized) ? (normalized as HomeLocale) : DEFAULT_HOME_LOCALE
 }
 
-export const getHomeLocaleMessages = (locale?: string | null) =>
-  HOME_LOCALE_MESSAGES[normalizeHomeLocale(locale)]
+export function getHomeLocaleMessages(locale?: string | null) {
+  return HOME_LOCALE_MESSAGES[normalizeHomeLocale(locale)]
+}
 
 export const resolveHomeLocaleMessages = (locale?: string | null) => getHomeLocaleMessages(locale)
 
-export const resolveHomeControls = (locale?: string | null) =>
-  resolveHomeLocaleMessages(locale).controls
+export function resolveHomeControls(locale?: string | null) {
+  return resolveHomeLocaleMessages(locale).controls
+}
 
 export const HOME_LOCALE_SWITCH_ITEMS = HOME_LOCALES.map(locale => ({
   locale,

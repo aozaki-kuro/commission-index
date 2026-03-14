@@ -1,27 +1,31 @@
 import type { CommissionRow } from '#lib/admin/db'
 import type { FormState } from './types'
 
-export type AdminApiResponse = {
+export interface AdminApiResponse {
   status: 'success' | 'error'
   message: string
 }
 
-const toErrorState = (error: unknown, fallback: string): FormState => ({
-  status: 'error',
-  message: error instanceof Error ? error.message : fallback,
-})
+function toErrorState(error: unknown, fallback: string): FormState {
+  return {
+    status: 'error',
+    message: error instanceof Error ? error.message : fallback,
+  }
+}
 
-const parseJsonFormField = <T>(formData: FormData, fieldName: string, fallback: T): T => {
+function parseJsonFormField<T>(formData: FormData, fieldName: string, fallback: T): T {
   try {
     const raw = formData.get(fieldName)?.toString() ?? ''
-    if (!raw) return fallback
+    if (!raw)
+      return fallback
     return JSON.parse(raw) as T
-  } catch {
+  }
+  catch {
     return fallback
   }
 }
 
-const parseResponse = async (response: Response): Promise<FormState> => {
+async function parseResponse(response: Response): Promise<FormState> {
   try {
     const payload = (await response.json()) as Partial<AdminApiResponse> | null
     if (!payload || (payload.status !== 'success' && payload.status !== 'error')) {
@@ -36,7 +40,8 @@ const parseResponse = async (response: Response): Promise<FormState> => {
       status: payload.status,
       message: payload.message ?? (payload.status === 'success' ? 'Saved.' : 'Request failed.'),
     }
-  } catch {
+  }
+  catch {
     return {
       status: 'error',
       message: response.ok ? 'Failed to parse response.' : `Request failed (${response.status}).`,
@@ -44,10 +49,7 @@ const parseResponse = async (response: Response): Promise<FormState> => {
   }
 }
 
-export const addCharacterAction = async (
-  _prevState: FormState,
-  formData: FormData,
-): Promise<FormState> => {
+export async function addCharacterAction(_prevState: FormState, formData: FormData): Promise<FormState> {
   void _prevState
   try {
     const response = await fetch('/api/admin/characters', {
@@ -61,15 +63,13 @@ export const addCharacterAction = async (
       },
     })
     return parseResponse(response)
-  } catch (error) {
+  }
+  catch (error) {
     return toErrorState(error, 'Failed to create character.')
   }
 }
 
-export const addCommissionAction = async (
-  _prevState: FormState,
-  formData: FormData,
-): Promise<FormState> => {
+export async function addCommissionAction(_prevState: FormState, formData: FormData): Promise<FormState> {
   void _prevState
   try {
     const response = await fetch('/api/admin/commissions', {
@@ -77,15 +77,13 @@ export const addCommissionAction = async (
       body: formData,
     })
     return parseResponse(response)
-  } catch (error) {
+  }
+  catch (error) {
     return toErrorState(error, 'Failed to add commission.')
   }
 }
 
-export const updateCommissionAction = async (
-  _prevState: FormState,
-  formData: FormData,
-): Promise<FormState> => {
+export async function updateCommissionAction(_prevState: FormState, formData: FormData): Promise<FormState> {
   void _prevState
   const id = Number(formData.get('id'))
   if (!Number.isFinite(id) || id <= 0) {
@@ -109,7 +107,8 @@ export const updateCommissionAction = async (
       },
     })
     return parseResponse(response)
-  } catch (error) {
+  }
+  catch (error) {
     return toErrorState(error, 'Failed to update commission.')
   }
 }
@@ -126,7 +125,8 @@ export async function replaceCommissionSourceImageAction(formData: FormData): Pr
       body: formData,
     })
     return parseResponse(response)
-  } catch (error) {
+  }
+  catch (error) {
     return toErrorState(error, 'Failed to replace source image.')
   }
 }
@@ -144,7 +144,8 @@ export async function saveCharacterOrder(payload: {
       },
     })
     return parseResponse(response)
-  } catch (error) {
+  }
+  catch (error) {
     return toErrorState(error, 'Failed to update character order.')
   }
 }
@@ -163,7 +164,8 @@ export async function renameCharacter(payload: {
       },
     })
     return parseResponse(response)
-  } catch (error) {
+  }
+  catch (error) {
     return toErrorState(error, 'Failed to update character.')
   }
 }
@@ -174,7 +176,8 @@ export async function deleteCommissionAction(id: number): Promise<FormState> {
       method: 'DELETE',
     })
     return parseResponse(response)
-  } catch (error) {
+  }
+  catch (error) {
     return toErrorState(error, 'Failed to delete commission.')
   }
 }
@@ -185,15 +188,13 @@ export async function deleteCharacterAction(id: number): Promise<FormState> {
       method: 'DELETE',
     })
     return parseResponse(response)
-  } catch (error) {
+  }
+  catch (error) {
     return toErrorState(error, 'Failed to delete character.')
   }
 }
 
-export const saveCreatorAliasesBatchAction = async (
-  _prevState: FormState,
-  formData: FormData,
-): Promise<FormState> => {
+export async function saveCreatorAliasesBatchAction(_prevState: FormState, formData: FormData): Promise<FormState> {
   void _prevState
   try {
     const response = await fetch('/api/admin/aliases/batch', {
@@ -206,15 +207,13 @@ export const saveCreatorAliasesBatchAction = async (
       },
     })
     return parseResponse(response)
-  } catch (error) {
+  }
+  catch (error) {
     return toErrorState(error, 'Failed to save aliases.')
   }
 }
 
-export const saveCharacterAliasesBatchAction = async (
-  _prevState: FormState,
-  formData: FormData,
-): Promise<FormState> => {
+export async function saveCharacterAliasesBatchAction(_prevState: FormState, formData: FormData): Promise<FormState> {
   void _prevState
   try {
     const response = await fetch('/api/admin/character-aliases/batch', {
@@ -227,15 +226,13 @@ export const saveCharacterAliasesBatchAction = async (
       },
     })
     return parseResponse(response)
-  } catch (error) {
+  }
+  catch (error) {
     return toErrorState(error, 'Failed to save character aliases.')
   }
 }
 
-export const saveKeywordAliasesBatchAction = async (
-  _prevState: FormState,
-  formData: FormData,
-): Promise<FormState> => {
+export async function saveKeywordAliasesBatchAction(_prevState: FormState, formData: FormData): Promise<FormState> {
   void _prevState
   try {
     const response = await fetch('/api/admin/keyword-aliases/batch', {
@@ -248,15 +245,13 @@ export const saveKeywordAliasesBatchAction = async (
       },
     })
     return parseResponse(response)
-  } catch (error) {
+  }
+  catch (error) {
     return toErrorState(error, 'Failed to save keyword aliases.')
   }
 }
 
-export const saveHomeFeaturedKeywordsAction = async (
-  _prevState: FormState,
-  formData: FormData,
-): Promise<FormState> => {
+export async function saveHomeFeaturedKeywordsAction(_prevState: FormState, formData: FormData): Promise<FormState> {
   void _prevState
   try {
     const response = await fetch('/api/admin/suggestion', {
@@ -269,7 +264,8 @@ export const saveHomeFeaturedKeywordsAction = async (
       },
     })
     return parseResponse(response)
-  } catch (error) {
+  }
+  catch (error) {
     return toErrorState(error, 'Failed to save featured keywords.')
   }
 }
@@ -304,7 +300,8 @@ export async function refreshAssetsAction(): Promise<FormState> {
       method: 'POST',
     })
     return parseResponse(response)
-  } catch (error) {
+  }
+  catch (error) {
     return toErrorState(error, 'Failed to refresh assets.')
   }
 }

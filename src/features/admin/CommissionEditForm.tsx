@@ -1,22 +1,24 @@
-import { CommissionHiddenSwitch } from './components/CommissionFormFields'
-import CommissionSharedFields from './components/CommissionSharedFields'
-import { IconUpload } from '@tabler/icons-react'
-import { useActionState, useEffect, useRef, useState, useTransition, type ChangeEvent } from 'react'
-
 import type { CharacterRow } from '#lib/admin/db'
-
+import type { ChangeEvent } from 'react'
+import type { EditableCommission } from './hooks/useCommissionEditState'
 import {
-  updateCommissionAction,
   deleteCommissionAction,
   replaceCommissionSourceImageAction,
+  updateCommissionAction,
 } from '#admin/actions'
+
 import { Button } from '#components/ui/button'
+
+import { IconUpload } from '@tabler/icons-react'
+import { useActionState, useEffect, useRef, useState, useTransition } from 'react'
+import { CommissionHiddenSwitch } from './components/CommissionFormFields'
+import CommissionSharedFields from './components/CommissionSharedFields'
 import { notifyDataUpdate } from './dataUpdateSignal'
 import FormStatusIndicator from './FormStatusIndicator'
+import useCommissionEditState from './hooks/useCommissionEditState'
 import SubmitButton from './SubmitButton'
 import { INITIAL_FORM_STATE } from './types'
 import { adminSurfaceStyles } from './uiStyles'
-import useCommissionEditState, { type EditableCommission } from './hooks/useCommissionEditState'
 
 interface CommissionEditFormProps {
   commission: EditableCommission
@@ -24,25 +26,29 @@ interface CommissionEditFormProps {
   onDelete?: () => void
 }
 
-type OperationStatus = {
+interface OperationStatus {
   type: 'success' | 'error'
   text: string
 }
 
-const buildPreviewVersionStorageKey = (commissionId: number) =>
-  `admin-preview-image-version:${commissionId}`
+function buildPreviewVersionStorageKey(commissionId: number) {
+  return `admin-preview-image-version:${commissionId}`
+}
 
-const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEditFormProps) => {
+function CommissionEditForm({ commission, characters, onDelete }: CommissionEditFormProps) {
   const [state, formAction] = useActionState(updateCommissionAction, INITIAL_FORM_STATE)
   const [isDeleting, startDelete] = useTransition()
   const [isUploading, startUpload] = useTransition()
   const sourceImageInputRef = useRef<HTMLInputElement | null>(null)
   const [uploadStatus, setUploadStatus] = useState<OperationStatus | null>(null)
+  const [isDeleteArmed, setIsDeleteArmed] = useState(false)
   const [imageVersion, setImageVersion] = useState(() => {
-    if (typeof window === 'undefined') return 0
+    if (typeof window === 'undefined')
+      return 0
 
     const stored = window.sessionStorage.getItem(buildPreviewVersionStorageKey(commission.id))
-    if (!stored) return 0
+    if (!stored)
+      return 0
 
     const parsed = Number(stored)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
@@ -73,32 +79,43 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
   const previewImageSrc = imageVersion > 0 ? `${imageSrc}?v=${imageVersion}` : imageSrc
 
   useEffect(() => {
-    if (state.status === 'success') notifyDataUpdate()
+    if (state.status === 'success')
+      notifyDataUpdate()
   }, [state.status])
 
   useEffect(() => {
-    if (!uploadStatus) return
-    const timer = window.setTimeout(() => setUploadStatus(null), 2400)
+    if (!uploadStatus)
+      return
+    const timer = window.setTimeout(setUploadStatus, 2400, null)
     return () => window.clearTimeout(timer)
   }, [uploadStatus])
 
   const handleDelete = () => {
-    if (!window.confirm('Delete this commission entry?')) return
+    if (!isDeleteArmed) {
+      setIsDeleteArmed(true)
+      return
+    }
 
     startDelete(() => {
       deleteCommissionAction(commission.id)
-        .then(result => {
+        .then((result) => {
           if (result.status === 'success') {
             setDeleteStatus({ type: 'success', text: 'Entry deleted.' })
+            setIsDeleteArmed(false)
             onDelete?.()
-          } else {
+          }
+          else {
             setDeleteStatus({
               type: 'error',
               text: result.message ?? 'Failed to delete commission.',
             })
+            setIsDeleteArmed(false)
           }
         })
-        .catch(() => setDeleteStatus({ type: 'error', text: 'Failed to delete commission.' }))
+        .catch(() => {
+          setDeleteStatus({ type: 'error', text: 'Failed to delete commission.' })
+          setIsDeleteArmed(false)
+        })
     })
   }
 
@@ -117,7 +134,8 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
   const handleSourceImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const inputElement = event.currentTarget
     const file = inputElement.files?.[0]
-    if (!file) return
+    if (!file)
+      return
 
     if (fileName.trim() !== commission.fileName) {
       setUploadStatus({
@@ -135,7 +153,7 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
 
     startUpload(() => {
       replaceCommissionSourceImageAction(payload)
-        .then(result => {
+        .then((result) => {
           if (result.status === 'success') {
             setUploadStatus({
               type: 'success',
@@ -175,19 +193,31 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
 
       <div className="space-y-4">
         <div className="space-y-3">
-          <div className="group relative aspect-1280/525 w-full overflow-hidden rounded-xl bg-gray-50 dark:bg-gray-900/30">
-            {errorSrc === imageSrc ? (
-              <div className="flex h-full w-full items-center justify-center text-xs text-gray-500 dark:text-gray-300">
-                Image not found
-              </div>
-            ) : (
-              <img
-                src={previewImageSrc}
-                alt={commission.fileName}
-                className="h-full w-full object-contain"
-                onError={() => setErrorSrc(imageSrc)}
-              />
-            )}
+          <div className="
+            group relative aspect-1280/525 w-full overflow-hidden rounded-xl
+            bg-gray-50
+            dark:bg-gray-900/30
+          "
+          >
+            {errorSrc === imageSrc
+              ? (
+                  <div className="
+                    flex size-full items-center justify-center text-xs
+                    text-gray-500
+                    dark:text-gray-300
+                  "
+                  >
+                    Image not found
+                  </div>
+                )
+              : (
+                  <img
+                    src={previewImageSrc}
+                    alt={commission.fileName}
+                    className="size-full object-contain"
+                    onError={() => setErrorSrc(imageSrc)}
+                  />
+                )}
 
             <input
               ref={sourceImageInputRef}
@@ -201,11 +231,29 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
               type="button"
               onClick={handleSelectSourceImage}
               disabled={isUploading || isDeleting}
-              className="absolute right-3 bottom-3 inline-flex h-9 w-9 translate-y-1 scale-95 items-center justify-center rounded-full border border-white/20 bg-black/55 text-white opacity-0 shadow-[0_8px_18px_-8px_rgba(0,0,0,0.75)] backdrop-blur-sm transition-all duration-200 ease-out group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100 group-hover:shadow-[0_10px_24px_-8px_rgba(0,0,0,0.8)] focus-visible:translate-y-0 focus-visible:scale-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-white/90 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 dark:bg-black/65 dark:text-white"
+              className="
+                absolute right-3 bottom-3 inline-flex size-9 translate-y-1
+                scale-95 items-center justify-center rounded-full border
+                border-white/20 bg-black/55 text-white opacity-0
+                shadow-[0_8px_18px_-8px_rgba(0,0,0,0.75)] backdrop-blur-sm
+                transition-all duration-200 ease-out
+                group-hover:translate-y-0 group-hover:scale-100
+                group-hover:opacity-100
+                group-hover:shadow-[0_10px_24px_-8px_rgba(0,0,0,0.8)]
+                focus-visible:translate-y-0 focus-visible:scale-100
+                focus-visible:opacity-100 focus-visible:ring-2
+                focus-visible:ring-white/90 focus-visible:ring-offset-2
+                focus-visible:ring-offset-gray-900 focus-visible:outline-none
+                disabled:cursor-not-allowed disabled:opacity-50
+                dark:bg-black/65 dark:text-white
+              "
               aria-label={`Reupload source image for ${commission.fileName}`}
             >
               <IconUpload
-                className="h-4 w-4 transition group-hover:brightness-110"
+                className="
+                  size-4 transition
+                  group-hover:brightness-110
+                "
                 stroke={1.8}
                 aria-hidden="true"
               />
@@ -214,11 +262,20 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
 
           {uploadStatus && (
             <p
-              className={`text-xs ${
-                uploadStatus.type === 'success'
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-red-500 dark:text-red-400'
-              }`}
+              className={`
+                text-xs
+                ${
+            uploadStatus.type === 'success'
+              ? `
+                text-emerald-600
+                dark:text-emerald-400
+              `
+              : `
+                text-red-500
+                dark:text-red-400
+              `
+            }
+              `}
             >
               {uploadStatus.text}
             </p>
@@ -256,21 +313,49 @@ const CommissionEditForm = ({ commission, characters, onDelete }: CommissionEdit
         <div className="ml-auto flex flex-wrap items-center gap-4">
           <CommissionHiddenSwitch isHidden={isHidden} onChange={setIsHidden} />
 
+          {isDeleteArmed && !isDeleting && (
+            <Button
+              type="button"
+              onClick={() => setIsDeleteArmed(false)}
+              variant="outline"
+              className="
+                border-gray-300/80 text-gray-600
+                hover:bg-gray-50
+                dark:border-gray-700 dark:text-gray-300
+                dark:hover:bg-gray-900/40
+              "
+            >
+              Cancel
+            </Button>
+          )}
           <Button
             type="button"
             onClick={handleDelete}
             variant="outline"
             disabled={isDeleting}
-            className="border-red-200/70 text-red-600 hover:bg-red-50 dark:border-red-500/40 dark:text-red-300 dark:hover:bg-red-500/10"
+            className="
+              border-red-200/70 text-red-600
+              hover:bg-red-50
+              dark:border-red-500/40 dark:text-red-300
+              dark:hover:bg-red-500/10
+            "
           >
-            {isDeleting ? 'Deleting…' : 'Delete'}
+            {isDeleting ? 'Deleting…' : isDeleteArmed ? 'Confirm delete' : 'Delete'}
           </Button>
         </div>
       </div>
 
       {deleteStatus && (
         <p
-          className={`text-sm ${deleteStatus.type === 'success' ? 'text-gray-700 dark:text-gray-200' : 'text-red-500'}`}
+          className={`
+            text-sm
+            ${deleteStatus.type === 'success'
+          ? `
+            text-gray-700
+            dark:text-gray-200
+          `
+          : `text-red-500`}
+          `}
         >
           {deleteStatus.text}
         </p>

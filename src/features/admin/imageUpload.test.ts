@@ -11,7 +11,7 @@ vi.mock('node:fs/promises', () => ({
   },
 }))
 
-const createEnoent = () => {
+function createEnoent() {
   const error = new Error('not found') as NodeJS.ErrnoException
   error.code = 'ENOENT'
   return error
@@ -23,8 +23,9 @@ describe('resolveSourceImagePathByStem', () => {
   })
 
   it('returns jpg when jpg exists', async () => {
-    vi.mocked(fs.access).mockImplementation(async targetPath => {
-      if (String(targetPath).endsWith('.jpg')) return
+    vi.mocked(fs.access).mockImplementation(async (targetPath) => {
+      if (String(targetPath).endsWith('.jpg'))
+        return
       throw createEnoent()
     })
 
@@ -35,8 +36,9 @@ describe('resolveSourceImagePathByStem', () => {
   })
 
   it('falls back to png when jpg/jpeg are missing', async () => {
-    vi.mocked(fs.access).mockImplementation(async targetPath => {
-      if (String(targetPath).endsWith('.png')) return
+    vi.mocked(fs.access).mockImplementation(async (targetPath) => {
+      if (String(targetPath).endsWith('.png'))
+        return
       throw createEnoent()
     })
 

@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { useCommissionViewMode } from './CommissionViewMode'
 import { replaceCommissionViewModeInAddress } from './viewModeState'
 
-const ModeValue = () => {
+function ModeValue() {
   const mode = useCommissionViewMode()
   return <p data-testid="view-mode">{mode}</p>
 }

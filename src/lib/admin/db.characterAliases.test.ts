@@ -22,7 +22,7 @@ describe('admin db character alias operations (sqlite integration)', () => {
       .prepare(
         'SELECT character_name as characterName, aliases FROM character_aliases ORDER BY character_name ASC',
       )
-      .all() as Array<{ characterName: string; aliases: string }>
+      .all() as Array<{ characterName: string, aliases: string }>
     rawDb.close()
 
     const kanautRows = storedRows.filter(

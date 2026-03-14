@@ -6,12 +6,12 @@ interface CharacterEntry {
 
 export const getCharacterStatus = () => loadCharacterStatus()
 
-export const isCharacterActive = (character: string): boolean => {
+export function isCharacterActive(character: string): boolean {
   const status = loadCharacterStatus()
   return status.active.some(char => char.DisplayName === character)
 }
 
-export const getAllCharacters = (): CharacterEntry[] => {
+export function getAllCharacters(): CharacterEntry[] {
   const status = loadCharacterStatus()
   return [...status.active, ...status.stale]
 }

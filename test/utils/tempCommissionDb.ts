@@ -1,12 +1,13 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import process from 'node:process'
 import { afterEach, vi } from 'vitest'
 
 const projectRoot = process.cwd()
 const tempDirs: string[] = []
 
-export const setupTempCommissionDb = (prefix: string) => {
+export function setupTempCommissionDb(prefix: string) {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
   tempDirs.push(tempDir)
 
@@ -24,7 +25,7 @@ export const setupTempCommissionDb = (prefix: string) => {
   }
 }
 
-export const resetModulesInTempDir = (tempDir: string) => {
+export function resetModulesInTempDir(tempDir: string) {
   process.chdir(tempDir)
   vi.resetModules()
 }
@@ -34,7 +35,8 @@ afterEach(() => {
   vi.resetModules()
   while (tempDirs.length > 0) {
     const dir = tempDirs.pop()
-    if (!dir) continue
+    if (!dir)
+      continue
     fs.rmSync(dir, { recursive: true, force: true })
   }
 })

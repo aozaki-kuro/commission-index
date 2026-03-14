@@ -1,19 +1,19 @@
-// @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { ACTIVE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/activeCharactersEvent'
-import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '#features/home/homeScrollRestoreAbort'
 import {
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
 } from '#features/home/commission/staleCharactersEvent'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
+import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '#features/home/homeScrollRestoreAbort'
+import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MENU_TRANSITION_MS } from './constants'
 import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from './hamburgerMenuStateEvent'
 import { mountMobileHamburgerMenu } from './mobileHamburgerMenu'
 
-const renderMenu = () => {
+function renderMenu() {
   document.body.innerHTML = `
     <div
       data-mobile-hamburger="true"
@@ -81,30 +81,38 @@ const renderMenu = () => {
 }
 
 const getRoot = () => document.querySelector<HTMLElement>('[data-mobile-hamburger="true"]')
-const getToggle = () =>
-  document.querySelector<HTMLButtonElement>('[data-mobile-hamburger-toggle="true"]')
-const getBackdrop = () =>
-  document.querySelector<HTMLButtonElement>('[data-mobile-hamburger-backdrop="true"]')
-const getSearchAction = () =>
-  document.querySelector<HTMLButtonElement>('[data-mobile-hamburger-search-action="true"]')
-const getTimelineToggle = () =>
-  document.querySelector<HTMLButtonElement>(
+function getToggle() {
+  return document.querySelector<HTMLButtonElement>('[data-mobile-hamburger-toggle="true"]')
+}
+function getBackdrop() {
+  return document.querySelector<HTMLButtonElement>('[data-mobile-hamburger-backdrop="true"]')
+}
+function getSearchAction() {
+  return document.querySelector<HTMLButtonElement>('[data-mobile-hamburger-search-action="true"]')
+}
+function getTimelineToggle() {
+  return document.querySelector<HTMLButtonElement>(
     '[data-mobile-hamburger-view-mode-toggle="true"][data-view-mode="timeline"]',
   )
-const getStaleSectionToggle = () =>
-  document.querySelector<HTMLButtonElement>(
+}
+function getStaleSectionToggle() {
+  return document.querySelector<HTMLButtonElement>(
     '[data-mobile-character-section-toggle="true"][data-mobile-character-section-key="stale"]',
   )
-const getStaleSectionPanel = () =>
-  document.querySelector<HTMLElement>('[data-mobile-character-section-panel="stale"]')
-const getStaleLink = () =>
-  document.querySelector<HTMLAnchorElement>(
+}
+function getStaleSectionPanel() {
+  return document.querySelector<HTMLElement>('[data-mobile-character-section-panel="stale"]')
+}
+function getStaleLink() {
+  return document.querySelector<HTMLAnchorElement>(
     '[data-mobile-nav-link="true"][data-mobile-nav-character-status="stale"]',
   )
-const getActiveLink = () =>
-  document.querySelector<HTMLAnchorElement>(
+}
+function getActiveLink() {
+  return document.querySelector<HTMLAnchorElement>(
     '[data-mobile-nav-link="true"][data-mobile-nav-character-status="active"]',
   )
+}
 
 describe('mobileHamburgerMenu', () => {
   beforeEach(() => {
@@ -122,7 +130,8 @@ describe('mobileHamburgerMenu', () => {
   it('opens and closes with mounted state events and html scroll lock', () => {
     const mountedEvents: boolean[] = []
     const onMountedChanged = (event: Event) => {
-      if (!(event instanceof CustomEvent)) return
+      if (!(event instanceof CustomEvent))
+        return
       mountedEvents.push(Boolean((event.detail as { mounted?: boolean }).mounted))
     }
 
@@ -279,7 +288,7 @@ describe('mobileHamburgerMenu', () => {
 
     const trackEvent = vi.fn()
     const scrollToHashWithoutWrite = vi.fn()
-    const requestActiveLoad = vi.fn((win, options?: { strategy?: string; targetId?: string }) => {
+    const requestActiveLoad = vi.fn((win, options?: { strategy?: string, targetId?: string }) => {
       expect(options).toEqual({ strategy: 'target', targetId: '#active-item' })
       const activeSection = document.createElement('section')
       activeSection.id = 'active-item'
@@ -373,7 +382,7 @@ describe('mobileHamburgerMenu', () => {
     const trackEvent = vi.fn()
     const scrollToHashWithoutWrite = vi.fn()
     const requestStaleLoad = vi.fn(
-      (win, options?: { preserveScroll?: boolean; strategy?: string; targetId?: string }) => {
+      (win, options?: { preserveScroll?: boolean, strategy?: string, targetId?: string }) => {
         expect(options).toEqual({
           preserveScroll: false,
           strategy: 'target',

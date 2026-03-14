@@ -1,18 +1,19 @@
-// @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import type { CommissionSearchEntrySource } from './CommissionSearch'
 import { ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT } from '#features/home/commission/activeCharactersEvent'
 import { clearHomeCharacterBatchRequestCacheForTests } from '#features/home/commission/homeCharacterBatchClient'
 import { clearHomeCharacterBatchManifestCacheForTests } from '#features/home/commission/homeCharacterBatchManifest'
 import {
   STALE_CHARACTERS_COLLAPSE_REQUEST_EVENT,
-  STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_LOAD_REQUEST_EVENT,
+  STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
 } from '#features/home/commission/staleCharactersEvent'
 import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
-import CommissionSearch, { type CommissionSearchEntrySource } from './CommissionSearch'
+// @vitest-environment jsdom
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import CommissionSearch from './CommissionSearch'
 
 const { mockTrackRybbitEvent } = vi.hoisted(() => ({
   mockTrackRybbitEvent: vi.fn(),
@@ -22,18 +23,19 @@ vi.mock('#lib/analytics/track', () => ({
   trackRybbitEvent: (...args: unknown[]) => mockTrackRybbitEvent(...args),
 }))
 
-const renderSearch = (externalEntries: CommissionSearchEntrySource[]) =>
-  render(<CommissionSearch disableDomFiltering externalEntries={externalEntries} />)
+function renderSearch(externalEntries: CommissionSearchEntrySource[]) {
+  return render(<CommissionSearch disableDomFiltering externalEntries={externalEntries} />)
+}
 
-const renderSearchWithProps = (
-  externalEntries: CommissionSearchEntrySource[],
-  props: Partial<NonNullable<Parameters<typeof CommissionSearch>[0]>> = {},
-) => render(<CommissionSearch disableDomFiltering externalEntries={externalEntries} {...props} />)
+function renderSearchWithProps(externalEntries: CommissionSearchEntrySource[], props: Partial<NonNullable<Parameters<typeof CommissionSearch>[0]>> = {}) {
+  return render(<CommissionSearch disableDomFiltering externalEntries={externalEntries} {...props} />)
+}
 
-const renderSearchWithDomFiltering = (externalEntries: CommissionSearchEntrySource[]) =>
-  render(<CommissionSearch externalEntries={externalEntries} />)
+function renderSearchWithDomFiltering(externalEntries: CommissionSearchEntrySource[]) {
+  return render(<CommissionSearch externalEntries={externalEntries} />)
+}
 
-describe('CommissionSearch', () => {
+describe('commissionSearch', () => {
   beforeAll(() => {
     vi.stubGlobal(
       'ResizeObserver',
@@ -108,7 +110,8 @@ describe('CommissionSearch', () => {
       expect(searchEventPayload).toBeDefined()
       expect(searchEventPayload).not.toHaveProperty('query_length')
       expect(searchEventPayload).not.toHaveProperty('trackable_query_length')
-    } finally {
+    }
+    finally {
       dispatchEventSpy.mockRestore()
     }
   })
@@ -203,7 +206,8 @@ describe('CommissionSearch', () => {
       await waitFor(() => {
         expect(entry?.classList.contains('hidden')).toBe(true)
       })
-    } finally {
+    }
+    finally {
       window.history.replaceState(null, '', '/')
     }
   })
@@ -244,7 +248,8 @@ describe('CommissionSearch', () => {
           ),
         ).toBe(true)
       })
-    } finally {
+    }
+    finally {
       dispatchEventSpy.mockRestore()
     }
   })
@@ -293,13 +298,16 @@ describe('CommissionSearch', () => {
       await waitFor(() => {
         expect(
           dispatchEventSpy.mock.calls.some(([event]) => {
-            if (!(event instanceof CustomEvent)) return false
-            if (event.type !== STALE_CHARACTERS_LOAD_REQUEST_EVENT) return false
+            if (!(event instanceof CustomEvent))
+              return false
+            if (event.type !== STALE_CHARACTERS_LOAD_REQUEST_EVENT)
+              return false
             return event.detail?.strategy === 'all' && event.detail?.preserveScroll === true
           }),
         ).toBe(true)
       })
-    } finally {
+    }
+    finally {
       dispatchEventSpy.mockRestore()
     }
   })
@@ -352,7 +360,8 @@ describe('CommissionSearch', () => {
         '/search/home-character-batches/en/active/1.json',
         '/search/home-character-batches/en/active/2.json',
       ])
-    } finally {
+    }
+    finally {
       fetchSpy.mockRestore()
     }
   })
@@ -417,7 +426,8 @@ describe('CommissionSearch', () => {
       expect(document.querySelector('[cmdk-list]')).not.toBeInTheDocument()
 
       expect(screen.getByRole('button', { name: 'Kanaut Nishe' })).toBeInTheDocument()
-    } finally {
+    }
+    finally {
       dispatchEventSpy.mockRestore()
     }
   })
@@ -516,8 +526,8 @@ describe('CommissionSearch', () => {
     staleSection.id = 'stale'
     staleSection.dataset.characterSection = 'true'
     staleSection.dataset.characterStatus = 'stale'
-    staleSection.innerHTML =
-      '<div data-commission-entry="true" data-character-section-id="stale" data-commission-search-key="stale::20240102_stale"></div>'
+    staleSection.innerHTML
+      = '<div data-commission-entry="true" data-character-section-id="stale" data-commission-search-key="stale::20240102_stale"></div>'
     panel?.append(staleSection)
     window.dispatchEvent(
       new CustomEvent(STALE_CHARACTERS_STATE_CHANGE_EVENT, {
@@ -619,7 +629,8 @@ describe('CommissionSearch', () => {
         '/search/home-character-batches/en/stale/0.json',
         '/search/home-character-batches/en/stale/1.json',
       ])
-    } finally {
+    }
+    finally {
       fetchSpy.mockRestore()
     }
   })
@@ -676,8 +687,8 @@ describe('CommissionSearch', () => {
     staleSection.id = 'stale'
     staleSection.dataset.characterSection = 'true'
     staleSection.dataset.characterStatus = 'stale'
-    staleSection.innerHTML =
-      '<div data-commission-entry="true" data-character-section-id="stale" data-commission-search-key="stale::20240102_beta"></div>'
+    staleSection.innerHTML
+      = '<div data-commission-entry="true" data-character-section-id="stale" data-commission-search-key="stale::20240102_beta"></div>'
     panel?.append(staleSection)
 
     window.dispatchEvent(new Event(STALE_CHARACTERS_LOADED_EVENT))
@@ -687,7 +698,8 @@ describe('CommissionSearch', () => {
       expect(
         staleSection
           .querySelector<HTMLElement>('[data-commission-entry="true"]')
-          ?.classList.contains('hidden'),
+          ?.classList
+          .contains('hidden'),
       ).toBe(true)
     })
   })
@@ -786,13 +798,13 @@ describe('CommissionSearch', () => {
         id: 1,
         domKey: 'active::20240101_nanashi',
         searchText: 'nanashi active',
-        searchSuggest: 'Character	Nanashi',
+        searchSuggest: 'Character\tNanashi',
       },
       {
         id: 2,
         domKey: 'stale::20240102_nanashi',
         searchText: 'nanashi stale',
-        searchSuggest: 'Character	Nanashi',
+        searchSuggest: 'Character\tNanashi',
       },
     ]
 
@@ -836,13 +848,13 @@ describe('CommissionSearch', () => {
         id: 1,
         domKey: 'active::20240101_nanashi',
         searchText: 'nanashi active',
-        searchSuggest: 'Character	Nanashi',
+        searchSuggest: 'Character\tNanashi',
       },
       {
         id: 2,
         domKey: 'stale::20240102_nanashi',
         searchText: 'nanashi stale',
-        searchSuggest: 'Character	Nanashi',
+        searchSuggest: 'Character\tNanashi',
       },
     ]
 
@@ -877,7 +889,8 @@ describe('CommissionSearch', () => {
           .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
           ?.getAttribute('data-stale-loaded'),
       ).toBe('true')
-    } finally {
+    }
+    finally {
       dispatchEventSpy.mockRestore()
     }
   })
@@ -964,7 +977,8 @@ describe('CommissionSearch', () => {
           ([event]) => event instanceof Event && event.type === STALE_CHARACTERS_LOAD_REQUEST_EVENT,
         ),
       ).toBe(true)
-    } finally {
+    }
+    finally {
       dispatchEventSpy.mockRestore()
     }
   })
@@ -1016,7 +1030,8 @@ describe('CommissionSearch', () => {
           ([event]) => event instanceof Event && event.type === STALE_CHARACTERS_LOAD_REQUEST_EVENT,
         ),
       ).toBe(true)
-    } finally {
+    }
+    finally {
       dispatchEventSpy.mockRestore()
     }
   })

@@ -1,20 +1,22 @@
-import { describe, expect, it } from 'vitest'
 import type { CharacterCommissions } from '#data/types'
 import { getCharacterSectionId, getCharacterTitleId } from '#lib/characters/nav'
+import { describe, expect, it } from 'vitest'
 import {
   buildHomeCharacterBatchManifest,
   buildHomeCharacterBatchPlan,
 } from './homeCharacterBatches'
 
-const buildCharacterCommissions = (character: string, date: string): CharacterCommissions => ({
-  Character: character,
-  Commissions: [
-    {
-      fileName: `${date}-artist`,
-      Links: [],
-    },
-  ],
-})
+function buildCharacterCommissions(character: string, date: string): CharacterCommissions {
+  return {
+    Character: character,
+    Commissions: [
+      {
+        fileName: `${date}-artist`,
+        Links: [],
+      },
+    ],
+  }
+}
 
 describe('buildHomeCharacterBatchPlan', () => {
   it('keeps active deferred batches at single-character granularity', () => {

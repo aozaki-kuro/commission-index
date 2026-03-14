@@ -3,22 +3,23 @@ import { readCommissionViewMode } from '#features/home/commission/viewModeState'
 
 const PANEL_SELECTOR = '[data-commission-view-panel]'
 
-type MountCommissionViewModeDomSyncOptions = {
+interface MountCommissionViewModeDomSyncOptions {
   win?: Window
   doc?: Document
 }
 
-export const mountCommissionViewModeDomSync = ({
+export function mountCommissionViewModeDomSync({
   win = window,
   doc = document,
-}: MountCommissionViewModeDomSyncOptions = {}) => {
+}: MountCommissionViewModeDomSyncOptions = {}) {
   const syncPanelsByMode = () => {
     const mode = readCommissionViewMode(win)
     const panels = doc.querySelectorAll<HTMLElement>(PANEL_SELECTOR)
 
     for (const panel of panels) {
       const panelMode = panel.dataset.commissionViewPanel
-      if (panelMode !== 'character' && panelMode !== 'timeline') continue
+      if (panelMode !== 'character' && panelMode !== 'timeline')
+        continue
 
       const isActive = panelMode === mode
       panel.dataset.commissionViewActive = isActive ? 'true' : 'false'

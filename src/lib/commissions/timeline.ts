@@ -17,10 +17,11 @@ export interface TimelineYearGroup {
 
 export const getTimelineYearSectionId = (yearKey: string) => `timeline-year-${yearKey}`
 
-export const getTimelineYearTitleId = (yearKey: string) =>
-  `title-${getTimelineYearSectionId(yearKey)}`
+export function getTimelineYearTitleId(yearKey: string) {
+  return `title-${getTimelineYearSectionId(yearKey)}`
+}
 
-export const buildTimelineYearNavItem = (yearKey: string): CharacterNavItem => {
+export function buildTimelineYearNavItem(yearKey: string): CharacterNavItem {
   const sectionId = getTimelineYearSectionId(yearKey)
   const titleId = getTimelineYearTitleId(yearKey)
 
@@ -33,12 +34,10 @@ export const buildTimelineYearNavItem = (yearKey: string): CharacterNavItem => {
   }
 }
 
-export const buildCommissionTimeline = (
-  commissionMap: Map<string, CharacterCommissions>,
-): {
+export function buildCommissionTimeline(commissionMap: Map<string, CharacterCommissions>): {
   groups: TimelineYearGroup[]
   navItems: CharacterNavItem[]
-} => {
+} {
   const sortedEntries = [...commissionMap.values()]
     .flatMap(({ Character, Commissions }) =>
       Commissions.map(commission => ({ character: Character, commission })),

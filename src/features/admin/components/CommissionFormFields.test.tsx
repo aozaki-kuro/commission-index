@@ -6,7 +6,7 @@ import { CommissionCharacterField } from './CommissionFormFields'
 vi.mock('#components/ui/select', async () => {
   const React = await import('react')
 
-  type SelectContextValue = {
+  interface SelectContextValue {
     value?: string
     disabled?: boolean
     onValueChange?: (value: string) => void
@@ -25,9 +25,9 @@ vi.mock('#components/ui/select', async () => {
     onValueChange?: (value: string) => void
     children: React.ReactNode
   }) => (
-    <SelectContext.Provider value={{ value, disabled, onValueChange }}>
+    <SelectContext value={{ value, disabled, onValueChange }}>
       {children}
-    </SelectContext.Provider>
+    </SelectContext>
   )
 
   const SelectTrigger = ({
@@ -36,7 +36,7 @@ vi.mock('#components/ui/select', async () => {
   }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
     children: React.ReactNode
   }) => {
-    const context = React.useContext(SelectContext)
+    const context = React.use(SelectContext)
 
     return (
       <button {...props} type="button" disabled={context?.disabled}>
@@ -49,8 +49,8 @@ vi.mock('#components/ui/select', async () => {
 
   const SelectContent = ({ children }: { children: React.ReactNode }) => <div>{children}</div>
 
-  const SelectItem = ({ value, children }: { value: string; children: React.ReactNode }) => {
-    const context = React.useContext(SelectContext)
+  const SelectItem = ({ value, children }: { value: string, children: React.ReactNode }) => {
+    const context = React.use(SelectContext)
     return (
       <button
         type="button"
@@ -72,7 +72,7 @@ vi.mock('#components/ui/select', async () => {
   }
 })
 
-describe('CommissionCharacterField', () => {
+describe('commissionCharacterField', () => {
   it('updates the selected character when choosing an option', () => {
     const handleChange = vi.fn()
 

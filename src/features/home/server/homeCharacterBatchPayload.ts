@@ -1,15 +1,16 @@
-import { getImage } from 'astro:assets'
 import type { CharacterCommissions, Commission } from '#data/types'
 import type {
   HomeCharacterBatchEntryPayload,
   HomeCharacterBatchPayload,
   HomeCharacterBatchSectionPayload,
 } from '#features/home/commission/homeCharacterBatchPayload'
+import type { HomeLocale } from '#features/home/i18n/homeLocale'
+import type { HomeCharacterBatchStatus } from './homeCharacterBatches'
 import {
   COMMISSION_LINK_TEXT_CLASS,
   selectDisplayLinks,
 } from '#features/home/commission/linkDisplay'
-import { getHomeLocaleMessages, type HomeLocale } from '#features/home/i18n/homeLocale'
+import { getHomeLocaleMessages } from '#features/home/i18n/homeLocale'
 import {
   getCharacterSectionHash,
   getCharacterSectionId,
@@ -23,18 +24,18 @@ import {
   buildCommissionSearchMetadata,
 } from '#lib/search/commissionSearchMetadata'
 import { getBaseFileName } from '#lib/utils/strings'
-import type { HomeCharacterBatchStatus } from './homeCharacterBatches'
+import { getImage } from 'astro:assets'
 
 const COMMISSION_IMAGE_WIDTH = 1280
 const COMMISSION_IMAGE_SIZES = '(max-width: 768px) 92vw, 640px'
 
-const buildInterestPayload = ({
+function buildInterestPayload({
   interestKey,
   locale,
 }: {
   interestKey: string
   locale: HomeLocale
-}) => {
+}) {
   const listing = getHomeLocaleMessages(locale).listing
 
   return {
@@ -46,9 +47,10 @@ const buildInterestPayload = ({
   }
 }
 
-const buildImagePayload = async (commission: Commission) => {
+async function buildImagePayload(commission: Commission) {
   const sourceImage = resolveSourceImageByCommissionFileName(commission.fileName)
-  if (!sourceImage) return null
+  if (!sourceImage)
+    return null
 
   const image = await getImage({
     src: sourceImage,
@@ -67,7 +69,7 @@ const buildImagePayload = async (commission: Commission) => {
   }
 }
 
-const buildEntryPayload = async ({
+async function buildEntryPayload({
   characterAliasesMap,
   characterName,
   commission,
@@ -83,7 +85,7 @@ const buildEntryPayload = async ({
   keywordAliasesMap: Map<string, string[]> | null
   locale: HomeLocale
   sectionId: string
-}): Promise<HomeCharacterBatchEntryPayload> => {
+}): Promise<HomeCharacterBatchEntryPayload> {
   const messages = getHomeLocaleMessages(locale)
   const { date, year, creator } = parseCommissionFileName(commission.fileName)
   const copyrightCreator = creator ? getBaseFileName(creator).trim() || creator : 'Anonymous'
@@ -144,7 +146,7 @@ const buildEntryPayload = async ({
   }
 }
 
-const buildSectionPayload = async ({
+async function buildSectionPayload({
   characterAliasesMap,
   characterName,
   commissionMap,
@@ -160,7 +162,7 @@ const buildSectionPayload = async ({
   keywordAliasesMap: Map<string, string[]> | null
   locale: HomeLocale
   status: HomeCharacterBatchStatus
-}): Promise<HomeCharacterBatchSectionPayload> => {
+}): Promise<HomeCharacterBatchSectionPayload> {
   const messages = getHomeLocaleMessages(locale)
   const sectionId = getCharacterSectionId(characterName)
   const commissions = commissionMap.get(characterName)?.Commissions ?? []
@@ -190,7 +192,7 @@ const buildSectionPayload = async ({
   }
 }
 
-export const buildHomeCharacterBatchPayload = async ({
+export async function buildHomeCharacterBatchPayload({
   batchIndex,
   characterAliasesMap,
   characters,
@@ -208,7 +210,7 @@ export const buildHomeCharacterBatchPayload = async ({
   keywordAliasesMap: Map<string, string[]> | null
   locale: HomeLocale
   status: HomeCharacterBatchStatus
-}): Promise<HomeCharacterBatchPayload> => {
+}): Promise<HomeCharacterBatchPayload> {
   const sections = await Promise.all(
     characters.map(characterName =>
       buildSectionPayload({

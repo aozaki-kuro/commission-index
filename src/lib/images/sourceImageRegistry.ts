@@ -1,13 +1,13 @@
-type SourceImageModule = {
+interface SourceImageModule {
   default: ImageMetadata
 }
 
-export type SourceImageRecord = {
+export interface SourceImageRecord {
   stem: string
   metadata: ImageMetadata
 }
 
-export type SourceImageLookup = {
+export interface SourceImageLookup {
   byStem: Map<string, ImageMetadata>
   normalizedMap: Map<string, string[]>
   dateMap: Map<string, string[]>
@@ -16,33 +16,40 @@ export type SourceImageLookup = {
 const SOURCE_IMAGE_MODULES = import.meta.glob<SourceImageModule>('/data/images/*.{jpg,jpeg,png}', {
   eager: true,
 })
+const STEM_CONNECTOR_PATTERN = /[_-]+/g
+const STEM_NOISE_PATTERN = /[\s'"`’“”()（）[\]{}]/g
 
-const extensionPriority = (filePath: string) => {
+function extensionPriority(filePath: string) {
   const normalized = filePath.toLowerCase()
-  if (normalized.endsWith('.png')) return 0
-  if (normalized.endsWith('.jpg')) return 1
-  if (normalized.endsWith('.jpeg')) return 2
+  if (normalized.endsWith('.png'))
+    return 0
+  if (normalized.endsWith('.jpg'))
+    return 1
+  if (normalized.endsWith('.jpeg'))
+    return 2
   return 99
 }
 
-const extractStemFromPath = (filePath: string): string => {
+function extractStemFromPath(filePath: string): string {
   const fileName = filePath.split('/').pop() ?? filePath
   const dotIndex = fileName.lastIndexOf('.')
-  if (dotIndex === -1) return fileName
+  if (dotIndex === -1)
+    return fileName
   return fileName.slice(0, dotIndex)
 }
 
-export const normalizeSourceImageStem = (value: string) =>
-  value
+export function normalizeSourceImageStem(value: string) {
+  return value
     .normalize('NFKC')
     .toLowerCase()
-    .replace(/[_-]+/g, '')
-    .replace(/[\s'"`’“”()（）[\]{}]/g, '')
+    .replace(STEM_CONNECTOR_PATTERN, '')
+    .replace(STEM_NOISE_PATTERN, '')
+}
 
 const getDatePrefix = (value: string) => value.slice(0, 8)
 const getCreatorName = (value: string) => (value.length > 9 ? value.slice(9) : '')
 
-const buildSourceImageRecords = (): SourceImageRecord[] => {
+function buildSourceImageRecords(): SourceImageRecord[] {
   const records = Object.entries(SOURCE_IMAGE_MODULES)
     .map(([filePath, module]) => ({
       filePath,
@@ -51,7 +58,8 @@ const buildSourceImageRecords = (): SourceImageRecord[] => {
     }))
     .sort((a, b) => {
       const priorityDelta = extensionPriority(a.filePath) - extensionPriority(b.filePath)
-      if (priorityDelta !== 0) return priorityDelta
+      if (priorityDelta !== 0)
+        return priorityDelta
       return a.stem.localeCompare(b.stem)
     })
 
@@ -68,7 +76,7 @@ const buildSourceImageRecords = (): SourceImageRecord[] => {
   return [...deduped.values()]
 }
 
-export const buildSourceImageLookup = (records: SourceImageRecord[]): SourceImageLookup => {
+export function buildSourceImageLookup(records: SourceImageRecord[]): SourceImageLookup {
   const byStem = new Map<string, ImageMetadata>()
   const normalizedMap = new Map<string, string[]>()
   const dateMap = new Map<string, string[]>()
@@ -78,19 +86,21 @@ export const buildSourceImageLookup = (records: SourceImageRecord[]): SourceImag
 
     const normalized = normalizeSourceImageStem(record.stem)
     const normalizedEntries = normalizedMap.get(normalized)
-    if (normalizedEntries) normalizedEntries.push(record.stem)
+    if (normalizedEntries)
+      normalizedEntries.push(record.stem)
     else normalizedMap.set(normalized, [record.stem])
 
     const datePrefix = getDatePrefix(record.stem)
     const dateEntries = dateMap.get(datePrefix)
-    if (dateEntries) dateEntries.push(record.stem)
+    if (dateEntries)
+      dateEntries.push(record.stem)
     else dateMap.set(datePrefix, [record.stem])
   }
 
   return { byStem, normalizedMap, dateMap }
 }
 
-const resolveStemByFallback = (fileName: string, lookup: SourceImageLookup): string | null => {
+function resolveStemByFallback(fileName: string, lookup: SourceImageLookup): string | null {
   const normalized = normalizeSourceImageStem(fileName)
   const normalizedCandidates = lookup.normalizedMap.get(normalized) ?? []
   if (normalizedCandidates.length === 1) {
@@ -108,21 +118,18 @@ const resolveStemByFallback = (fileName: string, lookup: SourceImageLookup): str
     return null
   }
 
-  const creatorCandidates = dateCandidates.filter(candidate => {
+  const creatorCandidates = dateCandidates.filter((candidate) => {
     const candidateCreatorNormalized = normalizeSourceImageStem(getCreatorName(candidate))
     return (
-      candidateCreatorNormalized.includes(creatorNormalized) ||
-      creatorNormalized.includes(candidateCreatorNormalized)
+      candidateCreatorNormalized.includes(creatorNormalized)
+      || creatorNormalized.includes(candidateCreatorNormalized)
     )
   })
 
   return creatorCandidates.length === 1 ? creatorCandidates[0] : null
 }
 
-export const resolveSourceImageStem = (
-  fileName: string,
-  lookup: SourceImageLookup,
-): string | null => {
+export function resolveSourceImageStem(fileName: string, lookup: SourceImageLookup): string | null {
   if (lookup.byStem.has(fileName)) {
     return fileName
   }
@@ -132,19 +139,14 @@ export const resolveSourceImageStem = (
 
 const sourceImageLookup = buildSourceImageLookup(buildSourceImageRecords())
 
-export const resolveSourceImageByCommissionFileName = (
-  fileName: string,
-  lookup: SourceImageLookup = sourceImageLookup,
-): ImageMetadata | null => {
+export function resolveSourceImageByCommissionFileName(fileName: string, lookup: SourceImageLookup = sourceImageLookup): ImageMetadata | null {
   const resolvedStem = resolveSourceImageStem(fileName, lookup)
-  if (!resolvedStem) return null
+  if (!resolvedStem)
+    return null
   return lookup.byStem.get(resolvedStem) ?? null
 }
 
-export const listMissingSourceImages = (
-  commissionFileNames: string[],
-  lookup: SourceImageLookup = sourceImageLookup,
-) => {
+export function listMissingSourceImages(commissionFileNames: string[], lookup: SourceImageLookup = sourceImageLookup) {
   const missing = new Set<string>()
 
   for (const fileName of commissionFileNames) {
@@ -153,5 +155,5 @@ export const listMissingSourceImages = (
     }
   }
 
-  return [...missing].sort((a, b) => a.localeCompare(b))
+  return missing.toSorted((a, b) => a.localeCompare(b))
 }

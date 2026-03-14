@@ -1,14 +1,15 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 const AGE_CONFIRM_KEY = 'hasConfirmedAge'
 
-const primeStableUiState = async (page: Page) => {
-  await page.addInitScript(timestampKey => {
+async function primeStableUiState(page: Page) {
+  await page.addInitScript((timestampKey) => {
     window.localStorage.setItem(timestampKey, String(Date.now()))
   }, AGE_CONFIRM_KEY)
 }
 
-const prepareStablePage = async (page: Page) => {
+async function prepareStablePage(page: Page) {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.addStyleTag({
     content: `
@@ -31,10 +32,10 @@ const prepareStablePage = async (page: Page) => {
   })
 }
 
-const getUnionClip = async (locators: Locator[]) => {
+async function getUnionClip(locators: Locator[]) {
   const boxes = (
     await Promise.all(
-      locators.map(async locator => {
+      locators.map(async (locator) => {
         await locator.scrollIntoViewIfNeeded()
         return locator.boundingBox()
       }),
@@ -59,11 +60,7 @@ const getUnionClip = async (locators: Locator[]) => {
   }
 }
 
-const expectUnionToMatchSnapshot = async (
-  page: Page,
-  snapshotName: string,
-  locators: Locator[],
-) => {
+async function expectUnionToMatchSnapshot(page: Page, snapshotName: string, locators: Locator[]) {
   const clip = await getUnionClip(locators)
 
   expect(

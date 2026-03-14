@@ -1,6 +1,7 @@
-import { type RefObject, useCallback, useEffect, useRef } from 'react'
+import type { RefObject } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 
-type FocusInputOptions = {
+interface FocusInputOptions {
   preventScroll?: boolean
 }
 
@@ -10,11 +11,11 @@ interface UseSuggestionPanelControllerOptions {
   dismissSuggestionPanel: () => void
 }
 
-export const useSuggestionPanelController = ({
+export function useSuggestionPanelController({
   inputRef,
   shouldShowSuggestionPanel,
   dismissSuggestionPanel,
-}: UseSuggestionPanelControllerOptions) => {
+}: UseSuggestionPanelControllerOptions) {
   const searchRootRef = useRef<HTMLElement>(null)
   const suppressNextInputFocusOpenRef = useRef(false)
 
@@ -39,23 +40,28 @@ export const useSuggestionPanelController = ({
   )
 
   const shouldSuppressInputFocusOpen = useCallback(() => {
-    if (!suppressNextInputFocusOpenRef.current) return false
+    if (!suppressNextInputFocusOpenRef.current)
+      return false
     suppressNextInputFocusOpenRef.current = false
     return true
   }, [])
 
   useEffect(() => {
-    if (!shouldShowSuggestionPanel) return
+    if (!shouldShowSuggestionPanel)
+      return
 
     const handleWindowPointerDown = (event: PointerEvent) => {
       const target = event.target
-      if (!(target instanceof Node)) return
-      if (searchRootRef.current?.contains(target)) return
+      if (!(target instanceof Node))
+        return
+      if (searchRootRef.current?.contains(target))
+        return
       dismissSuggestionPanel()
     }
 
     const handleWindowKeyDown = (event: globalThis.KeyboardEvent) => {
-      if (event.defaultPrevented || event.key !== 'Escape') return
+      if (event.defaultPrevented || event.key !== 'Escape')
+        return
       dismissSuggestionPanel()
     }
 

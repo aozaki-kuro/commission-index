@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 const currentDir = path.dirname(fileURLToPath(import.meta.url))
 const source = readFileSync(path.join(currentDir, 'HomePage.astro'), 'utf8')
 
-describe('HomePage restore shell structure', () => {
+describe('homePage restore shell structure', () => {
   it('keeps the main contents wrapper visible during reload restore', () => {
     expect(source).toContain('<div id="Main Contents" class="w-full max-w-2xl">')
     expect(source).not.toContain('<div id="Main Contents" data-home-scroll-restore-shell="true"')

@@ -36,7 +36,7 @@ describe('admin db home suggestion operations (sqlite integration)', () => {
           ORDER BY sort_order ASC
         `,
       )
-      .all() as Array<{ keyword: string; sortOrder: number }>
+      .all() as Array<{ keyword: string, sortOrder: number }>
     rawDb.close()
 
     expect(storedRows.map(row => row.keyword)).toEqual([

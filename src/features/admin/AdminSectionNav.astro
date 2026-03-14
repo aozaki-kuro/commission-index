@@ -7,7 +7,7 @@ interface Props {
 
 const { current } = Astro.props as Props
 
-const sectionLinks: Array<{ key: AdminSection; label: string; href: string }> = [
+const sectionLinks: Array<{ key: AdminSection, label: string, href: string }> = [
   { key: 'overview', label: 'Overview', href: '/admin' },
   { key: 'create', label: 'Create', href: '/admin/create' },
   { key: 'edit', label: 'Edit', href: '/admin/edit' },
@@ -16,15 +16,26 @@ const sectionLinks: Array<{ key: AdminSection; label: string; href: string }> = 
 ]
 ---
 
-<nav aria-label="Admin sections" class="flex flex-wrap items-center justify-between gap-3">
+<nav
+  aria-label="Admin sections"
+  class="flex flex-wrap items-center justify-between gap-3"
+>
   <div class="flex items-center gap-4">
     {
       sectionLinks.map(item =>
-        item.key === current ? (
-          <span aria-current="page" class="cursor-default text-gray-500 dark:text-gray-400">
+        item.key === current
+? (
+          <span
+            aria-current="page"
+            class="
+              cursor-default text-gray-500
+              dark:text-gray-400
+            "
+          >
             {item.label}
           </span>
-        ) : (
+        )
+: (
           <a href={item.href}>{item.label}</a>
         ),
       )

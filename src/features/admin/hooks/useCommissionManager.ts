@@ -1,51 +1,69 @@
+import type { CharacterRow, CharacterStatus, CommissionRow } from '#lib/admin/db'
+import type { DragOverEvent } from '@dnd-kit/core'
+import type { FormState } from '../types'
+
+import { deleteCharacterAction, renameCharacter, saveCharacterOrder } from '#admin/actions'
 import {
-  type DragOverEvent,
+
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
 import { arrayMove as dndArrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react'
 
-import { deleteCharacterAction, renameCharacter, saveCharacterOrder } from '#admin/actions'
-import type { CharacterRow, CharacterStatus, CommissionRow } from '#lib/admin/db'
-
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState, useTransition } from 'react'
 import { notifyDataUpdate } from '../dataUpdateSignal'
-import type { FormState } from '../types'
 
 const disclosureStorageKey = 'admin-existing-open'
 export const DIVIDER_ID = 'divider'
 const EXPIRY_MINUTES = 30
+const useSafeLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect
 
-export type ListItem =
-  | { type: 'character'; data: CharacterRow }
-  | { type: 'divider'; id: typeof DIVIDER_ID }
+export type ListItem
+  = | { type: 'character', data: CharacterRow }
+    | { type: 'divider', id: typeof DIVIDER_ID }
 
 export type CharacterItem = Extract<ListItem, { type: 'character' }>
 
-export type FormFeedback = { type: 'success' | 'error'; text: string } | null
+export type FormFeedback = { type: 'success' | 'error', text: string } | null
 
-type EditingState = { id: number; value: string } | null
+type EditingState = { id: number, value: string } | null
 type DeletingState = number | null
-type CharacterOrderPayload = { active: number[]; stale: number[] }
+interface CharacterOrderPayload { active: number[], stale: number[] }
 
-type StoredOpenState = {
+interface StoredOpenState {
   ids: number[]
   timestamp: number
 }
 
-type CharacterOrderSaveQueueOptions = {
+interface CharacterOrderSaveQueueOptions {
   onSaved: () => void
   onError: (message: string) => void
   saveOrder: (payload: CharacterOrderPayload) => Promise<FormState>
 }
 
-export const createLatestCharacterOrderSaveQueue = ({
+type OpenIdsAction
+  = | { type: 'clear' }
+    | { type: 'reconcile', validIds: Set<number> }
+    | { type: 'toggle', characterId: number }
+
+type CommissionMapAction
+  = | { type: 'remove-character', characterId: number }
+    | { type: 'remove-commission', characterId: number, commissionId: number }
+    | { type: 'replace', value: Map<number, CommissionRow[]> }
+
+type ListAction
+  = | { type: 'remove-character', characterId: number }
+    | { type: 'rename-character', characterId: number, name: string }
+    | { type: 'replace', value: ListItem[] }
+    | { type: 'set', value: ListItem[] }
+
+export function createLatestCharacterOrderSaveQueue({
   onSaved,
   onError,
   saveOrder,
-}: CharacterOrderSaveQueueOptions) => {
+}: CharacterOrderSaveQueueOptions) {
   let requestedVersion = 0
   let completedVersion = 0
   let latestPayload: CharacterOrderPayload | null = null
@@ -53,19 +71,25 @@ export const createLatestCharacterOrderSaveQueue = ({
   let disposed = false
 
   const runLoop = async () => {
-    while (!disposed && completedVersion < requestedVersion) {
+    while (true) {
+      if (disposed || completedVersion >= requestedVersion) {
+        break
+      }
       const targetVersion = requestedVersion
       const payload = latestPayload
-      if (!payload) break
+      if (!payload)
+        break
 
       try {
         const result = await saveOrder(payload)
         if (!disposed && result.status === 'success' && targetVersion === requestedVersion) {
           onSaved()
-        } else if (!disposed && result.status === 'error' && targetVersion === requestedVersion) {
+        }
+        else if (!disposed && result.status === 'error' && targetVersion === requestedVersion) {
           onError(result.message ?? 'Unable to save character order.')
         }
-      } catch {
+      }
+      catch {
         if (!disposed && targetVersion === requestedVersion) {
           onError('Unable to save character order.')
         }
@@ -76,7 +100,8 @@ export const createLatestCharacterOrderSaveQueue = ({
   }
 
   const ensureRunning = () => {
-    if (runningPromise) return
+    if (runningPromise)
+      return
 
     runningPromise = runLoop().finally(() => {
       runningPromise = null
@@ -98,19 +123,21 @@ export const createLatestCharacterOrderSaveQueue = ({
   }
 }
 
-const readOpenIdsFromStorage = (): Set<number> => {
-  if (typeof window === 'undefined') return new Set()
+function readOpenIdsFromStorage(): Set<number> {
+  if (typeof window === 'undefined')
+    return new Set()
 
   try {
     const stored = window.localStorage.getItem(disclosureStorageKey)
-    if (!stored) return new Set()
+    if (!stored)
+      return new Set()
 
     const parsed = JSON.parse(stored) as
       | StoredOpenState
       | {
-          id?: number
-          timestamp?: number
-        }
+        id?: number
+        timestamp?: number
+      }
     const now = Date.now()
     const expiryTime = EXPIRY_MINUTES * 60 * 1000
 
@@ -135,13 +162,15 @@ const readOpenIdsFromStorage = (): Set<number> => {
     }
 
     return new Set()
-  } catch {
+  }
+  catch {
     return new Set()
   }
 }
 
-const saveOpenIdsToStorage = (openIds: Set<number>) => {
-  if (typeof window === 'undefined') return
+function saveOpenIdsToStorage(openIds: Set<number>) {
+  if (typeof window === 'undefined')
+    return
 
   if (openIds.size === 0) {
     window.localStorage.removeItem(disclosureStorageKey)
@@ -155,23 +184,88 @@ const saveOpenIdsToStorage = (openIds: Set<number>) => {
   window.localStorage.setItem(disclosureStorageKey, JSON.stringify(data))
 }
 
+function openIdsReducer(state: Set<number>, action: OpenIdsAction): Set<number> {
+  if (action.type === 'clear') {
+    return state.size === 0 ? state : new Set()
+  }
+
+  if (action.type === 'toggle') {
+    const next = new Set(state)
+    if (next.has(action.characterId)) {
+      next.delete(action.characterId)
+    }
+    else {
+      next.add(action.characterId)
+    }
+    return next
+  }
+
+  const next = new Set([...state].filter(id => action.validIds.has(id)))
+  if (next.size === state.size && [...next].every(id => state.has(id))) {
+    return state
+  }
+  return next
+}
+
+function commissionMapReducer(
+  state: Map<number, CommissionRow[]>,
+  action: CommissionMapAction,
+): Map<number, CommissionRow[]> {
+  if (action.type === 'replace')
+    return action.value
+
+  if (action.type === 'remove-character') {
+    if (!state.has(action.characterId))
+      return state
+    const next = new Map(state)
+    next.delete(action.characterId)
+    return next
+  }
+
+  const listForCharacter = state.get(action.characterId) ?? []
+  const nextList = listForCharacter.filter(item => item.id !== action.commissionId)
+  if (nextList.length === listForCharacter.length)
+    return state
+
+  const next = new Map(state)
+  next.set(action.characterId, nextList)
+  return next
+}
+
+function listReducer(state: ListItem[], action: ListAction): ListItem[] {
+  if (action.type === 'replace' || action.type === 'set')
+    return action.value
+
+  if (action.type === 'remove-character') {
+    return state.filter(
+      item => !(item.type === 'character' && item.data.id === action.characterId),
+    )
+  }
+
+  return state.map(item =>
+    item.type === 'character' && item.data.id === action.characterId
+      ? { ...item, data: { ...item.data, name: action.name } }
+      : item)
+}
+
 interface UseCommissionManagerParams {
   characters: CharacterRow[]
   commissions: CommissionRow[]
 }
 
-const useCommissionManager = ({ characters, commissions }: UseCommissionManagerParams) => {
+function useCommissionManager({ characters, commissions }: UseCommissionManagerParams) {
   const sortedCharacters = useMemo(
-    () => [...characters].sort((a, b) => a.sortOrder - b.sortOrder),
+    () => characters.toSorted((a, b) => a.sortOrder - b.sortOrder),
     [characters],
   )
 
   const initialMap = useMemo(() => {
     const grouped = new Map<number, CommissionRow[]>()
     sortedCharacters.forEach(c => grouped.set(c.id, []))
-    commissions.forEach(cm => {
+    commissions.forEach((cm) => {
       const list = grouped.get(cm.characterId)
-      if (list) list.push(cm)
+      if (list)
+        list.push(cm)
     })
     return grouped
   }, [sortedCharacters, commissions])
@@ -187,8 +281,8 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
     ]
   }, [sortedCharacters])
 
-  const [commissionMap, setCommissionMap] = useState(initialMap)
-  const [list, setList] = useState<ListItem[]>(initialList)
+  const [commissionMap, dispatchCommissionMap] = useReducer(commissionMapReducer, initialMap)
+  const [list, dispatchList] = useReducer(listReducer, initialList)
   const [feedback, setFeedback] = useState<FormFeedback>(null)
   const [editing, setEditing] = useState<EditingState>(null)
   const [, startRenameTransition] = useTransition()
@@ -199,46 +293,53 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
     null,
   )
 
-  if (orderSaveQueueRef.current == null) {
-    orderSaveQueueRef.current = createLatestCharacterOrderSaveQueue({
-      saveOrder: saveCharacterOrder,
-      onSaved: notifyDataUpdate,
-      onError: message => {
-        setFeedback({ type: 'error', text: message })
-      },
-    })
-  }
+  orderSaveQueueRef.current ??= createLatestCharacterOrderSaveQueue({
+    saveOrder: saveCharacterOrder,
+    onSaved: notifyDataUpdate,
+    onError: (message) => {
+      setFeedback({ type: 'error', text: message })
+    },
+  })
 
   const closeConfirmDialog = () => setConfirmingCharacter(null)
 
-  const [openIds, setOpenIds] = useState<Set<number>>(() => readOpenIdsFromStorage())
+  const [openIds, dispatchOpenIds] = useReducer(openIdsReducer, undefined, readOpenIdsFromStorage)
+
+  const reconcileOpenIds = useCallback((nextSortedCharacters: CharacterRow[]) => {
+    dispatchOpenIds({
+      type: 'reconcile',
+      validIds: new Set(nextSortedCharacters.map(character => character.id)),
+    })
+  }, [])
+
+  const replaceCommissionMap = useCallback((nextMap: Map<number, CommissionRow[]>) => {
+    dispatchCommissionMap({ type: 'replace', value: nextMap })
+  }, [])
+
+  const replaceList = useCallback((nextList: ListItem[]) => {
+    dispatchList({ type: 'replace', value: nextList })
+  }, [])
 
   useEffect(() => {
     saveOpenIdsToStorage(openIds)
   }, [openIds])
 
-  useEffect(() => {
-    const validIds = new Set(sortedCharacters.map(character => character.id))
-    setOpenIds(current => {
-      const next = new Set([...current].filter(id => validIds.has(id)))
-      if (next.size === current.size && [...next].every(id => current.has(id))) {
-        return current
-      }
-      return next
-    })
-  }, [sortedCharacters])
+  useSafeLayoutEffect(() => {
+    reconcileOpenIds(sortedCharacters)
+  }, [reconcileOpenIds, sortedCharacters])
+
+  useSafeLayoutEffect(() => {
+    replaceCommissionMap(initialMap)
+  }, [initialMap, replaceCommissionMap])
+
+  useSafeLayoutEffect(() => {
+    replaceList(initialList)
+  }, [initialList, replaceList])
 
   useEffect(() => {
-    setCommissionMap(initialMap)
-  }, [initialMap])
-
-  useEffect(() => {
-    setList(initialList)
-  }, [initialList])
-
-  useEffect(() => {
-    if (!feedback) return
-    const timer = setTimeout(() => setFeedback(null), 2000)
+    if (!feedback)
+      return
+    const timer = setTimeout(setFeedback, 2000, null)
     return () => clearTimeout(timer)
   }, [feedback])
 
@@ -250,14 +351,10 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
   }, [])
 
   const handleDeleteCommission = useCallback((characterId: number, commissionId: number) => {
-    setCommissionMap(prev => {
-      const next = new Map(prev)
-      const listForCharacter = next.get(characterId) ?? []
-      next.set(
-        characterId,
-        listForCharacter.filter(item => item.id !== commissionId),
-      )
-      return next
+    dispatchCommissionMap({
+      type: 'remove-commission',
+      characterId,
+      commissionId,
     })
   }, [])
 
@@ -273,7 +370,8 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
 
   const persistOrder = useCallback((currentList: ListItem[]) => {
     const dividerIndex = currentList.findIndex(i => i.type === 'divider')
-    if (dividerIndex === -1) return
+    if (dividerIndex === -1)
+      return
 
     const activeIds = currentList
       .slice(0, dividerIndex)
@@ -301,7 +399,8 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
   const handleDragOver = useCallback(
     (event: DragOverEvent) => {
       const { active, over } = event
-      if (!over || active.id === over.id) return
+      if (!over || active.id === over.id)
+        return
 
       const activeIdx = list.findIndex(i =>
         i.type === 'character' ? i.data.id === active.id : i.id === active.id,
@@ -310,10 +409,11 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
         i.type === 'character' ? i.data.id === over.id : i.id === over.id,
       )
 
-      if (activeIdx === -1 || overIdx === -1) return
+      if (activeIdx === -1 || overIdx === -1)
+        return
 
       const next = dndArrayMove(list, activeIdx, overIdx)
-      setList(next)
+      dispatchList({ type: 'set', value: next })
     },
     [list],
   )
@@ -326,7 +426,8 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
     (characterId: number): CharacterStatus => {
       const dividerIndex = list.findIndex(i => i.type === 'divider')
       const itemIndex = list.findIndex(i => i.type === 'character' && i.data.id === characterId)
-      if (dividerIndex === -1 || itemIndex === -1) return 'active'
+      if (dividerIndex === -1 || itemIndex === -1)
+        return 'active'
       return itemIndex < dividerIndex ? 'active' : 'stale'
     },
     [list],
@@ -341,8 +442,9 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
   }, [])
 
   const cancelEditing = useCallback(() => {
-    setEditing(current => {
-      if (!current) return current
+    setEditing((current) => {
+      if (!current)
+        return current
       const item = list.find(i => i.type === 'character' && i.data.id === current.id) as
         | CharacterItem
         | undefined
@@ -353,7 +455,8 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
 
   const submitRename = useCallback(() => {
     const current = editing
-    if (!current) return
+    if (!current)
+      return
 
     const trimmed = current.value.trim()
     if (!trimmed) {
@@ -378,20 +481,18 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
     setFeedback({ type: 'success', text: 'Updating name…' })
     startRenameTransition(() => {
       renameCharacter({ id: current.id, name: trimmed, status })
-        .then(result => {
+        .then((result) => {
           if (result.status === 'error') {
             setFeedback({ type: 'error', text: result.message ?? 'Unable to update character.' })
             cancelEditing()
             return
           }
 
-          setList(prev =>
-            prev.map(i =>
-              i.type === 'character' && i.data.id === current.id
-                ? { ...i, data: { ...i.data, name: trimmed } }
-                : i,
-            ),
-          )
+          dispatchList({
+            type: 'rename-character',
+            characterId: current.id,
+            name: trimmed,
+          })
 
           setFeedback(toFeedback(result))
           setEditing(null)
@@ -412,7 +513,7 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
 
       startDeleteTransition(() => {
         deleteCharacterAction(character.id)
-          .then(result => {
+          .then((result) => {
             if (result.status === 'error') {
               setFeedback({
                 type: 'error',
@@ -421,14 +522,8 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
               return
             }
 
-            setList(prev =>
-              prev.filter(item => !(item.type === 'character' && item.data.id === character.id)),
-            )
-            setCommissionMap(prev => {
-              const next = new Map(prev)
-              next.delete(character.id)
-              return next
-            })
+            dispatchList({ type: 'remove-character', characterId: character.id })
+            dispatchCommissionMap({ type: 'remove-character', characterId: character.id })
 
             setFeedback(toFeedback(result))
             notifyDataUpdate()
@@ -458,19 +553,11 @@ const useCommissionManager = ({ characters, commissions }: UseCommissionManagerP
   }, [list])
 
   const toggleCharacterOpen = useCallback((characterId: number) => {
-    setOpenIds(prev => {
-      const next = new Set(prev)
-      if (next.has(characterId)) {
-        next.delete(characterId)
-      } else {
-        next.add(characterId)
-      }
-      return next
-    })
+    dispatchOpenIds({ type: 'toggle', characterId })
   }, [])
 
   const closeAllCharacterOpen = useCallback(() => {
-    setOpenIds(new Set())
+    dispatchOpenIds({ type: 'clear' })
   }, [])
 
   return {

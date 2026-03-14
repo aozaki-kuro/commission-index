@@ -11,7 +11,7 @@ describe('jumpToCommissionSearch', () => {
     document.body.innerHTML = ''
     window.scrollTo = vi.fn() as typeof window.scrollTo
     Object.defineProperty(window, 'scrollY', { value: 120, writable: true, configurable: true })
-    globalThis.requestAnimationFrame = vi.fn(cb => {
+    globalThis.requestAnimationFrame = vi.fn((cb) => {
       cb(0)
       return 1
     }) as typeof requestAnimationFrame

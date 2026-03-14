@@ -6,14 +6,14 @@
   "assets": {
     "directory": "./dist",
     "html_handling": "auto-trailing-slash",
-    "not_found_handling": "404-page",
+    "not_found_handling": "404-page"
   },
   "preview_urls": false,
   "workers_dev": false,
   "routes": [
     {
       "pattern": "crystallize.cc",
-      "custom_domain": true,
-    },
-  ],
+      "custom_domain": true
+    }
+  ]
 }

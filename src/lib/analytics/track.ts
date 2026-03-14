@@ -1,10 +1,10 @@
 export type AnalyticsEventProperties = Record<string, string | number | boolean>
 
-type RybbitAnalytics = {
+interface RybbitAnalytics {
   event?: (name: string, properties?: AnalyticsEventProperties) => void
 }
 
-type PendingAnalyticsEvent = {
+interface PendingAnalyticsEvent {
   name: string
   properties?: AnalyticsEventProperties
 }
@@ -14,8 +14,9 @@ type AnalyticsWindow = Window & {
   __pendingRybbitEvents?: PendingAnalyticsEvent[]
 }
 
-export const trackRybbitEvent = (name: string, properties?: AnalyticsEventProperties) => {
-  if (typeof window === 'undefined') return
+export function trackRybbitEvent(name: string, properties?: AnalyticsEventProperties) {
+  if (typeof window === 'undefined')
+    return
 
   const analyticsWindow = window as AnalyticsWindow
   const tracker = analyticsWindow.rybbit

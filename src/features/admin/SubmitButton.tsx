@@ -1,5 +1,5 @@
+import type { ReactNode } from 'react'
 import { Button } from '#components/ui/button'
-import { ReactNode } from 'react'
 import { useFormStatus } from 'react-dom'
 
 interface SubmitButtonProps {
@@ -7,7 +7,7 @@ interface SubmitButtonProps {
   pendingLabel?: string
 }
 
-const SubmitButton = ({ children, pendingLabel = 'Saving...' }: SubmitButtonProps) => {
+function SubmitButton({ children, pendingLabel = 'Saving...' }: SubmitButtonProps) {
   const { pending } = useFormStatus()
 
   return (

@@ -1,13 +1,13 @@
+import type { AdminBootstrapData } from '#lib/admin/db'
 import AddCharacterForm from '#admin/AddCharacterForm'
 import AddCommissionForm from '#admin/AddCommissionForm'
 import { useAdminBootstrap } from '#admin/hooks/useAdminBootstrap'
-import type { AdminBootstrapData } from '#lib/admin/db'
 
 interface AdminCreateIslandProps {
   initialPayload?: AdminBootstrapData | null
 }
 
-const AdminCreateIsland = ({ initialPayload = null }: AdminCreateIslandProps) => {
+function AdminCreateIsland({ initialPayload = null }: AdminCreateIslandProps) {
   const { payload, errorMessage, isLoading, reload } = useAdminBootstrap<AdminBootstrapData>({
     initialPayload,
     errorFallback: 'Failed to load admin data.',
@@ -19,7 +19,10 @@ const AdminCreateIsland = ({ initialPayload = null }: AdminCreateIslandProps) =>
       <div>
         <p className="text-sm text-red-300">{errorMessage}</p>
         <button
-          className="mt-3 inline-flex rounded-md border border-zinc-500 px-3 py-1 text-sm hover:border-zinc-300"
+          className="
+            mt-3 inline-flex rounded-md border border-zinc-500 px-3 py-1 text-sm
+            hover:border-zinc-300
+          "
           onClick={reload}
           type="button"
         >
@@ -38,7 +41,10 @@ const AdminCreateIsland = ({ initialPayload = null }: AdminCreateIslandProps) =>
       <div>
         <p className="text-sm text-red-300">Admin data is unavailable.</p>
         <button
-          className="mt-3 inline-flex rounded-md border border-zinc-500 px-3 py-1 text-sm hover:border-zinc-300"
+          className="
+            mt-3 inline-flex rounded-md border border-zinc-500 px-3 py-1 text-sm
+            hover:border-zinc-300
+          "
           onClick={reload}
           type="button"
         >

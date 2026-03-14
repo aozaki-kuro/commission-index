@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
 import { getHomeLocaleMessages } from '#features/home/i18n/homeLocale'
+import { describe, expect, it } from 'vitest'
 
 describe('homeLocale stale summary formatter', () => {
   it('formats english stale character summary with both counts', () => {

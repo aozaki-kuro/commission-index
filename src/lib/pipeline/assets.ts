@@ -1,6 +1,6 @@
+import { createAstroStyleLogger } from './astroLogger'
 import { generateHomeSearchEntriesFile } from './homeSearchEntries'
 import { generateHomeUpdateSummaryModule } from './homeUpdateSummary'
-import { createAstroStyleLogger } from './astroLogger'
 import { generateRssFile } from './rss'
 
 export type AssetTask = 'home-update-summary' | 'home-search-entries' | 'rss'
@@ -10,12 +10,12 @@ const FULL_TASK_ORDER: AssetTask[] = ['home-update-summary', 'home-search-entrie
 const TASK_RUNNERS: Record<AssetTask, () => Promise<void>> = {
   'home-update-summary': generateHomeUpdateSummaryModule,
   'home-search-entries': generateHomeSearchEntriesFile,
-  rss: generateRssFile,
+  'rss': generateRssFile,
 }
 
 const logger = createAstroStyleLogger('assets')
 
-const runTasks = async (tasks: AssetTask[], reason: string) => {
+async function runTasks(tasks: AssetTask[], reason: string) {
   const reasonSuffix = reason ? ` (${reason})` : ''
   logger.info(`tasks=${tasks.join(', ')}${reasonSuffix}`)
 
@@ -26,6 +26,6 @@ const runTasks = async (tasks: AssetTask[], reason: string) => {
   }
 }
 
-export const runFullAssetPipeline = async (reason: string) => {
+export async function runFullAssetPipeline(reason: string) {
   await runTasks(FULL_TASK_ORDER, reason)
 }

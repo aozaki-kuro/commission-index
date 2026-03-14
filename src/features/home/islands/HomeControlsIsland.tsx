@@ -1,5 +1,5 @@
-import CommissionSearchDeferred from '#features/home/search/CommissionSearchDeferred'
 import type { SearchSuggestionAliasGroup } from '#features/home/search/CommissionSearch'
+import CommissionSearchDeferred from '#features/home/search/CommissionSearchDeferred'
 
 interface HomeControlsIslandProps {
   locale?: string
@@ -7,11 +7,11 @@ interface HomeControlsIslandProps {
   suggestionAliasGroups?: SearchSuggestionAliasGroup[]
 }
 
-const HomeControlsIsland = ({
+function HomeControlsIsland({
   locale,
   featuredSearchKeywords = [],
   suggestionAliasGroups = [],
-}: HomeControlsIslandProps) => {
+}: HomeControlsIslandProps) {
   return (
     <CommissionSearchDeferred
       locale={locale}

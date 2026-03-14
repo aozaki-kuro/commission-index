@@ -4,19 +4,21 @@ const isElementVisible = (element: HTMLElement) => element.getClientRects().leng
 
 const isRectInViewport = (rect: DOMRect) => rect.bottom > 0 && rect.top < window.innerHeight
 
-export const isElementAtThreshold = (element: HTMLElement, threshold: number) => {
-  if (!isElementVisible(element)) return false
+export function isElementAtThreshold(element: HTMLElement, threshold: number) {
+  if (!isElementVisible(element))
+    return false
   const rect = element.getBoundingClientRect()
   return rect.top <= threshold && rect.bottom >= threshold
 }
 
-export const getActiveSectionId = (elements: HTMLElement[], threshold: number): string => {
+export function getActiveSectionId(elements: HTMLElement[], threshold: number): string {
   let thresholdActiveId = ''
   let firstVisibleInViewportId = ''
   let firstVisibleId = ''
 
   for (const element of elements) {
-    if (!isElementVisible(element)) continue
+    if (!isElementVisible(element))
+      continue
     if (!firstVisibleId) {
       firstVisibleId = element.id
     }
@@ -38,7 +40,8 @@ export const getActiveSectionId = (elements: HTMLElement[], threshold: number): 
   return thresholdActiveId || firstVisibleInViewportId || firstVisibleId
 }
 
-export const resolveElementsByIds = (ids: string[]): HTMLElement[] =>
-  ids
+export function resolveElementsByIds(ids: string[]): HTMLElement[] {
+  return ids
     .map(id => document.getElementById(id))
     .filter((element): element is HTMLElement => Boolean(element))
+}

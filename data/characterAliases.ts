@@ -1,17 +1,18 @@
-import { queryAll } from './sqlite'
+import process from 'node:process'
 import {
+  normalizeCharacterAliases,
   normalizeCharacterAliasKey,
   normalizeCharacterAliasName,
-  normalizeCharacterAliases,
   parseCharacterAliasesJson,
 } from '#lib/characterAliases/shared'
+import { queryAll } from './sqlite'
 
-type CharacterAliasRow = {
+interface CharacterAliasRow {
   characterName: string
   aliases: string[]
 }
 
-type RawCharacterAliasRow = {
+interface RawCharacterAliasRow {
   characterName: string
   aliasesJson: string
 }
@@ -20,13 +21,13 @@ const isDevelopment = process.env.NODE_ENV === 'development'
 let cachedHasCharacterAliasesTable: boolean | null = null
 let cachedCharacterAliases: CharacterAliasRow[] | null = null
 
-const hasCharacterAliasesTable = (): boolean => {
+function hasCharacterAliasesTable(): boolean {
   if (!isDevelopment && cachedHasCharacterAliasesTable !== null) {
     return cachedHasCharacterAliasesTable
   }
 
   const rows = queryAll<{ name?: string }>(
-    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+    'SELECT name FROM sqlite_master WHERE type = \'table\' AND name = ? LIMIT 1',
     ['character_aliases'],
   )
   const exists = rows[0]?.name === 'character_aliases'
@@ -38,12 +39,13 @@ const hasCharacterAliasesTable = (): boolean => {
   return exists
 }
 
-export const getCharacterAliases = (): CharacterAliasRow[] => {
+export function getCharacterAliases(): CharacterAliasRow[] {
   if (!isDevelopment && cachedCharacterAliases) {
     return cachedCharacterAliases
   }
 
-  if (!hasCharacterAliasesTable()) return []
+  if (!hasCharacterAliasesTable())
+    return []
 
   const rows = queryAll<RawCharacterAliasRow>(
     `
@@ -55,13 +57,15 @@ export const getCharacterAliases = (): CharacterAliasRow[] => {
     `,
   )
 
-  const aliasMap = new Map<string, { characterName: string; aliases: string[] }>()
-  rows.forEach(row => {
+  const aliasMap = new Map<string, { characterName: string, aliases: string[] }>()
+  rows.forEach((row) => {
     const normalizedCharacterName = normalizeCharacterAliasName(row.characterName)
-    if (!normalizedCharacterName) return
+    if (!normalizedCharacterName)
+      return
 
     const key = normalizeCharacterAliasKey(normalizedCharacterName)
-    if (!key) return
+    if (!key)
+      return
 
     const aliases = parseCharacterAliasesJson(row.aliasesJson)
     const previous = aliasMap.get(key)
@@ -71,9 +75,8 @@ export const getCharacterAliases = (): CharacterAliasRow[] => {
     })
   })
 
-  const result = [...aliasMap.values()].sort((a, b) =>
-    a.characterName.localeCompare(b.characterName, 'ja'),
-  )
+  const result = aliasMap.values().toSorted((a, b) =>
+    a.characterName.localeCompare(b.characterName, 'ja'))
 
   if (!isDevelopment) {
     cachedCharacterAliases = result
@@ -82,13 +85,15 @@ export const getCharacterAliases = (): CharacterAliasRow[] => {
   return result
 }
 
-export const getCharacterAliasesMap = () =>
-  new Map(
+export function getCharacterAliasesMap() {
+  return new Map(
     getCharacterAliases()
-      .map(row => {
+      .map((row) => {
         const key = normalizeCharacterAliasKey(row.characterName)
-        if (!key) return null
+        if (!key)
+          return null
         return [key, row.aliases] as const
       })
       .filter((entry): entry is readonly [string, string[]] => Boolean(entry)),
   )
+}

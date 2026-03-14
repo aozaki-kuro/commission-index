@@ -1,20 +1,20 @@
-import { useCallback, useEffect, useState } from 'react'
 import { fetchAdminBootstrapWithRetry } from '#admin/bootstrapFetch'
 import { subscribeToDataUpdates } from '#admin/dataUpdateSignal'
+import { useCallback, useEffect, useState } from 'react'
 
-type UseAdminBootstrapOptions<TPayload> = {
+interface UseAdminBootstrapOptions<TPayload> {
   initialPayload?: TPayload | null
   errorFallback: string
   subscribeUpdates?: boolean
   endpoint?: string
 }
 
-export const useAdminBootstrap = <TPayload>({
+export function useAdminBootstrap<TPayload>({
   initialPayload = null,
   errorFallback,
   subscribeUpdates = false,
   endpoint,
-}: UseAdminBootstrapOptions<TPayload>) => {
+}: UseAdminBootstrapOptions<TPayload>) {
   const [payload, setPayload] = useState<TPayload | null>(initialPayload)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [reloadToken, setReloadToken] = useState(0)
@@ -25,7 +25,8 @@ export const useAdminBootstrap = <TPayload>({
   }, [])
 
   useEffect(() => {
-    if (!import.meta.env?.DEV) return
+    if (!import.meta.env?.DEV)
+      return
 
     let active = true
     let controller: AbortController | null = null
@@ -43,8 +44,10 @@ export const useAdminBootstrap = <TPayload>({
           setPayload(data)
           setErrorMessage(null)
         }
-      } catch (error) {
-        if (!active || controller.signal.aborted) return
+      }
+      catch (error) {
+        if (!active || controller.signal.aborted)
+          return
         const message = error instanceof Error ? error.message : errorFallback
         setErrorMessage(message)
       }

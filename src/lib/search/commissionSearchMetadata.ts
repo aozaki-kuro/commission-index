@@ -1,14 +1,14 @@
 import { normalizeCharacterAliasKey } from '#lib/characterAliases/shared'
-import { normalizeCreatorName } from '#lib/creatorAliases/shared'
-import { normalizeKeywordAliasKey, splitKeywordTerms } from '#lib/keywordAliases/shared'
 import { parseCommissionFileName } from '#lib/commissions/index'
+import { normalizeCreatorName } from '#lib/creatorAliases/shared'
 import { buildDateSearchTokensFromCompactDate } from '#lib/date/search'
+import { normalizeKeywordAliasKey, splitKeywordTerms } from '#lib/keywordAliases/shared'
 
 type SuggestionSource = 'Character' | 'Creator' | 'Keyword' | 'Date'
 type CreatorMode = 'normalized' | 'raw'
 type CreatorSearchTextMode = CreatorMode | 'both'
 
-type BuildCommissionSearchMetadataInput = {
+interface BuildCommissionSearchMetadataInput {
   characterName: string
   fileName: string
   design?: string | null
@@ -21,27 +21,20 @@ type BuildCommissionSearchMetadataInput = {
   creatorSearchTextMode?: CreatorSearchTextMode
 }
 
-type CommissionSearchMetadata = {
+interface CommissionSearchMetadata {
   searchText: string
   searchSuggestionText: string
 }
 
 const normalizeSuggestionKey = (term: string) => term.trim().toLowerCase()
 
-const resolveCreatorSuggestionTerm = (
-  rawCreatorName: string | null,
-  normalizedCreatorName: string | null,
-  mode: CreatorMode,
-) => {
-  if (mode === 'raw') return rawCreatorName
+function resolveCreatorSuggestionTerm(rawCreatorName: string | null, normalizedCreatorName: string | null, mode: CreatorMode) {
+  if (mode === 'raw')
+    return rawCreatorName
   return normalizedCreatorName
 }
 
-const resolveCreatorSearchTerms = (
-  rawCreatorName: string | null,
-  normalizedCreatorName: string | null,
-  mode: CreatorSearchTextMode,
-) => {
+function resolveCreatorSearchTerms(rawCreatorName: string | null, normalizedCreatorName: string | null, mode: CreatorSearchTextMode) {
   if (mode === 'raw') {
     return rawCreatorName ? [rawCreatorName] : []
   }
@@ -50,16 +43,17 @@ const resolveCreatorSearchTerms = (
     const terms = [normalizedCreatorName, rawCreatorName].filter((value): value is string =>
       Boolean(value),
     )
-    return Array.from(new Set(terms))
+    return [...new Set(terms)]
   }
 
   return normalizedCreatorName ? [normalizedCreatorName] : []
 }
 
-export const buildCommissionSearchDomKey = (sectionId: string, fileName: string) =>
-  `${sectionId}::${fileName}`
+export function buildCommissionSearchDomKey(sectionId: string, fileName: string) {
+  return `${sectionId}::${fileName}`
+}
 
-export const buildCommissionSearchMetadata = ({
+export function buildCommissionSearchMetadata({
   characterName,
   fileName,
   design,
@@ -70,30 +64,29 @@ export const buildCommissionSearchMetadata = ({
   keywordAliasesMap,
   creatorSuggestionMode = 'normalized',
   creatorSearchTextMode = 'normalized',
-}: BuildCommissionSearchMetadataInput): CommissionSearchMetadata => {
+}: BuildCommissionSearchMetadataInput): CommissionSearchMetadata {
   const { date, year, creator } = parseCommissionFileName(fileName)
   const month = date.slice(4, 6)
   const characterAliasKey = normalizeCharacterAliasKey(characterName)
-  const characterAliases =
-    characterAliasKey && characterAliasesMap
+  const characterAliases
+    = characterAliasKey && characterAliasesMap
       ? (characterAliasesMap.get(characterAliasKey) ?? [])
       : []
   const rawCreatorName = creator?.trim() || null
   const normalizedCreatorName = rawCreatorName ? normalizeCreatorName(rawCreatorName) : null
-  const creatorAliases =
-    normalizedCreatorName && creatorAliasesMap
+  const creatorAliases
+    = normalizedCreatorName && creatorAliasesMap
       ? (creatorAliasesMap.get(normalizedCreatorName) ?? [])
       : []
   const keywordTerms = splitKeywordTerms(keyword)
-  const keywordAliasTerms = Array.from(
-    new Set(
-      keywordTerms.flatMap(term => {
-        const key = normalizeKeywordAliasKey(term)
-        if (!key || !keywordAliasesMap) return []
-        return keywordAliasesMap.get(key) ?? []
-      }),
-    ),
-  )
+  const keywordAliasTerms = [...new Set(
+    keywordTerms.flatMap((term) => {
+      const key = normalizeKeywordAliasKey(term)
+      if (!key || !keywordAliasesMap)
+        return []
+      return keywordAliasesMap.get(key) ?? []
+    }),
+  )]
   const keywordSearchText = keywordTerms.join(' ')
   const keywordAliasesSearchText = keywordAliasTerms.join(' ')
   const searchableDateTerms = [date, ...buildDateSearchTokensFromCompactDate(date)]
@@ -108,7 +101,7 @@ export const buildCommissionSearchMetadata = ({
     creatorSearchTextMode,
   )
 
-  const suggestionEntries: Array<{ source: SuggestionSource; term: string }> = [
+  const suggestionEntries: Array<{ source: SuggestionSource, term: string }> = [
     { source: 'Character', term: characterName },
     ...characterAliases.map(alias => ({ source: 'Character' as const, term: alias })),
     ...(year && month ? [{ source: 'Date' as const, term: `${year}/${month}` }] : []),
@@ -118,10 +111,11 @@ export const buildCommissionSearchMetadata = ({
     ...keywordAliasTerms.map(term => ({ source: 'Keyword' as const, term })),
   ]
 
-  const uniqueSuggestions = new Map<string, { source: SuggestionSource; term: string }>()
+  const uniqueSuggestions = new Map<string, { source: SuggestionSource, term: string }>()
   for (const entry of suggestionEntries) {
     const normalizedTerm = normalizeSuggestionKey(entry.term)
-    if (!normalizedTerm || uniqueSuggestions.has(normalizedTerm)) continue
+    if (!normalizedTerm || uniqueSuggestions.has(normalizedTerm))
+      continue
     uniqueSuggestions.set(normalizedTerm, entry)
   }
 
@@ -139,8 +133,7 @@ export const buildCommissionSearchMetadata = ({
     ]
       .join(' ')
       .toLowerCase(),
-    searchSuggestionText: [...uniqueSuggestions.values()]
-      .map(entry => `${entry.source}\t${entry.term}`)
+    searchSuggestionText: Array.from(uniqueSuggestions.values(), entry => `${entry.source}\t${entry.term}`)
       .join('\n'),
   }
 }

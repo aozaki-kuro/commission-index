@@ -1,11 +1,12 @@
 ---
 import type { Props as CommissionData } from '#data/types'
+import type { HomeUpdateSummary } from '#lib/home/updateSummary'
+import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
 import {
   buildHomeUpdateSummary,
+
   isMilestoneCommissionCount,
-  type HomeUpdateSummary,
 } from '#lib/home/updateSummary'
-import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
 
 interface Props {
   locale?: string
@@ -20,10 +21,17 @@ const resolvedSummary = summary ?? buildHomeUpdateSummary(commissionData, active
 ---
 
 {
-  resolvedSummary.entries.length === 0 ? (
+  resolvedSummary.entries.length === 0
+? (
     <p class="font-mono text-sm">{messages.update.noActiveUpdatesFound}</p>
-  ) : (
-    <div class="mt-6 mb-4 flex flex-col font-mono text-xs sm:text-sm md:mt-8">
+  )
+: (
+    <div class="
+      mt-6 mb-4 flex flex-col font-mono text-xs
+      sm:text-sm
+      md:mt-8
+    "
+    >
       <p class="mb-2">
         {messages.update.formatTotalCommissions(resolvedSummary.totalCommissions)}
         {isMilestoneCommissionCount(resolvedSummary.totalCommissions) ? ' 🎉' : ''}
@@ -35,7 +43,10 @@ const resolvedSummary = summary ?? buildHomeUpdateSummary(commissionData, active
           {
             resolvedSummary.entries.map(entry => (
               <p class="mr-2">
-                {entry.dateLabel} [ <a href={entry.href} class="underline-offset-2">{entry.character}</a> ]
+                {entry.dateLabel} [ <a
+                  href={entry.href}
+                  class="underline-offset-2"
+                                    >{entry.character}</a> ]
               </p>
             ))
           }

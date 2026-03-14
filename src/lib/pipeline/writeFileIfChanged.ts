@@ -1,12 +1,13 @@
 import { readFile, writeFile } from 'node:fs/promises'
 
-export const writeFileIfChanged = async (targetPath: string, nextContent: string) => {
+export async function writeFileIfChanged(targetPath: string, nextContent: string) {
   try {
     const currentContent = await readFile(targetPath, 'utf8')
     if (currentContent === nextContent) {
       return 'unchanged' as const
     }
-  } catch {
+  }
+  catch {
     // Write the target file when it does not exist or is unreadable.
   }
 

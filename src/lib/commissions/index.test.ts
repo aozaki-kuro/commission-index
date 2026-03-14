@@ -28,7 +28,7 @@ describe('commissions utils (real db sample)', () => {
     }
 
     expect(unique.map(item => item.fileName)).toEqual(
-      [...unique.map(item => item.fileName)].sort((a, b) => b.localeCompare(a)),
+      unique.map(item => item.fileName).toSorted((a, b) => b.localeCompare(a)),
     )
   })
 

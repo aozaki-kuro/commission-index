@@ -1,4 +1,4 @@
-import { CharacterCommissions, Commission, Props } from '#data/types'
+import type { CharacterCommissions, Commission, Props } from '#data/types'
 import { getBaseFileName } from '#lib/utils/strings'
 
 export type CommissionWithCharacter = Commission & { character: string }
@@ -6,11 +6,12 @@ export type CommissionWithCharacter = Commission & { character: string }
 /**
  * Filter out hidden commissions to speed up builds.
  */
-export const filterHiddenCommissions = (data: Props): Props =>
-  data.map(characterData => ({
+export function filterHiddenCommissions(data: Props): Props {
+  return data.map(characterData => ({
     ...characterData,
     Commissions: characterData.Commissions.filter(c => !c.Hidden),
   }))
+}
 
 /**
  * Merge parts/previews, keeping the latest version.
@@ -18,7 +19,7 @@ export const filterHiddenCommissions = (data: Props): Props =>
 export function mergePartsAndPreviews<T extends Commission>(commissions: T[]): Map<string, T> {
   const commissionMap = new Map<string, T>()
 
-  commissions.forEach(commission => {
+  commissions.forEach((commission) => {
     const baseFileName = getBaseFileName(commission.fileName)
     const existing = commissionMap.get(baseFileName)
 
@@ -50,20 +51,17 @@ export function parseCommissionFileName(fileName: string) {
 /**
  * Flatten commission data to include character names for downstream processing.
  */
-export const flattenCommissions = (
-  data: Props,
-  predicate?: (character: CharacterCommissions) => boolean,
-): CommissionWithCharacter[] =>
-  data
+export function flattenCommissions(data: Props, predicate?: (character: CharacterCommissions) => boolean): CommissionWithCharacter[] {
+  return data
     .filter(entry => (predicate ? predicate(entry) : true))
     .flatMap(({ Character, Commissions }) =>
       Commissions.map(commission => ({ ...commission, character: Character })),
     )
+}
 
 /**
  * Deduplicate and sort commissions by latest file name.
  */
-export const collectUniqueCommissions = (
-  commissions: CommissionWithCharacter[],
-): CommissionWithCharacter[] =>
-  Array.from(mergePartsAndPreviews(commissions).values()).sort(sortCommissionsByDate)
+export function collectUniqueCommissions(commissions: CommissionWithCharacter[]): CommissionWithCharacter[] {
+  return mergePartsAndPreviews(commissions).values().toSorted(sortCommissionsByDate)
+}

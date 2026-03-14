@@ -1,6 +1,6 @@
 ---
-import AnalyticsScript from '#layouts/AnalyticsScript.astro'
 import { SiteMeta } from '#config/siteMeta'
+import AnalyticsScript from '#layouts/AnalyticsScript.astro'
 import { Font } from 'astro:assets'
 
 import '#styles/globals.css'
@@ -17,8 +17,8 @@ interface Props {
   }
 }
 
-const { title, description = SiteMeta.description, canonicalPath = '/', lang = 'en', priorityImage } =
-  Astro.props as Props
+const { title, description = SiteMeta.description, canonicalPath = '/', lang = 'en', priorityImage }
+  = Astro.props as Props
 const pageTitle = title ? `${title} | ${SiteMeta.site}` : SiteMeta.site
 const canonicalUrl = new URL(canonicalPath, SiteMeta.canonicalUrl).toString()
 ---
@@ -69,7 +69,8 @@ const canonicalUrl = new URL(canonicalPath, SiteMeta.canonicalUrl).toString()
     <meta name="msapplication-config" content="/favicon/browserconfig.xml" />
     <link rel="manifest" href="/favicon/site.webmanifest" />
     {
-      priorityImage ? (
+      priorityImage
+? (
         <link
           rel="preload"
           as="image"
@@ -79,14 +80,25 @@ const canonicalUrl = new URL(canonicalPath, SiteMeta.canonicalUrl).toString()
           imagesizes={priorityImage.sizes}
           fetchpriority="high"
         />
-      ) : null
+      )
+: null
     }
     <slot name="head" />
     <title>{pageTitle}</title>
   </head>
   <body>
-    <div class="min-h-dvh antialiased selection:bg-gray-400/25 dark:bg-neutral-900">
-      <div class="mx-4 min-h-dvh max-w-2xl pt-7 pb-16 text-sm leading-relaxed sm:pt-20 sm:pb-32 sm:text-base md:mx-auto md:min-h-screen">
+    <div class="
+      min-h-dvh antialiased
+      selection:bg-gray-400/25
+      dark:bg-neutral-900
+    "
+    >
+      <div class="
+        mx-4 min-h-dvh max-w-2xl pt-7 pb-16 text-sm/relaxed
+        sm:pt-20 sm:pb-32 sm:text-base
+        md:mx-auto md:min-h-screen
+      "
+      >
         <slot />
       </div>
       <AnalyticsScript />

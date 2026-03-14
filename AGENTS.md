@@ -200,8 +200,8 @@ Additional guidance:
 
 ## Code Style
 
-- Format code with Prettier: single quotes, no semicolons, trailing commas, `arrowParens: avoid`, width 100.
-- ESLint uses a TypeScript + Prettier baseline; keep the code free of lint errors.
+- Format code with ESLint auto-fix (`bun run lint`): single quotes, no semicolons, trailing commas, `arrowParens: avoid`, width 100.
+- ESLint uses a TypeScript baseline; keep the code free of lint errors.
 
 ## Images
 

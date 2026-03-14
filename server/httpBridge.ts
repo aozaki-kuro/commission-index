@@ -1,21 +1,19 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { Buffer } from 'node:buffer'
 import { Readable } from 'node:stream'
 
-export const toWebRequest = (
-  req: IncomingMessage,
-  {
-    requestPath,
-    fallbackHost,
-  }: {
-    requestPath: string
-    fallbackHost: string
-  },
-) => {
+export function toWebRequest(req: IncomingMessage, {
+  requestPath,
+  fallbackHost,
+}: {
+  requestPath: string
+  fallbackHost: string
+}) {
   const host = req.headers.host ?? fallbackHost
   const url = `http://${host}${requestPath}`
   const method = req.method ?? 'GET'
-  const body =
-    method === 'GET' || method === 'HEAD' ? undefined : (Readable.toWeb(req) as ReadableStream)
+  const body
+    = method === 'GET' || method === 'HEAD' ? undefined : (Readable.toWeb(req) as ReadableStream)
   const requestInit: RequestInit = {
     method,
     headers: req.headers as HeadersInit,
@@ -29,7 +27,7 @@ export const toWebRequest = (
   return new Request(url, requestInit)
 }
 
-export const writeNodeResponse = async (res: ServerResponse, response: Response) => {
+export async function writeNodeResponse(res: ServerResponse, response: Response) {
   res.statusCode = response.status
   response.headers.forEach((value, key) => {
     res.setHeader(key, value)

@@ -1,14 +1,16 @@
-import { buildNoticeFromContextMenu, type NoticeState } from './commissionImageNoticeShared'
+import type { NoticeState } from './commissionImageNoticeShared'
+import { buildNoticeFromContextMenu } from './commissionImageNoticeShared'
 
 const NOTICE_FADE_MS = 180
 const NOTICE_HIDE_MS = 2200
 const NOTICE_NODE_SELECTOR = '[data-commission-image-notice="true"]'
-const NOTICE_BASE_CLASS =
-  'fixed z-50 max-w-84 rounded-xl bg-white/80 px-3 py-2 text-xs text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 backdrop-blur-md transition-opacity duration-180 dark:bg-black/80 dark:text-white dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] dark:ring-white/10'
+const NOTICE_BASE_CLASS
+  = 'fixed z-50 max-w-84 rounded-xl bg-white/80 px-3 py-2 text-xs text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 backdrop-blur-md transition-opacity duration-180 dark:bg-black/80 dark:text-white dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] dark:ring-white/10'
 
-const findOrCreateNoticeElement = (doc: Document) => {
+function findOrCreateNoticeElement(doc: Document) {
   const existing = doc.querySelector<HTMLDivElement>(NOTICE_NODE_SELECTOR)
-  if (existing) return existing
+  if (existing)
+    return existing
 
   const next = doc.createElement('div')
   next.setAttribute('role', 'status')
@@ -20,11 +22,7 @@ const findOrCreateNoticeElement = (doc: Document) => {
   return next
 }
 
-export const mountCommissionImageNoticeClient = (
-  initialNotice: NoticeState | null = null,
-  win: Window = window,
-  doc: Document = document,
-) => {
+export function mountCommissionImageNoticeClient(initialNotice: NoticeState | null = null, win: Window = window, doc: Document = document) {
   const noticeElement = findOrCreateNoticeElement(doc)
 
   let hideTimerId: number | null = null
@@ -48,7 +46,8 @@ export const mountCommissionImageNoticeClient = (
   }
 
   const closeNotice = () => {
-    if (!hasVisibleNotice && noticeElement.style.display === 'none') return
+    if (!hasVisibleNotice && noticeElement.style.display === 'none')
+      return
 
     hasVisibleNotice = false
     noticeElement.classList.remove('opacity-100')
@@ -91,14 +90,17 @@ export const mountCommissionImageNoticeClient = (
 
   const onContextMenu = (event: MouseEvent) => {
     const notice = buildNoticeFromContextMenu(event, win)
-    if (!notice) return
+    if (!notice)
+      return
     openNotice(notice, true)
   }
 
   const onPointerDown = (event: PointerEvent) => {
-    if (event.button !== 0) return
+    if (event.button !== 0)
+      return
     const target = event.target as Node | null
-    if (target && noticeElement.contains(target)) return
+    if (target && noticeElement.contains(target))
+      return
     closeNotice()
   }
 

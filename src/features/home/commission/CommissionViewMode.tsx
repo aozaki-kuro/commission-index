@@ -5,7 +5,7 @@ import { readCommissionViewMode } from './viewModeState'
 type CommissionViewMode = import('./CommissionViewModeSearch').CommissionViewMode
 export type { CommissionViewMode } from './CommissionViewModeSearch'
 
-const subscribeToCommissionViewMode = (onStoreChange: () => void) => {
+function subscribeToCommissionViewMode(onStoreChange: () => void) {
   if (typeof window === 'undefined') {
     return () => {}
   }
@@ -19,14 +19,16 @@ const subscribeToCommissionViewMode = (onStoreChange: () => void) => {
   }
 }
 
-const getCommissionViewModeSnapshot = () =>
-  typeof window === 'undefined'
+function getCommissionViewModeSnapshot() {
+  return typeof window === 'undefined'
     ? ('character' as CommissionViewMode)
     : readCommissionViewMode(window)
+}
 
-export const useCommissionViewMode = (initialMode: CommissionViewMode = 'character') =>
-  useSyncExternalStore(
+export function useCommissionViewMode(initialMode: CommissionViewMode = 'character') {
+  return useSyncExternalStore(
     subscribeToCommissionViewMode,
     getCommissionViewModeSnapshot,
     () => initialMode,
   )
+}

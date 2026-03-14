@@ -7,24 +7,21 @@ import {
 import { parseAndFormatDate } from '#lib/date/format'
 import { getBaseFileName, kebabCase } from '#lib/utils/strings'
 
-export type HomeUpdateEntry = {
+export interface HomeUpdateEntry {
   key: string
   character: string
   href: string
   dateLabel: string
 }
 
-export type HomeUpdateSummary = {
+export interface HomeUpdateSummary {
   totalCommissions: number
   entries: HomeUpdateEntry[]
 }
 
 export const isMilestoneCommissionCount = (num: number): boolean => num > 0 && num % 50 === 0
 
-export const buildHomeUpdateSummary = (
-  commissionData: Props,
-  activeCharacters: string[],
-): HomeUpdateSummary => {
+export function buildHomeUpdateSummary(commissionData: Props, activeCharacters: string[]): HomeUpdateSummary {
   const activeCharacterSet = new Set(activeCharacters)
 
   const totalCommissions = new Set(
@@ -34,8 +31,7 @@ export const buildHomeUpdateSummary = (
   ).size
 
   const latestEntries = flattenCommissions(commissionData, ({ Character }) =>
-    activeCharacterSet.has(Character),
-  )
+    activeCharacterSet.has(Character))
   const uniqueEntries = collectUniqueCommissions(latestEntries)
 
   const entries = uniqueEntries.slice(0, 3).map(({ fileName, character }) => {

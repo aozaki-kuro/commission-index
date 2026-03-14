@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import SuggestionDashboard from './SuggestionDashboard'
 
-describe('SuggestionDashboard', () => {
+describe('suggestionDashboard', () => {
   it('toggles selected keywords by normalized key', async () => {
     render(<SuggestionDashboard featuredKeywords={['Tag']} keywordOptions={['tag']} />)
 

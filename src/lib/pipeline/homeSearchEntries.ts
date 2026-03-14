@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import process from 'node:process'
 
 import { getCharacterAliasesMap } from '../../../data/characterAliases'
 import { getCommissionDataMap } from '../../../data/commissionData'
@@ -14,14 +15,14 @@ import {
 import { createAstroStyleLogger } from './astroLogger'
 import { writeFileIfChanged } from './writeFileIfChanged'
 
-type SearchEntry = {
+interface SearchEntry {
   id: number
   domKey: string
   searchText: string
   searchSuggest: string
 }
 
-const buildHomeSearchEntries = (): SearchEntry[] => {
+function buildHomeSearchEntries(): SearchEntry[] {
   const records = getCharacterRecords()
   const commissionMap = getCommissionDataMap()
   const characterAliasesMap = getCharacterAliasesMap()
@@ -68,7 +69,7 @@ const buildHomeSearchEntries = (): SearchEntry[] => {
 const outputPath = path.join(process.cwd(), 'public', 'search', 'home-search-entries.json')
 const logger = createAstroStyleLogger('assets')
 
-export const generateHomeSearchEntriesFile = async () => {
+export async function generateHomeSearchEntriesFile() {
   const entries = buildHomeSearchEntries()
   await mkdir(path.dirname(outputPath), { recursive: true })
   const payload = `${JSON.stringify(entries, null, 2)}\n`
@@ -77,7 +78,8 @@ export const generateHomeSearchEntriesFile = async () => {
 
   if (result === 'unchanged') {
     logger.info(`home search entries unchanged (${entries.length}) -> ${relativeOutputPath}`)
-  } else {
+  }
+  else {
     logger.success(`generated ${entries.length} home search entries -> ${relativeOutputPath}`)
   }
 }

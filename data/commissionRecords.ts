@@ -1,4 +1,5 @@
-import { Commission } from '#data/types'
+import type { Commission } from '#data/types'
+import process from 'node:process'
 import { queryAll } from './sqlite'
 
 export type CharacterStatus = 'active' | 'stale'
@@ -28,29 +29,32 @@ const isDevelopment = process.env.NODE_ENV === 'development'
 let commissionKeywordColumnSupport: boolean | null = null
 
 // 将数据库中的 JSON 字符串解析为链接数组，确保异常时返回空数组
-const parseLinks = (raw?: string | null): string[] => {
-  if (!raw) return []
+function parseLinks(raw?: string | null): string[] {
+  if (!raw)
+    return []
 
   try {
     const parsed = JSON.parse(raw)
     return Array.isArray(parsed) ? parsed.map(link => String(link)) : []
-  } catch {
+  }
+  catch {
     return []
   }
 }
 
-const hasCommissionKeywordColumn = (): boolean => {
-  if (commissionKeywordColumnSupport !== null) return commissionKeywordColumnSupport
+function hasCommissionKeywordColumn(): boolean {
+  if (commissionKeywordColumnSupport !== null)
+    return commissionKeywordColumnSupport
   const columns = queryAll<{ name: string }>('PRAGMA table_info(commissions)')
   commissionKeywordColumnSupport = columns.some(column => column.name === 'keyword')
   return commissionKeywordColumnSupport
 }
 
 // 将数据库行转换为具备排序信息的角色记录列表
-const buildCharacterRecords = (rows: CharacterRow[]): CharacterRecord[] => {
+function buildCharacterRecords(rows: CharacterRow[]): CharacterRecord[] {
   const characters = new Map<number, CharacterRecord>()
 
-  rows.forEach(row => {
+  rows.forEach((row) => {
     if (!characters.has(row.id)) {
       characters.set(row.id, {
         id: row.id,
@@ -61,7 +65,8 @@ const buildCharacterRecords = (rows: CharacterRow[]): CharacterRecord[] => {
       })
     }
 
-    if (!row.file_name) return
+    if (!row.file_name)
+      return
 
     const record = characters.get(row.id)!
     record.commissions.push({
@@ -74,11 +79,11 @@ const buildCharacterRecords = (rows: CharacterRow[]): CharacterRecord[] => {
     })
   })
 
-  return [...characters.values()].sort((a, b) => a.sortOrder - b.sortOrder)
+  return characters.values().toSorted((a, b) => a.sortOrder - b.sortOrder)
 }
 
 // 从 SQLite 读取角色与委托信息（开发环境实时读取，生产走缓存）
-const loadCharacterRecords = (): CharacterRecord[] => {
+function loadCharacterRecords(): CharacterRecord[] {
   const hasKeywordColumn = hasCommissionKeywordColumn()
   const keywordSelect = hasKeywordColumn ? 'commissions.keyword as keyword,' : 'NULL as keyword,'
 
@@ -104,7 +109,8 @@ const loadCharacterRecords = (): CharacterRecord[] => {
 
 const staticCharacterRecords = loadCharacterRecords()
 
-export const getCharacterRecords = (): CharacterRecord[] =>
-  isDevelopment ? loadCharacterRecords() : staticCharacterRecords
+export function getCharacterRecords(): CharacterRecord[] {
+  return isDevelopment ? loadCharacterRecords() : staticCharacterRecords
+}
 
 export { staticCharacterRecords as characterRecords }

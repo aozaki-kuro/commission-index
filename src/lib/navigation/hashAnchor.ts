@@ -1,21 +1,27 @@
-const INACTIVE_VIEW_PANEL_SELECTOR =
-  '[data-commission-view-panel][data-commission-view-active="false"]'
-const ACTIVE_VIEW_PANEL_SELECTOR =
-  '[data-commission-view-panel][data-commission-view-active="true"]'
+const INACTIVE_VIEW_PANEL_SELECTOR
+  = '[data-commission-view-panel][data-commission-view-active="false"]'
+const ACTIVE_VIEW_PANEL_SELECTOR
+  = '[data-commission-view-panel][data-commission-view-active="true"]'
+const BACKSLASH_PATTERN = /\\/g
+const DOUBLE_QUOTE_PATTERN = /"/g
 
-const escapeAttributeSelectorValue = (value: string) =>
-  value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+function escapeAttributeSelectorValue(value: string) {
+  return value.replace(BACKSLASH_PATTERN, '\\\\').replace(DOUBLE_QUOTE_PATTERN, '\\"')
+}
 
 const getExactIdSelector = (id: string) => `[id="${escapeAttributeSelectorValue(id)}"]`
 
-export const getHashTarget = (hash: string): HTMLElement | null => {
-  if (!hash || !hash.startsWith('#')) return null
+export function getHashTarget(hash: string): HTMLElement | null {
+  if (!hash || !hash.startsWith('#'))
+    return null
 
   const id = decodeURIComponent(hash.slice(1))
-  if (!id) return null
+  if (!id)
+    return null
 
   const directMatch = document.getElementById(id)
-  if (!directMatch) return null
+  if (!directMatch)
+    return null
 
   if (!directMatch.closest(INACTIVE_VIEW_PANEL_SELECTOR)) {
     return directMatch
@@ -25,32 +31,37 @@ export const getHashTarget = (hash: string): HTMLElement | null => {
   return activePanel?.querySelector<HTMLElement>(getExactIdSelector(id)) ?? directMatch
 }
 
-export const getHashFromHref = (rawHref: string | null): string => {
-  if (!rawHref) return ''
+export function getHashFromHref(rawHref: string | null): string {
+  if (!rawHref)
+    return ''
   return rawHref.startsWith('#') ? rawHref : new URL(rawHref, window.location.href).hash
 }
 
-export const scrollToHashTargetFromHrefWithoutHash = (rawHref: string | null): boolean => {
+export function scrollToHashTargetFromHrefWithoutHash(rawHref: string | null): boolean {
   const hash = getHashFromHref(rawHref)
-  if (!hash.startsWith('#')) return false
+  if (!hash.startsWith('#'))
+    return false
 
   const target = getHashTarget(hash)
-  if (!target) return false
+  if (!target)
+    return false
 
   target.scrollIntoView()
   return true
 }
 
-export const clearLocationHash = () => {
+export function clearLocationHash() {
   const { pathname, search, hash } = window.location
-  if (!hash) return
+  if (!hash)
+    return
 
   history.replaceState(null, '', `${pathname}${search}`)
 }
 
-export const clearHashIfTargetIsStale = () => {
+export function clearHashIfTargetIsStale() {
   const hash = window.location.hash
-  if (!hash) return
+  if (!hash)
+    return
 
   const element = getHashTarget(hash)
   if (!element) {
@@ -60,5 +71,6 @@ export const clearHashIfTargetIsStale = () => {
 
   const rect = element.getBoundingClientRect()
   const isOffscreen = rect.bottom <= 0 || rect.top >= window.innerHeight
-  if (isOffscreen) clearLocationHash()
+  if (isOffscreen)
+    clearLocationHash()
 }

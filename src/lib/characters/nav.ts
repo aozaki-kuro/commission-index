@@ -40,8 +40,8 @@ export const getCharacterTitleHash = (name: string): string => `#${getCharacterT
 /**
  * Normalize character entries to navigation metadata.
  */
-export const buildCharacterNavItems = (characters: CharacterEntry[]): CharacterNavItem[] =>
-  characters.map(character => {
+export function buildCharacterNavItems(characters: CharacterEntry[]): CharacterNavItem[] {
+  return characters.map((character) => {
     const displayName = character.DisplayName
     const sectionId = getCharacterSectionId(displayName)
     const titleId = getCharacterTitleId(displayName)
@@ -54,3 +54,4 @@ export const buildCharacterNavItems = (characters: CharacterEntry[]): CharacterN
       titleHash: `#${titleId}`,
     }
   })
+}

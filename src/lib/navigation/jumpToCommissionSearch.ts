@@ -1,4 +1,4 @@
-type JumpToCommissionSearchOptions = {
+interface JumpToCommissionSearchOptions {
   topGap?: number
   focusDelayMs?: number
   focusMode?: 'deferred' | 'immediate' | 'none'
@@ -7,20 +7,22 @@ type JumpToCommissionSearchOptions = {
 const DEFAULT_TOP_GAP = 24
 const DEFAULT_FOCUS_DELAY_MS = 160
 const DEFAULT_FOCUS_MODE: JumpToCommissionSearchOptions['focusMode'] = 'deferred'
-const shouldUseTapLikeFocus = () => {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
+function shouldUseTapLikeFocus() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined')
+    return false
   const hasTouchPoints = navigator.maxTouchPoints > 0
   const hasCoarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false
   return hasTouchPoints || hasCoarsePointer
 }
 
-export const jumpToCommissionSearch = ({
+export function jumpToCommissionSearch({
   topGap = DEFAULT_TOP_GAP,
   focusDelayMs = DEFAULT_FOCUS_DELAY_MS,
   focusMode = DEFAULT_FOCUS_MODE,
-}: JumpToCommissionSearchOptions = {}) => {
+}: JumpToCommissionSearchOptions = {}) {
   const searchSection = document.getElementById('commission-search')
-  if (!searchSection) return
+  if (!searchSection)
+    return
 
   const getTargetTop = () =>
     Math.max(0, window.scrollY + searchSection.getBoundingClientRect().top - topGap)
@@ -35,7 +37,8 @@ export const jumpToCommissionSearch = ({
 
   const focusInput = (preventScroll: boolean) => {
     const input = getSearchInput()
-    if (!input) return
+    if (!input)
+      return
 
     input.focus({ preventScroll })
     // iOS Safari can ignore plain focus unless input receives a direct tap-like activation.
@@ -55,11 +58,12 @@ export const jumpToCommissionSearch = ({
 
   scrollToTarget()
 
-  if (focusMode === 'none') return
+  if (focusMode === 'none')
+    return
 
   window.setTimeout(() => {
     focusInput(true)
     requestAnimationFrame(() => scrollToTarget('auto'))
-    window.setTimeout(() => scrollToTarget('auto'), 100)
+    window.setTimeout(scrollToTarget, 100, 'auto')
   }, focusDelayMs)
 }

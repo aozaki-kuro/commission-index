@@ -1,8 +1,8 @@
 ---
 import type { CharacterCommissions } from '#data/types'
-import { getCharacterSectionHash, getCharacterSectionId, getCharacterTitleId } from '#lib/characters/nav'
 import CommissionEntries from '#features/home/commission/CommissionEntries.astro'
 import { getHomeLocaleMessages, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
+import { getCharacterSectionHash, getCharacterSectionId, getCharacterTitleId } from '#lib/characters/nav'
 
 interface ListingProps {
   locale?: string
@@ -43,16 +43,23 @@ const commissions = characterData?.Commissions ?? []
     {Character}
     <a
       href={sectionHash}
-      class="ml-2 font-bold text-gray-400 no-underline opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-gray-600"
+      class="
+        ml-2 font-bold text-gray-400 no-underline opacity-0 transition-opacity
+        duration-200
+        group-hover:opacity-100
+        dark:text-gray-600
+      "
     >
       #
     </a>
   </h2>
 
   {
-    commissions.length === 0 ? (
+    commissions.length === 0
+? (
       <p class="my-4">{messages.listing.toBeAnnounced}</p>
-    ) : (
+    )
+: (
       <CommissionEntries
         locale={resolvedLocale}
         entries={commissions.map(commission => ({

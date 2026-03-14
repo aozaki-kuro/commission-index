@@ -1,38 +1,40 @@
-import { ANALYTICS_EVENTS } from '#lib/analytics/events'
-import { trackRybbitEvent } from '#lib/analytics/track'
-import {
-  STALE_CHARACTERS_LOADED_EVENT,
-  STALE_CHARACTERS_STATE_CHANGE_EVENT,
-  hasDeferredStaleCharacterTarget,
-  hasStaleCharacterTarget,
-  isStaleCharactersVisible,
-  requestStaleCharactersLoad,
-  requestStaleCharactersVisibility,
-  type RequestStaleCharactersLoadOptions,
-  type StaleCharactersVisibility,
-} from '#features/home/commission/staleCharactersEvent'
+import type { RequestActiveCharactersLoadOptions } from '#features/home/commission/activeCharactersEvent'
+import type { CommissionViewMode } from '#features/home/commission/CommissionViewModeSearch'
+import type { RequestStaleCharactersLoadOptions, StaleCharactersVisibility } from '#features/home/commission/staleCharactersEvent'
 import {
   ACTIVE_CHARACTERS_LOADED_EVENT,
   hasDeferredActiveCharacterTarget,
   requestActiveCharactersLoad,
-  type RequestActiveCharactersLoadOptions,
+
 } from '#features/home/commission/activeCharactersEvent'
 import {
   prefetchDeferredActiveCharacterTarget,
   prefetchDeferredStaleCharacterTarget,
 } from '#features/home/commission/deferredCharacterBatchPrefetch'
 import {
+  hasDeferredStaleCharacterTarget,
+  hasStaleCharacterTarget,
+  isStaleCharactersVisible,
+  requestStaleCharactersLoad,
+
+  requestStaleCharactersVisibility,
+  STALE_CHARACTERS_LOADED_EVENT,
+  STALE_CHARACTERS_STATE_CHANGE_EVENT,
+
+} from '#features/home/commission/staleCharactersEvent'
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
+import {
   readCommissionViewMode,
   replaceCommissionViewModeInAddress,
   resolveCommissionViewModeFromElement,
 } from '#features/home/commission/viewModeState'
-import type { CommissionViewMode } from '#features/home/commission/CommissionViewModeSearch'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
+import { dispatchHomeScrollRestoreAbort } from '#features/home/homeScrollRestoreAbort'
+import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { trackRybbitEvent } from '#lib/analytics/track'
 import { scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '#lib/navigation/syncHiddenSectionLinkAvailability'
-import { dispatchHomeScrollRestoreAbort } from '#features/home/homeScrollRestoreAbort'
 import { MENU_TRANSITION_MS } from './constants'
 import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from './hamburgerMenuStateEvent'
 
@@ -54,7 +56,7 @@ const CHARACTER_SECTION_TOGGLE_SELECTOR = '[data-mobile-character-section-toggle
 const AGE_GATE_ROOT_SELECTOR = '[data-age-gate-root]'
 const AGE_GATE_STATE_EVENT = 'age-gate-state-change'
 
-type MobileHamburgerMenuDeps = {
+interface MobileHamburgerMenuDeps {
   trackEvent: typeof trackRybbitEvent
   jumpToSearch: typeof jumpToCommissionSearch
   syncLinkAvailability: typeof syncHiddenSectionLinkAvailability
@@ -66,14 +68,14 @@ type MobileHamburgerMenuDeps = {
   requestStaleVisibility: (win: Window, visibility: StaleCharactersVisibility) => void
 }
 
-type MountMobileHamburgerMenuOptions = {
+interface MountMobileHamburgerMenuOptions {
   win?: Window
   doc?: Document
   deps?: Partial<MobileHamburgerMenuDeps>
 }
 
 type CharacterSectionKey = 'active' | 'stale'
-type CharacterSectionNode = {
+interface CharacterSectionNode {
   key: CharacterSectionKey
   trigger: HTMLButtonElement | null
   panel: HTMLElement | null
@@ -92,50 +94,54 @@ const defaultDeps: MobileHamburgerMenuDeps = {
   requestStaleVisibility: requestStaleCharactersVisibility,
 }
 
-const resolveCharacterSectionKeyFromElement = (
-  target: Element | null,
-): CharacterSectionKey | null => {
-  if (!target) return null
+function resolveCharacterSectionKeyFromElement(target: Element | null): CharacterSectionKey | null {
+  if (!target)
+    return null
   const key = target.getAttribute('data-mobile-character-section-key')
-  if (key === 'active' || key === 'stale') return key
+  if (key === 'active' || key === 'stale')
+    return key
   return null
 }
 
-const resolveCharacterSectionKeyFromValue = (
-  value: string | undefined,
-): CharacterSectionKey | null => {
-  if (value === 'active' || value === 'stale') return value
+function resolveCharacterSectionKeyFromValue(value: string | undefined): CharacterSectionKey | null {
+  if (value === 'active' || value === 'stale')
+    return value
   return null
 }
 
-const resolveViewModeFromPanel = (panel: HTMLElement): CommissionViewMode | null => {
+function resolveViewModeFromPanel(panel: HTMLElement): CommissionViewMode | null {
   const mode = panel.dataset.mobileHamburgerNavPanel
-  if (mode === 'character' || mode === 'timeline') return mode
+  if (mode === 'character' || mode === 'timeline')
+    return mode
   return null
 }
 
-const readCount = (rawValue: string | undefined) => {
-  if (!rawValue) return 0
+function readCount(rawValue: string | undefined) {
+  if (!rawValue)
+    return 0
   const value = Number(rawValue)
-  if (!Number.isFinite(value)) return 0
+  if (!Number.isFinite(value))
+    return 0
   return Math.max(0, Math.floor(value))
 }
 
-const readAgeGateOpen = (doc: Document) => {
-  if (doc.documentElement.dataset.ageGateOpen === 'true') return true
+function readAgeGateOpen(doc: Document) {
+  if (doc.documentElement.dataset.ageGateOpen === 'true')
+    return true
   return doc.querySelector<HTMLElement>(AGE_GATE_ROOT_SELECTOR)?.dataset.state === 'open'
 }
 
-const resolveNavLinkTargetId = (link: HTMLAnchorElement) =>
-  link.dataset.mobileNavSectionId ?? link.getAttribute('href')
+function resolveNavLinkTargetId(link: HTMLAnchorElement) {
+  return link.dataset.mobileNavSectionId ?? link.getAttribute('href')
+}
 
-const setHtmlScrollLocked = (doc: Document, locked: boolean) => {
+function setHtmlScrollLocked(doc: Document, locked: boolean) {
   const html = doc.documentElement
   html.classList.toggle('overflow-hidden', locked)
   html.classList.toggle('touch-none', locked)
 }
 
-const syncViewModeIndicatorState = (button: HTMLButtonElement, active: boolean) => {
+function syncViewModeIndicatorState(button: HTMLButtonElement, active: boolean) {
   button.setAttribute('aria-pressed', String(active))
   button.classList.toggle('text-gray-900', active)
   button.classList.toggle('dark:text-white', active)
@@ -143,7 +149,8 @@ const syncViewModeIndicatorState = (button: HTMLButtonElement, active: boolean) 
   button.classList.toggle('dark:text-gray-200', !active)
 
   const indicator = button.querySelector<HTMLElement>('[data-mobile-hamburger-view-mode-indicator]')
-  if (!indicator) return
+  if (!indicator)
+    return
 
   indicator.classList.toggle('scale-100', active)
   indicator.classList.toggle('opacity-100', active)
@@ -151,11 +158,11 @@ const syncViewModeIndicatorState = (button: HTMLButtonElement, active: boolean) 
   indicator.classList.toggle('opacity-0', !active)
 }
 
-export const mountMobileHamburgerMenu = ({
+export function mountMobileHamburgerMenu({
   win = window,
   doc = document,
   deps: depsOverrides,
-}: MountMobileHamburgerMenuOptions = {}) => {
+}: MountMobileHamburgerMenuOptions = {}) {
   const deps = { ...defaultDeps, ...depsOverrides }
   const root = doc.querySelector<HTMLElement>(ROOT_SELECTOR)
   const toggle = root?.querySelector<HTMLButtonElement>(TOGGLE_SELECTOR) ?? null
@@ -170,31 +177,28 @@ export const mountMobileHamburgerMenu = ({
   if (!root || !toggle || !toggleLabel || !backdrop || !panel || !navRoot || !searchAction)
     return () => {}
 
-  const viewModeToggles = Array.from(
-    root.querySelectorAll<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR),
-  )
-  const navPanels = Array.from(root.querySelectorAll<HTMLElement>(NAV_PANEL_SELECTOR))
+  const viewModeToggles = [...root.querySelectorAll<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR)]
+  const navPanels = [...root.querySelectorAll<HTMLElement>(NAV_PANEL_SELECTOR)]
   const navPanelByMode = new Map<CommissionViewMode, HTMLElement>()
-  navPanels.forEach(panelNode => {
+  navPanels.forEach((panelNode) => {
     const mode = resolveViewModeFromPanel(panelNode)
-    if (!mode) return
+    if (!mode)
+      return
     navPanelByMode.set(mode, panelNode)
   })
-  const characterSections: CharacterSectionNode[] = Array.from(
-    root.querySelectorAll<HTMLElement>(CHARACTER_SECTION_SELECTOR),
-  )
-    .map(section => {
-      const key = resolveCharacterSectionKeyFromValue(section.dataset.mobileCharacterSection)
-      if (!key) return null
-      return {
-        key,
-        trigger: section.querySelector<HTMLButtonElement>(CHARACTER_SECTION_TOGGLE_SELECTOR),
-        panel: section.querySelector<HTMLElement>(`[data-mobile-character-section-panel="${key}"]`),
-        chevron: section.querySelector<HTMLElement>(
-          '[data-mobile-character-section-chevron="true"]',
-        ),
-      }
-    })
+  const characterSections: CharacterSectionNode[] = Array.from(root.querySelectorAll<HTMLElement>(CHARACTER_SECTION_SELECTOR), (section) => {
+    const key = resolveCharacterSectionKeyFromValue(section.dataset.mobileCharacterSection)
+    if (!key)
+      return null
+    return {
+      key,
+      trigger: section.querySelector<HTMLButtonElement>(CHARACTER_SECTION_TOGGLE_SELECTOR),
+      panel: section.querySelector<HTMLElement>(`[data-mobile-character-section-panel="${key}"]`),
+      chevron: section.querySelector<HTMLElement>(
+        '[data-mobile-character-section-chevron="true"]',
+      ),
+    }
+  })
     .filter((section): section is CharacterSectionNode => Boolean(section))
 
   const activeCount = readCount(root.dataset.mobileHamburgerActiveCount)
@@ -215,13 +219,15 @@ export const mountMobileHamburgerMenu = ({
   let ageGateOpen = readAgeGateOpen(doc)
 
   const clearCloseTimer = () => {
-    if (closeTimerId === null) return
+    if (closeTimerId === null)
+      return
     win.clearTimeout(closeTimerId)
     closeTimerId = null
   }
 
   const clearOpenRaf = () => {
-    if (openRafId === null) return
+    if (openRafId === null)
+      return
     win.cancelAnimationFrame(openRafId)
     openRafId = null
   }
@@ -275,7 +281,8 @@ export const mountMobileHamburgerMenu = ({
   }
 
   const setMounted = (nextMounted: boolean) => {
-    if (mounted === nextMounted) return
+    if (mounted === nextMounted)
+      return
     mounted = nextMounted
     syncOpenState()
     dispatchMountedChange(nextMounted)
@@ -293,7 +300,8 @@ export const mountMobileHamburgerMenu = ({
   }
 
   const openMenu = () => {
-    if (ageGateOpen) return
+    if (ageGateOpen)
+      return
 
     if (!hasTrackedHamburgerUsage) {
       hasTrackedHamburgerUsage = true
@@ -314,7 +322,8 @@ export const mountMobileHamburgerMenu = ({
   }
 
   const toggleMenu = () => {
-    if (ageGateOpen) return
+    if (ageGateOpen)
+      return
 
     if (open) {
       closeMenu()
@@ -324,22 +333,23 @@ export const mountMobileHamburgerMenu = ({
   }
 
   const syncCharacterSectionState = () => {
-    characterSections.forEach(section => {
+    characterSections.forEach((section) => {
       const expanded = section.key === expandedCharacterSection
       section.trigger?.setAttribute('aria-expanded', String(expanded))
-      if (section.panel) section.panel.hidden = !expanded
+      if (section.panel)
+        section.panel.hidden = !expanded
       section.chevron?.classList.toggle('rotate-180', expanded)
     })
   }
 
   const syncViewModeState = () => {
     const mode = readCommissionViewMode(win)
-    viewModeToggles.forEach(button => {
+    viewModeToggles.forEach((button) => {
       const buttonMode = resolveCommissionViewModeFromElement(button)
       syncViewModeIndicatorState(button, buttonMode === mode)
     })
 
-    navPanels.forEach(currentPanel => {
+    navPanels.forEach((currentPanel) => {
       currentPanel.classList.toggle('hidden', currentPanel.dataset.mobileHamburgerNavPanel !== mode)
     })
   }
@@ -347,7 +357,8 @@ export const mountMobileHamburgerMenu = ({
   const resolveLinkAvailabilityRoot = (): ParentNode => {
     const mode = readCommissionViewMode(win)
     const currentPanel = navPanelByMode.get(mode)
-    if (!currentPanel) return navRoot
+    if (!currentPanel)
+      return navRoot
 
     return currentPanel.querySelector(NAV_LINK_SELECTOR) ? currentPanel : navRoot
   }
@@ -358,10 +369,10 @@ export const mountMobileHamburgerMenu = ({
       linkSelector: NAV_LINK_SELECTOR,
       getSectionId: link => link.dataset.mobileNavSectionId ?? null,
       isDeferredTarget: (sectionId, link) =>
-        (link.dataset.mobileNavCharacterStatus === 'active' &&
-          hasDeferredActiveCharacterTarget(doc, sectionId)) ||
-        (link.dataset.mobileNavCharacterStatus === 'stale' &&
-          hasStaleCharacterTarget(doc, sectionId)),
+        (link.dataset.mobileNavCharacterStatus === 'active'
+          && hasDeferredActiveCharacterTarget(doc, sectionId))
+        || (link.dataset.mobileNavCharacterStatus === 'stale'
+          && hasStaleCharacterTarget(doc, sectionId)),
     })
   }
 
@@ -444,10 +455,12 @@ export const mountMobileHamburgerMenu = ({
 
   const onRootPointerDown = (event: PointerEvent) => {
     const target = event.target
-    if (!(target instanceof Element)) return
+    if (!(target instanceof Element))
+      return
 
     const actionButton = target.closest<HTMLButtonElement>(SEARCH_ACTION_SELECTOR)
-    if (!actionButton) return
+    if (!actionButton)
+      return
 
     event.preventDefault()
     didHandleSearchPointerDown = true
@@ -456,17 +469,20 @@ export const mountMobileHamburgerMenu = ({
 
   const onNavPreview = (event: Event) => {
     const target = event.target
-    if (!(target instanceof Element)) return
+    if (!(target instanceof Element))
+      return
 
     const navLink = target.closest<HTMLAnchorElement>(NAV_LINK_SELECTOR)
-    if (!navLink) return
+    if (!navLink)
+      return
 
     prefetchNavLinkTarget(navLink)
   }
 
   const onRootClick = (event: MouseEvent) => {
     const target = event.target
-    if (!(target instanceof Element)) return
+    if (!(target instanceof Element))
+      return
 
     const clickedToggle = target.closest<HTMLButtonElement>(TOGGLE_SELECTOR)
     if (clickedToggle) {
@@ -478,7 +494,8 @@ export const mountMobileHamburgerMenu = ({
     if (viewModeToggle) {
       const currentMode = readCommissionViewMode(win)
       const nextMode = resolveCommissionViewModeFromElement(viewModeToggle)
-      if (!nextMode) return
+      if (!nextMode)
+        return
 
       deps.trackEvent(ANALYTICS_EVENTS.sidebarViewModeToggleUsed, {
         from_mode: currentMode,
@@ -488,7 +505,8 @@ export const mountMobileHamburgerMenu = ({
 
       if (currentMode !== nextMode) {
         replaceCommissionViewModeInAddress(win, nextMode)
-      } else {
+      }
+      else {
         syncUiState()
       }
       return
@@ -499,7 +517,8 @@ export const mountMobileHamburgerMenu = ({
     )
     if (characterSectionToggle) {
       const sectionKey = resolveCharacterSectionKeyFromElement(characterSectionToggle)
-      if (!sectionKey) return
+      if (!sectionKey)
+        return
       expandedCharacterSection = expandedCharacterSection === sectionKey ? null : sectionKey
       syncCharacterSectionState()
       if (expandedCharacterSection === 'stale' && !isStaleCharactersVisible(doc)) {
@@ -519,12 +538,13 @@ export const mountMobileHamburgerMenu = ({
     }
 
     const navLink = target.closest<HTMLAnchorElement>(NAV_LINK_SELECTOR)
-    if (!navLink) return
+    if (!navLink)
+      return
 
     const navTargetId = resolveNavLinkTargetId(navLink)
-    const isDeferredActiveLink =
-      navLink.dataset.mobileNavCharacterStatus === 'active' &&
-      hasDeferredActiveCharacterTarget(doc, navTargetId)
+    const isDeferredActiveLink
+      = navLink.dataset.mobileNavCharacterStatus === 'active'
+        && hasDeferredActiveCharacterTarget(doc, navTargetId)
     if (isDeferredActiveLink) {
       const href = navLink.getAttribute('href')
       handleDeferredNavLinkLoad({
@@ -604,7 +624,8 @@ export const mountMobileHamburgerMenu = ({
   }
 
   const onDocumentKeyDown = (event: KeyboardEvent) => {
-    if (event.key !== 'Escape') return
+    if (event.key !== 'Escape')
+      return
     closeMenu()
   }
 
@@ -621,11 +642,12 @@ export const mountMobileHamburgerMenu = ({
   }
 
   const onAgeGateStateChanged = (event: Event) => {
-    const nextOpen =
-      event instanceof CustomEvent && event.detail && typeof event.detail === 'object'
+    const nextOpen
+      = event instanceof CustomEvent && event.detail && typeof event.detail === 'object'
         ? Boolean((event.detail as { open?: unknown }).open)
         : readAgeGateOpen(doc)
-    if (ageGateOpen === nextOpen) return
+    if (ageGateOpen === nextOpen)
+      return
 
     ageGateOpen = nextOpen
     if (ageGateOpen) {
@@ -635,7 +657,8 @@ export const mountMobileHamburgerMenu = ({
       setMounted(false)
       setHtmlScrollLocked(doc, false)
       syncOpenState()
-    } else {
+    }
+    else {
       syncOpenState()
     }
   }
@@ -656,7 +679,8 @@ export const mountMobileHamburgerMenu = ({
   syncOpenState()
 
   return () => {
-    if (disposed) return
+    if (disposed)
+      return
     disposed = true
 
     clearCloseTimer()

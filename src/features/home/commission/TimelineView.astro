@@ -1,7 +1,7 @@
 ---
 import type { TimelineYearGroup } from '#lib/commissions/timeline'
-import { getCharacterSectionId } from '#lib/characters/nav'
 import CommissionEntries from '#features/home/commission/CommissionEntries.astro'
+import { getCharacterSectionId } from '#lib/characters/nav'
 
 interface TimelineViewProps {
   groups: TimelineYearGroup[]
@@ -10,8 +10,8 @@ interface TimelineViewProps {
   keywordAliasesMap: Map<string, string[]> | null
 }
 
-const { groups, characterAliasesMap, creatorAliasesMap, keywordAliasesMap } =
-  Astro.props as TimelineViewProps
+const { groups, characterAliasesMap, creatorAliasesMap, keywordAliasesMap }
+  = Astro.props as TimelineViewProps
 ---
 
 {
@@ -27,7 +27,12 @@ const { groups, characterAliasesMap, creatorAliasesMap, keywordAliasesMap } =
           {group.yearKey}
           <a
             href={group.navItem.sectionHash}
-            class="ml-2 font-bold text-gray-400 no-underline opacity-0 transition-opacity duration-200 group-hover:opacity-100 dark:text-gray-600"
+            class="
+              ml-2 font-bold text-gray-400 no-underline opacity-0
+              transition-opacity duration-200
+              group-hover:opacity-100
+              dark:text-gray-600
+            "
           >
             #
           </a>

@@ -1,5 +1,6 @@
-import { Readable } from 'node:stream'
 import type { IncomingMessage, ServerResponse } from 'node:http'
+import { Buffer } from 'node:buffer'
+import { Readable } from 'node:stream'
 import { describe, expect, it } from 'vitest'
 import { toWebRequest, writeNodeResponse } from './httpBridge'
 
@@ -8,7 +9,7 @@ describe('httpBridge', () => {
     const req = Object.assign(Readable.from([Buffer.from('hello-world')]), {
       method: 'POST',
       headers: {
-        host: 'example.com',
+        'host': 'example.com',
         'x-test': '1',
       },
     }) as unknown as IncomingMessage

@@ -1,43 +1,47 @@
 const KEYWORD_SPLIT_PATTERN = /[,\n，、;；]/
+const NORMALIZE_SPACES_PATTERN = /\s+/g
 
-export const normalizeKeywordBaseTerm = (value: string): string | null => {
-  const normalized = value.trim().replace(/\s+/g, ' ')
+export function normalizeKeywordBaseTerm(value: string): string | null {
+  const normalized = value.trim().replace(NORMALIZE_SPACES_PATTERN, ' ')
   return normalized || null
 }
 
-export const normalizeKeywordAliasKey = (value: string): string | null => {
+export function normalizeKeywordAliasKey(value: string): string | null {
   const normalized = normalizeKeywordBaseTerm(value)
   return normalized ? normalized.toLowerCase() : null
 }
 
-export const splitKeywordTerms = (keyword: string | null | undefined) =>
-  (keyword ?? '')
+export function splitKeywordTerms(keyword: string | null | undefined) {
+  return (keyword ?? '')
     .split(KEYWORD_SPLIT_PATTERN)
     .map(item => normalizeKeywordBaseTerm(item))
     .filter((item): item is string => Boolean(item))
+}
 
-export const normalizeKeywordAliases = (aliases: string[] | string): string[] => {
+export function normalizeKeywordAliases(aliases: string[] | string): string[] {
   const values = Array.isArray(aliases) ? aliases : aliases.split(KEYWORD_SPLIT_PATTERN)
   const normalized = values
     .map(value => normalizeKeywordBaseTerm(value))
     .filter((value): value is string => Boolean(value))
 
   const deduped = new Map<string, string>()
-  normalized.forEach(value => {
+  normalized.forEach((value) => {
     const key = value.toLowerCase()
-    if (!deduped.has(key)) deduped.set(key, value)
+    if (!deduped.has(key))
+      deduped.set(key, value)
   })
 
   return [...deduped.values()]
 }
 
-export const parseKeywordAliasesJson = (value: string): string[] => {
+export function parseKeywordAliasesJson(value: string): string[] {
   try {
     const parsed = JSON.parse(value) as unknown
     if (Array.isArray(parsed)) {
       return normalizeKeywordAliases(parsed.filter(alias => typeof alias === 'string') as string[])
     }
-  } catch {
+  }
+  catch {
     // Fall back to delimiter-based parsing for legacy/manual values.
   }
 

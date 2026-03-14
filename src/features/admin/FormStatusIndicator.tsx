@@ -1,7 +1,7 @@
-import { IconCheck } from '@tabler/icons-react'
-import { useEffect, useState } from 'react'
-
 import type { FormStatus } from './types'
+import { IconCheck } from '@tabler/icons-react'
+
+import { useEffect, useState } from 'react'
 
 interface FormStatusIndicatorProps {
   status: FormStatus
@@ -11,13 +11,13 @@ interface FormStatusIndicatorProps {
   hideDelay?: number
 }
 
-const FormStatusIndicator = ({
+function FormStatusIndicator({
   status,
   message,
   successLabel = 'Saved',
   errorFallback = 'Unable to save.',
   hideDelay = 2500,
-}: FormStatusIndicatorProps) => {
+}: FormStatusIndicatorProps) {
   const [visibleStatus, setVisibleStatus] = useState<FormStatus>('idle')
 
   useEffect(() => {
@@ -25,21 +25,26 @@ const FormStatusIndicator = ({
     let hideTimer: ReturnType<typeof setTimeout> | null = null
 
     if (status === 'success') {
-      showTimer = setTimeout(() => setVisibleStatus('success'), 0)
-      hideTimer = setTimeout(() => setVisibleStatus('idle'), hideDelay)
-    } else if (status === 'error') {
-      showTimer = setTimeout(() => setVisibleStatus('error'), 0)
-    } else {
-      showTimer = setTimeout(() => setVisibleStatus('idle'), 0)
+      showTimer = setTimeout(setVisibleStatus, 0, 'success')
+      hideTimer = setTimeout(setVisibleStatus, hideDelay, 'idle')
+    }
+    else if (status === 'error') {
+      showTimer = setTimeout(setVisibleStatus, 0, 'error')
+    }
+    else {
+      showTimer = setTimeout(setVisibleStatus, 0, 'idle')
     }
 
     return () => {
-      if (showTimer) clearTimeout(showTimer)
-      if (hideTimer) clearTimeout(hideTimer)
+      if (showTimer)
+        clearTimeout(showTimer)
+      if (hideTimer)
+        clearTimeout(hideTimer)
     }
   }, [status, hideDelay])
 
-  if (visibleStatus === 'idle') return null
+  if (visibleStatus === 'idle')
+    return null
 
   const isError = visibleStatus === 'error'
   const text = isError ? (message ?? errorFallback) : successLabel
@@ -54,10 +59,13 @@ const FormStatusIndicator = ({
 
   return (
     <span
-      className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400"
+      className="
+        inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600
+        dark:text-emerald-400
+      "
       aria-live="polite"
     >
-      <IconCheck className="h-3.5 w-3.5" stroke={1.8} aria-hidden="true" />
+      <IconCheck className="size-3.5" stroke={1.8} aria-hidden="true" />
       {text}
     </span>
   )

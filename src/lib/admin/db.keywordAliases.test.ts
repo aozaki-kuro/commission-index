@@ -26,7 +26,7 @@ describe('admin db keyword alias operations (sqlite integration)', () => {
       .prepare(
         'SELECT base_keyword as baseKeyword, aliases FROM keyword_aliases ORDER BY base_keyword ASC',
       )
-      .all() as Array<{ baseKeyword: string; aliases: string }>
+      .all() as Array<{ baseKeyword: string, aliases: string }>
     rawDb.close()
 
     const kanautRows = storedRows.filter(

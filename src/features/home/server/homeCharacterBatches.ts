@@ -5,29 +5,29 @@ import { parseCommissionFileName } from '#lib/commissions'
 
 export type HomeCharacterBatchStatus = 'active' | 'stale'
 
-type CharacterDisplay = {
+interface CharacterDisplay {
   DisplayName: string
 }
 
-export type HomeCharacterBatchPlanGroup = {
+export interface HomeCharacterBatchPlanGroup {
   initialCharacters: string[]
   batches: string[][]
   totalBatches: number
   targetBatchById: Record<string, number>
 }
 
-export type HomeCharacterBatchPlan = {
+export interface HomeCharacterBatchPlan {
   active: HomeCharacterBatchPlanGroup
   stale: HomeCharacterBatchPlanGroup
 }
 
-export type HomeCharacterBatchManifestGroup = {
+export interface HomeCharacterBatchManifestGroup {
   initialSectionIds: string[]
   totalBatches: number
   targetBatchById: Record<string, number>
 }
 
-export type HomeCharacterBatchManifest = {
+export interface HomeCharacterBatchManifest {
   locale: HomeLocale
   active: HomeCharacterBatchManifestGroup
   stale: HomeCharacterBatchManifestGroup
@@ -38,8 +38,9 @@ const ACTIVE_BATCH_SIZE = 1
 const STALE_FIRST_BATCH_SIZE = 1
 const STALE_BATCH_SIZE = 1
 
-const chunk = (values: string[], batchSize: number) => {
-  if (values.length === 0) return []
+function chunk(values: string[], batchSize: number) {
+  if (values.length === 0)
+    return []
 
   const batches: string[][] = []
   for (let index = 0; index < values.length; index += batchSize) {
@@ -48,24 +49,24 @@ const chunk = (values: string[], batchSize: number) => {
   return batches
 }
 
-const buildTargetBatchById = ({
+function buildTargetBatchById({
   batches,
   commissionMap,
 }: {
   batches: string[][]
   commissionMap: Map<string, CharacterCommissions>
-}) => {
+}) {
   const targetBatchById: Record<string, number> = {}
 
   batches.forEach((characters, batchIndex) => {
-    characters.forEach(characterName => {
+    characters.forEach((characterName) => {
       const sectionId = getCharacterSectionId(characterName)
       const titleId = getCharacterTitleId(characterName)
       targetBatchById[sectionId] = batchIndex
       targetBatchById[titleId] = batchIndex
 
       const commissions = commissionMap.get(characterName)?.Commissions ?? []
-      commissions.forEach(commission => {
+      commissions.forEach((commission) => {
         const { date } = parseCommissionFileName(commission.fileName)
         targetBatchById[`${sectionId}-${date}`] = batchIndex
       })
@@ -75,13 +76,13 @@ const buildTargetBatchById = ({
   return targetBatchById
 }
 
-const buildActiveBatchPlan = ({
+function buildActiveBatchPlan({
   activeChars,
   commissionMap,
 }: {
   activeChars: CharacterDisplay[]
   commissionMap: Map<string, CharacterCommissions>
-}): HomeCharacterBatchPlanGroup => {
+}): HomeCharacterBatchPlanGroup {
   const initialCharacters = activeChars
     .slice(0, ACTIVE_INITIAL_SECTION_COUNT)
     .map(item => item.DisplayName)
@@ -98,18 +99,18 @@ const buildActiveBatchPlan = ({
   }
 }
 
-const buildStaleBatchPlan = ({
+function buildStaleBatchPlan({
   staleChars,
   commissionMap,
 }: {
   staleChars: CharacterDisplay[]
   commissionMap: Map<string, CharacterCommissions>
-}): HomeCharacterBatchPlanGroup => {
+}): HomeCharacterBatchPlanGroup {
   const staleCharacters = staleChars.map(item => item.DisplayName)
   const firstBatch = staleCharacters.slice(0, STALE_FIRST_BATCH_SIZE)
   const remainingCharacters = staleCharacters.slice(STALE_FIRST_BATCH_SIZE)
-  const batches =
-    firstBatch.length > 0 ? [firstBatch, ...chunk(remainingCharacters, STALE_BATCH_SIZE)] : []
+  const batches
+    = firstBatch.length > 0 ? [firstBatch, ...chunk(remainingCharacters, STALE_BATCH_SIZE)] : []
 
   return {
     initialCharacters: [],
@@ -119,7 +120,7 @@ const buildStaleBatchPlan = ({
   }
 }
 
-export const buildHomeCharacterBatchPlan = ({
+export function buildHomeCharacterBatchPlan({
   activeChars,
   staleChars,
   commissionMap,
@@ -127,20 +128,20 @@ export const buildHomeCharacterBatchPlan = ({
   activeChars: CharacterDisplay[]
   staleChars: CharacterDisplay[]
   commissionMap: Map<string, CharacterCommissions>
-}): HomeCharacterBatchPlan => {
+}): HomeCharacterBatchPlan {
   return {
     active: buildActiveBatchPlan({ activeChars, commissionMap }),
     stale: buildStaleBatchPlan({ staleChars, commissionMap }),
   }
 }
 
-export const buildHomeCharacterBatchManifest = ({
+export function buildHomeCharacterBatchManifest({
   locale,
   plan,
 }: {
   locale: HomeLocale
   plan: HomeCharacterBatchPlan
-}): HomeCharacterBatchManifest => {
+}): HomeCharacterBatchManifest {
   return {
     locale,
     active: {
@@ -156,7 +157,7 @@ export const buildHomeCharacterBatchManifest = ({
   }
 }
 
-export const buildHomeCharacterBatchUrl = ({
+export function buildHomeCharacterBatchUrl({
   batchIndex,
   locale,
   status,
@@ -164,4 +165,6 @@ export const buildHomeCharacterBatchUrl = ({
   batchIndex: number
   locale: HomeLocale
   status: HomeCharacterBatchStatus
-}) => `/search/home-character-batches/${locale}/${status}/${batchIndex}.json`
+}) {
+  return `/search/home-character-batches/${locale}/${status}/${batchIndex}.json`
+}

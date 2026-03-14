@@ -7,7 +7,7 @@ import {
 
 const TOGGLE_SELECTOR = '[data-mobile-view-mode-toggle="true"]'
 
-const syncToggleButtonState = (button: HTMLButtonElement, active: boolean) => {
+function syncToggleButtonState(button: HTMLButtonElement, active: boolean) {
   button.setAttribute('aria-pressed', String(active))
   button.classList.toggle('text-gray-700', active)
   button.classList.toggle('dark:text-gray-300', active)
@@ -15,7 +15,8 @@ const syncToggleButtonState = (button: HTMLButtonElement, active: boolean) => {
   button.classList.toggle('dark:text-gray-500', !active)
 
   const indicator = button.querySelector<HTMLElement>('[data-mobile-view-mode-indicator]')
-  if (!indicator) return
+  if (!indicator)
+    return
 
   indicator.classList.toggle('w-full', active)
   indicator.classList.toggle('opacity-100', active)
@@ -23,22 +24,23 @@ const syncToggleButtonState = (button: HTMLButtonElement, active: boolean) => {
   indicator.classList.toggle('opacity-0', !active)
 }
 
-type MountMobileViewModeTabsOptions = {
+interface MountMobileViewModeTabsOptions {
   win?: Window
   doc?: Document
 }
 
-export const mountMobileViewModeTabs = ({
+export function mountMobileViewModeTabs({
   win = window,
   doc = document,
-}: MountMobileViewModeTabsOptions = {}) => {
+}: MountMobileViewModeTabsOptions = {}) {
   const root = doc.querySelector<HTMLElement>('[data-mobile-view-tabs="true"]')
-  if (!root) return () => {}
+  if (!root)
+    return () => {}
 
   const syncByUrl = () => {
     const mode = readCommissionViewMode(win)
     const buttons = root.querySelectorAll<HTMLButtonElement>(TOGGLE_SELECTOR)
-    buttons.forEach(button => {
+    buttons.forEach((button) => {
       const buttonMode = resolveCommissionViewModeFromElement(button)
       syncToggleButtonState(button, buttonMode === mode)
     })
@@ -46,13 +48,16 @@ export const mountMobileViewModeTabs = ({
 
   const onClick = (event: MouseEvent) => {
     const target = event.target
-    if (!(target instanceof Element)) return
+    if (!(target instanceof Element))
+      return
 
     const button = target.closest<HTMLButtonElement>(TOGGLE_SELECTOR)
-    if (!button) return
+    if (!button)
+      return
 
     const nextMode = resolveCommissionViewModeFromElement(button)
-    if (!nextMode) return
+    if (!nextMode)
+      return
 
     const currentMode = readCommissionViewMode(win)
     if (nextMode !== currentMode) {

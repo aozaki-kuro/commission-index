@@ -1,7 +1,8 @@
 import type { AstroIntegration } from 'astro'
 import { spawn } from 'node:child_process'
+import process from 'node:process'
 
-const runAssetsSyncCli = async (reason: string) => {
+async function runAssetsSyncCli(reason: string) {
   await new Promise<void>((resolve, reject) => {
     const child = spawn('bun', ['run', 'server/assetsSyncCli.ts', '--reason', reason], {
       cwd: process.cwd(),
@@ -10,7 +11,7 @@ const runAssetsSyncCli = async (reason: string) => {
     })
 
     child.once('error', reject)
-    child.once('exit', code => {
+    child.once('exit', (code) => {
       if (code === 0) {
         resolve()
         return
@@ -20,7 +21,7 @@ const runAssetsSyncCli = async (reason: string) => {
   })
 }
 
-const runAssetPipelineWithLog = async ({
+async function runAssetPipelineWithLog({
   reason,
   failOnError,
   logPrefix,
@@ -29,15 +30,16 @@ const runAssetPipelineWithLog = async ({
   reason: string
   failOnError: boolean
   logPrefix: string
-  logger: { info: (message: string) => void; error: (message: string) => void }
-}) => {
+  logger: { info: (message: string) => void, error: (message: string) => void }
+}) {
   const startedAt = Date.now()
   logger.info(`[${logPrefix}] start reason=${reason}`)
 
   try {
     await runAssetsSyncCli(reason)
     logger.info(`[${logPrefix}] done in ${Date.now() - startedAt}ms`)
-  } catch (error) {
+  }
+  catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     logger.error(`[${logPrefix}] failed: ${message}`)
     if (failOnError) {
@@ -46,24 +48,26 @@ const runAssetPipelineWithLog = async ({
   }
 }
 
-export const assetsPipelineIntegration = (): AstroIntegration => ({
-  name: 'assets-pipeline',
-  hooks: {
-    'astro:server:setup': async ({ logger }) => {
-      await runAssetPipelineWithLog({
-        reason: 'astro-dev-startup',
-        failOnError: false,
-        logPrefix: 'assets/dev-startup',
-        logger,
-      })
+export function assetsPipelineIntegration(): AstroIntegration {
+  return {
+    name: 'assets-pipeline',
+    hooks: {
+      'astro:server:setup': async ({ logger }) => {
+        await runAssetPipelineWithLog({
+          reason: 'astro-dev-startup',
+          failOnError: false,
+          logPrefix: 'assets/dev-startup',
+          logger,
+        })
+      },
+      'astro:build:start': async ({ logger }) => {
+        await runAssetPipelineWithLog({
+          reason: 'astro-build-start',
+          failOnError: true,
+          logPrefix: 'assets/build-start',
+          logger,
+        })
+      },
     },
-    'astro:build:start': async ({ logger }) => {
-      await runAssetPipelineWithLog({
-        reason: 'astro-build-start',
-        failOnError: true,
-        logPrefix: 'assets/build-start',
-        logger,
-      })
-    },
-  },
-})
+  }
+}

@@ -7,22 +7,45 @@ interface MobileViewModeTabsProps {
 const { byCharacterLabel, byDateLabel } = Astro.props as MobileViewModeTabsProps
 ---
 
-<div data-mobile-view-tabs="true" class="mb-5 lg:hidden">
+<div
+  data-mobile-view-tabs="true"
+  class="
+    mb-5
+    lg:hidden
+  "
+>
   <div class="relative flex items-end gap-0">
-    <span aria-hidden="true" class="absolute right-0 bottom-0 left-0 h-px bg-gray-300/80 dark:bg-gray-700" />
+    <span
+      aria-hidden="true"
+      class="
+        absolute inset-x-0 bottom-0 h-px bg-gray-300/80
+        dark:bg-gray-700
+      "
+    />
 
     <button
       type="button"
       data-mobile-view-mode-toggle="true"
       data-view-mode="character"
       aria-pressed="true"
-      class="relative px-2 pt-1 pb-2 font-mono text-sm leading-5 text-gray-700 no-underline transition-colors outline-none hover:text-gray-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-300 dark:hover:text-gray-300"
+      class="
+        relative px-2 pt-1 pb-2 font-mono text-sm/5 text-gray-700 no-underline
+        transition-colors outline-none
+        hover:text-gray-700
+        focus-visible:outline-2 focus-visible:outline-offset-2
+        focus-visible:outline-gray-500
+        dark:text-gray-300
+        dark:hover:text-gray-300
+      "
     >
       <span>{byCharacterLabel}</span>
       <span
         data-mobile-view-mode-indicator
         aria-hidden="true"
-        class="absolute bottom-0 left-0 h-px w-full rounded-full bg-current opacity-100 transition-[width,opacity] duration-200"
+        class="
+          absolute bottom-0 left-0 h-px w-full rounded-full bg-current
+          opacity-100 transition-[width,opacity] duration-200
+        "
       />
     </button>
 
@@ -31,13 +54,24 @@ const { byCharacterLabel, byDateLabel } = Astro.props as MobileViewModeTabsProps
       data-mobile-view-mode-toggle="true"
       data-view-mode="timeline"
       aria-pressed="false"
-      class="relative px-2 pt-1 pb-2 font-mono text-sm leading-5 text-gray-500 no-underline transition-colors outline-none hover:text-gray-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-500 dark:hover:text-gray-300"
+      class="
+        relative px-2 pt-1 pb-2 font-mono text-sm/5 text-gray-500 no-underline
+        transition-colors outline-none
+        hover:text-gray-700
+        focus-visible:outline-2 focus-visible:outline-offset-2
+        focus-visible:outline-gray-500
+        dark:text-gray-500
+        dark:hover:text-gray-300
+      "
     >
       <span>{byDateLabel}</span>
       <span
         data-mobile-view-mode-indicator
         aria-hidden="true"
-        class="absolute bottom-0 left-0 h-px w-0 rounded-full bg-current opacity-0 transition-[width,opacity] duration-200"
+        class="
+          absolute bottom-0 left-0 h-px w-0 rounded-full bg-current opacity-0
+          transition-[width,opacity] duration-200
+        "
       />
     </button>
   </div>

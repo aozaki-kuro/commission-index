@@ -1,12 +1,17 @@
+import type {
+  CommissionSearchEntrySource,
+  SearchSuggestionAliasGroup,
+} from '#features/home/search/commissionSearchIndex'
+import type { KeyboardEvent, MouseEvent } from 'react'
 import { Button } from '#components/ui/button'
 import { Command, CommandInput } from '#components/ui/command'
 import { Popover, PopoverTrigger } from '#components/ui/popover'
 import { readActiveCharactersLoadedBatchCount } from '#features/home/commission/activeCharactersEvent'
+import { useCommissionViewMode } from '#features/home/commission/CommissionViewMode'
 import {
   getHomeCharacterBatchTotalCount,
   prefetchHomeCharacterBatches,
 } from '#features/home/commission/homeCharacterBatchClient'
-import { useCommissionViewMode } from '#features/home/commission/CommissionViewMode'
 import {
   requestStaleCharactersLoad as dispatchStaleCharactersLoad,
   readStaleCharactersLoadedBatchCount,
@@ -15,38 +20,34 @@ import { resolveHomeControls } from '#features/home/i18n/homeLocale'
 import CommissionSearchHelpPopover from '#features/home/search/CommissionSearchHelpPopover'
 import CommissionSearchSuggestionDropdown from '#features/home/search/CommissionSearchSuggestionDropdown'
 import PopularKeywordsRow from '#features/home/search/PopularKeywordsRow'
-import type {
-  CommissionSearchEntrySource,
-  SearchSuggestionAliasGroup,
-} from '#features/home/search/commissionSearchIndex'
 import {
   dispatchSearchQueryLocationChange,
   useCommissionSearchModel,
 } from '#features/home/search/useCommissionSearchModel'
 import { useSuggestionPanelController } from '#features/home/search/useSuggestionPanelController'
-import { IconCheck, IconHelpCircle, IconSearch, IconShare3, IconX } from '@tabler/icons-react'
-import {
-  type KeyboardEvent,
-  type MouseEvent,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import {
   applySuggestionToQuery,
   normalizeQuery,
   normalizeQuotedTokenBoundary,
 } from '#lib/search/index'
+import { IconCheck, IconHelpCircle, IconSearch, IconShare3, IconX } from '@tabler/icons-react'
+import {
+
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 
 export type {
   CommissionSearchEntrySource,
   SearchSuggestionAliasGroup,
 } from '#features/home/search/commissionSearchIndex'
 
-const shouldUseTapLikeFocus = () => {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
+function shouldUseTapLikeFocus() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined')
+    return false
   const hasTouchPoints = navigator.maxTouchPoints > 0
   const hasCoarsePointer = window.matchMedia?.('(pointer: coarse)').matches ?? false
   return hasTouchPoints || hasCoarsePointer
@@ -55,14 +56,15 @@ const EMPTY_POPULAR_KEYWORDS: string[] = []
 const EMPTY_SUGGESTION_ALIAS_GROUPS: SearchSuggestionAliasGroup[] = []
 type CharacterBatchPrefetchStatus = 'active' | 'stale'
 
-const buildSearchUrl = (rawQuery: string) => {
+function buildSearchUrl(rawQuery: string) {
   const url = new URL(window.location.href)
-  if (normalizeQuery(rawQuery)) url.searchParams.set('q', rawQuery)
+  if (normalizeQuery(rawQuery))
+    url.searchParams.set('q', rawQuery)
   else url.searchParams.delete('q')
   return url.toString()
 }
 
-const clearSearchQueryParamInAddress = () => {
+function clearSearchQueryParamInAddress() {
   const url = new URL(window.location.href)
   url.searchParams.delete('q')
   window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
@@ -86,7 +88,7 @@ interface CommissionSearchProps {
   suggestionAliasGroups?: SearchSuggestionAliasGroup[]
 }
 
-const CommissionSearch = ({
+function CommissionSearch({
   locale,
   disableDomFiltering = false,
   onQueryChange,
@@ -101,7 +103,7 @@ const CommissionSearch = ({
   onRotatePopularKeywords,
   suppressInitialSuggestionPanelAnimation = false,
   suggestionAliasGroups = EMPTY_SUGGESTION_ALIAS_GROUPS,
-}: CommissionSearchProps = {}) => {
+}: CommissionSearchProps = {}) {
   const mode = useCommissionViewMode()
   const controls = resolveHomeControls(locale)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -149,7 +151,8 @@ const CommissionSearch = ({
   })
 
   useEffect(() => {
-    if (didAutoJumpRef.current || !initialUrlQuery) return
+    if (didAutoJumpRef.current || !initialUrlQuery)
+      return
 
     didAutoJumpRef.current = true
     requestAnimationFrame(() => {
@@ -158,17 +161,20 @@ const CommissionSearch = ({
   }, [initialUrlQuery])
 
   useEffect(() => {
-    if (!inputRef.current) return
+    if (!inputRef.current)
+      return
     // cmdk can generate an internal id; keep a stable id for jump/focus helpers.
     inputRef.current.id = 'commission-search-input'
   }, [])
 
   useEffect(() => {
-    if (!autoFocusOnMount) return
+    if (!autoFocusOnMount)
+      return
 
     requestAnimationFrame(() => {
       const input = inputRef.current
-      if (!input) return
+      if (!input)
+        return
 
       input.focus({ preventScroll: true })
       if (shouldUseTapLikeFocus()) {
@@ -180,7 +186,8 @@ const CommissionSearch = ({
   }, [autoFocusOnMount])
 
   useEffect(() => {
-    if (!openHelpOnMount) return
+    if (!openHelpOnMount)
+      return
 
     ignoreNextHelpTriggerClickRef.current = true
 
@@ -200,7 +207,8 @@ const CommissionSearch = ({
 
   useEffect(
     () => () => {
-      if (!copyResetTimerRef.current) return
+      if (!copyResetTimerRef.current)
+        return
       clearTimeout(copyResetTimerRef.current)
     },
     [],
@@ -229,15 +237,19 @@ const CommissionSearch = ({
   }, [])
 
   const copySearchUrl = useCallback(async () => {
-    if (!hasQuery) return
+    if (!hasQuery)
+      return
 
     try {
       await navigator.clipboard.writeText(buildSearchUrl(query))
       setCopyFeedback()
-      if (liveRef.current) liveRef.current.textContent = controls.searchUrlCopied
-    } catch {
+      if (liveRef.current)
+        liveRef.current.textContent = controls.searchUrlCopied
+    }
+    catch {
       setCopyState('idle')
-      if (liveRef.current) liveRef.current.textContent = controls.searchUrlCopyFailed
+      if (liveRef.current)
+        liveRef.current.textContent = controls.searchUrlCopyFailed
     }
   }, [
     controls.searchUrlCopied,
@@ -262,20 +274,24 @@ const CommissionSearch = ({
 
   const prefetchDeferredCharacterBatches = useCallback(
     (status: CharacterBatchPrefetchStatus) => {
-      if (mode !== 'character' || typeof document === 'undefined') return
-      if (prefetchedBatchStatusesRef.current[status]) return
+      if (mode !== 'character' || typeof document === 'undefined')
+        return
+      if (prefetchedBatchStatusesRef.current[status])
+        return
 
       const totalBatchCount = getHomeCharacterBatchTotalCount({ doc: document, status })
-      if (totalBatchCount <= 0) return
+      if (totalBatchCount <= 0)
+        return
 
-      const startBatchIndex =
-        status === 'active'
+      const startBatchIndex
+        = status === 'active'
           ? readActiveCharactersLoadedBatchCount(document)
           : readStaleCharactersLoadedBatchCount(document)
       const targetBatchIndex = totalBatchCount - 1
 
       prefetchedBatchStatusesRef.current[status] = true
-      if (targetBatchIndex < startBatchIndex) return
+      if (targetBatchIndex < startBatchIndex)
+        return
 
       prefetchHomeCharacterBatches({
         doc: document,
@@ -293,12 +309,13 @@ const CommissionSearch = ({
   }, [ensureSearchRuntimeReady, prefetchDeferredCharacterBatches])
 
   useEffect(() => {
-    if (!shouldShowHiddenStaleNotice) return
+    if (!shouldShowHiddenStaleNotice)
+      return
     prefetchDeferredCharacterBatches('stale')
   }, [prefetchDeferredCharacterBatches, shouldShowHiddenStaleNotice])
 
-  const { focusInputAfterSelection, searchRootRef, shouldSuppressInputFocusOpen } =
-    useSuggestionPanelController({
+  const { focusInputAfterSelection, searchRootRef, shouldSuppressInputFocusOpen }
+    = useSuggestionPanelController({
       inputRef,
       shouldShowSuggestionPanel,
       dismissSuggestionPanel,
@@ -324,7 +341,8 @@ const CommissionSearch = ({
 
   const applySuggestion = useCallback(
     (suggestion: string | null) => {
-      if (!suggestion) return
+      if (!suggestion)
+        return
       applySelectedQuery(applySuggestionToQuery(query, suggestion))
     },
     [applySelectedQuery, query],
@@ -332,10 +350,12 @@ const CommissionSearch = ({
 
   const applyPopularKeyword = useCallback(
     (keyword: string) => {
-      if (!keyword) return
+      if (!keyword)
+        return
 
       const nextQuery = applySuggestionToQuery('', keyword)
-      if (!nextQuery.trim()) return
+      if (!nextQuery.trim())
+        return
 
       ensureSearchRuntimeReady()
       applySelectedQuery(nextQuery, { preventScroll: true })
@@ -348,7 +368,8 @@ const CommissionSearch = ({
   }, [ensureIndexReady])
 
   const handleHelpTriggerClick = useCallback((event: MouseEvent<HTMLButtonElement>) => {
-    if (!ignoreNextHelpTriggerClickRef.current) return
+    if (!ignoreNextHelpTriggerClickRef.current)
+      return
 
     // Ignore the residual click that opened deferred search + help in one gesture.
     ignoreNextHelpTriggerClickRef.current = false
@@ -358,7 +379,8 @@ const CommissionSearch = ({
 
   const handleInputKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
-      if (event.key !== 'Escape' || !shouldShowSuggestionPanel) return
+      if (event.key !== 'Escape' || !shouldShowSuggestionPanel)
+        return
 
       dismissSuggestionPanel()
       event.preventDefault()
@@ -371,22 +393,37 @@ const CommissionSearch = ({
     <section
       ref={searchRootRef}
       id="commission-search"
-      className="mt-4 mb-8 md:mt-4 md:mb-10 lg:mt-6 lg:mb-12"
+      className="
+        mt-4 mb-8
+        md:mt-4 md:mb-10
+        lg:mt-6 lg:mb-12
+      "
     >
       <div className="flex h-12 items-center justify-end">
-        <div className="relative h-11 w-full overflow-visible border-b border-gray-300/80 bg-transparent text-gray-700 dark:border-gray-700 dark:text-gray-300">
+        <div className="
+          relative h-11 w-full overflow-visible border-b border-gray-300/80
+          bg-transparent text-gray-700
+          dark:border-gray-700 dark:text-gray-300
+        "
+        >
           <IconSearch
-            className="absolute top-1/2 left-2.5 h-3.5 w-3.5 shrink-0 -translate-y-1/2 opacity-70"
+            className="
+              absolute top-1/2 left-2.5 size-3.5 shrink-0 -translate-y-1/2
+              opacity-70
+            "
             stroke={2}
             aria-hidden="true"
           />
 
-          <div className="absolute inset-y-0 right-2 left-8 flex items-center gap-2">
+          <div className="
+            absolute inset-y-0 right-2 left-8 flex items-center gap-2
+          "
+          >
             <Command
               shouldFilter={false}
               value={resolvedActiveCommandValue}
               onValueChange={setActiveCommandValue}
-              className="relative h-full w-full overflow-visible bg-transparent"
+              className="relative size-full overflow-visible bg-transparent"
             >
               <label htmlFor="commission-search-input" className="sr-only">
                 {controls.searchCommissions}
@@ -399,11 +436,12 @@ const CommissionSearch = ({
                 onPointerDown={prepareSearchInteraction}
                 onFocus={() => {
                   prepareSearchInteraction()
-                  if (shouldSuppressInputFocusOpen()) return
+                  if (shouldSuppressInputFocusOpen())
+                    return
                   showSuggestionPanel()
                 }}
                 onKeyDown={handleInputKeyDown}
-                onValueChange={value => {
+                onValueChange={(value) => {
                   ensureSearchRuntimeReady()
                   setInputQuery(normalizeQuotedTokenBoundary(value))
                   showSuggestionPanel()
@@ -412,7 +450,13 @@ const CommissionSearch = ({
                 placeholder={controls.searchPlaceholder}
                 autoComplete="off"
                 aria-label={controls.searchCommissions}
-                className="peer m-0 flex h-10 w-full origin-[left_center] transform-[scale(0.8)] appearance-none rounded-md bg-transparent p-0 pr-24 font-mono text-[16px] leading-5 tracking-[0.01em] outline-none placeholder:text-gray-400"
+                className="
+                  peer m-0 flex h-10 w-full origin-[left_center]
+                  transform-[scale(0.8)] appearance-none rounded-md
+                  bg-transparent p-0 pr-24 font-mono text-[16px]/5
+                  tracking-[0.01em] outline-none
+                  placeholder:text-gray-400
+                "
               />
 
               <CommissionSearchSuggestionDropdown
@@ -440,12 +484,23 @@ const CommissionSearch = ({
                   onClick={handleHelpTriggerClick}
                   variant="ghost"
                   size="icon"
-                  className={`absolute inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[right,color] duration-200 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
-                    hasQuery ? 'right-16' : 'right-0'
-                  }`}
+                  className={`
+                    absolute inline-flex size-7 items-center justify-center
+                    rounded-full text-gray-500 transition-[right,color]
+                    duration-200
+                    hover:text-gray-900
+                    focus-visible:outline-2 focus-visible:outline-offset-2
+                    focus-visible:outline-gray-500
+                    dark:text-gray-400
+                    dark:hover:text-gray-100
+                    dark:focus-visible:outline-gray-300
+                    ${
+    hasQuery ? 'right-16' : 'right-0'
+    }
+                  `}
                   aria-label={controls.searchHelp}
                 >
-                  <IconHelpCircle className="h-5 w-5" stroke={2} aria-hidden="true" />
+                  <IconHelpCircle className="size-5" stroke={2} aria-hidden="true" />
                 </Button>
               </PopoverTrigger>
 
@@ -457,20 +512,38 @@ const CommissionSearch = ({
               onClick={copySearchUrl}
               variant="ghost"
               size="icon"
-              className={`absolute right-8 inline-flex h-7 w-7 items-center justify-center rounded-full transition-[opacity,color] duration-150 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:focus-visible:outline-gray-300 ${
-                copyState === 'success'
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100'
-              } ${hasQuery ? '' : 'pointer-events-none opacity-0'}`}
+              className={`
+                absolute right-8 inline-flex size-7 items-center justify-center
+                rounded-full transition-[opacity,color] duration-150
+                focus-visible:outline-2 focus-visible:outline-offset-2
+                focus-visible:outline-gray-500
+                dark:focus-visible:outline-gray-300
+                ${
+    copyState === 'success'
+      ? `
+        text-emerald-600
+        dark:text-emerald-400
+      `
+      : `
+        text-gray-500
+        hover:text-gray-900
+        dark:text-gray-400
+        dark:hover:text-gray-100
+      `
+    }
+                ${hasQuery ? '' : 'pointer-events-none opacity-0'}
+              `}
               aria-label={
                 copyState === 'success' ? controls.searchUrlCopied : controls.copySearchUrl
               }
             >
-              {copyState === 'success' ? (
-                <IconCheck className="h-4.5 w-4.5" stroke={2.2} aria-hidden="true" />
-              ) : (
-                <IconShare3 className="h-4.5 w-4.5" stroke={2} aria-hidden="true" />
-              )}
+              {copyState === 'success'
+                ? (
+                    <IconCheck className="h-4.5 w-4.5" stroke={2.2} aria-hidden="true" />
+                  )
+                : (
+                    <IconShare3 className="h-4.5 w-4.5" stroke={2} aria-hidden="true" />
+                  )}
             </Button>
 
             <Button
@@ -478,12 +551,22 @@ const CommissionSearch = ({
               onClick={clearSearch}
               variant="ghost"
               size="icon"
-              className={`absolute right-0 inline-flex h-7 w-7 items-center justify-center rounded-full text-gray-500 transition-[opacity,color] hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:text-gray-400 dark:hover:text-gray-100 dark:focus-visible:outline-gray-300 ${
-                hasQuery ? '' : 'pointer-events-none opacity-0'
-              }`}
+              className={`
+                absolute right-0 inline-flex size-7 items-center justify-center
+                rounded-full text-gray-500 transition-[opacity,color]
+                hover:text-gray-900
+                focus-visible:outline-2 focus-visible:outline-offset-2
+                focus-visible:outline-gray-500
+                dark:text-gray-400
+                dark:hover:text-gray-100
+                dark:focus-visible:outline-gray-300
+                ${
+    hasQuery ? '' : 'pointer-events-none opacity-0'
+    }
+              `}
               aria-label={controls.clearSearch}
             >
-              <IconX className="h-5 w-5" stroke={2.2} aria-hidden="true" />
+              <IconX className="size-5" stroke={2.2} aria-hidden="true" />
             </Button>
           </div>
         </div>

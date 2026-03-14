@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import type { AdminBootstrapData } from '#lib/admin/db'
 import { refreshAssetsAction } from '#admin/actions'
 import CommissionManager from '#admin/CommissionManager'
 import { useAdminBootstrap } from '#admin/hooks/useAdminBootstrap'
-import type { AdminBootstrapData } from '#lib/admin/db'
+import { useEffect, useState } from 'react'
 
 interface AdminEditIslandProps {
   initialPayload?: AdminBootstrapData | null
@@ -12,27 +12,30 @@ const scrollStorageKey = 'admin-dashboard-scroll'
 const scrollExpiryMs = 10 * 60 * 1000
 const scrollPersistThrottleMs = 200
 
-type StoredScrollState = {
+interface StoredScrollState {
   top: number
   timestamp: number
 }
 
 const getCurrentScrollTop = () => Math.max(window.scrollY, window.pageYOffset, 0)
 
-const isReloadNavigation = () => {
-  if (typeof window === 'undefined' || typeof performance === 'undefined') return false
+function isReloadNavigation() {
+  if (typeof window === 'undefined' || typeof performance === 'undefined')
+    return false
   const navigationEntry = performance.getEntriesByType('navigation')[0]
   return navigationEntry instanceof PerformanceNavigationTiming
     ? navigationEntry.type === 'reload'
     : false
 }
 
-const readStoredScrollTop = (): number | null => {
-  if (typeof window === 'undefined' || !isReloadNavigation()) return null
+function readStoredScrollTop(): number | null {
+  if (typeof window === 'undefined' || !isReloadNavigation())
+    return null
 
   try {
     const raw = window.sessionStorage.getItem(scrollStorageKey)
-    if (!raw) return null
+    if (!raw)
+      return null
 
     const parsed = JSON.parse(raw) as Partial<StoredScrollState>
     const timestamp = Number(parsed.timestamp)
@@ -47,13 +50,15 @@ const readStoredScrollTop = (): number | null => {
     }
 
     return Math.max(0, top)
-  } catch {
+  }
+  catch {
     return null
   }
 }
 
-const writeStoredScrollTop = () => {
-  if (typeof window === 'undefined') return
+function writeStoredScrollTop() {
+  if (typeof window === 'undefined')
+    return
 
   const state: StoredScrollState = {
     top: getCurrentScrollTop(),
@@ -63,7 +68,7 @@ const writeStoredScrollTop = () => {
   window.sessionStorage.setItem(scrollStorageKey, JSON.stringify(state))
 }
 
-const AdminEditIsland = ({ initialPayload = null }: AdminEditIslandProps) => {
+function AdminEditIsland({ initialPayload = null }: AdminEditIslandProps) {
   const { payload, errorMessage, isLoading, reload } = useAdminBootstrap<AdminBootstrapData>({
     initialPayload,
     errorFallback: 'Failed to load admin data.',
@@ -75,13 +80,15 @@ const AdminEditIsland = ({ initialPayload = null }: AdminEditIslandProps) => {
   const [hasRestoredScroll, setHasRestoredScroll] = useState(false)
 
   useEffect(() => {
-    if (!refreshMessage) return
-    const timer = window.setTimeout(() => setRefreshMessage(null), 2400)
+    if (!refreshMessage)
+      return
+    const timer = window.setTimeout(setRefreshMessage, 2400, null)
     return () => window.clearTimeout(timer)
   }, [refreshMessage])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined')
+      return
 
     let timeoutId: number | null = null
 
@@ -94,7 +101,8 @@ const AdminEditIsland = ({ initialPayload = null }: AdminEditIslandProps) => {
     }
 
     const schedulePersist = () => {
-      if (timeoutId !== null) return
+      if (timeoutId !== null)
+        return
       timeoutId = window.setTimeout(() => {
         timeoutId = null
         writeStoredScrollTop()
@@ -117,8 +125,10 @@ const AdminEditIsland = ({ initialPayload = null }: AdminEditIslandProps) => {
   }, [])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (pendingScrollTop === null || hasRestoredScroll || !payload) return
+    if (typeof window === 'undefined')
+      return
+    if (pendingScrollTop === null || hasRestoredScroll || !payload)
+      return
 
     let frameId: number | null = null
     let attempts = 0
@@ -160,7 +170,10 @@ const AdminEditIsland = ({ initialPayload = null }: AdminEditIslandProps) => {
       <div>
         <p className="text-sm text-red-300">{errorMessage}</p>
         <button
-          className="mt-3 inline-flex rounded-md border border-zinc-500 px-3 py-1 text-sm hover:border-zinc-300"
+          className="
+            mt-3 inline-flex rounded-md border border-zinc-500 px-3 py-1 text-sm
+            hover:border-zinc-300
+          "
           onClick={reload}
           type="button"
         >
@@ -179,7 +192,10 @@ const AdminEditIsland = ({ initialPayload = null }: AdminEditIslandProps) => {
       <div>
         <p className="text-sm text-red-300">Admin data is unavailable.</p>
         <button
-          className="mt-3 inline-flex rounded-md border border-zinc-500 px-3 py-1 text-sm hover:border-zinc-300"
+          className="
+            mt-3 inline-flex rounded-md border border-zinc-500 px-3 py-1 text-sm
+            hover:border-zinc-300
+          "
           onClick={reload}
           type="button"
         >
@@ -190,7 +206,8 @@ const AdminEditIsland = ({ initialPayload = null }: AdminEditIslandProps) => {
   }
 
   const handleRefreshAssets = async () => {
-    if (isRefreshingAssets) return
+    if (isRefreshingAssets)
+      return
     setIsRefreshingAssets(true)
     setRefreshMessage(null)
 
@@ -213,16 +230,29 @@ const AdminEditIsland = ({ initialPayload = null }: AdminEditIslandProps) => {
       </section>
 
       <div className="fixed right-4 bottom-4 z-50 flex flex-col items-end gap-2">
-        {refreshMessage ? (
-          <p className="rounded-md bg-gray-950/90 px-3 py-1.5 text-xs text-gray-100 shadow-md">
-            {refreshMessage}
-          </p>
-        ) : null}
+        {refreshMessage
+          ? (
+              <p className="
+                rounded-md bg-gray-950/90 px-3 py-1.5 text-xs text-gray-100
+                shadow-md
+              "
+              >
+                {refreshMessage}
+              </p>
+            )
+          : null}
         <button
           type="button"
           onClick={handleRefreshAssets}
           disabled={isRefreshingAssets}
-          className="inline-flex h-11 items-center rounded-full border border-gray-300 bg-white px-4 text-sm font-medium text-gray-800 shadow-lg transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100 dark:hover:border-gray-500 dark:hover:bg-gray-800"
+          className="
+            inline-flex h-11 items-center rounded-full border border-gray-300
+            bg-white px-4 text-sm font-medium text-gray-800 shadow-lg transition
+            hover:border-gray-400 hover:bg-gray-50
+            disabled:cursor-not-allowed disabled:opacity-70
+            dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100
+            dark:hover:border-gray-500 dark:hover:bg-gray-800
+          "
         >
           {isRefreshingAssets ? 'Refreshing…' : 'Refresh Assets Cache'}
         </button>

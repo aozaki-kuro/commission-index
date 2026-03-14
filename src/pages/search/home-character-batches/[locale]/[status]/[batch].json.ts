@@ -1,18 +1,19 @@
+import type { HomeCharacterBatchStatus } from '#features/home/server/homeCharacterBatches'
 import type { APIRoute } from 'astro'
 import { getCharacterAliases } from '#data/characterAliases'
 import { getKeywordAliases } from '#data/keywordAliases'
+import { HOME_LOCALES, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
+import {
+  buildHomeCharacterBatchPlan,
+
+} from '#features/home/server/homeCharacterBatches'
+import { buildHomeCharacterBatchPayload } from '#features/home/server/homeCharacterBatchPayload'
 import { normalizeCharacterAliasKey } from '#lib/characterAliases/shared'
 import { buildSitePayload } from '#lib/home/buildSitePayload'
 import { normalizeKeywordAliasKey } from '#lib/keywordAliases/shared'
 import { buildCommissionDataMap, buildCreatorAliasesMap } from '#lib/sitePayload'
-import { HOME_LOCALES, normalizeHomeLocale } from '#features/home/i18n/homeLocale'
-import {
-  buildHomeCharacterBatchPlan,
-  type HomeCharacterBatchStatus,
-} from '#features/home/server/homeCharacterBatches'
-import { buildHomeCharacterBatchPayload } from '#features/home/server/homeCharacterBatchPayload'
 
-const getBatchPlan = () => {
+function getBatchPlan() {
   const payload = buildSitePayload()
   const commissionMap = buildCommissionDataMap(payload.commissionData)
   const characterAliases = getCharacterAliases()
@@ -20,18 +21,20 @@ const getBatchPlan = () => {
 
   const characterAliasesMap = new Map(
     characterAliases
-      .map(row => {
+      .map((row) => {
         const key = normalizeCharacterAliasKey(row.characterName)
-        if (!key) return null
+        if (!key)
+          return null
         return [key, row.aliases] as const
       })
       .filter((entry): entry is readonly [string, string[]] => Boolean(entry)),
   )
   const keywordAliasesMap = new Map(
     keywordAliases
-      .map(row => {
+      .map((row) => {
         const key = normalizeKeywordAliasKey(row.baseKeyword)
-        if (!key) return null
+        if (!key)
+          return null
         return [key, row.aliases] as const
       })
       .filter((entry): entry is readonly [string, string[]] => Boolean(entry)),
@@ -50,10 +53,10 @@ const getBatchPlan = () => {
   }
 }
 
-export const getStaticPaths = () => {
+export function getStaticPaths() {
   const { plan } = getBatchPlan()
   const paths: Array<{
-    params: { batch: string; locale: string; status: HomeCharacterBatchStatus }
+    params: { batch: string, locale: string, status: HomeCharacterBatchStatus }
   }> = []
 
   for (const locale of HOME_LOCALES) {
@@ -81,8 +84,8 @@ export const GET: APIRoute = async ({ params }) => {
     return new Response(null, { status: 404 })
   }
 
-  const { characterAliasesMap, commissionMap, creatorAliasesMap, keywordAliasesMap, plan } =
-    getBatchPlan()
+  const { characterAliasesMap, commissionMap, creatorAliasesMap, keywordAliasesMap, plan }
+    = getBatchPlan()
   const characters = plan[status].batches[batchIndex]
   if (!characters) {
     return new Response(null, { status: 404 })

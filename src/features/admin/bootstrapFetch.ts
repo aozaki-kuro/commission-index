@@ -2,7 +2,7 @@ const DEFAULT_ATTEMPTS = 4
 const DEFAULT_BASE_DELAY_MS = 250
 const DEFAULT_REQUEST_TIMEOUT_MS = 8000
 
-type FetchBootstrapOptions = {
+interface FetchBootstrapOptions {
   attempts?: number
   baseDelayMs?: number
   requestTimeoutMs?: number
@@ -10,25 +10,30 @@ type FetchBootstrapOptions = {
   endpoint?: string
 }
 
-const sleep = (ms: number, signal?: AbortSignal) =>
-  new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      signal?.removeEventListener('abort', onAbort)
-      resolve()
-    }, ms)
+function sleep(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    let timeout: ReturnType<typeof setTimeout> | null = null
 
     const onAbort = () => {
-      clearTimeout(timeout)
+      if (timeout !== null) {
+        clearTimeout(timeout)
+      }
       signal?.removeEventListener('abort', onAbort)
       reject(new DOMException('Aborted', 'AbortError'))
     }
+
+    timeout = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
 
     if (signal) {
       signal.addEventListener('abort', onAbort, { once: true })
     }
   })
+}
 
-const createAbortController = (signal?: AbortSignal) => {
+function createAbortController(signal?: AbortSignal) {
   const controller = new AbortController()
 
   if (!signal) {
@@ -60,9 +65,7 @@ const createAbortController = (signal?: AbortSignal) => {
   }
 }
 
-export const fetchAdminBootstrapWithRetry = async <TPayload>(
-  options: FetchBootstrapOptions = {},
-): Promise<TPayload> => {
+export async function fetchAdminBootstrapWithRetry<TPayload>(options: FetchBootstrapOptions = {}): Promise<TPayload> {
   const attempts = Math.max(1, options.attempts ?? DEFAULT_ATTEMPTS)
   const baseDelayMs = Math.max(0, options.baseDelayMs ?? DEFAULT_BASE_DELAY_MS)
   const requestTimeoutMs = Math.max(1000, options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS)
@@ -88,7 +91,8 @@ export const fetchAdminBootstrapWithRetry = async <TPayload>(
         throw new Error(`Failed to load admin data: ${response.status}`)
       }
       return (await response.json()) as TPayload
-    } catch (error) {
+    }
+    catch (error) {
       if (signal?.aborted) {
         throw error
       }
@@ -98,7 +102,8 @@ export const fetchAdminBootstrapWithRetry = async <TPayload>(
       if (attempt < attempts) {
         await sleep(baseDelayMs * attempt, signal)
       }
-    } finally {
+    }
+    finally {
       clearTimeout(timeoutId)
       cleanup()
     }

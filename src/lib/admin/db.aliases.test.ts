@@ -27,7 +27,7 @@ describe('admin db creator alias operations (sqlite integration)', () => {
       .prepare(
         'SELECT creator_name as creatorName, aliases FROM creator_aliases WHERE creator_name IN (?, ?) ORDER BY creator_name',
       )
-      .all('Q', '統合テスト名') as Array<{ creatorName: string; aliases: string }>
+      .all('Q', '統合テスト名') as Array<{ creatorName: string, aliases: string }>
     rawDb.close()
 
     expect(storedRows.map(row => row.creatorName)).toEqual(

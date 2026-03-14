@@ -1,8 +1,9 @@
+import type { CommissionSearchEntrySource } from './commissionSearchIndex'
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { buildSearchIndex, type CommissionSearchEntrySource } from './commissionSearchIndex'
+import { buildSearchIndex } from './commissionSearchIndex'
 
-const buildEntry = ({
+function buildEntry({
   id,
   domKey,
   searchSuggest,
@@ -10,12 +11,14 @@ const buildEntry = ({
   id: number
   domKey: string
   searchSuggest: string
-}): CommissionSearchEntrySource => ({
-  id,
-  domKey,
-  searchText: `entry-${id}`,
-  searchSuggest,
-})
+}): CommissionSearchEntrySource {
+  return {
+    id,
+    domKey,
+    searchText: `entry-${id}`,
+    searchSuggest,
+  }
+}
 
 describe('commissionSearchIndex', () => {
   it('reuses parsed suggestion rows for repeated searchSuggest values', () => {

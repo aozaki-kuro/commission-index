@@ -1,18 +1,22 @@
+import type { HomeUpdateSummary } from '../home/updateSummary'
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
 
+import process from 'node:process'
 import { getCommissionData } from '../../../data/commissionData'
 import { getCharacterStatus } from '../../../data/commissionStatus'
-import { buildHomeUpdateSummary, type HomeUpdateSummary } from '../home/updateSummary'
+import { buildHomeUpdateSummary } from '../home/updateSummary'
 import { createAstroStyleLogger } from './astroLogger'
 import { writeFileIfChanged } from './writeFileIfChanged'
 
 const outputPath = path.join(process.cwd(), 'src', 'lib', 'generated', 'homeUpdateSummary.ts')
 const logger = createAstroStyleLogger('assets')
+const BACKSLASH_PATTERN = /\\/g
+const SINGLE_QUOTE_PATTERN = /'/g
 
-const quote = (value: string) => `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
+const quote = (value: string) => `'${value.replace(BACKSLASH_PATTERN, '\\\\').replace(SINGLE_QUOTE_PATTERN, '\\\'')}'`
 
-const buildModuleSource = (summary: HomeUpdateSummary) => {
+function buildModuleSource(summary: HomeUpdateSummary) {
   const entryLines = summary.entries.map(
     entry => `    {
       key: ${quote(entry.key)},
@@ -33,7 +37,7 @@ ${entryLines.join('\n')}
 `
 }
 
-export const generateHomeUpdateSummaryModule = async () => {
+export async function generateHomeUpdateSummaryModule() {
   const commissionData = getCommissionData()
   const characterStatus = getCharacterStatus()
   const activeCharacters = characterStatus.active.map(item => item.DisplayName)
@@ -45,7 +49,8 @@ export const generateHomeUpdateSummaryModule = async () => {
 
   if (result === 'unchanged') {
     logger.info(`home update summary unchanged -> ${relativeOutputPath}`)
-  } else {
+  }
+  else {
     logger.success(`generated home update summary -> ${relativeOutputPath}`)
   }
 }

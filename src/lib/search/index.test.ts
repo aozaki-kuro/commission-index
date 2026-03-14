@@ -1,6 +1,7 @@
-import Fuse from 'fuse.js'
+import type { SearchEntryLike, SearchIndexLike, SuggestionEntryLike } from './index'
 import { getCommissionData } from '#data/commissionData'
 import { flattenCommissions, parseCommissionFileName } from '#lib/commissions/index'
+import Fuse from 'fuse.js'
 import { describe, expect, it, vi } from 'vitest'
 import {
   applySuggestionToQuery,
@@ -13,30 +14,30 @@ import {
   getSuggestionTokenOperator,
   parseSuggestionRows,
   resolveSuggestionContextMatchedIds,
-  type SearchEntryLike,
-  type SearchIndexLike,
-  type SuggestionEntryLike,
+
 } from './index'
 
 type Entry = SearchEntryLike
 
-const buildIndex = (entries: Entry[]): SearchIndexLike<Entry> => ({
-  entries,
-  allIds: new Set(entries.map(entry => entry.id)),
-  strictTermIndex: buildStrictTermIndex(entries),
-  fuse: new Fuse(entries, {
-    keys: ['searchText'],
-    threshold: 0.33,
-    ignoreLocation: true,
-    includeScore: false,
-    minMatchCharLength: 1,
-    useExtendedSearch: true,
-  }),
-})
+function buildIndex(entries: Entry[]): SearchIndexLike<Entry> {
+  return {
+    entries,
+    allIds: new Set(entries.map(entry => entry.id)),
+    strictTermIndex: buildStrictTermIndex(entries),
+    fuse: new Fuse(entries, {
+      keys: ['searchText'],
+      threshold: 0.33,
+      ignoreLocation: true,
+      includeScore: false,
+      minMatchCharLength: 1,
+      useExtendedSearch: true,
+    }),
+  }
+}
 
 const normalizeTerm = (term: string) => term.trim().toLowerCase()
 
-const buildRealFixtures = () => {
+function buildRealFixtures() {
   const suggestionEntries: SuggestionEntryLike[] = []
   const creatorToIds = new Map<string, number[]>()
   const searchEntries: Entry[] = []
@@ -63,7 +64,7 @@ const buildRealFixtures = () => {
 
     const rows = new Map<
       string,
-      { source: 'Character' | 'Creator' | 'Keyword' | 'Date'; term: string }
+      { source: 'Character' | 'Creator' | 'Keyword' | 'Date', term: string }
     >()
     const candidates = [
       { source: 'Character' as const, term: commission.character },
@@ -78,7 +79,8 @@ const buildRealFixtures = () => {
 
     for (const candidate of candidates) {
       const normalized = normalizeTerm(candidate.term)
-      if (!normalized || rows.has(normalized)) continue
+      if (!normalized || rows.has(normalized))
+        continue
       rows.set(normalized, candidate)
     }
 

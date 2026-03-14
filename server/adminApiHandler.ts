@@ -1,5 +1,14 @@
+import type { CharacterStatus } from '../src/lib/admin/db'
 import { readFile } from 'node:fs/promises'
+import process from 'node:process'
 import {
+  removeSourceImageFile,
+  replaceUploadedSourceImage,
+  resolveSourceImagePathByStem,
+  saveUploadedSourceImage,
+} from '../src/features/admin/imageUpload'
+import {
+
   createCharacter,
   createCommission,
   deleteCharacter,
@@ -15,38 +24,45 @@ import {
   updateCharacter,
   updateCharactersOrder,
   updateCommission,
-  type CharacterStatus,
 } from '../src/lib/admin/db'
-import {
-  removeSourceImageFile,
-  resolveSourceImagePathByStem,
-  replaceUploadedSourceImage,
-  saveUploadedSourceImage,
-} from '../src/features/admin/imageUpload'
-import { createAstroStyleLogger } from '../src/lib/pipeline/astroLogger'
 import { runFullAssetPipeline } from '../src/lib/pipeline/assets'
+import { createAstroStyleLogger } from '../src/lib/pipeline/astroLogger'
 
-type ApiState = {
+interface ApiState {
   status: 'success' | 'error'
   message: string
 }
 
 const isDevelopment = process.env.NODE_ENV === 'development'
 const logger = createAstroStyleLogger('assets-sync')
+const GET_CHARACTER_COMMISSIONS_PATH_PATTERN = /^\/api\/admin\/characters\/\d+\/commissions$/
+const GET_CHARACTER_COMMISSIONS_ID_PATTERN = /^\/api\/admin\/characters\/(\d+)\/commissions$/
+const PATCH_CHARACTER_PATH_PATTERN = /^\/api\/admin\/characters\/\d+$/
+const PATCH_CHARACTER_ID_PATTERN = /^\/api\/admin\/characters\/(\d+)$/
+const DELETE_CHARACTER_PATH_PATTERN = /^\/api\/admin\/characters\/\d+$/
+const DELETE_CHARACTER_ID_PATTERN = /^\/api\/admin\/characters\/(\d+)$/
+const PATCH_COMMISSION_PATH_PATTERN = /^\/api\/admin\/commissions\/\d+$/
+const PATCH_COMMISSION_ID_PATTERN = /^\/api\/admin\/commissions\/(\d+)$/
+const DELETE_COMMISSION_PATH_PATTERN = /^\/api\/admin\/commissions\/\d+$/
+const DELETE_COMMISSION_ID_PATTERN = /^\/api\/admin\/commissions\/(\d+)$/
+const POST_COMMISSION_SOURCE_IMAGE_PATH_PATTERN = /^\/api\/admin\/commissions\/\d+\/source-image$/
+const POST_COMMISSION_SOURCE_IMAGE_ID_PATTERN = /^\/api\/admin\/commissions\/(\d+)\/source-image$/
 
-const json = (payload: unknown, status = 200) =>
-  new Response(JSON.stringify(payload), {
+function json(payload: unknown, status = 200) {
+  return new Response(JSON.stringify(payload), {
     status,
     headers: { 'Content-Type': 'application/json; charset=utf-8' },
   })
+}
 
 const notFound = () => new Response('Not Found', { status: 404 })
 
 const success = (message: string) => json({ status: 'success', message } satisfies ApiState)
-const failure = (message: string, status = 400) =>
-  json({ status: 'error', message } satisfies ApiState, status)
+function failure(message: string, status = 400) {
+  return json({ status: 'error', message } satisfies ApiState, status)
+}
 
-type CommissionFields = {
+interface CommissionFields {
   characterId: number
   fileName: string
   links: string[]
@@ -56,15 +72,16 @@ type CommissionFields = {
   hidden: boolean
 }
 
-const parseLinks = (rawValue: string) =>
-  rawValue
+function parseLinks(rawValue: string) {
+  return rawValue
     .split('\n')
     .map(link => link.trim())
     .filter(Boolean)
+}
 
 const parseOptionalField = (rawValue: string) => rawValue.trim() || undefined
 
-const parseCommissionFields = ({
+function parseCommissionFields({
   characterId,
   fileName,
   links,
@@ -80,17 +97,19 @@ const parseCommissionFields = ({
   description: string
   keyword: string
   hidden: boolean
-}): CommissionFields => ({
-  characterId,
-  fileName: fileName.trim(),
-  links: parseLinks(links),
-  design: parseOptionalField(design),
-  description: parseOptionalField(description),
-  keyword: parseOptionalField(keyword),
-  hidden,
-})
+}): CommissionFields {
+  return {
+    characterId,
+    fileName: fileName.trim(),
+    links: parseLinks(links),
+    design: parseOptionalField(design),
+    description: parseOptionalField(description),
+    keyword: parseOptionalField(keyword),
+    hidden,
+  }
+}
 
-const parseCommissionFieldsFromForm = (formData: FormData) => {
+function parseCommissionFieldsFromForm(formData: FormData) {
   return parseCommissionFields({
     characterId: Number(formData.get('characterId')),
     fileName: formData.get('fileName')?.toString() ?? '',
@@ -102,7 +121,7 @@ const parseCommissionFieldsFromForm = (formData: FormData) => {
   })
 }
 
-const parseCommissionFieldsFromJson = (payload: Record<string, unknown>) => {
+function parseCommissionFieldsFromJson(payload: Record<string, unknown>) {
   return parseCommissionFields({
     characterId: Number(payload.characterId),
     fileName: String(payload.fileName ?? ''),
@@ -114,9 +133,7 @@ const parseCommissionFieldsFromJson = (payload: Record<string, unknown>) => {
   })
 }
 
-const validateCommissionFields = (
-  fields: Pick<CommissionFields, 'characterId' | 'fileName'>,
-): string | null => {
+function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' | 'fileName'>): string | null {
   if (!Number.isFinite(fields.characterId) || fields.characterId <= 0) {
     return 'Character selection is required.'
   }
@@ -128,14 +145,16 @@ const validateCommissionFields = (
   return null
 }
 
-const getUploadedSourceImage = (formData: FormData): File | null => {
+function getUploadedSourceImage(formData: FormData): File | null {
   const entry = formData.get('sourceImage')
-  if (!(entry instanceof File)) return null
-  if (!entry.name.trim() || entry.size <= 0) return null
+  if (!(entry instanceof File))
+    return null
+  if (!entry.name.trim() || entry.size <= 0)
+    return null
   return entry
 }
 
-const createAssetsSyncQueue = () => {
+function createAssetsSyncQueue() {
   let requestedVersion = 0
   let completedVersion = 0
   let latestReason = 'unknown'
@@ -150,7 +169,8 @@ const createAssetsSyncQueue = () => {
 
       try {
         await runFullAssetPipeline(`admin-write:${reason}`)
-      } catch (error) {
+      }
+      catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         logger.error(`failed version=${targetVersion} reason=${reason}: ${message}`)
         throw error
@@ -164,7 +184,8 @@ const createAssetsSyncQueue = () => {
   }
 
   const ensureRunning = () => {
-    if (runningPromise) return
+    if (runningPromise)
+      return
     runningPromise = runLoop().finally(() => {
       runningPromise = null
     })
@@ -176,8 +197,12 @@ const createAssetsSyncQueue = () => {
     const waitForVersion = requestedVersion
     ensureRunning()
 
-    while (completedVersion < waitForVersion) {
-      if (!runningPromise) ensureRunning()
+    while (true) {
+      if (completedVersion >= waitForVersion) {
+        break
+      }
+      if (!runningPromise)
+        ensureRunning()
       await runningPromise
     }
   }
@@ -185,16 +210,16 @@ const createAssetsSyncQueue = () => {
 
 const syncPublicAssetsAfterWrite = createAssetsSyncQueue()
 
-const regeneratePublicAssets = async (reason: string) => {
+async function regeneratePublicAssets(reason: string) {
   await syncPublicAssetsAfterWrite(reason)
 }
 
-const parseJsonBody = async (request: Request): Promise<Record<string, unknown>> => {
+async function parseJsonBody(request: Request): Promise<Record<string, unknown>> {
   const payload = (await request.json()) as unknown
   return payload && typeof payload === 'object' ? (payload as Record<string, unknown>) : {}
 }
 
-const parseStructuredArray = <T>(value: unknown, fallbackFieldValue?: unknown): T[] => {
+function parseStructuredArray<T>(value: unknown, fallbackFieldValue?: unknown): T[] {
   if (Array.isArray(value)) {
     return value as T[]
   }
@@ -204,20 +229,23 @@ const parseStructuredArray = <T>(value: unknown, fallbackFieldValue?: unknown): 
   return Array.isArray(parsed) ? (parsed as T[]) : []
 }
 
-const parseCharacterStatus = (value: unknown): CharacterStatus =>
-  String(value) === 'stale' ? 'stale' : 'active'
+function parseCharacterStatus(value: unknown): CharacterStatus {
+  return String(value) === 'stale' ? 'stale' : 'active'
+}
 
-const handleWriteError = (error: unknown, fallback: string) =>
-  failure(error instanceof Error ? error.message : fallback)
+function handleWriteError(error: unknown, fallback: string) {
+  return failure(error instanceof Error ? error.message : fallback)
+}
 
-const parseIdFromPath = (pathname: string, pattern: RegExp): number | null => {
+function parseIdFromPath(pathname: string, pattern: RegExp): number | null {
   const match = pathname.match(pattern)
-  if (!match) return null
+  if (!match)
+    return null
   const id = Number(match[1])
   return Number.isFinite(id) && id > 0 ? id : null
 }
 
-export const handleAdminApiRequest = async (request: Request) => {
+export async function handleAdminApiRequest(request: Request) {
   const url = new URL(request.url)
   const { pathname } = url
 
@@ -231,18 +259,21 @@ export const handleAdminApiRequest = async (request: Request) => {
 
   if (request.method === 'GET' && pathname.startsWith('/api/admin/source-image/')) {
     const encodedFileName = pathname.slice('/api/admin/source-image/'.length)
-    if (!encodedFileName) return failure('File name is required.')
+    if (!encodedFileName)
+      return failure('File name is required.')
 
     let fileName: string
     try {
       fileName = decodeURIComponent(encodedFileName)
-    } catch {
+    }
+    catch {
       return failure('Invalid file name.')
     }
 
     try {
       const resolvedSourceImage = await resolveSourceImagePathByStem(fileName)
-      if (!resolvedSourceImage) return notFound()
+      if (!resolvedSourceImage)
+        return notFound()
 
       const imageBuffer = await readFile(resolvedSourceImage.filePath)
       return new Response(imageBuffer, {
@@ -252,7 +283,8 @@ export const handleAdminApiRequest = async (request: Request) => {
           'Cache-Control': 'no-store',
         },
       })
-    } catch (error) {
+    }
+    catch (error) {
       return handleWriteError(error, 'Failed to load source image.')
     }
   }
@@ -269,9 +301,10 @@ export const handleAdminApiRequest = async (request: Request) => {
     return json(getHomeSuggestionAdminData())
   }
 
-  if (request.method === 'GET' && /^\/api\/admin\/characters\/\d+\/commissions$/.test(pathname)) {
-    const id = parseIdFromPath(pathname, /^\/api\/admin\/characters\/(\d+)\/commissions$/)
-    if (!id) return failure('Invalid character identifier.')
+  if (request.method === 'GET' && GET_CHARACTER_COMMISSIONS_PATH_PATTERN.test(pathname)) {
+    const id = parseIdFromPath(pathname, GET_CHARACTER_COMMISSIONS_ID_PATTERN)
+    if (!id)
+      return failure('Invalid character identifier.')
 
     return json({
       commissions: getAdminCommissionsByCharacterId(id),
@@ -282,7 +315,8 @@ export const handleAdminApiRequest = async (request: Request) => {
     try {
       const body = await parseJsonBody(request)
       const name = String(body.name ?? '').trim()
-      if (!name) return failure('Character name is required.')
+      if (!name)
+        return failure('Character name is required.')
 
       createCharacter({
         name,
@@ -290,19 +324,22 @@ export const handleAdminApiRequest = async (request: Request) => {
       })
       await regeneratePublicAssets('create-character')
       return success(`Character "${name}" created.`)
-    } catch (error) {
+    }
+    catch (error) {
       return handleWriteError(error, 'Failed to create character.')
     }
   }
 
-  if (request.method === 'PATCH' && /^\/api\/admin\/characters\/\d+$/.test(pathname)) {
-    const id = parseIdFromPath(pathname, /^\/api\/admin\/characters\/(\d+)$/)
-    if (!id) return failure('Invalid character identifier.')
+  if (request.method === 'PATCH' && PATCH_CHARACTER_PATH_PATTERN.test(pathname)) {
+    const id = parseIdFromPath(pathname, PATCH_CHARACTER_ID_PATTERN)
+    if (!id)
+      return failure('Invalid character identifier.')
 
     try {
       const body = await parseJsonBody(request)
       const name = String(body.name ?? '').trim()
-      if (!name) return failure('Character name is required.')
+      if (!name)
+        return failure('Character name is required.')
 
       updateCharacter({
         id,
@@ -311,7 +348,8 @@ export const handleAdminApiRequest = async (request: Request) => {
       })
       await regeneratePublicAssets('update-character')
       return success(`Character "${name}" updated.`)
-    } catch (error) {
+    }
+    catch (error) {
       return handleWriteError(error, 'Failed to update character.')
     }
   }
@@ -325,20 +363,23 @@ export const handleAdminApiRequest = async (request: Request) => {
       })
       await regeneratePublicAssets('reorder-characters')
       return success('Character order updated.')
-    } catch (error) {
+    }
+    catch (error) {
       return handleWriteError(error, 'Failed to update character order.')
     }
   }
 
-  if (request.method === 'DELETE' && /^\/api\/admin\/characters\/\d+$/.test(pathname)) {
-    const id = parseIdFromPath(pathname, /^\/api\/admin\/characters\/(\d+)$/)
-    if (!id) return failure('Invalid character identifier.')
+  if (request.method === 'DELETE' && DELETE_CHARACTER_PATH_PATTERN.test(pathname)) {
+    const id = parseIdFromPath(pathname, DELETE_CHARACTER_ID_PATTERN)
+    if (!id)
+      return failure('Invalid character identifier.')
 
     try {
       deleteCharacter(id)
       await regeneratePublicAssets('delete-character')
       return success('Character deleted.')
-    } catch (error) {
+    }
+    catch (error) {
       return handleWriteError(error, 'Failed to delete character.')
     }
   }
@@ -347,7 +388,8 @@ export const handleAdminApiRequest = async (request: Request) => {
     const formData = await request.formData()
     const fields = parseCommissionFieldsFromForm(formData)
     const validation = validateCommissionFields(fields)
-    if (validation) return failure(validation)
+    if (validation)
+      return failure(validation)
 
     const sourceImage = getUploadedSourceImage(formData)
     if (!sourceImage) {
@@ -362,7 +404,8 @@ export const handleAdminApiRequest = async (request: Request) => {
         file: sourceImage,
       })
       uploadedSourceImagePath = uploaded.targetPath
-    } catch (error) {
+    }
+    catch (error) {
       return handleWriteError(error, 'Failed to save source image.')
     }
 
@@ -370,7 +413,8 @@ export const handleAdminApiRequest = async (request: Request) => {
       const { characterName } = createCommission(fields)
       await regeneratePublicAssets('create-commission')
       return success(`Commission "${fields.fileName}" added to ${characterName}.`)
-    } catch (error) {
+    }
+    catch (error) {
       if (uploadedSourceImagePath) {
         await removeSourceImageFile(uploadedSourceImagePath)
       }
@@ -378,15 +422,17 @@ export const handleAdminApiRequest = async (request: Request) => {
     }
   }
 
-  if (request.method === 'PATCH' && /^\/api\/admin\/commissions\/\d+$/.test(pathname)) {
-    const id = parseIdFromPath(pathname, /^\/api\/admin\/commissions\/(\d+)$/)
-    if (!id) return failure('Invalid commission identifier.')
+  if (request.method === 'PATCH' && PATCH_COMMISSION_PATH_PATTERN.test(pathname)) {
+    const id = parseIdFromPath(pathname, PATCH_COMMISSION_ID_PATTERN)
+    if (!id)
+      return failure('Invalid commission identifier.')
 
     try {
       const body = await parseJsonBody(request)
       const fields = parseCommissionFieldsFromJson(body)
       const validation = validateCommissionFields(fields)
-      if (validation) return failure(validation)
+      if (validation)
+        return failure(validation)
 
       const didUpdate = updateCommission({
         id,
@@ -396,37 +442,43 @@ export const handleAdminApiRequest = async (request: Request) => {
         await regeneratePublicAssets('update-commission')
       }
       return success(`Commission "${fields.fileName}" updated.`)
-    } catch (error) {
+    }
+    catch (error) {
       return handleWriteError(error, 'Failed to update commission.')
     }
   }
 
-  if (request.method === 'DELETE' && /^\/api\/admin\/commissions\/\d+$/.test(pathname)) {
-    const id = parseIdFromPath(pathname, /^\/api\/admin\/commissions\/(\d+)$/)
-    if (!id) return failure('Invalid commission identifier.')
+  if (request.method === 'DELETE' && DELETE_COMMISSION_PATH_PATTERN.test(pathname)) {
+    const id = parseIdFromPath(pathname, DELETE_COMMISSION_ID_PATTERN)
+    if (!id)
+      return failure('Invalid commission identifier.')
 
     try {
       deleteCommission(id)
       await regeneratePublicAssets('delete-commission')
       return success('Commission deleted.')
-    } catch (error) {
+    }
+    catch (error) {
       return handleWriteError(error, 'Failed to delete commission.')
     }
   }
 
   if (
-    request.method === 'POST' &&
-    /^\/api\/admin\/commissions\/\d+\/source-image$/.test(pathname)
+    request.method === 'POST'
+    && POST_COMMISSION_SOURCE_IMAGE_PATH_PATTERN.test(pathname)
   ) {
-    const id = parseIdFromPath(pathname, /^\/api\/admin\/commissions\/(\d+)\/source-image$/)
-    if (!id) return failure('Invalid commission identifier.')
+    const id = parseIdFromPath(pathname, POST_COMMISSION_SOURCE_IMAGE_ID_PATTERN)
+    if (!id)
+      return failure('Invalid commission identifier.')
 
     const formData = await request.formData()
     const commissionFileName = formData.get('commissionFileName')?.toString().trim() ?? ''
-    if (!commissionFileName) return failure('File name is required.')
+    if (!commissionFileName)
+      return failure('File name is required.')
 
     const sourceImage = getUploadedSourceImage(formData)
-    if (!sourceImage) return failure('Source image is required.')
+    if (!sourceImage)
+      return failure('Source image is required.')
 
     try {
       await replaceUploadedSourceImage({
@@ -435,7 +487,8 @@ export const handleAdminApiRequest = async (request: Request) => {
       })
       await regeneratePublicAssets('replace-source-image')
       return success(`Source image for "${commissionFileName}" replaced.`)
-    } catch (error) {
+    }
+    catch (error) {
       return handleWriteError(error, 'Failed to replace source image.')
     }
   }
@@ -455,7 +508,8 @@ export const handleAdminApiRequest = async (request: Request) => {
       saveCreatorAliasesBatch(rows)
       await regeneratePublicAssets('save-creator-aliases')
       return success('Creator aliases saved.')
-    } catch (error) {
+    }
+    catch (error) {
       return handleWriteError(error, 'Failed to save creator aliases.')
     }
   }
@@ -475,7 +529,8 @@ export const handleAdminApiRequest = async (request: Request) => {
       saveCharacterAliasesBatch(rows)
       await regeneratePublicAssets('save-character-aliases')
       return success('Character aliases saved.')
-    } catch (error) {
+    }
+    catch (error) {
       return handleWriteError(error, 'Failed to save character aliases.')
     }
   }
@@ -495,7 +550,8 @@ export const handleAdminApiRequest = async (request: Request) => {
       saveKeywordAliasesBatch(rows)
       await regeneratePublicAssets('save-keyword-aliases')
       return success('Keyword aliases saved.')
-    } catch (error) {
+    }
+    catch (error) {
       return handleWriteError(error, 'Failed to save keyword aliases.')
     }
   }
@@ -507,7 +563,8 @@ export const handleAdminApiRequest = async (request: Request) => {
 
       saveHomeFeaturedSearchKeywords(keywords)
       return success('Home featured keywords saved.')
-    } catch (error) {
+    }
+    catch (error) {
       return handleWriteError(error, 'Failed to save home featured keywords.')
     }
   }
@@ -516,7 +573,8 @@ export const handleAdminApiRequest = async (request: Request) => {
     try {
       await regeneratePublicAssets('manual-refresh')
       return success('Assets refreshed.')
-    } catch (error) {
+    }
+    catch (error) {
       return handleWriteError(error, 'Failed to refresh assets.')
     }
   }

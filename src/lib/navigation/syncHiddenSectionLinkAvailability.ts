@@ -13,9 +13,10 @@ interface SyncHiddenSectionLinkAvailabilityOptions {
   isDeferredTarget?: (sectionId: string, link: HTMLAnchorElement) => boolean
 }
 
-const setLinkDisabledState = (link: HTMLAnchorElement, disabled: boolean) => {
+function setLinkDisabledState(link: HTMLAnchorElement, disabled: boolean) {
   const alreadyDisabled = link.getAttribute('aria-disabled') === 'true'
-  if (disabled === alreadyDisabled) return
+  if (disabled === alreadyDisabled)
+    return
 
   if (disabled) {
     link.setAttribute('aria-disabled', 'true')
@@ -29,28 +30,28 @@ const setLinkDisabledState = (link: HTMLAnchorElement, disabled: boolean) => {
   link.classList.remove(...DISABLED_SECTION_LINK_CLASSES)
 }
 
-export const syncHiddenSectionLinkAvailability = ({
+export function syncHiddenSectionLinkAvailability({
   root,
   linkSelector,
   getSectionId,
   isDeferredTarget,
-}: SyncHiddenSectionLinkAvailabilityOptions) => {
+}: SyncHiddenSectionLinkAvailabilityOptions) {
   const links = root.querySelectorAll<HTMLAnchorElement>(linkSelector)
   const sectionById = new Map<string, HTMLElement | null>()
 
   for (const link of links) {
     const sectionId = getSectionId(link)
-    const section =
-      sectionId === null
+    const section
+      = sectionId === null
         ? null
-        : (sectionById.get(sectionId) ??
-          (() => {
+        : (sectionById.get(sectionId)
+          ?? (() => {
             const resolved = document.getElementById(sectionId)
             sectionById.set(sectionId, resolved)
             return resolved
           })())
-    const isDisabled =
-      !section && sectionId
+    const isDisabled
+      = !section && sectionId
         ? !isDeferredTarget?.(sectionId, link)
         : !section || section.classList.contains('hidden')
     setLinkDisabledState(link, isDisabled)

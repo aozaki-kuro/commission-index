@@ -1,22 +1,35 @@
 ---
-import NotFoundPage from '#components/shared/NotFoundPage.astro'
 import AdminSectionNav from '#admin/AdminSectionNav.astro'
 import AdminSuggestionIsland from '#admin/islands/AdminSuggestionIsland'
-import { getHomeSuggestionAdminData } from '#lib/admin/db'
+import NotFoundPage from '#components/shared/NotFoundPage.astro'
 import BaseLayout from '#layouts/BaseLayout.astro'
+import { getHomeSuggestionAdminData } from '#lib/admin/db'
 
 const initialPayload = getHomeSuggestionAdminData()
 ---
 
 <BaseLayout title="Admin Suggestions" canonicalPath="/admin/suggestion">
   {
-    import.meta.env.DEV ? (
-      <div class="mx-auto max-w-5xl space-y-6 px-4 pt-6 pb-10 lg:px-0">
+    import.meta.env.DEV
+? (
+      <div class="
+        mx-auto max-w-5xl space-y-6 px-4 pt-6 pb-10
+        lg:px-0
+      "
+      >
         <header class="space-y-2">
-          <h1 class="text-2xl leading-tight font-semibold text-gray-900 dark:text-gray-100">
+          <h1 class="
+            text-2xl/tight font-semibold text-gray-900
+            dark:text-gray-100
+          "
+          >
             Suggestion
           </h1>
-          <p class="text-sm text-gray-600 dark:text-gray-300">
+          <p class="
+            text-sm text-gray-600
+            dark:text-gray-300
+          "
+          >
             Curate first-batch home keywords and keep ordering under manual control.
           </p>
         </header>
@@ -25,7 +38,8 @@ const initialPayload = getHomeSuggestionAdminData()
 
         <AdminSuggestionIsland client:load initialPayload={initialPayload} />
       </div>
-    ) : (
+    )
+: (
       <NotFoundPage />
     )
   }

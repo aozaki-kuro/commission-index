@@ -1,11 +1,11 @@
+import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { waitFor } from '@testing-library/react'
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { waitFor } from '@testing-library/react'
-import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { mountCommissionImageNoticeClient } from './commissionImageNoticeClient'
 import { createCommissionImageVariantTracker } from './commissionImageVariantTracker'
 
-const createTrackedImage = (src: string, options?: { srcSet?: string; currentSrc?: string }) => {
+function createTrackedImage(src: string, options?: { srcSet?: string, currentSrc?: string }) {
   const image = document.createElement('img')
   image.setAttribute('data-commission-image-node', 'true')
   image.src = src

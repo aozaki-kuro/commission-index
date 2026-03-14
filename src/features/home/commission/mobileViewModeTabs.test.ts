@@ -1,9 +1,9 @@
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import { mountMobileViewModeTabs } from './mobileViewModeTabs'
 
-const renderMobileTabsRoot = () => {
+function renderMobileTabsRoot() {
   document.body.innerHTML = `
     <div data-mobile-view-tabs="true">
       <button
@@ -28,10 +28,11 @@ const renderMobileTabsRoot = () => {
   `
 }
 
-const getModeButton = (mode: 'character' | 'timeline') =>
-  document.querySelector<HTMLButtonElement>(
+function getModeButton(mode: 'character' | 'timeline') {
+  return document.querySelector<HTMLButtonElement>(
     `[data-mobile-view-mode-toggle="true"][data-view-mode="${mode}"]`,
   )
+}
 
 describe('mobileViewModeTabs', () => {
   beforeEach(() => {

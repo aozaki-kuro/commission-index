@@ -1,9 +1,10 @@
 import type { HomeCharacterBatchPayload } from '#features/home/commission/homeCharacterBatchPayload'
-import { renderHomeCharacterBatchPayload } from '#features/home/commission/homeCharacterBatchRender'
+import type { HomeCharacterBatchStatus } from '#features/home/server/homeCharacterBatches'
 import { readHomeCharacterBatchManifest } from '#features/home/commission/homeCharacterBatchManifest'
+import { renderHomeCharacterBatchPayload } from '#features/home/commission/homeCharacterBatchRender'
 import {
   buildHomeCharacterBatchUrl,
-  type HomeCharacterBatchStatus,
+
 } from '#features/home/server/homeCharacterBatches'
 
 const batchRequestCache = new Map<string, Promise<HomeCharacterBatchPayload>>()
@@ -11,46 +12,48 @@ const ACTIVE_TEMPLATE_SELECTOR = 'template[data-active-sections-template="true"]
 const STALE_TEMPLATE_SELECTOR = 'template[data-stale-sections-template="true"]'
 const STALE_DEFERRED_TEMPLATE_SELECTOR = 'template[data-stale-deferred-sections-template="true"]'
 
-const getLegacyStaleDeferredTemplate = (doc: Document) => {
+function getLegacyStaleDeferredTemplate(doc: Document) {
   const liveTemplate = doc.querySelector<HTMLTemplateElement>(STALE_DEFERRED_TEMPLATE_SELECTOR)
-  if (liveTemplate) return liveTemplate
+  if (liveTemplate)
+    return liveTemplate
 
   const rootTemplate = doc.querySelector<HTMLTemplateElement>(STALE_TEMPLATE_SELECTOR)
   return (
-    rootTemplate?.content.querySelector<HTMLTemplateElement>(STALE_DEFERRED_TEMPLATE_SELECTOR) ??
-    null
+    rootTemplate?.content.querySelector<HTMLTemplateElement>(STALE_DEFERRED_TEMPLATE_SELECTOR)
+    ?? null
   )
 }
 
-const getLegacyBatchTotalCount = ({
+function getLegacyBatchTotalCount({
   doc,
   status,
 }: {
   doc: Document
   status: HomeCharacterBatchStatus
-}) => {
+}) {
   if (status === 'active') {
     return doc.querySelector<HTMLTemplateElement>(ACTIVE_TEMPLATE_SELECTOR) ? 1 : 0
   }
 
   const rootTemplate = doc.querySelector<HTMLTemplateElement>(STALE_TEMPLATE_SELECTOR)
-  if (!rootTemplate) return 0
+  if (!rootTemplate)
+    return 0
 
   return getLegacyStaleDeferredTemplate(doc) ? 2 : 1
 }
 
-export const getHomeCharacterBatchTotalCount = ({
+export function getHomeCharacterBatchTotalCount({
   doc,
   status,
 }: {
   doc: Document
   status: HomeCharacterBatchStatus
-}) => {
+}) {
   const manifest = readHomeCharacterBatchManifest(doc)
   return manifest?.[status].totalBatches ?? getLegacyBatchTotalCount({ doc, status })
 }
 
-export const hasMoreHomeCharacterBatches = ({
+export function hasMoreHomeCharacterBatches({
   doc,
   loadedBatchCount,
   status,
@@ -58,9 +61,11 @@ export const hasMoreHomeCharacterBatches = ({
   doc: Document
   loadedBatchCount: number
   status: HomeCharacterBatchStatus
-}) => loadedBatchCount < getHomeCharacterBatchTotalCount({ doc, status })
+}) {
+  return loadedBatchCount < getHomeCharacterBatchTotalCount({ doc, status })
+}
 
-export const fetchHomeCharacterBatch = async ({
+export async function fetchHomeCharacterBatch({
   batchIndex,
   doc,
   status,
@@ -68,9 +73,10 @@ export const fetchHomeCharacterBatch = async ({
   batchIndex: number
   doc: Document
   status: HomeCharacterBatchStatus
-}) => {
+}) {
   const manifest = readHomeCharacterBatchManifest(doc)
-  if (!manifest) return null
+  if (!manifest)
+    return null
 
   const url = buildHomeCharacterBatchUrl({
     batchIndex,
@@ -80,7 +86,7 @@ export const fetchHomeCharacterBatch = async ({
 
   let request = batchRequestCache.get(url)
   if (!request) {
-    request = fetch(url).then(async response => {
+    request = fetch(url).then(async (response) => {
       if (!response.ok) {
         throw new Error(`Failed to load ${status} batch ${batchIndex}: ${response.status}`)
       }
@@ -93,7 +99,7 @@ export const fetchHomeCharacterBatch = async ({
   return request
 }
 
-export const prefetchHomeCharacterBatches = ({
+export function prefetchHomeCharacterBatches({
   doc,
   startBatchIndex,
   status,
@@ -103,13 +109,15 @@ export const prefetchHomeCharacterBatches = ({
   startBatchIndex: number
   status: HomeCharacterBatchStatus
   targetBatchIndex: number
-}) => {
+}) {
   const totalBatchCount = getHomeCharacterBatchTotalCount({ doc, status })
-  if (totalBatchCount <= 0) return
+  if (totalBatchCount <= 0)
+    return
 
   const firstBatchIndex = Math.max(0, Math.floor(startBatchIndex))
   const finalBatchIndex = Math.min(Math.floor(targetBatchIndex), totalBatchCount - 1)
-  if (finalBatchIndex < firstBatchIndex) return
+  if (finalBatchIndex < firstBatchIndex)
+    return
 
   for (let batchIndex = firstBatchIndex; batchIndex <= finalBatchIndex; batchIndex += 1) {
     void fetchHomeCharacterBatch({ batchIndex, doc, status }).catch(() => {
@@ -118,21 +126,21 @@ export const prefetchHomeCharacterBatches = ({
   }
 }
 
-export const clearHomeCharacterBatchRequestCacheForTests = () => {
+export function clearHomeCharacterBatchRequestCacheForTests() {
   batchRequestCache.clear()
 }
 
-export const mountHomeCharacterBatch = ({
+export function mountHomeCharacterBatch({
   container,
   payload,
 }: {
   container: HTMLElement
   payload: HomeCharacterBatchPayload
-}) => {
+}) {
   container.append(renderHomeCharacterBatchPayload(payload))
 }
 
-export const mountLegacyHomeCharacterBatch = ({
+export function mountLegacyHomeCharacterBatch({
   batchIndex,
   container,
   doc,
@@ -142,12 +150,14 @@ export const mountLegacyHomeCharacterBatch = ({
   container: HTMLElement
   doc: Document
   status: HomeCharacterBatchStatus
-}) => {
+}) {
   if (status === 'active') {
-    if (batchIndex !== 0) return false
+    if (batchIndex !== 0)
+      return false
 
     const template = doc.querySelector<HTMLTemplateElement>(ACTIVE_TEMPLATE_SELECTOR)
-    if (!template) return false
+    if (!template)
+      return false
 
     container.append(template.content.cloneNode(true))
     return true
@@ -155,10 +165,11 @@ export const mountLegacyHomeCharacterBatch = ({
 
   if (batchIndex === 0) {
     const template = doc.querySelector<HTMLTemplateElement>(STALE_TEMPLATE_SELECTOR)
-    if (!template) return false
+    if (!template)
+      return false
 
     const fragment = template.content.cloneNode(true) as DocumentFragment
-    fragment.querySelectorAll(STALE_DEFERRED_TEMPLATE_SELECTOR).forEach(node => {
+    fragment.querySelectorAll(STALE_DEFERRED_TEMPLATE_SELECTOR).forEach((node) => {
       node.remove()
     })
 
@@ -168,7 +179,8 @@ export const mountLegacyHomeCharacterBatch = ({
 
   if (batchIndex === 1) {
     const template = getLegacyStaleDeferredTemplate(doc)
-    if (!template) return false
+    if (!template)
+      return false
 
     container.append(template.content.cloneNode(true))
     return true

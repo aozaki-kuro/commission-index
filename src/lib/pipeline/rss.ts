@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises'
 import path from 'node:path'
+import process from 'node:process'
 
 import { generateRssFeed } from '../rss/feed'
 import { createAstroStyleLogger } from './astroLogger'
@@ -8,7 +9,7 @@ import { writeFileIfChanged } from './writeFileIfChanged'
 const outputPath = path.join(process.cwd(), 'public', 'rss.xml')
 const logger = createAstroStyleLogger('assets')
 
-export const generateRssFile = async () => {
+export async function generateRssFile() {
   await mkdir(path.dirname(outputPath), { recursive: true })
   const payload = `${generateRssFeed()}\n`
   const result = await writeFileIfChanged(outputPath, payload)
@@ -16,7 +17,8 @@ export const generateRssFile = async () => {
 
   if (result === 'unchanged') {
     logger.info(`rss feed unchanged -> ${relativeOutputPath}`)
-  } else {
+  }
+  else {
     logger.success(`generated rss feed -> ${relativeOutputPath}`)
   }
 }

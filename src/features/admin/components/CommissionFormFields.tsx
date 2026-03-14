@@ -1,3 +1,4 @@
+import type { ChangeEvent, ComponentPropsWithoutRef } from 'react'
 import {
   Select,
   SelectContent,
@@ -5,32 +6,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '#components/ui/select'
-import { type ChangeEvent, type ComponentPropsWithoutRef } from 'react'
 import { formControlStyles } from '../uiStyles'
 
-const fieldLabelStyles =
-  'text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300'
+const fieldLabelStyles
+  = 'text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300'
 const fieldDescriptionStyles = 'text-xs text-gray-500 dark:text-gray-400'
 
 type InputBinding = Pick<ComponentPropsWithoutRef<'input'>, 'value' | 'onChange'>
 type TextareaBinding = Pick<ComponentPropsWithoutRef<'textarea'>, 'value' | 'onChange'>
 
-const bindInputValue = (
-  value?: string,
-  onChange?: (value: string) => void,
-): InputBinding | undefined => {
-  if (value === undefined || !onChange) return undefined
+function bindInputValue(value?: string, onChange?: (value: string) => void): InputBinding | undefined {
+  if (value === undefined || !onChange)
+    return undefined
   return {
     value,
     onChange: (event: ChangeEvent<HTMLInputElement>) => onChange(event.target.value),
   }
 }
 
-const bindTextareaValue = (
-  value?: string,
-  onChange?: (value: string) => void,
-): TextareaBinding | undefined => {
-  if (value === undefined || !onChange) return undefined
+function bindTextareaValue(value?: string, onChange?: (value: string) => void): TextareaBinding | undefined {
+  if (value === undefined || !onChange)
+    return undefined
   return {
     value,
     onChange: (event: ChangeEvent<HTMLTextAreaElement>) => onChange(event.target.value),
@@ -49,16 +45,16 @@ interface CommissionCharacterFieldProps {
   disabled?: boolean
 }
 
-export const CommissionCharacterField = ({
+export function CommissionCharacterField({
   options,
   selectedCharacterId,
   onChange,
   disabled = false,
-}: CommissionCharacterFieldProps) => {
+}: CommissionCharacterFieldProps) {
   const hasCharacters = options.length > 0
   const isDisabled = disabled || !hasCharacters
-  const selectedCharacterValue =
-    selectedCharacterId === null ? undefined : String(selectedCharacterId)
+  const selectedCharacterValue
+    = selectedCharacterId === null ? undefined : String(selectedCharacterId)
 
   return (
     <div className="space-y-1">
@@ -68,7 +64,13 @@ export const CommissionCharacterField = ({
         onValueChange={value => onChange(value ? Number(value) : null)}
         disabled={isDisabled}
       >
-        <SelectTrigger aria-label="Character" className={`${formControlStyles} h-auto py-2.5`}>
+        <SelectTrigger
+          aria-label="Character"
+          className={`
+            ${formControlStyles}
+            h-auto py-2.5
+          `}
+        >
           <SelectValue
             placeholder={hasCharacters ? 'Select character' : 'No characters available'}
           />
@@ -100,15 +102,15 @@ interface CommissionSourceImageFieldProps {
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void
 }
 
-export const CommissionSourceImageField = ({
+export function CommissionSourceImageField({
   accept = 'image/jpeg,image/png,.jpg,.jpeg,.png',
   helperMessage = 'Upload JPG/PNG. It will be saved to data/images using this file name and then imported automatically.',
   helperTone = 'default',
   required = false,
   onChange,
-}: CommissionSourceImageFieldProps) => {
-  const helperMessageClassName =
-    helperTone === 'error'
+}: CommissionSourceImageFieldProps) {
+  const helperMessageClassName
+    = helperTone === 'error'
       ? 'text-red-600 dark:text-red-400'
       : helperTone === 'success'
         ? 'text-emerald-600 dark:text-emerald-400'
@@ -125,18 +127,27 @@ export const CommissionSourceImageField = ({
         accept={accept}
         required={required}
         onChange={onChange}
-        className={`${formControlStyles} pointer-events-none cursor-pointer file:pointer-events-auto file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200 dark:file:bg-gray-800 dark:file:text-gray-200 dark:hover:file:bg-gray-700`}
+        className={`
+          ${formControlStyles}
+          pointer-events-none cursor-pointer
+          file:pointer-events-auto file:mr-3 file:rounded-md file:border-0
+          file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium
+          file:text-gray-700
+          hover:file:bg-gray-200
+          dark:file:bg-gray-800 dark:file:text-gray-200
+          dark:hover:file:bg-gray-700
+        `}
       />
       <p className={helperMessageClassName}>{helperMessage}</p>
     </div>
   )
 }
 
-export const CommissionFileNameField = ({
+export function CommissionFileNameField({
   value,
   onChange,
   placeholder,
-}: CommissionFileNameFieldProps) => {
+}: CommissionFileNameFieldProps) {
   return (
     <div className="space-y-1">
       <label className={fieldLabelStyles}>File name</label>
@@ -158,7 +169,7 @@ interface CommissionLinksFieldProps {
   rows?: number
 }
 
-export const CommissionLinksField = ({ value, onChange, rows = 4 }: CommissionLinksFieldProps) => {
+export function CommissionLinksField({ value, onChange, rows = 4 }: CommissionLinksFieldProps) {
   return (
     <div className="space-y-1">
       <label className={fieldLabelStyles}>Links (optional, one per line)</label>
@@ -185,16 +196,20 @@ interface CommissionDesignDescriptionFieldsProps {
   descriptionPlaceholder?: string
 }
 
-export const CommissionDesignDescriptionFields = ({
+export function CommissionDesignDescriptionFields({
   designValue,
   onDesignChange,
   descriptionValue,
   onDescriptionChange,
   designPlaceholder,
   descriptionPlaceholder,
-}: CommissionDesignDescriptionFieldsProps) => {
+}: CommissionDesignDescriptionFieldsProps) {
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="
+      grid gap-4
+      md:grid-cols-2
+    "
+    >
       <div className="space-y-1">
         <label className={fieldLabelStyles}>Design (optional)</label>
         <input
@@ -225,7 +240,7 @@ interface CommissionKeywordFieldProps {
   onChange?: (value: string) => void
 }
 
-export const CommissionKeywordField = ({ value, onChange }: CommissionKeywordFieldProps) => {
+export function CommissionKeywordField({ value, onChange }: CommissionKeywordFieldProps) {
   return (
     <div className="space-y-1">
       <label className={fieldLabelStyles}>Keywords (optional, comma-separated, search-only)</label>
@@ -248,7 +263,7 @@ interface CommissionHiddenSwitchProps {
   onChange: (next: boolean) => void
 }
 
-export const CommissionHiddenSwitch = ({ isHidden, onChange }: CommissionHiddenSwitchProps) => {
+export function CommissionHiddenSwitch({ isHidden, onChange }: CommissionHiddenSwitchProps) {
   return (
     <div className="flex items-center gap-3">
       <input
@@ -257,11 +272,17 @@ export const CommissionHiddenSwitch = ({ isHidden, onChange }: CommissionHiddenS
         checked={isHidden}
         onChange={event => onChange(event.target.checked)}
         aria-label="Hide commission from public list"
-        className="h-4 w-4 accent-gray-900 dark:accent-gray-100"
+        className="
+          size-4 accent-gray-900
+          dark:accent-gray-100
+        "
       />
       <label
         htmlFor="commission-hidden"
-        className="text-sm font-medium text-gray-700 dark:text-gray-200"
+        className="
+          text-sm font-medium text-gray-700
+          dark:text-gray-200
+        "
       >
         Hidden
       </label>

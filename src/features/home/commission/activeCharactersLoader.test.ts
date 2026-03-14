@@ -1,13 +1,13 @@
-// @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
 import {
-  ACTIVE_CHARACTERS_LOADED_EVENT,
   ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT,
+  ACTIVE_CHARACTERS_LOADED_EVENT,
 } from '#features/home/commission/activeCharactersEvent'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
+// @vitest-environment jsdom
+import { describe, expect, it, vi } from 'vitest'
 import { mountActiveCharactersLoader } from './activeCharactersLoader'
 
-const flushAsyncWork = async () => {
+async function flushAsyncWork() {
   await Promise.resolve()
   await Promise.resolve()
   await Promise.resolve()
@@ -15,7 +15,7 @@ const flushAsyncWork = async () => {
   await Promise.resolve()
 }
 
-const renderFixture = () => {
+function renderFixture() {
   document.body.innerHTML = `
     <div data-commission-view-panel="character" data-active-sections-loaded="false">
       <section id="section-alpha"></section>
@@ -65,7 +65,7 @@ describe('mountActiveCharactersLoader', () => {
 
     const requestAnimationFrameSpy = vi
       .spyOn(window, 'requestAnimationFrame')
-      .mockImplementation(callback => {
+      .mockImplementation((callback) => {
         callback(0)
         return 1
       })

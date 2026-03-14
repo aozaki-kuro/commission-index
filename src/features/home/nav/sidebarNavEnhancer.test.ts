@@ -1,16 +1,16 @@
-// @vitest-environment jsdom
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { ACTIVE_CHARACTERS_LOADED_EVENT } from '#features/home/commission/activeCharactersEvent'
-import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import {
   STALE_CHARACTERS_LOADED_EVENT,
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
 } from '#features/home/commission/staleCharactersEvent'
 import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '#features/home/homeScrollRestoreAbort'
+import { ANALYTICS_EVENTS } from '#lib/analytics/events'
+import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
+// @vitest-environment jsdom
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mountSidebarNavEnhancer } from './sidebarNavEnhancer'
 
-const renderSidebarRoot = () => {
+function renderSidebarRoot() {
   document.body.innerHTML = `
     <div id="Character List">
       <button data-sidebar-view-mode-toggle="true" data-view-mode="character" aria-pressed="true">
@@ -55,7 +55,7 @@ describe('sidebarNavEnhancer', () => {
     renderSidebarRoot()
     window.history.replaceState(null, '', '/')
 
-    vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
       callback(0)
       return 1
     })
@@ -79,12 +79,14 @@ describe('sidebarNavEnhancer', () => {
     expect(
       document
         .querySelector<HTMLElement>('[data-sidebar-nav-panel="character"]')
-        ?.classList.contains('hidden'),
+        ?.classList
+        .contains('hidden'),
     ).toBe(true)
     expect(
       document
         .querySelector<HTMLElement>('[data-sidebar-nav-panel="timeline"]')
-        ?.classList.contains('hidden'),
+        ?.classList
+        .contains('hidden'),
     ).toBe(false)
     expect(trackEvent).toHaveBeenCalledWith(
       ANALYTICS_EVENTS.sidebarViewModeToggleUsed,
@@ -345,9 +347,7 @@ describe('sidebarNavEnhancer', () => {
       },
     })
 
-    const staleLink = Array.from(
-      document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]'),
-    ).find(link => link.getAttribute('href') === '#section-stale')
+    const staleLink = [...document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]')].find(link => link.getAttribute('href') === '#section-stale')
     staleLink?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
     expect(requestStaleVisibility).toHaveBeenCalledTimes(1)
@@ -373,9 +373,7 @@ describe('sidebarNavEnhancer', () => {
     window.addEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
 
     const cleanup = mountSidebarNavEnhancer()
-    const staleLink = Array.from(
-      document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]'),
-    ).find(link => link.getAttribute('href') === '#section-stale')
+    const staleLink = [...document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]')].find(link => link.getAttribute('href') === '#section-stale')
 
     staleLink?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
@@ -407,7 +405,7 @@ describe('sidebarNavEnhancer', () => {
     )
 
     const scrollToHashWithoutWrite = vi.fn()
-    const requestActiveLoad = vi.fn((win, options?: { strategy?: string; targetId?: string }) => {
+    const requestActiveLoad = vi.fn((win, options?: { strategy?: string, targetId?: string }) => {
       expect(options).toEqual({ strategy: 'target', targetId: '#section-beta' })
       const title = document.createElement('h2')
       title.id = 'title-beta'
@@ -427,9 +425,7 @@ describe('sidebarNavEnhancer', () => {
       },
     })
 
-    const betaLink = Array.from(
-      document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]'),
-    ).find(link => link.getAttribute('href') === '#section-beta')
+    const betaLink = [...document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]')].find(link => link.getAttribute('href') === '#section-beta')
 
     expect(betaLink?.getAttribute('aria-disabled')).toBeNull()
     betaLink?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
@@ -473,9 +469,7 @@ describe('sidebarNavEnhancer', () => {
       },
     })
 
-    const betaLink = Array.from(
-      document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]'),
-    ).find(link => link.getAttribute('href') === '#section-beta')
+    const betaLink = [...document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]')].find(link => link.getAttribute('href') === '#section-beta')
 
     betaLink?.dispatchEvent(new PointerEvent('pointerover', { bubbles: true }))
     betaLink?.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
@@ -514,7 +508,7 @@ describe('sidebarNavEnhancer', () => {
 
     const scrollToHashWithoutWrite = vi.fn()
     const requestStaleLoad = vi.fn(
-      (win, options?: { preserveScroll?: boolean; strategy?: string; targetId?: string }) => {
+      (win, options?: { preserveScroll?: boolean, strategy?: string, targetId?: string }) => {
         expect(options).toEqual({
           preserveScroll: false,
           strategy: 'target',
@@ -534,9 +528,7 @@ describe('sidebarNavEnhancer', () => {
       },
     })
 
-    const staleLink = Array.from(
-      document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]'),
-    ).find(link => link.getAttribute('href') === '#section-stale-deferred')
+    const staleLink = [...document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]')].find(link => link.getAttribute('href') === '#section-stale-deferred')
 
     staleLink?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
@@ -589,9 +581,7 @@ describe('sidebarNavEnhancer', () => {
       },
     })
 
-    const staleLink = Array.from(
-      document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]'),
-    ).find(link => link.getAttribute('href') === '#section-stale')
+    const staleLink = [...document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]')].find(link => link.getAttribute('href') === '#section-stale')
     staleLink?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
     expect(requestStaleLoad).not.toHaveBeenCalled()

@@ -1,28 +1,36 @@
-import * as React from 'react'
 import { cn } from '#lib/utils/cn'
+import * as React from 'react'
 
-const Sidebar = ({ className, ...props }: React.HTMLAttributes<HTMLElement>) => (
-  <aside className={cn('hidden lg:block', className)} {...props} />
-)
+function Sidebar({ className, ...props }: React.HTMLAttributes<HTMLElement>) {
+  return (
+    <aside
+      className={cn(`
+        hidden
+        lg:block
+      `, className)}
+      {...props}
+    />
+  )
+}
 
-const SidebarContent = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('space-y-2', className)} {...props} />
-)
+function SidebarContent({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn('space-y-2', className)} {...props} />
+}
 
-const SidebarGroup = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('space-y-2', className)} {...props} />
-)
+function SidebarGroup({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn('space-y-2', className)} {...props} />
+}
 
-const SidebarMenu = ({ className, ...props }: React.HTMLAttributes<HTMLUListElement>) => (
-  <ul className={cn('space-y-2', className)} {...props} />
-)
+function SidebarMenu({ className, ...props }: React.HTMLAttributes<HTMLUListElement>) {
+  return <ul className={cn('space-y-2', className)} {...props} />
+}
 
-const SidebarMenuItem = ({ className, ...props }: React.HTMLAttributes<HTMLLIElement>) => (
-  <li className={cn('relative', className)} {...props} />
-)
+function SidebarMenuItem({ className, ...props }: React.HTMLAttributes<HTMLLIElement>) {
+  return <li className={cn('relative', className)} {...props} />
+}
 
-const SidebarInset = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn('min-w-0', className)} {...props} />
-)
+function SidebarInset({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn('min-w-0', className)} {...props} />
+}
 
-export { Sidebar, SidebarContent, SidebarGroup, SidebarMenu, SidebarMenuItem, SidebarInset }
+export { Sidebar, SidebarContent, SidebarGroup, SidebarInset, SidebarMenu, SidebarMenuItem }

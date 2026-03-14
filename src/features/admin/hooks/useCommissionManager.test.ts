@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
-
 import type { FormState } from '../types'
+
+import { describe, expect, it, vi } from 'vitest'
 import { createLatestCharacterOrderSaveQueue } from './useCommissionManager'
 
-const flushPromises = async () => {
+async function flushPromises() {
   await Promise.resolve()
   await Promise.resolve()
 }
@@ -13,7 +13,7 @@ describe('createLatestCharacterOrderSaveQueue', () => {
     const resolvers: Array<(value: FormState) => void> = []
     const saveOrder = vi.fn(
       () =>
-        new Promise<FormState>(resolve => {
+        new Promise<FormState>((resolve) => {
           resolvers.push(resolve)
         }),
     )
@@ -67,7 +67,7 @@ describe('createLatestCharacterOrderSaveQueue', () => {
     const resolvers: Array<(value: FormState) => void> = []
     const saveOrder = vi.fn(
       () =>
-        new Promise<FormState>(resolve => {
+        new Promise<FormState>((resolve) => {
           resolvers.push(resolve)
         }),
     )
@@ -99,7 +99,7 @@ describe('createLatestCharacterOrderSaveQueue', () => {
     const resolvers: Array<(value: FormState) => void> = []
     const saveOrder = vi.fn(
       () =>
-        new Promise<FormState>(resolve => {
+        new Promise<FormState>((resolve) => {
           resolvers.push(resolve)
         }),
     )

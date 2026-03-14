@@ -1,16 +1,18 @@
 const channelName = 'commission-updates'
 const storageKey = 'commission-updated-at'
 
-const sendStoragePing = () => {
+function sendStoragePing() {
   try {
-    if (typeof window === 'undefined') return
+    if (typeof window === 'undefined')
+      return
     window.localStorage.setItem(storageKey, `${Date.now()}`)
-  } catch {
+  }
+  catch {
     // ignore storage errors (private mode, etc.)
   }
 }
 
-export const notifyDataUpdate = () => {
+export function notifyDataUpdate() {
   // BroadcastChannel preferred; fall back to storage events
   try {
     if (typeof BroadcastChannel !== 'undefined') {
@@ -19,14 +21,15 @@ export const notifyDataUpdate = () => {
       channel.close()
       return
     }
-  } catch {
+  }
+  catch {
     // ignore and fall back
   }
 
   sendStoragePing()
 }
 
-export const subscribeToDataUpdates = (onUpdate: () => void) => {
+export function subscribeToDataUpdates(onUpdate: () => void) {
   let channel: BroadcastChannel | null = null
 
   try {
@@ -34,17 +37,20 @@ export const subscribeToDataUpdates = (onUpdate: () => void) => {
       channel = new BroadcastChannel(channelName)
       channel.onmessage = () => onUpdate()
     }
-  } catch {
+  }
+  catch {
     // ignore and keep storage fallback
   }
 
   const onStorage = (event: StorageEvent) => {
-    if (event.key === storageKey) onUpdate()
+    if (event.key === storageKey)
+      onUpdate()
   }
   window.addEventListener('storage', onStorage)
 
   return () => {
-    if (channel) channel.close()
+    if (channel)
+      channel.close()
     window.removeEventListener('storage', onStorage)
   }
 }

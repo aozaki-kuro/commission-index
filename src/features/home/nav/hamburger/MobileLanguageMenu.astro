@@ -18,7 +18,11 @@ const backdropStyle = {
 
 <div
   data-mobile-language-menu-root="true"
-  class="pointer-events-none fixed right-8 bottom-8 z-90 h-10 w-10 opacity-100 transition-all duration-200 md:hidden"
+  class="
+    pointer-events-none fixed right-8 bottom-8 z-90 size-10 opacity-100
+    transition-all duration-200
+    md:hidden
+  "
 >
   <div
     data-mobile-language-menu-anchor="true"
@@ -28,19 +32,30 @@ const backdropStyle = {
       <summary
         style={backdropStyle}
         aria-label={localeSwitcherLabel}
-        class={`${STYLES.floatingButton} list-none cursor-pointer [&::-webkit-details-marker]:hidden`}
+        class={`
+          ${STYLES.floatingButton}
+          cursor-pointer list-none
+          [&::-webkit-details-marker]:hidden
+        `}
       >
         <span class="sr-only">{localeSwitcherLabel}</span>
-        <IconLanguage className="h-6 w-6" stroke={1.7} aria-hidden="true" />
+        <IconLanguage className="size-6" stroke={1.7} aria-hidden="true" />
       </summary>
 
       <ul
         data-mobile-language-menu-panel="true"
         style={backdropStyle}
-        class="pointer-events-none absolute right-4 bottom-full z-95 mb-3 w-48 origin-bottom-right scale-95 space-y-1 rounded-xl border border-white/20 bg-white/80 p-2 font-mono opacity-0 shadow-[0_8px_30px_rgb(0,0,0,0.12)] translate-y-1 transition-[opacity,transform] duration-220 ease-out dark:bg-black/80"
+        class="
+          pointer-events-none absolute right-4 bottom-full z-95 mb-3 w-48
+          origin-bottom-right translate-y-1 scale-95 space-y-1 rounded-xl border
+          border-white/20 bg-white/80 p-2 font-mono opacity-0
+          shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-[opacity,transform]
+          duration-220 ease-out
+          dark:bg-black/80
+        "
       >
         {
-          localeOptions.map(option => {
+          localeOptions.map((option) => {
             const isActive = option.locale === locale
             return (
               <li>
@@ -54,12 +69,17 @@ const backdropStyle = {
                   }`.trim()}
                 >
                   <span>{option.label}</span>
-                  {isActive ? (
+                  {isActive
+? (
                     <span
                       aria-hidden="true"
-                      class="h-1.5 w-1.5 rounded-full bg-gray-500/80 dark:bg-gray-300/80"
+                      class="
+                        size-1.5 rounded-full bg-gray-500/80
+                        dark:bg-gray-300/80
+                      "
                     />
-                  ) : null}
+                  )
+: null}
                 </a>
               </li>
             )

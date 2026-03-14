@@ -1,16 +1,17 @@
-import { queryAll } from './sqlite'
+import process from 'node:process'
 import {
-  normalizeKeywordAliasKey,
   normalizeKeywordAliases,
+  normalizeKeywordAliasKey,
   parseKeywordAliasesJson,
 } from '#lib/keywordAliases/shared'
+import { queryAll } from './sqlite'
 
-type KeywordAliasRow = {
+interface KeywordAliasRow {
   baseKeyword: string
   aliases: string[]
 }
 
-type RawKeywordAliasRow = {
+interface RawKeywordAliasRow {
   baseKeyword: string
   aliasesJson: string
 }
@@ -19,13 +20,13 @@ const isDevelopment = process.env.NODE_ENV === 'development'
 let cachedHasKeywordAliasesTable: boolean | null = null
 let cachedKeywordAliases: KeywordAliasRow[] | null = null
 
-const hasKeywordAliasesTable = (): boolean => {
+function hasKeywordAliasesTable(): boolean {
   if (!isDevelopment && cachedHasKeywordAliasesTable !== null) {
     return cachedHasKeywordAliasesTable
   }
 
   const rows = queryAll<{ name?: string }>(
-    "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
+    'SELECT name FROM sqlite_master WHERE type = \'table\' AND name = ? LIMIT 1',
     ['keyword_aliases'],
   )
   const exists = rows[0]?.name === 'keyword_aliases'
@@ -37,12 +38,13 @@ const hasKeywordAliasesTable = (): boolean => {
   return exists
 }
 
-export const getKeywordAliases = (): KeywordAliasRow[] => {
+export function getKeywordAliases(): KeywordAliasRow[] {
   if (!isDevelopment && cachedKeywordAliases) {
     return cachedKeywordAliases
   }
 
-  if (!hasKeywordAliasesTable()) return []
+  if (!hasKeywordAliasesTable())
+    return []
 
   const rows = queryAll<RawKeywordAliasRow>(
     `
@@ -54,13 +56,15 @@ export const getKeywordAliases = (): KeywordAliasRow[] => {
     `,
   )
 
-  const aliasMap = new Map<string, { baseKeyword: string; aliases: string[] }>()
-  rows.forEach(row => {
+  const aliasMap = new Map<string, { baseKeyword: string, aliases: string[] }>()
+  rows.forEach((row) => {
     const normalizedBaseKeyword = row.baseKeyword.trim()
-    if (!normalizedBaseKeyword) return
+    if (!normalizedBaseKeyword)
+      return
 
     const key = normalizeKeywordAliasKey(normalizedBaseKeyword)
-    if (!key) return
+    if (!key)
+      return
 
     const aliases = parseKeywordAliasesJson(row.aliasesJson)
     const previous = aliasMap.get(key)
@@ -70,9 +74,8 @@ export const getKeywordAliases = (): KeywordAliasRow[] => {
     })
   })
 
-  const result = [...aliasMap.values()].sort((a, b) =>
-    a.baseKeyword.localeCompare(b.baseKeyword, 'ja'),
-  )
+  const result = aliasMap.values().toSorted((a, b) =>
+    a.baseKeyword.localeCompare(b.baseKeyword, 'ja'))
 
   if (!isDevelopment) {
     cachedKeywordAliases = result
@@ -81,13 +84,15 @@ export const getKeywordAliases = (): KeywordAliasRow[] => {
   return result
 }
 
-export const getKeywordAliasesMap = () =>
-  new Map(
+export function getKeywordAliasesMap() {
+  return new Map(
     getKeywordAliases()
-      .map(row => {
+      .map((row) => {
         const key = normalizeKeywordAliasKey(row.baseKeyword)
-        if (!key) return null
+        if (!key)
+          return null
         return [key, row.aliases] as const
       })
       .filter((entry): entry is readonly [string, string[]] => Boolean(entry)),
   )
+}
