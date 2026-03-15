@@ -34,6 +34,7 @@ const sidebarIconClass = 'h-3.5 w-3.5'
 const sidebarLeadOffsetStyle = '--sidebar-lead-offset:1.125rem;'
 const sidebarLabelClass
   = 'font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200'
+const localeLabelClass = 'text-sm leading-5 font-bold no-underline transition-colors duration-200'
 const sidebarNavLinkClass
   = 'flex items-center gap-2 font-mono text-sm no-underline transition-colors duration-200 mb-3'
 ---
@@ -98,15 +99,15 @@ const sidebarNavLinkClass
               stroke={2.2}
             />
           </span>
-          <span class={sidebarLabelClass}>{localeSwitcherLabel}</span>
+          <span class={localeLabelClass}>{localeSwitcherLabel}</span>
         </summary>
 
         <ul
           data-sidebar-locale-panel="true"
           class="
             absolute top-full left-0 z-95 mt-2 w-48 space-y-1 rounded-xl border
-            border-white/20 bg-white/80 p-2 font-mono
-            shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-md
+            border-white/20 bg-white/80 p-2 shadow-[0_8px_30px_rgb(0,0,0,0.12)]
+            backdrop-blur-md
             dark:bg-black/80
           "
         >
@@ -118,7 +119,7 @@ const sidebarNavLinkClass
                   <a
                     href={option.href}
                     aria-current={isActive ? 'page' : undefined}
-                    class={`group flex w-full items-center justify-between rounded-lg px-4 py-1 font-mono text-sm no-underline transition-colors duration-150 ${
+                    class={`group flex w-full items-center justify-between rounded-lg px-4 py-1 text-sm no-underline transition-colors duration-150 ${
                       isActive
                         ? 'text-gray-900 dark:text-white'
                         : 'text-gray-700 hover:bg-white/70 dark:text-gray-200 dark:hover:bg-white/10'

@@ -48,7 +48,7 @@ const backdropStyle = {
         class="
           pointer-events-none absolute right-4 bottom-full z-95 mb-3 w-48
           origin-bottom-right translate-y-1 scale-95 space-y-1 rounded-xl border
-          border-white/20 bg-white/80 p-2 font-mono opacity-0
+          border-white/20 bg-white/80 p-2 opacity-0
           shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-[opacity,transform]
           duration-220 ease-out
           dark:bg-black/80
@@ -62,7 +62,7 @@ const backdropStyle = {
                 <a
                   href={option.href}
                   aria-current={isActive ? 'page' : undefined}
-                  class={`group flex w-full items-center justify-between rounded-lg px-4 py-1 font-mono text-sm no-underline transition-colors duration-150 ${
+                  class={`group flex w-full items-center justify-between rounded-lg px-4 py-1 text-sm no-underline transition-colors duration-150 ${
                     isActive
                       ? 'text-gray-900 dark:text-white'
                       : 'text-gray-700 hover:bg-white/70 dark:text-gray-200 dark:hover:bg-white/10'
