@@ -28,21 +28,24 @@ import {
   requestTimelineViewLoad,
 } from '#features/home/commission/timelineViewEvent'
 import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import {
   readCommissionViewMode,
   replaceCommissionViewModeInAddress,
   resolveCommissionViewModeFromElement,
 } from '#features/home/commission/viewModeState'
-import { dispatchHomeScrollRestoreAbort } from '#features/home/homeScrollRestoreAbort'
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT, dispatchHomeScrollRestoreAbort, HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from '#features/home/events'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import { scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '#lib/navigation/syncHiddenSectionLinkAvailability'
+import {
+  loadDeferredHomeNavTarget,
+  prefetchHomeNavTarget,
+  revealStaleHomeNavTarget,
+} from '../homeNavTargetClient'
 import { MENU_TRANSITION_MS } from './constants'
-import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from './hamburgerMenuStateEvent'
 
 const ROOT_SELECTOR = '[data-mobile-hamburger="true"]'
 const TOGGLE_SELECTOR = '[data-mobile-hamburger-toggle="true"]'
@@ -400,25 +403,24 @@ export function mountMobileHamburgerMenu({
 
   const prefetchNavLinkTarget = (link: HTMLAnchorElement) => {
     const targetId = resolveNavLinkTargetId(link)
-    const timelinePanel = link.closest<HTMLElement>(
-      `${NAV_PANEL_SELECTOR}[data-mobile-hamburger-nav-panel="timeline"]`,
-    )
-    if (timelinePanel) {
-      deps.requestTimelineLoad(win, {
-        strategy: 'target',
-        targetId: link.getAttribute('href') ?? targetId ?? undefined,
-      })
-      return
-    }
-
-    if (link.dataset.mobileNavCharacterStatus === 'active') {
-      deps.prefetchActiveTarget(doc, targetId)
-      return
-    }
-
-    if (link.dataset.mobileNavCharacterStatus === 'stale') {
-      deps.prefetchStaleTarget(doc, targetId)
-    }
+    prefetchHomeNavTarget({
+      doc,
+      href: link.getAttribute('href'),
+      isTimelineTarget: Boolean(
+        link.closest<HTMLElement>(`${NAV_PANEL_SELECTOR}[data-mobile-hamburger-nav-panel="timeline"]`),
+      ),
+      prefetchActiveTarget: deps.prefetchActiveTarget,
+      prefetchStaleTarget: deps.prefetchStaleTarget,
+      requestTimelineLoad: deps.requestTimelineLoad,
+      status:
+        link.dataset.mobileNavCharacterStatus === 'active'
+          ? 'active'
+          : link.dataset.mobileNavCharacterStatus === 'stale'
+            ? 'stale'
+            : null,
+      targetId,
+      win,
+    })
   }
 
   const getVisibleItemCount = (mode: CommissionViewMode) =>
@@ -450,15 +452,15 @@ export function mountMobileHamburgerMenu({
     requestLoad: () => void
   }) => {
     event.preventDefault()
-    dispatchHomeScrollRestoreAbort(win)
-
-    const onLoaded = () => {
-      deps.scrollToHashWithoutWrite(href)
-      syncLinkAvailability()
-    }
-
-    win.addEventListener(loadedEvent, onLoaded, { once: true })
-    requestLoad()
+    loadDeferredHomeNavTarget({
+      loadedEvent,
+      onLoaded: () => {
+        deps.scrollToHashWithoutWrite(href)
+        syncLinkAvailability()
+      },
+      requestLoad,
+      win,
+    })
     trackCharacterNavClick(navLink)
     closeMenu()
   }
@@ -629,19 +631,14 @@ export function mountMobileHamburgerMenu({
     }
     if (isStaleLink && !isStaleCharactersVisible(doc)) {
       event.preventDefault()
-      dispatchHomeScrollRestoreAbort(win)
-
-      const onStaleShown = (staleEvent: Event) => {
-        if (!(staleEvent instanceof CustomEvent) || staleEvent.detail?.visibility !== 'visible') {
-          return
-        }
-
-        deps.scrollToHashWithoutWrite(href)
-        syncLinkAvailability()
-      }
-
-      win.addEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStaleShown, { once: true })
-      deps.requestStaleVisibility(win, 'visible')
+      revealStaleHomeNavTarget({
+        onVisible: () => {
+          deps.scrollToHashWithoutWrite(href)
+          syncLinkAvailability()
+        },
+        requestStaleVisibility: deps.requestStaleVisibility,
+        win,
+      })
       trackCharacterNavClick(navLink)
       closeMenu()
       return

@@ -1,4 +1,4 @@
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/events'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'

@@ -1,12 +1,11 @@
 import {
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
 } from '#features/home/commission/staleCharactersEvent'
-import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '#features/home/homeScrollRestoreAbort'
+import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, HOME_SCROLL_RESTORE_ABORT_EVENT } from '#features/home/events'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MENU_TRANSITION_MS } from './constants'
-import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from './hamburgerMenuStateEvent'
 import { mountMobileHamburgerMenu } from './mobileHamburgerMenu'
 
 function renderMenu() {

@@ -1,4 +1,4 @@
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/events'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
 import { mountMobileViewModeTabs } from './mobileViewModeTabs'

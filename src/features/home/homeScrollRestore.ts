@@ -23,9 +23,8 @@ import {
   requestTimelineViewLoad,
 } from '#features/home/commission/timelineViewEvent'
 import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import { readCommissionViewMode } from '#features/home/commission/viewModeState'
-import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '#features/home/homeScrollRestoreAbort'
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT, HOME_SCROLL_RESTORE_ABORT_EVENT } from '#features/home/events'
 import { restoreScrollPosition as restoreWindowScrollPosition } from '#lib/navigation/restoreScrollPosition'
 
 const HOME_SCROLL_STATE_STORAGE_KEY = 'home:scroll-state'

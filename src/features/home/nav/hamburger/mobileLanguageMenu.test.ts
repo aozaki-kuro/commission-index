@@ -1,6 +1,6 @@
+import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from '#features/home/events'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it } from 'vitest'
-import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from './hamburgerMenuStateEvent'
 import { mountMobileLanguageMenu } from './mobileLanguageMenu'
 
 function renderMenu() {

@@ -1,5 +1,5 @@
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/events'
 import { useSyncExternalStore } from 'react'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from './viewModeEvent'
 import { readCommissionViewMode } from './viewModeState'
 
 type CommissionViewMode = import('./CommissionViewModeSearch').CommissionViewMode

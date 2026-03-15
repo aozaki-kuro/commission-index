@@ -1,4 +1,4 @@
-import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from '#features/home/nav/hamburger/hamburgerMenuStateEvent'
+import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from '#features/home/events'
 
 const ROOT_SELECTOR = '[data-mobile-language-menu-root="true"]'
 const MENU_SELECTOR = '[data-mobile-language-menu="true"]'

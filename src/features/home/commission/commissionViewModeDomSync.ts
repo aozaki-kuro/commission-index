@@ -1,5 +1,5 @@
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import { readCommissionViewMode } from '#features/home/commission/viewModeState'
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/events'
 
 const PANEL_SELECTOR = '[data-commission-view-panel]'
 

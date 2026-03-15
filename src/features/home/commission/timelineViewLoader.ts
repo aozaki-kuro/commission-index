@@ -8,8 +8,8 @@ import {
   writeTimelineLoadedBatchCount,
   writeTimelineLoadedState,
 } from '#features/home/commission/timelineViewEvent'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import { readCommissionViewMode } from '#features/home/commission/viewModeState'
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/events'
 import { getHashTarget, scrollToHashTargetFromHrefWithoutHash } from '#lib/navigation/hashAnchor'
 import { dispatchSidebarSearchState } from '#lib/navigation/sidebarSearchState'
 

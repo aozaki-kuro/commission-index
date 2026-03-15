@@ -1,7 +1,7 @@
 import {
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
 } from '#features/home/commission/staleCharactersEvent'
-import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '#features/home/homeScrollRestoreAbort'
+import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '#features/home/events'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 // @vitest-environment jsdom

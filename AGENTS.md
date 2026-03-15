@@ -38,8 +38,9 @@ This repository contains an Astro 6 static site with React 19 islands, written i
   - `src/features/home/homePageClient.ts`
 - Home refresh scroll restoration is centralized in:
   - `src/features/home/homeScrollRestore.ts`
-  - `src/features/home/homeScrollRestoreAbort.ts`
   - `src/lib/navigation/restoreScrollPosition.ts`
+- Home shared cross-module event constants are centralized in:
+  - `src/features/home/events.ts`
 - Home unpublished-interest button state is centralized in:
   - `src/features/home/commission/unpublishedInterestClient.ts`
 - Home active character lazy-mount behavior is centralized in:
@@ -62,6 +63,8 @@ This repository contains an Astro 6 static site with React 19 islands, written i
   - `src/features/home/commission/timelineViewLoader.ts`
 - Home desktop navigation behavior is centralized in:
   - `src/features/home/nav/sidebarNavEnhancer.ts`
+- Home sidebar/hamburger deferred target prefetch and load helper is centralized in:
+  - `src/features/home/nav/homeNavTargetClient.ts`
 - Home mobile top tabs behavior is centralized in:
   - `src/features/home/commission/mobileViewModeTabs.ts`
 - Home mobile language menu behavior is centralized in:
@@ -160,6 +163,8 @@ Additional guidance:
 
 ## Change Log
 
+- Consolidated shared home event constants into `src/features/home/events.ts`, removing tiny single-purpose event files for view-mode change, scroll-restore abort, and hamburger mounted state.
+- Consolidated shared home sidebar/hamburger target prefetch and deferred-load wiring into `src/features/home/nav/homeNavTargetClient.ts` to reduce duplicate navigation-side client logic.
 - Removed the thin `HomeControlsIsland`, `AdminSuggestionIsland`, and `AliasesDashboardIsland` wrappers so home/admin Astro entrypoints mount their actual React islands directly.
 - Upgraded timeline mode to year-batched lazy loading with manifest-driven target resolution, preserving always-enabled year nav link styling while loading dots/sections progressively (`src/features/home/server/homeTimelineBatches.ts`, `src/features/home/commission/timelineViewEvent.ts`, `src/features/home/commission/timelineViewLoader.ts`, `src/features/home/server/StaticCommissionSections.astro`).
 - Consolidated deferred active/stale target prefetching into `src/features/home/commission/deferredCharacterBatchPrefetch.ts`, reused by sidebar + hamburger nav to remove duplicate batch-target logic.

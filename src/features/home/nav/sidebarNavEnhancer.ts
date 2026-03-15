@@ -29,13 +29,12 @@ import {
   requestTimelineViewLoad,
 } from '#features/home/commission/timelineViewEvent'
 import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import {
   readCommissionViewMode,
   replaceCommissionViewModeInAddress,
   resolveCommissionViewModeFromElement,
 } from '#features/home/commission/viewModeState'
-import { dispatchHomeScrollRestoreAbort } from '#features/home/homeScrollRestoreAbort'
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT, dispatchHomeScrollRestoreAbort } from '#features/home/events'
 import { ANALYTICS_EVENTS } from '#lib/analytics/events'
 import { trackRybbitEvent } from '#lib/analytics/track'
 import {
@@ -50,6 +49,11 @@ import {
 import { jumpToCommissionSearch } from '#lib/navigation/jumpToCommissionSearch'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '#lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '#lib/navigation/syncHiddenSectionLinkAvailability'
+import {
+  loadDeferredHomeNavTarget,
+  prefetchHomeNavTarget,
+  revealStaleHomeNavTarget,
+} from './homeNavTargetClient'
 
 const SIDEBAR_ROOT_ID = 'Character List'
 const SIDEBAR_CONTROLS_ROOT_ID = 'Home Controls'
@@ -463,25 +467,23 @@ export function mountSidebarNavEnhancer({
 
   const prefetchCharacterTarget = (link: HTMLAnchorElement) => {
     const href = link.getAttribute('href')
-    const timelinePanel = link.closest<HTMLElement>(
-      `${NAV_PANEL_SELECTOR}[data-sidebar-nav-panel="timeline"]`,
-    )
-    if (timelinePanel) {
-      deps.requestTimelineLoad(win, {
-        strategy: 'target',
-        targetId: href ?? undefined,
-      })
-      return
-    }
-
-    if (link.dataset.sidebarCharacterStatus === 'active') {
-      deps.prefetchActiveTarget(doc, href)
-      return
-    }
-
-    if (link.dataset.sidebarCharacterStatus === 'stale') {
-      deps.prefetchStaleTarget(doc, href)
-    }
+    prefetchHomeNavTarget({
+      doc,
+      href,
+      isTimelineTarget: Boolean(
+        link.closest<HTMLElement>(`${NAV_PANEL_SELECTOR}[data-sidebar-nav-panel="timeline"]`),
+      ),
+      prefetchActiveTarget: deps.prefetchActiveTarget,
+      prefetchStaleTarget: deps.prefetchStaleTarget,
+      requestTimelineLoad: deps.requestTimelineLoad,
+      status:
+        link.dataset.sidebarCharacterStatus === 'active'
+          ? 'active'
+          : link.dataset.sidebarCharacterStatus === 'stale'
+            ? 'stale'
+            : null,
+      win,
+    })
   }
 
   const onSidebarPreview = (event: Event) => {
@@ -519,16 +521,16 @@ export function mountSidebarNavEnhancer({
     loadedEvent: string
     requestLoad: () => void
   }) => {
-    dispatchHomeScrollRestoreAbort(win)
-
-    const onLoaded = () => {
-      deps.scrollToHashWithoutWrite(href)
-      scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })
-      scheduleSyncActiveDots()
-    }
-
-    win.addEventListener(loadedEvent, onLoaded, { once: true })
-    requestLoad()
+    loadDeferredHomeNavTarget({
+      loadedEvent,
+      onLoaded: () => {
+        deps.scrollToHashWithoutWrite(href)
+        scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })
+        scheduleSyncActiveDots()
+      },
+      requestLoad,
+      win,
+    })
     trackSidebarCharacterClick(link)
   }
 
@@ -645,20 +647,15 @@ export function mountSidebarNavEnhancer({
 
     if (isStaleLink && !isStaleCharactersVisible(doc)) {
       event.preventDefault()
-      dispatchHomeScrollRestoreAbort(win)
-
-      const onStaleShown = (staleEvent: Event) => {
-        if (!(staleEvent instanceof CustomEvent) || staleEvent.detail?.visibility !== 'visible') {
-          return
-        }
-
-        deps.scrollToHashWithoutWrite(href)
-        scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })
-        scheduleSyncActiveDots()
-      }
-
-      win.addEventListener(STALE_CHARACTERS_STATE_CHANGE_EVENT, onStaleShown, { once: true })
-      deps.requestStaleVisibility(win, 'visible')
+      revealStaleHomeNavTarget({
+        onVisible: () => {
+          deps.scrollToHashWithoutWrite(href)
+          scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })
+          scheduleSyncActiveDots()
+        },
+        requestStaleVisibility: deps.requestStaleVisibility,
+        win,
+      })
       trackSidebarCharacterClick(characterLink)
       return
     }
