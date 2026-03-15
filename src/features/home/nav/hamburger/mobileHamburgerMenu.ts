@@ -1,6 +1,7 @@
 import type { RequestActiveCharactersLoadOptions } from '#features/home/commission/activeCharactersEvent'
 import type { CommissionViewMode } from '#features/home/commission/CommissionViewModeSearch'
 import type { RequestStaleCharactersLoadOptions, StaleCharactersVisibility } from '#features/home/commission/staleCharactersEvent'
+import type { RequestTimelineViewLoadOptions } from '#features/home/commission/timelineViewEvent'
 import {
   ACTIVE_CHARACTERS_LOADED_EVENT,
   hasDeferredActiveCharacterTarget,
@@ -22,6 +23,11 @@ import {
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
 
 } from '#features/home/commission/staleCharactersEvent'
+import {
+  hasDeferredTimelineTarget,
+  requestTimelineViewLoad,
+} from '#features/home/commission/timelineViewEvent'
+import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import {
   readCommissionViewMode,
@@ -65,6 +71,7 @@ interface MobileHamburgerMenuDeps {
   prefetchStaleTarget: (doc: Document, targetId: string | null | undefined) => void
   requestActiveLoad: (win: Window, options?: RequestActiveCharactersLoadOptions) => void
   requestStaleLoad: (win: Window, options?: RequestStaleCharactersLoadOptions) => void
+  requestTimelineLoad: (win: Window, options?: RequestTimelineViewLoadOptions) => void
   requestStaleVisibility: (win: Window, visibility: StaleCharactersVisibility) => void
 }
 
@@ -91,6 +98,7 @@ const defaultDeps: MobileHamburgerMenuDeps = {
   prefetchStaleTarget: prefetchDeferredStaleCharacterTarget,
   requestActiveLoad: requestActiveCharactersLoad,
   requestStaleLoad: requestStaleCharactersLoad,
+  requestTimelineLoad: requestTimelineViewLoad,
   requestStaleVisibility: requestStaleCharactersVisibility,
 }
 
@@ -364,15 +372,23 @@ export function mountMobileHamburgerMenu({
   }
 
   const syncLinkAvailability = () => {
+    const mode = readCommissionViewMode(win)
     deps.syncLinkAvailability({
       root: resolveLinkAvailabilityRoot(),
       linkSelector: NAV_LINK_SELECTOR,
       getSectionId: link => link.dataset.mobileNavSectionId ?? null,
-      isDeferredTarget: (sectionId, link) =>
-        (link.dataset.mobileNavCharacterStatus === 'active'
-          && hasDeferredActiveCharacterTarget(doc, sectionId))
-        || (link.dataset.mobileNavCharacterStatus === 'stale'
-          && hasStaleCharacterTarget(doc, sectionId)),
+      isDeferredTarget: (sectionId, link) => {
+        if (mode === 'timeline') {
+          return hasDeferredTimelineTarget(doc, sectionId)
+        }
+
+        return (
+          (link.dataset.mobileNavCharacterStatus === 'active'
+            && hasDeferredActiveCharacterTarget(doc, sectionId))
+          || (link.dataset.mobileNavCharacterStatus === 'stale'
+            && hasStaleCharacterTarget(doc, sectionId))
+        )
+      },
     })
   }
 
@@ -384,6 +400,17 @@ export function mountMobileHamburgerMenu({
 
   const prefetchNavLinkTarget = (link: HTMLAnchorElement) => {
     const targetId = resolveNavLinkTargetId(link)
+    const timelinePanel = link.closest<HTMLElement>(
+      `${NAV_PANEL_SELECTOR}[data-mobile-hamburger-nav-panel="timeline"]`,
+    )
+    if (timelinePanel) {
+      deps.requestTimelineLoad(win, {
+        strategy: 'target',
+        targetId: link.getAttribute('href') ?? targetId ?? undefined,
+      })
+      return
+    }
+
     if (link.dataset.mobileNavCharacterStatus === 'active') {
       deps.prefetchActiveTarget(doc, targetId)
       return
@@ -541,12 +568,32 @@ export function mountMobileHamburgerMenu({
     if (!navLink)
       return
 
+    const mode = readCommissionViewMode(win)
     const navTargetId = resolveNavLinkTargetId(navLink)
+    const href = navLink.getAttribute('href')
+    const isDeferredTimelineLink
+      = mode === 'timeline'
+        && hasDeferredTimelineTarget(doc, href ?? navTargetId)
+    if (isDeferredTimelineLink) {
+      handleDeferredNavLinkLoad({
+        event,
+        href,
+        loadedEvent: TIMELINE_VIEW_LOADED_EVENT,
+        navLink,
+        requestLoad: () => {
+          deps.requestTimelineLoad(win, {
+            strategy: 'target',
+            targetId: href ?? navTargetId ?? undefined,
+          })
+        },
+      })
+      return
+    }
+
     const isDeferredActiveLink
       = navLink.dataset.mobileNavCharacterStatus === 'active'
         && hasDeferredActiveCharacterTarget(doc, navTargetId)
     if (isDeferredActiveLink) {
-      const href = navLink.getAttribute('href')
       handleDeferredNavLinkLoad({
         event,
         href,
@@ -565,7 +612,6 @@ export function mountMobileHamburgerMenu({
     const isStaleLink = navLink.dataset.mobileNavCharacterStatus === 'stale'
     const isDeferredStaleLink = isStaleLink && hasDeferredStaleCharacterTarget(doc, navTargetId)
     if (isDeferredStaleLink) {
-      const href = navLink.getAttribute('href')
       handleDeferredNavLinkLoad({
         event,
         href,
@@ -585,7 +631,6 @@ export function mountMobileHamburgerMenu({
       event.preventDefault()
       dispatchHomeScrollRestoreAbort(win)
 
-      const href = navLink.getAttribute('href')
       const onStaleShown = (staleEvent: Event) => {
         if (!(staleEvent instanceof CustomEvent) || staleEvent.detail?.visibility !== 'visible') {
           return
@@ -607,8 +652,6 @@ export function mountMobileHamburgerMenu({
     }
 
     dispatchHomeScrollRestoreAbort(win)
-
-    const mode = readCommissionViewMode(win)
 
     if (mode === 'timeline') {
       event.preventDefault()

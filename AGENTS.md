@@ -160,6 +160,7 @@ Additional guidance:
 
 ## Change Log
 
+- Upgraded timeline mode to year-batched lazy loading with manifest-driven target resolution, preserving always-enabled year nav link styling while loading dots/sections progressively (`src/features/home/server/homeTimelineBatches.ts`, `src/features/home/commission/timelineViewEvent.ts`, `src/features/home/commission/timelineViewLoader.ts`, `src/features/home/server/StaticCommissionSections.astro`).
 - Consolidated deferred active/stale target prefetching into `src/features/home/commission/deferredCharacterBatchPrefetch.ts`, reused by sidebar + hamburger nav to remove duplicate batch-target logic.
 - Consolidated window scroll restoration behavior into `src/lib/navigation/restoreScrollPosition.ts` and reused it across stale loader + home reload restore.
 - Added search-side request de-dup guards so active/stale `strategy: 'all'` load requests are dispatched once per matching query state instead of repeating on every render.

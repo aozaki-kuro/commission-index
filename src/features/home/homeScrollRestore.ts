@@ -1,5 +1,6 @@
 import type { RequestActiveCharactersLoadOptions } from '#features/home/commission/activeCharactersEvent'
 import type { RequestStaleCharactersLoadOptions } from '#features/home/commission/staleCharactersEvent'
+import type { RequestTimelineViewLoadOptions } from '#features/home/commission/timelineViewEvent'
 import {
   ACTIVE_CHARACTERS_LOADED_EVENT,
   readActiveCharactersLoadedBatchCount,
@@ -15,6 +16,12 @@ import {
 
   STALE_CHARACTERS_LOADED_EVENT,
 } from '#features/home/commission/staleCharactersEvent'
+import {
+  getHomeTimelineBatchTotalCount,
+  readTimelineLoadedBatchCount,
+  readTimelineLoadedState,
+  requestTimelineViewLoad,
+} from '#features/home/commission/timelineViewEvent'
 import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import { readCommissionViewMode } from '#features/home/commission/viewModeState'
@@ -23,8 +30,6 @@ import { restoreScrollPosition as restoreWindowScrollPosition } from '#lib/navig
 
 const HOME_SCROLL_STATE_STORAGE_KEY = 'home:scroll-state'
 const HOME_SCROLL_RESTORING_ATTRIBUTE = 'data-home-scroll-restoring'
-const TIMELINE_PANEL_SELECTOR = '[data-commission-view-panel="timeline"]'
-const TIMELINE_TEMPLATE_SELECTOR = 'template[data-timeline-sections-template="true"]'
 const RESTORE_BATCH_WINDOW = 4
 
 type Cleanup = () => void
@@ -40,7 +45,7 @@ interface HomeScrollRestoreDeps {
   readNavigationType: (win: Window) => string
   requestActiveLoad: (win: Window, options?: RequestActiveCharactersLoadOptions) => void
   requestStaleLoad: (win: Window, options?: RequestStaleCharactersLoadOptions) => void
-  requestTimelineLoad: (win: Window) => void
+  requestTimelineLoad: (win: Window, options?: RequestTimelineViewLoadOptions) => void
   restoreScrollPosition: (win: Window, position: { x: number, y: number }) => void
 }
 
@@ -57,9 +62,7 @@ const defaultDeps: HomeScrollRestoreDeps = {
   },
   requestActiveLoad: requestActiveCharactersLoad,
   requestStaleLoad: requestStaleCharactersLoad,
-  requestTimelineLoad: (win) => {
-    win.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
-  },
+  requestTimelineLoad: requestTimelineViewLoad,
   restoreScrollPosition: restoreWindowScrollPosition,
 }
 
@@ -146,11 +149,11 @@ function needsMoreContentForRestore(win: Window, savedState: SavedHomeScrollStat
 }
 
 function isTimelineLoaded(doc: Document) {
-  return doc.querySelector<HTMLElement>(TIMELINE_PANEL_SELECTOR)?.dataset.timelineLoaded === 'true'
+  return readTimelineLoadedState(doc)
 }
 
 function hasPendingTimelineSections(doc: Document) {
-  return Boolean(doc.querySelector<HTMLTemplateElement>(TIMELINE_TEMPLATE_SELECTOR))
+  return readTimelineLoadedBatchCount(doc) < getHomeTimelineBatchTotalCount(doc)
 }
 
 function readScrollRestoration(win: Window): ScrollRestoration | null {
@@ -266,7 +269,7 @@ export function mountHomeScrollRestore({
 
     if (readCommissionViewMode(win) === 'timeline') {
       if (!isTimelineLoaded(doc) && hasPendingTimelineSections(doc)) {
-        deps.requestTimelineLoad(win)
+        deps.requestTimelineLoad(win, { strategy: 'all' })
         return
       }
 

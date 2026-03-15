@@ -2,6 +2,7 @@ import type { CommissionSearchEntrySource, SearchIndex, SearchSuggestionAliasGro
 import type { SuggestionViewModel } from '#features/home/search/CommissionSearchSuggestionDropdown'
 import { requestActiveCharactersLoad } from '#features/home/commission/activeCharactersEvent'
 import { requestStaleCharactersLoad } from '#features/home/commission/staleCharactersEvent'
+import { requestTimelineViewLoad } from '#features/home/commission/timelineViewEvent'
 import {
   buildRelatedSuggestionTermsMap,
   buildSearchIndex,
@@ -222,6 +223,7 @@ export function useCommissionSearchModel({
   })
   const didRequestActiveAllRef = useRef(false)
   const didRequestStaleAllRef = useRef(false)
+  const didRequestTimelineAllRef = useRef(false)
 
   useEffect(() => {
     syncDeferredAllLoadRequest({
@@ -245,6 +247,16 @@ export function useCommissionSearchModel({
         !disableDomFiltering && mode === 'character' && hasQuery && staleVisible && !staleLoaded,
     })
   }, [disableDomFiltering, hasQuery, mode, staleLoaded, staleVisible])
+
+  useEffect(() => {
+    syncDeferredAllLoadRequest({
+      didRequestRef: didRequestTimelineAllRef,
+      request: () => {
+        requestTimelineViewLoad(window, { strategy: 'all' })
+      },
+      shouldRequest: !disableDomFiltering && mode === 'timeline' && hasQuery && !timelineLoaded,
+    })
+  }, [disableDomFiltering, hasQuery, mode, timelineLoaded])
 
   const index = useMemo(() => {
     if (!shouldBuildIndex)

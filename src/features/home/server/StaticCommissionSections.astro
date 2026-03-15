@@ -8,6 +8,10 @@ import {
   buildHomeCharacterBatchManifest,
   buildHomeCharacterBatchPlan,
 } from '#features/home/server/homeCharacterBatches'
+import {
+  buildHomeTimelineBatchManifest,
+  buildHomeTimelineBatchPlan,
+} from '#features/home/server/homeTimelineBatches'
 
 type CharacterDisplay = {
   DisplayName: string
@@ -49,6 +53,14 @@ const batchManifest = buildHomeCharacterBatchManifest({
 const initialActiveChars = batchPlan.active.initialCharacters
 const hasDeferredActiveChars = batchPlan.active.totalBatches > 0
 const hasDeferredStaleChars = batchPlan.stale.totalBatches > 0
+const timelineBatchPlan = buildHomeTimelineBatchPlan({
+  groups: timelineGroups,
+})
+const timelineBatchManifest = buildHomeTimelineBatchManifest({
+  plan: timelineBatchPlan,
+})
+const initialTimelineGroups = timelineBatchPlan.initialGroups
+const hasDeferredTimelineGroups = timelineBatchPlan.totalBatches > 0
 const staleCharacterCount = staleChars.length
 const staleCommissionCount = staleChars.reduce(
   (count, chara) => count + (commissionMap.get(chara.DisplayName)?.Commissions.length ?? 0),
@@ -183,24 +195,55 @@ const staleCommissionCount = staleChars.reduce(
   <div
     data-commission-view-panel="timeline"
     data-commission-view-active="false"
-    data-timeline-loaded="false"
+    data-timeline-loaded={hasDeferredTimelineGroups ? 'false' : 'true'}
+    data-timeline-batches-loaded-count="0"
     class="hidden"
   >
-    <div data-timeline-sections-container="true" />
-    <template data-timeline-sections-template="true">
+    <div data-timeline-sections-container="true">
       <TimelineView
-        groups={timelineGroups}
+        groups={initialTimelineGroups}
         characterAliasesMap={characterAliasesMap}
         creatorAliasesMap={creatorAliasesMap}
         keywordAliasesMap={keywordAliasesMap}
       />
-    </template>
+    </div>
+    {
+      hasDeferredTimelineGroups
+? (
+        <>
+          <div
+            data-timeline-sections-sentinel="true"
+            aria-hidden="true"
+            class="pointer-events-none h-px overflow-hidden opacity-0"
+          />
+          {
+            timelineBatchPlan.batches.map((groups, batchIndex) => (
+              <template data-timeline-batch-index={String(batchIndex)}>
+                <TimelineView
+                  groups={groups}
+                  characterAliasesMap={characterAliasesMap}
+                  creatorAliasesMap={creatorAliasesMap}
+                  keywordAliasesMap={keywordAliasesMap}
+                />
+              </template>
+            ))
+          }
+        </>
+      )
+: null
+    }
   </div>
   <script
     is:inline
     type="application/json"
     data-home-character-batch-manifest="true"
     set:html={JSON.stringify(batchManifest)}
+  />
+  <script
+    is:inline
+    type="application/json"
+    data-home-timeline-batch-manifest="true"
+    set:html={JSON.stringify(timelineBatchManifest)}
   />
 </div>
 
@@ -220,20 +263,75 @@ if (initialMode === 'timeline') {
     panel.classList.toggle('hidden', !active)
   }
 
+  const readTimelineBatchManifest = () => {
+    const script = document.querySelector('script[data-home-timeline-batch-manifest="true"]')
+    if (!(script instanceof HTMLScriptElement) || !script.textContent)
+      return null
+
+    try {
+      return JSON.parse(script.textContent)
+    }
+    catch {
+      return null
+    }
+  }
+
+  const normalizeTargetId = (rawValue) => {
+    if (!rawValue)
+      return ''
+    const value = rawValue.startsWith('#') ? rawValue.slice(1) : rawValue
+    if (!value)
+      return ''
+
+    try {
+      return decodeURIComponent(value)
+    }
+    catch {
+      return ''
+    }
+  }
+
   const preloadTimelineSections = () => {
     const panel = document.querySelector('[data-commission-view-panel="timeline"]')
     if (!(panel instanceof HTMLElement))
       return
-    if (panel.dataset.timelineLoaded === 'true')
-      return
 
     const container = panel.querySelector('[data-timeline-sections-container="true"]')
-    const template = panel.querySelector('template[data-timeline-sections-template="true"]')
-    if (!(container instanceof HTMLElement) || !(template instanceof HTMLTemplateElement))
+    if (!(container instanceof HTMLElement))
       return
 
-    container.replaceChildren(template.content.cloneNode(true))
-    panel.dataset.timelineLoaded = 'true'
+    const manifest = readTimelineBatchManifest()
+    const totalBatchCount = Number.isInteger(manifest?.totalBatches)
+      ? Number(manifest.totalBatches)
+      : 0
+    const loadedBatchCount = Number(panel.dataset.timelineBatchesLoadedCount ?? '0')
+    const resolvedLoadedBatchCount
+      = Number.isFinite(loadedBatchCount) && loadedBatchCount > 0 ? Math.floor(loadedBatchCount) : 0
+
+    const targetId = normalizeTargetId(window.location.hash)
+    const targetBatchIndex
+      = targetId
+        && !document.getElementById(targetId)
+        && Number.isInteger(manifest?.targetBatchById?.[targetId])
+        ? Number(manifest.targetBatchById[targetId])
+        : null
+
+    let nextLoadedBatchCount = resolvedLoadedBatchCount
+    const finalBatchIndex
+      = targetBatchIndex === null
+        ? resolvedLoadedBatchCount - 1
+        : Math.min(Math.floor(targetBatchIndex), totalBatchCount - 1)
+
+    for (let batchIndex = resolvedLoadedBatchCount; batchIndex <= finalBatchIndex; batchIndex += 1) {
+      const template = panel.querySelector(`template[data-timeline-batch-index="${batchIndex}"]`)
+      if (!(template instanceof HTMLTemplateElement))
+        break
+      container.append(template.content.cloneNode(true))
+      nextLoadedBatchCount = batchIndex + 1
+    }
+
+    panel.dataset.timelineBatchesLoadedCount = String(nextLoadedBatchCount)
+    panel.dataset.timelineLoaded = nextLoadedBatchCount >= totalBatchCount ? 'true' : 'false'
   }
 
   const syncPanelGroupVisibility = ({ panelSelector, dataKey }) => {

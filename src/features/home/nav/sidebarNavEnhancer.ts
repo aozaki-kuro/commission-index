@@ -1,6 +1,7 @@
 import type { RequestActiveCharactersLoadOptions } from '#features/home/commission/activeCharactersEvent'
 import type { CommissionViewMode } from '#features/home/commission/CommissionViewModeSearch'
 import type { RequestStaleCharactersLoadOptions, StaleCharactersState, StaleCharactersVisibility } from '#features/home/commission/staleCharactersEvent'
+import type { RequestTimelineViewLoadOptions } from '#features/home/commission/timelineViewEvent'
 import {
   ACTIVE_CHARACTERS_LOADED_EVENT,
   hasDeferredActiveCharacterTarget,
@@ -23,6 +24,11 @@ import {
   STALE_CHARACTERS_STATE_CHANGE_EVENT,
 
 } from '#features/home/commission/staleCharactersEvent'
+import {
+  hasDeferredTimelineTarget,
+  requestTimelineViewLoad,
+} from '#features/home/commission/timelineViewEvent'
+import { TIMELINE_VIEW_LOADED_EVENT } from '#features/home/commission/timelineViewLoader'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '#features/home/commission/viewModeEvent'
 import {
   readCommissionViewMode,
@@ -68,6 +74,7 @@ interface SidebarNavEnhancerDeps {
   prefetchStaleTarget: (doc: Document, targetId: string | null | undefined) => void
   requestActiveLoad: (win: Window, options?: RequestActiveCharactersLoadOptions) => void
   requestStaleLoad: (win: Window, options?: RequestStaleCharactersLoadOptions) => void
+  requestTimelineLoad: (win: Window, options?: RequestTimelineViewLoadOptions) => void
   requestStaleVisibility: (win: Window, visibility: StaleCharactersVisibility) => void
 }
 
@@ -93,6 +100,7 @@ const defaultDeps: SidebarNavEnhancerDeps = {
   prefetchStaleTarget: prefetchDeferredStaleCharacterTarget,
   requestActiveLoad: requestActiveCharactersLoad,
   requestStaleLoad: requestStaleCharactersLoad,
+  requestTimelineLoad: requestTimelineViewLoad,
   requestStaleVisibility: requestStaleCharactersVisibility,
 }
 
@@ -319,11 +327,18 @@ export function mountSidebarNavEnhancer({
       getSectionId: (link) => {
         return resolveSectionIdFromHref(link.getAttribute('href'))
       },
-      isDeferredTarget: (sectionId, link) =>
-        (link.dataset.sidebarCharacterStatus === 'active'
-          && hasDeferredActiveCharacterTarget(doc, sectionId))
-        || (link.dataset.sidebarCharacterStatus === 'stale'
-          && hasStaleCharacterTarget(doc, sectionId)),
+      isDeferredTarget: (sectionId, link) => {
+        if (mode === 'timeline') {
+          return hasDeferredTimelineTarget(doc, sectionId)
+        }
+
+        return (
+          (link.dataset.sidebarCharacterStatus === 'active'
+            && hasDeferredActiveCharacterTarget(doc, sectionId))
+          || (link.dataset.sidebarCharacterStatus === 'stale'
+            && hasStaleCharacterTarget(doc, sectionId))
+        )
+      },
     })
   }
 
@@ -448,6 +463,17 @@ export function mountSidebarNavEnhancer({
 
   const prefetchCharacterTarget = (link: HTMLAnchorElement) => {
     const href = link.getAttribute('href')
+    const timelinePanel = link.closest<HTMLElement>(
+      `${NAV_PANEL_SELECTOR}[data-sidebar-nav-panel="timeline"]`,
+    )
+    if (timelinePanel) {
+      deps.requestTimelineLoad(win, {
+        strategy: 'target',
+        targetId: href ?? undefined,
+      })
+      return
+    }
+
     if (link.dataset.sidebarCharacterStatus === 'active') {
       deps.prefetchActiveTarget(doc, href)
       return
@@ -566,7 +592,22 @@ export function mountSidebarNavEnhancer({
     if (!characterLink)
       return
 
+    const mode = getCurrentMode(win)
     const href = characterLink.getAttribute('href')
+    const isDeferredTimelineLink = mode === 'timeline' && hasDeferredTimelineTarget(doc, href)
+    if (isDeferredTimelineLink) {
+      event.preventDefault()
+      handleDeferredCharacterLinkLoad({
+        href,
+        link: characterLink,
+        loadedEvent: TIMELINE_VIEW_LOADED_EVENT,
+        requestLoad: () => {
+          deps.requestTimelineLoad(win, { strategy: 'target', targetId: href ?? undefined })
+        },
+      })
+      return
+    }
+
     const isDeferredActiveLink
       = characterLink.dataset.sidebarCharacterStatus === 'active'
         && hasDeferredActiveCharacterTarget(doc, href)
@@ -629,7 +670,7 @@ export function mountSidebarNavEnhancer({
 
     dispatchHomeScrollRestoreAbort(win)
 
-    if (getCurrentMode(win) === 'timeline') {
+    if (mode === 'timeline') {
       event.preventDefault()
       deps.scrollToHashWithoutWrite(characterLink.getAttribute('href'))
     }
