@@ -265,7 +265,9 @@ function CommissionSearch({
     showSuggestionPanel()
     setCopyState('idle')
     clearSearchQueryParamInAddress()
-    inputRef.current?.focus()
+    if (!shouldUseTapLikeFocus()) {
+      inputRef.current?.focus()
+    }
   }, [setInputQuery, showSuggestionPanel])
 
   const handleStaleCharactersLoadRequest = useCallback(() => {

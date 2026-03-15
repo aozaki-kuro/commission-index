@@ -198,6 +198,73 @@ describe('commissionSearch', () => {
     }
   })
 
+  it('refocuses input after clearing query on desktop pointers', async () => {
+    const entries: CommissionSearchEntrySource[] = [
+      {
+        id: 1,
+        domKey: 'test-character::20240101_alpha',
+        searchText: 'alpha sample',
+      },
+    ]
+
+    renderSearch(entries)
+
+    const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+    fireEvent.input(input, { target: { value: 'alpha' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+
+    await waitFor(() => {
+      expect(input.value).toBe('')
+    })
+    expect(input).toHaveFocus()
+  })
+
+  it('does not refocus input after clearing query on coarse pointers', async () => {
+    const originalMatchMedia = window.matchMedia
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: query === '(pointer: coarse)',
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    })
+
+    try {
+      const entries: CommissionSearchEntrySource[] = [
+        {
+          id: 1,
+          domKey: 'test-character::20240101_alpha',
+          searchText: 'alpha sample',
+        },
+      ]
+
+      renderSearch(entries)
+
+      const input = screen.getByLabelText('Search commissions') as HTMLInputElement
+      fireEvent.input(input, { target: { value: 'alpha' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+
+      await waitFor(() => {
+        expect(input.value).toBe('')
+      })
+      expect(input).not.toHaveFocus()
+    }
+    finally {
+      Object.defineProperty(window, 'matchMedia', {
+        configurable: true,
+        writable: true,
+        value: originalMatchMedia,
+      })
+    }
+  })
+
   it('shows shared alias suffix for keyword and character suggestions', async () => {
     const entries: CommissionSearchEntrySource[] = [
       {
