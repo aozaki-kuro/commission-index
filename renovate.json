@@ -3,6 +3,7 @@
   "extends": ["config:recommended"],
   "timezone": "Asia/Shanghai",
   "dependencyDashboard": true,
+  "rangeStrategy": "replace",
   "lockFileMaintenance": {
     "enabled": true,
     "automerge": true,
@@ -11,74 +12,86 @@
   },
   "packageRules": [
     {
-      "matchPackageNames": ["astro", "@astrojs/react"],
+      "description": "Astro core stack",
+      "matchPackageNames": ["astro", "@astrojs/react", "@astrojs/check"],
       "groupName": "astro stack"
     },
     {
+      "description": "React runtime packages",
       "matchPackageNames": ["react", "react-dom", "cmdk"],
       "groupName": "react runtime"
     },
     {
-      "matchPackageNames": ["@types/react", "@types/react-dom", "@types/node"],
-      "groupName": "react and node types"
+      "description": "Type declarations",
+      "matchPackageNames": ["@types/react", "@types/react-dom", "@types/node", "@types/better-sqlite3"],
+      "groupName": "types"
     },
     {
-      "matchPackageNames": ["tailwindcss", "@tailwindcss/postcss", "postcss", "tailwind-merge"],
-      "groupName": "tailwind and postcss"
+      "description": "Tailwind and styling ecosystem",
+      "matchPackageNames": [
+        "tailwindcss",
+        "@tailwindcss/postcss",
+        "postcss",
+        "tailwind-merge",
+        "class-variance-authority",
+        "clsx",
+        "eslint-plugin-better-tailwindcss"
+      ],
+      "groupName": "tailwind and styling"
     },
     {
-      "matchPackageNames": ["eslint", "@eslint/js", "typescript-eslint", "globals"],
-      "groupName": "eslint core"
+      "description": "Lint and hooks tooling",
+      "matchPackageNames": ["eslint", "@antfu/eslint-config", "lint-staged", "@j178/prek"],
+      "groupName": "lint and hooks"
     },
     {
-      "matchPackagePrefixes": ["eslint-plugin-", "eslint-config-"],
-      "groupName": "eslint plugins and configs"
-    },
-    {
+      "description": "Testing stack",
       "matchPackageNames": [
         "vitest",
         "jsdom",
         "@testing-library/jest-dom",
-        "@testing-library/react"
+        "@testing-library/react",
+        "@playwright/test"
       ],
       "groupName": "test stack"
     },
     {
+      "description": "TypeScript toolchain",
       "matchPackageNames": ["typescript", "vite-tsconfig-paths"],
       "groupName": "typescript toolchain"
     },
     {
-      "matchPackageNames": ["wrangler"],
-      "groupName": "cloudflare tooling"
-    },
-    {
-      "matchPackageNames": [
-        "@radix-ui/react-alert-dialog",
-        "@radix-ui/react-popover",
-        "@radix-ui/react-select",
-        "@radix-ui/react-slot",
-        "@radix-ui/react-tabs"
-      ],
+      "description": "Radix UI components",
+      "matchPackagePrefixes": ["@radix-ui/"],
       "groupName": "radix ui"
     },
     {
+      "description": "DnD kit",
       "matchPackageNames": ["@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
       "groupName": "dnd-kit"
     },
     {
-      "matchPackageNames": [
-        "class-variance-authority",
-        "clsx",
-        "fuse.js",
-        "sharp",
-        "better-sqlite3"
-      ],
+      "description": "Infra and native modules",
+      "matchPackageNames": ["wrangler", "better-sqlite3", "sharp"],
+      "groupName": "infra and native modules"
+    },
+    {
+      "description": "Runtime utilities",
+      "matchPackageNames": ["fuse.js", "@tabler/icons-react"],
       "groupName": "runtime utilities"
     },
     {
+      "description": "Automerge stable minor and patch updates",
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "matchCurrentVersion": "!/^0/",
+      "automerge": true
+    },
+    {
+      "description": "Never automerge high-risk or native/runtime-critical dependencies",
       "matchPackageNames": [
         "astro",
         "@astrojs/react",
+        "@astrojs/check",
         "react",
         "react-dom",
         "cmdk",
@@ -87,11 +100,6 @@
         "better-sqlite3"
       ],
       "automerge": false
-    },
-    {
-      "matchUpdateTypes": ["minor", "patch", "digest"],
-      "matchCurrentVersion": "!/^0/",
-      "automerge": true
     }
   ]
 }
