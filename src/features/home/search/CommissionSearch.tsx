@@ -324,7 +324,13 @@ function CommissionSearch({
     })
 
   const applySelectedQuery = useCallback(
-    (nextQuery: string, options?: { preventScroll?: boolean }) => {
+    (
+      nextQuery: string,
+      options?: {
+        preventScroll?: boolean
+        focusInput?: boolean
+      },
+    ) => {
       dismissSuggestionPanel()
       setInputQuery(nextQuery)
       setCopyState('idle')
@@ -336,7 +342,9 @@ function CommissionSearch({
         input.setSelectionRange(cursor, cursor)
       }
 
-      focusInputAfterSelection(nextQuery, options)
+      if (options?.focusInput !== false) {
+        focusInputAfterSelection(nextQuery, options)
+      }
     },
     [dismissSuggestionPanel, focusInputAfterSelection, setInputQuery],
   )
@@ -360,7 +368,10 @@ function CommissionSearch({
         return
 
       ensureSearchRuntimeReady()
-      applySelectedQuery(nextQuery, { preventScroll: true })
+      applySelectedQuery(nextQuery, {
+        preventScroll: true,
+        focusInput: !shouldUseTapLikeFocus(),
+      })
     },
     [applySelectedQuery, ensureSearchRuntimeReady],
   )
