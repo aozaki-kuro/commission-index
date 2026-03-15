@@ -28,7 +28,7 @@ function PopularKeywordsRow({
     <div
       ref={rowRef}
       className="
-        mt-2 flex min-h-8 w-full items-center gap-2 overflow-hidden text-xs
+        mt-2 flex min-h-8 w-full items-center gap-2 overflow-hidden pr-2 text-xs
         text-gray-500
         dark:text-gray-400
       "
