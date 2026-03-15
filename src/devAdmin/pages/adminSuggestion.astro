@@ -1,6 +1,6 @@
 ---
 import AdminSectionNav from '#admin/AdminSectionNav.astro'
-import AdminSuggestionIsland from '#admin/islands/AdminSuggestionIsland'
+import SuggestionDashboard from '#admin/suggestion/SuggestionDashboard'
 import NotFoundPage from '#components/shared/NotFoundPage.astro'
 import BaseLayout from '#layouts/BaseLayout.astro'
 import { getHomeSuggestionAdminData } from '#lib/admin/db'
@@ -36,7 +36,11 @@ const initialPayload = getHomeSuggestionAdminData()
 
         <AdminSectionNav current="suggestion" />
 
-        <AdminSuggestionIsland client:load initialPayload={initialPayload} />
+        <SuggestionDashboard
+          client:load
+          featuredKeywords={initialPayload.featuredKeywords}
+          keywordOptions={initialPayload.keywordOptions}
+        />
       </div>
     )
 : (

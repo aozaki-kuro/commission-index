@@ -13,10 +13,10 @@ import {
   HOME_LOCALE_SWITCH_ITEMS,
   normalizeHomeLocale,
 } from '#features/home/i18n/homeLocale'
-import HomeControlsIsland from '#features/home/islands/HomeControlsIsland'
 import DesktopSidebarNav from '#features/home/nav/DesktopSidebarNav.astro'
 import MobileHamburgerMenu from '#features/home/nav/hamburger/MobileHamburgerMenu.astro'
 import MobileLanguageMenu from '#features/home/nav/hamburger/MobileLanguageMenu.astro'
+import CommissionSearchDeferred from '#features/home/search/CommissionSearchDeferred'
 import StaticCommissionSections from '#features/home/server/StaticCommissionSections.astro'
 import AgeGateScript from '#features/home/warning/AgeGateScript.astro'
 import BaseLayout from '#layouts/BaseLayout.astro'
@@ -177,10 +177,10 @@ const resolvedCanonicalPath
   />
   <div class="relative mx-auto flex justify-center">
     <div id="Main Contents" class="w-full max-w-2xl">
-      <HomeControlsIsland
+      <CommissionSearchDeferred
         client:load
         locale={resolvedLocale}
-        featuredSearchKeywords={featuredSearchKeywords}
+        featuredKeywords={featuredSearchKeywords}
         suggestionAliasGroups={suggestionAliasGroups}
       />
       <MobileHamburgerMenu
