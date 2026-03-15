@@ -95,7 +95,7 @@ This repository contains an Astro 6 static site with React 19 islands, written i
 - Admin interactive state is isolated to React islands:
   - `src/features/admin/islands/AdminCreateIsland.tsx`
   - `src/features/admin/islands/AdminEditIsland.tsx`
-  - `src/features/admin/islands/AliasesDashboardIsland.tsx`
+- `/admin/aliases` mounts `src/features/admin/aliases/AliasesDashboard.tsx` directly as its sole React island.
 - `/admin/suggestion` mounts `src/features/admin/suggestion/SuggestionDashboard.tsx` directly as its sole React island.
 - Feature-heavy admin UI remains React:
   - `src/features/admin/AddCharacterForm.tsx`
@@ -160,7 +160,7 @@ Additional guidance:
 
 ## Change Log
 
-- Removed the thin `HomeControlsIsland` and `AdminSuggestionIsland` wrappers so the home page and `/admin/suggestion` now mount their actual React islands directly from Astro entrypoints.
+- Removed the thin `HomeControlsIsland`, `AdminSuggestionIsland`, and `AliasesDashboardIsland` wrappers so home/admin Astro entrypoints mount their actual React islands directly.
 - Upgraded timeline mode to year-batched lazy loading with manifest-driven target resolution, preserving always-enabled year nav link styling while loading dots/sections progressively (`src/features/home/server/homeTimelineBatches.ts`, `src/features/home/commission/timelineViewEvent.ts`, `src/features/home/commission/timelineViewLoader.ts`, `src/features/home/server/StaticCommissionSections.astro`).
 - Consolidated deferred active/stale target prefetching into `src/features/home/commission/deferredCharacterBatchPrefetch.ts`, reused by sidebar + hamburger nav to remove duplicate batch-target logic.
 - Consolidated window scroll restoration behavior into `src/lib/navigation/restoreScrollPosition.ts` and reused it across stale loader + home reload restore.

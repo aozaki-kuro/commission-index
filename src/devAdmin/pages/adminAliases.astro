@@ -1,6 +1,6 @@
 ---
 import AdminSectionNav from '#admin/AdminSectionNav.astro'
-import AliasesDashboardIsland from '#admin/islands/AliasesDashboardIsland'
+import AliasesDashboard from '#admin/aliases/AliasesDashboard'
 import NotFoundPage from '#components/shared/NotFoundPage.astro'
 import BaseLayout from '#layouts/BaseLayout.astro'
 import { getAdminAliasesData } from '#lib/admin/db'
@@ -36,7 +36,12 @@ const initialPayload = getAdminAliasesData()
 
         <AdminSectionNav current="aliases" />
 
-        <AliasesDashboardIsland client:load initialPayload={initialPayload} />
+        <AliasesDashboard
+          client:load
+          characters={initialPayload.characterAliases}
+          creators={initialPayload.creatorAliases}
+          keywords={initialPayload.keywordAliases}
+        />
       </div>
     )
 : (
