@@ -30,7 +30,7 @@ jobs:
 
       - name: Restore turbo cache
         id: turbo_cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'package.json', 'apps/*/package.json', 'packages/*/package.json') }}
@@ -42,7 +42,7 @@ jobs:
 
       - name: Save turbo cache
         if: always() && steps.turbo_cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'package.json', 'apps/*/package.json', 'packages/*/package.json') }}
@@ -61,7 +61,7 @@ jobs:
         id: setup
 
       - name: Restore turbo cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'package.json', 'apps/*/package.json', 'packages/*/package.json') }}
@@ -70,7 +70,7 @@ jobs:
 
       - name: Restore generated web inputs
         id: generated_cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: apps/web/generated
           key: generated-${{ runner.os }}-master-${{ hashFiles('apps/web/wrangler.jsonc', 'apps/admin-worker/scripts/exportWebFactSource.ts', 'packages/domain/src/factSource.ts') }}
@@ -101,7 +101,7 @@ jobs:
 
       - name: Save generated web inputs
         if: success() && steps.generated_cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: apps/web/generated
           key: generated-${{ runner.os }}-master-${{ hashFiles('apps/web/wrangler.jsonc', 'apps/admin-worker/scripts/exportWebFactSource.ts', 'packages/domain/src/factSource.ts') }}
@@ -120,7 +120,7 @@ jobs:
         id: setup
 
       - name: Restore turbo cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'package.json', 'apps/*/package.json', 'packages/*/package.json') }}
