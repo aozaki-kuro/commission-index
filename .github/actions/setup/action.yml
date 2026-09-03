@@ -14,7 +14,7 @@ runs:
       # Version comes from packageManager in package.json
       # https://pnpm.io/continuous-integration#github-actions
 
-    - uses: actions/setup-node@v6
+    - uses: actions/setup-node@v7
       with:
         node-version: 24
         cache: pnpm
