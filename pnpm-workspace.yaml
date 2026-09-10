@@ -1,13 +1,17 @@
-allowBuilds:
-  esbuild: true
-  sharp: true
-  workerd: true
-shellEmulator: true
+minimumReleaseAgeExcludePrune: true
 trustPolicy: no-downgrade
 trustPolicyIgnoreAfter: 20160 # 2 weeks
+
 trustPolicyExclude:
   - tinyexec # false positive: cross-major provenance date comparison
+
+shellEmulator: true
 
 packages:
   - 'apps/*'
   - 'packages/*'
+
+allowBuilds:
+  esbuild: true
+  sharp: true
+  workerd: true

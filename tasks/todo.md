@@ -1,5 +1,19 @@
 # 统一迁移状态板（2026-03-18）
 
+## 本轮执行切片（2026-09-10 pnpm 跟进与 admin 部署）
+
+- [x] 将本地裁剪提交 rebase 到最新 `origin/master`，不使用强推
+- [x] 全仓扫描旧式 `pnpm run --cwd` / `--dir` / `--prefix` 调用，确认无遗漏
+- [x] 将 Playwright 三个 workspace 服务命令统一为 `pnpm -C <dir> run ...`
+- [x] 按当前 lint 规则补齐 `minimumReleaseAgeExcludePrune: true` 并规范 workspace YAML 顺序
+- [x] 串行重跑 frozen install、lint、typecheck、Vitest 与 admin build
+- [ ] 提交并推送 pnpm 配置跟进
+- [ ] 部署 admin Worker，并用健康检查与线上静态资源验证发布结果
+
+### Review
+
+- 待部署完成后补充。
+
 ## 本轮执行切片（2026-09-10 admin 源图裁剪）
 
 ### 规格与边界

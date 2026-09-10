@@ -168,6 +168,9 @@ CI gotchas:
 - `apps/web` imports from `packages/*` only — never from `apps/admin` or `apps/admin-worker`
 - `packages/domain` is app-agnostic — never imports from `apps/*`
 - Admin features go in `apps/admin` + `apps/admin-worker`, not `apps/web`
+- Keep pnpm workspace policy lint-clean: retain `minimumReleaseAgeExcludePrune: true` and the
+  canonical key order/blank lines; target workspaces with `pnpm -C <dir> run <script>`, not the
+  pnpm 11-incompatible `pnpm run --cwd <dir> <script>` form
 
 ### Cloudflare Deploy
 
