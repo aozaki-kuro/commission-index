@@ -25,7 +25,7 @@ jobs:
       # before falling back to master- (code-only artifacts from validate).
       - name: Restore turbo cache
         id: turbo_cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-master-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'package.json', 'apps/*/package.json', 'packages/*/package.json') }}
@@ -38,7 +38,7 @@ jobs:
       # successful web deploy as long as fact source inputs haven't changed.
       - name: Restore generated web inputs
         id: generated_cache
-        uses: actions/cache/restore@v5
+        uses: actions/cache/restore@v6
         with:
           path: apps/web/generated
           key: generated-${{ runner.os }}-master-${{ hashFiles('apps/web/wrangler.jsonc', 'apps/admin-worker/scripts/exportWebFactSource.ts', 'packages/domain/src/factSource.ts') }}
@@ -90,14 +90,14 @@ jobs:
       - name: Save turbo cache
         if: success()
         continue-on-error: true
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-web-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'package.json', 'apps/*/package.json', 'packages/*/package.json') }}-${{ env.WEB_BUILD_CACHE_TOKEN }}
 
       - name: Save generated web inputs
         if: success() && steps.generated_cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+        uses: actions/cache/save@v6
         with:
           path: apps/web/generated
           key: generated-${{ runner.os }}-master-${{ hashFiles('apps/web/wrangler.jsonc', 'apps/admin-worker/scripts/exportWebFactSource.ts', 'packages/domain/src/factSource.ts') }}
