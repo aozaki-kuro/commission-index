@@ -1,5 +1,31 @@
 # 统一迁移状态板（2026-03-18）
 
+## 本轮执行切片（2026-09-10 admin 源图裁剪）
+
+### 规格与边界
+
+- [x] 只读盘点 admin 新建/替换图片入口、R2 上传链路、展示比例与现有 Dialog 约束
+- [x] 核对裁剪库当前版本、React 19 兼容性、无白边边界与 modal 动画限制
+- [x] 确认设计上下文与实施假设：单人内容维护、英文界面、现有克制灰阶风格、浅/深双主题、桌面与触控窄屏
+- [x] 新增共享图片处理模块：精确输出 1280×525 JPEG，质量 0.95，透明区域铺白，异常可恢复
+- [x] 新增可访问、响应式的 Radix 裁剪 Dialog：固定比例、拖动、缩放、连续任意角旋转、重置、处理状态
+- [x] 实现旋转多边形的最小缩放与位移夹取，不依赖外接矩形，保证任意角度下裁剪框四角都在图像内
+- [x] 接入新建 commission 表单：保留原文件名自动填充，表单只提交裁剪后的 JPEG
+- [x] 接入编辑 commission 替换链路：裁剪确认后才上传，保留现有状态提示与预览 cache-bust
+- [x] 对低于目标有效裁剪像素的源图给出清晰警告，允许用户明确确认后上采样，不静默降质
+- [x] 补纯处理逻辑/组件回归与 Playwright 视觉用例，覆盖横图、竖图、PNG、旋转、取消、窄屏与 200% 文字缩放
+- [x] 同步 `apps/admin/AGENTS.md` 的新模块边界；不改 admin API 合同
+- [x] 串行运行 install、lint、typecheck、Vitest、admin build 和受影响的 Playwright 视觉验证
+
+### Review
+
+- [x] `react-easy-crop@6.2.3` 只负责手势与固定裁剪框；本地几何层统一约束任意角旋转后的最小缩放和图像局部坐标位移，避免四角露白。
+- [x] 创建与编辑共用 `ImageCropDialog` / `imageCrop.ts`，现有 Worker API、R2 key、D1 schema 和 cache-bust 合同均未改变。
+- [x] `pnpm install --frozen-lockfile`、`pnpm run lint`、`pnpm run typecheck`、全量 41 个 Vitest 文件 / 210 个测试、`pnpm run build:admin` 全部通过。
+- [x] Playwright 创建页 6 个原有/新增用例通过；额外纵图取消用例通过；编辑替换用例在 37° 旋转后确认 multipart 为 `.jpg` / `image/jpeg`，并拦截请求避免写入远端。
+- [x] 已人工复核桌面与 390×844 移动端基线；固定框、缩放/旋转滑杆和首屏确认按钮均可用，200% 根字号下关键控件仍在视口。
+- [ ] `admin-edit.spec.ts` 的两个既有静态截图仍因远端 commission 数量改变导致基线高度漂移，其中整页 element screenshot 还触发 5 秒稳定等待；这两个失败与未打开时不渲染的裁剪 Dialog 无关，未用本功能更新掩盖远端数据基线。
+
 ## 本轮提交收口（2026-08-16）
 
 - [x] 审计 untracked/ignored/build artifacts，仅补充仓库根 `.pnpm-store/` 忽略规则

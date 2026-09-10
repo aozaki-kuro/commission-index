@@ -1,4 +1,4 @@
-import type { ChangeEvent, ComponentPropsWithoutRef } from 'react'
+import type { ChangeEvent, ComponentPropsWithoutRef, RefObject } from 'react'
 import { formControlStyles } from '../../app/ui'
 import {
   Select,
@@ -96,6 +96,7 @@ interface CommissionSourceImageFieldProps {
   helperMessage?: string
   helperTone?: 'default' | 'success' | 'error'
   required?: boolean
+  inputRef?: RefObject<HTMLInputElement | null>
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void
 }
 
@@ -104,6 +105,7 @@ export function CommissionSourceImageField({
   helperMessage = 'Upload JPG/PNG. It will be stored in the remote source-image bucket using this file name.',
   helperTone = 'default',
   required = false,
+  inputRef,
   onChange,
 }: CommissionSourceImageFieldProps) {
   const helperMessageClassName
@@ -119,6 +121,7 @@ export function CommissionSourceImageField({
         {required ? 'Source image' : 'Source image (optional)'}
       </label>
       <input
+        ref={inputRef}
         id="create-commission-source-image"
         type="file"
         name="sourceImage"

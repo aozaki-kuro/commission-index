@@ -22,11 +22,13 @@ import {
 import { notifyDataUpdate } from '../../lib/dataUpdateSignal'
 import { findDuplicateCommissionHints } from '../../lib/duplicateCommissionHints'
 import { INITIAL_FORM_STATE } from '../../lib/formState'
+import { isSupportedSourceImage } from '../../lib/imageCrop'
 import { markPendingRebuild } from '../../lib/pendingRebuildSignal'
 import { CommissionHiddenSwitch } from '../create/CommissionFormFields'
 import { CommissionSharedFields } from '../create/CommissionSharedFields'
 import { DuplicateCommissionNotice } from '../create/DuplicateCommissionNotice'
 import { FormStatusIndicator } from '../FormStatusIndicator'
+import { ImageCropDialog } from '../image/ImageCropDialog'
 import { SubmitButton } from '../SubmitButton'
 
 interface CommissionEditFormProps {
@@ -58,6 +60,7 @@ export function CommissionEditForm({
   const [isUploading, startUpload] = useTransition()
   const [uploadStatus, setUploadStatus] = useState<OperationStatus | null>(null)
   const [isDeleteArmed, setIsDeleteArmed] = useState(false)
+  const [pendingCropFile, setPendingCropFile] = useState<File | null>(null)
   const sourceImageInputRef = useRef<HTMLInputElement | null>(null)
   const [imageVersion, setImageVersion] = useState(() => {
     if (typeof window === 'undefined') {
@@ -231,6 +234,16 @@ export function CommissionEditForm({
       return
     }
 
+    if (!isSupportedSourceImage(file)) {
+      setUploadStatus({ text: 'Choose a valid JPG or PNG image.', type: 'error' })
+      input.value = ''
+      return
+    }
+
+    setPendingCropFile(file)
+  }
+
+  const uploadSourceImage = (file: File) => {
     const payload = new FormData()
     payload.set('commissionFileName', commission.fileName)
     payload.set('id', String(commission.id))
@@ -265,9 +278,23 @@ export function CommissionEditForm({
           setUploadStatus({ text: 'Failed to replace source image.', type: 'error' })
         })
         .finally(() => {
-          input.value = ''
+          if (sourceImageInputRef.current) {
+            sourceImageInputRef.current.value = ''
+          }
         })
     })
+  }
+
+  const handleCropCancel = () => {
+    setPendingCropFile(null)
+    if (sourceImageInputRef.current) {
+      sourceImageInputRef.current.value = ''
+    }
+  }
+
+  const handleCropConfirm = (file: File) => {
+    setPendingCropFile(null)
+    uploadSourceImage(file)
   }
 
   return (
@@ -349,6 +376,17 @@ export function CommissionEditForm({
             >
               {uploadStatus.text}
             </p>
+          )
+        : null}
+
+      {pendingCropFile
+        ? (
+            <ImageCropDialog
+              key={`${pendingCropFile.name}:${pendingCropFile.lastModified}`}
+              file={pendingCropFile}
+              onCancel={handleCropCancel}
+              onConfirm={handleCropConfirm}
+            />
           )
         : null}
 

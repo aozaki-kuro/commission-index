@@ -1,7 +1,36 @@
 import type { Locator, Page, TestInfo } from '@playwright/test'
+import { Buffer } from 'node:buffer'
 import { expect, test } from '@playwright/test'
 
 export const ADMIN_PROJECT_NAME = 'admin'
+
+export async function createTestSourceImage(
+  page: Page,
+  size = { height: 1000, width: 1600 },
+) {
+  const dataUrl = await page.evaluate(({ height, width }) => {
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+    if (!context) {
+      throw new Error('Missing canvas context')
+    }
+
+    context.fillStyle = '#9d3757'
+    context.fillRect(0, 0, canvas.width, canvas.height)
+    context.fillStyle = '#f7eef1'
+    context.fillRect(width * 0.225, height * 0.22, width * 0.55, height * 0.56)
+    context.fillStyle = '#171717'
+    context.beginPath()
+    context.arc(width / 2, height / 2, Math.min(width, height) * 0.18, 0, Math.PI * 2)
+    context.fill()
+
+    return canvas.toDataURL('image/png')
+  }, size)
+
+  return Buffer.from(dataUrl.slice(dataUrl.indexOf(',') + 1), 'base64')
+}
 
 export async function prepareStablePage(page: Page) {
   await page.emulateMedia({ reducedMotion: 'reduce' })

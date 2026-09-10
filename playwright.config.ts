@@ -40,20 +40,20 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'NODE_ENV=development pnpm run --cwd apps/web dev -- --host 127.0.0.1 --port 4173',
+      command: 'NODE_ENV=development pnpm -C apps/web run dev -- --host 127.0.0.1 --port 4173',
       url: 'http://127.0.0.1:4173',
       timeout: 120_000,
       reuseExistingServer,
     },
     {
-      command: 'pnpm run --cwd apps/admin-worker dev -- --ip 127.0.0.1 --port 8787',
+      command: 'pnpm -C apps/admin-worker run dev -- --ip 127.0.0.1 --port 8787',
       url: 'http://127.0.0.1:8787/api/admin/health',
       timeout: 120_000,
       reuseExistingServer,
     },
     {
       // Admin visuals depend on worker-backed bootstrap data, not the legacy web stub.
-      command: 'ADMIN_API_BASE_URL=http://127.0.0.1:8787 pnpm run --cwd apps/admin dev',
+      command: 'ADMIN_API_BASE_URL=http://127.0.0.1:8787 pnpm -C apps/admin run dev',
       url: 'http://127.0.0.1:4174',
       timeout: 120_000,
       reuseExistingServer,

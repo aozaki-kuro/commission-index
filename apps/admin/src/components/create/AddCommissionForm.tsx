@@ -3,14 +3,16 @@ import type {
   CharacterStatus,
 } from '@commission-index/domain'
 import type { ChangeEvent } from 'react'
-import { useActionState, useEffect, useMemo, useState } from 'react'
+import { useActionState, useEffect, useMemo, useRef, useState } from 'react'
 import { addCommissionAction } from '../../lib/adminActions'
 import { isValidCommissionFileName } from '../../lib/commissionFileName'
 import { notifyDataUpdate } from '../../lib/dataUpdateSignal'
 import { findDuplicateCommissionHints } from '../../lib/duplicateCommissionHints'
 import { INITIAL_FORM_STATE } from '../../lib/formState'
+import { isSupportedSourceImage, setFileInputValue } from '../../lib/imageCrop'
 import { markPendingRebuild } from '../../lib/pendingRebuildSignal'
 import { FormStatusIndicator } from '../FormStatusIndicator'
+import { ImageCropDialog } from '../image/ImageCropDialog'
 import { SubmitButton } from '../SubmitButton'
 import { CommissionHiddenSwitch, CommissionSourceImageField } from './CommissionFormFields'
 import { CommissionSharedFields } from './CommissionSharedFields'
@@ -31,7 +33,7 @@ interface AddCommissionFormProps {
 type SourceImageHintTone = 'default' | 'success' | 'error'
 
 const DEFAULT_SOURCE_IMAGE_HINT
-  = 'Upload JPG/PNG. Source image is required and will be stored in the remote source-image bucket using this file name.'
+  = 'Choose a JPG/PNG, then position, zoom, and rotate it for the 1280×525 output.'
 
 function extractFileNameStem(fileName: string) {
   const trimmed = fileName.trim()
@@ -55,6 +57,9 @@ export function AddCommissionForm({
   const [keywordValue, setKeywordValue] = useState('')
   const [sourceImageHint, setSourceImageHint] = useState(DEFAULT_SOURCE_IMAGE_HINT)
   const [sourceImageHintTone, setSourceImageHintTone] = useState<SourceImageHintTone>('default')
+  const [croppedImage, setCroppedImage] = useState<File | null>(null)
+  const [pendingCropFile, setPendingCropFile] = useState<File | null>(null)
+  const sourceImageInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     if (state.status === 'success') {
@@ -93,23 +98,67 @@ export function AddCommissionForm({
   const handleSourceImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) {
-      setSourceImageHint(DEFAULT_SOURCE_IMAGE_HINT)
-      setSourceImageHintTone('default')
       return
     }
 
-    const stem = extractFileNameStem(file.name)
+    if (!isSupportedSourceImage(file)) {
+      event.currentTarget.value = ''
+      setSourceImageHint('Choose a valid JPG or PNG image.')
+      setSourceImageHintTone('error')
+      return
+    }
+
+    setPendingCropFile(file)
+  }
+
+  const restoreCroppedImageSelection = () => {
+    setPendingCropFile(null)
+    const input = sourceImageInputRef.current
+    if (!input) {
+      return
+    }
+
+    if (croppedImage) {
+      setFileInputValue(input, croppedImage)
+      return
+    }
+
+    input.value = ''
+  }
+
+  const handleCropConfirm = (output: File) => {
+    const input = sourceImageInputRef.current
+    if (!input || !pendingCropFile) {
+      return
+    }
+
+    try {
+      setFileInputValue(input, output)
+    }
+    catch {
+      input.value = ''
+      setSourceImageHint('This browser could not attach the processed image to the form.')
+      setSourceImageHintTone('error')
+      setPendingCropFile(null)
+      return
+    }
+
+    const originalFileName = pendingCropFile.name
+    setCroppedImage(output)
+    setPendingCropFile(null)
+
+    const stem = extractFileNameStem(originalFileName)
     if (isValidCommissionFileName(stem)) {
       setFileName(stem)
-      setSourceImageHint(`Detected "${stem}" from uploaded file name and auto-filled File name.`)
+      setSourceImageHint(`Ready: ${output.name} (1280×525 JPG). File name was detected as "${stem}".`)
       setSourceImageHintTone('success')
       return
     }
 
     setSourceImageHint(
-      'Uploaded file name does not match YYYYMMDD or YYYYMMDD_creator. Please fill File name manually.',
+      `Ready: ${output.name} (1280×525 JPG). Fill File name manually.`,
     )
-    setSourceImageHintTone('error')
+    setSourceImageHintTone('success')
   }
 
   return (
@@ -141,6 +190,7 @@ export function AddCommissionForm({
 
       <CommissionSourceImageField
         required
+        inputRef={sourceImageInputRef}
         onChange={handleSourceImageChange}
         helperMessage={sourceImageHint}
         helperTone={sourceImageHintTone}
@@ -180,6 +230,17 @@ export function AddCommissionForm({
           <CommissionHiddenSwitch isHidden={isHidden} onChange={setIsHidden} />
         </div>
       </div>
+
+      {pendingCropFile
+        ? (
+            <ImageCropDialog
+              key={`${pendingCropFile.name}:${pendingCropFile.lastModified}`}
+              file={pendingCropFile}
+              onCancel={restoreCroppedImageSelection}
+              onConfirm={handleCropConfirm}
+            />
+          )
+        : null}
     </form>
   )
 }

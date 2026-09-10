@@ -32,9 +32,21 @@ function DialogOverlay({
 }
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
-type DialogContentVariant = 'default' | 'sheet'
+type DialogContentVariant = 'crop' | 'default' | 'sheet'
 
 const dialogContentBase = {
+  // crop：移动端全屏、桌面端大尺寸工作区；不做 scale 动画，避免破坏裁剪器测量。
+  crop: `
+    fixed inset-0 z-70 flex flex-col overflow-hidden bg-white
+    dark:bg-gray-950
+    data-[state=open]:animate-[dialog-crop-content-in_180ms_ease-out]
+    data-[state=closed]:animate-[dialog-crop-content-out_120ms_ease-in]
+    sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-[min(90vh,52rem)]
+    sm:w-[min(92vw,64rem)] sm:-translate-x-1/2 sm:-translate-y-1/2
+    sm:rounded-2xl sm:shadow-[0_24px_64px_-12px_rgb(0_0_0_/_0.45)]
+    sm:ring-1 sm:ring-black/10
+    dark:sm:ring-white/10
+  `,
   // 默认：始终居中浮层
   default: `
     fixed top-1/2 left-1/2 z-70 flex max-h-[85vh] w-full max-w-2xl
