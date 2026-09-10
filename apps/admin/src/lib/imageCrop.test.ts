@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
-  getMinimumCropZoom,
-  normalizeCropTransform,
+  constrainCropSelectionChange,
+  getMaximumCropSelectionWidth,
+  isCropSelectionCovered,
+  normalizeCropImageMatrix,
+  resizeCropEditorState,
+  SOURCE_IMAGE_ASPECT,
+  toCropTransform,
 } from './imageCrop'
-
-const EPSILON = 1e-7
 
 function createRandom(seed: number) {
   let state = seed >>> 0
@@ -15,97 +18,176 @@ function createRandom(seed: number) {
   }
 }
 
-function expectCropCornersInsideImage({
-  crop,
-  cropSize,
-  mediaSize,
-  rotation,
-  zoom,
-}: {
-  crop: { x: number, y: number }
-  cropSize: { width: number, height: number }
-  mediaSize: { width: number, height: number }
-  rotation: number
-  zoom: number
-}) {
-  const radians = rotation * Math.PI / 180
-  const cos = Math.cos(radians)
-  const sin = Math.sin(radians)
-
-  for (const x of [-cropSize.width / 2, cropSize.width / 2]) {
-    for (const y of [-cropSize.height / 2, cropSize.height / 2]) {
-      const localX = cos * (x - crop.x) + sin * (y - crop.y)
-      const localY = -sin * (x - crop.x) + cos * (y - crop.y)
-      expect(Math.abs(localX)).toBeLessThanOrEqual(mediaSize.width * zoom / 2 + EPSILON)
-      expect(Math.abs(localY)).toBeLessThanOrEqual(mediaSize.height * zoom / 2 + EPSILON)
-    }
-  }
-}
-
 describe('image crop geometry', () => {
-  it('keeps every crop corner inside the image for arbitrary transforms', () => {
-    const random = createRandom(0xC0FFEE)
+  it('normalizes a Cropper.js matrix against the real rotated image polygon', () => {
+    const selection = { height: 210, width: 512, x: 144, y: 95 }
+    const angle = 37 * Math.PI / 180
+    const image = {
+      baseCenter: { x: 400, y: 200 },
+      matrix: [
+        Math.cos(angle) * 0.3,
+        Math.sin(angle) * 0.3,
+        -Math.sin(angle) * 0.3,
+        Math.cos(angle) * 0.3,
+        900,
+        -600,
+      ] as const,
+      size: { height: 900, width: 1600 },
+    }
+    const matrix = normalizeCropImageMatrix({ ...image, matrix: [...image.matrix] }, selection)
+    const normalized = { ...image, matrix }
 
-    for (let index = 0; index < 10_000; index += 1) {
-      const mediaSize = {
-        height: 120 + random() * 1400,
-        width: 120 + random() * 2200,
-      }
-      const cropSize = {
-        height: 60 + random() * 440,
-        width: 140 + random() * 900,
-      }
-      const rotation = -720 + random() * 1440
-      const minimumZoom = getMinimumCropZoom(mediaSize, cropSize, rotation)
-      const normalized = normalizeCropTransform({
-        crop: {
-          x: (random() - 0.5) * 8000,
-          y: (random() - 0.5) * 8000,
-        },
-        rotation,
-        zoom: minimumZoom * (0.1 + random() * 5),
-      }, mediaSize, cropSize)
+    expect(isCropSelectionCovered(selection, normalized)).toBe(true)
+    expect(normalizeCropImageMatrix(normalized, selection)).toEqual(matrix)
+  })
 
-      expect(normalized.zoom).toBeGreaterThanOrEqual(minimumZoom - EPSILON)
-      expectCropCornersInsideImage({
-        ...normalized,
-        cropSize,
-        mediaSize,
+  it('finds the maximum fixed-ratio selection at arbitrary rotations', () => {
+    const random = createRandom(0xBADC0DE)
+
+    for (let index = 0; index < 2000; index += 1) {
+      const canvasSize = { height: 480, width: 900 }
+      const center = {
+        x: 180 + random() * 540,
+        y: 120 + random() * 240,
+      }
+      const angle = (-180 + random() * 360) * Math.PI / 180
+      const scale = 0.4 + random() * 1.8
+      const image = {
+        baseCenter: { x: 450, y: 240 },
+        matrix: [
+          Math.cos(angle) * scale,
+          Math.sin(angle) * scale,
+          -Math.sin(angle) * scale,
+          Math.cos(angle) * scale,
+          (random() - 0.5) * 80,
+          (random() - 0.5) * 80,
+        ] as [number, number, number, number, number, number],
+        size: { height: 900, width: 1600 },
+      }
+      const width = getMaximumCropSelectionWidth({
+        aspectRatio: SOURCE_IMAGE_ASPECT,
+        canvasSize,
+        center,
+        image,
       })
+      const selection = {
+        height: width / SOURCE_IMAGE_ASPECT,
+        width,
+        x: center.x - width / 2,
+        y: center.y - width / SOURCE_IMAGE_ASPECT / 2,
+      }
+
+      if (width > 0) {
+        expect(isCropSelectionCovered(selection, image, canvasSize)).toBe(true)
+      }
     }
   })
 
-  it('is idempotent and preserves already valid positions', () => {
-    const mediaSize = { height: 620, width: 980 }
-    const cropSize = { height: 210, width: 512 }
-    const transform = {
-      crop: { x: 18, y: -12 },
-      rotation: 37,
-      zoom: 2.4,
+  it('stops a handle at the nearest valid selection along its drag path', () => {
+    const canvasSize = { height: 420, width: 800 }
+    const angle = 11 * Math.PI / 180
+    const image = {
+      baseCenter: { x: 400, y: 210 },
+      matrix: [
+        Math.cos(angle),
+        Math.sin(angle),
+        -Math.sin(angle),
+        Math.cos(angle),
+        0,
+        0,
+      ] as [number, number, number, number, number, number],
+      size: { height: 560, width: 900 },
     }
+    const current = { height: 164, width: 400, x: 200, y: 128 }
+    const requested = { height: 410, width: 1000, x: -100, y: 5 }
+    const constrained = constrainCropSelectionChange({
+      canvasSize,
+      current,
+      image,
+      minimumWidth: 96,
+      requested,
+    })
 
-    const normalized = normalizeCropTransform(transform, mediaSize, cropSize)
-    const normalizedAgain = normalizeCropTransform(normalized, mediaSize, cropSize)
-
-    expect(normalized.zoom).toBe(transform.zoom)
-    expect(normalized.rotation).toBe(transform.rotation)
-    expect(normalized.crop.x).toBeCloseTo(transform.crop.x, 12)
-    expect(normalized.crop.y).toBeCloseTo(transform.crop.y, 12)
-    expect(normalizedAgain.zoom).toBe(normalized.zoom)
-    expect(normalizedAgain.crop.x).toBeCloseTo(normalized.crop.x, 12)
-    expect(normalizedAgain.crop.y).toBeCloseTo(normalized.crop.y, 12)
+    expectSelectionCovered(constrained, image, canvasSize)
+    expect(constrained.width).toBeGreaterThan(current.width)
+    expect(constrained.width).toBeLessThan(requested.width)
   })
 
-  it('has the same constraints after a full rotation', () => {
-    const mediaSize = { height: 560, width: 920 }
-    const cropSize = { height: 180, width: 438 }
-    const crop = { x: 900, y: -600 }
+  it('converts the image matrix and independent frame center for JPEG export', () => {
+    const angle = -28 * Math.PI / 180
+    const image = {
+      baseCenter: { x: 400, y: 240 },
+      matrix: [
+        Math.cos(angle) * 1.4,
+        Math.sin(angle) * 1.4,
+        -Math.sin(angle) * 1.4,
+        Math.cos(angle) * 1.4,
+        23,
+        -17,
+      ] as [number, number, number, number, number, number],
+      size: { height: 600, width: 1000 },
+    }
+    const transform = toCropTransform(image, {
+      height: 210,
+      width: 512,
+      x: 118,
+      y: 72,
+    })
 
-    const first = normalizeCropTransform({ crop, rotation: 23, zoom: 2 }, mediaSize, cropSize)
-    const fullTurn = normalizeCropTransform({ crop, rotation: 383, zoom: 2 }, mediaSize, cropSize)
+    expect(transform.crop).toEqual({ x: 49, y: 46 })
+    expect(transform.rotation).toBeCloseTo(-28, 10)
+    expect(transform.zoom).toBeCloseTo(1.4, 10)
+  })
 
-    expect(fullTurn.zoom).toBeCloseTo(first.zoom, 10)
-    expect(fullTurn.crop.x).toBeCloseTo(first.crop.x, 10)
-    expect(fullTurn.crop.y).toBeCloseTo(first.crop.y, 10)
+  it('preserves the crop content when the responsive workspace resizes', () => {
+    const currentCanvasSize = { height: 480, width: 900 }
+    const nextCanvasSize = { height: 300, width: 390 }
+    const selection = { height: 210, width: 512, x: 194, y: 135 }
+    const angle = 37 * Math.PI / 180
+    const sourceImage = {
+      baseCenter: { x: 800, y: 450 },
+      matrix: [
+        Math.cos(angle) * 0.6,
+        Math.sin(angle) * 0.6,
+        -Math.sin(angle) * 0.6,
+        Math.cos(angle) * 0.6,
+        -360,
+        -220,
+      ] as [number, number, number, number, number, number],
+      size: { height: 900, width: 1600 },
+    }
+    const image = {
+      ...sourceImage,
+      matrix: normalizeCropImageMatrix(sourceImage, selection),
+    }
+    const currentTransform = toCropTransform(image, selection)
+    const resized = resizeCropEditorState({
+      currentCanvasSize,
+      image,
+      nextCanvasSize,
+      selection,
+    })
+    const nextTransform = toCropTransform(resized.image, resized.selection)
+
+    expectSelectionCovered(resized.selection, resized.image, nextCanvasSize)
+    expect(nextTransform.rotation).toBeCloseTo(currentTransform.rotation, 10)
+    expect(nextTransform.zoom / resized.selection.width)
+      .toBeCloseTo(currentTransform.zoom / selection.width, 10)
+    expect(nextTransform.crop.x / resized.selection.width)
+      .toBeCloseTo(currentTransform.crop.x / selection.width, 10)
+    expect(nextTransform.crop.y / resized.selection.height)
+      .toBeCloseTo(currentTransform.crop.y / selection.height, 10)
   })
 })
+
+function expectSelectionCovered(
+  selection: { height: number, width: number, x: number, y: number },
+  image: {
+    baseCenter: { x: number, y: number }
+    matrix: [number, number, number, number, number, number]
+    size: { height: number, width: number }
+  },
+  canvasSize: { height: number, width: number },
+) {
+  expect(isCropSelectionCovered(selection, image, canvasSize)).toBe(true)
+}

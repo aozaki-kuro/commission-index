@@ -18,19 +18,29 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 - `src/lib/adminApi.ts` — API URL resolution and fetch helpers
 - `src/pages/` — route pages (overview, create, edit, aliases, suggestion)
 - `src/components/` — migrated admin React components
-- `src/components/image/ImageCropDialog.tsx` — fixed-frame source-image editor; delegates
-  geometry and JPEG encoding to `src/lib/imageCrop.ts`
-- `src/lib/imageCrop.ts` — 1280×525 crop contract, arbitrary-rotation boundary model, and
-  one-pass 95%-quality JPEG export
+- `src/components/image/ImageCropDialog.tsx` — shared create/edit crop dialog, output status,
+  compact fallback tools, and JPEG save lifecycle
+- `src/components/image/ImageCropWorkspace.tsx` — Cropper.js bridge for frame handles, image
+  gestures, free rotation, touch transforms, and editor snapshots
+- `src/lib/imageCrop.ts` — 1280×525 crop contract, rotated-polygon boundary model, selection
+  fitting, and one-pass 95%-quality JPEG export
 
 ## Source Image Editing
 
 - Create and replacement uploads share `ImageCropDialog`; keep both entry points behaviorally aligned
-- The crop frame is fixed at `1280:525`; users move, zoom, and continuously rotate the image beneath it
-- Do not replace `normalizeCropTransform` with axis-aligned bounding-box clamps: arbitrary rotation
-  requires constraining crop translations in the image's local coordinate system to prevent blank corners
-- Keep the crop Dialog free of scale-based opening animations because `react-easy-crop` measures its
-  container on mount
+- The crop frame keeps the `1280:525` ratio but its four edges/corners are directly resizable;
+  dragging the image moves it, wheel/pinch zooms it, and two-finger twist or the rotation handle
+  continuously rotates it
+- Cropper.js owns pointer/touch recognition and selection handles; `imageCrop.ts` remains the geometry
+  authority because library bounding boxes do not prove that a rotated image covers every crop corner
+- Rotation preserves the user's preferred frame width when possible and otherwise fits the largest
+  valid frame at its current center; the 2-output-pixel bleed is part of every coverage calculation
+- Keep the crop Dialog free of scale-based opening animations because the crop workspace measures its
+  container on mount; the crop-only overlay uses the main site's glass treatment without changing
+  default/sheet dialog overlays
+- A workspace resize must proportionally migrate the current selection and image matrix around the
+  canvas center; never call the editor reset path from `ResizeObserver`, or an in-progress touch
+  transform can be silently lost while responsive layout settles
 - Object URL cleanup must survive React StrictMode's effect replay: defer revocation and cancel that
   pending cleanup when the effect is immediately re-established; still revoke on real unmount
 - R2 receives only the processed `1280×525 image/jpeg` file; transparent input pixels are flattened

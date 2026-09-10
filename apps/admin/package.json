@@ -16,9 +16,9 @@
     "@radix-ui/react-popover": "^1.1.23",
     "@radix-ui/react-select": "^2.3.7",
     "@tabler/icons-react": "^3.46.0",
+    "cropperjs": "^2.2.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8",
-    "react-easy-crop": "^6.2.3"
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@types/react": "^19.2.18",

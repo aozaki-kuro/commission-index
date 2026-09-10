@@ -11,19 +11,26 @@ const DialogPortal = DialogPrimitive.Portal
 function DialogOverlay({
   ref,
   className,
+  variant = 'default',
   ...props
 }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay> & {
   ref?: React.RefObject<React.ComponentRef<typeof DialogPrimitive.Overlay> | null>
+  variant?: DialogContentVariant
 }) {
   return (
     <DialogPrimitive.Overlay
       ref={ref}
+      data-dialog-overlay={variant}
       className={cn(
         `
-          fixed inset-0 z-60 bg-black/45 backdrop-blur-md
+          fixed inset-0 z-60
           data-[state=open]:animate-[dialog-overlay-in_150ms_ease-out]
           data-[state=closed]:animate-[dialog-overlay-in_150ms_ease-in_reverse]
+          motion-reduce:animate-none
         `,
+        variant === 'crop'
+          ? 'bg-gray-200/[0.18] backdrop-blur-[20px] backdrop-saturate-150 dark:bg-gray-900/[0.18]'
+          : 'bg-black/45 backdrop-blur-md',
         className,
       )}
       {...props}
@@ -37,14 +44,15 @@ type DialogContentVariant = 'crop' | 'default' | 'sheet'
 const dialogContentBase = {
   // crop：移动端全屏、桌面端大尺寸工作区；不做 scale 动画，避免破坏裁剪器测量。
   crop: `
-    fixed inset-0 z-70 flex flex-col overflow-hidden bg-white
-    dark:bg-gray-950
+    fixed inset-0 z-70 flex flex-col overflow-hidden border-white/45
+    bg-white/[0.96] backdrop-blur-xl dark:border-white/12 dark:bg-[#1c1c1e]/[0.96]
     data-[state=open]:animate-[dialog-crop-content-in_180ms_ease-out]
     data-[state=closed]:animate-[dialog-crop-content-out_120ms_ease-in]
+    motion-reduce:animate-none
     sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-[min(90vh,52rem)]
     sm:w-[min(92vw,64rem)] sm:-translate-x-1/2 sm:-translate-y-1/2
-    sm:rounded-2xl sm:shadow-[0_24px_64px_-12px_rgb(0_0_0_/_0.45)]
-    sm:ring-1 sm:ring-black/10
+    sm:rounded-2xl sm:border sm:shadow-[0_24px_80px_rgb(0_0_0_/_0.22)]
+    sm:ring-1 sm:ring-black/8 dark:sm:shadow-[0_28px_90px_rgb(0_0_0_/_0.52)]
     dark:sm:ring-white/10
   `,
   // 默认：始终居中浮层
@@ -82,7 +90,7 @@ function DialogContent({
 }) {
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay variant={variant} />
       <DialogPrimitive.Content
         ref={ref}
         className={cn(dialogContentBase[variant], className)}
@@ -137,7 +145,7 @@ function DialogCloseButton({ className }: { className?: string }) {
         type="button"
         className={cn(
           `
-            ml-3 inline-flex size-8 shrink-0 items-center justify-center rounded-lg
+            ml-3 inline-flex size-11 shrink-0 items-center justify-center rounded-lg
             bg-gray-100 text-gray-600 transition
             hover:bg-gray-200 hover:text-gray-900
             focus-visible:outline-none focus-visible:ring-2

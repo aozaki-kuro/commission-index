@@ -19,13 +19,21 @@ export interface CropTransform {
   zoom: number
 }
 
-interface CropGeometry {
-  bleed: number
-  cos: number
-  extentX: number
-  extentY: number
-  minZoom: number
-  sin: number
+export interface CropSelection extends CropSize, CropPoint {}
+
+export type CropMatrix = [number, number, number, number, number, number]
+
+export interface CropImageGeometry {
+  baseCenter: CropPoint
+  matrix: CropMatrix
+  size: CropSize
+}
+
+interface CropEditorResizeOptions {
+  currentCanvasSize: CropSize
+  image: CropImageGeometry
+  nextCanvasSize: CropSize
+  selection: CropSelection
 }
 
 export const SOURCE_IMAGE_ASPECT = 1280 / 525
@@ -41,69 +49,258 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
 
-function getCropGeometry(
-  mediaSize: CropSize,
-  cropSize: CropSize,
-  rotation: number,
-): CropGeometry {
-  const radians = rotation * Math.PI / 180
-  const cos = Math.cos(radians)
-  const sin = Math.sin(radians)
-  const halfWidth = cropSize.width / 2
-  const halfHeight = cropSize.height / 2
-  const extentX = Math.abs(cos) * halfWidth + Math.abs(sin) * halfHeight
-  const extentY = Math.abs(sin) * halfWidth + Math.abs(cos) * halfHeight
-  const outputScale = SOURCE_IMAGE_WIDTH / cropSize.width
-  const bleed = OUTPUT_EDGE_BLEED / outputScale
-
+function getSelectionCenter(selection: CropSelection) {
   return {
-    bleed,
-    cos,
-    extentX,
-    extentY,
-    minZoom: Math.max(
-      2 * (extentX + bleed) / mediaSize.width,
-      2 * (extentY + bleed) / mediaSize.height,
-    ),
-    sin,
+    x: selection.x + selection.width / 2,
+    y: selection.y + selection.height / 2,
   }
 }
 
-export function getMinimumCropZoom(
-  mediaSize: CropSize,
-  cropSize: CropSize,
-  rotation: number,
-) {
-  return getCropGeometry(mediaSize, cropSize, rotation).minZoom
+function getMatrixTransform({ baseCenter, matrix }: CropImageGeometry) {
+  const [a, b, , , e, f] = matrix
+
+  return {
+    center: {
+      x: baseCenter.x + e,
+      y: baseCenter.y + f,
+    },
+    rotation: Math.atan2(b, a),
+    scale: Math.max(Math.hypot(a, b), Number.EPSILON),
+  }
 }
 
-export function normalizeCropTransform(
-  transform: CropTransform,
-  mediaSize: CropSize,
-  cropSize: CropSize,
-): CropTransform {
-  const geometry = getCropGeometry(mediaSize, cropSize, transform.rotation)
-  const zoom = Math.max(transform.zoom, geometry.minZoom)
-  const localX = geometry.cos * transform.crop.x + geometry.sin * transform.crop.y
-  const localY = -geometry.sin * transform.crop.x + geometry.cos * transform.crop.y
-  const limitX = Math.max(
-    0,
-    mediaSize.width * zoom / 2 - geometry.extentX - geometry.bleed,
+function getSelectionExtents(selection: CropSize, rotation: number) {
+  const cos = Math.abs(Math.cos(rotation))
+  const sin = Math.abs(Math.sin(rotation))
+
+  return {
+    bleed: OUTPUT_EDGE_BLEED * selection.width / SOURCE_IMAGE_WIDTH,
+    x: cos * selection.width / 2 + sin * selection.height / 2,
+    y: sin * selection.width / 2 + cos * selection.height / 2,
+  }
+}
+
+export function isCropSelectionCovered(
+  selection: CropSelection,
+  image: CropImageGeometry,
+  canvasSize?: CropSize,
+) {
+  if (
+    selection.width <= 0
+    || selection.height <= 0
+    || (canvasSize && (
+      selection.x < -1e-7
+      || selection.y < -1e-7
+      || selection.x + selection.width > canvasSize.width + 1e-7
+      || selection.y + selection.height > canvasSize.height + 1e-7
+    ))
+  ) {
+    return false
+  }
+
+  const frameCenter = getSelectionCenter(selection)
+  const { center, rotation, scale } = getMatrixTransform(image)
+  const cos = Math.cos(rotation)
+  const sin = Math.sin(rotation)
+  const deltaX = frameCenter.x - center.x
+  const deltaY = frameCenter.y - center.y
+  const localX = cos * deltaX + sin * deltaY
+  const localY = -sin * deltaX + cos * deltaY
+  const extents = getSelectionExtents(selection, rotation)
+
+  return Math.abs(localX) + extents.x + extents.bleed <= image.size.width * scale / 2 + 1e-7
+    && Math.abs(localY) + extents.y + extents.bleed <= image.size.height * scale / 2 + 1e-7
+}
+
+export function normalizeCropImageMatrix(
+  image: CropImageGeometry,
+  selection: CropSelection,
+): CropMatrix {
+  const frameCenter = getSelectionCenter(selection)
+  const { center, rotation, scale: requestedScale } = getMatrixTransform(image)
+  const cos = Math.cos(rotation)
+  const sin = Math.sin(rotation)
+  const extents = getSelectionExtents(selection, rotation)
+  const scale = Math.max(
+    requestedScale,
+    2 * (extents.x + extents.bleed) / image.size.width,
+    2 * (extents.y + extents.bleed) / image.size.height,
   )
-  const limitY = Math.max(
-    0,
-    mediaSize.height * zoom / 2 - geometry.extentY - geometry.bleed,
-  )
+  const deltaX = frameCenter.x - center.x
+  const deltaY = frameCenter.y - center.y
+  const localX = cos * deltaX + sin * deltaY
+  const localY = -sin * deltaX + cos * deltaY
+  const limitX = Math.max(0, image.size.width * scale / 2 - extents.x - extents.bleed)
+  const limitY = Math.max(0, image.size.height * scale / 2 - extents.y - extents.bleed)
   const constrainedX = clamp(localX, -limitX, limitX)
   const constrainedY = clamp(localY, -limitY, limitY)
+  const imageCenter = {
+    x: frameCenter.x - (cos * constrainedX - sin * constrainedY),
+    y: frameCenter.y - (sin * constrainedX + cos * constrainedY),
+  }
+
+  return [
+    cos * scale,
+    sin * scale,
+    -sin * scale,
+    cos * scale,
+    imageCenter.x - image.baseCenter.x,
+    imageCenter.y - image.baseCenter.y,
+  ]
+}
+
+export function getMaximumCropSelectionWidth({
+  aspectRatio,
+  canvasSize,
+  center,
+  image,
+}: {
+  aspectRatio: number
+  canvasSize: CropSize
+  center: CropPoint
+  image: CropImageGeometry
+}) {
+  const { center: imageCenter, rotation, scale } = getMatrixTransform(image)
+  const cos = Math.cos(rotation)
+  const sin = Math.sin(rotation)
+  const deltaX = center.x - imageCenter.x
+  const deltaY = center.y - imageCenter.y
+  const localX = Math.abs(cos * deltaX + sin * deltaY)
+  const localY = Math.abs(-sin * deltaX + cos * deltaY)
+  const bleedRate = OUTPUT_EDGE_BLEED / SOURCE_IMAGE_WIDTH
+  const xRate = (Math.abs(cos) + Math.abs(sin) / aspectRatio) / 2 + bleedRate
+  const yRate = (Math.abs(sin) + Math.abs(cos) / aspectRatio) / 2 + bleedRate
+  const availableX = image.size.width * scale / 2 - localX
+  const availableY = image.size.height * scale / 2 - localY
+  const canvasWidth = 2 * Math.min(center.x, canvasSize.width - center.x)
+  const canvasHeightWidth = 2 * aspectRatio * Math.min(center.y, canvasSize.height - center.y)
+
+  return Math.max(0, Math.min(
+    availableX / xRate,
+    availableY / yRate,
+    canvasWidth,
+    canvasHeightWidth,
+  ))
+}
+
+export function constrainCropSelectionChange({
+  canvasSize,
+  current,
+  image,
+  minimumWidth,
+  requested,
+}: {
+  canvasSize: CropSize
+  current: CropSelection
+  image: CropImageGeometry
+  minimumWidth: number
+  requested: CropSelection
+}) {
+  const valid = (selection: CropSelection) => (
+    selection.width >= minimumWidth
+    && isCropSelectionCovered(selection, image, canvasSize)
+  )
+
+  if (valid(requested)) {
+    return requested
+  }
+
+  let low = 0
+  let high = 1
+  let result = current
+
+  for (let index = 0; index < 24; index += 1) {
+    const ratio = (low + high) / 2
+    const candidate = {
+      height: current.height + (requested.height - current.height) * ratio,
+      width: current.width + (requested.width - current.width) * ratio,
+      x: current.x + (requested.x - current.x) * ratio,
+      y: current.y + (requested.y - current.y) * ratio,
+    }
+
+    if (valid(candidate)) {
+      result = candidate
+      low = ratio
+    }
+    else {
+      high = ratio
+    }
+  }
+
+  return result
+}
+
+export function toCropTransform(
+  image: CropImageGeometry,
+  selection: CropSelection,
+): CropTransform {
+  const frameCenter = getSelectionCenter(selection)
+  const { center, rotation, scale } = getMatrixTransform(image)
 
   return {
     crop: {
-      x: geometry.cos * constrainedX - geometry.sin * constrainedY,
-      y: geometry.sin * constrainedX + geometry.cos * constrainedY,
+      x: center.x - frameCenter.x,
+      y: center.y - frameCenter.y,
     },
-    rotation: transform.rotation,
-    zoom,
+    rotation: rotation * 180 / Math.PI,
+    zoom: scale,
+  }
+}
+
+export function resizeCropEditorState({
+  currentCanvasSize,
+  image,
+  nextCanvasSize,
+  selection,
+}: CropEditorResizeOptions) {
+  const scale = Math.min(
+    nextCanvasSize.width / currentCanvasSize.width,
+    nextCanvasSize.height / currentCanvasSize.height,
+  )
+  const currentCanvasCenter = {
+    x: currentCanvasSize.width / 2,
+    y: currentCanvasSize.height / 2,
+  }
+  const nextCanvasCenter = {
+    x: nextCanvasSize.width / 2,
+    y: nextCanvasSize.height / 2,
+  }
+  const resizePoint = ({ x, y }: CropPoint) => ({
+    x: nextCanvasCenter.x + (x - currentCanvasCenter.x) * scale,
+    y: nextCanvasCenter.y + (y - currentCanvasCenter.y) * scale,
+  })
+  const selectionCenter = resizePoint(getSelectionCenter(selection))
+  const width = selection.width * scale
+  const height = selection.height * scale
+  const nextSelection = {
+    height,
+    width,
+    x: selectionCenter.x - width / 2,
+    y: selectionCenter.y - height / 2,
+  }
+  const imageCenter = resizePoint({
+    x: image.baseCenter.x + image.matrix[4],
+    y: image.baseCenter.y + image.matrix[5],
+  })
+  const nextImage = {
+    ...image,
+    matrix: [
+      image.matrix[0] * scale,
+      image.matrix[1] * scale,
+      image.matrix[2] * scale,
+      image.matrix[3] * scale,
+      imageCenter.x - image.baseCenter.x,
+      imageCenter.y - image.baseCenter.y,
+    ] as CropMatrix,
+  }
+
+  return {
+    image: {
+      ...nextImage,
+      matrix: normalizeCropImageMatrix(nextImage, nextSelection),
+    },
+    scale,
+    selection: nextSelection,
   }
 }
 

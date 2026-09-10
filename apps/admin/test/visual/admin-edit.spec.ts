@@ -5,6 +5,7 @@ import {
   createTestSourceImage,
   getAdminPageContainer,
   prepareStablePage,
+  rotateCropImage,
   skipUnlessProject,
 } from './helpers'
 
@@ -42,7 +43,12 @@ test('replacement source image is cropped before upload', async ({ page }, testI
   })
   await page.getByRole('heading', { name: 'Crop source image' }).waitFor()
   await expect(page.getByRole('button', { name: 'Use image' })).toBeEnabled()
-  await page.getByLabel('Rotate image').fill('37')
+  await expect(page.locator('[data-dialog-overlay="crop"]')).toHaveCSS(
+    'backdrop-filter',
+    /blur\(20px\)/,
+  )
+  await rotateCropImage(page, 37)
+  await expect(page.getByLabel('Image rotation')).toHaveText('37°')
   await page.getByRole('button', { name: 'Use image' }).click()
   await expect(page.getByText('Test source image replaced.')).toBeVisible()
 

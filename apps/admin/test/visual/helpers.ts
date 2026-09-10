@@ -55,6 +55,38 @@ export async function prepareStablePage(page: Page) {
   })
 }
 
+export async function rotateCropImage(page: Page, degrees: number) {
+  const frame = page.locator('cropper-selection')
+  const handle = page.getByRole('button', { name: 'Rotate image freely' })
+  const frameBox = await frame.boundingBox()
+  const handleBox = await handle.boundingBox()
+
+  if (!frameBox || !handleBox) {
+    throw new Error('Crop frame rotation controls did not render')
+  }
+
+  const center = {
+    x: frameBox.x + frameBox.width / 2,
+    y: frameBox.y + frameBox.height / 2,
+  }
+  const start = {
+    x: handleBox.x + handleBox.width / 2,
+    y: handleBox.y + handleBox.height / 2,
+  }
+  const startAngle = Math.atan2(start.y - center.y, start.x - center.x)
+  const radius = Math.hypot(start.x - center.x, start.y - center.y)
+  const endAngle = startAngle + degrees * Math.PI / 180
+
+  await page.mouse.move(start.x, start.y)
+  await page.mouse.down()
+  await page.mouse.move(
+    center.x + Math.cos(endAngle) * radius,
+    center.y + Math.sin(endAngle) * radius,
+    { steps: 8 },
+  )
+  await page.mouse.up()
+}
+
 export function skipUnlessProject(testInfo: TestInfo, projectName: string) {
   test.skip(testInfo.project.name !== projectName, `Runs only in the ${projectName} project.`)
 }

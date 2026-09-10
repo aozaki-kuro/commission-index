@@ -5,6 +5,7 @@ import {
   createTestSourceImage,
   expectUnionToMatchSnapshot,
   prepareStablePage,
+  rotateCropImage,
   skipUnlessProject,
 } from './helpers'
 
@@ -57,13 +58,21 @@ test('source image cropper exports the fixed JPEG contract', async ({ page }, te
   await page.getByRole('heading', { name: 'Add Commission Entry' }).waitFor()
   const sourceImage = await openCropDialog(page)
 
-  await page.getByLabel('Rotate image').fill('37')
-  await expect(page.getByText('37°', { exact: true })).toBeVisible()
-  const zoom = page.getByLabel('Zoom image')
-  await zoom.evaluate((input: HTMLInputElement) => {
-    input.valueAsNumber = Number(input.min) + 0.35
-    input.dispatchEvent(new Event('input', { bubbles: true }))
-  })
+  await rotateCropImage(page, 37)
+  await expect(page.getByLabel('Image rotation')).toHaveText('37°')
+
+  const frame = page.locator('cropper-selection')
+  const initialFrame = await frame.boundingBox()
+  const southeastHandle = page.locator('cropper-handle[action="se-resize"]')
+  const handleBox = await southeastHandle.boundingBox()
+  if (!initialFrame || !handleBox) {
+    throw new Error('Crop frame resize controls did not render')
+  }
+  await page.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(handleBox.x - 80, handleBox.y - 32, { steps: 6 })
+  await page.mouse.up()
+  await expect.poll(async () => (await frame.boundingBox())?.width ?? 0).toBeLessThan(initialFrame.width)
 
   const cropper = page.locator('[data-testid="cropper"]')
   const box = await cropper.boundingBox()
@@ -137,15 +146,88 @@ test('source image cropper keeps controls available on a narrow screen', async (
     caret: 'hide',
   })
   await expect(page.getByRole('button', { name: 'Use image' })).toBeInViewport()
-  await expect(page.getByLabel('Zoom image')).toBeInViewport()
-  await expect(page.getByLabel('Rotate image')).toBeInViewport()
+  await expect(page.getByRole('button', { name: 'Rotate image freely' })).toBeInViewport()
+  await expect(page.getByRole('button', { name: 'Rotate image right 90 degrees' })).toBeInViewport()
 
   await page.evaluate(() => {
     document.documentElement.style.fontSize = '200%'
   })
   await expect(page.getByRole('button', { name: 'Use image' })).toBeInViewport()
-  await expect(page.getByLabel('Zoom image')).toBeInViewport()
-  await expect(page.getByLabel('Rotate image')).toBeInViewport()
+  await expect(page.getByRole('button', { name: 'Rotate image freely' })).toBeInViewport()
+  await expect(page.getByRole('button', { name: 'Rotate image right 90 degrees' })).toBeInViewport()
+})
+
+test('source image cropper supports touch transform gestures', async ({ page }, testInfo) => {
+  skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/create')
+  await page.getByRole('heading', { name: 'Add Commission Entry' }).waitFor()
+  await openCropDialog(page)
+
+  const rotation = page.getByLabel('Image rotation')
+  await expect(rotation).toHaveText('0°')
+  await page.locator('cropper-canvas').evaluate(async (canvas) => {
+    const rect = canvas.getBoundingClientRect()
+    const target = canvas.querySelector(':scope > cropper-handle[action="move"]')
+    if (!target)
+      throw new Error('Missing image move surface')
+
+    const createPointer = (
+      type: string,
+      pointerId: number,
+      clientX: number,
+      clientY: number,
+    ) => new PointerEvent(type, {
+      bubbles: true,
+      buttons: type === 'pointerup' ? 0 : 1,
+      cancelable: true,
+      clientX,
+      clientY,
+      isPrimary: pointerId === 1,
+      pressure: type === 'pointerup' ? 0 : 0.5,
+      pointerId,
+      pointerType: 'touch',
+    })
+    const nextFrame = () => new Promise<void>(resolve => requestAnimationFrame(() => resolve()))
+
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    target.dispatchEvent(createPointer('pointerdown', 1, centerX - 55, centerY))
+    target.dispatchEvent(createPointer('pointerdown', 2, centerX + 55, centerY))
+    await nextFrame()
+    document.dispatchEvent(createPointer('pointermove', 1, centerX - 70, centerY - 35))
+    await nextFrame()
+    document.dispatchEvent(createPointer('pointermove', 2, centerX + 70, centerY + 35))
+    await nextFrame()
+    document.dispatchEvent(createPointer('pointerup', 1, centerX - 70, centerY - 35))
+    document.dispatchEvent(createPointer('pointerup', 2, centerX + 70, centerY + 35))
+  })
+
+  await expect.poll(async () => Number.parseInt(await rotation.textContent() ?? '0', 10)).not.toBe(0)
+  const rotationAfterGesture = await rotation.textContent()
+  await page.setViewportSize({ width: 390, height: 780 })
+  await expect(rotation).toHaveText(rotationAfterGesture ?? '')
+  await expect(page.getByRole('button', { name: 'Use image' })).toBeEnabled()
+})
+
+test('crop dialog uses the site glass and adaptive neutral workspace', async ({ page }, testInfo) => {
+  skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
+  await page.goto('/create')
+  await page.getByRole('heading', { name: 'Add Commission Entry' }).waitFor()
+  await openCropDialog(page)
+
+  const overlay = page.locator('[data-dialog-overlay="crop"]')
+  const workspace = page.locator('.crop-workspace')
+  await expect(overlay).toHaveCSS('backdrop-filter', /blur\(20px\)/)
+  await expect(workspace).toHaveCSS('background-color', 'rgb(209, 209, 214)')
+
+  await expect(page).toHaveScreenshot('admin-image-crop-overlay.png', {
+    animations: 'disabled',
+    caret: 'hide',
+  })
+
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await expect(workspace).toHaveCSS('background-color', 'rgb(44, 44, 46)')
 })
 
 test('cancelling a portrait recrop preserves the confirmed JPEG', async ({ page }, testInfo) => {

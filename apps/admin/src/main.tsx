@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import '@fontsource/ibm-plex-sans/latin-400.css'
 import '@fontsource/ibm-plex-sans/latin-600.css'
-import 'react-easy-crop/react-easy-crop.css'
 import './styles/globals.css'
 
 const rootElement = document.getElementById('root')

@@ -346,7 +346,7 @@ export function CommissionEditForm({
           disabled={isDeleting || isUploading}
           aria-label={`Reupload source image for ${commission.fileName}`}
           className="
-            absolute right-3 bottom-3 inline-flex size-9 items-center
+            absolute right-3 bottom-3 inline-flex size-11 items-center
             justify-center rounded-full border border-white/20 bg-black/55
             text-white shadow-[0_8px_18px_-8px_rgba(0,0,0,0.75)]
             backdrop-blur-sm transition
