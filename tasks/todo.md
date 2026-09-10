@@ -1,5 +1,24 @@
 # 统一迁移状态板（2026-03-18）
 
+## 本轮执行切片（2026-09-10 全 workspace 依赖升级与 Cloudflare 发布）
+
+### 规格与边界
+
+- [ ] 确认工作树、分支、远端与 Node/pnpm 运行时，先同步最新 `origin/master`
+- [ ] 审计根目录及四个 workspace 的全部直接依赖，并用实时 registry 结果确认最新版本
+- [ ] 使用 pnpm 将直接依赖升级到最新，核对 lockfile、peer dependency 与 engine 约束
+- [ ] 对 Astro/Vite/TypeScript/ESLint/Cloudflare 等大版本变更查官方迁移资料并完成必要适配
+- [ ] 同步因版本或工具链行为变化而过时的 `AGENTS.md`、脚本和 CI 配置
+- [ ] 串行运行 frozen install、lint、typecheck、Vitest、Astro check、admin/web 构建与 Wrangler dry-run
+- [ ] 运行相关 Playwright 浏览器回归，并明确远端事实源或动态视觉基线的验证边界
+- [ ] 复核最终 diff、未跟踪/忽略文件与 `pnpm outdated -r`，确保没有漏升或无关改动
+- [ ] 按提交规范提交；让 pre-commit / pre-push 门禁通过后推送 `origin/master`
+- [ ] 部署 web 与 admin 到 Cloudflare，核对部署版本、线上 HTTP 边界与 GitHub Actions 状态
+
+### Review
+
+- [ ] 完成后补充最终版本取舍、验证证据、提交/远端 SHA 与 Cloudflare 发布结果
+
 ## 本轮执行切片（2026-09-10 裁剪器直接操控与触屏重构）
 
 ### 规格与边界
