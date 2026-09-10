@@ -7,12 +7,16 @@
 - [x] 将 Playwright 三个 workspace 服务命令统一为 `pnpm -C <dir> run ...`
 - [x] 按当前 lint 规则补齐 `minimumReleaseAgeExcludePrune: true` 并规范 workspace YAML 顺序
 - [x] 串行重跑 frozen install、lint、typecheck、Vitest 与 admin build
-- [ ] 提交并推送 pnpm 配置跟进
-- [ ] 部署 admin Worker，并用健康检查与线上静态资源验证发布结果
+- [x] 提交并推送 pnpm 配置跟进
+- [x] 部署 admin Worker，并用部署记录、CI job 与 Access 边界验证发布结果
 
 ### Review
 
-- 待部署完成后补充。
+- [x] `pnpm run deploy:admin` 成功构建 6,347 个模块、扫描 24 个静态文件并上传 13 个新/变更资源；手动版本为 `cd2a478a-d696-4b23-8163-545a8cbafb60`。
+- [x] 推送触发的 `CI / Deploy` run `34461003232` 在提交 `665b80c` 上全绿；其中 `Admin — Deploy` 成功产生当前 100% 流量版本 `de4504e4-8aab-4195-96ba-a06de2479597`，Web build/deploy 也按现有 workflow 成功执行。
+- [x] 匿名 `GET /`、`/create`、`/edit`、`/api/admin/health` 均返回 `302` 到 Cloudflare Access；新浏览器会话也只看到 `Log in to Commission Admin`，认证边界保持有效。
+- [x] 未使用强推，最终 `master` 在推送前与 `origin/master` 一致；部署后的审计记录使用 `[skip ci]` 提交，避免纯文档变更重复部署。
+- [ ] 没有可复用的已认证浏览器会话，因此本轮不声称验证了生产环境登录后的裁剪交互；该行为已由本地 Playwright 创建/替换用例覆盖。
 
 ## 本轮执行切片（2026-09-10 admin 源图裁剪）
 
