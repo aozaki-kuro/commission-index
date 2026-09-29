@@ -1,5 +1,65 @@
 # 统一迁移状态板（2026-03-18）
 
+## 本轮执行切片（2026-09-29 全面审计整改）
+
+- [x] 复核上一轮审计报告、改进计划、工作区现状与 D1 API 约束
+- [x] 修复后台 D1/R2 失败语义、事务边界与输入验证（F01-F05）
+- [x] 修复后台请求状态、搜索/路由恢复与删除模态焦点（F06-F11）
+- [x] 收口 CI 门禁、只读快照导出和可排序发布保护（F12-F16）
+- [x] 更新 API、架构文档与实施状态，完成最终差异复核
+
+范围：按已确认计划修改业务代码、测试与文档；只用本地/隔离 fixture 做验证。不部署，不对生产 D1/R2 写入。
+
+### F06-F11 前端执行清单
+
+- [x] F06：StrictMode effect replay 后排序保存队列保持可用，并覆盖真实卸载清理。
+- [x] F07：删除请求全程防重入，pending 覆盖网络等待，旧请求结束不影响新确认框。
+- [x] F08：复用 Radix Dialog，默认聚焦取消、隔离焦点并在关闭后恢复触发点。
+- [x] F09：搜索触发的延迟数据加载失败后释放请求态，提供显式重试并在成功后继续筛选。
+- [x] F10：路由懒加载保留稳定占位与应用外壳，错误边界提供整页重载恢复入口。
+- [x] F11：缓存数据刷新失败时保留旧内容并显示过期提示和重试入口。
+- [x] 运行最终全仓单测、ESLint、四 workspace 类型检查、Astro check、Admin build 和格式检查；不访问生产 API。
+
+### Review（F06-F11 前端修复）
+
+- 修复 StrictMode 生命周期中的排序队列、删除请求防重入与请求身份隔离；删除确认改用 Radix 模态焦点管理，初始聚焦 Cancel 并恢复触发点。
+- 删除确认框的原卡片尺寸、遮罩处理和两段入场动画由专用 Radix 变体保留；单测锁住样式类及 Tab / Shift+Tab 焦点循环，正常页面视觉与动效未改。
+- 后台路由增加稳定 Suspense 占位和错误边界；懒加载失败通过整页重载清除被拒绝的 lazy 模块状态。编辑页刷新失败保留缓存内容并提供 Retry。
+- 公开搜索 loader 失败时发出失败事件；controller 释放请求标记并阻止隐式循环重试。搜索错误提示与 Retry 沿用现有 en / zh-tw / ja 文案契约。
+- 已通过定向 Vitest（7 文件 / 17 项）、Admin 与 Web 的本地 `tsc`、Astro check（179 文件，0 errors / warnings / hints）及相关 ESLint。
+- 根 `pnpm` 类型检查因 `ERR_PNPM_PNPM_ENGINE_IDENTITY_UNVERIFIABLE` 无法联网核验 pnpm 签名；改用 Node 24 的本地 Turbo/TypeScript 二进制验证通过。loader `500 → 成功重试` 断言已在最终全量运行中通过。
+
+### Review（F01-F05 后端数据与图片）
+
+- 领域 filename 校验覆盖创建、PATCH、source image 写入；D1 多语句写要求 `batch()`，角色排序使用参数化 SQL 并校验 ID 的合法性、唯一性和存在性。
+- commission 与 image metadata 创建、改名/删除关联、featured keywords 与 alias 批量写按 D1 batch 提交；移除不安全的按文件名补偿删除。
+- R2 新写入使用不可变 key；改名/替换先创建新对象、提交 metadata 引用，再尽力清理旧对象。清理失败保留可用引用并留下 orphan。
+- 新增 SQLite/D1 事务适配回归：唯一对象 key 冲突、批次第二条语句失败、角色 active/archive 第二批失败均完整回滚。
+
+### Review（F12-F16 导出与发布）
+
+- export 只读 D1，以一个 SELECT 读取业务快照；图片内容必须匹配该快照的哈希和大小，不再回写 production metadata。
+- 快照 content/manifest 共享稳定 `meta.revision`；本地 source-image 路径保持 canonical 文件名，远端 R2 object key 独立且不可变。
+- 失败下载使用临时 staging 并保留旧快照；只有图片任务成功后才替换最终文件。复用模式验证 revision、manifest 与图片哈希，不触碰 Wrangler。
+- PR 工作流使用离线 fixture、没有生产凭证；CI/rebuild 共享 Web 发布锁，记录 SHA/revision 并跳过已过期候选。GitHub 真实并发和 required checks 设置仍未在线验证。
+
+### 最终 Review（2026-09-29 整改）
+
+- 验证：本次范围 ESLint 0 warning/error；4 个 workspace typecheck 成功；48 个 Vitest 文件 / 231 项通过；Astro check 179 文件 0 errors/warnings/hints；Admin production build 成功；相关 Markdown/YAML/JSON Prettier 与 `git diff --check` 通过。
+- 最终工作区 ESLint 全跑另发现 `apps/web/src/features/home/search/commissionSearchModel.ts` 的并行改动含 44 条格式规则错误；该文件不属于本轮 F01-F16 变更，未改写。重新运行时排除该文件，本次范围 lint 全通过。
+- Admin build 输出包含 Vite/Rolldown 对 Radix `"use client"` 指令的既有提示；构建成功，未因本次代码新增失败。
+- 使用本地已生成事实源快照运行 `pnpm -C apps/web run build:astro`：4 个页面 / 411 张图片完成静态生产构建；输出已有 `src/icons` 目录缺失警告，没有触发远端导出。
+- 未部署、未发起生产 D1/R2 写入、未触发远端导出；无线上 required checks、Worker SHA/revision、读屏或视觉矩阵通过声明。
+- Astro 保留；手写静态生成实验与实际访问性能对比仍按可选计划等待同数据、同功能基线后决定。
+
+### Review（2026-09-29 代码与设计审计）
+
+- 交付 `docs/audit-2026-09-29.md` 与 `docs/improvement-plan-2026-09-29.md`：16 项发现（P1 六项、P2 十项），逐项区分复现、静态证据与条件风险。
+- lint、4 workspace 强制 typecheck、41 文件 / 212 单测及 Astro 178 文件检查通过。
+- 浏览器仅查看本地公开站年龄确认层，未提交年龄确认；完整视觉、读屏、生产 Access 与线上并发未验证。
+- 追加 Astro 与手写静态生成的取舍：性能可达同级，当前优先保留构建能力并测量可选 ClientRouter；不预设重写。
+- 仅更新报告、计划、AGENTS 文档索引与本进度记录；业务代码未修改。
+
 ## 本轮执行切片（2026-09-29 pnpm 12 升级）
 
 - [x] 核实 pnpm 最新稳定发布、Node 24 与 CI action 支持
@@ -726,3 +786,9 @@
 - [x] 新增的 `AGENTS.md` 已去除对 `Claude Code` / `claude.ai/code` / “root `CLAUDE.md`” 的真值依赖，`rg --glob 'AGENTS.md'` 检查无残留旧指向。
 - [x] 原 `CLAUDE.md` 已统一收口为兼容跳板，继续读取旧文件名的工具会被导向同目录 `AGENTS.md`。
 - [ ] 本轮未运行 lint/test；迁移仅涉及 agent 文档与任务记录，不影响运行时代码路径。
+
+## 裁剪框退场修复（2026-09-29）
+
+- [x] 对比详情框与裁剪框，确认父组件立即卸载截断退场。
+- [x] 延后取消/确认回调至 Radix 退场结束，对齐时长并禁用遮罩退出。
+- [ ] 验证取消、关闭、Esc、确认和减少动态效果，以及创建/编辑入口。

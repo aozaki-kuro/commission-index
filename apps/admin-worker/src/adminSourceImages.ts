@@ -1,6 +1,4 @@
-const VALID_FILE_NAME_PATTERN = /^\d{8}(?:_.+)?$/
-const FILE_NAME_WITH_EXTENSION_PATTERN = /\.(?:jpe?g|png|webp)$/i
-const FORBIDDEN_FILE_NAME_CHARS_PATTERN = /[<>:"/\\|?*]/
+import { getCommissionFileNameValidationError } from '../../../packages/domain/src/index'
 
 interface R2HttpMetadataLike {
   contentType?: string | null
@@ -39,16 +37,6 @@ async function hashArrayBuffer(buffer: ArrayBuffer) {
   return toHex(await crypto.subtle.digest('SHA-256', buffer))
 }
 
-function hasControlCharacter(value: string) {
-  for (let index = 0; index < value.length; index += 1) {
-    if (value.charCodeAt(index) <= 0x1F) {
-      return true
-    }
-  }
-
-  return false
-}
-
 function normalizeCommissionFileName(rawValue: string) {
   return rawValue.trim()
 }
@@ -84,34 +72,20 @@ function resolveUploadExtension(file: File): '.jpg' | '.png' | null {
 }
 
 export function getSourceImageFileNameValidationError(rawValue: string) {
-  const fileName = normalizeCommissionFileName(rawValue)
-
-  if (!fileName) {
-    return 'File name is required.'
-  }
-
-  if (FILE_NAME_WITH_EXTENSION_PATTERN.test(fileName)) {
-    return 'File name must not include an image extension.'
-  }
-
-  if (!VALID_FILE_NAME_PATTERN.test(fileName)) {
-    return 'File name must start with YYYYMMDD, optionally followed by "_creator".'
-  }
-
-  if (
-    FORBIDDEN_FILE_NAME_CHARS_PATTERN.test(fileName)
-    || fileName.includes('..')
-    || hasControlCharacter(fileName)
-  ) {
-    return 'File name contains forbidden path characters.'
-  }
-
-  return null
+  return getCommissionFileNameValidationError(rawValue)
 }
 
 export function buildSourceImageCandidateKeys(rawCommissionFileName: string) {
   const fileName = normalizeCommissionFileName(rawCommissionFileName)
   return [`${fileName}.jpg`, `${fileName}.jpeg`, `${fileName}.png`]
+}
+
+export function buildVersionedSourceImageKey(
+  commissionFileName: string,
+  sha256: string,
+  extension: '.jpg' | '.png',
+) {
+  return `source-images/${normalizeCommissionFileName(commissionFileName)}/${sha256}-${crypto.randomUUID()}${extension}`
 }
 
 export function getSourceImageMimeType(key: string, object?: R2ObjectBodyLike | null) {
@@ -172,9 +146,10 @@ export async function saveSourceImageToBucket(
   }
 
   const fileName = normalizeCommissionFileName(input.commissionFileName)
-  const targetKey = `${fileName}${extension}`
   const candidateKeys = buildSourceImageCandidateKeys(fileName)
   const imageBuffer = await input.file.arrayBuffer()
+  const sha256 = await hashArrayBuffer(imageBuffer)
+  const targetKey = buildVersionedSourceImageKey(fileName, sha256, extension)
   const mimeType = getSourceImageContentType(extension)
 
   if (!input.overwrite) {
@@ -192,22 +167,12 @@ export async function saveSourceImageToBucket(
     },
   })
 
-  if (input.overwrite) {
-    for (const key of candidateKeys) {
-      if (key === targetKey) {
-        continue
-      }
-
-      await bucket.delete(key)
-    }
-  }
-
   return {
     byteSize: imageBuffer.byteLength,
     commissionFileName: fileName,
     mimeType,
     objectKey: targetKey,
-    sha256: await hashArrayBuffer(imageBuffer),
+    sha256,
     targetKey,
   }
 }

@@ -1,4 +1,5 @@
 import {
+  ACTIVE_CHARACTERS_LOAD_FAILED_EVENT,
   ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT,
   ACTIVE_CHARACTERS_LOADED_EVENT,
 } from '@features/home/commission/loader/activeCharactersEvent'
@@ -54,6 +55,71 @@ describe('mountActiveCharactersLoader', () => {
     cleanup()
     window.removeEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, onLoaded)
     window.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSidebarSync)
+  })
+
+  it('dispatches a failure signal without marking active sections loaded', async () => {
+    clearHomeCharacterBatchRequestCacheForTests()
+    clearHomeCharacterBatchManifestCacheForTests()
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-active-sections-loaded="false" data-active-batches-loaded-count="0">
+        <section id="section-alpha"></section>
+        <div data-active-sections-container="true"></div>
+        <div data-active-sections-sentinel="true"></div>
+      </div>
+      <script type="application/json" data-home-character-batch-manifest="true">
+        {"locale":"en","v":"failure-test","active":{"initialSectionIds":["section-alpha"],"totalBatches":1,"targetBatchById":{},"batchVersions":["bv0"]},"archived":{"initialSectionIds":[],"totalBatches":0,"targetBatchById":{},"batchVersions":[]}}
+      </script>
+    `
+    clearHomeCharacterBatchManifestCacheForTests()
+    const sentinel = document.querySelector<HTMLElement>('[data-active-sections-sentinel="true"]')!
+    sentinel.getBoundingClientRect = () => ({ top: 99999 } as DOMRect)
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce({ ok: false, status: 500 } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          batchIndex: 0,
+          status: 'active',
+          sections: [{
+            displayName: 'Beta',
+            status: 'active',
+            sectionId: 'section-beta',
+            titleId: 'title-beta',
+            sectionHash: '',
+            totalCommissions: 0,
+            toBeAnnouncedText: 'TBA',
+            entries: [],
+          }],
+        }),
+      } as Response)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const onFailed = vi.fn()
+    const onLoaded = vi.fn()
+    window.addEventListener(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT, onFailed)
+    window.addEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, onLoaded)
+
+    const cleanup = mountActiveCharactersLoader()
+    window.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT))
+    await flushAsyncWork()
+
+    expect(onFailed).toHaveBeenCalledTimes(1)
+    const panel = document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+    expect(panel?.dataset.activeSectionsLoaded).toBe('false')
+
+    window.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT))
+    await flushAsyncWork()
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(onLoaded).toHaveBeenCalledTimes(1)
+    expect(document.getElementById('section-beta')).toBeTruthy()
+    expect(panel?.dataset.activeSectionsLoaded).toBe('true')
+
+    cleanup()
+    window.removeEventListener(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT, onFailed)
+    window.removeEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, onLoaded)
+    vi.restoreAllMocks()
+    clearHomeCharacterBatchManifestCacheForTests()
+    clearHomeCharacterBatchRequestCacheForTests()
   })
 
   it('loads deferred active sections for an initial hash target and scrolls after mount', async () => {

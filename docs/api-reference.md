@@ -215,8 +215,8 @@ curl https://admin.crystallize.cc/api/admin/characters/3/commissions
 ### `GET /api/admin/source-image/:fileName`
 
 Fetches a source image from R2 by commission file name. Tries `{fileName}.jpg`,
-`{fileName}.jpeg`, and `{fileName}.png` in that order (or uses the stored object key from the
-`source_images` D1 table when available).
+`{fileName}.jpeg`, and `{fileName}.png` in that order for legacy objects. When a
+`source_images` D1 row exists, its immutable object key is used instead.
 
 **Requires:** `IMAGES` (reads `DB` for key lookup if available, but `DB` is optional here)
 
@@ -333,9 +333,9 @@ character ID — omitting an ID removes it from the sort order.
 
 - Non-array `active`/`archived` fields are coerced to empty arrays — no validation error is
   returned for missing or non-array values.
-- Array entries that are not finite numbers (e.g. strings, `NaN` after coercion) cause a `400`
-  error (`"Invalid character order payload."`).
-- Unknown character IDs in the payload are silently ignored (the `UPDATE` matches 0 rows).
+- Every entry must be a positive safe integer. Duplicate IDs across either list cause `400`.
+- Every submitted ID must exist; unknown IDs cause `400` and no order update is issued.
+- Active and archived changes are committed together in one D1 batch.
 
 ```bash
 curl -X PUT https://admin.crystallize.cc/api/admin/characters/order \
@@ -456,6 +456,8 @@ The worker parses it with the same line-splitting logic as the create endpoint.
 **Errors:**
 
 - `400` — invalid ID, missing/invalid `characterId` or `fileName`
+- `503` — missing `IMAGES` binding when `fileName` changes
+- `500` — source object referenced by D1 metadata is missing, or the new image cannot be prepared
 
 ```bash
 curl -X PATCH https://admin.crystallize.cc/api/admin/commissions/12 \
@@ -475,7 +477,8 @@ curl -X PATCH https://admin.crystallize.cc/api/admin/commissions/12 \
 
 ### `DELETE /api/admin/commissions/:id`
 
-Deletes a commission record from D1. Does not remove the source image from R2.
+Deletes a commission record and its source-image metadata from D1 in one atomic batch. The
+source image remains in R2 for later orphan cleanup.
 
 **Requires:** `DB`
 
@@ -499,8 +502,8 @@ curl -X DELETE https://admin.crystallize.cc/api/admin/commissions/12
 
 ### `POST /api/admin/commissions/:id/source-image`
 
-Replaces the source image for an existing commission. Overwrites any existing R2 object
-(removes old `.jpg`/`.jpeg`/`.png` variants) and updates D1 metadata.
+Replaces the source image for an existing commission. Writes a new immutable R2 object key,
+updates D1 metadata to point to it, then best-effort deletes the previous object.
 
 **Requires:** `DB` + `IMAGES`
 
@@ -523,6 +526,10 @@ sourceImage          File     JPEG or PNG only (same rules as POST /commissions)
 
 - `400` — invalid ID, missing `commissionFileName`, missing or invalid `sourceImage`
 - `503` — missing `DB` or `IMAGES` binding
+
+If the D1 metadata update fails, the previous image remains active; the newly uploaded object
+may remain orphaned for later cleanup. If cleanup of the previous object fails after the D1
+commit, the new image remains active and the old object is an orphan.
 
 ```bash
 curl -X POST https://admin.crystallize.cc/api/admin/commissions/12/source-image \

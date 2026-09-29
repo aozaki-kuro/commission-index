@@ -63,7 +63,8 @@ export function CommissionManager({
   const loadedCharacterIdsRef = useRef<Set<number>>(new Set())
   const inFlightLoadPromisesRef = useRef<Map<number, Promise<void>>>(new Map())
   const buttonMapRef = useRef<Record<number, HTMLButtonElement | null>>({})
-  const confirmDeleteButtonRef = useRef<HTMLButtonElement | null>(null)
+  const cancelDeleteButtonRef = useRef<HTMLButtonElement | null>(null)
+  const deleteReturnFocusRef = useRef<HTMLElement | null>(null)
   const {
     activeCount,
     cancelEditing,
@@ -524,7 +525,12 @@ export function CommissionManager({
                   onRenameChange={handleRenameChange}
                   onCancelEdit={cancelEditing}
                   onSubmitRename={submitRename}
-                  onRequestDelete={() => handleRequestDelete(character)}
+                  onRequestDelete={() => {
+                    deleteReturnFocusRef.current = document.activeElement instanceof HTMLElement
+                      ? document.activeElement
+                      : null
+                    handleRequestDelete(character)
+                  }}
                   isDeleting={deletingId === character.id || isDeletePending}
                   isDragging={draggingIndex === index}
                   dragHandleProps={dragHandleProps(index)}
@@ -561,7 +567,8 @@ export function CommissionManager({
         isOpen={Boolean(confirmingCharacter)}
         characterName={confirmingCharacter?.name ?? ''}
         commissionCount={confirmingCharacter?.commissionCount ?? 0}
-        confirmButtonRef={confirmDeleteButtonRef}
+        cancelButtonRef={cancelDeleteButtonRef}
+        returnFocusRef={deleteReturnFocusRef}
         isDeletePending={isDeletePending}
         onClose={closeConfirmDialog}
         onConfirm={() => {

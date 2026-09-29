@@ -17,6 +17,7 @@ describe('creatorAliases data access', () => {
           schemaVersion: 1,
           source: 'remote-admin-fact-source',
           exportedAt: '2026-03-18T00:00:00.000Z',
+          revision: 'fixture',
           databaseBinding: 'DB',
           imagesBucket: 'commission-index-images',
         },

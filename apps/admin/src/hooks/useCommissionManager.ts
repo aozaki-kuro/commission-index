@@ -295,23 +295,12 @@ export function useCommissionManager({
   const [editing, setEditing] = useState<EditingState>(null)
   const [, startRenameTransition] = useTransition()
   const [deletingId, setDeletingId] = useState<DeletingState>(null)
-  const [isDeletePending, startDeleteTransition] = useTransition()
+  const [isDeletePending, setIsDeletePending] = useState(false)
   const [confirmingCharacter, setConfirmingCharacter] = useState<CharacterRow | null>(null)
   const [openIds, dispatchOpenIds] = useReducer(openIdsReducer, undefined, readOpenIdsFromStorage)
-  const orderSaveQueueRef = useRef<ReturnType<typeof createLatestCharacterOrderSaveQueue> | null>(
-    null,
-  )
-
-  orderSaveQueueRef.current ??= createLatestCharacterOrderSaveQueue({
-    onError: (message) => {
-      setFeedback({ text: message, type: 'error' })
-    },
-    onSaved: () => {
-      notifyDataUpdate()
-      markPendingRebuild()
-    },
-    saveOrder: saveCharacterOrder,
-  })
+  const orderSaveQueueRef = useRef<ReturnType<typeof createLatestCharacterOrderSaveQueue> | null>(null)
+  const deleteRequestIdRef = useRef(0)
+  const activeDeleteRequestIdRef = useRef<number | null>(null)
 
   const reconcileOpenIds = useCallback((nextCharacters: CharacterRow[]) => {
     dispatchOpenIds({
@@ -357,9 +346,23 @@ export function useCommissionManager({
   }, [feedback])
 
   useEffect(() => {
-    const orderSaveQueue = orderSaveQueueRef.current
+    const orderSaveQueue = createLatestCharacterOrderSaveQueue({
+      onError: (message) => {
+        setFeedback({ text: message, type: 'error' })
+      },
+      onSaved: () => {
+        notifyDataUpdate()
+        markPendingRebuild()
+      },
+      saveOrder: saveCharacterOrder,
+    })
+    orderSaveQueueRef.current = orderSaveQueue
+
     return () => {
-      orderSaveQueue?.dispose()
+      orderSaveQueue.dispose()
+      if (orderSaveQueueRef.current === orderSaveQueue) {
+        orderSaveQueueRef.current = null
+      }
     }
   }, [])
 
@@ -372,8 +375,11 @@ export function useCommissionManager({
   }, [])
 
   const handleRequestDelete = useCallback((character: CharacterRow) => {
+    if (isDeletePending) {
+      return
+    }
     setConfirmingCharacter(character)
-  }, [])
+  }, [isDeletePending])
 
   const toFeedback = useCallback((state: FormState): FormFeedback => {
     return state.status === 'error'
@@ -507,33 +513,42 @@ export function useCommissionManager({
   }, [cancelEditing, editing, getCharacterStatus, list, startRenameTransition, toFeedback])
 
   const performDeleteCharacter = useCallback((character: CharacterRow) => {
+    if (activeDeleteRequestIdRef.current !== null || isDeletePending || deletingId !== null) {
+      return
+    }
+
+    const requestId = ++deleteRequestIdRef.current
+    activeDeleteRequestIdRef.current = requestId
+    setIsDeletePending(true)
     setFeedback({ text: 'Deleting…', type: 'success' })
     setDeletingId(character.id)
     setEditing(current => (current?.id === character.id ? null : current))
 
-    startDeleteTransition(() => {
-      deleteCharacterAction(character.id)
-        .then((result) => {
-          if (result.status === 'error') {
-            setFeedback({ text: result.message ?? 'Unable to delete character.', type: 'error' })
-            return
-          }
+    void deleteCharacterAction(character.id)
+      .then((result) => {
+        if (result.status === 'error') {
+          setFeedback({ text: result.message ?? 'Unable to delete character.', type: 'error' })
+          return
+        }
 
-          dispatchList({ characterId: character.id, type: 'remove-character' })
-          dispatchCommissionMap({ characterId: character.id, type: 'remove-character' })
-          setFeedback(toFeedback(result))
-          notifyDataUpdate()
-          markPendingRebuild()
-        })
-        .catch(() => {
-          setFeedback({ text: 'Unable to delete character.', type: 'error' })
-        })
-        .finally(() => {
+        dispatchList({ characterId: character.id, type: 'remove-character' })
+        dispatchCommissionMap({ characterId: character.id, type: 'remove-character' })
+        setFeedback(toFeedback(result))
+        notifyDataUpdate()
+        markPendingRebuild()
+      })
+      .catch(() => {
+        setFeedback({ text: 'Unable to delete character.', type: 'error' })
+      })
+      .finally(() => {
+        if (activeDeleteRequestIdRef.current === requestId) {
+          activeDeleteRequestIdRef.current = null
           setConfirmingCharacter(null)
           setDeletingId(null)
-        })
-    })
-  }, [startDeleteTransition, toFeedback])
+          setIsDeletePending(false)
+        }
+      })
+  }, [deletingId, isDeletePending, toFeedback])
 
   const orderedCharacters = useMemo(
     () => list.filter((item): item is CharacterItem => item.type === 'character').map(item => item.data),

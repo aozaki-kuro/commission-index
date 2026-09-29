@@ -52,7 +52,7 @@ packages/domain     Shared types and pure domain helpers (no app imports)
 ### Tech Stack
 
 - **Runtime:** Node 24 (mise) + pnpm 12 (package manager + scripts; new scripts use `.ts` not `.mjs`)
-- **Build orchestration:** Turbo (cacheable tasks only; deploy stays outside Turbo)
+- **Build orchestration:** Turbo（Web 导出和构建暂不缓存；部署位于 Turbo 之外）
 - **Public site:** Astro 7 + Tailwind CSS 4 (vanilla TS client behavior)
 - **Admin frontend:** React 19 + Vite 8 + Tailwind CSS + shadcn/ui
 - **Admin backend:** Cloudflare Worker + D1 (SQL) + R2 (images)
@@ -62,8 +62,8 @@ packages/domain     Shared types and pure domain helpers (no app imports)
 ### Data Flow
 
 1. Admin writes to remote D1/R2 via `apps/admin-worker`
-2. `exportWebFactSource.ts` exports D1/R2 -> `apps/web/generated/*` (JSON + source images)
-3. Astro builds static HTML from `generated/*` — no runtime D1/R2 access
+2. `exportWebFactSource.ts` 只读导出 D1/R2 -> `apps/web/generated/*`，不回写生产 metadata；单个 D1 SELECT 读取结构化快照，下载图片必须匹配该快照的 hash/size
+3. content 与 source-image manifest 的 `meta.revision` 共同标识内容版本，排除 `exportedAt`；Astro 从这份固定输入生成 HTML，无运行时 D1/R2 访问
 4. `apps/web/wrangler.jsonc` carries read-only D1/R2 bindings for build-time export
 
 ### Home Page Architecture (Astro-first)
@@ -141,16 +141,17 @@ When you discover a non-obvious bug, footgun, or architecture-specific gotcha du
 2. `pnpm run typecheck` — TypeScript across all workspaces
 3. `pnpm run test` — Vitest unit tests
 
-### CI (master only, after push)
+### CI（PR 校验；master 发布）
 
-1. `pnpm run build:admin` — admin build
-2. `pnpm -C apps/web run check:astro` — Astro type-check
-3. `pnpm run build:web` — web build
-4. Deploy web + admin
+1. PR/master 执行 lint、全 workspace typecheck、单测
+2. 生成无生产凭证的离线 fixture，执行 Astro check 和 admin build
+3. master 部署依赖上述门禁；Web 获得共享环境锁后只导出一次，记录 SHA/revision
+4. Astro check 与 Wrangler custom build 使用相同快照；部署前核对当前 master SHA，过期候选跳过
 
 CI gotchas:
 
-- Multiple workflows sharing the same `actions/cache` key on the same push will race on save — deploy must wait for CI, and release workflows need a separate cache namespace + concurrency group
+- CI Web 与 rebuild 使用相同 job concurrency group `release-web-production`；在锁内导出新数据，避免旧队列项携带旧数据快照覆盖新发布。Admin 使用独立环境锁
+- required checks 的 GitHub 仓库设置需要另行核验，工作流文件本身不代表线上分支保护已启用
 - Tests that depend on `apps/web/generated/*` must guard imports behind existence checks (lazy import, not top-level) — CI may run before export
 
 ## Guardrails
@@ -179,8 +180,9 @@ CI gotchas:
 
 - No repo-root `wrangler.jsonc` — each Worker owns its own config
 - Workers Builds connects same repo to two Workers with different root dirs (`apps/web` and `apps/admin-worker`)
-- Web Turbo cache must include `WEB_BUILD_CACHE_TOKEN` for remote-data invalidation
-- Deploy/rebuild workflows must not pre-run export/build before `wrangler deploy` (workspace-local custom build commands already handle it)
+- Web export/build 暂设 `cache: false`，防止 Turbo 恢复旧 generated 或在导出前计算过期输入 hash；恢复缓存前必须验证显式 snapshot 构建契约
+- 发布只导出一次，将 `meta.revision` 传入 `WEB_BUILD_CACHE_TOKEN`，并设置 `FACT_SOURCE_USE_EXISTING_SNAPSHOT=1`；后续 export 依赖仅校验两份 revision 和本地图片 hash，不再访问远端
+- 不预先 build:web；Wrangler custom build 是正式构建入口。工作流允许显式导出和 Astro check，二者必须绑定上述固定快照
 - Turbo `envMode: "strict"`: credentials set in outer workflow don't auto-propagate into task subprocesses — add `CLOUDFLARE_API_TOKEN` etc. to `passThroughEnv` explicitly
 
 #### Production `/admin` verification
@@ -204,8 +206,19 @@ All three should return `404`. Note: `vite preview` does not validate edge HTTP 
 ### Images
 
 - Source images: `apps/web/generated/source-images/*.{jpg,jpeg,png}`
+- R2 `objectKey` 是不可变对象身份，可含目录；本地 `relativePath` 固定为 `source-images/<commissionFileName>.<ext>`。导出复用与清理根据本地 canonical 名称处理，不能把远端 key 当作本地路径
 - Resolution: `sourceImageRegistry.ts` — commission `fileName` stem must match source image stem
 - Listing widths: `768/960/1280`, sizes `(max-width: 768px) 92vw, 640px`
+
+## 审计文档索引
+
+```text
+docs/
+  audit-2026-09-29.md             代码与设计审计证据、风险和验证边界
+  improvement-plan-2026-09-29.md  对应问题的分阶段整改与验收计划
+```
+
+审计报告记录指定提交的状态，不是运行时依赖；改进计划依赖报告中的问题编号。2026-09-29 新增上述文档，未变更业务架构。后续整改应更新计划进度，并同步实际变更涉及的架构/API 文档。
 
 ## Commit Convention
 

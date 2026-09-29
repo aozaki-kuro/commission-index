@@ -19,3 +19,4 @@ Shared domain types and pure business-facing contracts.
 - Keep runtime-light and app-agnostic
 - Pure types and pure logic only — never import from `apps/*`
 - Single export surface at `src/index.ts`
+- `GeneratedFactSourceMeta.revision` 是 content/manifest 共用的稳定内容版本，`exportedAt` 仅记录运行时间；图片 `objectKey` 为远端不可变身份，`relativePath` 为本地 canonical 路径

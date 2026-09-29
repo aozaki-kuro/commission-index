@@ -382,6 +382,23 @@ const controls = resolveHomeSearchControls(locale)
     </div>
   </div>
 
+  <div
+    id="search-active-load-feedback"
+    role="status"
+    aria-live="polite"
+    hidden
+    class="mt-2 flex flex-wrap items-center gap-2 text-xs text-amber-800 dark:text-amber-200"
+  >
+    <p id="search-active-load-feedback-text" class="min-w-0 flex-1" />
+    <button
+      id="search-active-load-retry"
+      type="button"
+      class="min-h-9 shrink-0 rounded-md border border-amber-700/40 px-3 font-semibold hover:bg-amber-500/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-700 dark:border-amber-300/40 dark:focus-visible:outline-amber-200"
+    >
+      {controls.retryActiveCharactersLoad}
+    </button>
+  </div>
+
   {/* Live region for screen reader announcements */}
   <p id="search-live-region" aria-live="polite" class="sr-only" />
 </section>

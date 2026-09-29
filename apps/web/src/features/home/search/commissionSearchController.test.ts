@@ -34,6 +34,8 @@ vi.mock('@features/home/commission/batch/homeCharacterBatchClient', () => ({
 }))
 
 vi.mock('@features/home/commission/loader/activeCharactersEvent', () => ({
+  ACTIVE_CHARACTERS_LOAD_FAILED_EVENT: 'home:active-characters-load-failed',
+  ACTIVE_CHARACTERS_LOADED_EVENT: 'home:active-characters-loaded',
   readActiveCharactersLoadedBatchCount: activeCharactersMock.readActiveCharactersLoadedBatchCount,
   requestActiveCharactersLoad: activeCharactersMock.requestActiveCharactersLoad,
 }))
@@ -85,6 +87,10 @@ function mountSearchRoot({
       <div id="search-popular-keywords"></div>
       <ul id="search-keyword-list"></ul>
       <p id="search-live-region"></p>
+      <div id="search-active-load-feedback" role="status" hidden>
+        <p id="search-active-load-feedback-text"></p>
+        <button id="search-active-load-retry" type="button">Retry loading</button>
+      </div>
     </section>
   `
 
@@ -185,6 +191,34 @@ describe('initSearchController', () => {
       { strategy: 'all' },
     )
     expect(document.getElementById('character-alpha')?.classList.contains('hidden')).toBe(false)
+
+    cleanup?.()
+  })
+
+  it('shows an active batch load failure and retries only after an explicit click', async () => {
+    panelStateMock.state = {
+      ...panelStateMock.state,
+      activeLoaded: false,
+    }
+    const root = mountSearchRoot({ featuredKeywords: ['deferred-only'] })
+    const cleanup = initSearchController(root)
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    document.querySelector<HTMLButtonElement>('#search-keyword-list button')?.click()
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(activeCharactersMock.requestActiveCharactersLoad).toHaveBeenCalledTimes(1)
+
+    window.dispatchEvent(new Event('home:active-characters-load-failed'))
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    const feedback = document.getElementById('search-active-load-feedback')!
+    expect(feedback.hidden).toBe(false)
+    expect(feedback.textContent).toContain('Could not load all commissions')
+    expect(activeCharactersMock.requestActiveCharactersLoad).toHaveBeenCalledTimes(1)
+
+    document.querySelector<HTMLButtonElement>('#search-active-load-retry')?.click()
+    expect(activeCharactersMock.requestActiveCharactersLoad).toHaveBeenCalledTimes(2)
+    expect(feedback.hidden).toBe(true)
 
     cleanup?.()
   })

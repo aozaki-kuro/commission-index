@@ -1,13 +1,14 @@
 import type { D1DatabaseLike } from './adminPersistence'
+import { getCommissionFileNameValidationError } from '../../../packages/domain/src/index'
 import { handleAdminReadRequest } from './adminData'
 import {
+  deleteSourceImageMetadataIfMatches,
   createCharacter as persistCharacterCreate,
   deleteCharacter as persistCharacterDelete,
   updateCharacterOrder as persistCharacterOrderUpdate,
   updateCharacter as persistCharacterUpdate,
   createCommission as persistCommissionCreate,
   deleteCommission as persistCommissionDelete,
-  deleteCommissionByFileName as persistCommissionDeleteByFileName,
   getCommissionFileName as persistCommissionFileName,
   updateCommission as persistCommissionUpdate,
   saveSourceImageMetadata as persistSourceImageMetadata,
@@ -18,7 +19,8 @@ import {
   saveKeywordAliasesBatch,
 } from './adminPersistence'
 import {
-  removeSourceImageObject,
+  buildSourceImageCandidateKeys,
+  buildVersionedSourceImageKey,
   resolveImageWriteBucket,
   saveSourceImageToBucket,
 } from './adminSourceImages'
@@ -217,16 +219,56 @@ function parseCommissionFieldsFromJson(payload: Record<string, unknown>) {
   })
 }
 
+function toHex(buffer: ArrayBuffer) {
+  return Array.from(new Uint8Array(buffer), byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+async function hashImage(buffer: ArrayBuffer) {
+  return toHex(await crypto.subtle.digest('SHA-256', buffer))
+}
+
+async function findSourceImage(
+  bucket: NonNullable<ReturnType<typeof resolveImageWriteBucket>>,
+  fileName: string,
+  preferredKey?: string,
+) {
+  const candidateKeys = preferredKey
+    ? [preferredKey]
+    : buildSourceImageCandidateKeys(fileName)
+
+  for (const objectKey of candidateKeys) {
+    const object = await bucket.get(objectKey)
+    if (!object) {
+      continue
+    }
+    const buffer = await object.arrayBuffer()
+    const mimeType = object.httpMetadata?.contentType
+      ?? (objectKey.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg')
+    const extension: '.png' | '.jpg' = mimeType.toLowerCase() === 'image/png' ? '.png' : '.jpg'
+    const sha256 = await hashImage(buffer)
+
+    return {
+      byteSize: buffer.byteLength,
+      buffer,
+      extension,
+      mimeType,
+      objectKey,
+      sha256,
+    }
+  }
+
+  if (preferredKey) {
+    throw new Error('The source image referenced by the commission is missing from storage.')
+  }
+  return null
+}
+
 function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' | 'fileName'>) {
   if (!Number.isFinite(fields.characterId) || fields.characterId <= 0) {
     return 'Character selection is required.'
   }
 
-  if (!fields.fileName) {
-    return 'File name is required.'
-  }
-
-  return null
+  return getCommissionFileNameValidationError(fields.fileName)
 }
 
 function parseIdFromPath(pathname: string, pattern: RegExp) {
@@ -370,28 +412,14 @@ function createNativeCrudBackend(
       }
 
       try {
-        const { characterName } = await persistCommissionCreate(db, input)
-        await persistSourceImageMetadata(db, uploadedSourceImage)
+        const { characterName } = await persistCommissionCreate(db, input, uploadedSourceImage)
         return json({
           status: 'success',
           message: `Commission "${input.fileName}" added to ${characterName}.`,
         })
       }
       catch (error) {
-        if (uploadedSourceImage) {
-          try {
-            await persistCommissionDeleteByFileName(db, uploadedSourceImage.commissionFileName)
-            await removeSourceImageObject(imagesBucket, uploadedSourceImage.targetKey)
-          }
-          catch (rollbackError) {
-            const originalMessage = error instanceof Error ? error.message : 'Failed to add commission.'
-            const rollbackMessage = rollbackError instanceof Error
-              ? rollbackError.message
-              : 'Failed to rollback source image.'
-            return failure(`${originalMessage} Rollback cleanup also failed: ${rollbackMessage}`)
-          }
-        }
-
+        // 保留新对象以覆盖“D1 已提交但响应丢失”的不确定窗口；孤儿对象可安全清理。
         return failure(error instanceof Error ? error.message : 'Failed to add commission.')
       }
     },
@@ -404,28 +432,60 @@ function createNativeCrudBackend(
         let oldSourceImageMeta: Awaited<ReturnType<typeof persistSourceImageMetadataGet>> = null
         if (fileNameChanged) {
           oldSourceImageMeta = await persistSourceImageMetadataGet(db, oldFileName)
+          if (!imagesBucket) {
+            return failure('Admin worker IMAGES binding is required to rename a commission.', 503)
+          }
         }
 
-        await persistCommissionUpdate(db, input)
+        let movedImage: Awaited<ReturnType<typeof findSourceImage>> = null
+        let newObjectKey: string | null = null
+        if (fileNameChanged && imagesBucket) {
+          movedImage = await findSourceImage(imagesBucket, oldFileName, oldSourceImageMeta?.objectKey)
 
-        if (fileNameChanged && oldSourceImageMeta && imagesBucket) {
-          const ext = oldSourceImageMeta.objectKey.slice(oldFileName.length)
-          const newObjectKey = `${newFileName}${ext}`
-          const oldObject = await imagesBucket.get(oldSourceImageMeta.objectKey)
-          if (oldObject) {
-            const buffer = await oldObject.arrayBuffer()
-            await imagesBucket.put(newObjectKey, buffer, {
-              httpMetadata: { contentType: oldSourceImageMeta.mimeType },
+          if (movedImage) {
+            newObjectKey = buildVersionedSourceImageKey(
+              newFileName,
+              movedImage.sha256,
+              movedImage.extension,
+            )
+            await imagesBucket.put(newObjectKey, movedImage.buffer, {
+              httpMetadata: { contentType: movedImage.mimeType },
             })
-            await persistSourceImageMetadata(db, {
-              commissionFileName: newFileName,
-              objectKey: newObjectKey,
-              mimeType: oldSourceImageMeta.mimeType,
-              byteSize: oldSourceImageMeta.byteSize,
-              sha256: oldSourceImageMeta.sha256,
-            })
-            await imagesBucket.delete(oldSourceImageMeta.objectKey)
+            try {
+              await persistSourceImageMetadata(db, {
+                commissionFileName: newFileName,
+                objectKey: newObjectKey,
+                mimeType: movedImage.mimeType,
+                byteSize: movedImage.byteSize,
+                sha256: movedImage.sha256,
+              })
+            }
+            catch (error) {
+              return failure(error instanceof Error ? error.message : 'Failed to prepare renamed image.')
+            }
           }
+        }
+
+        try {
+          await persistCommissionUpdate(db, input)
+        }
+        catch (error) {
+          const currentFileName = await persistCommissionFileName(db, input.id).catch(() => null)
+          if (newObjectKey && currentFileName !== newFileName) {
+            await imagesBucket?.delete(newObjectKey).catch(() => undefined)
+            await persistSourceImageMetadataGet(db, newFileName).then(async (metadata) => {
+              if (metadata?.objectKey === newObjectKey) {
+                await deleteSourceImageMetadataIfMatches(db, newFileName, newObjectKey)
+              }
+            }).catch(() => undefined)
+          }
+          throw error
+        }
+
+        if (fileNameChanged && movedImage && imagesBucket) {
+          await imagesBucket.delete(movedImage.objectKey).catch((error) => {
+            console.warn('已完成图片改名，但旧图片清理失败。', error)
+          })
         }
 
         return json({
@@ -456,12 +516,24 @@ function createNativeCrudBackend(
 
       try {
         const commissionFileName = await persistCommissionFileName(db, input.id)
+        const previousImage = await persistSourceImageMetadataGet(db, commissionFileName)
         const savedSourceImage = await saveSourceImageToBucket(imagesBucket, {
           commissionFileName,
           file: input.sourceImage,
           overwrite: true,
         })
-        await persistSourceImageMetadata(db, savedSourceImage)
+        try {
+          await persistSourceImageMetadata(db, savedSourceImage)
+        }
+        catch (error) {
+          return failure(error instanceof Error ? error.message : 'Failed to update source image metadata.')
+        }
+
+        if (previousImage && previousImage.objectKey !== savedSourceImage.objectKey) {
+          await imagesBucket.delete(previousImage.objectKey).catch((error) => {
+            console.warn('已完成图片替换，但旧图片清理失败。', error)
+          })
+        }
         return json({
           status: 'success',
           message: `Source image for "${commissionFileName}" replaced.`,

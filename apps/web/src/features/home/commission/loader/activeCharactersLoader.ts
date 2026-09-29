@@ -10,6 +10,7 @@ import {
 } from '@features/home/commission/batch/homeCharacterBatchClient'
 import { fetchFreshHomeCharacterBatchManifest } from '@features/home/commission/batch/homeCharacterBatchManifest'
 import {
+  ACTIVE_CHARACTERS_LOAD_FAILED_EVENT,
   ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT,
   ACTIVE_CHARACTERS_LOADED_EVENT,
 
@@ -256,6 +257,7 @@ export function mountActiveCharactersLoader({
 
     queue = queue.then(run).catch((error) => {
       console.error(error)
+      win.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT))
       return false
     })
 

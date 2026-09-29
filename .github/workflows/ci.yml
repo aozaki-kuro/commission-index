@@ -5,130 +5,130 @@ on:
   push:
     branches: [master]
 
-# On PRs: cancel outdated runs freely.
-# On master: never cancel — we don't want a deploy killed mid-flight.
+permissions:
+  contents: read
+
+# PR 校验可以取消；部署由下方共享环境锁保护。
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
   TURBO_TELEMETRY_DISABLED: '1'
 
 jobs:
-
-  # ────────────────────────────────────────────────────────────────────────────
-  # BUILD — runs on every PR and every push to master
-  # ────────────────────────────────────────────────────────────────────────────
   build:
-    name: Build
+    name: Validate & Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup
-        id: setup
-
-      - name: Restore turbo cache
-        id: turbo_cache
-        uses: actions/cache/restore@v5
         with:
-          path: .turbo
-          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'package.json', 'apps/*/package.json', 'packages/*/package.json') }}
-          restore-keys: |
-            turbo-${{ runner.os }}-
+          persist-credentials: false
+      - uses: ./.github/actions/setup
 
-      - name: Build
+      # PR 不读取生产数据、不接收生产凭证；测试先验证无 generated 的干净检出。
+      - name: Lint
+        run: pnpm run lint
+      - name: Typecheck all workspaces
+        run: pnpm run typecheck
+      - name: Unit tests
+        run: pnpm run test
+      - name: Prepare offline Astro fixture
+        run: |
+          node --import tsx --input-type=module <<'JS'
+          import { mkdirSync, writeFileSync } from 'node:fs'
+          import { createSnapshot } from './apps/admin-worker/scripts/exportWebFactSource.ts'
+          const directory = 'apps/web/generated/fact-source'
+          mkdirSync(directory, { recursive: true })
+          const meta = { schemaVersion: 1, source: 'remote-admin-fact-source', exportedAt: '2000-01-01T00:00:00.000Z', databaseBinding: 'fixture', imagesBucket: 'fixture' }
+          const content = { meta, characters: [], creatorAliases: [], characterAliases: [], keywordAliases: [], featuredSearchKeywords: [] }
+          const snapshot = createSnapshot(content, { meta, files: [], missing: [] })
+          writeFileSync(`${directory}/content.json`, JSON.stringify(snapshot.content))
+          writeFileSync(`${directory}/source-images-manifest.json`, JSON.stringify(snapshot.manifest))
+          JS
+      - name: Astro check with offline fixture
+        run: pnpm -C apps/web run check:astro
+      - name: Build admin
         run: pnpm run build:admin
 
-      - name: Save turbo cache
-        if: always() && steps.turbo_cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
-        with:
-          path: .turbo
-          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'package.json', 'apps/*/package.json', 'packages/*/package.json') }}
-
-  # ────────────────────────────────────────────────────────────────────────────
-  # WEB — master only, runs after build
-  # ────────────────────────────────────────────────────────────────────────────
   web:
-    name: Web — Export, Check & Deploy
+    name: Web — Snapshot & Deploy
     runs-on: ubuntu-latest
     needs: [build]
-    if: github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    concurrency:
+      group: release-web-production
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup
-        id: setup
-
-      - name: Restore turbo cache
-        uses: actions/cache/restore@v5
-        with:
-          path: .turbo
-          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'package.json', 'apps/*/package.json', 'packages/*/package.json') }}
-          restore-keys: |
-            turbo-${{ runner.os }}-
-
-      - name: Restore generated web inputs
-        id: generated_cache
-        uses: actions/cache/restore@v5
-        with:
-          path: apps/web/generated
-          key: generated-${{ runner.os }}-master-${{ hashFiles('apps/web/wrangler.jsonc', 'apps/admin-worker/scripts/exportWebFactSource.ts', 'packages/domain/src/factSource.ts') }}
-          restore-keys: |
-            generated-${{ runner.os }}-master-
-            generated-${{ runner.os }}-
-
-      - name: Export fact source from D1/R2
-        run: pnpm run web:fact-source:export
+      - name: Reject outdated code candidate
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/master" --jq '.object.sha')
+          if [ "$current_sha" != "$GITHUB_SHA" ]; then
+            echo "部署跳过：候选 ${GITHUB_SHA} 已过期，master=${current_sha}" >> "$GITHUB_STEP_SUMMARY"
+            echo 'current=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'current=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Export one read-only snapshot
+        if: steps.candidate.outputs.current == 'true'
+        run: |
+          pnpm run web:fact-source:export
+          revision=$(node -p "require('./apps/web/generated/fact-source/content.json').meta.revision")
+          echo "WEB_BUILD_CACHE_TOKEN=${revision}" >> "$GITHUB_ENV"
+          echo 'FACT_SOURCE_USE_EXISTING_SNAPSHOT=1' >> "$GITHUB_ENV"
+          echo "code=${GITHUB_SHA} revision=${revision}" >> "$GITHUB_STEP_SUMMARY"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Astro check
-        run: pnpm -C apps/web check:astro
-
-      - name: Build web
-        run: pnpm run build:web
+      - name: Astro check against frozen snapshot
+        if: steps.candidate.outputs.current == 'true'
+        run: pnpm -C apps/web run check:astro
+      # Wrangler 的 custom build 是唯一正式构建入口；export 依赖只校验已有快照。
+      - name: Build and deploy frozen snapshot
+        if: steps.candidate.outputs.current == 'true'
         env:
+          GH_TOKEN: ${{ github.token }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          current_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/master" --jq '.object.sha')
+          if [ "$current_sha" != "$GITHUB_SHA" ]; then
+            echo "部署跳过：校验期间 master 已更新为 ${current_sha}" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          pnpm run deploy:web
+          find apps/web/dist -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Deploy web
-        run: pnpm run deploy:web
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Save generated web inputs
-        if: success() && steps.generated_cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
-        with:
-          path: apps/web/generated
-          key: generated-${{ runner.os }}-master-${{ hashFiles('apps/web/wrangler.jsonc', 'apps/admin-worker/scripts/exportWebFactSource.ts', 'packages/domain/src/factSource.ts') }}
-
-  # ────────────────────────────────────────────────────────────────────────────
-  # ADMIN — master only, runs after build (in parallel with web)
-  # ────────────────────────────────────────────────────────────────────────────
   admin:
     name: Admin — Deploy
     runs-on: ubuntu-latest
     needs: [build]
-    if: github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    concurrency:
+      group: release-admin-production
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v6
-      - uses: ./.github/actions/setup
-        id: setup
-
-      - name: Restore turbo cache
-        uses: actions/cache/restore@v5
         with:
-          path: .turbo
-          key: turbo-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'package.json', 'apps/*/package.json', 'packages/*/package.json') }}
-          restore-keys: |
-            turbo-${{ runner.os }}-
-
-      - name: Deploy admin
-        run: pnpm run deploy:admin
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - name: Deploy current admin candidate
         env:
+          GH_TOKEN: ${{ github.token }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          current_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/master" --jq '.object.sha')
+          if [ "$current_sha" != "$GITHUB_SHA" ]; then
+            echo "部署跳过：候选 ${GITHUB_SHA} 已过期，master=${current_sha}" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          pnpm run deploy:admin

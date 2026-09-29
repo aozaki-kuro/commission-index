@@ -5,9 +5,8 @@ on:
     types: [admin-data-changed]
   workflow_dispatch:
 
-concurrency:
-  group: release-master
-  cancel-in-progress: false
+permissions:
+  contents: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -15,105 +14,61 @@ env:
 
 jobs:
   rebuild:
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    # 与 ci.yml 的 Web 发布共享锁；获得锁之后才读取最新数据。
+    concurrency:
+      group: release-web-production
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup
-        id: setup
-
-      # Check web- namespace first (full Astro build from last ci.yml web job)
-      # before falling back to master- (code-only artifacts from validate).
-      - name: Restore turbo cache
-        id: turbo_cache
-        uses: actions/cache/restore@v5
-        with:
-          path: .turbo
-          key: turbo-${{ runner.os }}-master-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'package.json', 'apps/*/package.json', 'packages/*/package.json') }}
-          restore-keys: |
-            turbo-${{ runner.os }}-web-
-            turbo-${{ runner.os }}-master-
-            turbo-${{ runner.os }}-
-
-      # Same key family as ci.yml — will get an exact hit from the last
-      # successful web deploy as long as fact source inputs haven't changed.
-      - name: Restore generated web inputs
-        id: generated_cache
-        uses: actions/cache/restore@v5
-        with:
-          path: apps/web/generated
-          key: generated-${{ runner.os }}-master-${{ hashFiles('apps/web/wrangler.jsonc', 'apps/admin-worker/scripts/exportWebFactSource.ts', 'packages/domain/src/factSource.ts') }}
-          restore-keys: |
-            generated-${{ runner.os }}-master-
-            generated-${{ runner.os }}-
-
-      # The whole point of a rebuild dispatch is "admin data changed" — pull
-      # fresh data from D1/R2 before building. Without this, the cached
-      # apps/web/generated would carry stale content into the deploy.
-      - name: Export fact source from D1/R2
-        run: pnpm run web:fact-source:export
+      - name: Reject outdated code candidate
+        id: candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/master" --jq '.object.sha')
+          if [ "$current_sha" != "$GITHUB_SHA" ]; then
+            echo "部署跳过：候选 ${GITHUB_SHA} 已过期，master=${current_sha}" >> "$GITHUB_STEP_SUMMARY"
+            echo 'current=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'current=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Validate current code
+        if: steps.candidate.outputs.current == 'true'
+        run: |
+          pnpm run lint
+          pnpm run typecheck
+          pnpm run test
+      - name: Export one read-only snapshot
+        if: steps.candidate.outputs.current == 'true'
+        run: |
+          pnpm run web:fact-source:export
+          revision=$(node -p "require('./apps/web/generated/fact-source/content.json').meta.revision")
+          echo "WEB_BUILD_CACHE_TOKEN=${revision}" >> "$GITHUB_ENV"
+          echo 'FACT_SOURCE_USE_EXISTING_SNAPSHOT=1' >> "$GITHUB_ENV"
+          echo "code=${GITHUB_SHA} revision=${revision}" >> "$GITHUB_STEP_SUMMARY"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      # Derive token AFTER export so turbo busts its build cache when the
-      # underlying data actually changes.
-      - name: Derive WEB_BUILD_CACHE_TOKEN
-        run: |
-          hash=$(sha256sum \
-            apps/web/generated/fact-source/content.json \
-            apps/web/generated/fact-source/source-images-manifest.json \
-            | sha256sum | cut -c1-16)
-          echo "WEB_BUILD_CACHE_TOKEN=data-${hash}" >> "$GITHUB_ENV"
-
-      - name: Build web
-        id: build_web
-        run: |
-          started_at=$(date +%s)
-          pnpm run build:web
-          ended_at=$(date +%s)
-          echo "duration_seconds=$((ended_at - started_at))" >> "$GITHUB_OUTPUT"
+      - name: Astro check against frozen snapshot
+        if: steps.candidate.outputs.current == 'true'
+        run: pnpm -C apps/web run check:astro
+      # 不预先 build:web；Wrangler custom build 复用本次唯一导出的输入。
+      - name: Build and deploy frozen snapshot
+        if: steps.candidate.outputs.current == 'true'
         env:
+          GH_TOKEN: ${{ github.token }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Deploy web worker
-        id: deploy_web
         run: |
-          started_at=$(date +%s)
+          current_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/master" --jq '.object.sha')
+          if [ "$current_sha" != "$GITHUB_SHA" ]; then
+            echo "部署跳过：校验期间 master 已更新为 ${current_sha}" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           pnpm run deploy:web
-          ended_at=$(date +%s)
-          echo "duration_seconds=$((ended_at - started_at))" >> "$GITHUB_OUTPUT"
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-
-      - name: Save turbo cache
-        if: success()
-        continue-on-error: true
-        uses: actions/cache/save@v5
-        with:
-          path: .turbo
-          key: turbo-${{ runner.os }}-web-${{ hashFiles('pnpm-lock.yaml', 'turbo.json', 'package.json', 'apps/*/package.json', 'packages/*/package.json') }}-${{ env.WEB_BUILD_CACHE_TOKEN }}
-
-      - name: Save generated web inputs
-        if: success() && steps.generated_cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
-        with:
-          path: apps/web/generated
-          key: generated-${{ runner.os }}-master-${{ hashFiles('apps/web/wrangler.jsonc', 'apps/admin-worker/scripts/exportWebFactSource.ts', 'packages/domain/src/factSource.ts') }}
-
-      - name: Summary
-        if: always()
-        run: |
-          {
-            echo "## Rebuild"
-            echo
-            echo "| Step | Seconds |"
-            echo "| --- | ---: |"
-            echo "| install | ${{ steps.setup.outputs.install-duration || 'n/a' }} |"
-            echo "| build:web | ${{ steps.build_web.outputs.duration_seconds || 'n/a' }} |"
-            echo "| deploy:web | ${{ steps.deploy_web.outputs.duration_seconds || 'n/a' }} |"
-            echo
-            echo "- turbo cache hit: ${{ steps.turbo_cache.outputs.cache-hit || 'false' }}"
-            echo "- generated cache hit: ${{ steps.generated_cache.outputs.cache-hit || 'false' }}"
-          } >> "$GITHUB_STEP_SUMMARY"
+          find apps/web/dist -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum >> "$GITHUB_STEP_SUMMARY"

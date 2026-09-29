@@ -1,4 +1,5 @@
 import {
+  getCommissionFileNameValidationError,
   normalizeAliases,
   normalizeCharacterAliases,
   normalizeCharacterAliasKey,
@@ -28,6 +29,7 @@ export interface D1PreparedStatementLike extends D1BoundStatementLike {
 }
 
 export interface D1DatabaseLike {
+  batch?: (statements: D1PreparedStatementLike[]) => Promise<D1ResultLike[]>
   prepare: (query: string) => D1PreparedStatementLike
 }
 
@@ -141,9 +143,15 @@ function normalizeCommissionMutation(input: {
   keyword?: string | null
   hidden?: boolean
 }): NormalizedCommissionMutation {
+  const fileName = input.fileName.trim()
+  const fileNameError = getCommissionFileNameValidationError(fileName)
+  if (fileNameError) {
+    throw new Error(fileNameError)
+  }
+
   return {
     characterId: input.characterId,
-    fileName: input.fileName.trim(),
+    fileName,
     links: JSON.stringify(input.links),
     design: input.design ?? null,
     description: input.description ?? null,
@@ -184,6 +192,28 @@ async function runStatement(db: D1DatabaseLike, query: string, values: unknown[]
   const result = await runnable.run()
 
   if (result.success === false) {
+    throw new Error('D1 write operation failed.')
+  }
+}
+
+async function runStatementsAtomically(
+  db: D1DatabaseLike,
+  operations: Array<{ query: string, values?: unknown[] }>,
+) {
+  if (operations.length === 0) {
+    return
+  }
+  const statements = operations.map(({ query, values = [] }) => {
+    const statement = db.prepare(query)
+    return values.length > 0 ? statement.bind(...values) : statement
+  })
+
+  if (!db.batch) {
+    throw new Error('D1 batch support is required for atomic write operations.')
+  }
+
+  const results = await db.batch(statements)
+  if (results.some(result => result.success === false)) {
     throw new Error('D1 write operation failed.')
   }
 }
@@ -286,31 +316,48 @@ export async function updateCharacterOrder(
   if (
     !Array.isArray(active)
     || !Array.isArray(archived)
-    || active.some(id => typeof id !== 'number' || !Number.isFinite(id))
-    || archived.some(id => typeof id !== 'number' || !Number.isFinite(id))
+    || active.some(id => !Number.isSafeInteger(id) || id <= 0)
+    || archived.some(id => !Number.isSafeInteger(id) || id <= 0)
   ) {
     throw new Error('Invalid character order payload.')
   }
 
   const activeIds = active.map(Number)
   const archivedIds = archived.map(Number)
-
-  if (activeIds.length > 0) {
-    const cases = activeIds.map((id, i) => `WHEN ${id} THEN ${i + 1}`).join(' ')
-    await runStatement(
-      db,
-      `UPDATE characters SET sort_order = CASE id ${cases} END, status = 'active' WHERE id IN (${activeIds.join(', ')})`,
-    )
+  const orderedIds = [...activeIds, ...archivedIds]
+  if (new Set(orderedIds).size !== orderedIds.length) {
+    throw new Error('Character order payload contains duplicate identifiers.')
   }
 
-  if (archivedIds.length > 0) {
-    const baseOrder = activeIds.length
-    const cases = archivedIds.map((id, i) => `WHEN ${id} THEN ${baseOrder + i + 1}`).join(' ')
-    await runStatement(
-      db,
-      `UPDATE characters SET sort_order = CASE id ${cases} END, status = 'archived' WHERE id IN (${archivedIds.join(', ')})`,
-    )
+  if (orderedIds.length === 0) {
+    return
   }
+
+  const existingRows = await queryRows<CharacterIdRow>(
+    db,
+    `SELECT id FROM characters WHERE id IN (${orderedIds.map(() => '?').join(', ')})`,
+    orderedIds,
+  )
+  if (existingRows.length !== orderedIds.length) {
+    throw new Error('Character order payload must include existing character identifiers only.')
+  }
+
+  const buildOrderUpdate = (ids: number[], status: CharacterStatus, offset: number) => {
+    if (ids.length === 0) {
+      return null
+    }
+    const cases = ids.map(() => 'WHEN ? THEN ?').join(' ')
+    return {
+      query: `UPDATE characters SET sort_order = CASE id ${cases} END, status = ? WHERE id IN (${ids.map(() => '?').join(', ')})`,
+      values: [...ids.flatMap((id, index) => [id, offset + index + 1]), status, ...ids],
+    }
+  }
+  const operations = [
+    buildOrderUpdate(activeIds, 'active', 0),
+    buildOrderUpdate(archivedIds, 'archived', activeIds.length),
+  ].filter((operation): operation is NonNullable<typeof operation> => operation !== null)
+
+  await runStatementsAtomically(db, operations)
 }
 
 export async function deleteCharacter(db: D1DatabaseLike, id: number) {
@@ -324,8 +371,15 @@ export async function deleteCharacter(db: D1DatabaseLike, id: number) {
     throw new Error('Character not found.')
   }
 
-  await runStatement(db, 'DELETE FROM commissions WHERE character_id = ?', [id])
-  await runStatement(db, 'DELETE FROM characters WHERE id = ?', [id])
+  await ensureSourceImagesTable(db)
+  await runStatementsAtomically(db, [
+    {
+      query: 'DELETE FROM source_images WHERE commission_file_name IN (SELECT file_name FROM commissions WHERE character_id = ?)',
+      values: [id],
+    },
+    { query: 'DELETE FROM commissions WHERE character_id = ?', values: [id] },
+    { query: 'DELETE FROM characters WHERE id = ?', values: [id] },
+  ])
 }
 
 export async function createCommission(
@@ -339,6 +393,7 @@ export async function createCommission(
     keyword?: string | null
     hidden?: boolean
   },
+  sourceImage: SourceImageMetadataInput,
 ) {
   const normalizedInput = normalizeCommissionMutation(input)
 
@@ -352,9 +407,10 @@ export async function createCommission(
     throw new Error('Selected character does not exist.')
   }
 
-  await runStatement(
-    db,
-    `
+  await ensureSourceImagesTable(db)
+  await runStatementsAtomically(db, [
+    {
+      query: `
       INSERT INTO commissions (
         character_id,
         file_name,
@@ -364,17 +420,32 @@ export async function createCommission(
         keyword,
         hidden
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    `,
-    [
-      characterRecord.id,
-      normalizedInput.fileName,
-      normalizedInput.links,
-      normalizedInput.design,
-      normalizedInput.description,
-      normalizedInput.keyword,
-      normalizedInput.hidden,
-    ],
-  )
+      `,
+      values: [
+        characterRecord.id,
+        normalizedInput.fileName,
+        normalizedInput.links,
+        normalizedInput.design,
+        normalizedInput.description,
+        normalizedInput.keyword,
+        normalizedInput.hidden,
+      ],
+    },
+    {
+      query: `
+        INSERT INTO source_images (
+          commission_file_name, object_key, mime_type, byte_size, sha256, updated_at
+        ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(commission_file_name) DO UPDATE SET
+          object_key = excluded.object_key,
+          mime_type = excluded.mime_type,
+          byte_size = excluded.byte_size,
+          sha256 = excluded.sha256,
+          updated_at = CURRENT_TIMESTAMP
+      `,
+      values: [sourceImage.commissionFileName, sourceImage.objectKey, sourceImage.mimeType, sourceImage.byteSize, sourceImage.sha256],
+    },
+  ])
 
   return {
     characterName: characterRecord.name,
@@ -442,9 +513,8 @@ export async function updateCommission(
     return false
   }
 
-  await runStatement(
-    db,
-    `
+  const updateOperation = {
+    query: `
       UPDATE commissions
       SET
         character_id = ?,
@@ -456,7 +526,7 @@ export async function updateCommission(
         hidden = ?
       WHERE id = ?
     `,
-    [
+    values: [
       normalizedInput.characterId,
       normalizedInput.fileName,
       normalizedInput.links,
@@ -466,10 +536,20 @@ export async function updateCommission(
       normalizedInput.hidden,
       input.id,
     ],
-  )
+  }
 
   if (currentCommission.fileName !== normalizedInput.fileName) {
-    await deleteSourceImageMetadata(db, currentCommission.fileName)
+    await ensureSourceImagesTable(db)
+    await runStatementsAtomically(db, [
+      updateOperation,
+      {
+        query: 'DELETE FROM source_images WHERE commission_file_name = ?',
+        values: [currentCommission.fileName],
+      },
+    ])
+  }
+  else {
+    await runStatement(db, updateOperation.query, updateOperation.values)
   }
 
   return true
@@ -486,13 +566,19 @@ export async function deleteCommission(db: D1DatabaseLike, id: number) {
     return
   }
 
-  await deleteSourceImageMetadata(db, existing.fileName)
-  await runStatement(db, 'DELETE FROM commissions WHERE id = ?', [id])
+  await ensureSourceImagesTable(db)
+  await runStatementsAtomically(db, [
+    { query: 'DELETE FROM source_images WHERE commission_file_name = ?', values: [existing.fileName] },
+    { query: 'DELETE FROM commissions WHERE id = ?', values: [id] },
+  ])
 }
 
 export async function deleteCommissionByFileName(db: D1DatabaseLike, fileName: string) {
-  await deleteSourceImageMetadata(db, fileName)
-  await runStatement(db, 'DELETE FROM commissions WHERE file_name = ?', [fileName])
+  await ensureSourceImagesTable(db)
+  await runStatementsAtomically(db, [
+    { query: 'DELETE FROM source_images WHERE commission_file_name = ?', values: [fileName] },
+    { query: 'DELETE FROM commissions WHERE file_name = ?', values: [fileName] },
+  ])
 }
 
 export async function getCommissionFileName(db: D1DatabaseLike, id: number) {
@@ -565,6 +651,19 @@ export async function deleteSourceImageMetadata(db: D1DatabaseLike, commissionFi
   )
 }
 
+export async function deleteSourceImageMetadataIfMatches(
+  db: D1DatabaseLike,
+  commissionFileName: string,
+  objectKey: string,
+) {
+  await ensureSourceImagesTable(db)
+  await runStatement(
+    db,
+    'DELETE FROM source_images WHERE commission_file_name = ? AND object_key = ?',
+    [commissionFileName, objectKey],
+  )
+}
+
 export async function saveCreatorAliasesBatch(
   db: D1DatabaseLike,
   rows: Array<{ creatorName: string, aliases: string[] | string }>,
@@ -585,27 +684,16 @@ export async function saveCreatorAliasesBatch(
   })
 
   await ensureCreatorAliasesTable(db)
-
-  for (const [creatorName, aliases] of mergedRows.entries()) {
-    if (aliases.length === 0) {
-      await runStatement(
-        db,
-        'DELETE FROM creator_aliases WHERE creator_name = ?',
-        [creatorName],
-      )
-      continue
-    }
-
-    await runStatement(
-      db,
-      `
+  await runStatementsAtomically(db, [...mergedRows.entries()].map(([creatorName, aliases]) => aliases.length === 0
+    ? { query: 'DELETE FROM creator_aliases WHERE creator_name = ?', values: [creatorName] }
+    : {
+        query: `
         INSERT INTO creator_aliases (creator_name, aliases)
         VALUES (?, ?)
         ON CONFLICT(creator_name) DO UPDATE SET aliases = excluded.aliases
       `,
-      [creatorName, JSON.stringify(aliases)],
-    )
-  }
+        values: [creatorName, JSON.stringify(aliases)],
+      }))
 }
 
 export async function saveCharacterAliasesBatch(
@@ -634,27 +722,16 @@ export async function saveCharacterAliasesBatch(
   })
 
   await ensureCharacterAliasesTable(db)
-
-  for (const row of mergedRows.values()) {
-    if (row.aliases.length === 0) {
-      await runStatement(
-        db,
-        'DELETE FROM character_aliases WHERE character_name = ?',
-        [row.characterName],
-      )
-      continue
-    }
-
-    await runStatement(
-      db,
-      `
+  await runStatementsAtomically(db, [...mergedRows.values()].map(row => row.aliases.length === 0
+    ? { query: 'DELETE FROM character_aliases WHERE character_name = ?', values: [row.characterName] }
+    : {
+        query: `
         INSERT INTO character_aliases (character_name, aliases)
         VALUES (?, ?)
         ON CONFLICT(character_name) DO UPDATE SET aliases = excluded.aliases
       `,
-      [row.characterName, JSON.stringify(row.aliases)],
-    )
-  }
+        values: [row.characterName, JSON.stringify(row.aliases)],
+      }))
 }
 
 export async function saveKeywordAliasesBatch(
@@ -683,44 +760,32 @@ export async function saveKeywordAliasesBatch(
   })
 
   await ensureKeywordAliasesTable(db)
-
-  for (const row of mergedRows.values()) {
-    if (row.aliases.length === 0) {
-      await runStatement(
-        db,
-        'DELETE FROM keyword_aliases WHERE base_keyword = ?',
-        [row.baseKeyword],
-      )
-      continue
-    }
-
-    await runStatement(
-      db,
-      `
+  await runStatementsAtomically(db, [...mergedRows.values()].map(row => row.aliases.length === 0
+    ? { query: 'DELETE FROM keyword_aliases WHERE base_keyword = ?', values: [row.baseKeyword] }
+    : {
+        query: `
         INSERT INTO keyword_aliases (base_keyword, aliases)
         VALUES (?, ?)
         ON CONFLICT(base_keyword) DO UPDATE SET aliases = excluded.aliases
       `,
-      [row.baseKeyword, JSON.stringify(row.aliases)],
-    )
-  }
+        values: [row.baseKeyword, JSON.stringify(row.aliases)],
+      }))
 }
 
 export async function saveHomeFeaturedSearchKeywords(db: D1DatabaseLike, keywords: string[]) {
   const normalizedKeywords = dedupeKeywords(keywords, MAX_FEATURED_SEARCH_KEYWORDS)
 
   await ensureHomeFeaturedSearchKeywordsTable(db)
-  await runStatement(db, 'DELETE FROM home_featured_search_keywords')
-
-  if (normalizedKeywords.length === 0) {
-    return
+  const operations: Array<{ query: string, values?: unknown[] }> = [
+    { query: 'DELETE FROM home_featured_search_keywords' },
+  ]
+  if (normalizedKeywords.length > 0) {
+    const placeholders = normalizedKeywords.map(() => '(?, ?)').join(', ')
+    const values = normalizedKeywords.flatMap((keyword, index) => [keyword, index + 1])
+    operations.push({
+      query: `INSERT INTO home_featured_search_keywords (keyword, sort_order) VALUES ${placeholders}`,
+      values,
+    })
   }
-
-  const placeholders = normalizedKeywords.map(() => '(?, ?)').join(', ')
-  const values = normalizedKeywords.flatMap((keyword, index) => [keyword, index + 1])
-  await runStatement(
-    db,
-    `INSERT INTO home_featured_search_keywords (keyword, sort_order) VALUES ${placeholders}`,
-    values,
-  )
+  await runStatementsAtomically(db, operations)
 }

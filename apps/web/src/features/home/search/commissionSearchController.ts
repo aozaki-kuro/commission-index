@@ -6,6 +6,8 @@ import {
   prefetchHomeCharacterBatches,
 } from '@features/home/commission/batch/homeCharacterBatchClient'
 import {
+  ACTIVE_CHARACTERS_LOAD_FAILED_EVENT,
+  ACTIVE_CHARACTERS_LOADED_EVENT,
   readActiveCharactersLoadedBatchCount,
   requestActiveCharactersLoad,
 } from '@features/home/commission/loader/activeCharactersEvent'
@@ -144,6 +146,9 @@ export function initSearchController(root: HTMLElement) {
   const shuffleBtn = root.querySelector<HTMLElement>('#search-shuffle')
   const rotateBtn = root.querySelector<HTMLElement>('#search-rotate')
   const rotateIconEl = root.querySelector<HTMLElement>('#search-rotate-icon')
+  const activeLoadFeedbackEl = root.querySelector<HTMLElement>('#search-active-load-feedback')
+  const activeLoadFeedbackTextEl = root.querySelector<HTMLElement>('#search-active-load-feedback-text')
+  const retryActiveLoadBtn = root.querySelector<HTMLButtonElement>('#search-active-load-retry')
   const comboboxEl = inputEl?.closest<HTMLElement>('[role="combobox"]') ?? null
 
   if (!inputEl || !suggestionListEl || !liveEl)
@@ -179,6 +184,7 @@ export function initSearchController(root: HTMLElement) {
   let prefetchedArchived = false
   let requestedActiveForSearch = false
   let requestedArchivedForSearch = false
+  let activeLoadFailed = false
 
   if (initialUrlQuery) {
     input.value = initialUrlQuery
@@ -304,11 +310,42 @@ export function initSearchController(root: HTMLElement) {
     return mode === 'character' && Boolean(normalizeQuery(query)) && !panelState.activeLoaded
   }
 
+  function syncActiveLoadFeedback() {
+    if (!activeLoadFeedbackEl || !activeLoadFeedbackTextEl)
+      return
+
+    const shouldShow = activeLoadFailed && !panelState.activeLoaded
+    activeLoadFeedbackEl.hidden = !shouldShow
+    activeLoadFeedbackTextEl.textContent = shouldShow ? controls.activeCharactersLoadFailed : ''
+  }
+
   function requestActiveLoadBeforeFiltering() {
-    if (requestedActiveForSearch)
+    if (requestedActiveForSearch || activeLoadFailed)
       return
     requestedActiveForSearch = true
     requestActiveCharactersLoad(window, { strategy: 'all' })
+  }
+
+  function retryActiveLoad() {
+    activeLoadFailed = false
+    requestedActiveForSearch = false
+    syncActiveLoadFeedback()
+    requestActiveLoadBeforeFiltering()
+    scheduleRecompute({ immediate: true })
+  }
+
+  const handleActiveLoadFailed = () => {
+    activeLoadFailed = true
+    requestedActiveForSearch = false
+    syncActiveLoadFeedback()
+    scheduleRecompute({ immediate: true })
+  }
+
+  const handleActiveLoadSucceeded = () => {
+    activeLoadFailed = false
+    requestedActiveForSearch = true
+    syncActiveLoadFeedback()
+    scheduleRecompute({ immediate: true })
   }
 
   function shouldSuspendDomFilteringForArchivedLoad(model: {
@@ -790,12 +827,18 @@ export function initSearchController(root: HTMLElement) {
     panelState = nextState
     if (nextState.activeLoaded) {
       requestedActiveForSearch = true
+      activeLoadFailed = false
     }
     if (nextState.archivedLoaded) {
       requestedArchivedForSearch = true
     }
+    syncActiveLoadFeedback()
     scheduleRecompute({ immediate: true })
   })
+
+  window.addEventListener(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT, handleActiveLoadFailed)
+  window.addEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, handleActiveLoadSucceeded)
+  retryActiveLoadBtn?.addEventListener('click', retryActiveLoad)
 
   const unsubUrlQuery = subscribeToUrlQuerySnapshot(() => {
     scheduleRecompute({ immediate: true })
@@ -831,6 +874,9 @@ export function initSearchController(root: HTMLElement) {
     unsubViewMode()
     unsubPanelState()
     unsubUrlQuery()
+    window.removeEventListener(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT, handleActiveLoadFailed)
+    window.removeEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, handleActiveLoadSucceeded)
+    retryActiveLoadBtn?.removeEventListener('click', retryActiveLoad)
     listboxCtrl.unbind()
     suggestionCtrl.unbindOutsideListeners()
     if (recomputeRafId)

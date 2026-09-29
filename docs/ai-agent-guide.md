@@ -53,9 +53,9 @@ you must use a single-attempt fetch or implement idempotency guards** — retryi
 on 4xx will repeat the failed write attempt and may cause duplicate writes or conflicting
 state.
 
-> **Cross-reference — PATCH fileName rename:** See Section 8 — the PATCH commission
-> fileName rename triggers an R2 copy+delete, which is especially dangerous to retry since
-> the old R2 object may already be gone from a previous attempt.
+> **Cross-reference — PATCH fileName rename:** See Section 8. Renames prepare an immutable R2
+> object, switch the D1 reference atomically, then clean up the old object. Retrying the same
+> payload after an ambiguous response does not depend on the old object still existing.
 
 ---
 
@@ -322,25 +322,26 @@ There are three separate operations with different image semantics:
 
 When `PATCH` changes `fileName`, the worker automatically:
 
-1. Looks up the current source image metadata by old `fileName`.
-2. Copies the R2 object to the new key (`newFileName + extension`).
-3. Upserts D1 metadata with the new key.
-4. Deletes the old R2 object.
+1. Looks up the current source image metadata by old `fileName` (or checks legacy keys when metadata is absent).
+2. Writes the image to a new immutable key under `source-images/<fileName>/<sha256>-<uuid>.<ext>`.
+3. Upserts metadata for the new name, then atomically updates the commission and removes the old metadata row.
+4. Deletes the old R2 object only after the D1 commit succeeds.
 
-This means renaming `fileName` in a PATCH is safe and carries the image along. However,
-if the R2 IMAGES binding is missing at PATCH time the rename silently skips the copy
-(metadata update still happens for the new fileName key, old R2 object is orphaned).
+The immutable key means the old metadata continues to reference a readable object until the
+new reference is committed. A rename requires the `IMAGES` binding. If the current metadata
+points to a missing object, the request fails before changing D1.
 
-> **Edge case — R2 object missing at rename time:** If the R2 object is missing at rename
-> time (e.g., manually deleted from R2), the `copy+delete` block is silently skipped — D1
-> is updated to the new `fileName` but no R2 object exists under that key. This leaves the
-> commission in a broken state where metadata points to a non-existent image.
+If the response is lost after the D1 commit, retry the same PATCH payload. The committed
+filename and metadata remain the source of truth; failed cleanup can leave an unreferenced old
+object, but does not invalidate the active image.
 
 **POST atomicity:**
 
-`POST /api/admin/commissions` uploads the image to R2 first, then writes to D1. If D1
-fails, the worker attempts rollback (deletes the R2 object and any orphaned D1 row). If
-rollback also fails, the response body will contain both error messages concatenated.
+`POST /api/admin/commissions` uploads an immutable image object to R2 first, then atomically
+inserts the commission and its metadata in D1. If the D1 batch fails, the new R2 object is
+left untouched because the worker cannot safely distinguish a failed commit from a lost
+response. It is an orphan and can be collected later; no existing same-name commission or
+image is deleted as compensation.
 
 ---
 
@@ -361,22 +362,23 @@ Extension resolution priority: MIME type first, then filename extension as fallb
 
 **Duplicate behavior (create):**
 
-The worker checks all three candidate keys (`fileName.jpg`, `fileName.jpeg`,
-`fileName.png`) before uploading. If any exists, it returns `400` with
-`"Source image already exists: <key>"`. Use
-`POST /api/admin/commissions/:id/source-image` instead — that endpoint always overwrites
-and cleans up the old variant extension (no flag required).
+The worker checks legacy keys (`fileName.jpg`, `fileName.jpeg`, `fileName.png`) before
+uploading. New objects use unique immutable keys under `source-images/<fileName>/`; the
+unique commission filename constraint in D1 arbitrates concurrent creates. A failed or losing
+request may leave an unreferenced new object, but does not overwrite another image.
 
-**R2 cleanup on overwrite:**
+**R2 cleanup on replacement:**
 
-When replacing an image, the worker deletes the old variant-extension objects
-(e.g. if the new upload is `.jpg`, it deletes `fileName.jpeg` and `fileName.png` from R2).
+The worker updates D1 to the new immutable key before deleting the previous referenced object.
+Cleanup is best effort; failure leaves an orphan and does not turn a committed update into an
+error.
 
 **R2 cleanup on commission delete:**
 
-Deleting a commission via `DELETE /api/admin/commissions/:id` removes the D1 metadata row
-(`source_images` table) but does NOT delete the R2 object. R2 cleanup is the operator's
-responsibility.
+Deleting a commission via `DELETE /api/admin/commissions/:id` removes the D1 metadata row and
+commission record atomically but leaves its R2 object as an orphan. R2 cleanup is the
+operator's responsibility; never delete objects solely because they are absent from one
+potentially stale export snapshot.
 
 ---
 
@@ -438,19 +440,18 @@ Always check **both** `response.status` and `body.status` — the worker uses `2
 successful mutations, so a `200` with `body.status === "error"` indicates a write-side
 business rule failure.
 
-| Scenario                       | HTTP status | `body.status` | Typical `body.message`                                   |
-| ------------------------------ | ----------- | ------------- | -------------------------------------------------------- |
-| Successful mutation            | `200`       | `"success"`   | Human-readable confirmation                              |
-| Validation error (bad input)   | `400`       | `"error"`     | Field-specific message                                   |
-| Duplicate source image         | `400`       | `"error"`     | `"Source image already exists: <key>"`                   |
-| Commission/character not found | `400`       | `"error"`     | `"Commission not found."` / `"Character not found."`     |
-| Missing D1 binding             | `503`       | `"error"`     | `"Admin worker DB binding is required..."`               |
-| Missing R2 binding             | `503`       | `"error"`     | `"Admin worker IMAGES binding is required..."`           |
-| D1 write failed                | `500`       | `"error"`     | `"D1 write operation failed."`                           |
-| Rollback also failed           | `400`       | `"error"`     | `"<original>. Rollback cleanup also failed: <rollback>"` |
-| Route not matched              | `404`       | `"error"`     | `"Not Found"`                                            |
-| GitHub rebuild not configured  | `503`       | `"error"`     | `"GITHUB_DISPATCH_TOKEN is not configured..."`           |
-| GitHub API non-204             | `502`       | `"error"`     | `"GitHub API returned <status>: <body>"`                 |
+| Scenario                       | HTTP status | `body.status` | Typical `body.message`                               |
+| ------------------------------ | ----------- | ------------- | ---------------------------------------------------- |
+| Successful mutation            | `200`       | `"success"`   | Human-readable confirmation                          |
+| Validation error (bad input)   | `400`       | `"error"`     | Field-specific message                               |
+| Duplicate source image/name    | `400`       | `"error"`     | Legacy R2 collision or D1 unique-name conflict       |
+| Commission/character not found | `400`       | `"error"`     | `"Commission not found."` / `"Character not found."` |
+| Missing D1 binding             | `503`       | `"error"`     | `"Admin worker DB binding is required..."`           |
+| Missing R2 binding             | `503`       | `"error"`     | `"Admin worker IMAGES binding is required..."`       |
+| D1 write failed                | `500`       | `"error"`     | `"D1 write operation failed."`                       |
+| Route not matched              | `404`       | `"error"`     | `"Not Found"`                                        |
+| GitHub rebuild not configured  | `503`       | `"error"`     | `"GITHUB_DISPATCH_TOKEN is not configured..."`       |
+| GitHub API non-204             | `502`       | `"error"`     | `"GitHub API returned <status>: <body>"`             |
 
 Note: `updateCommission` (PATCH) returns `200 success` even when nothing changed (the
 persistence layer detects no-op and skips the DB write, but the API layer always returns

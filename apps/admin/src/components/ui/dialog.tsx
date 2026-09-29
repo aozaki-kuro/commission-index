@@ -22,15 +22,17 @@ function DialogOverlay({
       ref={ref}
       data-dialog-overlay={variant}
       className={cn(
-        `
-          fixed inset-0 z-60
-          data-[state=open]:animate-[dialog-overlay-in_150ms_ease-out]
-          data-[state=closed]:animate-[dialog-overlay-in_150ms_ease-in_reverse]
-          motion-reduce:animate-none
-        `,
+        'fixed inset-0',
+        variant === 'alert'
+          ? 'z-50 data-[state=closed]:animate-none motion-safe:animate-[overlayFadeIn_200ms_ease-out]'
+          : variant === 'crop'
+            ? 'z-60 data-[state=open]:animate-[dialog-overlay-in_150ms_ease-out] data-[state=closed]:animate-[dialog-crop-content-out_150ms_ease-in] motion-reduce:animate-none'
+            : 'z-60 data-[state=open]:animate-[dialog-overlay-in_150ms_ease-out] data-[state=closed]:animate-[dialog-overlay-in_150ms_ease-in_reverse] motion-reduce:animate-none',
         variant === 'crop'
           ? 'bg-gray-200/[0.18] backdrop-blur-[20px] backdrop-saturate-150 dark:bg-gray-900/[0.18]'
-          : 'bg-black/45 backdrop-blur-md',
+          : variant === 'alert'
+            ? 'bg-black/40 backdrop-blur-[2px]'
+            : 'bg-black/45 backdrop-blur-md',
         className,
       )}
       {...props}
@@ -39,15 +41,23 @@ function DialogOverlay({
 }
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
-type DialogContentVariant = 'crop' | 'default' | 'sheet'
+type DialogContentVariant = 'alert' | 'crop' | 'default' | 'sheet'
 
 const dialogContentBase = {
+  // alert：沿用旧删除确认框的尺寸与入场动画；Radix 负责焦点与键盘行为。
+  alert: `
+    fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md
+    -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white shadow-xl
+    p-6
+    ring-1 ring-gray-900/10 dark:bg-gray-950 dark:ring-white/10
+    motion-safe:animate-[dialogEnter_240ms_cubic-bezier(0.25,1,0.5,1)]
+  `,
   // crop：移动端全屏、桌面端大尺寸工作区；不做 scale 动画，避免破坏裁剪器测量。
   crop: `
     fixed inset-0 z-70 flex flex-col overflow-hidden border-white/45
     bg-white/[0.96] backdrop-blur-xl dark:border-white/12 dark:bg-[#1c1c1e]/[0.96]
-    data-[state=open]:animate-[dialog-crop-content-in_180ms_ease-out]
-    data-[state=closed]:animate-[dialog-crop-content-out_120ms_ease-in]
+    data-[state=open]:animate-[dialog-crop-content-in_200ms_ease-out]
+    data-[state=closed]:animate-[dialog-crop-content-out_150ms_ease-in]
     motion-reduce:animate-none
     sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-[min(90vh,52rem)]
     sm:w-[min(92vw,64rem)] sm:-translate-x-1/2 sm:-translate-y-1/2
@@ -138,6 +148,19 @@ function DialogTitle({
 }
 DialogTitle.displayName = DialogPrimitive.Title.displayName
 
+function DialogDescription({
+  className,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>) {
+  return (
+    <DialogPrimitive.Description
+      className={cn('text-sm text-gray-600 dark:text-gray-300', className)}
+      {...props}
+    />
+  )
+}
+DialogDescription.displayName = DialogPrimitive.Description.displayName
+
 function DialogCloseButton({ className }: { className?: string }) {
   return (
     <DialogClose asChild>
@@ -170,6 +193,7 @@ export {
   DialogClose,
   DialogCloseButton,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogOverlay,
   DialogPortal,

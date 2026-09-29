@@ -12,6 +12,7 @@ export interface GeneratedFactSourceMeta {
   schemaVersion: typeof GENERATED_FACT_SOURCE_SCHEMA_VERSION
   source: typeof GENERATED_FACT_SOURCE_SOURCE
   exportedAt: string
+  revision: string
   databaseBinding: string
   imagesBucket: string
 }

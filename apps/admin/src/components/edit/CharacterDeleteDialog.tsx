@@ -1,10 +1,11 @@
 import type { RefObject } from 'react'
-import { useEffect } from 'react'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../ui/dialog'
 
 interface CharacterDeleteDialogProps {
   characterName: string
   commissionCount: number
-  confirmButtonRef: RefObject<HTMLButtonElement | null>
+  cancelButtonRef: RefObject<HTMLButtonElement | null>
+  returnFocusRef: RefObject<HTMLElement | null>
   isDeletePending: boolean
   isOpen: boolean
   onClose: () => void
@@ -14,92 +15,66 @@ interface CharacterDeleteDialogProps {
 export function CharacterDeleteDialog({
   characterName,
   commissionCount,
-  confirmButtonRef,
+  cancelButtonRef,
+  returnFocusRef,
   isDeletePending,
   isOpen,
   onClose,
   onConfirm,
 }: CharacterDeleteDialogProps) {
-  useEffect(() => {
-    if (!isOpen) {
+  const closeDialog = () => {
+    if (isDeletePending) {
       return
     }
 
-    confirmButtonRef.current?.focus()
-  }, [confirmButtonRef, isOpen])
+    onClose()
+    window.setTimeout(() => returnFocusRef.current?.focus(), 0)
+  }
 
-  useEffect(() => {
-    if (!isOpen) {
-      return
+  const closeWhenIdle = (open: boolean) => {
+    if (!open && !isDeletePending) {
+      closeDialog()
     }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !isDeletePending) {
-        onClose()
-      }
-    }
-
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [isDeletePending, isOpen, onClose])
-
-  if (!isOpen) {
-    return null
   }
 
   return (
-    <div
-      className="
-        fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4
-        backdrop-blur-[2px]
-        motion-safe:animate-[overlayFadeIn_200ms_ease-out]
-      "
-      onClick={() => {
-        if (!isDeletePending) {
-          onClose()
-        }
-      }}
-    >
-      <div
+    <Dialog open={isOpen} onOpenChange={closeWhenIdle}>
+      <DialogContent
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="delete-character-title"
-        aria-describedby="delete-character-description"
-        className="
-          w-full max-w-md rounded-2xl bg-white p-6 shadow-xl ring-1
-          ring-gray-900/10
-          motion-safe:animate-[dialogEnter_240ms_cubic-bezier(0.25,1,0.5,1)]
-          dark:bg-gray-950 dark:ring-white/10
-        "
-        onClick={event => event.stopPropagation()}
+        variant="alert"
+        className="max-w-md p-6"
+        onOpenAutoFocus={(event) => {
+          event.preventDefault()
+          cancelButtonRef.current?.focus()
+        }}
+        onCloseAutoFocus={(event) => {
+          event.preventDefault()
+          returnFocusRef.current?.focus()
+        }}
+        onEscapeKeyDown={(event) => {
+          if (isDeletePending) {
+            event.preventDefault()
+          }
+        }}
+        onPointerDownOutside={(event) => {
+          if (isDeletePending) {
+            event.preventDefault()
+          }
+        }}
       >
-        <h3
-          id="delete-character-title"
-          className="
-            text-lg font-bold text-gray-900
-            dark:text-gray-100
-          "
+        <DialogTitle
+          className="text-lg font-bold text-gray-900 dark:text-gray-100"
         >
           Delete character?
-        </h3>
+        </DialogTitle>
 
         <div className="mt-2 space-y-2">
-          <p
-            id="delete-character-description"
-            className="
-              text-sm text-gray-600
-              dark:text-gray-300
-            "
-          >
+          <DialogDescription>
             This will remove the character and all associated commissions. This action cannot be
             undone.
-          </p>
-          <p
-            className="
-              text-sm text-gray-700
-              dark:text-gray-200
-            "
-          >
+          </DialogDescription>
+          <p className="text-sm text-gray-700 dark:text-gray-200">
             <span className="font-semibold">{characterName}</span>
             {' '}
             has
@@ -114,8 +89,9 @@ export function CharacterDeleteDialog({
 
         <div className="mt-5 flex justify-end gap-3">
           <button
+            ref={cancelButtonRef}
             type="button"
-            onClick={onClose}
+            onClick={closeDialog}
             disabled={isDeletePending}
             className="
               inline-flex h-10 items-center justify-center rounded-md border
@@ -133,7 +109,6 @@ export function CharacterDeleteDialog({
             Cancel
           </button>
           <button
-            ref={confirmButtonRef}
             type="button"
             onClick={onConfirm}
             disabled={isDeletePending}
@@ -151,7 +126,7 @@ export function CharacterDeleteDialog({
             Delete
           </button>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }

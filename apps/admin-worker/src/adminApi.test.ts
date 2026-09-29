@@ -66,6 +66,17 @@ function createD1Recorder(options: {
 
   return {
     db: {
+      async batch(statements: Array<{ run: () => Promise<{ success?: boolean }> }>) {
+        const results = []
+        for (const statement of statements) {
+          const result = await statement.run()
+          if (result.success === false) {
+            throw new Error('D1 batch failed.')
+          }
+          results.push(result)
+        }
+        return results
+      },
       prepare(query: string) {
         return createStatement(query)
       },
@@ -410,7 +421,7 @@ describe('admin worker CRUD contract routing', () => {
 
     const formData = new FormData()
     formData.set('characterId', '7')
-    formData.set('fileName', 'sample-piece')
+    formData.set('fileName', '20250301_sample-piece')
 
     const request = new Request(`${baseUrl}/api/admin/commissions`, {
       method: 'POST',
@@ -427,6 +438,27 @@ describe('admin worker CRUD contract routing', () => {
     expect(createCommission).not.toHaveBeenCalled()
   })
 
+  it('rejects invalid commission file names before PATCH persistence', async () => {
+    const updateCommission = vi.fn(async () => createJsonResponse({ status: 'success', message: 'unexpected' }))
+    const backend = createCrudBackend({ updateCommission })
+    const response = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/commissions/19`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ characterId: 3, fileName: '../invalid', links: '', hidden: false }),
+      }),
+      {},
+      backend,
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      status: 'error',
+      message: 'File name must start with YYYYMMDD, optionally followed by "_creator".',
+    })
+    expect(updateCommission).not.toHaveBeenCalled()
+  })
+
   it('normalizes update-commission payload before delegating to backend', async () => {
     const updateCommission = vi.fn(async (_input: UpdateCommissionInput) =>
       createJsonResponse({ status: 'success', message: 'Commission updated.' }))
@@ -439,7 +471,7 @@ describe('admin worker CRUD contract routing', () => {
       },
       body: JSON.stringify({
         characterId: '3',
-        fileName: '  updated-piece  ',
+        fileName: '  20250301_updated-piece  ',
         links: ' one \n two ',
         design: '  new design  ',
         description: '',
@@ -458,7 +490,7 @@ describe('admin worker CRUD contract routing', () => {
     expect(updateCommission).toHaveBeenCalledWith({
       id: 19,
       characterId: 3,
-      fileName: 'updated-piece',
+      fileName: '20250301_updated-piece',
       links: ['one', 'two'],
       design: 'new design',
       description: undefined,
@@ -582,7 +614,14 @@ describe('admin worker CRUD contract routing', () => {
   })
 
   it('handles character reordering natively when DB binding exists', async () => {
-    const { db, executions } = createD1Recorder()
+    const { db, executions } = createD1Recorder({
+      queryResults(query) {
+        if (query.includes('SELECT id FROM characters WHERE id IN')) {
+          return [{ id: 1 }, { id: 2 }, { id: 3 }]
+        }
+        return []
+      },
+    })
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/characters/order`, {
         method: 'PUT',
@@ -606,12 +645,14 @@ describe('admin worker CRUD contract routing', () => {
       item.query.includes('UPDATE characters SET sort_order ='),
     )
     expect(updateOps).toHaveLength(2)
-    expect(updateOps[0]!.query).toContain('WHEN 1 THEN 1 WHEN 2 THEN 2')
-    expect(updateOps[0]!.query).toContain('status = \'active\'')
-    expect(updateOps[0]!.query).toContain('WHERE id IN (1, 2)')
-    expect(updateOps[1]!.query).toContain('WHEN 3 THEN 3')
-    expect(updateOps[1]!.query).toContain('status = \'archived\'')
-    expect(updateOps[1]!.query).toContain('WHERE id IN (3)')
+    expect(updateOps[0]!.query).toContain('WHEN ? THEN ? WHEN ? THEN ?')
+    expect(updateOps[0]!.values).toEqual([1, 1, 2, 2, 'active', 1, 2])
+    expect(updateOps[0]!.query).toContain('status = ?')
+    expect(updateOps[0]!.query).toContain('WHERE id IN (?, ?)')
+    expect(updateOps[1]!.query).toContain('WHEN ? THEN ?')
+    expect(updateOps[1]!.values).toEqual([3, 3, 'archived', 3])
+    expect(updateOps[1]!.query).toContain('status = ?')
+    expect(updateOps[1]!.query).toContain('WHERE id IN (?)')
   })
 
   it('handles delete-character natively when DB binding exists', async () => {
@@ -685,7 +726,7 @@ describe('admin worker CRUD contract routing', () => {
     expect(get).toHaveBeenNthCalledWith(2, '20250301_sample-piece.jpeg')
     expect(get).toHaveBeenNthCalledWith(3, '20250301_sample-piece.png')
     expect(put).toHaveBeenCalledTimes(1)
-    expect(put.mock.calls[0]?.[0]).toBe('20250301_sample-piece.png')
+    expect(put.mock.calls[0]?.[0]).toMatch(/^source-images\/20250301_sample-piece\/[a-f0-9]{64}-[\w-]+\.png$/)
     expect(put.mock.calls[0]?.[2]).toEqual({
       httpMetadata: {
         contentType: 'image/png',
@@ -706,7 +747,7 @@ describe('admin worker CRUD contract routing', () => {
     ])
   })
 
-  it('rolls back uploaded source image when native create-commission persistence fails', async () => {
+  it('does not delete an existing commission when a create insert conflicts', async () => {
     const { db } = createD1Recorder({
       queryResults(query, values) {
         if (query.includes('SELECT id, name FROM characters WHERE id = ?')) {
@@ -744,11 +785,11 @@ describe('admin worker CRUD contract routing', () => {
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual({
       status: 'error',
-      message: 'D1 write operation failed.',
+      message: 'D1 batch failed.',
     })
     expect(put).toHaveBeenCalledTimes(1)
-    expect(deleteObject).toHaveBeenCalledTimes(1)
-    expect(deleteObject).toHaveBeenCalledWith('20250301_sample-piece.png')
+    expect(deleteObject).not.toHaveBeenCalled()
+    expect(put.mock.calls[0]?.[0]).toMatch(/^source-images\/20250301_sample-piece\//)
   })
 
   it('handles update-commission natively when DB binding exists', async () => {
@@ -789,7 +830,7 @@ describe('admin worker CRUD contract routing', () => {
           hidden: true,
         }),
       }),
-      { DB: db },
+      { DB: db, IMAGES: createImagesBucketRecorder().bucket },
     )
 
     expect(response.status).toBe(200)
@@ -871,12 +912,8 @@ describe('admin worker CRUD contract routing', () => {
     })
     expect(get).not.toHaveBeenCalled()
     expect(put).toHaveBeenCalledTimes(1)
-    expect(put.mock.calls[0]?.[0]).toBe('20250301_alice-maker.jpg')
-    expect(deleteObject).toHaveBeenCalledTimes(2)
-    expect(deleteObject.mock.calls).toEqual([
-      ['20250301_alice-maker.jpeg'],
-      ['20250301_alice-maker.png'],
-    ])
+    expect(put.mock.calls[0]?.[0]).toMatch(/^source-images\/20250301_alice-maker\/[a-f0-9]{64}-[\w-]+\.jpg$/)
+    expect(deleteObject).not.toHaveBeenCalled()
   })
 
   it('loads bootstrap data natively when DB binding exists', async () => {

@@ -1,5 +1,5 @@
 import type { AdminBootstrapData } from '@commission-index/domain'
-import { useEffect, useEffectEvent, useReducer, useState } from 'react'
+import { useEffect, useReducer, useState } from 'react'
 import { adminSurfaceStyles } from '../app/ui'
 import { AdminEditDashboard } from '../components/AdminEditDashboard'
 import { fetchAdminJsonWithRetry, readCachedAdminJson } from '../lib/adminApi'
@@ -120,7 +120,6 @@ export function AdminEditPage() {
   const [reloadToken, setReloadToken] = useState(0)
   const [pendingScrollTop] = useState<number | null>(() => readStoredScrollTop())
   const [hasRestoredScroll, setHasRestoredScroll] = useState(false)
-  const hasPayload = useEffectEvent(() => state.payload !== null)
 
   useEffect(() => subscribeToDataUpdates(() => {
     setReloadToken(token => token + 1)
@@ -130,9 +129,7 @@ export function AdminEditPage() {
     const controller = new AbortController()
     let isDisposed = false
 
-    if (!hasPayload()) {
-      dispatch({ type: 'loading' })
-    }
+    dispatch({ type: 'loading' })
 
     void fetchAdminJsonWithRetry<AdminBootstrapData>(bootstrapCacheKey, {
       signal: controller.signal,
@@ -256,11 +253,42 @@ export function AdminEditPage() {
 
   if (state.payload) {
     return (
-      <AdminEditDashboard
-        characters={state.payload.characters}
-        commissionSearchRows={state.payload.commissionSearchRows}
-        creatorAliases={state.payload.creatorAliases}
-      />
+      <>
+        {state.errorMessage
+          ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
+              >
+                <p>
+                  Refresh failed. Showing cached data; it may be out of date.
+                  {' '}
+                  <span className="text-xs">{state.errorMessage}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setReloadToken(token => token + 1)}
+                  disabled={state.isLoading}
+                  className="shrink-0 rounded-lg border border-amber-500/50 px-3 py-1.5 text-xs font-semibold hover:bg-amber-100 focus-visible:ring-2 focus-visible:ring-amber-600 focus-visible:outline-none disabled:opacity-50 dark:hover:bg-amber-900/60"
+                >
+                  Try again
+                </button>
+              </div>
+            )
+          : state.isLoading
+            ? (
+                <p role="status" aria-live="polite" className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+                  Refreshing cached data…
+                </p>
+              )
+            : null}
+        <AdminEditDashboard
+          characters={state.payload.characters}
+          commissionSearchRows={state.payload.commissionSearchRows}
+          creatorAliases={state.payload.creatorAliases}
+        />
+      </>
     )
   }
 

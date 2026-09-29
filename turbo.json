@@ -1,5 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "agentGuidance": false,
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -17,14 +18,25 @@
     },
     "@commission-index/web#fact-source:export": {
       "env": ["WEB_BUILD_CACHE_TOKEN"],
-      "passThroughEnv": ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"],
-      "outputs": ["generated/**"]
+      "passThroughEnv": [
+        "CLOUDFLARE_ACCOUNT_ID",
+        "CLOUDFLARE_API_TOKEN",
+        "FACT_SOURCE_USE_EXISTING_SNAPSHOT"
+      ],
+      "outputs": [],
+      "cache": false
     },
     "@commission-index/web#build": {
       "dependsOn": ["^build", "fact-source:export"],
       "env": ["WEB_BUILD_CACHE_TOKEN"],
-      "passThroughEnv": ["CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_API_TOKEN"],
-      "outputs": ["dist/**", ".astro/**"]
+      "passThroughEnv": [
+        "CLOUDFLARE_ACCOUNT_ID",
+        "CLOUDFLARE_API_TOKEN",
+        "FACT_SOURCE_USE_EXISTING_SNAPSHOT"
+      ],
+      "outputs": ["dist/**", ".astro/**"],
+      "inputs": ["$TURBO_DEFAULT$", "generated/**"],
+      "cache": false
     },
     "@commission-index/web#check": {
       "dependsOn": ["^typecheck", "fact-source:export"],

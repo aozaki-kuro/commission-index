@@ -4,6 +4,7 @@ import type {
   CreatorAliasEntry,
   GeneratedFactSourceContent,
   GeneratedFactSourceMeta,
+  GeneratedSourceImageManifest,
   GeneratedSourceImageManifestFile,
   GeneratedSourceImageManifestMissing,
   KeywordAliasEntry,
@@ -11,7 +12,7 @@ import type {
 import type { SpawnSyncReturns } from 'node:child_process'
 import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -98,7 +99,6 @@ interface ExportSourceImagesResult {
   missing: GeneratedSourceImageManifestMissing[]
   hasHardFailure: boolean
   downloadedCount: number
-  metadataUpserts: SourceImageRow[]
   reusedCount: number
 }
 
@@ -106,9 +106,7 @@ interface ExportSourceImageTaskResult {
   downloadedCount: number
   file: GeneratedSourceImageManifestFile | null
   hardFailure: boolean
-  metadataUpserts: SourceImageRow[]
   missing: GeneratedSourceImageManifestMissing | null
-  removedObjectKeys: string[]
   reusedCount: number
 }
 
@@ -438,6 +436,65 @@ function hashFile(filePath: string) {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex')
 }
 
+export function getLocalImageName(commissionFileName: string, objectKey: string) {
+  const extension = path.posix.extname(objectKey).toLowerCase()
+  if (!['.jpg', '.jpeg', '.png'].includes(extension)) {
+    throw new Error(`不支持的源图扩展名：${objectKey}`)
+  }
+  const fileName = `${commissionFileName}${extension}`
+  ensureOutputImagePath('.', fileName)
+  return fileName
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(canonicalJson).join(',')}]`
+  }
+  if (value && typeof value === 'object') {
+    return `{${Object.entries(value).filter(([, entry]) => entry !== undefined).toSorted(([a], [b]) => a.localeCompare(b)).map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`).join(',')}}`
+  }
+  return JSON.stringify(value) ?? 'null'
+}
+
+type SnapshotContentInput = Omit<GeneratedFactSourceContent, 'meta'> & { meta: Omit<GeneratedFactSourceMeta, 'revision'> }
+type SnapshotManifestInput = Omit<GeneratedSourceImageManifest, 'meta'> & { meta: Omit<GeneratedFactSourceMeta, 'revision'> }
+
+export function createSnapshot(content: SnapshotContentInput, manifest: SnapshotManifestInput) {
+  // 时间和既有 revision 不参与内容身份；数组顺序属于业务数据，必须保留。
+  const stableMeta = {
+    schemaVersion: content.meta.schemaVersion,
+    source: content.meta.source,
+    databaseBinding: content.meta.databaseBinding,
+    imagesBucket: content.meta.imagesBucket,
+  }
+  const revision = createHash('sha256').update(canonicalJson({
+    content: { ...content, meta: stableMeta },
+    manifest: { ...manifest, meta: stableMeta },
+  })).digest('hex')
+  return {
+    content: { ...content, meta: { ...content.meta, revision } },
+    manifest: { ...manifest, meta: { ...manifest.meta, revision } },
+  }
+}
+
+export function verifyExistingSnapshot(outputRoot: string, expectedRevision?: string) {
+  const snapshotDir = path.join(outputRoot, factSourceDirectoryName)
+  const content = JSON.parse(readFileSync(path.join(snapshotDir, 'content.json'), 'utf8')) as GeneratedFactSourceContent
+  const manifest = JSON.parse(readFileSync(path.join(snapshotDir, 'source-images-manifest.json'), 'utf8')) as GeneratedSourceImageManifest
+  const revision = createSnapshot(content, manifest).content.meta.revision
+  if (content.meta.revision !== revision || manifest.meta.revision !== revision || (expectedRevision && expectedRevision !== revision)) {
+    throw new Error('事实源 revision 不匹配，请重新导出完整快照。')
+  }
+  for (const file of manifest.files) {
+    const localName = getLocalImageName(file.commissionFileName, file.objectKey)
+    const expectedPath = path.posix.join(imageOutputDirectoryName, localName)
+    if (file.relativePath !== expectedPath || hashFile(path.join(outputRoot, expectedPath)) !== file.sha256) {
+      throw new Error(`事实源图片校验失败：${file.commissionFileName}`)
+    }
+  }
+  return revision
+}
+
 function sleep(milliseconds: number) {
   return new Promise(resolve => setTimeout(resolve, milliseconds))
 }
@@ -487,7 +544,11 @@ async function mapWithConcurrency<TItem, TResult>(
 
   const workerCount = Math.min(Math.max(1, concurrency), items.length)
   const workerSlots = Array.from({ length: workerCount }, (_, index) => index)
-  await Promise.all(workerSlots.map(() => runWorker()))
+  const outcomes = await Promise.allSettled(workerSlots.map(() => runWorker()))
+  const rejected = outcomes.find(outcome => outcome.status === 'rejected')
+  if (rejected?.status === 'rejected') {
+    throw rejected.reason
+  }
   return results
 }
 
@@ -496,23 +557,7 @@ function writeJsonFile(filePath: string, payload: unknown) {
   writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
 }
 
-function sqlLiteral(value: unknown) {
-  if (value === null || value === undefined) {
-    return 'NULL'
-  }
-
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? String(value) : 'NULL'
-  }
-
-  if (typeof value === 'boolean') {
-    return value ? '1' : '0'
-  }
-
-  return `'${String(value).replaceAll('\'', '\'\'')}'`
-}
-
-function buildSourceImageFileRecord(
+export function buildSourceImageFileRecord(
   commissionFileName: string,
   objectKey: string,
   filePath: string,
@@ -522,20 +567,10 @@ function buildSourceImageFileRecord(
   return {
     commissionFileName,
     objectKey,
-    relativePath: path.posix.join(imageOutputDirectoryName, objectKey),
+    relativePath: path.posix.join(imageOutputDirectoryName, getLocalImageName(commissionFileName, objectKey)),
     mimeType: getSourceImageMimeType(objectKey),
     byteSize: fileStats.size,
     sha256: hashFile(filePath),
-  }
-}
-
-function buildSourceImageMetadataRow(record: GeneratedSourceImageManifestFile): SourceImageRow {
-  return {
-    byteSize: record.byteSize ?? 0,
-    commissionFileName: record.commissionFileName,
-    mimeType: record.mimeType,
-    objectKey: record.objectKey,
-    sha256: record.sha256,
   }
 }
 
@@ -543,7 +578,7 @@ function buildSourceImageRowMap(rows: SourceImageRow[]) {
   return new Map(rows.map(row => [row.commissionFileName, row] as const))
 }
 
-function resolveReusableSourceImageRecord(
+export function resolveReusableSourceImageRecord(
   outputImagesDir: string,
   sourceImageRow?: SourceImageRow,
 ): GeneratedSourceImageManifestFile | null {
@@ -551,7 +586,8 @@ function resolveReusableSourceImageRecord(
     return null
   }
 
-  const outputPath = ensureOutputImagePath(outputImagesDir, sourceImageRow.objectKey)
+  const localName = getLocalImageName(sourceImageRow.commissionFileName, sourceImageRow.objectKey)
+  const outputPath = ensureOutputImagePath(outputImagesDir, localName)
   if (!existsSync(outputPath)) {
     return null
   }
@@ -568,7 +604,7 @@ function resolveReusableSourceImageRecord(
   return {
     commissionFileName: sourceImageRow.commissionFileName,
     objectKey: sourceImageRow.objectKey,
-    relativePath: path.posix.join(imageOutputDirectoryName, sourceImageRow.objectKey),
+    relativePath: path.posix.join(imageOutputDirectoryName, localName),
     mimeType: sourceImageRow.mimeType || getSourceImageMimeType(sourceImageRow.objectKey),
     byteSize: sourceImageRow.byteSize,
     sha256: sourceImageRow.sha256,
@@ -591,67 +627,13 @@ function cleanupStaleSourceImages(outputImagesDir: string, retainedObjectKeys: S
   }
 }
 
-function upsertRemoteSourceImageMetadataRows(
-  rows: SourceImageRow[],
-  {
-    databaseBinding,
-    usePreview,
-  }: {
-    databaseBinding: string
-    usePreview: boolean
-  },
-) {
-  if (rows.length === 0) {
-    return
-  }
-
-  const statements = rows.map(row => `
-    INSERT INTO source_images (
-      commission_file_name,
-      object_key,
-      mime_type,
-      byte_size,
-      sha256,
-      updated_at
-    ) VALUES (
-      ${sqlLiteral(row.commissionFileName)},
-      ${sqlLiteral(row.objectKey)},
-      ${sqlLiteral(row.mimeType)},
-      ${sqlLiteral(row.byteSize)},
-      ${sqlLiteral(row.sha256)},
-      CURRENT_TIMESTAMP
-    )
-    ON CONFLICT(commission_file_name) DO UPDATE SET
-      object_key = excluded.object_key,
-      mime_type = excluded.mime_type,
-      byte_size = excluded.byte_size,
-      sha256 = excluded.sha256,
-      updated_at = CURRENT_TIMESTAMP
-  `.trim())
-
-  runWranglerOrThrow(
-    [
-      'd1',
-      'execute',
-      databaseBinding,
-      '--config',
-      wranglerConfigPath,
-      '--remote',
-      '--command',
-      statements.join('; '),
-      ...(usePreview ? ['--preview'] : []),
-    ],
-    `upsert source image metadata in remote D1 (${databaseBinding})`,
-  )
-}
-
 function buildMeta({
   databaseBinding,
   imagesBucket,
 }: {
   databaseBinding: string
   imagesBucket: string
-}): GeneratedFactSourceMeta {
+}): Omit<GeneratedFactSourceMeta, 'revision'> {
   return {
     schemaVersion: GENERATED_FACT_SOURCE_SCHEMA_VERSION,
     source: GENERATED_FACT_SOURCE_SOURCE,
@@ -721,17 +703,37 @@ async function downloadSourceImageObject(
 
 async function exportSourceImages(
   fileNames: string[],
+  options: ExportSourceImagesOptions,
+): Promise<ExportSourceImagesResult> {
+  mkdirSync(options.outputImagesDir, { recursive: true })
+  const stagingDirectory = mkdtempSync(path.join(options.outputImagesDir, '.export-'))
+  try {
+    const result = await stageSourceImages(fileNames, options, stagingDirectory)
+    if (!result.hasHardFailure) {
+      const retainedNames = new Set(result.files.map(file => path.posix.basename(file.relativePath)))
+      for (const name of readdirSync(stagingDirectory)) {
+        renameSync(path.join(stagingDirectory, name), ensureOutputImagePath(options.outputImagesDir, name))
+      }
+      cleanupStaleSourceImages(options.outputImagesDir, retainedNames)
+    }
+    return result
+  }
+  finally {
+    rmSync(stagingDirectory, { recursive: true, force: true })
+  }
+}
+
+async function stageSourceImages(
+  fileNames: string[],
   { bucketName, outputImagesDir, sourceImageRows }: ExportSourceImagesOptions,
+  stagingDirectory: string,
 ): Promise<ExportSourceImagesResult> {
   const files: GeneratedSourceImageManifestFile[] = []
   const missing: GeneratedSourceImageManifestMissing[] = []
-  const metadataUpserts: SourceImageRow[] = []
-  const retainedObjectKeys = new Set<string>()
   const sourceImageRowMap = buildSourceImageRowMap(sourceImageRows)
   let downloadedCount = 0
   let reusedCount = 0
 
-  mkdirSync(outputImagesDir, { recursive: true })
   const downloadConcurrency = resolveDownloadConcurrency()
   const resolvedDownloadConcurrency = fileNames.length === 0
     ? 0
@@ -751,49 +753,36 @@ async function exportSourceImages(
           downloadedCount: 0,
           file: reusableRecord,
           hardFailure: false,
-          metadataUpserts: [],
           missing: null,
-          removedObjectKeys: [],
           reusedCount: 1,
         }
       }
 
       const orderedCandidateObjectKeys = sourceImageRow
-        ? [sourceImageRow.objectKey, ...candidateObjectKeys.filter(key => key !== sourceImageRow.objectKey)]
+        ? [sourceImageRow.objectKey]
         : candidateObjectKeys
       console.log(`  ↓ ${progressLabel}`)
       let exportedRecord: GeneratedSourceImageManifestFile | null = null
-      const metadataRows: SourceImageRow[] = []
-      const removedObjectKeys: string[] = []
       let hardFailureMessage = ''
 
       for (const objectKey of orderedCandidateObjectKeys) {
-        const outputPath = ensureOutputImagePath(outputImagesDir, objectKey)
+        const outputPath = ensureOutputImagePath(stagingDirectory, getLocalImageName(commissionFileName, objectKey))
         const tempOutputPath = `${outputPath}.${process.pid}.${index}.download`
         rmSync(tempOutputPath, { force: true })
 
         const downloadResult = await downloadSourceImageObject(bucketName, objectKey, tempOutputPath)
         if (downloadResult.ok) {
           const record = buildSourceImageFileRecord(commissionFileName, objectKey, tempOutputPath)
+          if (sourceImageRow && (sourceImageRow.sha256 !== record.sha256 || sourceImageRow.byteSize !== record.byteSize)) {
+            rmSync(tempOutputPath, { force: true })
+            hardFailureMessage = `图片内容与读取的 D1 快照不一致：${commissionFileName}`
+            break
+          }
           rmSync(outputPath, { force: true })
           writeFileSync(outputPath, readFileSync(tempOutputPath))
           rmSync(tempOutputPath, { force: true })
           console.log(`  ✓ ${progressLabel} -> ${objectKey}`)
           exportedRecord = record
-
-          if (
-            !sourceImageRow
-            || sourceImageRow.objectKey !== record.objectKey
-            || sourceImageRow.byteSize !== record.byteSize
-            || sourceImageRow.sha256 !== record.sha256
-            || sourceImageRow.mimeType !== record.mimeType
-          ) {
-            metadataRows.push(buildSourceImageMetadataRow(record))
-          }
-
-          if (sourceImageRow && sourceImageRow.objectKey !== record.objectKey) {
-            removedObjectKeys.push(sourceImageRow.objectKey)
-          }
 
           break
         }
@@ -812,9 +801,7 @@ async function exportSourceImages(
           downloadedCount: 1,
           file: exportedRecord,
           hardFailure: false,
-          metadataUpserts: metadataRows,
           missing: null,
-          removedObjectKeys,
           reusedCount: 0,
         }
       }
@@ -825,14 +812,12 @@ async function exportSourceImages(
           downloadedCount: 0,
           file: null,
           hardFailure: true,
-          metadataUpserts: [],
           missing: {
             commissionFileName,
             candidateObjectKeys: orderedCandidateObjectKeys,
             reason: 'download_failed',
             message: hardFailureMessage || undefined,
           },
-          removedObjectKeys: [],
           reusedCount: 0,
         }
       }
@@ -841,14 +826,12 @@ async function exportSourceImages(
       return {
         downloadedCount: 0,
         file: null,
-        hardFailure: false,
-        metadataUpserts: [],
+        hardFailure: Boolean(sourceImageRow),
         missing: {
           commissionFileName,
           candidateObjectKeys: orderedCandidateObjectKeys,
           reason: 'not_found',
         },
-        removedObjectKeys: [],
         reusedCount: 0,
       }
     },
@@ -858,15 +841,10 @@ async function exportSourceImages(
   for (const result of taskResults) {
     if (result.file) {
       files.push(result.file)
-      retainedObjectKeys.add(result.file.objectKey)
     }
 
     if (result.missing) {
       missing.push(result.missing)
-    }
-
-    for (const row of result.metadataUpserts) {
-      metadataUpserts.push(row)
     }
 
     downloadedCount += result.downloadedCount
@@ -874,25 +852,29 @@ async function exportSourceImages(
     hasHardFailure = hasHardFailure || result.hardFailure
   }
 
-  for (const result of taskResults) {
-    for (const objectKey of result.removedObjectKeys) {
-      if (!retainedObjectKeys.has(objectKey)) {
-        rmSync(ensureOutputImagePath(outputImagesDir, objectKey), { force: true })
-      }
-    }
-  }
-
-  cleanupStaleSourceImages(outputImagesDir, retainedObjectKeys)
-
   return {
     files,
     missing,
     hasHardFailure,
     downloadedCount,
-    metadataUpserts,
     reusedCount,
   }
 }
+
+export const factSourceSnapshotTables = [
+  { fields: ['id', 'name', 'status', 'sortOrder'], query: 'SELECT id, name, status, sort_order as sortOrder FROM characters ORDER BY sort_order ASC, id ASC' },
+  { fields: ['characterId', 'fileName', 'links', 'design', 'description', 'hidden', 'keyword'], query: 'SELECT character_id as characterId, file_name as fileName, links, design, description, hidden, keyword FROM commissions ORDER BY character_id ASC, id ASC' },
+  { fields: ['creatorName', 'aliasesJson'], query: 'SELECT creator_name as creatorName, aliases as aliasesJson FROM creator_aliases ORDER BY creator_name ASC' },
+  { fields: ['characterName', 'aliasesJson'], query: 'SELECT character_name as characterName, aliases as aliasesJson FROM character_aliases ORDER BY character_name ASC' },
+  { fields: ['baseKeyword', 'aliasesJson'], query: 'SELECT base_keyword as baseKeyword, aliases as aliasesJson FROM keyword_aliases ORDER BY base_keyword ASC' },
+  { fields: ['keyword', 'sortOrder'], query: 'SELECT keyword, sort_order as sortOrder FROM home_featured_search_keywords ORDER BY sort_order ASC, keyword ASC' },
+  { fields: ['commissionFileName', 'objectKey', 'mimeType', 'byteSize', 'sha256'], query: 'SELECT commission_file_name as commissionFileName, object_key as objectKey, mime_type as mimeType, byte_size as byteSize, sha256 FROM source_images ORDER BY commission_file_name ASC' },
+]
+
+// 一个 SELECT 读取全部 D1 表，避免跨语句拼接不同时间的业务状态。
+export const factSourceSnapshotSql = `SELECT ${factSourceSnapshotTables.map(({ fields, query }, index) =>
+  `(SELECT json_group_array(json_object(${fields.map(field => `'${field}', ${field}`).join(', ')})) FROM (${query})) AS table${index}`,
+).join(', ')}`
 
 function loadRemoteFactSource({
   databaseBinding,
@@ -901,15 +883,11 @@ function loadRemoteFactSource({
   databaseBinding: string
   usePreview: boolean
 }): Omit<GeneratedFactSourceContent, 'meta'> & { sourceImages: SourceImageRow[] } {
-  const statements = [
-    'SELECT id, name, status, sort_order as sortOrder FROM characters ORDER BY sort_order ASC, id ASC',
-    'SELECT character_id as characterId, file_name as fileName, links, design, description, hidden, keyword FROM commissions ORDER BY character_id ASC, id ASC',
-    'SELECT creator_name as creatorName, aliases as aliasesJson FROM creator_aliases ORDER BY creator_name ASC',
-    'SELECT character_name as characterName, aliases as aliasesJson FROM character_aliases ORDER BY character_name ASC',
-    'SELECT base_keyword as baseKeyword, aliases as aliasesJson FROM keyword_aliases ORDER BY base_keyword ASC',
-    'SELECT keyword, sort_order as sortOrder FROM home_featured_search_keywords ORDER BY sort_order ASC, keyword ASC',
-    'SELECT commission_file_name as commissionFileName, object_key as objectKey, mime_type as mimeType, byte_size as byteSize, sha256 FROM source_images ORDER BY commission_file_name ASC',
-  ]
+  const snapshotRows = executeRemoteStatements([factSourceSnapshotSql], { databaseBinding, usePreview })
+  const snapshot = snapshotRows[0]?.[0] as Record<string, string> | undefined
+  if (!snapshot) {
+    throw new Error('D1 未返回完整事实源快照。')
+  }
 
   const [
     rawCharacterRows,
@@ -919,10 +897,7 @@ function loadRemoteFactSource({
     rawKeywordAliasRows,
     rawFeaturedKeywordRows,
     rawSourceImageRows,
-  ] = executeRemoteStatements(statements, {
-    databaseBinding,
-    usePreview,
-  })
+  ] = factSourceSnapshotTables.map((_, index) => JSON.parse(snapshot[`table${index}`]) as unknown[])
 
   const characters = buildCharacterRecords(
     rawCharacterRows as CharacterRow[],
@@ -945,8 +920,12 @@ function loadRemoteFactSource({
   }
 }
 
-async function main() {
-  const { outputRoot, usePreview } = parseArgs(process.argv.slice(2))
+export async function main(argv: string[] = process.argv.slice(2)) {
+  const { outputRoot, usePreview } = parseArgs(argv)
+  if (process.env.FACT_SOURCE_USE_EXISTING_SNAPSHOT === '1') {
+    console.log(`复用已校验事实源快照 revision=${verifyExistingSnapshot(outputRoot, process.env.WEB_BUILD_CACHE_TOKEN)}`)
+    return
+  }
   const factSourceDir = path.join(outputRoot, factSourceDirectoryName)
   const outputImagesDir = path.join(outputRoot, imageOutputDirectoryName)
 
@@ -961,14 +940,14 @@ async function main() {
     imagesBucket: defaultBucketName,
   })
 
-  writeJsonFile(path.join(factSourceDir, 'content.json'), {
+  const content = {
     meta,
     characters: factSource.characters,
     creatorAliases: factSource.creatorAliases,
     characterAliases: factSource.characterAliases,
     keywordAliases: factSource.keywordAliases,
     featuredSearchKeywords: factSource.featuredSearchKeywords,
-  } satisfies GeneratedFactSourceContent)
+  } satisfies SnapshotContentInput
 
   // ==================== 导出 source images 到 generated 目录 ====================
   const expectedSourceImages = listExpectedSourceImages(factSource.characters)
@@ -978,20 +957,17 @@ async function main() {
     sourceImageRows: factSource.sourceImages,
   })
 
-  upsertRemoteSourceImageMetadataRows(imageExport.metadataUpserts, {
-    databaseBinding: defaultDatabaseBinding,
-    usePreview,
-  })
-
-  writeJsonFile(path.join(factSourceDir, 'source-images-manifest.json'), {
-    meta,
-    files: imageExport.files,
-    missing: imageExport.missing,
-  })
+  if (imageExport.hasHardFailure) {
+    throw new Error('图片导出失败，未提交新的事实源快照。')
+  }
+  const snapshot = createSnapshot(content, { meta, files: imageExport.files, missing: imageExport.missing })
+  writeJsonFile(path.join(factSourceDir, 'content.json'), snapshot.content)
+  writeJsonFile(path.join(factSourceDir, 'source-images-manifest.json'), snapshot.manifest)
 
   console.log(
     [
       `Exported generated fact source to ${outputRoot}`,
+      `revision=${snapshot.content.meta.revision}`,
       `characters=${factSource.characters.length}`,
       `creatorAliases=${factSource.creatorAliases.length}`,
       `characterAliases=${factSource.characterAliases.length}`,
@@ -1000,17 +976,14 @@ async function main() {
       `materializedImages=${imageExport.files.length}`,
       `downloadedImages=${imageExport.downloadedCount}`,
       `reusedImages=${imageExport.reusedCount}`,
-      `metadataUpserts=${imageExport.metadataUpserts.length}`,
       `missingImages=${imageExport.missing.length}`,
     ].join(' | '),
   )
-
-  if (imageExport.hasHardFailure) {
-    process.exit(1)
-  }
 }
 
-void main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exit(1)
-})
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  void main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  })
+}

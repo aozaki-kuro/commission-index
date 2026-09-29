@@ -10,6 +10,7 @@ import { templateContentContainsElementId } from '@features/home/commission/batc
 
 export const ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT = 'home:active-characters-load-request'
 export const ACTIVE_CHARACTERS_LOADED_EVENT = 'home:active-characters-loaded'
+export const ACTIVE_CHARACTERS_LOAD_FAILED_EVENT = 'home:active-characters-load-failed'
 
 const CHARACTER_PANEL_SELECTOR = '[data-commission-view-panel="character"]'
 const ACTIVE_TEMPLATE_SELECTOR = 'template[data-active-sections-template="true"]'
