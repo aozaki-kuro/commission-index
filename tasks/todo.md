@@ -1,5 +1,14 @@
 # 统一迁移状态板（2026-03-18）
 
+## 本轮执行切片（2026-09-29 数据库结构专项评估）
+
+- [x] 核对历史计划、当前 schema、数据读写及静态导出边界
+- [ ] 复核索引、约束与带数据迁移风险，核实 D1 官方限制
+- [ ] 编写必要性、候选模型、工作量、切换与恢复的详细实施计划
+- [ ] 同步文档索引并校验引用、事实与变更范围
+
+范围：只读研究与本地隔离验证，交付评估文档；不实施业务代码、生产迁移或部署。既有未提交搜索改动及其他计划保持原样。
+
 ## 本轮执行切片（2026-09-29 全面审计整改）
 
 - [x] 复核上一轮审计报告、改进计划、工作区现状与 D1 API 约束
@@ -47,6 +56,7 @@
 
 - 验证：本次范围 ESLint 0 warning/error；4 个 workspace typecheck 成功；48 个 Vitest 文件 / 231 项通过；Astro check 179 文件 0 errors/warnings/hints；Admin production build 成功；相关 Markdown/YAML/JSON Prettier 与 `git diff --check` 通过。
 - 最终工作区 ESLint 全跑另发现 `apps/web/src/features/home/search/commissionSearchModel.ts` 的并行改动含 44 条格式规则错误；该文件不属于本轮 F01-F16 变更，未改写。重新运行时排除该文件，本次范围 lint 全通过。
+- 随后该搜索模型独立完成 LOGIC-01 缓存身份修复与格式整理；定向测试 4 项、Web workspace typecheck 和全仓 ESLint 均通过，覆盖了上一条记录的临时 lint 阻塞。
 - Admin build 输出包含 Vite/Rolldown 对 Radix `"use client"` 指令的既有提示；构建成功，未因本次代码新增失败。
 - 使用本地已生成事实源快照运行 `pnpm -C apps/web run build:astro`：4 个页面 / 411 张图片完成静态生产构建；输出已有 `src/icons` 目录缺失警告，没有触发远端导出。
 - 未部署、未发起生产 D1/R2 写入、未触发远端导出；无线上 required checks、Worker SHA/revision、读屏或视觉矩阵通过声明。

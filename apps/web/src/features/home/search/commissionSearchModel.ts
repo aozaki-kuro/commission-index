@@ -1,12 +1,14 @@
 import type { SuggestionViewModel } from '@features/home/search/commissionSearchDropdownRenderer'
-import type { CommissionSearchEntrySource, SearchIndex, SearchSuggestionAliasGroup } from '@features/home/search/commissionSearchIndex'
+import type {
+  CommissionSearchEntrySource,
+  SearchIndex,
+  SearchSuggestionAliasGroup,
+} from '@features/home/search/commissionSearchIndex'
 import type { PanelLoadedState } from '@features/home/search/commissionSearchPanelState'
 import type { CommissionViewMode } from '@features/home/search/commissionViewMode'
 import type { SuggestionTokenOperator } from '@lib/search/index'
 import { requestActiveCharactersLoad } from '@features/home/commission/loader/activeCharactersEvent'
-import {
-  requestArchivedCharactersLoad,
-} from '@features/home/commission/loader/archivedCharactersEvent'
+import { requestArchivedCharactersLoad } from '@features/home/commission/loader/archivedCharactersEvent'
 import { requestTimelineViewLoad } from '@features/home/commission/loader/timelineViewEvent'
 import { LOAD_ARCHIVED_COMMAND_VALUE } from '@features/home/search/commissionSearchConstants'
 import {
@@ -114,6 +116,7 @@ const EMPTY_RELATED_SUGGESTION_TERMS_MAP = new Map<string, string[]>()
 
 let cachedIndexKey = ''
 let cachedIndex: SearchIndex | null = null
+let cachedIndexExternalEntries: CommissionSearchEntrySource[] | undefined
 let cachedHydratedIndex: SearchIndex | null = null
 let pendingHydration: { index: SearchIndex, promise: Promise<SearchIndex> } | null = null
 
@@ -126,6 +129,9 @@ let hasTrackedSearchUsage = false
 // Output memoization — skip full pipeline when inputs are unchanged
 let cachedOutputKey = ''
 let cachedOutput: SearchModelOutput | null = null
+let cachedOutputExternalEntries: CommissionSearchEntrySource[] | undefined
+let cachedOutputAliasGroups: SearchSuggestionAliasGroup[] | undefined
+let cachedOutputControls: SearchControls | undefined
 
 // Called when Fuse.js hydration completes — allows the controller to schedule a recompute
 // so that CJK and other non-ASCII queries that fall through strict matching can use Fuse results.
@@ -144,6 +150,7 @@ export function markAutoShowArchivedDone() {
 export function resetModelState() {
   cachedIndexKey = ''
   cachedIndex = null
+  cachedIndexExternalEntries = undefined
   cachedHydratedIndex = null
   pendingHydration = null
   didRequestActiveAll = false
@@ -153,6 +160,9 @@ export function resetModelState() {
   hasTrackedSearchUsage = false
   cachedOutputKey = ''
   cachedOutput = null
+  cachedOutputExternalEntries = undefined
+  cachedOutputAliasGroups = undefined
+  cachedOutputControls = undefined
 }
 
 // ==================== Input / Output types ====================
@@ -244,8 +254,14 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   // cachedHydratedIndex !== null is included so the memoized result is invalidated once
   // Fuse.js finishes loading — otherwise a keyword-click recompute (which runs before Fuse is
   // ready) would be permanently cached and a subsequent retry would return the stale empty result.
-  const outputKey = `${query}\0${mode}\0${isIndexReady}\0${shouldWarmFuse}\0${isSuggestionPanelDismissed}\0${activeCommandValue}\0${activeLoaded}\0${activeBatchCount}\0${archivedLoaded}\0${archivedVisible}\0${archivedBatchCount}\0${timelineLoaded}\0${externalEntries?.length ?? -1}\0${disableDomFiltering}\0${cachedHydratedIndex !== null}`
-  if (cachedOutput && cachedOutputKey === outputKey) {
+  const outputKey = `${query}\0${mode}\0${isIndexReady}\0${shouldWarmFuse}\0${isSuggestionPanelDismissed}\0${activeCommandValue}\0${activeLoaded}\0${activeBatchCount}\0${archivedLoaded}\0${archivedVisible}\0${archivedBatchCount}\0${timelineLoaded}\0${externalEntries?.length ?? -1}\0${disableDomFiltering}\0${suppressInitialSuggestionPanelAnimation}\0${initialQuery === undefined ? 'unset' : `set:${initialQuery}`}\0${cachedHydratedIndex !== null}`
+  if (
+    cachedOutput
+    && cachedOutputKey === outputKey
+    && cachedOutputExternalEntries === externalEntries
+    && cachedOutputAliasGroups === suggestionAliasGroups
+    && cachedOutputControls === controls
+  ) {
     return cachedOutput
   }
 
@@ -293,7 +309,11 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   if (!isIndexReady) {
     index = createEmptySearchIndex()
   }
-  else if (cachedIndexKey === indexKey && cachedIndex) {
+  else if (
+    cachedIndexKey === indexKey
+    && cachedIndexExternalEntries === externalEntries
+    && cachedIndex
+  ) {
     index = cachedIndex
   }
   else {
@@ -303,6 +323,7 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
     })
     cachedIndexKey = indexKey
     cachedIndex = index
+    cachedIndexExternalEntries = externalEntries
   }
 
   // ---- Fuse.js hydration (async, cached) ----
@@ -361,14 +382,15 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   const matchedIds = getMatchedEntryIds(deferredQuery, resolvedIndex)
 
   // ---- Display metrics ----
-  const { visibleEntriesCount, visibleMatchedCount, hiddenArchivedMatchedCount } = getDisplayMetrics({
-    searchIndex: resolvedIndex,
-    matchedIds,
-    disableDomFiltering,
-    hasDeferredQuery,
-    mode,
-    archivedLoaded,
-  })
+  const { visibleEntriesCount, visibleMatchedCount, hiddenArchivedMatchedCount }
+    = getDisplayMetrics({
+      searchIndex: resolvedIndex,
+      matchedIds,
+      disableDomFiltering,
+      hasDeferredQuery,
+      mode,
+      archivedLoaded,
+    })
 
   // ---- Auto-show archived (deferred to caller — not triggered here) ----
   // The caller (controller) handles auto-show with a longer debounce so it only
@@ -399,8 +421,9 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   // ---- Auto-show archived: only when query looks "complete" ----
   // - Ends with a space (user finished typing a keyword and moved on)
   // - Or exactly matches a suggestion term (e.g. "AZKi" matches perfectly)
-  const queryLooksComplete = query.endsWith(' ')
-    || filteredSuggestions.some(s => s.term.toLowerCase() === normalizedQuery.toLowerCase())
+  const queryLooksComplete
+    = query.endsWith(' ')
+      || filteredSuggestions.some(s => s.term.toLowerCase() === normalizedQuery.toLowerCase())
 
   const shouldAutoShowArchived
     = !didAutoShowArchived
@@ -440,7 +463,9 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   const visibleStatusMessage = hasDeferredQuery
     ? controls.formatSearchResultsStatus(visibleMatchedCount, visibleEntriesCount)
     : controls.formatSearchClearedStatus(visibleEntriesCount)
-  const hiddenArchivedNoticeMessage = controls.formatHiddenArchivedResultsNotice(hiddenArchivedMatchedCount)
+  const hiddenArchivedNoticeMessage = controls.formatHiddenArchivedResultsNotice(
+    hiddenArchivedMatchedCount,
+  )
 
   // ---- Active command value resolution ----
   let resolvedActiveCommandValue: string
@@ -490,5 +515,8 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   }
   cachedOutputKey = outputKey
   cachedOutput = output
+  cachedOutputExternalEntries = externalEntries
+  cachedOutputAliasGroups = suggestionAliasGroups
+  cachedOutputControls = controls
   return output
 }
