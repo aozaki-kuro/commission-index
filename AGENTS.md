@@ -51,7 +51,7 @@ packages/domain     Shared types and pure domain helpers (no app imports)
 
 ### Tech Stack
 
-- **Runtime:** Node 24 (mise) + pnpm (package manager + scripts; new scripts use `.ts` not `.mjs`)
+- **Runtime:** Node 24 (mise) + pnpm 12 (package manager + scripts; new scripts use `.ts` not `.mjs`)
 - **Build orchestration:** Turbo (cacheable tasks only; deploy stays outside Turbo)
 - **Public site:** Astro 7 + Tailwind CSS 4 (vanilla TS client behavior)
 - **Admin frontend:** React 19 + Vite 8 + Tailwind CSS + shadcn/ui
@@ -171,6 +171,9 @@ CI gotchas:
 - Keep pnpm workspace policy lint-clean: retain `minimumReleaseAgeExcludePrune: true` and the
   canonical key order/blank lines; target workspaces with `pnpm -C <dir> run <script>`, not the
   pnpm 11-incompatible `pnpm run --cwd <dir> <script>` form
+- pnpm 12 records the pinned package manager as a separate first YAML document in
+  `pnpm-lock.yaml`; keep that document when updating the lockfile and verify with a repeated
+  `pnpm install --frozen-lockfile`
 
 ### Cloudflare Deploy
 

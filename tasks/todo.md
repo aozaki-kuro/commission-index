@@ -1,5 +1,18 @@
 # 统一迁移状态板（2026-03-18）
 
+## 本轮执行切片（2026-09-29 pnpm 12 升级）
+
+- [x] 核实 pnpm 最新稳定发布、Node 24 与 CI action 支持
+- [x] 固定 pnpm 12.7.0 并校验 workspace / lockfile
+- [x] 串行运行安装、peer、lint、typecheck、测试及实际构建
+- [x] 复核差异，提交并推送远端
+
+### Review（2026-09-29 pnpm 12）
+
+- 固定 pnpm 12.7.0；连续两次 `--frozen-lockfile` 安装成功，第二次未改动锁文件。
+- peer、lint、Astro check、41 个测试文件 / 212 个测试通过；强制重跑的全部 typecheck 与 build 任务通过（Turbo 0 缓存）。
+- pnpm 12 的锁文件首个 YAML 文档仅记录包管理器自身及平台二进制；原有依赖解析保持不变。
+
 ## 本轮执行切片（2026-09-29 全 workspace 依赖升级）
 
 - [x] 检查工作区、项目规范及现有依赖与验证流程
