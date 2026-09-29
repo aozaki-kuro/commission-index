@@ -1,5 +1,21 @@
 # 统一迁移状态板（2026-03-18）
 
+## 本轮执行切片（2026-09-29 全 workspace 依赖升级）
+
+- [x] 检查工作区、项目规范及现有依赖与验证流程
+- [x] 查询实时 registry，升级全部 workspace 的 dependencies / devDependencies 与锁文件
+- [x] 核对 peer / engine 兼容范围，仅保留有明确兼容原因的版本约束
+- [x] 串行验证 frozen install、lint、typecheck、单元测试、Astro check、前后台构建和 Worker dry-run
+- [x] 复核差异与剩余过时依赖，记录验证证据和限制
+
+### Review（2026-09-29）
+
+- 升级根目录、Admin、Web 与 Domain 的直接依赖；TypeScript 暂留 6.0.3（最新 checker 限定 `^5 || ^6`，typescript-eslint 限定 `<6.1.0`），Node 类型留在 24.x（与 mise Node 24 运行时一致）。其余依赖均更新至 registry 最新可用版本。
+- 为适配升级后 ESLint 的 React purity 规则，缩略图版本从 `sessionStorage` 惰性初始化，并通过源图上传事件同步更新。
+- frozen install、peer 检查、lint、typecheck、Vitest（41 个文件 / 212 项）、Astro check（0 errors / 0 warnings / 0 hints）、Turbo build:all（admin + 远端事实源导出 + Astro）和 Wrangler Worker dry-run 均通过。
+- `pnpm outdated -r` 仅报告 TypeScript 与 `@types/node` 的更高主版本；前者被上述 peer 范围阻止，后者与当前 Node 24 运行时保持同主版本。构建输出有 Radix `use client` 打包提示和缺失 `src/icons` 目录警告，但产物成功构建；无构建错误。
+- `git diff --check` 通过；本轮提交并推送已验证的升级，不触发手动部署。
+
 ## 本轮执行切片（2026-09-10 全 workspace 依赖升级与 Cloudflare 发布）
 
 ### 规格与边界

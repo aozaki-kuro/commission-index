@@ -265,6 +265,9 @@ export function CommissionEditForm({
                 buildPreviewVersionStorageKey(commission.id),
                 String(nextVersion),
               )
+              window.dispatchEvent(new CustomEvent('admin-preview-image-version', {
+                detail: { commissionId: commission.id, version: nextVersion },
+              }))
             }
             return
           }

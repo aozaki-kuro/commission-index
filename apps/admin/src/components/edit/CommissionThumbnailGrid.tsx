@@ -1,5 +1,5 @@
 import type { CommissionRow } from '@commission-index/domain'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getAdminApiUrl } from '../../lib/adminApi'
 
 interface CommissionThumbnailGridProps {
@@ -24,13 +24,27 @@ function ThumbnailCard({
   const [errorSrc, setErrorSrc] = useState<string | null>(null)
   const imageSrc = useMemo(() => buildThumbnailSrc(commission.fileName), [commission.fileName])
 
-  // Read cached image version from sessionStorage on every render
-  // (shared with CommissionEditForm — must re-read after source image uploads)
-  const stored = typeof window !== 'undefined'
-    ? window.sessionStorage.getItem(`admin-preview-image-version:${commission.id}`)
-    : null
-  const parsedVersion = Number(stored)
-  const imageVersion = Number.isFinite(parsedVersion) && parsedVersion > 0 ? parsedVersion : 0
+  const [imageVersion, setImageVersion] = useState(() => {
+    if (typeof window === 'undefined') {
+      return 0
+    }
+
+    const stored = window.sessionStorage.getItem(`admin-preview-image-version:${commission.id}`)
+    const parsed = Number(stored)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+  })
+
+  useEffect(() => {
+    const handlePreviewVersion = (event: Event) => {
+      const detail = (event as CustomEvent<{ commissionId: number, version: number }>).detail
+      if (detail?.commissionId === commission.id) {
+        setImageVersion(detail.version)
+      }
+    }
+
+    window.addEventListener('admin-preview-image-version', handlePreviewVersion)
+    return () => window.removeEventListener('admin-preview-image-version', handlePreviewVersion)
+  }, [commission.id])
 
   const previewSrc = imageVersion > 0 ? `${imageSrc}?v=${imageVersion}` : imageSrc
 
