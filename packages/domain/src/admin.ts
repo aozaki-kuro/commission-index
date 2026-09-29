@@ -11,10 +11,13 @@ export interface CharacterRow {
 
 export interface CommissionRow {
   id: number
+  publicId: string
   characterId: number
   characterName: string
   commissionDate: string | null
   creatorName: string | null
+  workGroupId: string | null
+  partNumber: number | null
   fileName: string
   links: string[]
   design?: string | null
@@ -25,10 +28,13 @@ export interface CommissionRow {
 
 export interface AdminCommissionSearchRow {
   id: number
+  publicId: string
   characterId: number
   characterName: string
   commissionDate: string | null
   creatorName: string | null
+  workGroupId: string | null
+  partNumber: number | null
   fileName: string
   links: string
   design?: string | null

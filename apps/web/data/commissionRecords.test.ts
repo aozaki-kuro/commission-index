@@ -15,7 +15,7 @@ describe('commissionRecords', () => {
   it('reloads generated fact-source content across repeated development reads', async () => {
     const getGeneratedFactSourceContent = vi.fn(() => ({
       meta: {
-        schemaVersion: 2,
+        schemaVersion: 3,
         source: 'remote-admin-fact-source',
         exportedAt: '2026-03-18T00:00:00.000Z',
         revision: 'fixture',

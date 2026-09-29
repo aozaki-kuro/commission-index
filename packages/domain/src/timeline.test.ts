@@ -7,10 +7,10 @@ describe('buildCommissionTimeline', () => {
       ['alpha', {
         Character: 'Alpha',
         Commissions: [
-          { id: 1, commissionDate: '2024-01-01', creatorName: null, fileName: '19990101_wrong-year', Links: [] },
-          { id: 3, commissionDate: '2024-02-01', creatorName: null, fileName: 'opaque-c', Links: [] },
-          { id: 2, commissionDate: '2024-02-01', creatorName: null, fileName: 'opaque-b', Links: [] },
-          { id: 4, commissionDate: null, creatorName: null, fileName: '20990101_undated', Links: [] },
+          { id: 1, publicId: '00000000-0000-4000-8000-000000000001', commissionDate: '2024-01-01', creatorName: null, fileName: '19990101_wrong-year', workGroupId: null, partNumber: null, Links: [] },
+          { id: 3, publicId: '00000000-0000-4000-8000-000000000003', commissionDate: '2024-02-01', creatorName: null, fileName: 'opaque-c', workGroupId: null, partNumber: null, Links: [] },
+          { id: 2, publicId: '00000000-0000-4000-8000-000000000002', commissionDate: '2024-02-01', creatorName: null, fileName: 'opaque-b', workGroupId: null, partNumber: null, Links: [] },
+          { id: 4, publicId: '00000000-0000-4000-8000-000000000004', commissionDate: null, creatorName: null, fileName: '20990101_undated', workGroupId: null, partNumber: null, Links: [] },
         ],
       }],
     ]))

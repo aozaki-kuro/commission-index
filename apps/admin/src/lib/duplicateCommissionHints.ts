@@ -4,6 +4,7 @@ import { getCommissionDisplayLabel } from './commissionPresentation'
 
 export interface DuplicateCommissionHint {
   commissionId: number
+  publicId: string
   characterId: number
   characterName: string
   commissionDate: string | null
@@ -18,6 +19,8 @@ interface FindDuplicateCommissionHintsInput {
   characterId: number | null
   commissionDate: string | null
   creatorName: string
+  workGroupId?: string | null
+  partNumber?: number | null
   keyword?: string
   commissions: AdminCommissionSearchRow[]
   limit?: number
@@ -51,6 +54,8 @@ export function findDuplicateCommissionHints({
   characterId,
   commissionDate,
   creatorName,
+  workGroupId,
+  partNumber,
   keyword,
   commissions,
   limit = 4,
@@ -67,6 +72,13 @@ export function findDuplicateCommissionHints({
   return commissions
     .filter(candidate => candidate.id !== commissionId)
     .flatMap((candidate) => {
+      const separatePartsInSameGroup
+        = Boolean(workGroupId && workGroupId !== 'new' && candidate.workGroupId === workGroupId)
+          && candidate.partNumber !== partNumber
+      if (separatePartsInSameGroup) {
+        return []
+      }
+
       const sameCommissionDetails
         = candidate.characterId === characterId
           && candidate.commissionDate === commissionDate
@@ -94,6 +106,7 @@ export function findDuplicateCommissionHints({
         commissionDate: candidate.commissionDate,
         creatorName: candidate.creatorName,
         commissionId: candidate.id,
+        publicId: candidate.publicId,
         displayLabel: getCommissionDisplayLabel(candidate),
         reasons,
         score,

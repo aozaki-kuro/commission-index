@@ -52,6 +52,42 @@ test('create forms stay visually stable', async ({ page }, testInfo) => {
   ])
 })
 
+test('commission metadata fields align and the date picker fits desktop and mobile', async ({ page }, testInfo) => {
+  skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
+
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: 844 })
+    await page.goto('/create')
+    await page.getByRole('heading', { name: 'Add Commission Entry' }).waitFor()
+
+    const fieldPairs = [
+      [page.getByText('Character', { exact: true }), page.getByRole('combobox', { name: 'Character' })],
+      [page.getByText('Delivery date', { exact: true }), page.getByRole('textbox', { name: 'Delivery date' })],
+      [page.getByText('Creator (optional)', { exact: true }), page.getByRole('textbox', { name: 'Creator (optional)' })],
+    ] as const
+
+    for (const [label, control] of fieldPairs) {
+      const labelBox = await label.boundingBox()
+      const controlBox = await control.boundingBox()
+      expect(labelBox, `label should render at ${width}px`).not.toBeNull()
+      expect(controlBox, `control should render at ${width}px`).not.toBeNull()
+      expect(Math.abs(labelBox!.x - controlBox!.x)).toBeLessThanOrEqual(1)
+    }
+
+    await page.getByRole('button', { name: 'Choose delivery date' }).click()
+    const calendar = page.getByRole('dialog', { name: 'Choose delivery date' })
+    await expect(calendar).toBeVisible()
+    await expect(calendar).toBeInViewport()
+    await expect(calendar.getByRole('button', { name: /[A-Z][a-z]+ \d{1,2}, \d{4}/ }).first()).toBeVisible()
+
+    const groupSelect = page.getByRole('combobox', { name: 'Part grouping' })
+    await groupSelect.click()
+    await page.getByRole('option', { name: 'New multi-part group' }).click()
+    await expect(page.getByRole('spinbutton', { name: 'Part number' })).toHaveValue('1')
+    await expect(page.locator('input[name="workGroupId"]')).toHaveValue('new')
+  }
+})
+
 test('source image cropper exports the fixed JPEG contract', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
   await page.goto('/create')

@@ -32,9 +32,9 @@ export function buildHomeUpdateSummary(commissionData: Props, activeCharacters: 
   const entries = uniqueEntries.slice(0, 3).map((commission) => {
     const compactDate = commission.commissionDate?.replaceAll('-', '') ?? ''
     return {
-      key: String(commission.id),
+      key: commission.publicId,
       character: commission.character,
-      href: `#${getCharacterSectionId(commission.character)}-commission-${commission.id}`,
+      href: `#${getCharacterSectionId(commission.character)}-commission-${commission.publicId}`,
       dateLabel: compactDate ? parseAndFormatDate(compactDate, 'yyyy/MM/dd') : '',
     }
   })

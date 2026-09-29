@@ -4,7 +4,10 @@ import { IconReplace, IconX } from '@tabler/icons-react'
 import { useCallback, useMemo, useState, useTransition } from 'react'
 import { formControlStyles } from '../../app/ui'
 import { getAdminApiUrl } from '../../lib/adminApi'
-import { getCommissionDisplayLabel } from '../../lib/commissionPresentation'
+import {
+  getCommissionAccessibleLabel,
+  getCommissionDisplayLabel,
+} from '../../lib/commissionPresentation'
 
 interface KeywordReplacePopoverProps {
   commissionSearchRows: AdminCommissionSearchRow[]
@@ -13,6 +16,7 @@ interface KeywordReplacePopoverProps {
 
 interface MatchedCommission {
   id: number
+  publicId: string
   characterId: number
   characterName: string
   commissionDate: string | null
@@ -42,6 +46,7 @@ function findMatches(
     if (row.keyword.toLowerCase().includes(needle)) {
       matches.push({
         id: row.id,
+        publicId: row.publicId,
         characterId: row.characterId,
         characterName: row.characterName,
         commissionDate: row.commissionDate,
@@ -128,12 +133,12 @@ export function KeywordReplacePopover({
 
           if (!response.ok) {
             const body = await response.json().catch(() => ({}))
-            setError(`Failed on "${match.displayLabel}": ${(body as { message?: string }).message ?? response.statusText}`)
+            setError(`Failed on "${match.displayLabel}" (${match.publicId}): ${(body as { message?: string }).message ?? response.statusText}`)
             return
           }
         }
         catch {
-          setError(`Network error on "${match.displayLabel}"`)
+          setError(`Network error on "${match.displayLabel}" (${match.publicId})`)
           return
         }
       }
@@ -303,10 +308,13 @@ export function KeywordReplacePopover({
                               dark:border-gray-800 dark:bg-gray-900/40
                             "
                           >
-                            <span className="
+                            <span
+                              className="
                               flex-1 truncate text-xs text-gray-600
                               dark:text-gray-300
                             "
+                              title={`Public ID: ${match.publicId}`}
+                              aria-label={getCommissionAccessibleLabel(match)}
                             >
                               {match.displayLabel}
                             </span>

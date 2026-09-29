@@ -73,7 +73,7 @@ function buildTargetBatchById({
       targetBatchById[sectionId] = batchIndex
       targetBatchById[titleId] = batchIndex
       commissions.forEach((commission) => {
-        targetBatchById[`${sectionId}-commission-${commission.id}`] = batchIndex
+        targetBatchById[`${sectionId}-commission-${commission.publicId}`] = batchIndex
         const compactDate = commission.commissionDate?.replaceAll('-', '')
         if (compactDate) {
           targetBatchById[`${sectionId}-${compactDate}`] = batchIndex

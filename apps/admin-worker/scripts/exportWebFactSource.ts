@@ -50,9 +50,12 @@ interface CharacterRow {
 
 interface CommissionRow {
   id: number
+  publicId: string
   characterId: number
   commissionDate?: string | null
   creatorName?: string | null
+  workGroupId?: string | null
+  partNumber?: number | null
   fileName: string
   seriesOrder?: string | null
   links?: string | null
@@ -293,11 +296,15 @@ function getLegacySeriesKey(fileName: string) {
     return undefined
   }
 
-  return fileName.replace(/\s*\((preview|part).*?\)$/i, '')
+  return fileName.replace(/\s*\(preview.*?\)$/i, '')
 }
 
 function getLegacySeriesOrder(fileName: string) {
   return getLegacySeriesKey(fileName) ? fileName : undefined
+}
+
+function getLegacySeriesKind(fileName: string) {
+  return /\s*\(preview\)$/i.test(fileName) ? 'preview' as const : null
 }
 
 function buildCharacterRecords(
@@ -325,8 +332,12 @@ function buildCharacterRecords(
 
     character.commissions.push({
       id: Number(row.id),
+      publicId: String(row.publicId),
       commissionDate: row.commissionDate ? String(row.commissionDate) : null,
       creatorName: row.creatorName ? String(row.creatorName) : null,
+      legacySeriesKind: getLegacySeriesKind(String(row.fileName)),
+      workGroupId: row.workGroupId ? String(row.workGroupId) : null,
+      partNumber: row.partNumber == null ? null : Number(row.partNumber),
       fileName: String(row.fileName),
       seriesKey: getLegacySeriesKey(String(row.fileName)),
       seriesOrder: getLegacySeriesOrder(String(row.fileName)),
@@ -916,7 +927,7 @@ async function stageSourceImages(
 
 export const factSourceSnapshotTables = [
   { fields: ['id', 'name', 'status', 'sortOrder'], query: 'SELECT id, name, status, sort_order as sortOrder FROM characters ORDER BY sort_order ASC, id ASC' },
-  { fields: ['id', 'characterId', 'commissionDate', 'creatorName', 'fileName', 'links', 'design', 'description', 'hidden', 'keyword'], query: 'SELECT id, character_id as characterId, commission_date as commissionDate, creator_name as creatorName, file_name as fileName, links, design, description, hidden, keyword FROM commissions ORDER BY character_id ASC, commission_date DESC, id DESC' },
+  { fields: ['id', 'publicId', 'characterId', 'commissionDate', 'creatorName', 'workGroupId', 'partNumber', 'fileName', 'links', 'design', 'description', 'hidden', 'keyword'], query: 'SELECT id, public_id as publicId, character_id as characterId, commission_date as commissionDate, creator_name as creatorName, work_group_id as workGroupId, part_number as partNumber, file_name as fileName, links, design, description, hidden, keyword FROM commissions ORDER BY character_id ASC, commission_date DESC, id DESC' },
   { fields: ['creatorName', 'aliasesJson'], query: 'SELECT creator_name as creatorName, aliases as aliasesJson FROM creator_aliases ORDER BY creator_name ASC' },
   { fields: ['characterName', 'aliasesJson'], query: 'SELECT character_name as characterName, aliases as aliasesJson FROM character_aliases ORDER BY character_name ASC' },
   { fields: ['baseKeyword', 'aliasesJson'], query: 'SELECT base_keyword as baseKeyword, aliases as aliasesJson FROM keyword_aliases ORDER BY base_keyword ASC' },

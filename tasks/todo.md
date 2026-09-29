@@ -1,5 +1,41 @@
 # 统一迁移状态板（2026-03-18）
 
+## 本轮执行切片（2026-09-29 Admin Create/Edit 布局稳定性审计）
+
+- [x] 读取项目规范、设计上下文和历史教训，确认共享工作区已有迁移改动
+- [x] 拆分 Create/Edit 只读审计，梳理页面加载、提示、图片、表单和滚动状态
+- [ ] 在本地前端配合模拟 API 验证关键时序，记录几何位移和截图
+- [ ] 输出带源码依据、优先级、状态设计、实施阶段及验收矩阵的规划文档
+- [ ] 更新文档索引并复核证据边界；本轮不实施业务改动或部署
+
+### 布局稳定性审计 Review（待完成）
+
+- 审计基于当前未提交工作区；现有身份/分篇迁移改动由原任务负责。
+
+## 本轮执行切片（2026-09-29 不透明作品 ID、分部模型与表单体验）
+
+- [x] 确认已完成的 `0004` 生产迁移、备份点、部署版本及当前工作区基线
+- [x] 全链路审查自增 ID 暴露面；盘点 Part 1/2 的真实记录与当前折叠行为
+- [x] 定稿增量方案：内部整数主键保持不变；每条作品新增稳定随机公开 ID；分部用独立 group ID + part number 标识
+- [x] 为现有 141 条数据回填唯一公开 ID；将 12 条确定的 Part 1/2 精确归组且保留每条作品/图片
+- [x] 将公开锚点、搜索身份、RSS 与更新摘要改为不透明 ID；Part 1/2 在列表/搜索中独立保留
+- [x] 日期选择器改为统一 Popover 日历；统一标签、控件高度、列对齐和内边距；未知作者展示为 `Anon`
+- [x] 同步 API/domain/fact-source 与架构文档；确保后续新作品生成 UUID 且 Part 字段可持续读写
+- [x] 备份最新生产状态；对新增单次迁移做离线回放和完整性断言
+- [x] 运行 lint、全 workspace typecheck、Vitest、Astro check、Admin/Web build 与迁移 dry-run
+- [x] 应用新增迁移并部署 Worker/Admin 与静态 Web；核对线上健康、数据计数和资源关联
+- [x] 提交本轮经验证的代码与文档变更
+
+### Review（2026-09-29 不透明作品 ID、分部模型与 UI 发布）
+
+- 迁移前备份：`.local-backups/commission-index-pre-0005-20260929/commission-index-admin-data.sql`，SHA-256 `6be21dcae8ec07ea2ec385b831eb0b003116b87b0dec50ee99bcb0c5f5ad8103`。基于此真实 D1 导出离线回放 0005：141 commissions、141 source images、141/141 唯一 UUID、6 组/12 parts、0 FK 错误。
+- 生产 D1 应用 `0005_public_commission_identity_and_parts.sql` 成功。线上复核 141 commissions、141 唯一 UUID、0 缺失/非法 UUID、141/141 图片关系、6 组/12 parts、0 FK 错误，迁移清单为空；12 条精确旧文件名映射逐条命中。
+- 发布：Admin Worker 初始版本 `0c85c2a1-72a4-46e5-addd-7d4270149b9f`，Web `d5609724-6c10-4dda-b460-8e003d09ed61`；按用户追加的 UUID 位置调整后二次 Admin 版本 `de47b256-cf91-4d9d-bb01-d56f172bfe8b`。Web 首页、搜索、RSS 返回 200，公开站 `/admin` 返回 404，Admin 根与 bootstrap 返回 Access 302。
+- 生产 `/search/home-search-entries.json` 与 RSS 各有 139 条：旧 preview 兼容逻辑折叠 2 个历史预览，不影响数据库 141 条和已分别显示的 12 个 Part 作品。线上角色批次和时间线批次均检查到 Part 1/2 标签；公开搜索无 numeric `id`，RSS GUID 全为 UUID，匿名作者含 `Anon`。
+- 验证：全仓 ESLint 通过；4 workspace typecheck 通过；62 个测试文件、274 项通过；Astro check 186 文件 0 diagnostics；Admin/Web production build 通过；`git diff --check` 通过。管理员 UI 的新增公开 ID 缩写为前 12 个十六进制字符，Links 区块右下角显示，title/aria-label 保留完整 UUID。
+- Playwright 单项视觉用例未运行完成：其 dev webServer 在启动时提前退出，未进入断言；构建与 DOM 单测已验证字段布局和日历行为，生产 Admin 仍由 Access 保护。
+- D1 与 R2 内容对象未重建或移动；R2 对象通过导出 hash/size 复用 141/141，无缺失下载。
+
 ## 本轮执行切片（2026-09-29 数据库结构专项评估）
 
 - [x] 核对历史计划、当前 schema、数据读写及静态导出边界

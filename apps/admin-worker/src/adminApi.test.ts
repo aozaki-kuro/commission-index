@@ -135,10 +135,13 @@ function createAdminReadD1Database() {
   const commissions = [
     {
       id: 10,
+      publicId: 'a0ed1441-77c3-4f23-9f81-6d7c3ac95431',
       characterId: 1,
       characterName: 'Alice',
       commissionDate: '2025-03-01',
       creatorName: 'alice-maker',
+      workGroupId: null,
+      partNumber: null,
       fileName: '20250301_alice-maker',
       links: JSON.stringify(['https://alice.example/a', 'https://alice.example/b']),
       design: 'maid outfit',
@@ -148,10 +151,13 @@ function createAdminReadD1Database() {
     },
     {
       id: 11,
+      publicId: 'b1ed1441-77c3-4f23-9f81-6d7c3ac95432',
       characterId: 2,
       characterName: 'Beta',
       commissionDate: '2024-01-05',
       creatorName: 'beta-maker',
+      workGroupId: null,
+      partNumber: null,
       fileName: '20240105_beta-maker',
       links: JSON.stringify(['https://beta.example/1']),
       design: 'armor',
@@ -217,10 +223,13 @@ function createAdminReadD1Database() {
     ) {
       return commissions.map(item => ({
         id: item.id,
+        publicId: item.publicId,
         characterId: item.characterId,
         characterName: item.characterName,
         commissionDate: item.commissionDate,
         creatorName: item.creatorName,
+        workGroupId: item.workGroupId,
+        partNumber: item.partNumber,
         fileName: item.fileName,
         links: item.links,
         design: item.design,
@@ -256,10 +265,13 @@ function createAdminReadD1Database() {
         .filter(item => item.characterId === characterId)
         .map(item => ({
           id: item.id,
+          publicId: item.publicId,
           characterId: item.characterId,
           characterName: item.characterName,
           commissionDate: item.commissionDate,
           creatorName: item.creatorName,
+          workGroupId: item.workGroupId,
+          partNumber: item.partNumber,
           fileName: item.fileName,
           links: item.links,
           design: item.design,
@@ -457,7 +469,7 @@ describe('admin worker CRUD contract routing', () => {
       new Request(`${baseUrl}/api/admin/commissions/19`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ characterId: 3, commissionDate: '2025-02-30', links: '', hidden: false }),
+        body: JSON.stringify({ characterId: 3, commissionDate: '2025-02-30', workGroupId: null, partNumber: null, links: '', hidden: false }),
       }),
       {},
       backend,
@@ -485,6 +497,8 @@ describe('admin worker CRUD contract routing', () => {
         characterId: '3',
         commissionDate: '  2025-03-01  ',
         creatorName: '  updated-piece  ',
+        workGroupId: null,
+        partNumber: null,
         links: ' one \n two ',
         design: '  new design  ',
         description: '',
@@ -505,6 +519,8 @@ describe('admin worker CRUD contract routing', () => {
       characterId: 3,
       commissionDate: '2025-03-01',
       creatorName: 'updated-piece',
+      workGroupId: null,
+      partNumber: null,
       links: ['one', 'two'],
       design: 'new design',
       description: undefined,
@@ -713,6 +729,8 @@ describe('admin worker CRUD contract routing', () => {
     formData.set('characterId', '7')
     formData.set('commissionDate', '2025-03-01')
     formData.set('creatorName', 'sample-piece')
+    formData.set('workGroupId', '')
+    formData.set('partNumber', '')
     formData.set('links', ' https://a.example \n\nhttps://b.example ')
     formData.set('design', '  outfit  ')
     formData.set('description', '  desc  ')
@@ -753,9 +771,12 @@ describe('admin worker CRUD contract routing', () => {
     const insertOps = executions.filter(item => item.query.includes('INSERT INTO commissions'))
     expect(insertOps).toHaveLength(1)
     expect(insertOps[0]?.values).toEqual([
+      expect.stringMatching(/^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/),
       7,
       '2025-03-01',
       'sample-piece',
+      null,
+      null,
       expect.stringMatching(/^commission-[\w-]+$/),
       '["https://a.example","https://b.example"]',
       'outfit',
@@ -846,6 +867,8 @@ describe('admin worker CRUD contract routing', () => {
           characterId: 3,
           commissionDate: '2025-03-02',
           creatorName: 'updated-piece',
+          workGroupId: null,
+          partNumber: null,
           links: ' one \n two ',
           design: 'new design',
           description: '',
@@ -867,6 +890,8 @@ describe('admin worker CRUD contract routing', () => {
       3,
       '2025-03-02',
       'updated-piece',
+      null,
+      null,
       '["one","two"]',
       'new design',
       null,
@@ -991,10 +1016,13 @@ describe('admin worker CRUD contract routing', () => {
       commissionSearchRows: [
         {
           id: 10,
+          publicId: 'a0ed1441-77c3-4f23-9f81-6d7c3ac95431',
           characterId: 1,
           characterName: 'Alice',
           commissionDate: '2025-03-01',
           creatorName: 'alice-maker',
+          workGroupId: null,
+          partNumber: null,
           fileName: '20250301_alice-maker',
           links: JSON.stringify(['https://alice.example/a', 'https://alice.example/b']),
           design: 'maid outfit',
@@ -1004,10 +1032,13 @@ describe('admin worker CRUD contract routing', () => {
         },
         {
           id: 11,
+          publicId: 'b1ed1441-77c3-4f23-9f81-6d7c3ac95432',
           characterId: 2,
           characterName: 'Beta',
           commissionDate: '2024-01-05',
           creatorName: 'beta-maker',
+          workGroupId: null,
+          partNumber: null,
           fileName: '20240105_beta-maker',
           links: JSON.stringify(['https://beta.example/1']),
           design: 'armor',
@@ -1122,10 +1153,13 @@ describe('admin worker CRUD contract routing', () => {
       commissions: [
         {
           id: 10,
+          publicId: 'a0ed1441-77c3-4f23-9f81-6d7c3ac95431',
           characterId: 1,
           characterName: 'Alice',
           commissionDate: '2025-03-01',
           creatorName: 'alice-maker',
+          workGroupId: null,
+          partNumber: null,
           fileName: '20250301_alice-maker',
           links: ['https://alice.example/a', 'https://alice.example/b'],
           design: 'maid outfit',

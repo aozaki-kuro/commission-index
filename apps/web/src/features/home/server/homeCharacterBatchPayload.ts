@@ -44,12 +44,12 @@ async function buildEntryPayload({
   const compactDate = commission.commissionDate?.replaceAll('-', '') ?? ''
   const year = commission.commissionDate?.slice(0, 4) ?? ''
   const creator = commission.creatorName?.trim() ?? ''
-  const copyrightCreator = creator || 'Anonymous'
+  const copyrightCreator = creator || 'Anon'
   const altText = year
     ? `© ${year} ${copyrightCreator} & Crystallize`
     : `${copyrightCreator} & Crystallize`
   const image = await buildImagePayload(commission)
-  const searchKey = buildCommissionSearchDomKey(sectionId, commission.id)
+  const searchKey = buildCommissionSearchDomKey(sectionId, commission.publicId)
   const metadata = buildCommissionSearchMetadata({
     characterName,
     commissionDate: commission.commissionDate,
@@ -82,16 +82,16 @@ async function buildEntryPayload({
         ]
       : []),
   ]
-  const hasCreator = Boolean(creator)
   const hasDescription = Boolean(commission.Description)
-  const primaryText = hasCreator ? creator : hasDescription ? quotedDescription : '-'
-  const secondaryText = hasCreator && hasDescription ? quotedDescription : null
+  const primaryText = creator || 'Anon'
+  const partLabel = commission.partNumber == null ? null : `Part ${commission.partNumber}`
+  const secondaryText = hasDescription ? quotedDescription : null
   const interestKey = compactDate
     ? `${sectionId}-${compactDate}`
-    : `${sectionId}-commission-${commission.id}`
+    : `${sectionId}-commission-${commission.publicId}`
 
   return {
-    id: `${sectionId}-commission-${commission.id}`,
+    id: `${sectionId}-commission-${commission.publicId}`,
     legacyAnchorId: compactDate ? `${sectionId}-${compactDate}` : null,
     sectionId,
     searchKey,
@@ -102,6 +102,7 @@ async function buildEntryPayload({
     sourceImageNotFoundText: messages.listing.sourceImageNotFound,
     timeLabel: compactDate ? parseAndFormatDate(compactDate, 'yyyy/MM/dd') : '',
     primaryText,
+    partLabel,
     secondaryText,
     links,
     interest: displayLinks.mainLinks.length > 0 ? null : buildInterestPayload({ interestKey, locale }),

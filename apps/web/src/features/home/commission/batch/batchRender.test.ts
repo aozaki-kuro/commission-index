@@ -53,4 +53,14 @@ describe('batchRender', () => {
     expect(root.id).toBe('alpha-commission-42')
     expect(root.querySelector('#alpha-20240203')?.getAttribute('aria-hidden')).toBe('true')
   })
+
+  it('renders the creator fallback and part label in batch metadata', () => {
+    const root = renderEntryInfo(createEntry({
+      primaryText: 'Anon',
+      partLabel: 'Part 2',
+    }))
+
+    expect(root.textContent).toContain('Anon')
+    expect(root.querySelector('[data-commission-part-label]')?.textContent).toBe('Part 2')
+  })
 })

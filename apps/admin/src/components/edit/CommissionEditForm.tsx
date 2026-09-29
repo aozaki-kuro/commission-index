@@ -19,7 +19,7 @@ import {
   replaceCommissionSourceImageAction,
   updateCommissionAction,
 } from '../../lib/adminActions'
-import { getCommissionDisplayLabel } from '../../lib/commissionPresentation'
+import { getCommissionAccessibleLabel } from '../../lib/commissionPresentation'
 import { notifyDataUpdate } from '../../lib/dataUpdateSignal'
 import { findDuplicateCommissionHints } from '../../lib/duplicateCommissionHints'
 import { INITIAL_FORM_STATE } from '../../lib/formState'
@@ -61,6 +61,8 @@ export function CommissionEditForm({
   const [isUploading, startUpload] = useTransition()
   const [uploadStatus, setUploadStatus] = useState<OperationStatus | null>(null)
   const [isDeleteArmed, setIsDeleteArmed] = useState(false)
+  const [workGroupId, setWorkGroupId] = useState(commission.workGroupId ?? '')
+  const [partNumber, setPartNumber] = useState(commission.partNumber?.toString() ?? '')
   const [pendingCropFile, setPendingCropFile] = useState<File | null>(null)
   const sourceImageInputRef = useRef<HTMLInputElement | null>(null)
   const [imageVersion, setImageVersion] = useState(() => {
@@ -101,7 +103,7 @@ export function CommissionEditForm({
     commission,
   })
   const previewImageSrc = imageVersion > 0 ? `${imageSrc}?v=${imageVersion}` : imageSrc
-  const displayLabel = getCommissionDisplayLabel(commission)
+  const accessibleLabel = getCommissionAccessibleLabel(commission)
   const duplicateHints = useMemo(
     () => findDuplicateCommissionHints({
       characterId: selectedCharacterId,
@@ -109,15 +111,18 @@ export function CommissionEditForm({
       commissions: commissionSearchRows,
       commissionDate: commissionDate || null,
       creatorName,
+      workGroupId,
+      partNumber: partNumber ? Number(partNumber) : null,
       keyword: keywordValue,
     }),
-    [commission.id, commissionDate, commissionSearchRows, creatorName, keywordValue, selectedCharacterId],
+    [commission.id, commissionDate, commissionSearchRows, creatorName, keywordValue, partNumber, selectedCharacterId, workGroupId],
   )
 
   // Capture latest form values so the save-success effect can read them without
   // making every field a dependency (which would cause spurious re-fires).
   const savedFormRef = useRef({
     commissionId: commission.id,
+    publicId: commission.publicId,
     commissionCharacterName: commission.characterName,
     assetFileName: commission.fileName,
     commissionDate,
@@ -127,12 +132,15 @@ export function CommissionEditForm({
     isHidden,
     keywordValue,
     linksValue,
+    workGroupId,
+    partNumber,
     onSaveSuccess,
     selectedCharacterId,
     sortedCharacters,
   })
   savedFormRef.current = {
     commissionId: commission.id,
+    publicId: commission.publicId,
     commissionCharacterName: commission.characterName,
     assetFileName: commission.fileName,
     commissionDate,
@@ -142,6 +150,8 @@ export function CommissionEditForm({
     isHidden,
     keywordValue,
     linksValue,
+    workGroupId,
+    partNumber,
     onSaveSuccess,
     selectedCharacterId,
     sortedCharacters,
@@ -161,12 +171,15 @@ export function CommissionEditForm({
     const vals = savedFormRef.current
     vals.onSaveSuccess?.({
       id: vals.commissionId,
+      publicId: vals.publicId,
       characterId: vals.selectedCharacterId,
       characterName:
         vals.sortedCharacters.find(c => c.id === vals.selectedCharacterId)?.name
         ?? vals.commissionCharacterName,
       commissionDate: vals.commissionDate || null,
       creatorName: vals.creatorName.trim() || null,
+      workGroupId: vals.workGroupId || null,
+      partNumber: vals.partNumber ? Number(vals.partNumber) : null,
       fileName: vals.assetFileName,
       description: vals.descriptionValue.trim() || null,
       design: vals.designValue.trim() || null,
@@ -321,7 +334,7 @@ export function CommissionEditForm({
           : (
               <img
                 src={previewImageSrc}
-                alt={`Source image for ${displayLabel}`}
+                alt={`Source image for ${accessibleLabel}`}
                 loading="lazy"
                 className="size-full object-contain"
                 onError={() => setErrorSrc(imageSrc)}
@@ -340,7 +353,8 @@ export function CommissionEditForm({
           type="button"
           onClick={handleSelectSourceImage}
           disabled={isDeleting || isUploading}
-          aria-label={`Reupload source image for ${displayLabel}`}
+          aria-label={`Reupload source image for ${accessibleLabel}`}
+          title={`Public ID: ${commission.publicId}`}
           className="
             absolute right-3 bottom-3 inline-flex size-11 items-center
             justify-center rounded-full border border-white/20 bg-black/55
@@ -387,11 +401,17 @@ export function CommissionEditForm({
         : null}
 
       <CommissionSharedFields
+        publicId={commission.publicId}
         characterOptions={sortedCharacters}
         selectedCharacterId={selectedCharacterId}
         onCharacterChange={id => setSelectedCharacterId(id ?? initialCharacterId)}
         commissionDate={commissionDate}
         onCommissionDateChange={setCommissionDate}
+        commissionSearchRows={commissionSearchRows}
+        workGroupId={workGroupId}
+        onWorkGroupIdChange={setWorkGroupId}
+        partNumber={partNumber}
+        onPartNumberChange={setPartNumber}
         creatorName={creatorName}
         onCreatorNameChange={setCreatorName}
         linksValue={linksValue}

@@ -41,12 +41,12 @@ async function buildEntryPayload({
   const compactDate = commission.commissionDate?.replaceAll('-', '') ?? ''
   const year = commission.commissionDate?.slice(0, 4) ?? ''
   const creator = commission.creatorName?.trim() ?? ''
-  const copyrightCreator = creator || 'Anonymous'
+  const copyrightCreator = creator || 'Anon'
   const altText = year
     ? `© ${year} ${copyrightCreator} & Crystallize`
     : `${copyrightCreator} & Crystallize`
   const image = await buildImagePayload(commission)
-  const searchKey = buildCommissionSearchDomKey(entryAnchorPrefix, commission.id)
+  const searchKey = buildCommissionSearchDomKey(entryAnchorPrefix, commission.publicId)
   const metadata = buildCommissionSearchMetadata({
     characterName,
     commissionDate: commission.commissionDate,
@@ -79,16 +79,16 @@ async function buildEntryPayload({
         ]
       : []),
   ]
-  const hasCreator = Boolean(creator)
   const hasDescription = Boolean(commission.Description)
-  const primaryText = hasCreator ? creator : hasDescription ? quotedDescription : '-'
-  const secondaryText = hasCreator && hasDescription ? quotedDescription : null
+  const primaryText = creator || 'Anon'
+  const partLabel = commission.partNumber == null ? null : `Part ${commission.partNumber}`
+  const secondaryText = hasDescription ? quotedDescription : null
   const interestKey = compactDate
     ? `${entryAnchorPrefix}-${compactDate}`
-    : `${entryAnchorPrefix}-commission-${commission.id}`
+    : `${entryAnchorPrefix}-commission-${commission.publicId}`
 
   return {
-    id: `${entryAnchorPrefix}-commission-${commission.id}`,
+    id: `${entryAnchorPrefix}-commission-${commission.publicId}`,
     legacyAnchorId: compactDate ? `${entryAnchorPrefix}-${compactDate}` : null,
     sectionId,
     searchKey,
@@ -99,6 +99,7 @@ async function buildEntryPayload({
     sourceImageNotFoundText: messages.listing.sourceImageNotFound,
     timeLabel: compactDate ? parseAndFormatDate(compactDate, 'yyyy/MM/dd') : '',
     primaryText,
+    partLabel,
     secondaryText,
     links,
     interest: displayLinks.mainLinks.length > 0 ? null : buildInterestPayload({ interestKey, locale }),

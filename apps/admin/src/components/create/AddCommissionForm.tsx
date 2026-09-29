@@ -5,6 +5,7 @@ import type {
 import type { ChangeEvent } from 'react'
 import { useActionState, useEffect, useMemo, useRef, useState } from 'react'
 import { addCommissionAction } from '../../lib/adminActions'
+import { extractCommissionDetails } from '../../lib/commissionFileDetails'
 import { notifyDataUpdate } from '../../lib/dataUpdateSignal'
 import { findDuplicateCommissionHints } from '../../lib/duplicateCommissionHints'
 import { INITIAL_FORM_STATE } from '../../lib/formState'
@@ -34,23 +35,6 @@ type SourceImageHintTone = 'default' | 'success' | 'error'
 const DEFAULT_SOURCE_IMAGE_HINT
   = 'Choose a JPG/PNG, then position, zoom, and rotate it for the 1280×525 output.'
 
-function extractCommissionDetails(fileName: string) {
-  const stem = fileName.trim().replace(/\.[^.]+$/, '')
-  const match = stem.match(/^(\d{8})(?:_(.+))?$/)
-  if (!match) {
-    return null
-  }
-
-  const compactDate = match[1]
-  const commissionDate = `${compactDate.slice(0, 4)}-${compactDate.slice(4, 6)}-${compactDate.slice(6, 8)}`
-  const parsedDate = new Date(`${commissionDate}T00:00:00Z`)
-  if (!Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== commissionDate) {
-    return null
-  }
-
-  return { commissionDate, creatorName: match[2]?.trim() ?? '' }
-}
-
 export function AddCommissionForm({
   characters,
   commissionSearchRows,
@@ -60,6 +44,8 @@ export function AddCommissionForm({
   const [isHidden, setIsHidden] = useState(false)
   const [commissionDate, setCommissionDate] = useState('')
   const [creatorName, setCreatorName] = useState('')
+  const [workGroupId, setWorkGroupId] = useState('')
+  const [partNumber, setPartNumber] = useState('')
   const [keywordValue, setKeywordValue] = useState('')
   const [sourceImageHint, setSourceImageHint] = useState(DEFAULT_SOURCE_IMAGE_HINT)
   const [sourceImageHintTone, setSourceImageHintTone] = useState<SourceImageHintTone>('default')
@@ -86,9 +72,11 @@ export function AddCommissionForm({
         commissions: commissionSearchRows,
         commissionDate: commissionDate || null,
         creatorName,
+        workGroupId: workGroupId || null,
+        partNumber: partNumber ? Number(partNumber) : null,
         keyword: keywordValue,
       }),
-    [characterId, commissionDate, commissionSearchRows, creatorName, keywordValue],
+    [characterId, commissionDate, commissionSearchRows, creatorName, keywordValue, workGroupId, partNumber],
   )
 
   const handleSourceImageChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -146,9 +134,9 @@ export function AddCommissionForm({
     const detectedDetails = extractCommissionDetails(originalFileName)
     if (detectedDetails) {
       setCommissionDate(detectedDetails.commissionDate)
-      if (detectedDetails.creatorName) {
-        setCreatorName(detectedDetails.creatorName)
-      }
+      setCreatorName(detectedDetails.creatorName)
+      setWorkGroupId(detectedDetails.workGroupId)
+      setPartNumber(detectedDetails.partNumber?.toString() ?? '')
       setSourceImageHint(
         `Ready: ${output.name} (1280×525 JPG). Delivery details were suggested from the image name.`,
       )
@@ -199,6 +187,11 @@ export function AddCommissionForm({
         characterOptions={options}
         selectedCharacterId={characterId}
         onCharacterChange={setCharacterId}
+        commissionSearchRows={commissionSearchRows}
+        workGroupId={workGroupId}
+        onWorkGroupIdChange={setWorkGroupId}
+        partNumber={partNumber}
+        onPartNumberChange={setPartNumber}
         commissionDate={commissionDate}
         onCommissionDateChange={setCommissionDate}
         creatorName={creatorName}

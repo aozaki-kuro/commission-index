@@ -31,6 +31,7 @@ export interface BatchEntryPayload {
   sourceImageNotFoundText: string
   timeLabel: string
   primaryText: string
+  partLabel?: string | null
   secondaryText: string | null
   links: BatchLinkPayload[]
   interest: BatchInterestPayload | null

@@ -4,11 +4,14 @@ import { buildAdminCommissionSearchEntries } from './adminCommissionSearch'
 
 const commission: AdminCommissionSearchRow = {
   id: 4,
+  publicId: 'db65848c-1407-4df4-a289-03a7053d0132',
   characterId: 2,
   characterName: 'Sakura',
   fileName: 'opaque-object-key',
   commissionDate: '2025-03-02',
   creatorName: 'Artist Name',
+  workGroupId: null,
+  partNumber: null,
   links: '',
   design: 'Summer dress',
   description: 'Beach scene',

@@ -59,6 +59,8 @@ interface NormalizedCommissionMutation {
   characterId: number
   commissionDate: string
   creatorName: string | null
+  workGroupId: string | null
+  partNumber: number | null
   description: string | null
   design: string | null
   fileName?: string
@@ -139,6 +141,8 @@ function normalizeCommissionMutation(input: {
   characterId: number
   commissionDate: string
   creatorName?: string | null
+  workGroupId?: string | null
+  partNumber?: number | null
   fileName?: string
   links: string[]
   design?: string | null
@@ -155,10 +159,26 @@ function normalizeCommissionMutation(input: {
     throw new Error('Commission date must be a real calendar date.')
   }
 
+  const rawWorkGroupId = input.workGroupId?.trim().toLowerCase() || null
+  const workGroupId = rawWorkGroupId === 'new' ? crypto.randomUUID().toLowerCase() : rawWorkGroupId
+  const partNumber = input.partNumber ?? null
+  const uuidV4Pattern = /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/
+  if ((workGroupId === null) !== (partNumber === null)) {
+    throw new Error('Work group and part number must be set together.')
+  }
+  if (workGroupId && !uuidV4Pattern.test(workGroupId)) {
+    throw new Error('Work group must be a lowercase UUID v4.')
+  }
+  if (partNumber !== null && (!Number.isSafeInteger(partNumber) || partNumber <= 0)) {
+    throw new Error('Part number must be a positive integer.')
+  }
+
   return {
     characterId: input.characterId,
     commissionDate,
     creatorName: input.creatorName?.trim() || null,
+    workGroupId,
+    partNumber,
     fileName: input.fileName,
     links: JSON.stringify(input.links),
     design: input.design ?? null,
@@ -396,6 +416,8 @@ export async function createCommission(
     characterId: number
     commissionDate: string
     creatorName?: string | null
+    workGroupId?: string | null
+    partNumber?: number | null
     fileName: string
     links: string[]
     design?: string | null
@@ -418,25 +440,38 @@ export async function createCommission(
   }
 
   await ensureSourceImagesTable(db)
+  const publicId = crypto.randomUUID().toLowerCase()
   await runStatementsAtomically(db, [
+    ...(normalizedInput.workGroupId
+      ? [{
+          query: 'INSERT OR IGNORE INTO commission_groups (id) VALUES (?)',
+          values: [normalizedInput.workGroupId],
+        }]
+      : []),
     {
       query: `
       INSERT INTO commissions (
+        public_id,
         character_id,
         commission_date,
         creator_name,
+        work_group_id,
+        part_number,
         file_name,
         links,
         design,
         description,
         keyword,
         hidden
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       values: [
+        publicId,
         characterRecord.id,
         normalizedInput.commissionDate,
         normalizedInput.creatorName,
+        normalizedInput.workGroupId,
+        normalizedInput.partNumber,
         normalizedInput.fileName,
         normalizedInput.links,
         normalizedInput.design,
@@ -474,6 +509,8 @@ export async function updateCommission(
     characterId: number
     commissionDate: string
     creatorName?: string | null
+    workGroupId?: string | null
+    partNumber?: number | null
     links: string[]
     design?: string | null
     description?: string | null
@@ -489,6 +526,8 @@ export async function updateCommission(
         character_id as characterId,
         commission_date as commissionDate,
         creator_name as creatorName,
+        work_group_id as workGroupId,
+        part_number as partNumber,
         links as links,
         design as design,
         description as description,
@@ -521,6 +560,8 @@ export async function updateCommission(
     = currentCommission.characterId === normalizedInput.characterId
       && currentCommission.commissionDate === normalizedInput.commissionDate
       && currentCommission.creatorName === normalizedInput.creatorName
+      && currentCommission.workGroupId === normalizedInput.workGroupId
+      && (currentCommission.partNumber ?? null) === normalizedInput.partNumber
       && currentCommission.links === normalizedInput.links
       && currentCommission.design === normalizedInput.design
       && currentCommission.description === normalizedInput.description
@@ -538,6 +579,8 @@ export async function updateCommission(
         character_id = ?,
         commission_date = ?,
         creator_name = ?,
+        work_group_id = ?,
+        part_number = ?,
         links = ?,
         design = ?,
         description = ?,
@@ -549,6 +592,8 @@ export async function updateCommission(
       normalizedInput.characterId,
       normalizedInput.commissionDate,
       normalizedInput.creatorName,
+      normalizedInput.workGroupId,
+      normalizedInput.partNumber,
       normalizedInput.links,
       normalizedInput.design,
       normalizedInput.description,
@@ -558,7 +603,15 @@ export async function updateCommission(
     ],
   }
 
-  await runStatement(db, updateOperation.query, updateOperation.values)
+  await runStatementsAtomically(db, [
+    ...(normalizedInput.workGroupId
+      ? [{
+          query: 'INSERT OR IGNORE INTO commission_groups (id) VALUES (?)',
+          values: [normalizedInput.workGroupId],
+        }]
+      : []),
+    updateOperation,
+  ])
 
   return true
 }

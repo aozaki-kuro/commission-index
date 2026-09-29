@@ -1,11 +1,18 @@
 export interface Commission {
   id: number
+  publicId: string
   commissionDate: string | null
   creatorName: string | null
-  /** 历史预览/part 聚合身份；新作品省略时保持独立。 */
+  /** 仅用于兼容旧预览的历史分组；新作品使用 workGroupId 描述关联。 */
   seriesKey?: string | null
-  /** 历史预览/part 的兼容排序值；仅由导出器从旧文件名派生。 */
+  /** 仅用于兼容旧预览的历史排序值；由导出器从旧文件名派生。 */
   seriesOrder?: string | null
+  /** 作品组身份；组内每个 part 仍是独立作品记录。 */
+  workGroupId: string | null
+  /** 作品在组内的编号；普通作品与未编号作品为 null。 */
+  partNumber: number | null
+  /** 导出器标注的旧 preview；新数据不设置该兼容标记。 */
+  legacySeriesKind?: 'preview' | null
   fileName: string
   Links: string[]
   Design?: string

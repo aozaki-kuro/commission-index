@@ -36,6 +36,8 @@ describe('commission admin actions', () => {
     formData.set('characterId', '3')
     formData.set('commissionDate', '2025-03-02')
     formData.set('creatorName', 'Artist')
+    formData.set('workGroupId', 'new')
+    formData.set('partNumber', '1')
     formData.set('fileName', '20250302_Artist')
     formData.set('sourceImage', new File(['image'], 'image.png', { type: 'image/png' }))
 
@@ -47,6 +49,8 @@ describe('commission admin actions', () => {
     const body = request.body as FormData
     expect(body.get('commissionDate')).toBe('2025-03-02')
     expect(body.get('creatorName')).toBe('Artist')
+    expect(body.get('workGroupId')).toBe('new')
+    expect(body.get('partNumber')).toBe('1')
     expect(body.has('fileName')).toBe(false)
   })
 
@@ -58,6 +62,8 @@ describe('commission admin actions', () => {
     formData.set('characterId', '3')
     formData.set('commissionDate', '2025-03-02')
     formData.set('creatorName', '  ')
+    formData.set('workGroupId', 'new')
+    formData.set('partNumber', '2')
 
     const result = await updateCommissionAction({ status: 'idle' }, formData)
 
@@ -68,6 +74,8 @@ describe('commission admin actions', () => {
       characterId: 3,
       commissionDate: '2025-03-02',
       creatorName: null,
+      workGroupId: 'new',
+      partNumber: 2,
     })
     expect(JSON.parse(String(request.body))).not.toHaveProperty('fileName')
   })

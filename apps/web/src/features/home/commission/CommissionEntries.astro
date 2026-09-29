@@ -54,13 +54,13 @@ const legacyAnchorIds = new Set<string>()
     const compactDate = commission.commissionDate?.replaceAll('-', '') ?? ''
     const year = commission.commissionDate?.slice(0, 4) ?? ''
     const creator = commission.creatorName?.trim() ?? ''
-    const copyrightCreator = creator || 'Anonymous'
+    const copyrightCreator = creator || 'Anon'
     const altText = year
       ? `© ${year} ${copyrightCreator} & Crystallize`
       : `${copyrightCreator} & Crystallize`
     const sourceImage = resolveSourceImageByCommissionFileName(commission.fileName)
-    const elementId = `${entryAnchorPrefix}-commission-${commission.id}`
-    const searchKey = buildCommissionSearchDomKey(entryAnchorPrefix, commission.id)
+    const elementId = `${entryAnchorPrefix}-commission-${commission.publicId}`
+    const searchKey = buildCommissionSearchDomKey(entryAnchorPrefix, commission.publicId)
     const legacyAnchorId = compactDate ? `${entryAnchorPrefix}-${compactDate}` : ''
     const shouldRenderLegacyAnchor = legacyAnchorId && !legacyAnchorIds.has(legacyAnchorId)
     if (shouldRenderLegacyAnchor) {

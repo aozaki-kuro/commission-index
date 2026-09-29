@@ -56,6 +56,8 @@ interface CommissionFields {
   characterId: number
   commissionDate: string
   creatorName: string | null
+  workGroupId: string | null
+  partNumber: number | null
   links: string[]
   design?: string
   description?: string
@@ -175,6 +177,8 @@ function parseCommissionFields(input: {
   characterId: number
   commissionDate: string
   creatorName: string
+  workGroupId: string
+  partNumber: string
   links: string
   design: string
   description: string
@@ -185,6 +189,8 @@ function parseCommissionFields(input: {
     characterId: input.characterId,
     commissionDate: input.commissionDate.trim(),
     creatorName: input.creatorName.trim() || null,
+    workGroupId: input.workGroupId.trim().toLowerCase() || null,
+    partNumber: input.partNumber.trim() ? Number(input.partNumber) : null,
     links: parseLinks(input.links),
     design: parseOptionalField(input.design),
     description: parseOptionalField(input.description),
@@ -198,6 +204,8 @@ function parseCommissionFieldsFromForm(formData: FormData) {
     characterId: Number(formData.get('characterId')),
     commissionDate: formData.get('commissionDate')?.toString() ?? '',
     creatorName: formData.get('creatorName')?.toString() ?? '',
+    workGroupId: formData.get('workGroupId')?.toString() ?? '',
+    partNumber: formData.get('partNumber')?.toString() ?? '',
     links: formData.get('links')?.toString() ?? '',
     design: formData.get('design')?.toString() ?? '',
     description: formData.get('description')?.toString() ?? '',
@@ -212,6 +220,12 @@ function parseCommissionFieldsFromJson(payload: Record<string, unknown>) {
     characterId: Number(payload.characterId),
     commissionDate: String(payload.commissionDate ?? ''),
     creatorName: rawCreatorName === null || typeof rawCreatorName === 'string' ? String(rawCreatorName ?? '') : '\u0000',
+    workGroupId: payload.workGroupId === null || typeof payload.workGroupId === 'string' ? String(payload.workGroupId ?? '') : '\u0000',
+    partNumber: payload.partNumber === null || payload.partNumber === undefined
+      ? ''
+      : typeof payload.partNumber === 'number' || typeof payload.partNumber === 'string'
+        ? String(payload.partNumber)
+        : '\u0000',
     links: String(payload.links ?? ''),
     design: String(payload.design ?? ''),
     description: String(payload.description ?? ''),
@@ -220,7 +234,7 @@ function parseCommissionFieldsFromJson(payload: Record<string, unknown>) {
   })
 }
 
-function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' | 'commissionDate' | 'creatorName'>) {
+function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' | 'commissionDate' | 'creatorName' | 'workGroupId' | 'partNumber'>) {
   if (!Number.isFinite(fields.characterId) || fields.characterId <= 0) {
     return 'Character selection is required.'
   }
@@ -236,6 +250,17 @@ function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' |
 
   if (fields.creatorName && [...fields.creatorName].some(character => character.charCodeAt(0) <= 0x1F)) {
     return 'Creator name must be a string or null.'
+  }
+
+  const uuidV4Pattern = /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/
+  if ((fields.workGroupId === null) !== (fields.partNumber === null)) {
+    return 'Work group and part number must be set together.'
+  }
+  if (fields.workGroupId && fields.workGroupId !== 'new' && !uuidV4Pattern.test(fields.workGroupId)) {
+    return 'Work group must be a lowercase UUID v4.'
+  }
+  if (fields.partNumber !== null && (!Number.isSafeInteger(fields.partNumber) || fields.partNumber <= 0)) {
+    return 'Part number must be a positive integer.'
   }
 
   return null
@@ -558,6 +583,9 @@ async function handleCrudRequest(request: Request, backend: AdminCrudBackend) {
     }
 
     const body = await parseJsonBody(request)
+    if (!Object.hasOwn(body, 'workGroupId') || !Object.hasOwn(body, 'partNumber')) {
+      return failure('workGroupId and partNumber must be present; use null for standalone commissions.')
+    }
     const fields = parseCommissionFieldsFromJson(body)
     const validation = validateCommissionFields(fields)
     if (validation) {

@@ -37,6 +37,7 @@ export type SearchIndex = SearchIndexLike<Entry> & {
 
 export interface CommissionSearchEntrySource {
   id: number
+  publicId?: string
   domKey: string
   searchText: string
   searchSuggest?: string

@@ -49,8 +49,8 @@ function resolveCreatorSearchTerms(rawCreatorName: string | null, normalizedCrea
   return normalizedCreatorName ? [normalizedCreatorName] : []
 }
 
-export function buildCommissionSearchDomKey(sectionId: string, commissionId: number) {
-  return `${sectionId}::${commissionId}`
+export function buildCommissionSearchDomKey(sectionId: string, publicId: string) {
+  return `${sectionId}::${publicId}`
 }
 
 export function buildCommissionSearchMetadata({

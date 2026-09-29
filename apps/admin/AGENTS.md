@@ -65,8 +65,13 @@ Before touching fetch logic or form actions, read:
   `/api/admin/commissions/:id/source-image`.
 - Date/creator edits are metadata-only and must leave the source-image object unchanged. Only
   the explicit replace-image action may change the image reference.
-- Keep commission ID, date, and creator visible as the user-facing identity; legacy `fileName`
-  is an internal compatibility value, not a form field or image URL component.
+- Show the opaque `publicId` as the user-facing identity; the integer `id` remains an internal
+  relationship key for image APIs and sorting. Keep legacy `fileName` out of forms and public URLs.
+- New work may be standalone or assigned a work group and positive part number. Never infer a new
+  relationship from a matching artist, date, character, or source link; only explicit selection
+  changes the group. A work group does not merge its commission records or images.
+- Unknown creators display as `Anon`. The shared create/edit date picker uses the same Radix
+  popover, ISO date value, aligned label/control spacing, and keyboard-accessible calendar behavior.
 - Mutations use a single-attempt request unless the API adds an explicit idempotency contract.
 
 ## Guardrails

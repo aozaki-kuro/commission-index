@@ -14,19 +14,19 @@ export interface RssItem {
 }
 
 export function buildRssItem(commission: CommissionWithCharacter): RssItem {
-  const artistName = commission.creatorName?.trim() || 'Anonymous'
+  const artistName = commission.creatorName?.trim() || 'Anon'
   const date = commission.commissionDate
   const dateObj = date ? parseDateString(date.replaceAll('-', '')) : null
   const pubDate = dateObj?.toUTCString() ?? null
   const formatted = dateObj ? formatDate(dateObj, 'yyyy/MM/dd') : null
-  const link = `${SITE_URL}#${encodeURIComponent(kebabCase(commission.character))}-commission-${commission.id}`
+  const link = `${SITE_URL}#${encodeURIComponent(kebabCase(commission.character))}-commission-${commission.publicId}`
   const dateText = formatted ? `, published on ${formatted}` : ''
   const description = `<![CDATA[Illustrator: ${artistName}${dateText}]]>`
 
   return {
     title: commission.character,
     link,
-    guid: `commission-${commission.id}`,
+    guid: `commission-${commission.publicId}`,
     pubDate,
     author: artistName,
     description,

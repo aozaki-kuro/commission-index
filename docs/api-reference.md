@@ -95,10 +95,13 @@ creator alias data. Used by the admin UI on initial load.
   }>
   commissionSearchRows: Array<{
     id: number
+    publicId: string
     characterId: number
     characterName: string
     commissionDate: string | null
     creatorName: string | null
+    workGroupId: string | null
+    partNumber: number | null
     design: string | null
     description: string | null
     keyword: string | null
@@ -187,10 +190,13 @@ hidden flag).
 {
   commissions: Array<{
     id: number
+    publicId: string
     characterId: number
     characterName: string
     commissionDate: string | null
     creatorName: string | null
+    workGroupId: string | null
+    partNumber: number | null
     links: string[]
     design: string | null
     description: string | null
@@ -387,6 +393,8 @@ Creates a new commission and uploads its source image to R2. The request must be
 characterId    string   Numeric character ID (parsed via Number())
 commissionDate string   Required real calendar date in YYYY-MM-DD format
 creatorName    string   Creator display name; submit an empty string when unknown
+workGroupId    string   Optional lowercase UUID v4 for a multi-part work group
+partNumber     string   Positive integer; required together with workGroupId
 links          string   Newline-separated URL list (one URL per line)
 design         string   Optional design label
 description    string   Optional description text
@@ -441,6 +449,8 @@ source-image endpoint to replace image bytes.
   characterId: number    // target character ID
   commissionDate: string // required real calendar date in YYYY-MM-DD format
   creatorName: string | null // creator display name, or null when unknown
+  workGroupId: string | null // optional lowercase UUID v4; identifies a multi-part work group
+  partNumber: number | null  // positive integer; both part fields must be set together
   links: string          // newline-separated URL list (one URL per line)
   design?: string        // optional
   description?: string   // optional
@@ -449,7 +459,9 @@ source-image endpoint to replace image bytes.
 }
 ```
 
-Note: `commissionDate` and `creatorName` must be present on every PATCH. `links` is a
+Note: `commissionDate`, `creatorName`, `workGroupId`, and `partNumber` must be present on every
+PATCH; use `null` for both part fields on a standalone work. Parts retain separate commission
+rows, IDs, and source images. `links` is a
 newline-separated `string` here (same as FormData), not an array.
 The worker parses it with the same line-splitting logic as the create endpoint.
 
@@ -471,6 +483,8 @@ curl -X PATCH https://admin.crystallize.cc/api/admin/commissions/12 \
     "characterId": 3,
     "commissionDate": "2024-03-15",
     "creatorName": "creator",
+    "workGroupId": null,
+    "partNumber": null,
     "links": "https://example.com/art1\nhttps://example.com/art2",
     "design": "Casual",
     "description": "Summer outfit",
@@ -711,13 +725,17 @@ curl -X POST https://admin.crystallize.cc/api/admin/suggestion \
 
 ## Field Reference
 
-### Commission identity fields
+### Commission identity and part fields
 
-- `id` is the stable commission identity used in API paths, including source-image GET and
-  replacement.
+- `id` is the internal integer key used by the authenticated Admin API and relational joins.
+- `publicId` is an immutable lowercase UUID v4, unique per commission row. Public page anchors,
+  RSS identities, and search output use it so external identity does not expose insertion order.
 - `commissionDate` is an explicit `YYYY-MM-DD` calendar date. Invalid calendar dates are
   rejected; it is independent of the legacy file name.
-- `creatorName` is a display name or `null` when unknown.
+- `creatorName` is a display name or `null` when unknown; presentation layers render unknown as
+  `Anon` without storing that label as a creator.
+- `workGroupId` and positive `partNumber` are either both set or both `null`. Every part remains
+  its own commission row, UUID, content, and image. They only express grouping and order.
 - The legacy `fileName` remains an internal compatibility/migration field. Callers must not
   send it, derive identity from it, or use it to construct source-image URLs.
 

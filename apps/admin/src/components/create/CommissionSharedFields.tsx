@@ -1,3 +1,5 @@
+import type { WorkGroupCandidate } from '../../lib/commissionWorkGroups'
+import { buildWorkGroupOptions } from '../../lib/commissionWorkGroups'
 import {
   CommissionCharacterField,
   CommissionCreatorField,
@@ -5,6 +7,7 @@ import {
   CommissionDesignDescriptionFields,
   CommissionKeywordField,
   CommissionLinksField,
+  CommissionWorkGroupField,
 } from './CommissionFormFields'
 
 interface CharacterOption {
@@ -16,6 +19,12 @@ interface CommissionSharedFieldsProps {
   characterOptions: CharacterOption[]
   selectedCharacterId: number | null
   onCharacterChange: (id: number | null) => void
+  commissionSearchRows: WorkGroupCandidate[]
+  workGroupId: string
+  onWorkGroupIdChange: (value: string) => void
+  partNumber: string
+  onPartNumberChange: (value: string) => void
+  publicId?: string
   commissionDate?: string
   onCommissionDateChange?: (value: string) => void
   creatorName?: string
@@ -37,6 +46,12 @@ export function CommissionSharedFields({
   characterOptions,
   selectedCharacterId,
   onCharacterChange,
+  commissionSearchRows,
+  workGroupId,
+  onWorkGroupIdChange,
+  partNumber,
+  onPartNumberChange,
+  publicId,
   commissionDate,
   onCommissionDateChange,
   creatorName,
@@ -56,8 +71,9 @@ export function CommissionSharedFields({
   return (
     <div className="space-y-5">
       <div className="
-        grid gap-4
+        grid items-start gap-5 px-1
         md:grid-cols-3
+        sm:px-2
       "
       >
         <CommissionCharacterField
@@ -75,6 +91,16 @@ export function CommissionSharedFields({
         />
       </div>
 
+      <div className="px-1 sm:px-2">
+        <CommissionWorkGroupField
+          options={buildWorkGroupOptions(commissionSearchRows)}
+          value={workGroupId}
+          onChange={onWorkGroupIdChange}
+          partNumber={partNumber}
+          onPartNumberChange={onPartNumberChange}
+        />
+      </div>
+
       <div className="
         space-y-4 border-t border-gray-200/60 pt-5
         dark:border-gray-700/60
@@ -84,6 +110,7 @@ export function CommissionSharedFields({
           value={linksValue}
           onChange={onLinksChange}
           rows={linksRows}
+          publicId={publicId}
         />
 
         <CommissionDesignDescriptionFields

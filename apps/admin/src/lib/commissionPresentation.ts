@@ -1,13 +1,23 @@
 export interface CommissionIdentity {
   id: number
+  publicId: string
   commissionDate: string | null
   creatorName: string | null
 }
 
+export function formatCommissionPublicId(publicId: string) {
+  return publicId.replaceAll('-', '').slice(0, 12)
+}
+
 export function getCommissionDisplayLabel(commission: CommissionIdentity) {
   const date = commission.commissionDate || 'Undated'
-  const creator = commission.creatorName?.trim() || 'Unknown creator'
-  return `${date} · ${creator} · #${commission.id}`
+  const creator = commission.creatorName?.trim() || 'Anon'
+  const shortPublicId = formatCommissionPublicId(commission.publicId)
+  return `${date} · ${creator} · #${shortPublicId}`
+}
+
+export function getCommissionAccessibleLabel(commission: CommissionIdentity) {
+  return `${getCommissionDisplayLabel(commission)} · Public ID ${commission.publicId}`
 }
 
 export function compareCommissionsByDate<T extends CommissionIdentity>(left: T, right: T) {

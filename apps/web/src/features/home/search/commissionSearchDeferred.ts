@@ -37,6 +37,46 @@ export function buildHomeSearchIndexUrl() {
 let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
 let homeSearchEntriesPromise: Promise<CommissionSearchEntrySource[]> | null = null
 
+interface HomeSearchEntryPayload {
+  publicId: string
+  domKey: string
+  searchText: string
+  searchSuggest?: string
+}
+
+const PUBLIC_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+
+export function parseHomeSearchEntries(value: unknown): CommissionSearchEntrySource[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError('Search index has an invalid entries list.')
+  }
+
+  return value.map((entry, id) => {
+    if (typeof entry !== 'object' || entry === null) {
+      throw new TypeError('Search index has an invalid entry.')
+    }
+    const payload = entry as Partial<HomeSearchEntryPayload>
+    if (
+      typeof payload.publicId !== 'string'
+      || !PUBLIC_ID_PATTERN.test(payload.publicId)
+      || Object.hasOwn(payload, 'id')
+      || typeof payload.domKey !== 'string'
+      || typeof payload.searchText !== 'string'
+      || (payload.searchSuggest !== undefined && typeof payload.searchSuggest !== 'string')
+    ) {
+      throw new TypeError('Search index has an invalid public commission identity or entry data.')
+    }
+
+    return {
+      id,
+      publicId: payload.publicId,
+      domKey: payload.domKey,
+      searchText: payload.searchText,
+      searchSuggest: payload.searchSuggest,
+    }
+  })
+}
+
 export function getCachedHomeSearchEntries() {
   return cachedHomeSearchEntries
 }
@@ -52,7 +92,7 @@ export function ensureHomeSearchEntriesPromise() {
         if (!response.ok) {
           throw new Error(`Failed to load search index: ${response.status}`)
         }
-        return (await response.json()) as CommissionSearchEntrySource[]
+        return parseHomeSearchEntries(await response.json())
       })
       .then((entries) => {
         cachedHomeSearchEntries = entries

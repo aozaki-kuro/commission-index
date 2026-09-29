@@ -4,8 +4,25 @@ import {
   collapseAliasKeywordVariants,
   createSeededRandom,
   getPopularKeywordBatch,
+  parseHomeSearchEntries,
   shuffleKeywords,
 } from './commissionSearchDeferred'
+
+describe('parseHomeSearchEntries', () => {
+  it('uses UUID identity from the public payload and assigns an internal search index', () => {
+    const publicId = '00000000-0000-4000-8000-000000000001'
+    const entries = parseHomeSearchEntries([{ publicId, domKey: `alpha::${publicId}`, searchText: 'alpha artist' }])
+
+    expect(entries).toEqual([{
+      id: 0,
+      publicId,
+      domKey: `alpha::${publicId}`,
+      searchText: 'alpha artist',
+      searchSuggest: undefined,
+    }])
+    expect(() => parseHomeSearchEntries([{ id: 1, domKey: 'alpha::1', searchText: 'alpha artist' }])).toThrow(/public commission identity/)
+  })
+})
 
 describe('createSeededRandom', () => {
   it('returns deterministic values for the same seed', () => {

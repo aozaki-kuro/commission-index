@@ -4,7 +4,10 @@ import type {
   CommissionRow,
 } from '@commission-index/domain'
 import { useRef } from 'react'
-import { getCommissionDisplayLabel } from '../../lib/commissionPresentation'
+import {
+  getCommissionAccessibleLabel,
+  getCommissionDisplayLabel,
+} from '../../lib/commissionPresentation'
 import {
   Dialog,
   DialogCloseButton,
@@ -50,7 +53,10 @@ export function CommissionEditDrawer({
     >
       <DialogContent variant="sheet" aria-describedby={undefined}>
         <DialogHeader>
-          <DialogTitle>
+          <DialogTitle
+            aria-label={displayCommission ? getCommissionAccessibleLabel(displayCommission) : undefined}
+            title={displayCommission?.publicId}
+          >
             <p className="
               truncate text-base font-semibold text-gray-900
               dark:text-gray-100

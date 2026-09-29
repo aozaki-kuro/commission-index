@@ -28,7 +28,8 @@ describe('commissionSearchMetadata', () => {
     expect(metadata.searchSuggestionText).not.toContain('Creator\t')
   })
 
-  it('keys DOM search entries by stable commission ID', () => {
-    expect(buildCommissionSearchDomKey('section-alpha', 42)).toBe('section-alpha::42')
+  it('keys DOM search entries by stable opaque public ID', () => {
+    const publicId = '00000000-0000-4000-8000-000000000042'
+    expect(buildCommissionSearchDomKey('section-alpha', publicId)).toBe(`section-alpha::${publicId}`)
   })
 })

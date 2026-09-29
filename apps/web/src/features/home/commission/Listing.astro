@@ -75,7 +75,7 @@ const commissions = characterData?.Commissions ?? []
           character: Character,
           commission,
           sectionId,
-          entryKey: `${Character}:${commission.id}`,
+          entryKey: `${Character}:${commission.publicId}`,
           entryAnchorPrefix: sectionId,
         }))}
         characterAliasesMap={characterAliasesMap}

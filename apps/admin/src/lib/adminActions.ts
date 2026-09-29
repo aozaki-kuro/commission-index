@@ -166,6 +166,10 @@ export async function updateCommissionAction(
       characterId: Number(formData.get('characterId')),
       commissionDate: formData.get('commissionDate')?.toString().trim() || null,
       creatorName: formData.get('creatorName')?.toString().trim() || null,
+      workGroupId: formData.get('workGroupId')?.toString().trim() || null,
+      partNumber: formData.get('partNumber')?.toString().trim()
+        ? Number(formData.get('partNumber'))
+        : null,
       links: formData.get('links')?.toString() ?? '',
       design: formData.get('design')?.toString() ?? '',
       description: formData.get('description')?.toString() ?? '',

@@ -28,7 +28,7 @@ function temporaryDirectory() {
 }
 
 function fixture() {
-  const meta = { schemaVersion: 2 as const, source: 'remote-admin-fact-source' as const, exportedAt: '2026-01-01T00:00:00Z', revision: 'fixture', databaseBinding: 'fixture', imagesBucket: 'fixture' }
+  const meta = { schemaVersion: 3 as const, source: 'remote-admin-fact-source' as const, exportedAt: '2026-01-01T00:00:00Z', revision: 'fixture', databaseBinding: 'fixture', imagesBucket: 'fixture' }
   const content: GeneratedFactSourceContent = { meta, characters: [], creatorAliases: [], characterAliases: [], keywordAliases: [], featuredSearchKeywords: ['old'] }
   const manifest: GeneratedSourceImageManifest = { meta, files: [], missing: [] }
   return { content, manifest }
@@ -116,23 +116,46 @@ describe('事实源快照导出', () => {
       database.exec(readFileSync(path.join(migrationsDirectory, '0003_rename_stale_to_archived.sql'), 'utf8'))
       database.exec(readFileSync(path.join(migrationsDirectory, '0004_commission_identity.sql'), 'utf8'))
       database.exec('INSERT INTO characters(name, status, sort_order) VALUES (\'fixture\', \'active\', 1)')
-      database.exec('INSERT INTO commissions(character_id, file_name, links, commission_date, creator_name) VALUES (1, \'20260929_artist_fixture\', \'[]\', \'2026-09-29\', \'artist fixture\')')
+      const partNames = [
+        '20250930_Q (part 1)',
+        '20250930_Q (part 2)',
+        '20241230_Q (part 1)',
+        '20241230_Q (part 2)',
+        '20241027_Q (part 1)',
+        '20241027_Q (part 2)',
+        '20240819_Q (part 1)',
+        '20240819_Q (part 2)',
+        '20250302_Q (part 1)',
+        '20250302_Q (part 2)',
+        '20240421_Gisyu (part 1)',
+        '20240421_Gisyu (part 2)',
+      ]
+      const insertPart = database.prepare(`
+        INSERT INTO commissions(id, character_id, file_name, links, commission_date, creator_name)
+        VALUES (?, 1, ?, '[]', '2024-01-01', ?)
+      `)
+      partNames.forEach((fileName, index) => insertPart.run(100 + index, fileName, `${fileName.slice(9)}`))
+      database.exec(readFileSync(path.join(migrationsDirectory, '0005_public_commission_identity_and_parts.sql'), 'utf8'))
+      database.exec('INSERT INTO commissions(id, character_id, file_name, links, commission_date, creator_name) VALUES (1, 1, \'20260929_artist_fixture\', \'[]\', \'2026-09-29\', \'artist fixture\')')
       database.exec('INSERT INTO source_images(commission_file_name, object_key, mime_type, byte_size, sha256, commission_id) VALUES (\'20260929_artist_fixture\', \'source-images/20260929/hash.png\', \'image/png\', 5, \'sha256\', 1)')
       database.exec('INSERT INTO home_featured_search_keywords(keyword, sort_order) VALUES (\'new remote content\', 1)')
       const row = database.prepare(factSourceSnapshotSql).get()
       expect(JSON.parse(String(row?.table0))).toEqual([{ id: 1, name: 'fixture', status: 'active', sortOrder: 1 }])
-      expect(JSON.parse(String(row?.table1))).toEqual([{
+      expect(JSON.parse(String(row?.table1)).find((commission: { fileName: string }) => commission.fileName === '20260929_artist_fixture')).toEqual({
         id: 1,
+        publicId: expect.stringMatching(/^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/),
         characterId: 1,
         commissionDate: '2026-09-29',
         creatorName: 'artist fixture',
+        workGroupId: null,
+        partNumber: null,
         fileName: '20260929_artist_fixture',
         links: '[]',
         design: null,
         description: null,
         hidden: 0,
         keyword: null,
-      }])
+      })
       expect(JSON.parse(String(row?.table6))).toEqual([{
         commissionId: 1,
         commissionFileName: '20260929_artist_fixture',

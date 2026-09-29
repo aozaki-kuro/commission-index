@@ -21,14 +21,15 @@ const { locale, commission, kebabName, showLinks = true, className = '' }
 const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
 const { Description: description = '', Links: links, Design: designLink } = commission
 const compactDate = commission.commissionDate?.replaceAll('-', '') ?? ''
-const linkId = `#${kebabName}-commission-${commission.id}`
+const linkId = `#${kebabName}-commission-${commission.publicId}`
 const formattedDate = compactDate ? parseAndFormatDate(compactDate, 'yyyy/MM/dd') : ''
-const interestKey = compactDate ? `${kebabName}-${compactDate}` : `${kebabName}-commission-${commission.id}`
+const interestKey = compactDate ? `${kebabName}-${compactDate}` : `${kebabName}-commission-${commission.publicId}`
 const quotedDescription = `"${description}"`
 
-const hasCreator = Boolean(commission.creatorName)
+const creatorName = commission.creatorName?.trim() || 'Anon'
+const partLabel = commission.partNumber == null ? null : `Part ${commission.partNumber}`
 const hasDescription = Boolean(description)
-const hasBoth = hasCreator && hasDescription
+const hasBoth = hasDescription
 
 const displayLinks = selectDisplayLinks({ links, designLink })
 const hasPublishedLinks = displayLinks.mainLinks.length > 0
@@ -48,18 +49,17 @@ const rootClass = `flex w-full flex-wrap items-center gap-y-2 font-mono text-xs 
       <time>{formattedDate}</time>
     </a>
 
+    <span>{creatorName}</span>
+
     {
-      hasCreator
+      partLabel
 ? (
-        <span>{commission.creatorName}</span>
+        <>
+          <span class="mx-2 select-none md:mx-4">|</span>
+          <span data-commission-part-label>{partLabel}</span>
+        </>
       )
-: hasDescription
-? (
-        <span>{quotedDescription}</span>
-      )
-: (
-        <span>-</span>
-      )
+: null
     }
 
     {

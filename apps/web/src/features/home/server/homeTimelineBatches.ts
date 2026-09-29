@@ -45,7 +45,7 @@ function buildTargetBatchById(batches: TimelineYearGroup[][]) {
 
       group.entries.forEach((entry) => {
         const entryAnchorPrefix = getCharacterSectionId(entry.character)
-        targetBatchById[`${entryAnchorPrefix}-commission-${entry.commission.id}`] = batchIndex
+        targetBatchById[`${entryAnchorPrefix}-commission-${entry.commission.publicId}`] = batchIndex
         const compactDate = entry.commission.commissionDate?.replaceAll('-', '')
         if (compactDate) {
           targetBatchById[`${entryAnchorPrefix}-${compactDate}`] = batchIndex

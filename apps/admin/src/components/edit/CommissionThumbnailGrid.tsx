@@ -1,7 +1,10 @@
 import type { CommissionRow } from '@commission-index/domain'
 import { useEffect, useMemo, useState } from 'react'
 import { getAdminApiUrl } from '../../lib/adminApi'
-import { getCommissionDisplayLabel } from '../../lib/commissionPresentation'
+import {
+  getCommissionAccessibleLabel,
+  getCommissionDisplayLabel,
+} from '../../lib/commissionPresentation'
 
 interface CommissionThumbnailGridProps {
   commissions: CommissionRow[]
@@ -24,6 +27,7 @@ function ThumbnailCard({
 }) {
   const [errorSrc, setErrorSrc] = useState<string | null>(null)
   const displayLabel = getCommissionDisplayLabel(commission)
+  const accessibleLabel = getCommissionAccessibleLabel(commission)
   const imageSrc = useMemo(() => buildThumbnailSrc(commission.id), [commission.id])
 
   const [imageVersion, setImageVersion] = useState(() => {
@@ -54,6 +58,8 @@ function ThumbnailCard({
     <button
       type="button"
       onClick={onSelect}
+      aria-label={accessibleLabel}
+      title={`Public ID: ${commission.publicId}`}
       className={`
         group overflow-hidden rounded-lg border text-left transition
         hover:shadow-md
@@ -92,7 +98,7 @@ function ThumbnailCard({
           : (
               <img
                 src={previewSrc}
-                alt={`Source image for ${displayLabel}`}
+                alt={`Source image for ${accessibleLabel}`}
                 loading="lazy"
                 decoding="async"
                 className="

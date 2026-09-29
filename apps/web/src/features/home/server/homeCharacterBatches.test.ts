@@ -12,9 +12,12 @@ function buildCharacterCommissions(character: string, date: string): CharacterCo
     Commissions: [
       {
         id: Number(date),
+        publicId: `00000000-0000-4000-8000-${date.padStart(12, '0')}`,
         commissionDate: `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`,
         creatorName: 'artist',
         fileName: `${date}-artist`,
+        workGroupId: null,
+        partNumber: null,
         Links: [],
       },
     ],
@@ -43,11 +46,11 @@ describe('buildHomeCharacterBatchPlan', () => {
     expect(plan.active.targetBatchById[getCharacterSectionId('Beta')]).toBe(0)
     expect(plan.active.targetBatchById[getCharacterTitleId('Beta')]).toBe(0)
     expect(plan.active.targetBatchById[`${getCharacterSectionId('Beta')}-20240102`]).toBe(0)
-    expect(plan.active.targetBatchById[`${getCharacterSectionId('Beta')}-commission-20240102`]).toBe(0)
+    expect(plan.active.targetBatchById[`${getCharacterSectionId('Beta')}-commission-00000000-0000-4000-8000-000020240102`]).toBe(0)
     expect(plan.active.targetBatchById[getCharacterSectionId('Gamma')]).toBe(1)
     expect(plan.active.targetBatchById[getCharacterTitleId('Gamma')]).toBe(1)
     expect(plan.active.targetBatchById[`${getCharacterSectionId('Gamma')}-20240103`]).toBe(1)
-    expect(plan.active.targetBatchById[`${getCharacterSectionId('Gamma')}-commission-20240103`]).toBe(1)
+    expect(plan.active.targetBatchById[`${getCharacterSectionId('Gamma')}-commission-00000000-0000-4000-8000-000020240103`]).toBe(1)
   })
 
   it('does not register empty active characters as deferred navigation targets', () => {

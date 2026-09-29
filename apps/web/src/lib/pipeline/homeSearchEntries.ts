@@ -16,7 +16,7 @@ import { createAstroStyleLogger } from './astroLogger'
 import { writeFileIfChanged } from './writeFileIfChanged'
 
 interface SearchEntry {
-  id: number
+  publicId: string
   domKey: string
   searchText: string
   searchSuggest: string
@@ -54,8 +54,8 @@ export function buildHomeSearchEntries(): SearchEntry[] {
       })
 
       entries.push({
-        id: commission.id,
-        domKey: buildCommissionSearchDomKey(sectionId, commission.id),
+        publicId: commission.publicId,
+        domKey: buildCommissionSearchDomKey(sectionId, commission.publicId),
         searchText: metadata.searchText,
         searchSuggest: metadata.searchSuggestionText,
       })

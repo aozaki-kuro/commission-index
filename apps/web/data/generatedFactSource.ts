@@ -86,6 +86,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+const CANONICAL_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+
 export function validateGeneratedFactSourceSnapshot(
   contentValue: unknown,
   manifestValue: unknown,
@@ -106,6 +108,7 @@ export function validateGeneratedFactSourceSnapshot(
   }
 
   const ids = new Set<number>()
+  const publicIds = new Set<string>()
   for (const character of content.characters) {
     if (!isRecord(character) || !Array.isArray(character.commissions)) {
       throw new Error('Generated fact-source content has an invalid character record.')
@@ -117,6 +120,10 @@ export function validateGeneratedFactSourceSnapshot(
       const id = commission.id
       if (!Number.isSafeInteger(id) || (id as number) <= 0 || ids.has(id as number)) {
         throw new Error(`Invalid or duplicate commission ID in generated fact source: ${id}`)
+      }
+      const publicId = commission.publicId
+      if (typeof publicId !== 'string' || !CANONICAL_UUID_PATTERN.test(publicId) || publicIds.has(publicId)) {
+        throw new Error(`Invalid or duplicate public commission ID in generated fact source: ${publicId}`)
       }
       if (!Object.hasOwn(commission, 'commissionDate') || !isCommissionDate(commission.commissionDate)) {
         throw new Error(`Invalid commission date for ID ${id}`)
@@ -130,10 +137,25 @@ export function validateGeneratedFactSourceSnapshot(
       if (commission.seriesOrder != null && typeof commission.seriesOrder !== 'string') {
         throw new Error(`Invalid legacy series order for ID ${id}`)
       }
+      const workGroupId = commission.workGroupId
+      const partNumber = commission.partNumber
+      if (!Object.hasOwn(commission, 'workGroupId') || (workGroupId !== null && (typeof workGroupId !== 'string' || !CANONICAL_UUID_PATTERN.test(workGroupId)))) {
+        throw new Error(`Invalid work group ID for commission ID ${id}`)
+      }
+      if (!Object.hasOwn(commission, 'partNumber') || (partNumber !== null && (!Number.isSafeInteger(partNumber) || (partNumber as number) <= 0))) {
+        throw new Error(`Invalid part number for commission ID ${id}`)
+      }
+      if ((workGroupId === null) !== (partNumber === null)) {
+        throw new Error(`Work group ID and part number must be set together for commission ID ${id}`)
+      }
+      if (commission.legacySeriesKind != null && commission.legacySeriesKind !== 'preview') {
+        throw new Error(`Invalid legacy series kind for commission ID ${id}`)
+      }
       if (typeof commission.fileName !== 'string' || !commission.fileName) {
         throw new Error(`Invalid source-image key for ID ${id}`)
       }
       ids.add(id as number)
+      publicIds.add(publicId)
     }
   }
 

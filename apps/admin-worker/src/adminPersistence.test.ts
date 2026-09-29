@@ -21,6 +21,7 @@ function createSQLiteD1({ failAtBatchStatement }: SQLiteD1Options = {}) {
     '0002_source_image_metadata.sql',
     '0003_rename_stale_to_archived.sql',
     '0004_commission_identity.sql',
+    '0005_public_commission_identity_and_parts.sql',
   ]) {
     database.exec(readFileSync(path.join(migrationsDirectory, migrationName), 'utf8'))
   }
@@ -106,6 +107,54 @@ describe('d1 batch persistence', () => {
       .toEqual({ commission_date: '2025-03-02', creator_name: 'Fixture Creator' })
     expect(database.prepare('SELECT commission_id FROM source_images WHERE commission_file_name = ?').get('commission-test-key'))
       .toEqual({ commission_id: 1 })
+    const publicId = database.prepare('SELECT public_id FROM commissions WHERE id = 1').get() as { public_id: string }
+    expect(publicId.public_id).toMatch(/^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/)
+  })
+
+  it('creates a new multi-part group with distinct commission identities and ordered parts', async () => {
+    const { database, db } = createDatabase()
+    database.exec('INSERT INTO characters (id, name, status, sort_order) VALUES (1, \'Fixture\', \'active\', 1)')
+
+    await createCommission(db, {
+      characterId: 1,
+      commissionDate: '2025-03-02',
+      creatorName: 'Fixture Creator',
+      workGroupId: 'new',
+      partNumber: 1,
+      fileName: 'part-one',
+      links: [],
+    }, {
+      commissionFileName: 'part-one',
+      objectKey: 'source-images/part-one/hash.jpg',
+      mimeType: 'image/jpeg',
+      byteSize: 12,
+      sha256: 'hash',
+    })
+    const group = database.prepare('SELECT work_group_id FROM commissions WHERE file_name = ?').get('part-one') as { work_group_id: string }
+    await createCommission(db, {
+      characterId: 1,
+      commissionDate: '2025-03-02',
+      creatorName: 'Fixture Creator',
+      workGroupId: group.work_group_id,
+      partNumber: 2,
+      fileName: 'part-two',
+      links: [],
+    }, {
+      commissionFileName: 'part-two',
+      objectKey: 'source-images/part-two/hash.jpg',
+      mimeType: 'image/jpeg',
+      byteSize: 12,
+      sha256: 'hash',
+    })
+
+    const records = database.prepare(`
+      SELECT public_id, work_group_id, part_number
+      FROM commissions ORDER BY part_number
+    `).all()
+    expect(records).toHaveLength(2)
+    expect(records[0].public_id).not.toBe(records[1].public_id)
+    expect(records[0].work_group_id).toBe(records[1].work_group_id)
+    expect(records.map(row => row.part_number)).toEqual([1, 2])
   })
 
   it('rolls back commission creation when the source-image metadata insert conflicts', async () => {

@@ -110,6 +110,15 @@ export function renderEntryInfo(entry: BatchEntryPayload) {
 
   appendTextElement({ parent: lead, tagName: 'span', text: entry.primaryText })
 
+  if (entry.partLabel) {
+    const separator = document.createElement('span')
+    separator.className = INFO_SEPARATOR_CLASS
+    separator.textContent = '|'
+    lead.append(separator)
+    const partLabel = appendTextElement({ parent: lead, tagName: 'span', text: entry.partLabel })
+    partLabel.dataset.commissionPartLabel = ''
+  }
+
   if (entry.secondaryText) {
     const separator = document.createElement('span')
     separator.className = INFO_SEPARATOR_CLASS

@@ -7,18 +7,18 @@ describe('buildHomeUpdateSummary', () => {
       {
         Character: 'Alpha',
         Commissions: [
-          { id: 1, commissionDate: '2024-02-01', creatorName: 'Artist', seriesKey: 'legacy', fileName: '20240201_old-name', Links: [] },
-          { id: 2, commissionDate: '2024-02-01', creatorName: 'Artist', seriesKey: 'legacy', fileName: 'renamed-image-key', Links: [] },
-          { id: 3, commissionDate: null, creatorName: null, fileName: 'undated-asset', Links: [] },
+          { id: 1, publicId: '00000000-0000-4000-8000-000000000001', commissionDate: '2024-02-01', creatorName: 'Artist', seriesKey: 'legacy', seriesOrder: 'old-name', fileName: 'old-name', workGroupId: null, partNumber: null, Links: [] },
+          { id: 2, publicId: '00000000-0000-4000-8000-000000000002', commissionDate: '2024-02-01', creatorName: 'Artist', seriesKey: 'legacy', fileName: 'preview-key', legacySeriesKind: 'preview', seriesOrder: 'z-preview', workGroupId: null, partNumber: null, Links: [] },
+          { id: 3, publicId: '00000000-0000-4000-8000-000000000003', commissionDate: null, creatorName: null, fileName: 'undated-asset', workGroupId: null, partNumber: null, Links: [] },
         ],
       },
     ], ['Alpha'])
 
     expect(summary.totalCommissions).toBe(2)
     expect(summary.entries[0]).toEqual({
-      key: '2',
+      key: '00000000-0000-4000-8000-000000000002',
       character: 'Alpha',
-      href: '#alpha-commission-2',
+      href: '#alpha-commission-00000000-0000-4000-8000-000000000002',
       dateLabel: '2024/02/01',
     })
   })

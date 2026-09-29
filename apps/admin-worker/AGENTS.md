@@ -25,6 +25,10 @@ Standalone admin Cloudflare Worker: API router, D1/R2 CRUD, asset serving.
 
 - Create and PATCH accept explicit `commissionDate` (`YYYY-MM-DD`) and `creatorName` (string
   or `null`); callers do not submit the legacy `fileName`.
+- Every commission has an immutable opaque `publicId`; numeric `id` remains the internal D1 and
+  source-image relationship key. Create/PATCH accept `workGroupId` and `partNumber` together,
+  or both `null` for standalone works. The `new` sentinel creates a group. Part records remain
+  independent commissions with independent image references.
 - Source-image GET and replacement address `/api/admin/commissions/:id/source-image`; image
   references follow the stable commission ID.
 - Changing date or creator only updates D1 metadata. It must not rename, copy, move, overwrite,
@@ -66,6 +70,18 @@ post-apply backup is an additional D1 safeguard, not a verified local backup and
 object backup. Non-interactive execution skips the confirmation prompt, so automation must
 enforce its own preflight and approval gates. Do not invoke either remote command as part of
 local validation.
+
+### Migration `0005_public_commission_identity_and_parts`
+
+- Adds a random immutable UUID `public_id` to each commission, a UUID-keyed `commission_groups`
+  table, and paired nullable `work_group_id`/positive `part_number` fields with uniqueness and
+  integrity triggers. Existing 141 rows remain independent; only the 12 verified `(part 1/2)`
+  rows in six reviewed pairs are grouped. Creator names lose only their explicit part suffix.
+- The insert trigger fills `public_id` when an older Worker version writes during rollout; existing
+  part fields survive legacy updates. Deploy the new Worker before enabling the new Admin form.
+- This migration does not modify source-image metadata, R2 keys, or object bytes. Validate exact
+  commission and image counts, unique/non-null UUIDs, six two-part groups, foreign keys, and
+  exported schema-v3 snapshot before Web deployment.
 
 ### Rollback Boundary
 

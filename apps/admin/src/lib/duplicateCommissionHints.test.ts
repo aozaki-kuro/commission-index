@@ -6,6 +6,7 @@ function buildCommissionRow(
   overrides: Partial<AdminCommissionSearchRow> & Pick<AdminCommissionSearchRow, 'id' | 'fileName'>,
 ): AdminCommissionSearchRow {
   return {
+    publicId: `${overrides.id.toString().padStart(8, '0')}-2222-4222-8222-222222222222`,
     characterId: 1,
     characterName: 'Sakura',
     commissionDate: '2025-03-02',
@@ -15,6 +16,8 @@ function buildCommissionRow(
     design: null,
     keyword: null,
     hidden: false,
+    workGroupId: null,
+    partNumber: null,
     ...overrides,
   }
 }
@@ -83,6 +86,36 @@ describe('findDuplicateCommissionHints', () => {
     })).not.toEqual(expect.arrayContaining([
       expect.objectContaining({ commissionId: 3 }),
     ]))
+  })
+
+  it('does not flag a different part in the selected group as a duplicate', () => {
+    const workGroupId = '9d2c7e2b-fbc4-4fe3-96a5-e62144a83c12'
+    const groupedCommissions = [
+      buildCommissionRow({
+        id: 20,
+        fileName: 'asset-part-1',
+        workGroupId,
+        partNumber: 1,
+      }),
+    ]
+
+    expect(findDuplicateCommissionHints({
+      characterId: 1,
+      commissionDate: '2025-03-02',
+      creatorName: 'Artist',
+      workGroupId,
+      partNumber: 2,
+      commissions: groupedCommissions,
+    })).toEqual([])
+
+    expect(findDuplicateCommissionHints({
+      characterId: 1,
+      commissionDate: '2025-03-02',
+      creatorName: 'Artist',
+      workGroupId,
+      partNumber: 1,
+      commissions: groupedCommissions,
+    })).toHaveLength(1)
   })
 
   it('does not equate two unknown creators', () => {

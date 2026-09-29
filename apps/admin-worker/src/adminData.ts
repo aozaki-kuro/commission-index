@@ -47,10 +47,13 @@ interface CharacterCountRow {
 
 interface BootstrapCommissionRow {
   id: number
+  publicId: string
   characterId: number
   characterName: string
   commissionDate: string | null
   creatorName: string | null
+  workGroupId: string | null
+  partNumber: number | null
   fileName: string
   links: string
   design?: string | null
@@ -639,10 +642,13 @@ async function loadAdminBootstrapData(db: D1DatabaseLike): Promise<AdminBootstra
     `
       SELECT
         commissions.id as id,
+        commissions.public_id as publicId,
         commissions.character_id as characterId,
         characters.name as characterName,
         commissions.commission_date as commissionDate,
         commissions.creator_name as creatorName,
+        commissions.work_group_id as workGroupId,
+        commissions.part_number as partNumber,
         commissions.file_name as fileName,
         commissions.links as links,
         commissions.design as design,
@@ -657,10 +663,13 @@ async function loadAdminBootstrapData(db: D1DatabaseLike): Promise<AdminBootstra
 
   const commissionSearchRows: AdminCommissionSearchRow[] = rawRows.map(row => ({
     id: Number(row.id),
+    publicId: row.publicId,
     characterId: Number(row.characterId),
     characterName: row.characterName,
     commissionDate: row.commissionDate ?? null,
     creatorName: row.creatorName ?? null,
+    workGroupId: row.workGroupId ?? null,
+    partNumber: row.partNumber == null ? null : Number(row.partNumber),
     fileName: row.fileName,
     links: row.links ?? '',
     design: row.design ?? null,
@@ -836,10 +845,13 @@ async function loadCharacterCommissions(
     `
       SELECT
         commissions.id as id,
+        commissions.public_id as publicId,
         commissions.character_id as characterId,
         characters.name as characterName,
         commissions.commission_date as commissionDate,
         commissions.creator_name as creatorName,
+        commissions.work_group_id as workGroupId,
+        commissions.part_number as partNumber,
         commissions.file_name as fileName,
         commissions.links as links,
         commissions.design as design,
@@ -856,10 +868,13 @@ async function loadCharacterCommissions(
 
   return rows.map(row => ({
     id: Number(row.id),
+    publicId: row.publicId,
     characterId: Number(row.characterId),
     characterName: row.characterName,
     commissionDate: row.commissionDate ?? null,
     creatorName: row.creatorName ?? null,
+    workGroupId: row.workGroupId ?? null,
+    partNumber: row.partNumber == null ? null : Number(row.partNumber),
     fileName: row.fileName,
     links: parseLinks(row.links),
     design: row.design ?? null,
