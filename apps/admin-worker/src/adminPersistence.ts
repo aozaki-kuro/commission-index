@@ -1,5 +1,4 @@
 import {
-  getCommissionFileNameValidationError,
   normalizeAliases,
   normalizeCharacterAliases,
   normalizeCharacterAliasKey,
@@ -58,9 +57,11 @@ interface CommissionFileNameRow {
 
 interface NormalizedCommissionMutation {
   characterId: number
+  commissionDate: string
+  creatorName: string | null
   description: string | null
   design: string | null
-  fileName: string
+  fileName?: string
   hidden: number
   keyword: string | null
   links: string
@@ -136,22 +137,29 @@ function normalizeCommissionKeyword(value?: string | null) {
 
 function normalizeCommissionMutation(input: {
   characterId: number
-  fileName: string
+  commissionDate: string
+  creatorName?: string | null
+  fileName?: string
   links: string[]
   design?: string | null
   description?: string | null
   keyword?: string | null
   hidden?: boolean
 }): NormalizedCommissionMutation {
-  const fileName = input.fileName.trim()
-  const fileNameError = getCommissionFileNameValidationError(fileName)
-  if (fileNameError) {
-    throw new Error(fileNameError)
+  const commissionDate = input.commissionDate.trim()
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(commissionDate) || Number.isNaN(Date.parse(`${commissionDate}T00:00:00Z`))) {
+    throw new Error('Commission date must use YYYY-MM-DD format.')
+  }
+  const date = new Date(`${commissionDate}T00:00:00Z`)
+  if (date.toISOString().slice(0, 10) !== commissionDate) {
+    throw new Error('Commission date must be a real calendar date.')
   }
 
   return {
     characterId: input.characterId,
-    fileName,
+    commissionDate,
+    creatorName: input.creatorName?.trim() || null,
+    fileName: input.fileName,
     links: JSON.stringify(input.links),
     design: input.design ?? null,
     description: input.description ?? null,
@@ -386,6 +394,8 @@ export async function createCommission(
   db: D1DatabaseLike,
   input: {
     characterId: number
+    commissionDate: string
+    creatorName?: string | null
     fileName: string
     links: string[]
     design?: string | null
@@ -413,16 +423,20 @@ export async function createCommission(
       query: `
       INSERT INTO commissions (
         character_id,
+        commission_date,
+        creator_name,
         file_name,
         links,
         design,
         description,
         keyword,
         hidden
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       values: [
         characterRecord.id,
+        normalizedInput.commissionDate,
+        normalizedInput.creatorName,
         normalizedInput.fileName,
         normalizedInput.links,
         normalizedInput.design,
@@ -434,16 +448,17 @@ export async function createCommission(
     {
       query: `
         INSERT INTO source_images (
-          commission_file_name, object_key, mime_type, byte_size, sha256, updated_at
-        ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          commission_file_name, commission_id, object_key, mime_type, byte_size, sha256, updated_at
+        ) VALUES (?, (SELECT id FROM commissions WHERE file_name = ?), ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(commission_file_name) DO UPDATE SET
+          commission_id = excluded.commission_id,
           object_key = excluded.object_key,
           mime_type = excluded.mime_type,
           byte_size = excluded.byte_size,
           sha256 = excluded.sha256,
           updated_at = CURRENT_TIMESTAMP
       `,
-      values: [sourceImage.commissionFileName, sourceImage.objectKey, sourceImage.mimeType, sourceImage.byteSize, sourceImage.sha256],
+      values: [sourceImage.commissionFileName, sourceImage.commissionFileName, sourceImage.objectKey, sourceImage.mimeType, sourceImage.byteSize, sourceImage.sha256],
     },
   ])
 
@@ -457,7 +472,8 @@ export async function updateCommission(
   input: {
     id: number
     characterId: number
-    fileName: string
+    commissionDate: string
+    creatorName?: string | null
     links: string[]
     design?: string | null
     description?: string | null
@@ -471,7 +487,8 @@ export async function updateCommission(
     `
       SELECT
         character_id as characterId,
-        file_name as fileName,
+        commission_date as commissionDate,
+        creator_name as creatorName,
         links as links,
         design as design,
         description as description,
@@ -502,7 +519,8 @@ export async function updateCommission(
 
   const isUnchanged
     = currentCommission.characterId === normalizedInput.characterId
-      && currentCommission.fileName === normalizedInput.fileName
+      && currentCommission.commissionDate === normalizedInput.commissionDate
+      && currentCommission.creatorName === normalizedInput.creatorName
       && currentCommission.links === normalizedInput.links
       && currentCommission.design === normalizedInput.design
       && currentCommission.description === normalizedInput.description
@@ -518,7 +536,8 @@ export async function updateCommission(
       UPDATE commissions
       SET
         character_id = ?,
-        file_name = ?,
+        commission_date = ?,
+        creator_name = ?,
         links = ?,
         design = ?,
         description = ?,
@@ -528,7 +547,8 @@ export async function updateCommission(
     `,
     values: [
       normalizedInput.characterId,
-      normalizedInput.fileName,
+      normalizedInput.commissionDate,
+      normalizedInput.creatorName,
       normalizedInput.links,
       normalizedInput.design,
       normalizedInput.description,
@@ -538,19 +558,7 @@ export async function updateCommission(
     ],
   }
 
-  if (currentCommission.fileName !== normalizedInput.fileName) {
-    await ensureSourceImagesTable(db)
-    await runStatementsAtomically(db, [
-      updateOperation,
-      {
-        query: 'DELETE FROM source_images WHERE commission_file_name = ?',
-        values: [currentCommission.fileName],
-      },
-    ])
-  }
-  else {
-    await runStatement(db, updateOperation.query, updateOperation.values)
-  }
+  await runStatement(db, updateOperation.query, updateOperation.values)
 
   return true
 }
@@ -605,13 +613,15 @@ export async function saveSourceImageMetadata(
     `
       INSERT INTO source_images (
         commission_file_name,
+        commission_id,
         object_key,
         mime_type,
         byte_size,
         sha256,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ) VALUES (?, (SELECT id FROM commissions WHERE file_name = ?), ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(commission_file_name) DO UPDATE SET
+        commission_id = excluded.commission_id,
         object_key = excluded.object_key,
         mime_type = excluded.mime_type,
         byte_size = excluded.byte_size,
@@ -619,6 +629,7 @@ export async function saveSourceImageMetadata(
         updated_at = CURRENT_TIMESTAMP
     `,
     [
+      input.commissionFileName,
       input.commissionFileName,
       input.objectKey,
       input.mimeType,

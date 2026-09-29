@@ -1,5 +1,4 @@
 import { normalizeCharacterAliasKey } from '@lib/characterAliases'
-import { parseCommissionFileName } from '@lib/commissions/index'
 import { normalizeCreatorName } from '@lib/creatorAliases'
 import { buildDateSearchTokensFromCompactDate } from '@lib/date/search'
 import { normalizeKeywordAliasKey, splitKeywordTerms } from '@lib/keywordAliases'
@@ -10,7 +9,8 @@ type CreatorSearchTextMode = CreatorMode | 'both'
 
 interface BuildCommissionSearchMetadataInput {
   characterName: string
-  fileName: string
+  commissionDate: string | null
+  creatorName: string | null
   design?: string | null
   description?: string | null
   keyword?: string | null
@@ -49,13 +49,14 @@ function resolveCreatorSearchTerms(rawCreatorName: string | null, normalizedCrea
   return normalizedCreatorName ? [normalizedCreatorName] : []
 }
 
-export function buildCommissionSearchDomKey(sectionId: string, fileName: string) {
-  return `${sectionId}::${fileName}`
+export function buildCommissionSearchDomKey(sectionId: string, commissionId: number) {
+  return `${sectionId}::${commissionId}`
 }
 
 export function buildCommissionSearchMetadata({
   characterName,
-  fileName,
+  commissionDate,
+  creatorName,
   design,
   description,
   keyword,
@@ -65,14 +66,15 @@ export function buildCommissionSearchMetadata({
   creatorSuggestionMode = 'normalized',
   creatorSearchTextMode = 'normalized',
 }: BuildCommissionSearchMetadataInput): CommissionSearchMetadata {
-  const { date, year, creator } = parseCommissionFileName(fileName)
+  const date = commissionDate?.replaceAll('-', '') ?? ''
+  const year = date.slice(0, 4)
   const month = date.slice(4, 6)
   const characterAliasKey = normalizeCharacterAliasKey(characterName)
   const characterAliases
     = characterAliasKey && characterAliasesMap
       ? (characterAliasesMap.get(characterAliasKey) ?? [])
       : []
-  const rawCreatorName = creator?.trim() || null
+  const rawCreatorName = creatorName?.trim() || null
   const normalizedCreatorName = rawCreatorName ? normalizeCreatorName(rawCreatorName) : null
   const creatorAliases
     = normalizedCreatorName && creatorAliasesMap
@@ -89,7 +91,9 @@ export function buildCommissionSearchMetadata({
   )]
   const keywordSearchText = keywordTerms.join(' ')
   const keywordAliasesSearchText = keywordAliasTerms.join(' ')
-  const searchableDateTerms = [date, ...buildDateSearchTokensFromCompactDate(date)]
+  const searchableDateTerms = date
+    ? [date, ...buildDateSearchTokensFromCompactDate(date)]
+    : []
   const creatorSuggestionTerm = resolveCreatorSuggestionTerm(
     rawCreatorName,
     normalizedCreatorName,

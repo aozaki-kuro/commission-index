@@ -1,7 +1,8 @@
 import {
   CommissionCharacterField,
+  CommissionCreatorField,
+  CommissionDateField,
   CommissionDesignDescriptionFields,
-  CommissionFileNameField,
   CommissionKeywordField,
   CommissionLinksField,
 } from './CommissionFormFields'
@@ -15,9 +16,10 @@ interface CommissionSharedFieldsProps {
   characterOptions: CharacterOption[]
   selectedCharacterId: number | null
   onCharacterChange: (id: number | null) => void
-  fileName?: string
-  onFileNameChange?: (value: string) => void
-  fileNamePlaceholder?: string
+  commissionDate?: string
+  onCommissionDateChange?: (value: string) => void
+  creatorName?: string
+  onCreatorNameChange?: (value: string) => void
   linksValue?: string
   onLinksChange?: (value: string) => void
   linksRows?: number
@@ -35,9 +37,10 @@ export function CommissionSharedFields({
   characterOptions,
   selectedCharacterId,
   onCharacterChange,
-  fileName,
-  onFileNameChange,
-  fileNamePlaceholder,
+  commissionDate,
+  onCommissionDateChange,
+  creatorName,
+  onCreatorNameChange,
   linksValue,
   onLinksChange,
   linksRows = 3,
@@ -54,7 +57,7 @@ export function CommissionSharedFields({
     <div className="space-y-5">
       <div className="
         grid gap-4
-        md:grid-cols-2
+        md:grid-cols-3
       "
       >
         <CommissionCharacterField
@@ -62,10 +65,13 @@ export function CommissionSharedFields({
           selectedCharacterId={selectedCharacterId}
           onChange={onCharacterChange}
         />
-        <CommissionFileNameField
-          placeholder={fileNamePlaceholder}
-          value={fileName}
-          onChange={onFileNameChange}
+        <CommissionDateField
+          value={commissionDate}
+          onChange={onCommissionDateChange}
+        />
+        <CommissionCreatorField
+          value={creatorName}
+          onChange={onCreatorNameChange}
         />
       </div>
 

@@ -1,15 +1,14 @@
 import type { AdminCommissionSearchRow } from '@commission-index/domain'
-import {
-  normalizeCreatorName,
-  parseCommissionFileName,
-  splitKeywordTerms,
-} from '@commission-index/domain'
+import { splitKeywordTerms } from '@commission-index/domain'
+import { getCommissionDisplayLabel } from './commissionPresentation'
 
 export interface DuplicateCommissionHint {
   commissionId: number
   characterId: number
   characterName: string
-  fileName: string
+  commissionDate: string | null
+  creatorName: string | null
+  displayLabel: string
   reasons: string[]
   score: number
 }
@@ -17,37 +16,15 @@ export interface DuplicateCommissionHint {
 interface FindDuplicateCommissionHintsInput {
   commissionId?: number
   characterId: number | null
-  fileName: string
+  commissionDate: string | null
+  creatorName: string
   keyword?: string
   commissions: AdminCommissionSearchRow[]
   limit?: number
 }
 
-const VALID_DATE_PATTERN = /^\d{8}$/
-
-function normalizeFileName(value: string) {
-  return value.trim()
-}
-
-function getParsedFileName(value: string) {
-  const normalized = normalizeFileName(value)
-  if (!normalized) {
-    return {
-      creatorName: null as string | null,
-      rawCreatorName: null as string | null,
-      date: null as string | null,
-    }
-  }
-
-  const { creator, date } = parseCommissionFileName(normalized)
-
-  return {
-    // 用于别名查找等需要忽略 part 后缀的场景
-    creatorName: creator ? normalizeCreatorName(creator) : null,
-    // 用于重复检测：保留 (part N) 以区分多 part 稿件
-    rawCreatorName: creator ? creator.trim() : null,
-    date: VALID_DATE_PATTERN.test(date) ? date : null,
-  }
+function normalizeCreatorName(value?: string | null) {
+  return value?.trim().toLocaleLowerCase() ?? ''
 }
 
 function getKeywordSet(value?: string | null) {
@@ -72,74 +49,56 @@ function getSharedKeywords(left: Set<string>, right: Set<string>) {
 export function findDuplicateCommissionHints({
   commissionId,
   characterId,
-  fileName,
+  commissionDate,
+  creatorName,
   keyword,
   commissions,
   limit = 4,
 }: FindDuplicateCommissionHintsInput): DuplicateCommissionHint[] {
-  const normalizedFileName = normalizeFileName(fileName)
-  const parsedQuery = getParsedFileName(normalizedFileName)
+  const normalizedCreatorName = normalizeCreatorName(creatorName)
   const hasCharacterSelection = typeof characterId === 'number' && characterId > 0
   const queryKeywords = getKeywordSet(keyword)
 
-  if (!normalizedFileName) {
+  // 日期或作者不全时只能证明“同一天”，不能据此判断作品重复。
+  if (!hasCharacterSelection || !commissionDate || !normalizedCreatorName) {
     return []
   }
 
   return commissions
     .filter(candidate => candidate.id !== commissionId)
-    .map((candidate) => {
-      const reasons: string[] = []
-      let score = 0
-      let isLikelyDuplicate = false
+    .flatMap((candidate) => {
+      const sameCommissionDetails
+        = candidate.characterId === characterId
+          && candidate.commissionDate === commissionDate
+          && normalizeCreatorName(candidate.creatorName) === normalizedCreatorName
 
-      if (normalizedFileName && candidate.fileName === normalizedFileName) {
-        score += 200
-        reasons.push('Same file name')
-        isLikelyDuplicate = true
+      if (!sameCommissionDetails) {
+        return []
       }
 
-      const parsedCandidate = getParsedFileName(candidate.fileName)
-      const sameDate = parsedQuery.date && parsedCandidate.date === parsedQuery.date
-      const sameCharacter = hasCharacterSelection && candidate.characterId === characterId
-      const sameCreator = Boolean(
-        parsedQuery.rawCreatorName
-        && parsedCandidate.rawCreatorName
-        && parsedQuery.rawCreatorName === parsedCandidate.rawCreatorName,
-      )
-
-      if (!isLikelyDuplicate && sameCharacter && sameDate && sameCreator) {
-        score += 150
-        reasons.push('Same character')
-        reasons.push(`Same date ${parsedQuery.date}`)
-        reasons.push('Same creator')
-        isLikelyDuplicate = true
+      const reasons = [
+        'Same character',
+        `Same date ${commissionDate}`,
+        'Same creator',
+      ]
+      let score = 150
+      const sharedKeywords = getSharedKeywords(queryKeywords, getKeywordSet(candidate.keyword))
+      if (sharedKeywords.length > 0) {
+        score += Math.min(20, sharedKeywords.length * 10)
+        reasons.push(`Shared keyword: ${sharedKeywords.slice(0, 2).join(', ')}`)
       }
 
-      if (isLikelyDuplicate) {
-        const sharedKeywords = getSharedKeywords(queryKeywords, getKeywordSet(candidate.keyword))
-        if (sharedKeywords.length > 0) {
-          score += Math.min(20, sharedKeywords.length * 10)
-          reasons.push(`Shared keyword: ${sharedKeywords.slice(0, 2).join(', ')}`)
-        }
-      }
-
-      return {
+      return [{
         characterId: candidate.characterId,
         characterName: candidate.characterName,
+        commissionDate: candidate.commissionDate,
+        creatorName: candidate.creatorName,
         commissionId: candidate.id,
-        fileName: candidate.fileName,
+        displayLabel: getCommissionDisplayLabel(candidate),
         reasons,
         score,
-      } satisfies DuplicateCommissionHint
+      } satisfies DuplicateCommissionHint]
     })
-    .filter(candidate => candidate.reasons.length > 0)
-    .toSorted((left, right) => {
-      if (right.score !== left.score) {
-        return right.score - left.score
-      }
-
-      return right.fileName.localeCompare(left.fileName)
-    })
+    .toSorted((left, right) => right.score - left.score || right.commissionId - left.commissionId)
     .slice(0, limit)
 }

@@ -26,9 +26,9 @@ describe('sourceImageRegistry', () => {
 
   it('resolves exact and fallback stems', () => {
     const records: SourceImageRecord[] = [
-      { stem: '20240421_Gisyu (part 1)', metadata: createMetadata('a') },
-      { stem: '20260208_Dorei', metadata: createMetadata('b') },
-      { stem: '20260226_七市', metadata: createMetadata('c') },
+      { commissionId: 1, stem: '20240421_Gisyu (part 1)', metadata: createMetadata('a') },
+      { commissionId: 2, stem: '20260208_Dorei', metadata: createMetadata('b') },
+      { commissionId: 3, stem: '20260226_七市', metadata: createMetadata('c') },
     ]
     const lookup = buildSourceImageLookup(records)
 
@@ -38,12 +38,13 @@ describe('sourceImageRegistry', () => {
 
     const resolved = resolveSourceImageByCommissionFileName('20240421_Gisyu part 1', lookup)
     expect(resolved?.src).toBe('/mock/a.jpg')
+    expect(lookup.byCommissionId.get(2)?.src).toBe('/mock/b.jpg')
   })
 
   it('reports missing source images from commission file names', () => {
     const lookup = buildSourceImageLookup([
-      { stem: '20260208_Dorei', metadata: createMetadata('a') },
-      { stem: '20260226_七市', metadata: createMetadata('b') },
+      { commissionId: 1, stem: '20260208_Dorei', metadata: createMetadata('a') },
+      { commissionId: 2, stem: '20260226_七市', metadata: createMetadata('b') },
     ])
 
     const missing = listMissingSourceImages(
@@ -52,5 +53,15 @@ describe('sourceImageRegistry', () => {
     )
 
     expect(missing).toEqual(['20260221_七市'])
+  })
+
+  it('rejects duplicate or invalid commission identities in image records', () => {
+    expect(() => buildSourceImageLookup([
+      { commissionId: 1, stem: 'first', metadata: createMetadata('a') },
+      { commissionId: 1, stem: 'second', metadata: createMetadata('b') },
+    ])).toThrow(/commission ID/)
+    expect(() => buildSourceImageLookup([
+      { commissionId: 0, stem: 'invalid', metadata: createMetadata('a') },
+    ])).toThrow(/commission ID/)
   })
 })

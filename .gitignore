@@ -21,6 +21,7 @@ dist/
 # production
 /build
 .turbo
+/.local-backups/
 
 # misc
 .DS_Store

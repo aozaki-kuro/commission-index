@@ -3,13 +3,11 @@ import type { Commission } from '@data/types'
 import IllustratorInfo from '@features/home/commission/IllustratorInfo.astro'
 import ProtectedCommissionImage from '@features/home/commission/ProtectedCommissionImage.astro'
 import { getHomeLocaleMessages, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
-import { parseCommissionFileName } from '@lib/commissions'
 import { resolveSourceImageByCommissionFileName } from '@lib/images/sourceImageRegistry'
 import {
   buildCommissionSearchDomKey,
   buildCommissionSearchMetadata,
 } from '@lib/search/commissionSearchMetadata'
-import { getBaseFileName } from '@lib/utils/strings'
 
 export interface CommissionRenderEntry {
   character: string
@@ -48,22 +46,33 @@ const {
 const resolvedLocale = normalizeHomeLocale(locale)
 const messages = getHomeLocaleMessages(resolvedLocale)
 const shouldEmbedSearchMetadata = embedSearchMetadata ?? Boolean(import.meta.env?.DEV)
+const legacyAnchorIds = new Set<string>()
 ---
 
 {
   entries.map(({ character, commission, sectionId, entryAnchorPrefix }, entryIndex) => {
-    const { date, year, creator } = parseCommissionFileName(commission.fileName)
-    const copyrightCreator = creator ? getBaseFileName(creator).trim() || creator : 'Anonymous'
-    const altText = `© ${year} ${copyrightCreator} & Crystallize`
+    const compactDate = commission.commissionDate?.replaceAll('-', '') ?? ''
+    const year = commission.commissionDate?.slice(0, 4) ?? ''
+    const creator = commission.creatorName?.trim() ?? ''
+    const copyrightCreator = creator || 'Anonymous'
+    const altText = year
+      ? `© ${year} ${copyrightCreator} & Crystallize`
+      : `${copyrightCreator} & Crystallize`
     const sourceImage = resolveSourceImageByCommissionFileName(commission.fileName)
-    const elementId = `${entryAnchorPrefix}-${date}`
-    const searchKey = buildCommissionSearchDomKey(entryAnchorPrefix, commission.fileName)
+    const elementId = `${entryAnchorPrefix}-commission-${commission.id}`
+    const searchKey = buildCommissionSearchDomKey(entryAnchorPrefix, commission.id)
+    const legacyAnchorId = compactDate ? `${entryAnchorPrefix}-${compactDate}` : ''
+    const shouldRenderLegacyAnchor = legacyAnchorId && !legacyAnchorIds.has(legacyAnchorId)
+    if (shouldRenderLegacyAnchor) {
+      legacyAnchorIds.add(legacyAnchorId)
+    }
 
     const searchAttributes = shouldEmbedSearchMetadata
       ? (() => {
           const metadata = buildCommissionSearchMetadata({
             characterName: character,
-            fileName: commission.fileName,
+            commissionDate: commission.commissionDate,
+            creatorName: commission.creatorName,
             design: commission.Design,
             description: commission.Description,
             keyword: commission.Keyword,
@@ -82,14 +91,16 @@ const shouldEmbedSearchMetadata = embedSearchMetadata ?? Boolean(import.meta.env
       : {}
 
     return (
-      <div
-        id={elementId}
-        class="pt-6"
-        data-commission-entry="true"
-        data-character-section-id={sectionId}
-        data-commission-search-key={searchKey}
-        {...searchAttributes}
-      >
+      <>
+        {shouldRenderLegacyAnchor && <span id={legacyAnchorId} class="sr-only" aria-hidden="true" />}
+        <div
+          id={elementId}
+          class="pt-6"
+          data-commission-entry="true"
+          data-character-section-id={sectionId}
+          data-commission-search-key={searchKey}
+          {...searchAttributes}
+        >
         {
           showImage
 ? (
@@ -163,7 +174,8 @@ const shouldEmbedSearchMetadata = embedSearchMetadata ?? Boolean(import.meta.env
             />
           )
         }
-      </div>
+        </div>
+      </>
     )
   })
 }

@@ -33,7 +33,6 @@ export function buildHomeSearchEntries(): SearchEntry[] {
     ...records.filter(record => record.status === 'archived').map(record => record.name),
   ]
   const entries: SearchEntry[] = []
-  let nextId = 0
 
   for (const characterName of orderedCharacters) {
     const commissions = commissionMap.get(characterName)?.Commissions ?? []
@@ -42,7 +41,8 @@ export function buildHomeSearchEntries(): SearchEntry[] {
     for (const commission of commissions) {
       const metadata = buildCommissionSearchMetadata({
         characterName,
-        fileName: commission.fileName,
+        commissionDate: commission.commissionDate,
+        creatorName: commission.creatorName,
         design: commission.Design,
         description: commission.Description,
         keyword: commission.Keyword,
@@ -54,12 +54,11 @@ export function buildHomeSearchEntries(): SearchEntry[] {
       })
 
       entries.push({
-        id: nextId,
-        domKey: buildCommissionSearchDomKey(sectionId, commission.fileName),
+        id: commission.id,
+        domKey: buildCommissionSearchDomKey(sectionId, commission.id),
         searchText: metadata.searchText,
         searchSuggest: metadata.searchSuggestionText,
       })
-      nextId += 1
     }
   }
 

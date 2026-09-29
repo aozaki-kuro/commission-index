@@ -20,6 +20,7 @@ function createSQLiteD1({ failAtBatchStatement }: SQLiteD1Options = {}) {
     '0001_admin_fact_source.sql',
     '0002_source_image_metadata.sql',
     '0003_rename_stale_to_archived.sql',
+    '0004_commission_identity.sql',
   ]) {
     database.exec(readFileSync(path.join(migrationsDirectory, migrationName), 'utf8'))
   }
@@ -83,6 +84,30 @@ describe('d1 batch persistence', () => {
     return fixture
   }
 
+  it('stores explicit identity fields and binds source-image metadata to the new commission id', async () => {
+    const { database, db } = createDatabase()
+    database.exec('INSERT INTO characters (id, name, status, sort_order) VALUES (1, \'Fixture\', \'active\', 1)')
+
+    await createCommission(db, {
+      characterId: 1,
+      commissionDate: '2025-03-02',
+      creatorName: 'Fixture Creator',
+      fileName: 'commission-test-key',
+      links: [],
+    }, {
+      commissionFileName: 'commission-test-key',
+      objectKey: 'source-images/commission-test-key/hash.jpg',
+      mimeType: 'image/jpeg',
+      byteSize: 12,
+      sha256: 'hash',
+    })
+
+    expect(database.prepare('SELECT commission_date, creator_name FROM commissions WHERE id = 1').get())
+      .toEqual({ commission_date: '2025-03-02', creator_name: 'Fixture Creator' })
+    expect(database.prepare('SELECT commission_id FROM source_images WHERE commission_file_name = ?').get('commission-test-key'))
+      .toEqual({ commission_id: 1 })
+  })
+
   it('rolls back commission creation when the source-image metadata insert conflicts', async () => {
     const { database, db, batchCallCount } = createDatabase()
     database.exec(`
@@ -94,6 +119,8 @@ describe('d1 batch persistence', () => {
 
     await expect(createCommission(db, {
       characterId: 1,
+      commissionDate: '2025-03-02',
+      creatorName: 'Fixture Creator',
       fileName: '20250302_new',
       links: [],
     }, {

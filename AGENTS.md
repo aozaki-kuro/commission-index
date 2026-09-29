@@ -61,7 +61,7 @@ packages/domain     Shared types and pure domain helpers (no app imports)
 
 ### Data Flow
 
-1. Admin writes to remote D1/R2 via `apps/admin-worker`
+1. Admin writes explicit commission ID/date/creator metadata to remote D1 and immutable source-image objects to R2 via `apps/admin-worker`; commission dates/authors are not encoded in new internal asset keys
 2. `exportWebFactSource.ts` 只读导出 D1/R2 -> `apps/web/generated/*`，不回写生产 metadata；单个 D1 SELECT 读取结构化快照，下载图片必须匹配该快照的 hash/size
 3. content 与 source-image manifest 的 `meta.revision` 共同标识内容版本，排除 `exportedAt`；Astro 从这份固定输入生成 HTML，无运行时 D1/R2 访问
 4. `apps/web/wrangler.jsonc` carries read-only D1/R2 bindings for build-time export
@@ -206,9 +206,14 @@ All three should return `404`. Note: `vite preview` does not validate edge HTTP 
 ### Images
 
 - Source images: `apps/web/generated/source-images/*.{jpg,jpeg,png}`
-- R2 `objectKey` 是不可变对象身份，可含目录；本地 `relativePath` 固定为 `source-images/<commissionFileName>.<ext>`。导出复用与清理根据本地 canonical 名称处理，不能把远端 key 当作本地路径
-- Resolution: `sourceImageRegistry.ts` — commission `fileName` stem must match source image stem
+- R2 `objectKey` 是不可变对象身份，可含目录；`commissions.file_name` 只作内部资产键，历史行保留旧值，新作品使用不透明键。日期/作者只能从显式字段读取。导出后的本地 `relativePath` 以该内部键映射，不能把远端 key 当成本地路径
+- Resolution: `sourceImageRegistry.ts` maps the internal commission asset key to the generated image stem; user-visible identity and search never parse that key
 - Listing widths: `768/960/1280`, sizes `(max-width: 768px) 92vw, 640px`
+
+### 数据库迁移验证
+
+- 表重建必须验证带数据升级：父表 `DROP TABLE` 可触发子表 `ON DELETE CASCADE`，`defer_foreign_keys` 只延迟检查，不阻止级联动作。空库迁移通过与 `foreign_key_check` 为空均不证明业务数据守恒。
+- 迁移前后核对稳定 ID 集、逐行内容摘要、父子关系、索引和自增序列；先确认线上已应用版本，不重跑历史迁移。D1 恢复方案须同时覆盖 R2 对象保留及已读取旧 metadata 的在途导出。
 
 ## 审计文档索引
 
@@ -216,9 +221,12 @@ All three should return `404`. Note: `vite preview` does not validate edge HTTP 
 docs/
   audit-2026-09-29.md             代码与设计审计证据、风险和验证边界
   improvement-plan-2026-09-29.md  对应问题的分阶段整改与验收计划
+  database-optimization-assessment-2026-09-29.md  数据库优化必要性、模型取舍、迁移风险、工作量与验收计划
 ```
 
 审计报告记录指定提交的状态，不是运行时依赖；改进计划依赖报告中的问题编号。2026-09-29 新增上述文档，未变更业务架构。后续整改应更新计划进度，并同步实际变更涉及的架构/API 文档。
+
+数据库专项评估补充既有 `docs/db-r2-identity-migration-plan-and-prompts-2026-09-29.md` 的交接预案；实施前须阅读专项评估中的带数据迁移风险、R2 上传身份和恢复闸门。当前代码已实现单次 schema v2 迁移与全链路消费者改造；生产 D1/R2 尚未切换，须在协调发布窗口核验备份、应用 0004 并发布 Worker/Admin/Web。
 
 ## Commit Convention
 

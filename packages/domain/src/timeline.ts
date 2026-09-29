@@ -33,8 +33,11 @@ export function buildTimelineYearNavItem(yearKey: string): CharacterNavItem {
   }
 }
 
-function sortCommissionsByDate(a: Commission, b: Commission): number {
-  return b.fileName.localeCompare(a.fileName)
+type DatedCommission = Commission & { commissionDate: string }
+
+function sortCommissionsByDate(a: DatedCommission, b: DatedCommission): number {
+  const dateOrder = b.commissionDate.localeCompare(a.commissionDate)
+  return dateOrder || b.id - a.id
 }
 
 export function buildCommissionTimeline(commissionMap: Map<string, CharacterCommissions>): {
@@ -45,12 +48,13 @@ export function buildCommissionTimeline(commissionMap: Map<string, CharacterComm
     .flatMap(({ Character, Commissions }) =>
       Commissions.map(commission => ({ character: Character, commission })),
     )
+    .filter((entry): entry is typeof entry & { commission: DatedCommission } => entry.commission.commissionDate !== null)
     .sort((a, b) => sortCommissionsByDate(a.commission, b.commission))
 
   const groupsByYear = new Map<string, TimelineYearGroup>()
 
   for (const entry of sortedEntries) {
-    const yearKey = entry.commission.fileName.slice(0, 4)
+    const yearKey = entry.commission.commissionDate.slice(0, 4)
     const existing = groupsByYear.get(yearKey)
 
     if (existing) {

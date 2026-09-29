@@ -1,0 +1,34 @@
+import type { CommissionWithCharacter } from '@lib/commissions/index'
+import { formatDate, parseDateString } from '@lib/date/format'
+import { kebabCase } from '@lib/utils/strings'
+
+const SITE_URL = 'https://crystallize.cc'
+
+export interface RssItem {
+  title: string
+  link: string
+  guid: string
+  pubDate: string | null
+  author: string
+  description: string
+}
+
+export function buildRssItem(commission: CommissionWithCharacter): RssItem {
+  const artistName = commission.creatorName?.trim() || 'Anonymous'
+  const date = commission.commissionDate
+  const dateObj = date ? parseDateString(date.replaceAll('-', '')) : null
+  const pubDate = dateObj?.toUTCString() ?? null
+  const formatted = dateObj ? formatDate(dateObj, 'yyyy/MM/dd') : null
+  const link = `${SITE_URL}#${encodeURIComponent(kebabCase(commission.character))}-commission-${commission.id}`
+  const dateText = formatted ? `, published on ${formatted}` : ''
+  const description = `<![CDATA[Illustrator: ${artistName}${dateText}]]>`
+
+  return {
+    title: commission.character,
+    link,
+    guid: `commission-${commission.id}`,
+    pubDate,
+    author: artistName,
+    description,
+  }
+}

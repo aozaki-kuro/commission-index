@@ -85,10 +85,14 @@ export function CommissionCharacterField({
   )
 }
 
-interface CommissionFileNameFieldProps {
+interface CommissionDateFieldProps {
   value?: string
   onChange?: (value: string) => void
-  placeholder?: string
+}
+
+interface CommissionCreatorFieldProps {
+  value?: string
+  onChange?: (value: string) => void
 }
 
 interface CommissionSourceImageFieldProps {
@@ -102,7 +106,7 @@ interface CommissionSourceImageFieldProps {
 
 export function CommissionSourceImageField({
   accept = 'image/jpeg,image/png,.jpg,.jpeg,.png',
-  helperMessage = 'Upload JPG/PNG. It will be stored in the remote source-image bucket using this file name.',
+  helperMessage = 'Upload a JPG/PNG source image. Its storage identity is managed separately from commission details.',
   helperTone = 'default',
   required = false,
   inputRef,
@@ -144,22 +148,39 @@ export function CommissionSourceImageField({
   )
 }
 
-export function CommissionFileNameField({
+export function CommissionDateField({
   value,
   onChange,
-  placeholder,
-}: CommissionFileNameFieldProps) {
+}: CommissionDateFieldProps) {
   return (
     <div className="space-y-1">
-      <label className={fieldLabelStyles} htmlFor="create-commission-file-name">
-        File name
+      <label className={fieldLabelStyles} htmlFor="create-commission-date">
+        Delivery date
       </label>
       <input
-        id="create-commission-file-name"
-        type="text"
-        name="fileName"
+        id="create-commission-date"
+        type="date"
+        name="commissionDate"
         required
-        placeholder={placeholder}
+        className={formControlStyles}
+        {...(bindInputValue(value, onChange) ?? {})}
+      />
+    </div>
+  )
+}
+
+export function CommissionCreatorField({ value, onChange }: CommissionCreatorFieldProps) {
+  return (
+    <div className="space-y-1">
+      <label className={fieldLabelStyles} htmlFor="create-commission-creator">
+        Creator (optional)
+      </label>
+      <input
+        id="create-commission-creator"
+        type="text"
+        name="creatorName"
+        autoComplete="off"
+        placeholder="Artist or studio"
         className={formControlStyles}
         {...(bindInputValue(value, onChange) ?? {})}
       />

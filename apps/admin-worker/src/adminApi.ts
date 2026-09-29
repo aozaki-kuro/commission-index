@@ -1,8 +1,6 @@
 import type { D1DatabaseLike } from './adminPersistence'
-import { getCommissionFileNameValidationError } from '../../../packages/domain/src/index'
 import { handleAdminReadRequest } from './adminData'
 import {
-  deleteSourceImageMetadataIfMatches,
   createCharacter as persistCharacterCreate,
   deleteCharacter as persistCharacterDelete,
   updateCharacterOrder as persistCharacterOrderUpdate,
@@ -19,8 +17,6 @@ import {
   saveKeywordAliasesBatch,
 } from './adminPersistence'
 import {
-  buildSourceImageCandidateKeys,
-  buildVersionedSourceImageKey,
   resolveImageWriteBucket,
   saveSourceImageToBucket,
 } from './adminSourceImages'
@@ -58,7 +54,8 @@ export interface ApiState {
 
 interface CommissionFields {
   characterId: number
-  fileName: string
+  commissionDate: string
+  creatorName: string | null
   links: string[]
   design?: string
   description?: string
@@ -90,7 +87,6 @@ export interface UpdateCommissionInput extends CommissionFields {
 
 export interface ReplaceCommissionSourceImageInput {
   id: number
-  commissionFileName: string
   sourceImage: File
 }
 
@@ -177,7 +173,8 @@ function parseCharacterStatus(value: unknown): CharacterStatus {
 
 function parseCommissionFields(input: {
   characterId: number
-  fileName: string
+  commissionDate: string
+  creatorName: string
   links: string
   design: string
   description: string
@@ -186,7 +183,8 @@ function parseCommissionFields(input: {
 }): CommissionFields {
   return {
     characterId: input.characterId,
-    fileName: input.fileName.trim(),
+    commissionDate: input.commissionDate.trim(),
+    creatorName: input.creatorName.trim() || null,
     links: parseLinks(input.links),
     design: parseOptionalField(input.design),
     description: parseOptionalField(input.description),
@@ -198,7 +196,8 @@ function parseCommissionFields(input: {
 function parseCommissionFieldsFromForm(formData: FormData) {
   return parseCommissionFields({
     characterId: Number(formData.get('characterId')),
-    fileName: formData.get('fileName')?.toString() ?? '',
+    commissionDate: formData.get('commissionDate')?.toString() ?? '',
+    creatorName: formData.get('creatorName')?.toString() ?? '',
     links: formData.get('links')?.toString() ?? '',
     design: formData.get('design')?.toString() ?? '',
     description: formData.get('description')?.toString() ?? '',
@@ -208,9 +207,11 @@ function parseCommissionFieldsFromForm(formData: FormData) {
 }
 
 function parseCommissionFieldsFromJson(payload: Record<string, unknown>) {
+  const rawCreatorName = payload.creatorName
   return parseCommissionFields({
     characterId: Number(payload.characterId),
-    fileName: String(payload.fileName ?? ''),
+    commissionDate: String(payload.commissionDate ?? ''),
+    creatorName: rawCreatorName === null || typeof rawCreatorName === 'string' ? String(rawCreatorName ?? '') : '\u0000',
     links: String(payload.links ?? ''),
     design: String(payload.design ?? ''),
     description: String(payload.description ?? ''),
@@ -219,56 +220,25 @@ function parseCommissionFieldsFromJson(payload: Record<string, unknown>) {
   })
 }
 
-function toHex(buffer: ArrayBuffer) {
-  return Array.from(new Uint8Array(buffer), byte => byte.toString(16).padStart(2, '0')).join('')
-}
-
-async function hashImage(buffer: ArrayBuffer) {
-  return toHex(await crypto.subtle.digest('SHA-256', buffer))
-}
-
-async function findSourceImage(
-  bucket: NonNullable<ReturnType<typeof resolveImageWriteBucket>>,
-  fileName: string,
-  preferredKey?: string,
-) {
-  const candidateKeys = preferredKey
-    ? [preferredKey]
-    : buildSourceImageCandidateKeys(fileName)
-
-  for (const objectKey of candidateKeys) {
-    const object = await bucket.get(objectKey)
-    if (!object) {
-      continue
-    }
-    const buffer = await object.arrayBuffer()
-    const mimeType = object.httpMetadata?.contentType
-      ?? (objectKey.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg')
-    const extension: '.png' | '.jpg' = mimeType.toLowerCase() === 'image/png' ? '.png' : '.jpg'
-    const sha256 = await hashImage(buffer)
-
-    return {
-      byteSize: buffer.byteLength,
-      buffer,
-      extension,
-      mimeType,
-      objectKey,
-      sha256,
-    }
-  }
-
-  if (preferredKey) {
-    throw new Error('The source image referenced by the commission is missing from storage.')
-  }
-  return null
-}
-
-function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' | 'fileName'>) {
+function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' | 'commissionDate' | 'creatorName'>) {
   if (!Number.isFinite(fields.characterId) || fields.characterId <= 0) {
     return 'Character selection is required.'
   }
 
-  return getCommissionFileNameValidationError(fields.fileName)
+  const date = fields.commissionDate
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return 'Commission date must use YYYY-MM-DD format.'
+  }
+  const parsedDate = new Date(`${date}T00:00:00Z`)
+  if (Number.isNaN(parsedDate.valueOf()) || parsedDate.toISOString().slice(0, 10) !== date) {
+    return 'Commission date must be a real calendar date.'
+  }
+
+  if (fields.creatorName && [...fields.creatorName].some(character => character.charCodeAt(0) <= 0x1F)) {
+    return 'Creator name must be a string or null.'
+  }
+
+  return null
 }
 
 function parseIdFromPath(pathname: string, pattern: RegExp) {
@@ -398,11 +368,12 @@ function createNativeCrudBackend(
         return unavailableBackend.createCommission(input)
       }
 
+      const assetKey = `commission-${crypto.randomUUID()}`
       let uploadedSourceImage: Awaited<ReturnType<typeof saveSourceImageToBucket>> | null = null
 
       try {
         uploadedSourceImage = await saveSourceImageToBucket(imagesBucket, {
-          commissionFileName: input.fileName,
+          commissionFileName: assetKey,
           file: input.sourceImage,
           overwrite: false,
         })
@@ -412,10 +383,13 @@ function createNativeCrudBackend(
       }
 
       try {
-        const { characterName } = await persistCommissionCreate(db, input, uploadedSourceImage)
+        const { characterName } = await persistCommissionCreate(db, {
+          ...input,
+          fileName: assetKey,
+        }, uploadedSourceImage)
         return json({
           status: 'success',
-          message: `Commission "${input.fileName}" added to ${characterName}.`,
+          message: `Commission dated ${input.commissionDate} added to ${characterName}.`,
         })
       }
       catch (error) {
@@ -425,72 +399,11 @@ function createNativeCrudBackend(
     },
     async updateCommission(input) {
       try {
-        const oldFileName = await persistCommissionFileName(db, input.id)
-        const newFileName = input.fileName.trim()
-        const fileNameChanged = oldFileName !== newFileName
-
-        let oldSourceImageMeta: Awaited<ReturnType<typeof persistSourceImageMetadataGet>> = null
-        if (fileNameChanged) {
-          oldSourceImageMeta = await persistSourceImageMetadataGet(db, oldFileName)
-          if (!imagesBucket) {
-            return failure('Admin worker IMAGES binding is required to rename a commission.', 503)
-          }
-        }
-
-        let movedImage: Awaited<ReturnType<typeof findSourceImage>> = null
-        let newObjectKey: string | null = null
-        if (fileNameChanged && imagesBucket) {
-          movedImage = await findSourceImage(imagesBucket, oldFileName, oldSourceImageMeta?.objectKey)
-
-          if (movedImage) {
-            newObjectKey = buildVersionedSourceImageKey(
-              newFileName,
-              movedImage.sha256,
-              movedImage.extension,
-            )
-            await imagesBucket.put(newObjectKey, movedImage.buffer, {
-              httpMetadata: { contentType: movedImage.mimeType },
-            })
-            try {
-              await persistSourceImageMetadata(db, {
-                commissionFileName: newFileName,
-                objectKey: newObjectKey,
-                mimeType: movedImage.mimeType,
-                byteSize: movedImage.byteSize,
-                sha256: movedImage.sha256,
-              })
-            }
-            catch (error) {
-              return failure(error instanceof Error ? error.message : 'Failed to prepare renamed image.')
-            }
-          }
-        }
-
-        try {
-          await persistCommissionUpdate(db, input)
-        }
-        catch (error) {
-          const currentFileName = await persistCommissionFileName(db, input.id).catch(() => null)
-          if (newObjectKey && currentFileName !== newFileName) {
-            await imagesBucket?.delete(newObjectKey).catch(() => undefined)
-            await persistSourceImageMetadataGet(db, newFileName).then(async (metadata) => {
-              if (metadata?.objectKey === newObjectKey) {
-                await deleteSourceImageMetadataIfMatches(db, newFileName, newObjectKey)
-              }
-            }).catch(() => undefined)
-          }
-          throw error
-        }
-
-        if (fileNameChanged && movedImage && imagesBucket) {
-          await imagesBucket.delete(movedImage.objectKey).catch((error) => {
-            console.warn('已完成图片改名，但旧图片清理失败。', error)
-          })
-        }
+        await persistCommissionUpdate(db, input)
 
         return json({
           status: 'success',
-          message: `Commission "${input.fileName}" updated.`,
+          message: `Commission dated ${input.commissionDate} updated.`,
         })
       }
       catch (error) {
@@ -536,7 +449,7 @@ function createNativeCrudBackend(
         }
         return json({
           status: 'success',
-          message: `Source image for "${commissionFileName}" replaced.`,
+          message: `Source image for commission ${input.id} replaced.`,
         })
       }
       catch (error) {
@@ -673,11 +586,6 @@ async function handleCrudRequest(request: Request, backend: AdminCrudBackend) {
     }
 
     const formData = await request.formData()
-    const commissionFileName = formData.get('commissionFileName')?.toString().trim() ?? ''
-    if (!commissionFileName) {
-      return failure('File name is required.')
-    }
-
     const sourceImage = getUploadedSourceImage(formData)
     if (!sourceImage) {
       return failure('Source image is required.')
@@ -685,7 +593,6 @@ async function handleCrudRequest(request: Request, backend: AdminCrudBackend) {
 
     return handleCrudBackendRequest(() => backend.replaceCommissionSourceImage({
       id,
-      commissionFileName,
       sourceImage,
     }))
   }

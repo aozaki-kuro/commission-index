@@ -6,7 +6,6 @@ import {
 } from '@features/home/commission/linkDisplay'
 import { getUnpublishedInterestIconMarkup } from '@features/home/commission/unpublishedInterestIcon'
 import { getHomeLocaleMessages, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
-import { parseCommissionFileName } from '@lib/commissions/index'
 import { parseAndFormatDate } from '@lib/date/format'
 
 interface IllustratorInfoProps {
@@ -20,14 +19,14 @@ interface IllustratorInfoProps {
 const { locale, commission, kebabName, showLinks = true, className = '' }
   = Astro.props as IllustratorInfoProps
 const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
-const { fileName, Description: description = '', Links: links, Design: designLink } = commission
-const { date, creator } = parseCommissionFileName(fileName)
-const linkId = `#${kebabName}-${date}`
-const formattedDate = parseAndFormatDate(date, 'yyyy/MM/dd')
-const interestKey = `${kebabName}-${date}`
+const { Description: description = '', Links: links, Design: designLink } = commission
+const compactDate = commission.commissionDate?.replaceAll('-', '') ?? ''
+const linkId = `#${kebabName}-commission-${commission.id}`
+const formattedDate = compactDate ? parseAndFormatDate(compactDate, 'yyyy/MM/dd') : ''
+const interestKey = compactDate ? `${kebabName}-${compactDate}` : `${kebabName}-commission-${commission.id}`
 const quotedDescription = `"${description}"`
 
-const hasCreator = Boolean(creator)
+const hasCreator = Boolean(commission.creatorName)
 const hasDescription = Boolean(description)
 const hasBoth = hasCreator && hasDescription
 
@@ -52,7 +51,7 @@ const rootClass = `flex w-full flex-wrap items-center gap-y-2 font-mono text-xs 
     {
       hasCreator
 ? (
-        <span>{creator}</span>
+        <span>{commission.creatorName}</span>
       )
 : hasDescription
 ? (

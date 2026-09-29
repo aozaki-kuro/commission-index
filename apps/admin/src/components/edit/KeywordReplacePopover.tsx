@@ -4,6 +4,7 @@ import { IconReplace, IconX } from '@tabler/icons-react'
 import { useCallback, useMemo, useState, useTransition } from 'react'
 import { formControlStyles } from '../../app/ui'
 import { getAdminApiUrl } from '../../lib/adminApi'
+import { getCommissionDisplayLabel } from '../../lib/commissionPresentation'
 
 interface KeywordReplacePopoverProps {
   commissionSearchRows: AdminCommissionSearchRow[]
@@ -14,7 +15,9 @@ interface MatchedCommission {
   id: number
   characterId: number
   characterName: string
-  fileName: string
+  commissionDate: string | null
+  creatorName: string | null
+  displayLabel: string
   links: string
   design: string | null | undefined
   description: string | null | undefined
@@ -41,7 +44,9 @@ function findMatches(
         id: row.id,
         characterId: row.characterId,
         characterName: row.characterName,
-        fileName: row.fileName,
+        commissionDate: row.commissionDate,
+        creatorName: row.creatorName,
+        displayLabel: getCommissionDisplayLabel(row),
         links: row.links,
         design: row.design,
         description: row.description,
@@ -110,7 +115,8 @@ export function KeywordReplacePopover({
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 characterId: match.characterId,
-                fileName: match.fileName,
+                commissionDate: match.commissionDate,
+                creatorName: match.creatorName,
                 links: match.links,
                 design: match.design ?? '',
                 description: match.description ?? '',
@@ -122,12 +128,12 @@ export function KeywordReplacePopover({
 
           if (!response.ok) {
             const body = await response.json().catch(() => ({}))
-            setError(`Failed on "${match.fileName}": ${(body as { message?: string }).message ?? response.statusText}`)
+            setError(`Failed on "${match.displayLabel}": ${(body as { message?: string }).message ?? response.statusText}`)
             return
           }
         }
         catch {
-          setError(`Network error on "${match.fileName}"`)
+          setError(`Network error on "${match.displayLabel}"`)
           return
         }
       }
@@ -302,7 +308,7 @@ export function KeywordReplacePopover({
                               dark:text-gray-300
                             "
                             >
-                              {match.fileName}
+                              {match.displayLabel}
                             </span>
                             <span className="
                               shrink-0 text-xs text-gray-400 line-through

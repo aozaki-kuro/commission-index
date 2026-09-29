@@ -1,5 +1,4 @@
 import type { CharacterCommissions, Commission, Props } from '@data/types'
-import { getBaseFileName } from '@lib/utils/strings'
 
 export type CommissionWithCharacter = Commission & { character: string }
 
@@ -14,17 +13,28 @@ export function filterHiddenCommissions(data: Props): Props {
 }
 
 /**
- * Merge parts/previews, keeping the latest version.
+ * Merge legacy series while keeping independent works separate.
  */
 export function mergePartsAndPreviews<T extends Commission>(commissions: T[]): Map<string, T> {
   const commissionMap = new Map<string, T>()
 
   commissions.forEach((commission) => {
-    const baseFileName = getBaseFileName(commission.fileName)
-    const existing = commissionMap.get(baseFileName)
+    const seriesKey = commission.seriesKey || `commission:${commission.id}`
+    const existing = commissionMap.get(seriesKey)
+    if (!existing) {
+      commissionMap.set(seriesKey, commission)
+      return
+    }
 
-    if (!existing || commission.fileName > existing.fileName) {
-      commissionMap.set(baseFileName, commission)
+    if (commission.seriesOrder != null && existing.seriesOrder != null) {
+      if (commission.seriesOrder.localeCompare(existing.seriesOrder) > 0) {
+        commissionMap.set(seriesKey, commission)
+      }
+      return
+    }
+
+    if (sortCommissionsByDate(commission, existing) < 0) {
+      commissionMap.set(seriesKey, commission)
     }
   })
 
@@ -35,17 +45,8 @@ export function mergePartsAndPreviews<T extends Commission>(commissions: T[]): M
  * Sort commissions by date (desc).
  */
 export function sortCommissionsByDate<T extends Commission>(a: T, b: T): number {
-  return b.fileName.localeCompare(a.fileName)
-}
-
-/**
- * Extract metadata from a commission file name.
- */
-export function parseCommissionFileName(fileName: string) {
-  const date = fileName.slice(0, 8)
-  const year = date.slice(0, 4)
-  const creator = fileName.slice(9)
-  return { date, year, creator }
+  const dateOrder = (b.commissionDate ?? '').localeCompare(a.commissionDate ?? '')
+  return dateOrder || b.id - a.id
 }
 
 /**
@@ -60,7 +61,7 @@ export function flattenCommissions(data: Props, predicate?: (character: Characte
 }
 
 /**
- * Deduplicate and sort commissions by latest file name.
+ * Deduplicate legacy series and sort by explicit date, then stable identity.
  */
 export function collectUniqueCommissions(commissions: CommissionWithCharacter[]): CommissionWithCharacter[] {
   return [...mergePartsAndPreviews(commissions).values()].toSorted(sortCommissionsByDate)

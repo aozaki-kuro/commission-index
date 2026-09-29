@@ -31,8 +31,7 @@ export function DuplicateCommissionNotice({
           dark:text-amber-100/80
         "
         >
-          Non-blocking warning shown only for exact file-name matches, or when character, date,
-          and creator all line up.
+          Non-blocking warning shown when character, delivery date, and creator all match.
         </p>
       </div>
 
@@ -51,7 +50,7 @@ export function DuplicateCommissionNotice({
                 dark:text-gray-100
               "
               >
-                {hint.fileName}
+                {hint.displayLabel}
               </span>
               <span className="
                 shrink-0 text-[11px] text-gray-500

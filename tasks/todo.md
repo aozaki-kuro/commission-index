@@ -3,9 +3,9 @@
 ## 本轮执行切片（2026-09-29 数据库结构专项评估）
 
 - [x] 核对历史计划、当前 schema、数据读写及静态导出边界
-- [ ] 复核索引、约束与带数据迁移风险，核实 D1 官方限制
-- [ ] 编写必要性、候选模型、工作量、切换与恢复的详细实施计划
-- [ ] 同步文档索引并校验引用、事实与变更范围
+- [x] 复核索引、约束与带数据迁移风险，核实 D1 官方限制
+- [x] 编写必要性、候选模型、工作量、切换与恢复的详细实施计划
+- [x] 同步文档索引并校验引用、事实与变更范围
 
 范围：只读研究与本地隔离验证，交付评估文档；不实施业务代码、生产迁移或部署。既有未提交搜索改动及其他计划保持原样。
 
@@ -808,3 +808,35 @@
 - Chromium 模拟 API 回归 16 种组合通过，验证遮罩误触、内容/遮罩 animationend、嵌套详情保持打开及 JPEG 确认；一次开发服务器刷新中断的用例，增加挂载等待后单独重跑通过。
 - 裁剪几何单测 5 项、目标 ESLint、管理端 typecheck/build 通过。构建仍有依赖的 use client 指令提示。
 - 生产部署及完整页面截图基线未执行；此次验证使用本地管理端和模拟 API。
+
+## Review（2026-09-29 数据库结构专项评估）
+
+- 新增 `docs/database-optimization-assessment-2026-09-29.md`：必要性分级、目标模型取舍、业务决策、分阶段实施、10-20 人日规划估算、恢复/停写/对象保留、验收矩阵及放行清单。
+- 本地 SQLite 3.53.4 复现 0003 带数据迁移级联删除作品：外键开启时，无论是否延迟检查，角色/作品/图片 metadata 从 1/1/1 变为 1/0/1，外键检查仍为空。附录提供内存复现代码；未据此认定生产数据已损失。
+- 两个只读子代理分别复核数据库结构与全链路消费者；补充 alias-only 独立映射、旧文件名必填解除策略、Web JSON 读取校验、RSS/localStorage 兼容及上传时尚无作品 ID 的对象键设计。
+- 已核对官方 D1/R2 文档；文档本地链接、目标 Markdown 格式及 diff 空白检查通过。评估期间 HEAD 从 b229648 推进至 2af23c6，相关 Worker/Domain/schema 源码未变；未覆盖其他线程的搜索修改和既有计划。
+- 本次无业务代码、API、schema 或生产资源变更；未运行全仓构建/测试、未访问生产数据、未迁移或部署。新增评估文档并同步根 AGENTS 文档索引/迁移护栏与本任务记录。
+
+## 本轮执行切片（2026-09-29 D1/R2 与后台作品身份迁移）
+
+- [x] 核实共享工作区、当前 HEAD、Wrangler 版本和目标 Cloudflare 账号/资源
+- [x] 只读确认生产迁移记录、关键索引与业务行数
+- [x] 将全库 D1 SQL 导出到本地私有目录，并在独立 SQLite 中还原、比对计数和外键
+- [x] 分页下载整个 R2 bucket，校验键清单、146 个对象、38,592,254 字节和逐对象 SHA-256
+- [x] 将 141 条 D1 图片 metadata 与实际 R2 对象逐条交叉验证；保留 5 个未引用对象
+- [x] 盘点真实作品身份/日期/作者碰撞和公开消费者，定稿兼容模型；保留同日多作品、空作者与旧 preview/part 展示顺序
+- [x] 实现单个前向迁移、Worker/API、管理后台创建/编辑 UI、Domain/Web schema v2 静态协议与运行时校验
+- [ ] 在一次协调发布窗口内对生产 D1 应用已演练的 0004 并部署兼容 Worker/Admin/Web；发布前再次核对备份，发布后核对 141 条作品、141 条图片 metadata、全部关系/对象及外键
+- [x] 运行 lint/typecheck/tests、Admin/Web 构建、Wrangler Worker dry-run、Astro check 和 v2 静态产物验证
+- [x] 最终差异审查并提交代码
+
+本地私有备份：`.local-backups/commission-index-20260929T123450Z/`（`.gitignore` 排除；目录 0700、文件 0600）。没有部署或删除 R2 对象。
+
+## Review（2026-09-29 作品身份与数据结构迁移实现）
+
+- 新增单个 `0004_commission_identity.sql`：141 条现有作品回填 ISO 日期/作者，141 条图片 metadata 关联稳定作品 ID；对已还原的生产快照执行离线预演，记录数、唯一关系和外键检查守恒。26 条作者未知保持 `NULL`；不按日期或作者合并记录。
+- Worker 与管理端改为日期/作者显式字段和作品 ID 图片访问；新作品使用 opaque 内部 asset key。编辑日期/作者不重写或搬移图片；现存 R2 key/对象保留原样。
+- Web schema v2、静态导出/校验、搜索、时间线、RSS、摘要、批次均使用显式字段；导出器输出历史 preview/part 分组和排序以保持原显示赢家。
+- 通过：`pnpm run lint`、`pnpm run typecheck`、`pnpm run test`（56 files / 251 passed / 6 skipped）、`apps/web check:astro`（184 files / 0 diagnostics）、Admin build、Web Astro build（4 pages）、Wrangler deploy dry-run。Admin 构建保留既有 Radix `use client` 警告；Web build 有既有缺少可选 `src/icons` 目录提示。
+- 根 `pnpm run check` 的事实源导出前置步骤只读访问生产 D1 时因尚无 `commission_date` 而失败；从已校验备份制作的临时 schema v2 输入完成 Astro check/build 后，已恢复原 v1 忽略输入。现网 D1/R2 未写入，避免未协调新旧 Worker/schema 窗口；生产迁移与 Worker/Admin/Web 发布仍须在同一窗口完成。
+- 0003 的历史迁移曾在隔离 SQLite 复现级联删除风险；线上迁移表已确认 0001–0003 已应用。发布执行器必须只运行已审阅的 0004，并核对迁移历史，不能再次运行旧迁移或“全部待应用”命令。

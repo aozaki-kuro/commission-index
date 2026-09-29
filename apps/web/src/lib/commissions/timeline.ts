@@ -40,14 +40,16 @@ export function buildCommissionTimeline(commissionMap: Map<string, CharacterComm
 } {
   const sortedEntries = [...commissionMap.values()]
     .flatMap(({ Character, Commissions }) =>
-      Commissions.map(commission => ({ character: Character, commission })),
+      Commissions
+        .filter(commission => commission.commissionDate)
+        .map(commission => ({ character: Character, commission })),
     )
     .sort((a, b) => sortCommissionsByDate(a.commission, b.commission))
 
   const groupsByYear = new Map<string, TimelineYearGroup>()
 
   for (const entry of sortedEntries) {
-    const yearKey = entry.commission.fileName.slice(0, 4)
+    const yearKey = entry.commission.commissionDate!.slice(0, 4)
     const existing = groupsByYear.get(yearKey)
 
     if (existing) {

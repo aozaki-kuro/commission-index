@@ -53,25 +53,32 @@ you must use a single-attempt fetch or implement idempotency guards** — retryi
 on 4xx will repeat the failed write attempt and may cause duplicate writes or conflicting
 state.
 
-> **Cross-reference — PATCH fileName rename:** See Section 8. Renames prepare an immutable R2
-> object, switch the D1 reference atomically, then clean up the old object. Retrying the same
-> payload after an ambiguous response does not depend on the old object still existing.
+> **Cross-reference — commission identity and image operations:** See Section 8. PATCH
+> changes metadata only; it does not rename, move, copy, or delete the referenced R2 object.
 
 ---
 
-## 3. File Name Format
+## 3. Commission Identity Fields
 
-### Pattern
+Use the numeric `id` as the stable identity for every commission. Create and PATCH requests
+must send `commissionDate` as a real calendar date in `YYYY-MM-DD` format and `creatorName`
+as a string or `null` when unknown. PATCH is a full metadata update: include both fields on
+every request. Do not send or derive identity from `fileName`; it remains an internal legacy
+compatibility field during migration.
+
+Dates and creator names are ordinary metadata. Editing either field does not rename, move,
+copy, or delete the existing source-image object. Use
+`/api/admin/commissions/:id/source-image` to read or replace image bytes.
+
+### Legacy file name (migration history only)
 
 ```
 YYYYMMDD
 YYYYMMDD_creator
 ```
 
-- Regex: `/^\d{8}(?:_.+)?$/`
-- The date prefix must be exactly 8 digits.
-- Everything after the first `_` is the creator name (the part suffix `(part N)` is
-  stripped during normalization via `normalizeCreatorName`).
+- This historical filename pattern is not the create/PATCH API contract and must not be used
+  to derive commission identity, date, creator, or image URLs.
 
 ### Valid / invalid examples
 
@@ -90,11 +97,11 @@ YYYYMMDD_creator
 
 `< > : " / \ | ? *`, `..` sequences, and any control character (codepoint ≤ 0x1F).
 
-### Creator name extraction
+### Legacy creator parsing
 
-The part after the first `_` is the raw creator name. `normalizeCreatorName` trims
-whitespace and strips a trailing ` (part N)` suffix (case-insensitive). Empty result after
-trim → null (treated as unnamed).
+The part after the first `_` was historically treated as a creator name. This parse rule is
+for migration review only; it must not overwrite explicit API fields. For FormData create,
+send an empty `creatorName` string when unknown; the Worker stores it as `null`.
 
 ### CJK support
 
@@ -312,36 +319,23 @@ await fetch('/api/admin/characters/order', {
 
 There are three separate operations with different image semantics:
 
-| Operation         | Endpoint                                       | Image behavior                                                                                              |
-| ----------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Create commission | `POST /api/admin/commissions`                  | FormData with `sourceImage` file — atomic (image uploaded first, D1 write second; rollback on D1 failure)   |
-| Update metadata   | `PATCH /api/admin/commissions/:id`             | JSON body only — never touches the image                                                                    |
-| Replace image     | `POST /api/admin/commissions/:id/source-image` | FormData with required `commissionFileName` and `sourceImage` fields — always overwrites existing R2 object |
+| Operation         | Endpoint                                       | Image behavior                                                                  |
+| ----------------- | ---------------------------------------------- | ------------------------------------------------------------------------------- |
+| Create commission | `POST /api/admin/commissions`                  | FormData with explicit `commissionDate`, `creatorName`, and `sourceImage`       |
+| Update metadata   | `PATCH /api/admin/commissions/:id`             | JSON body with explicit date/creator fields — never touches the R2 object       |
+| Read image        | `GET /api/admin/commissions/:id/source-image`  | Resolves the image by stable commission ID                                      |
+| Replace image     | `POST /api/admin/commissions/:id/source-image` | FormData with `sourceImage`; the commission ID identifies the metadata relation |
 
-**R2 rename on fileName change (PATCH):**
-
-When `PATCH` changes `fileName`, the worker automatically:
-
-1. Looks up the current source image metadata by old `fileName` (or checks legacy keys when metadata is absent).
-2. Writes the image to a new immutable key under `source-images/<fileName>/<sha256>-<uuid>.<ext>`.
-3. Upserts metadata for the new name, then atomically updates the commission and removes the old metadata row.
-4. Deletes the old R2 object only after the D1 commit succeeds.
-
-The immutable key means the old metadata continues to reference a readable object until the
-new reference is committed. A rename requires the `IMAGES` binding. If the current metadata
-points to a missing object, the request fails before changing D1.
-
-If the response is lost after the D1 commit, retry the same PATCH payload. The committed
-filename and metadata remain the source of truth; failed cleanup can leave an unreferenced old
-object, but does not invalidate the active image.
+Changing `commissionDate` or `creatorName` with PATCH does not rename, move, copy, overwrite,
+or delete an R2 object. The stable commission ID continues to resolve the same image.
+`fileName` is a legacy internal compatibility field and is not a caller-supplied identity.
 
 **POST atomicity:**
 
-`POST /api/admin/commissions` uploads an immutable image object to R2 first, then atomically
-inserts the commission and its metadata in D1. If the D1 batch fails, the new R2 object is
-left untouched because the worker cannot safely distinguish a failed commit from a lost
-response. It is an orphan and can be collected later; no existing same-name commission or
-image is deleted as compensation.
+`POST /api/admin/commissions` uploads an immutable image object to R2 first, then inserts the
+commission and its image reference in D1. D1 and R2 do not share a transaction. If the D1
+result is ambiguous or fails after upload, retain the object until the D1 state is checked;
+do not delete it as automatic compensation.
 
 ---
 
@@ -362,10 +356,10 @@ Extension resolution priority: MIME type first, then filename extension as fallb
 
 **Duplicate behavior (create):**
 
-The worker checks legacy keys (`fileName.jpg`, `fileName.jpeg`, `fileName.png`) before
-uploading. New objects use unique immutable keys under `source-images/<fileName>/`; the
-unique commission filename constraint in D1 arbitrates concurrent creates. A failed or losing
-request may leave an unreferenced new object, but does not overwrite another image.
+The create endpoint accepts `commissionDate` and `creatorName`; callers do not supply a
+filename. The Worker assigns its internal compatibility value. New images use unique,
+immutable R2 keys; a failed or ambiguous D1 create can leave an unreferenced object. Keep it
+until the D1 result is checked, and do not overwrite or delete another commission's object.
 
 **R2 cleanup on replacement:**
 
@@ -457,8 +451,8 @@ Note: `updateCommission` (PATCH) returns `200 success` even when nothing changed
 persistence layer detects no-op and skips the DB write, but the API layer always returns
 success).
 
-**Exception:** `GET /api/admin/source-image/:fileName` returns plain-text `Not Found` on
-404 — NOT the JSON envelope. Calling `.json()` on this response will throw a parse error.
+**Exception:** `GET /api/admin/commissions/:id/source-image` returns plain-text `Not Found`
+on 404 — NOT the JSON envelope. Calling `.json()` on this response will throw a parse error.
 Use `response.text()` for this endpoint's error case.
 
 ---

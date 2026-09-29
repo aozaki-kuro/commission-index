@@ -15,7 +15,7 @@ describe('commissionRecords', () => {
   it('reloads generated fact-source content across repeated development reads', async () => {
     const getGeneratedFactSourceContent = vi.fn(() => ({
       meta: {
-        schemaVersion: 1,
+        schemaVersion: 2,
         source: 'remote-admin-fact-source',
         exportedAt: '2026-03-18T00:00:00.000Z',
         revision: 'fixture',
@@ -30,6 +30,9 @@ describe('commissionRecords', () => {
           sortOrder: 1,
           commissions: [
             {
+              id: 1,
+              commissionDate: '2026-01-01',
+              creatorName: 'creator',
               fileName: '20260101_creator_lucia',
               Links: [],
               Keyword: 'maid',

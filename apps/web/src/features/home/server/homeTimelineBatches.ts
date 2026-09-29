@@ -1,7 +1,6 @@
 import type { HomeLocale } from '@features/home/i18n/homeLocale'
 import type { TimelineYearGroup } from '@lib/commissions/timeline'
 import { getCharacterSectionId } from '@lib/characters/nav'
-import { parseCommissionFileName } from '@lib/commissions'
 import { hashString } from '@lib/utils/hash'
 
 export interface HomeTimelineBatchPlan {
@@ -45,9 +44,12 @@ function buildTargetBatchById(batches: TimelineYearGroup[][]) {
       targetBatchById[group.titleId] = batchIndex
 
       group.entries.forEach((entry) => {
-        const { date } = parseCommissionFileName(entry.commission.fileName)
         const entryAnchorPrefix = getCharacterSectionId(entry.character)
-        targetBatchById[`${entryAnchorPrefix}-${date}`] = batchIndex
+        targetBatchById[`${entryAnchorPrefix}-commission-${entry.commission.id}`] = batchIndex
+        const compactDate = entry.commission.commissionDate?.replaceAll('-', '')
+        if (compactDate) {
+          targetBatchById[`${entryAnchorPrefix}-${compactDate}`] = batchIndex
+        }
       })
     })
   })

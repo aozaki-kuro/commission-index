@@ -1,11 +1,10 @@
 import type { Props } from '@data/types'
+import { getCharacterSectionId } from '@lib/characters/nav'
 import {
   collectUniqueCommissions,
   flattenCommissions,
-  parseCommissionFileName,
 } from '@lib/commissions'
 import { parseAndFormatDate } from '@lib/date/format'
-import { getBaseFileName, kebabCase } from '@lib/utils/strings'
 
 export interface HomeUpdateEntry {
   key: string
@@ -24,23 +23,19 @@ export const isMilestoneCommissionCount = (num: number): boolean => num > 0 && n
 export function buildHomeUpdateSummary(commissionData: Props, activeCharacters: string[]): HomeUpdateSummary {
   const activeCharacterSet = new Set(activeCharacters)
 
-  const totalCommissions = new Set(
-    commissionData.flatMap(({ Commissions }) =>
-      Commissions.map(({ fileName }) => getBaseFileName(fileName)),
-    ),
-  ).size
+  const totalCommissions = collectUniqueCommissions(flattenCommissions(commissionData)).length
 
   const latestEntries = flattenCommissions(commissionData, ({ Character }) =>
     activeCharacterSet.has(Character))
   const uniqueEntries = collectUniqueCommissions(latestEntries)
 
-  const entries = uniqueEntries.slice(0, 3).map(({ fileName, character }) => {
-    const { date } = parseCommissionFileName(fileName)
+  const entries = uniqueEntries.slice(0, 3).map((commission) => {
+    const compactDate = commission.commissionDate?.replaceAll('-', '') ?? ''
     return {
-      key: fileName,
-      character,
-      href: `#${kebabCase(character)}-${date}`,
-      dateLabel: parseAndFormatDate(date, 'yyyy/MM/dd'),
+      key: String(commission.id),
+      character: commission.character,
+      href: `#${getCharacterSectionId(commission.character)}-commission-${commission.id}`,
+      dateLabel: compactDate ? parseAndFormatDate(compactDate, 'yyyy/MM/dd') : '',
     }
   })
 

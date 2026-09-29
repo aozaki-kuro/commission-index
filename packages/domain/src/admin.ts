@@ -13,6 +13,8 @@ export interface CommissionRow {
   id: number
   characterId: number
   characterName: string
+  commissionDate: string | null
+  creatorName: string | null
   fileName: string
   links: string[]
   design?: string | null
@@ -25,6 +27,8 @@ export interface AdminCommissionSearchRow {
   id: number
   characterId: number
   characterName: string
+  commissionDate: string | null
+  creatorName: string | null
   fileName: string
   links: string
   design?: string | null

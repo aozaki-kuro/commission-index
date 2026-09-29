@@ -12,8 +12,8 @@ interface UseCommissionEditStateParams {
   commission: CommissionRow
 }
 
-function buildImageSrc(fileName: string) {
-  return getAdminApiUrl(`/api/admin/source-image/${encodeURIComponent(fileName)}`)
+function buildImageSrc(commissionId: number) {
+  return getAdminApiUrl(`/api/admin/commissions/${commissionId}/source-image`)
 }
 
 export function useCommissionEditState({
@@ -32,7 +32,8 @@ export function useCommissionEditState({
 
   const [selectedCharacterId, setSelectedCharacterId] = useState<number>(initialCharacterId)
   const [isHidden, setIsHidden] = useState(commission.hidden)
-  const [fileName, setFileName] = useState(commission.fileName)
+  const [commissionDate, setCommissionDate] = useState(commission.commissionDate ?? '')
+  const [creatorName, setCreatorName] = useState(commission.creatorName ?? '')
   const [linksValue, setLinksValue] = useState(() => commission.links.join('\n'))
   const [designValue, setDesignValue] = useState(commission.design ?? '')
   const [descriptionValue, setDescriptionValue] = useState(commission.description ?? '')
@@ -40,7 +41,7 @@ export function useCommissionEditState({
   const [errorSrc, setErrorSrc] = useState<string | null>(null)
   const [deleteStatus, setDeleteStatus] = useState<DeleteStatus | null>(null)
 
-  const imageSrc = useMemo(() => buildImageSrc(fileName), [fileName])
+  const imageSrc = useMemo(() => buildImageSrc(commission.id), [commission.id])
 
   useEffect(() => {
     if (!deleteStatus) {
@@ -56,10 +57,11 @@ export function useCommissionEditState({
 
   return {
     deleteStatus,
+    commissionDate,
+    creatorName,
     descriptionValue,
     designValue,
     errorSrc,
-    fileName,
     imageSrc,
     initialCharacterId,
     isHidden,
@@ -67,10 +69,11 @@ export function useCommissionEditState({
     linksValue,
     selectedCharacterId,
     setDeleteStatus,
+    setCommissionDate,
+    setCreatorName,
     setDescriptionValue,
     setDesignValue,
     setErrorSrc,
-    setFileName,
     setIsHidden,
     setKeywordValue,
     setLinksValue,

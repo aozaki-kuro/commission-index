@@ -137,6 +137,8 @@ function createAdminReadD1Database() {
       id: 10,
       characterId: 1,
       characterName: 'Alice',
+      commissionDate: '2025-03-01',
+      creatorName: 'alice-maker',
       fileName: '20250301_alice-maker',
       links: JSON.stringify(['https://alice.example/a', 'https://alice.example/b']),
       design: 'maid outfit',
@@ -148,6 +150,8 @@ function createAdminReadD1Database() {
       id: 11,
       characterId: 2,
       characterName: 'Beta',
+      commissionDate: '2024-01-05',
+      creatorName: 'beta-maker',
       fileName: '20240105_beta-maker',
       links: JSON.stringify(['https://beta.example/1']),
       design: 'armor',
@@ -180,8 +184,8 @@ function createAdminReadD1Database() {
       }))
     }
 
-    if (query.includes('SELECT file_name as fileName FROM commissions')) {
-      return commissions.map(item => ({ fileName: item.fileName }))
+    if (query.includes('SELECT creator_name as creatorName FROM commissions')) {
+      return commissions.map(item => ({ creatorName: item.creatorName }))
     }
 
     if (query.includes('FROM creator_aliases') && query.includes('ORDER BY creator_name ASC')) {
@@ -209,12 +213,14 @@ function createAdminReadD1Database() {
 
     if (
       query.includes('commissions.id as id')
-      && query.includes('ORDER BY characters.sort_order ASC, commissions.file_name DESC')
+      && query.includes('ORDER BY characters.sort_order ASC, commissions.commission_date DESC')
     ) {
       return commissions.map(item => ({
         id: item.id,
         characterId: item.characterId,
         characterName: item.characterName,
+        commissionDate: item.commissionDate,
+        creatorName: item.creatorName,
         fileName: item.fileName,
         links: item.links,
         design: item.design,
@@ -235,6 +241,8 @@ function createAdminReadD1Database() {
     ) {
       return commissions.map(item => ({
         characterName: item.characterName,
+        commissionDate: item.commissionDate,
+        creatorName: item.creatorName,
         fileName: item.fileName,
         design: item.design,
         description: item.description,
@@ -250,6 +258,8 @@ function createAdminReadD1Database() {
           id: item.id,
           characterId: item.characterId,
           characterName: item.characterName,
+          commissionDate: item.commissionDate,
+          creatorName: item.creatorName,
           fileName: item.fileName,
           links: item.links,
           design: item.design,
@@ -378,7 +388,8 @@ describe('admin worker CRUD contract routing', () => {
 
     const formData = new FormData()
     formData.set('characterId', '7')
-    formData.set('fileName', '  20250301_sample-piece  ')
+    formData.set('commissionDate', '  2025-03-01  ')
+    formData.set('creatorName', '  sample-piece  ')
     formData.set('links', ' https://a.example \n\nhttps://b.example ')
     formData.set('design', '  outfit  ')
     formData.set('description', '  desc  ')
@@ -403,7 +414,8 @@ describe('admin worker CRUD contract routing', () => {
     const [payload] = createCommission.mock.calls[0] as [CreateCommissionInput]
     expect(payload).toMatchObject({
       characterId: 7,
-      fileName: '20250301_sample-piece',
+      commissionDate: '2025-03-01',
+      creatorName: 'sample-piece',
       links: ['https://a.example', 'https://b.example'],
       design: 'outfit',
       description: 'desc',
@@ -421,7 +433,7 @@ describe('admin worker CRUD contract routing', () => {
 
     const formData = new FormData()
     formData.set('characterId', '7')
-    formData.set('fileName', '20250301_sample-piece')
+    formData.set('commissionDate', '2025-03-01')
 
     const request = new Request(`${baseUrl}/api/admin/commissions`, {
       method: 'POST',
@@ -438,14 +450,14 @@ describe('admin worker CRUD contract routing', () => {
     expect(createCommission).not.toHaveBeenCalled()
   })
 
-  it('rejects invalid commission file names before PATCH persistence', async () => {
+  it('rejects impossible commission dates before PATCH persistence', async () => {
     const updateCommission = vi.fn(async () => createJsonResponse({ status: 'success', message: 'unexpected' }))
     const backend = createCrudBackend({ updateCommission })
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/commissions/19`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ characterId: 3, fileName: '../invalid', links: '', hidden: false }),
+        body: JSON.stringify({ characterId: 3, commissionDate: '2025-02-30', links: '', hidden: false }),
       }),
       {},
       backend,
@@ -454,7 +466,7 @@ describe('admin worker CRUD contract routing', () => {
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual({
       status: 'error',
-      message: 'File name must start with YYYYMMDD, optionally followed by "_creator".',
+      message: 'Commission date must be a real calendar date.',
     })
     expect(updateCommission).not.toHaveBeenCalled()
   })
@@ -471,7 +483,8 @@ describe('admin worker CRUD contract routing', () => {
       },
       body: JSON.stringify({
         characterId: '3',
-        fileName: '  20250301_updated-piece  ',
+        commissionDate: '  2025-03-01  ',
+        creatorName: '  updated-piece  ',
         links: ' one \n two ',
         design: '  new design  ',
         description: '',
@@ -490,7 +503,8 @@ describe('admin worker CRUD contract routing', () => {
     expect(updateCommission).toHaveBeenCalledWith({
       id: 19,
       characterId: 3,
-      fileName: '20250301_updated-piece',
+      commissionDate: '2025-03-01',
+      creatorName: 'updated-piece',
       links: ['one', 'two'],
       design: 'new design',
       description: undefined,
@@ -697,7 +711,8 @@ describe('admin worker CRUD contract routing', () => {
 
     const formData = new FormData()
     formData.set('characterId', '7')
-    formData.set('fileName', '  20250301_sample-piece  ')
+    formData.set('commissionDate', '2025-03-01')
+    formData.set('creatorName', 'sample-piece')
     formData.set('links', ' https://a.example \n\nhttps://b.example ')
     formData.set('design', '  outfit  ')
     formData.set('description', '  desc  ')
@@ -719,14 +734,15 @@ describe('admin worker CRUD contract routing', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({
       status: 'success',
-      message: 'Commission "20250301_sample-piece" added to Alice.',
+      message: 'Commission dated 2025-03-01 added to Alice.',
     })
     expect(get).toHaveBeenCalledTimes(3)
-    expect(get).toHaveBeenNthCalledWith(1, '20250301_sample-piece.jpg')
-    expect(get).toHaveBeenNthCalledWith(2, '20250301_sample-piece.jpeg')
-    expect(get).toHaveBeenNthCalledWith(3, '20250301_sample-piece.png')
+    const assetKey = put.mock.calls[0]?.[0].split('/')[1]
+    expect(get).toHaveBeenNthCalledWith(1, `${assetKey}.jpg`)
+    expect(get).toHaveBeenNthCalledWith(2, `${assetKey}.jpeg`)
+    expect(get).toHaveBeenNthCalledWith(3, `${assetKey}.png`)
     expect(put).toHaveBeenCalledTimes(1)
-    expect(put.mock.calls[0]?.[0]).toMatch(/^source-images\/20250301_sample-piece\/[a-f0-9]{64}-[\w-]+\.png$/)
+    expect(put.mock.calls[0]?.[0]).toMatch(/^source-images\/commission-[\w-]+\/[a-f0-9]{64}-[\w-]+\.png$/)
     expect(put.mock.calls[0]?.[2]).toEqual({
       httpMetadata: {
         contentType: 'image/png',
@@ -738,7 +754,9 @@ describe('admin worker CRUD contract routing', () => {
     expect(insertOps).toHaveLength(1)
     expect(insertOps[0]?.values).toEqual([
       7,
-      '20250301_sample-piece',
+      '2025-03-01',
+      'sample-piece',
+      expect.stringMatching(/^commission-[\w-]+$/),
       '["https://a.example","https://b.example"]',
       'outfit',
       'desc',
@@ -768,7 +786,8 @@ describe('admin worker CRUD contract routing', () => {
 
     const formData = new FormData()
     formData.set('characterId', '7')
-    formData.set('fileName', '20250301_sample-piece')
+    formData.set('commissionDate', '2025-03-01')
+    formData.set('creatorName', 'sample-piece')
     formData.set('sourceImage', new File(['png'], 'sample.png', { type: 'image/png' }))
 
     const response = await handleAdminApiRequest(
@@ -789,7 +808,7 @@ describe('admin worker CRUD contract routing', () => {
     })
     expect(put).toHaveBeenCalledTimes(1)
     expect(deleteObject).not.toHaveBeenCalled()
-    expect(put.mock.calls[0]?.[0]).toMatch(/^source-images\/20250301_sample-piece\//)
+    expect(put.mock.calls[0]?.[0]).toMatch(/^source-images\/commission-[\w-]+\//)
   })
 
   it('handles update-commission natively when DB binding exists', async () => {
@@ -799,6 +818,8 @@ describe('admin worker CRUD contract routing', () => {
           return [{
             characterId: 1,
             fileName: '20250301_sample-piece',
+            commissionDate: '2025-03-01',
+            creatorName: 'sample-piece',
             links: '["https://a.example"]',
             design: 'old',
             description: 'old desc',
@@ -814,6 +835,7 @@ describe('admin worker CRUD contract routing', () => {
         return []
       },
     })
+    const { bucket, get, put, deleteObject } = createImagesBucketRecorder()
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/commissions/19`, {
         method: 'PATCH',
@@ -822,7 +844,8 @@ describe('admin worker CRUD contract routing', () => {
         },
         body: JSON.stringify({
           characterId: 3,
-          fileName: '20250302_updated-piece',
+          commissionDate: '2025-03-02',
+          creatorName: 'updated-piece',
           links: ' one \n two ',
           design: 'new design',
           description: '',
@@ -830,19 +853,20 @@ describe('admin worker CRUD contract routing', () => {
           hidden: true,
         }),
       }),
-      { DB: db, IMAGES: createImagesBucketRecorder().bucket },
+      { DB: db, IMAGES: bucket },
     )
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({
       status: 'success',
-      message: 'Commission "20250302_updated-piece" updated.',
+      message: 'Commission dated 2025-03-02 updated.',
     })
     const updateOps = executions.filter(item => item.query.includes('UPDATE commissions'))
     expect(updateOps).toHaveLength(1)
     expect(updateOps[0]?.values).toEqual([
       3,
-      '20250302_updated-piece',
+      '2025-03-02',
+      'updated-piece',
       '["one","two"]',
       'new design',
       null,
@@ -850,6 +874,9 @@ describe('admin worker CRUD contract routing', () => {
       1,
       19,
     ])
+    expect(get).not.toHaveBeenCalled()
+    expect(put).not.toHaveBeenCalled()
+    expect(deleteObject).not.toHaveBeenCalled()
   })
 
   it('handles delete-commission natively when DB binding exists', async () => {
@@ -908,7 +935,7 @@ describe('admin worker CRUD contract routing', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({
       status: 'success',
-      message: 'Source image for "20250301_alice-maker" replaced.',
+      message: 'Source image for commission 19 replaced.',
     })
     expect(get).not.toHaveBeenCalled()
     expect(put).toHaveBeenCalledTimes(1)
@@ -966,6 +993,8 @@ describe('admin worker CRUD contract routing', () => {
           id: 10,
           characterId: 1,
           characterName: 'Alice',
+          commissionDate: '2025-03-01',
+          creatorName: 'alice-maker',
           fileName: '20250301_alice-maker',
           links: JSON.stringify(['https://alice.example/a', 'https://alice.example/b']),
           design: 'maid outfit',
@@ -977,6 +1006,8 @@ describe('admin worker CRUD contract routing', () => {
           id: 11,
           characterId: 2,
           characterName: 'Beta',
+          commissionDate: '2024-01-05',
+          creatorName: 'beta-maker',
           fileName: '20240105_beta-maker',
           links: JSON.stringify(['https://beta.example/1']),
           design: 'armor',
@@ -1093,6 +1124,8 @@ describe('admin worker CRUD contract routing', () => {
           id: 10,
           characterId: 1,
           characterName: 'Alice',
+          commissionDate: '2025-03-01',
+          creatorName: 'alice-maker',
           fileName: '20250301_alice-maker',
           links: ['https://alice.example/a', 'https://alice.example/b'],
           design: 'maid outfit',
@@ -1178,6 +1211,36 @@ describe('admin worker CRUD contract routing', () => {
     expect(response.headers.get('Content-Type')).toBe('image/png')
     expect(get).toHaveBeenCalledTimes(1)
     expect(get).toHaveBeenCalledWith('20250301_alice-maker.png')
+    expect(await response.arrayBuffer()).toEqual(imageBody)
+  })
+
+  it('loads source images by commission ID without exposing the legacy asset key', async () => {
+    const backend = createCrudBackend()
+    const { db } = createD1Recorder({
+      queryResults(query, values) {
+        if (query.includes('LEFT JOIN source_images') && Number(values[0]) === 19) {
+          return [{ fileName: 'commission-opaque-key', objectKey: 'source-images/commission-opaque-key/hash.jpg' }]
+        }
+        return []
+      },
+    })
+    const imageBody = new Uint8Array([1, 2, 3]).buffer
+    const get = vi.fn(async (key: string) => key === 'source-images/commission-opaque-key/hash.jpg'
+      ? {
+          httpMetadata: { contentType: 'image/jpeg' },
+          async arrayBuffer() { return imageBody },
+        }
+      : null)
+
+    const response = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/commissions/19/source-image`, { method: 'GET' }),
+      { DB: db, IMAGES: { get } },
+      backend,
+    )
+
+    expect(response.status).toBe(200)
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(get).toHaveBeenCalledWith('source-images/commission-opaque-key/hash.jpg')
     expect(await response.arrayBuffer()).toEqual(imageBody)
   })
 

@@ -1,7 +1,6 @@
 import type { CharacterCommissions } from '@data/types'
 import type { HomeLocale } from '@features/home/i18n/homeLocale'
 import { getCharacterSectionId, getCharacterTitleId } from '@lib/characters/nav'
-import { parseCommissionFileName } from '@lib/commissions'
 import { hashString } from '@lib/utils/hash'
 
 export type HomeCharacterBatchStatus = 'active' | 'archived'
@@ -74,8 +73,11 @@ function buildTargetBatchById({
       targetBatchById[sectionId] = batchIndex
       targetBatchById[titleId] = batchIndex
       commissions.forEach((commission) => {
-        const { date } = parseCommissionFileName(commission.fileName)
-        targetBatchById[`${sectionId}-${date}`] = batchIndex
+        targetBatchById[`${sectionId}-commission-${commission.id}`] = batchIndex
+        const compactDate = commission.commissionDate?.replaceAll('-', '')
+        if (compactDate) {
+          targetBatchById[`${sectionId}-${compactDate}`] = batchIndex
+        }
       })
     })
   })

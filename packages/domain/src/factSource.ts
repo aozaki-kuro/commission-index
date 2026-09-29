@@ -5,7 +5,7 @@ import type {
 } from './aliases'
 import type { CharacterRecord } from './content'
 
-export const GENERATED_FACT_SOURCE_SCHEMA_VERSION = 1 as const
+export const GENERATED_FACT_SOURCE_SCHEMA_VERSION = 2 as const
 export const GENERATED_FACT_SOURCE_SOURCE = 'remote-admin-fact-source' as const
 
 export interface GeneratedFactSourceMeta {
@@ -27,6 +27,7 @@ export interface GeneratedFactSourceContent {
 }
 
 export interface GeneratedSourceImageManifestFile {
+  commissionId: number
   commissionFileName: string
   objectKey: string
   relativePath: string
@@ -36,6 +37,7 @@ export interface GeneratedSourceImageManifestFile {
 }
 
 export interface GeneratedSourceImageManifestMissing {
+  commissionId: number
   commissionFileName: string
   candidateObjectKeys: string[]
   reason: 'not_found' | 'download_failed'

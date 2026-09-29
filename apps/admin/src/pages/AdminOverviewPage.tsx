@@ -17,6 +17,7 @@ import {
   readCachedAdminJson,
   triggerRebuildDeploy,
 } from '../lib/adminApi'
+import { compareCommissionsByDate, getCommissionDisplayLabel } from '../lib/commissionPresentation'
 
 const LATEST_ENTRY_LIMIT = 10
 const overviewCacheKey = '/api/admin/overview'
@@ -102,7 +103,7 @@ function buildOverviewMetrics(payload: AdminOverviewPayload): OverviewMetrics {
 
 function getLatestCommissions(rows: AdminCommissionSearchRow[]) {
   return rows
-    .toSorted((left, right) => right.fileName.localeCompare(left.fileName))
+    .toSorted(compareCommissionsByDate)
     .slice(0, LATEST_ENTRY_LIMIT)
 }
 
@@ -516,7 +517,7 @@ export function AdminOverviewPage({ onNavigate }: AdminOverviewPageProps) {
                       dark:text-gray-100
                     "
                     >
-                      {item.fileName}
+                      {getCommissionDisplayLabel(item)}
                     </span>
                     <span className="
                       shrink-0 text-gray-500

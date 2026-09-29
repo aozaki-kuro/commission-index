@@ -12,13 +12,11 @@ import {
 } from '@features/home/commission/linkDisplay'
 import { getHomeLocaleMessages } from '@features/home/i18n/homeLocale'
 import { getCharacterSectionId } from '@lib/characters/nav'
-import { parseCommissionFileName } from '@lib/commissions'
 import { parseAndFormatDate } from '@lib/date/format'
 import {
   buildCommissionSearchDomKey,
   buildCommissionSearchMetadata,
 } from '@lib/search/commissionSearchMetadata'
-import { getBaseFileName } from '@lib/utils/strings'
 import { buildImagePayload, buildInterestPayload, COMMISSION_IMAGE_SIZES } from './batchPayloadBuilder'
 
 async function buildEntryPayload({
@@ -40,14 +38,19 @@ async function buildEntryPayload({
 }): Promise<HomeTimelineBatchEntryPayload> {
   const messages = getHomeLocaleMessages(locale)
   const entryAnchorPrefix = getCharacterSectionId(characterName)
-  const { date, year, creator } = parseCommissionFileName(commission.fileName)
-  const copyrightCreator = creator ? getBaseFileName(creator).trim() || creator : 'Anonymous'
-  const altText = `© ${year} ${copyrightCreator} & Crystallize`
+  const compactDate = commission.commissionDate?.replaceAll('-', '') ?? ''
+  const year = commission.commissionDate?.slice(0, 4) ?? ''
+  const creator = commission.creatorName?.trim() ?? ''
+  const copyrightCreator = creator || 'Anonymous'
+  const altText = year
+    ? `© ${year} ${copyrightCreator} & Crystallize`
+    : `${copyrightCreator} & Crystallize`
   const image = await buildImagePayload(commission)
-  const searchKey = buildCommissionSearchDomKey(entryAnchorPrefix, commission.fileName)
+  const searchKey = buildCommissionSearchDomKey(entryAnchorPrefix, commission.id)
   const metadata = buildCommissionSearchMetadata({
     characterName,
-    fileName: commission.fileName,
+    commissionDate: commission.commissionDate,
+    creatorName: commission.creatorName,
     design: commission.Design,
     description: commission.Description,
     keyword: commission.Keyword,
@@ -80,10 +83,13 @@ async function buildEntryPayload({
   const hasDescription = Boolean(commission.Description)
   const primaryText = hasCreator ? creator : hasDescription ? quotedDescription : '-'
   const secondaryText = hasCreator && hasDescription ? quotedDescription : null
-  const interestKey = `${entryAnchorPrefix}-${date}`
+  const interestKey = compactDate
+    ? `${entryAnchorPrefix}-${compactDate}`
+    : `${entryAnchorPrefix}-commission-${commission.id}`
 
   return {
-    id: interestKey,
+    id: `${entryAnchorPrefix}-commission-${commission.id}`,
+    legacyAnchorId: compactDate ? `${entryAnchorPrefix}-${compactDate}` : null,
     sectionId,
     searchKey,
     searchText: metadata.searchText,
@@ -91,7 +97,7 @@ async function buildEntryPayload({
     altText,
     image,
     sourceImageNotFoundText: messages.listing.sourceImageNotFound,
-    timeLabel: parseAndFormatDate(date, 'yyyy/MM/dd'),
+    timeLabel: compactDate ? parseAndFormatDate(compactDate, 'yyyy/MM/dd') : '',
     primaryText,
     secondaryText,
     links,
@@ -112,7 +118,7 @@ async function buildSectionPayload({
   keywordAliasesMap: Map<string, string[]> | null
   locale: HomeLocale
 }): Promise<HomeTimelineBatchSectionPayload> {
-  const entries = await Promise.all(
+  const entriesWithLegacyAnchors = await Promise.all(
     group.entries.map(({ character, commission }) =>
       buildEntryPayload({
         characterAliasesMap,
@@ -125,6 +131,17 @@ async function buildSectionPayload({
       }),
     ),
   )
+  const usedLegacyAnchors = new Set<string>()
+  const entries = entriesWithLegacyAnchors.map((entry) => {
+    if (!entry.legacyAnchorId || !usedLegacyAnchors.has(entry.legacyAnchorId)) {
+      if (entry.legacyAnchorId) {
+        usedLegacyAnchors.add(entry.legacyAnchorId)
+      }
+      return entry
+    }
+
+    return { ...entry, legacyAnchorId: null }
+  })
 
   return {
     yearKey: group.yearKey,

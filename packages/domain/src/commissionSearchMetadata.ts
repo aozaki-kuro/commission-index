@@ -1,6 +1,5 @@
 import type { SuggestionSource } from './search'
 import { normalizeCharacterAliasKey } from './characterAliases'
-import { parseCommissionFileName } from './commissionFileName'
 import { normalizeCreatorName } from './creatorAliases'
 import { buildDateSearchTokensFromCompactDate } from './dateSearch'
 import { normalizeKeywordAliasKey, splitKeywordTerms } from './keywordAliases'
@@ -10,6 +9,8 @@ export type CreatorSearchTextMode = CreatorMode | 'both'
 
 export interface BuildCommissionSearchMetadataInput {
   characterName: string
+  commissionDate: string | null
+  creatorName: string | null
   fileName: string
   design?: string | null
   description?: string | null
@@ -62,6 +63,8 @@ export function buildCommissionSearchDomKey(sectionId: string, fileName: string)
 
 export function buildCommissionSearchMetadata({
   characterName,
+  commissionDate,
+  creatorName,
   fileName,
   design,
   description,
@@ -72,14 +75,16 @@ export function buildCommissionSearchMetadata({
   creatorSuggestionMode = 'normalized',
   creatorSearchTextMode = 'normalized',
 }: BuildCommissionSearchMetadataInput): CommissionSearchMetadata {
-  const { date, year, creator } = parseCommissionFileName(fileName)
-  const month = date.slice(4, 6)
+  const compactDate = commissionDate?.replaceAll('-', '') ?? ''
+  const year = commissionDate?.slice(0, 4) ?? ''
+  const month = commissionDate?.slice(5, 7) ?? ''
   const characterAliasKey = normalizeCharacterAliasKey(characterName)
   const characterAliases
     = characterAliasKey && characterAliasesMap
       ? (characterAliasesMap.get(characterAliasKey) ?? [])
       : []
-  const rawCreatorName = creator?.trim() || null
+  const rawCreatorName = creatorName?.trim() || null
+  const legacyIdentitySearchTerm = /^\d{8}(?:_|$)/.test(fileName) ? fileName : ''
   const normalizedCreatorName = rawCreatorName ? normalizeCreatorName(rawCreatorName) : null
   const creatorAliases
     = normalizedCreatorName && creatorAliasesMap
@@ -96,7 +101,9 @@ export function buildCommissionSearchMetadata({
   )]
   const keywordSearchText = keywordTerms.join(' ')
   const keywordAliasesSearchText = keywordAliasTerms.join(' ')
-  const searchableDateTerms = [date, ...buildDateSearchTokensFromCompactDate(date)]
+  const searchableDateTerms = commissionDate
+    ? [compactDate, ...buildDateSearchTokensFromCompactDate(compactDate)]
+    : []
   const creatorSuggestionTerm = resolveCreatorSuggestionTerm(
     rawCreatorName,
     normalizedCreatorName,
@@ -133,6 +140,7 @@ export function buildCommissionSearchMetadata({
       ...creatorSearchTerms,
       ...creatorAliases,
       ...searchableDateTerms,
+      legacyIdentitySearchTerm,
       design ?? '',
       description ?? '',
       keywordSearchText,

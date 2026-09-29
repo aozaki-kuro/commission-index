@@ -1,7 +1,6 @@
 import { hasGeneratedFactSourceContent } from '@data/generatedFactSource'
-import { getBaseFileName } from '@lib/utils/strings'
 import { describe, expect, it } from 'vitest'
-import { collectUniqueCommissions, flattenCommissions, parseCommissionFileName } from './index'
+import { collectUniqueCommissions, flattenCommissions } from './index'
 
 const describeRealData = hasGeneratedFactSourceContent() ? describe : describe.skip
 
@@ -15,43 +14,45 @@ async function loadRealCommissionFixtures() {
   }
 }
 
-describeRealData('commissions utils (real db sample)', () => {
-  it('flattens real commission data while preserving character linkage', async () => {
+describeRealData('commission identity', () => {
+  it('flattens records with a stable ID and structured metadata', async () => {
     const { data, flattened } = await loadRealCommissionFixtures()
     const sourceCount = data.reduce((sum, character) => sum + character.Commissions.length, 0)
 
     expect(flattened.length).toBe(sourceCount)
     expect(flattened.every(entry => entry.character.length > 0)).toBe(true)
+    expect(flattened.every(entry => Number.isSafeInteger(entry.id) && entry.id > 0)).toBe(true)
     expect(flattened.every(entry => entry.Hidden !== true)).toBe(true)
   })
+})
 
-  it('deduplicates part/preview variants and keeps sorted unique results', async () => {
-    const { flattened } = await loadRealCommissionFixtures()
-    const unique = collectUniqueCommissions(flattened)
-    const seenBaseNames = new Set<string>()
+describe('collectUniqueCommissions', () => {
+  it('merges only explicit legacy series and sorts by structured date then ID', () => {
+    const unique = collectUniqueCommissions([
+      { id: 1, commissionDate: '2024-02-01', creatorName: 'Artist', fileName: 'asset-one', Links: [], seriesKey: 'legacy-a', character: 'Alpha' },
+      { id: 2, commissionDate: '2024-02-01', creatorName: 'Artist', fileName: 'asset-two', Links: [], seriesKey: 'legacy-a', character: 'Alpha' },
+      { id: 3, commissionDate: '2024-02-01', creatorName: 'Artist', fileName: 'unrelated', Links: [], character: 'Alpha' },
+      { id: 4, commissionDate: null, creatorName: null, fileName: 'undated', Links: [], character: 'Alpha' },
+    ])
 
-    expect(unique.length).toBeLessThanOrEqual(flattened.length)
-
-    for (const commission of unique) {
-      const baseName = getBaseFileName(commission.fileName)
-      expect(seenBaseNames.has(baseName)).toBe(false)
-      seenBaseNames.add(baseName)
-    }
-
-    expect(unique.map(item => item.fileName)).toEqual(
-      unique.map(item => item.fileName).toSorted((a, b) => b.localeCompare(a)),
-    )
+    expect(unique.map(item => item.id)).toEqual([3, 2, 4])
   })
 
-  it('parses real file names into date/year/creator fields', async () => {
-    const { flattened } = await loadRealCommissionFixtures()
-    const sample = flattened.find(entry => entry.fileName.length >= 8)
+  it('keeps the historical filename-descending winner through exported seriesOrder', () => {
+    const unique = collectUniqueCommissions([
+      { id: 8, commissionDate: '2024-03-01', creatorName: 'Artist', fileName: '20240301_artist (part 2)', seriesKey: 'legacy', seriesOrder: '20240301_artist (part 2)', Links: [], character: 'Alpha' },
+      { id: 9, commissionDate: '2024-02-01', creatorName: 'Artist', fileName: '20240301_artist (preview)', seriesKey: 'legacy', seriesOrder: '20240301_artist (preview)', Links: [], character: 'Alpha' },
+    ])
 
-    expect(sample).toBeTruthy()
+    expect(unique.map(item => item.id)).toEqual([9])
+  })
 
-    const parsed = parseCommissionFileName(sample!.fileName)
-    expect(parsed.date).toBe(sample!.fileName.slice(0, 8))
-    expect(parsed.year).toBe(parsed.date.slice(0, 4))
-    expect(parsed.creator).toBe(sample!.fileName.slice(9))
+  it('keeps two otherwise identical new commissions as separate entries', () => {
+    const commissions = [
+      { id: 20, commissionDate: '2024-02-01', creatorName: 'Artist', fileName: 'opaque-a', Links: [], character: 'Alpha' },
+      { id: 21, commissionDate: '2024-02-01', creatorName: 'Artist', fileName: 'opaque-b', Links: [], character: 'Alpha' },
+    ]
+
+    expect(collectUniqueCommissions(commissions).map(item => item.id)).toEqual([21, 20])
   })
 })

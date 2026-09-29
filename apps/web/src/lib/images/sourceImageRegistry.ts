@@ -6,12 +6,14 @@ interface SourceImageModule {
 }
 
 export interface SourceImageRecord {
+  commissionId: number
   stem: string
   metadata: ImageMetadata
 }
 
 export interface SourceImageLookup {
   byStem: Map<string, ImageMetadata>
+  byCommissionId: Map<number, ImageMetadata>
   normalizedMap: Map<string, string[]>
   dateMap: Map<string, string[]>
 }
@@ -52,7 +54,12 @@ function resolveGeneratedImageModulePath(relativePath: string) {
 }
 
 function buildSourceImageRecords(): SourceImageRecord[] {
+  const seenIds = new Set<number>()
   const records = getGeneratedSourceImageManifest().files.map((file) => {
+    if (!Number.isSafeInteger(file.commissionId) || file.commissionId <= 0 || seenIds.has(file.commissionId)) {
+      throw new Error(`Invalid or duplicate source-image commission ID: ${file.commissionId}`)
+    }
+    seenIds.add(file.commissionId)
     const modulePath = resolveGeneratedImageModulePath(file.relativePath)
     const module = SOURCE_IMAGE_MODULES[modulePath]
     if (!module) {
@@ -63,6 +70,7 @@ function buildSourceImageRecords(): SourceImageRecord[] {
 
     return {
       filePath: modulePath,
+      commissionId: file.commissionId,
       stem: file.commissionFileName,
       metadata: module.default,
     }
@@ -77,6 +85,7 @@ function buildSourceImageRecords(): SourceImageRecord[] {
   for (const record of records) {
     if (!deduped.has(record.stem)) {
       deduped.set(record.stem, {
+        commissionId: record.commissionId,
         stem: record.stem,
         metadata: record.metadata,
       })
@@ -100,10 +109,15 @@ function getSourceImageLookup() {
 
 export function buildSourceImageLookup(records: SourceImageRecord[]): SourceImageLookup {
   const byStem = new Map<string, ImageMetadata>()
+  const byCommissionId = new Map<number, ImageMetadata>()
   const normalizedMap = new Map<string, string[]>()
   const dateMap = new Map<string, string[]>()
 
   for (const record of records) {
+    if (!Number.isSafeInteger(record.commissionId) || record.commissionId <= 0 || byCommissionId.has(record.commissionId)) {
+      throw new Error(`Invalid or duplicate source-image commission ID: ${record.commissionId}`)
+    }
+    byCommissionId.set(record.commissionId, record.metadata)
     byStem.set(record.stem, record.metadata)
 
     const normalized = normalizeSourceImageStem(record.stem)
@@ -119,7 +133,7 @@ export function buildSourceImageLookup(records: SourceImageRecord[]): SourceImag
     else dateMap.set(datePrefix, [record.stem])
   }
 
-  return { byStem, normalizedMap, dateMap }
+  return { byStem, byCommissionId, normalizedMap, dateMap }
 }
 
 function resolveStemByFallback(fileName: string, lookup: SourceImageLookup): string | null {

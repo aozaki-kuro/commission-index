@@ -19,6 +19,7 @@ import {
   replaceCommissionSourceImageAction,
   updateCommissionAction,
 } from '../../lib/adminActions'
+import { getCommissionDisplayLabel } from '../../lib/commissionPresentation'
 import { notifyDataUpdate } from '../../lib/dataUpdateSignal'
 import { findDuplicateCommissionHints } from '../../lib/duplicateCommissionHints'
 import { INITIAL_FORM_STATE } from '../../lib/formState'
@@ -72,11 +73,12 @@ export function CommissionEditForm({
     return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
   })
   const {
+    commissionDate,
+    creatorName,
     deleteStatus,
     descriptionValue,
     designValue,
     errorSrc,
-    fileName,
     imageSrc,
     initialCharacterId,
     isHidden,
@@ -84,10 +86,11 @@ export function CommissionEditForm({
     linksValue,
     selectedCharacterId,
     setDeleteStatus,
+    setCommissionDate,
+    setCreatorName,
     setDescriptionValue,
     setDesignValue,
     setErrorSrc,
-    setFileName,
     setIsHidden,
     setKeywordValue,
     setLinksValue,
@@ -98,15 +101,17 @@ export function CommissionEditForm({
     commission,
   })
   const previewImageSrc = imageVersion > 0 ? `${imageSrc}?v=${imageVersion}` : imageSrc
+  const displayLabel = getCommissionDisplayLabel(commission)
   const duplicateHints = useMemo(
     () => findDuplicateCommissionHints({
       characterId: selectedCharacterId,
       commissionId: commission.id,
       commissions: commissionSearchRows,
-      fileName,
+      commissionDate: commissionDate || null,
+      creatorName,
       keyword: keywordValue,
     }),
-    [commission.id, commissionSearchRows, fileName, keywordValue, selectedCharacterId],
+    [commission.id, commissionDate, commissionSearchRows, creatorName, keywordValue, selectedCharacterId],
   )
 
   // Capture latest form values so the save-success effect can read them without
@@ -114,9 +119,11 @@ export function CommissionEditForm({
   const savedFormRef = useRef({
     commissionId: commission.id,
     commissionCharacterName: commission.characterName,
+    assetFileName: commission.fileName,
+    commissionDate,
+    creatorName,
     descriptionValue,
     designValue,
-    fileName,
     isHidden,
     keywordValue,
     linksValue,
@@ -127,9 +134,11 @@ export function CommissionEditForm({
   savedFormRef.current = {
     commissionId: commission.id,
     commissionCharacterName: commission.characterName,
+    assetFileName: commission.fileName,
+    commissionDate,
+    creatorName,
     descriptionValue,
     designValue,
-    fileName,
     isHidden,
     keywordValue,
     linksValue,
@@ -156,9 +165,11 @@ export function CommissionEditForm({
       characterName:
         vals.sortedCharacters.find(c => c.id === vals.selectedCharacterId)?.name
         ?? vals.commissionCharacterName,
+      commissionDate: vals.commissionDate || null,
+      creatorName: vals.creatorName.trim() || null,
+      fileName: vals.assetFileName,
       description: vals.descriptionValue.trim() || null,
       design: vals.designValue.trim() || null,
-      fileName: vals.fileName.trim(),
       hidden: vals.isHidden,
       keyword: vals.keywordValue.trim() || null,
       links: vals.linksValue.split('\n').map(s => s.trim()).filter(Boolean),
@@ -207,14 +218,6 @@ export function CommissionEditForm({
   }
 
   const handleSelectSourceImage = () => {
-    if (fileName.trim() !== commission.fileName) {
-      setUploadStatus({
-        text: 'Save file name changes before reuploading the source image.',
-        type: 'error',
-      })
-      return
-    }
-
     sourceImageInputRef.current?.click()
   }
 
@@ -222,15 +225,6 @@ export function CommissionEditForm({
     const input = event.currentTarget
     const file = input.files?.[0]
     if (!file) {
-      return
-    }
-
-    if (fileName.trim() !== commission.fileName) {
-      setUploadStatus({
-        text: 'Save file name changes before reuploading the source image.',
-        type: 'error',
-      })
-      input.value = ''
       return
     }
 
@@ -245,7 +239,6 @@ export function CommissionEditForm({
 
   const uploadSourceImage = (file: File) => {
     const payload = new FormData()
-    payload.set('commissionFileName', commission.fileName)
     payload.set('id', String(commission.id))
     payload.set('sourceImage', file)
 
@@ -255,7 +248,7 @@ export function CommissionEditForm({
           if (result.status === 'success') {
             const nextVersion = Date.now()
             setUploadStatus({
-              text: result.message ?? `Source image for "${commission.fileName}" replaced.`,
+              text: result.message ?? `Source image for commission #${commission.id} replaced.`,
               type: 'success',
             })
             setErrorSrc(null)
@@ -328,7 +321,7 @@ export function CommissionEditForm({
           : (
               <img
                 src={previewImageSrc}
-                alt={commission.fileName}
+                alt={`Source image for ${displayLabel}`}
                 loading="lazy"
                 className="size-full object-contain"
                 onError={() => setErrorSrc(imageSrc)}
@@ -347,7 +340,7 @@ export function CommissionEditForm({
           type="button"
           onClick={handleSelectSourceImage}
           disabled={isDeleting || isUploading}
-          aria-label={`Reupload source image for ${commission.fileName}`}
+          aria-label={`Reupload source image for ${displayLabel}`}
           className="
             absolute right-3 bottom-3 inline-flex size-11 items-center
             justify-center rounded-full border border-white/20 bg-black/55
@@ -397,8 +390,10 @@ export function CommissionEditForm({
         characterOptions={sortedCharacters}
         selectedCharacterId={selectedCharacterId}
         onCharacterChange={id => setSelectedCharacterId(id ?? initialCharacterId)}
-        fileName={fileName}
-        onFileNameChange={setFileName}
+        commissionDate={commissionDate}
+        onCommissionDateChange={setCommissionDate}
+        creatorName={creatorName}
+        onCreatorNameChange={setCreatorName}
         linksValue={linksValue}
         onLinksChange={setLinksValue}
         linksRows={3}

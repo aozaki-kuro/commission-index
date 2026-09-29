@@ -1,6 +1,7 @@
 import type { CommissionRow } from '@commission-index/domain'
 import { useEffect, useMemo, useState } from 'react'
 import { getAdminApiUrl } from '../../lib/adminApi'
+import { getCommissionDisplayLabel } from '../../lib/commissionPresentation'
 
 interface CommissionThumbnailGridProps {
   commissions: CommissionRow[]
@@ -8,8 +9,8 @@ interface CommissionThumbnailGridProps {
   onSelect: (commission: CommissionRow) => void
 }
 
-function buildThumbnailSrc(fileName: string) {
-  return getAdminApiUrl(`/api/admin/source-image/${encodeURIComponent(fileName)}`)
+function buildThumbnailSrc(commissionId: number) {
+  return getAdminApiUrl(`/api/admin/commissions/${commissionId}/source-image`)
 }
 
 function ThumbnailCard({
@@ -22,7 +23,8 @@ function ThumbnailCard({
   onSelect: () => void
 }) {
   const [errorSrc, setErrorSrc] = useState<string | null>(null)
-  const imageSrc = useMemo(() => buildThumbnailSrc(commission.fileName), [commission.fileName])
+  const displayLabel = getCommissionDisplayLabel(commission)
+  const imageSrc = useMemo(() => buildThumbnailSrc(commission.id), [commission.id])
 
   const [imageVersion, setImageVersion] = useState(() => {
     if (typeof window === 'undefined') {
@@ -90,7 +92,7 @@ function ThumbnailCard({
           : (
               <img
                 src={previewSrc}
-                alt={commission.fileName}
+                alt={`Source image for ${displayLabel}`}
                 loading="lazy"
                 decoding="async"
                 className="
@@ -128,7 +130,7 @@ function ThumbnailCard({
             `}
         `}
         >
-          {commission.fileName}
+          {displayLabel}
         </p>
         <p className="
           text-xs text-gray-400

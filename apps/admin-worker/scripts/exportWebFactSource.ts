@@ -49,8 +49,12 @@ interface CharacterRow {
 }
 
 interface CommissionRow {
+  id: number
   characterId: number
+  commissionDate?: string | null
+  creatorName?: string | null
   fileName: string
+  seriesOrder?: string | null
   links?: string | null
   design?: string | null
   description?: string | null
@@ -82,6 +86,7 @@ interface FeaturedKeywordRow {
 
 interface SourceImageRow {
   byteSize: number
+  commissionId: number
   commissionFileName: string
   mimeType: string
   objectKey: string
@@ -283,6 +288,18 @@ function parseLinks(rawValue: unknown): string[] {
   }
 }
 
+function getLegacySeriesKey(fileName: string) {
+  if (!/^\d{8}(?:_|$)/.test(fileName)) {
+    return undefined
+  }
+
+  return fileName.replace(/\s*\((preview|part).*?\)$/i, '')
+}
+
+function getLegacySeriesOrder(fileName: string) {
+  return getLegacySeriesKey(fileName) ? fileName : undefined
+}
+
 function buildCharacterRecords(
   characterRows: CharacterRow[],
   commissionRows: CommissionRow[],
@@ -307,7 +324,12 @@ function buildCharacterRecords(
     }
 
     character.commissions.push({
+      id: Number(row.id),
+      commissionDate: row.commissionDate ? String(row.commissionDate) : null,
+      creatorName: row.creatorName ? String(row.creatorName) : null,
       fileName: String(row.fileName),
+      seriesKey: getLegacySeriesKey(String(row.fileName)),
+      seriesOrder: getLegacySeriesOrder(String(row.fileName)),
       Links: parseLinks(row.links),
       Design: row.design ? String(row.design) : undefined,
       Description: row.description ? String(row.description) : undefined,
@@ -561,10 +583,12 @@ export function buildSourceImageFileRecord(
   commissionFileName: string,
   objectKey: string,
   filePath: string,
+  commissionId: number,
 ): GeneratedSourceImageManifestFile {
   const fileStats = statSync(filePath)
 
   return {
+    commissionId,
     commissionFileName,
     objectKey,
     relativePath: path.posix.join(imageOutputDirectoryName, getLocalImageName(commissionFileName, objectKey)),
@@ -575,7 +599,14 @@ export function buildSourceImageFileRecord(
 }
 
 function buildSourceImageRowMap(rows: SourceImageRow[]) {
-  return new Map(rows.map(row => [row.commissionFileName, row] as const))
+  const byId = new Map<number, SourceImageRow>()
+  for (const row of rows) {
+    if (byId.has(row.commissionId)) {
+      throw new Error(`重复的 source_images commission_id：${row.commissionId}`)
+    }
+    byId.set(row.commissionId, row)
+  }
+  return byId
 }
 
 export function resolveReusableSourceImageRecord(
@@ -602,6 +633,7 @@ export function resolveReusableSourceImageRecord(
   }
 
   return {
+    commissionId: sourceImageRow.commissionId,
     commissionFileName: sourceImageRow.commissionFileName,
     objectKey: sourceImageRow.objectKey,
     relativePath: path.posix.join(imageOutputDirectoryName, localName),
@@ -643,16 +675,32 @@ function buildMeta({
   }
 }
 
-function listExpectedSourceImages(characters: CharacterRecord[]): string[] {
+interface ExpectedSourceImage {
+  commissionId: number
+  commissionFileName: string
+}
+
+function listExpectedSourceImages(characters: CharacterRecord[]): ExpectedSourceImage[] {
+  const byId = new Map<number, ExpectedSourceImage>()
   const fileNames = new Set<string>()
 
   for (const character of characters) {
     for (const commission of character.commissions) {
+      if (!Number.isSafeInteger(commission.id) || commission.id <= 0 || byId.has(commission.id)) {
+        throw new Error(`事实源作品 ID 无效或重复：${commission.id}`)
+      }
+      if (fileNames.has(commission.fileName)) {
+        throw new Error(`事实源作品 fileName 重复，无法稳定映射本地图片：${commission.fileName}`)
+      }
       fileNames.add(commission.fileName)
+      byId.set(commission.id, {
+        commissionId: commission.id,
+        commissionFileName: commission.fileName,
+      })
     }
   }
 
-  return [...fileNames].toSorted((left, right) => left.localeCompare(right))
+  return [...byId.values()].toSorted((left, right) => left.commissionFileName.localeCompare(right.commissionFileName))
 }
 
 async function downloadSourceImageObject(
@@ -702,13 +750,13 @@ async function downloadSourceImageObject(
 }
 
 async function exportSourceImages(
-  fileNames: string[],
+  expectedImages: ExpectedSourceImage[],
   options: ExportSourceImagesOptions,
 ): Promise<ExportSourceImagesResult> {
   mkdirSync(options.outputImagesDir, { recursive: true })
   const stagingDirectory = mkdtempSync(path.join(options.outputImagesDir, '.export-'))
   try {
-    const result = await stageSourceImages(fileNames, options, stagingDirectory)
+    const result = await stageSourceImages(expectedImages, options, stagingDirectory)
     if (!result.hasHardFailure) {
       const retainedNames = new Set(result.files.map(file => path.posix.basename(file.relativePath)))
       for (const name of readdirSync(stagingDirectory)) {
@@ -724,7 +772,7 @@ async function exportSourceImages(
 }
 
 async function stageSourceImages(
-  fileNames: string[],
+  expectedImages: ExpectedSourceImage[],
   { bucketName, outputImagesDir, sourceImageRows }: ExportSourceImagesOptions,
   stagingDirectory: string,
 ): Promise<ExportSourceImagesResult> {
@@ -735,18 +783,21 @@ async function stageSourceImages(
   let reusedCount = 0
 
   const downloadConcurrency = resolveDownloadConcurrency()
-  const resolvedDownloadConcurrency = fileNames.length === 0
+  const resolvedDownloadConcurrency = expectedImages.length === 0
     ? 0
-    : Math.min(downloadConcurrency, fileNames.length)
-  console.log(`Materializing ${fileNames.length} source image(s) (concurrency=${resolvedDownloadConcurrency})...`)
+    : Math.min(downloadConcurrency, expectedImages.length)
+  console.log(`Materializing ${expectedImages.length} source image(s) (concurrency=${resolvedDownloadConcurrency})...`)
 
   const taskResults = await mapWithConcurrency(
-    fileNames,
+    expectedImages,
     downloadConcurrency,
-    async (commissionFileName, index): Promise<ExportSourceImageTaskResult> => {
-      const progressLabel = `[${index + 1}/${fileNames.length}] ${commissionFileName}`
+    async ({ commissionId, commissionFileName }, index): Promise<ExportSourceImageTaskResult> => {
+      const progressLabel = `[${index + 1}/${expectedImages.length}] ${commissionFileName}`
       const candidateObjectKeys = buildSourceImageCandidateKeys(commissionFileName)
-      const sourceImageRow = sourceImageRowMap.get(commissionFileName)
+      const sourceImageRow = sourceImageRowMap.get(commissionId)
+      if (sourceImageRow && sourceImageRow.commissionFileName !== commissionFileName) {
+        throw new Error(`source_images commission_id ${commissionId} 的文件映射与作品快照不一致。`)
+      }
       const reusableRecord = resolveReusableSourceImageRecord(outputImagesDir, sourceImageRow)
       if (reusableRecord) {
         return {
@@ -772,7 +823,7 @@ async function stageSourceImages(
 
         const downloadResult = await downloadSourceImageObject(bucketName, objectKey, tempOutputPath)
         if (downloadResult.ok) {
-          const record = buildSourceImageFileRecord(commissionFileName, objectKey, tempOutputPath)
+          const record = buildSourceImageFileRecord(commissionFileName, objectKey, tempOutputPath, commissionId)
           if (sourceImageRow && (sourceImageRow.sha256 !== record.sha256 || sourceImageRow.byteSize !== record.byteSize)) {
             rmSync(tempOutputPath, { force: true })
             hardFailureMessage = `图片内容与读取的 D1 快照不一致：${commissionFileName}`
@@ -813,6 +864,7 @@ async function stageSourceImages(
           file: null,
           hardFailure: true,
           missing: {
+            commissionId,
             commissionFileName,
             candidateObjectKeys: orderedCandidateObjectKeys,
             reason: 'download_failed',
@@ -828,6 +880,7 @@ async function stageSourceImages(
         file: null,
         hardFailure: Boolean(sourceImageRow),
         missing: {
+          commissionId,
           commissionFileName,
           candidateObjectKeys: orderedCandidateObjectKeys,
           reason: 'not_found',
@@ -863,12 +916,12 @@ async function stageSourceImages(
 
 export const factSourceSnapshotTables = [
   { fields: ['id', 'name', 'status', 'sortOrder'], query: 'SELECT id, name, status, sort_order as sortOrder FROM characters ORDER BY sort_order ASC, id ASC' },
-  { fields: ['characterId', 'fileName', 'links', 'design', 'description', 'hidden', 'keyword'], query: 'SELECT character_id as characterId, file_name as fileName, links, design, description, hidden, keyword FROM commissions ORDER BY character_id ASC, id ASC' },
+  { fields: ['id', 'characterId', 'commissionDate', 'creatorName', 'fileName', 'links', 'design', 'description', 'hidden', 'keyword'], query: 'SELECT id, character_id as characterId, commission_date as commissionDate, creator_name as creatorName, file_name as fileName, links, design, description, hidden, keyword FROM commissions ORDER BY character_id ASC, commission_date DESC, id DESC' },
   { fields: ['creatorName', 'aliasesJson'], query: 'SELECT creator_name as creatorName, aliases as aliasesJson FROM creator_aliases ORDER BY creator_name ASC' },
   { fields: ['characterName', 'aliasesJson'], query: 'SELECT character_name as characterName, aliases as aliasesJson FROM character_aliases ORDER BY character_name ASC' },
   { fields: ['baseKeyword', 'aliasesJson'], query: 'SELECT base_keyword as baseKeyword, aliases as aliasesJson FROM keyword_aliases ORDER BY base_keyword ASC' },
   { fields: ['keyword', 'sortOrder'], query: 'SELECT keyword, sort_order as sortOrder FROM home_featured_search_keywords ORDER BY sort_order ASC, keyword ASC' },
-  { fields: ['commissionFileName', 'objectKey', 'mimeType', 'byteSize', 'sha256'], query: 'SELECT commission_file_name as commissionFileName, object_key as objectKey, mime_type as mimeType, byte_size as byteSize, sha256 FROM source_images ORDER BY commission_file_name ASC' },
+  { fields: ['commissionId', 'commissionFileName', 'objectKey', 'mimeType', 'byteSize', 'sha256'], query: 'SELECT source_images.commission_id as commissionId, commissions.file_name as commissionFileName, source_images.object_key as objectKey, source_images.mime_type as mimeType, source_images.byte_size as byteSize, source_images.sha256 as sha256 FROM source_images JOIN commissions ON commissions.id = source_images.commission_id ORDER BY source_images.commission_id ASC' },
 ]
 
 // 一个 SELECT 读取全部 D1 表，避免跨语句拼接不同时间的业务状态。
@@ -912,6 +965,7 @@ function loadRemoteFactSource({
     featuredSearchKeywords: buildFeaturedSearchKeywords(rawFeaturedKeywordRows as FeaturedKeywordRow[]),
     sourceImages: (rawSourceImageRows as SourceImageRow[]).map(row => ({
       byteSize: Number(row.byteSize),
+      commissionId: Number(row.commissionId),
       commissionFileName: String(row.commissionFileName),
       mimeType: String(row.mimeType),
       objectKey: String(row.objectKey),

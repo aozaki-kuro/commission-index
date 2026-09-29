@@ -51,7 +51,7 @@ const { groups, characterAliasesMap, creatorAliasesMap, keywordAliasesMap }
           character: entry.character,
           commission: entry.commission,
           sectionId: group.sectionId,
-          entryKey: `${group.yearKey}:${entry.character}:${entry.commission.fileName}`,
+          entryKey: `${group.yearKey}:${entry.character}:${entry.commission.id}`,
           entryAnchorPrefix: getCharacterSectionId(entry.character),
         }))}
         characterAliasesMap={characterAliasesMap}

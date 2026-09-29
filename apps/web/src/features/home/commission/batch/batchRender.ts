@@ -150,6 +150,13 @@ export function renderEntry(entry: BatchEntryPayload) {
   root.dataset.commissionSearchKey = entry.searchKey
   root.dataset.searchText = entry.searchText
   root.dataset.searchSuggest = entry.searchSuggest
+  if (entry.legacyAnchorId) {
+    const legacyAnchor = document.createElement('span')
+    legacyAnchor.id = entry.legacyAnchorId
+    legacyAnchor.className = 'sr-only'
+    legacyAnchor.setAttribute('aria-hidden', 'true')
+    root.append(legacyAnchor)
+  }
   root.append(renderEntryImage(entry))
   root.append(renderEntryInfo(entry))
   return root

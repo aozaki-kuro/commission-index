@@ -1,7 +1,7 @@
 import type { Props } from '@data/types'
 import type { SearchEntryLike, SearchIndexLike, SuggestionEntryLike } from './index'
 import { hasGeneratedFactSourceContent } from '@data/generatedFactSource'
-import { flattenCommissions, parseCommissionFileName } from '@lib/commissions/index'
+import { flattenCommissions } from '@lib/commissions/index'
 import Fuse from 'fuse.js'
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import {
@@ -55,10 +55,12 @@ function buildRealFixtures() {
   const searchEntries: Entry[] = []
   const commissions = flattenCommissions(commissionData)
 
-  commissions.forEach((commission, index) => {
-    const id = index + 1
-    const { date, year, creator } = parseCommissionFileName(commission.fileName)
+  commissions.forEach((commission) => {
+    const id = commission.id
+    const date = commission.commissionDate?.replaceAll('-', '') ?? ''
+    const year = date.slice(0, 4)
     const month = date.slice(4, 6)
+    const creator = commission.creatorName
     const dateTokens = [
       `date_y_${year}`,
       month ? `date_ym_${year}_${month}` : '',
@@ -80,7 +82,7 @@ function buildRealFixtures() {
     >()
     const candidates = [
       { source: 'Character' as const, term: commission.character },
-      { source: 'Date' as const, term: `${year}/${month}` },
+      ...(year && month ? [{ source: 'Date' as const, term: `${year}/${month}` }] : []),
       ...(creator ? [{ source: 'Creator' as const, term: creator }] : []),
       ...String(commission.Keyword ?? '')
         .split(/[\n,，、;；]/)

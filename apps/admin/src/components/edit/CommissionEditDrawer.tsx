@@ -4,6 +4,7 @@ import type {
   CommissionRow,
 } from '@commission-index/domain'
 import { useRef } from 'react'
+import { getCommissionDisplayLabel } from '../../lib/commissionPresentation'
 import {
   Dialog,
   DialogCloseButton,
@@ -55,7 +56,7 @@ export function CommissionEditDrawer({
               dark:text-gray-100
             "
             >
-              {displayCommission?.fileName ?? ''}
+              {displayCommission ? getCommissionDisplayLabel(displayCommission) : ''}
             </p>
             <p className="
               truncate text-sm text-gray-500

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { BatchEntryPayload } from './batchPayload'
 import { describe, expect, it } from 'vitest'
-import { renderEntryInfo } from './batchRender'
+import { renderEntry, renderEntryInfo } from './batchRender'
 
 function createEntry(overrides: Partial<BatchEntryPayload> = {}): BatchEntryPayload {
   return {
@@ -42,5 +42,15 @@ describe('batchRender', () => {
 
     expect(root.querySelector('a[href="https://example.com/design"]')?.textContent).toBe('Design')
     expect(root.querySelector('[data-commission-interest-key]')?.textContent).toContain('Want this')
+  })
+
+  it('renders stable entry IDs and optional legacy anchors', () => {
+    const root = renderEntry(createEntry({
+      id: 'alpha-commission-42',
+      legacyAnchorId: 'alpha-20240203',
+    }))
+
+    expect(root.id).toBe('alpha-commission-42')
+    expect(root.querySelector('#alpha-20240203')?.getAttribute('aria-hidden')).toBe('true')
   })
 })

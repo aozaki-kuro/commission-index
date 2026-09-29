@@ -49,6 +49,8 @@ interface BootstrapCommissionRow {
   id: number
   characterId: number
   characterName: string
+  commissionDate: string | null
+  creatorName: string | null
   fileName: string
   links: string
   design?: string | null
@@ -62,12 +64,12 @@ interface CommissionDetailRow extends BootstrapCommissionRow {
   hidden: number
 }
 
-interface FileNameRow {
-  fileName: string
-}
-
 interface SourceImageObjectKeyRow {
   objectKey: string
+}
+
+interface SourceImageByCommissionIdRow extends SourceImageObjectKeyRow {
+  fileName: string
 }
 
 interface AliasJsonRow {
@@ -92,6 +94,8 @@ interface KeywordCountRow {
 
 interface SuggestionCommissionRow {
   characterName: string
+  commissionDate: string | null
+  creatorName: string | null
   fileName: string
   design?: string | null
   description?: string | null
@@ -398,19 +402,14 @@ async function loadCharacters(db: D1DatabaseLike): Promise<CharacterRow[]> {
 }
 
 async function loadCreatorAliasesAdminDataFromDatabase(db: D1DatabaseLike): Promise<CreatorAliasRow[]> {
-  const rawFileNames = await queryRows<FileNameRow>(
+  const rawCreatorNames = await queryRows<{ creatorName: string | null }>(
     db,
-    'SELECT file_name as fileName FROM commissions',
+    'SELECT creator_name as creatorName FROM commissions WHERE creator_name IS NOT NULL',
   )
 
   const creatorCounts = new Map<string, number>()
-  rawFileNames.forEach(({ fileName }) => {
-    const separatorIndex = fileName.indexOf('_')
-    if (separatorIndex < 0) {
-      return
-    }
-
-    const creatorName = normalizeCreatorName(fileName.slice(separatorIndex + 1))
+  rawCreatorNames.forEach(({ creatorName: rawCreatorName }) => {
+    const creatorName = normalizeCreatorName(rawCreatorName ?? '')
     if (!creatorName) {
       return
     }
@@ -506,6 +505,8 @@ async function loadCharacterAliasesAdminDataFromDatabase(db: D1DatabaseLike): Pr
     `
       SELECT
         characters.name as characterName,
+        commissions.commission_date as commissionDate,
+        commissions.creator_name as creatorName,
         COUNT(commissions.id) as commissionCount
       FROM characters
       LEFT JOIN commissions ON commissions.character_id = characters.id
@@ -640,6 +641,8 @@ async function loadAdminBootstrapData(db: D1DatabaseLike): Promise<AdminBootstra
         commissions.id as id,
         commissions.character_id as characterId,
         characters.name as characterName,
+        commissions.commission_date as commissionDate,
+        commissions.creator_name as creatorName,
         commissions.file_name as fileName,
         commissions.links as links,
         commissions.design as design,
@@ -648,7 +651,7 @@ async function loadAdminBootstrapData(db: D1DatabaseLike): Promise<AdminBootstra
         commissions.hidden as hidden
       FROM commissions
       JOIN characters ON characters.id = commissions.character_id
-      ORDER BY characters.sort_order ASC, commissions.file_name DESC
+      ORDER BY characters.sort_order ASC, commissions.commission_date DESC, commissions.id DESC
     `,
   )
 
@@ -656,6 +659,8 @@ async function loadAdminBootstrapData(db: D1DatabaseLike): Promise<AdminBootstra
     id: Number(row.id),
     characterId: Number(row.characterId),
     characterName: row.characterName,
+    commissionDate: row.commissionDate ?? null,
+    creatorName: row.creatorName ?? null,
     fileName: row.fileName,
     links: row.links ?? '',
     design: row.design ?? null,
@@ -774,6 +779,8 @@ async function loadPopularKeywordOptions(db: D1DatabaseLike) {
     `
       SELECT
         characters.name as characterName,
+        commissions.commission_date as commissionDate,
+        commissions.creator_name as creatorName,
         commissions.file_name as fileName,
         commissions.design as design,
         commissions.description as description,
@@ -794,6 +801,8 @@ async function loadPopularKeywordOptions(db: D1DatabaseLike) {
   const suggestTexts = commissionRows.map(row => (
     buildCommissionSearchMetadata({
       characterName: row.characterName,
+      commissionDate: row.commissionDate,
+      creatorName: row.creatorName,
       fileName: row.fileName,
       design: row.design ?? null,
       description: row.description ?? null,
@@ -829,6 +838,8 @@ async function loadCharacterCommissions(
         commissions.id as id,
         commissions.character_id as characterId,
         characters.name as characterName,
+        commissions.commission_date as commissionDate,
+        commissions.creator_name as creatorName,
         commissions.file_name as fileName,
         commissions.links as links,
         commissions.design as design,
@@ -838,7 +849,7 @@ async function loadCharacterCommissions(
       FROM commissions
       JOIN characters ON characters.id = commissions.character_id
       WHERE commissions.character_id = ?
-      ORDER BY commissions.file_name DESC
+      ORDER BY commissions.commission_date DESC, commissions.id DESC
     `,
     [characterId],
   )
@@ -847,6 +858,8 @@ async function loadCharacterCommissions(
     id: Number(row.id),
     characterId: Number(row.characterId),
     characterName: row.characterName,
+    commissionDate: row.commissionDate ?? null,
+    creatorName: row.creatorName ?? null,
     fileName: row.fileName,
     links: parseLinks(row.links),
     design: row.design ?? null,
@@ -949,6 +962,49 @@ async function loadSourceImageResponse(
   return notFound()
 }
 
+async function loadCommissionSourceImageResponse(
+  bucket: R2BucketLike,
+  db: D1DatabaseLike | null,
+  commissionId: number,
+) {
+  if (!db) {
+    return missingDbBinding()
+  }
+  const source = await queryFirstRow<SourceImageByCommissionIdRow>(
+    db,
+    `
+      SELECT commissions.file_name as fileName, source_images.object_key as objectKey
+      FROM commissions
+      LEFT JOIN source_images
+        ON source_images.commission_id = commissions.id
+        OR source_images.commission_file_name = commissions.file_name
+      WHERE commissions.id = ?
+      LIMIT 1
+    `,
+    [commissionId],
+  )
+  if (!source?.fileName) {
+    return notFound()
+  }
+
+  const keys = [source.objectKey, `${source.fileName}.jpg`, `${source.fileName}.jpeg`, `${source.fileName}.png`]
+    .filter((key): key is string => Boolean(key))
+  for (const key of keys) {
+    const object = await bucket.get(key)
+    if (!object) {
+      continue
+    }
+    return new Response(await object.arrayBuffer(), {
+      status: 200,
+      headers: {
+        'Content-Type': getSourceImageMimeType(key, object),
+        'Cache-Control': 'no-store',
+      },
+    })
+  }
+  return notFound()
+}
+
 export interface AdminReadEnv {
   DB?: unknown
   IMAGES?: unknown
@@ -961,6 +1017,24 @@ export async function handleAdminReadRequest(request: Request, env: AdminReadEnv
 
   const { pathname } = new URL(request.url)
   const db = resolveD1Database(env.DB)
+
+  const commissionImageMatch = pathname.match(/^\/api\/admin\/commissions\/(\d+)\/source-image$/)
+  if (commissionImageMatch) {
+    const bucket = resolveImagesBucket(env.IMAGES)
+    if (!bucket) {
+      return missingImagesBinding()
+    }
+    const commissionId = Number(commissionImageMatch[1])
+    if (!Number.isSafeInteger(commissionId) || commissionId <= 0) {
+      return failure('Invalid commission identifier.')
+    }
+    try {
+      return await loadCommissionSourceImageResponse(bucket, db, commissionId)
+    }
+    catch (error) {
+      return failure(error instanceof Error ? error.message : 'Failed to load source image.', 500)
+    }
+  }
 
   if (pathname === '/api/admin/bootstrap') {
     if (!db) {

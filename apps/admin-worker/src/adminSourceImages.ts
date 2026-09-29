@@ -1,5 +1,3 @@
-import { getCommissionFileNameValidationError } from '../../../packages/domain/src/index'
-
 interface R2HttpMetadataLike {
   contentType?: string | null
 }
@@ -72,7 +70,14 @@ function resolveUploadExtension(file: File): '.jpg' | '.png' | null {
 }
 
 export function getSourceImageFileNameValidationError(rawValue: string) {
-  return getCommissionFileNameValidationError(rawValue)
+  const key = rawValue.trim()
+  if (!key || key.length > 180) {
+    return 'Image asset key is required and must be 180 characters or fewer.'
+  }
+  if (key.includes('/') || key.includes('\\') || key.includes('..') || [...key].some(char => char.charCodeAt(0) <= 0x1F)) {
+    return 'Image asset key contains forbidden path characters.'
+  }
+  return null
 }
 
 export function buildSourceImageCandidateKeys(rawCommissionFileName: string) {

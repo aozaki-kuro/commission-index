@@ -1,55 +1,26 @@
-import type {
-  CommissionWithCharacter,
-} from '@lib/commissions/index'
+import type { RssItem } from './rssItem'
 import { getCommissionData } from '@data/commissionData'
 import {
   collectUniqueCommissions,
   flattenCommissions,
 } from '@lib/commissions/index'
-import { formatDate, parseDateString } from '@lib/date/format'
-import { getBaseFileName, kebabCase } from '@lib/utils/strings'
+import { buildRssItem } from './rssItem'
 
 const SITE_TITLE = 'Crystallize\'s Commission Index'
 const SITE_URL = 'https://crystallize.cc'
-
-interface RssItem {
-  title: string
-  link: string
-  pubDate: string
-  author: string
-  description: string
-}
-
-function buildItem(commission: CommissionWithCharacter): RssItem {
-  const cleanedFileName = getBaseFileName(commission.fileName)
-  const [datePart, artistPartWithExt] = cleanedFileName.split('_')
-  const artistName = artistPartWithExt ? artistPartWithExt.split('.')[0] : 'Anonymous'
-  const dateObj = parseDateString(datePart)!
-  const pubDate = dateObj.toUTCString()
-  const formatted = formatDate(dateObj, 'yyyy/MM/dd')
-  const link = `${SITE_URL}#${encodeURIComponent(kebabCase(commission.character))}-${datePart}`
-  const description = `<![CDATA[Illustrator: ${artistName}, published on ${formatted}]]>`
-  return {
-    title: commission.character,
-    link,
-    pubDate,
-    author: artistName,
-    description,
-  }
-}
 
 function buildRssItems(): RssItem[] {
   const flattened = flattenCommissions(getCommissionData())
   const sorted = collectUniqueCommissions(flattened)
 
-  return sorted.map(buildItem)
+  return sorted.map(buildRssItem)
 }
 
 export function generateRssFeed(): string {
   const items = buildRssItems()
     .map(
       item =>
-        `\n    <item>\n      <title>${item.title}</title>\n      <link>${item.link}</link>\n      <pubDate>${item.pubDate}</pubDate>\n      <author>${item.author}</author>\n      <description>${item.description}</description>\n    </item>`,
+        `\n    <item>\n      <title>${item.title}</title>\n      <link>${item.link}</link>\n      <guid isPermaLink="false">${item.guid}</guid>${item.pubDate ? `\n      <pubDate>${item.pubDate}</pubDate>` : ''}\n      <author>${item.author}</author>\n      <description>${item.description}</description>\n    </item>`,
     )
     .join('')
 

@@ -132,6 +132,9 @@ export async function addCommissionAction(
   void _prevState
 
   try {
+    formData.set('commissionDate', formData.get('commissionDate')?.toString().trim() ?? '')
+    formData.set('creatorName', formData.get('creatorName')?.toString().trim() ?? '')
+    formData.delete('fileName')
     const response = await fetch(getAdminApiUrl('/api/admin/commissions'), {
       method: 'POST',
       body: formData,
@@ -161,7 +164,8 @@ export async function updateCommissionAction(
   try {
     return sendAdminJson(`/api/admin/commissions/${id}`, 'PATCH', {
       characterId: Number(formData.get('characterId')),
-      fileName: formData.get('fileName')?.toString() ?? '',
+      commissionDate: formData.get('commissionDate')?.toString().trim() || null,
+      creatorName: formData.get('creatorName')?.toString().trim() || null,
       links: formData.get('links')?.toString() ?? '',
       design: formData.get('design')?.toString() ?? '',
       description: formData.get('description')?.toString() ?? '',
@@ -184,6 +188,7 @@ export async function replaceCommissionSourceImageAction(formData: FormData): Pr
   }
 
   try {
+    formData.delete('commissionFileName')
     const response = await fetch(getAdminApiUrl(`/api/admin/commissions/${id}/source-image`), {
       method: 'POST',
       body: formData,

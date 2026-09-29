@@ -57,6 +57,18 @@ Before touching fetch logic or form actions, read:
 - `docs/api-reference.md` — endpoint signatures and field types
 - `docs/ai-agent-guide.md` — retry strategy, links encoding, `hidden` field quirks, alias batch semantics
 
+## Commission Identity
+
+- Create and edit forms use explicit `commissionDate` (`YYYY-MM-DD`) and optional `creatorName`;
+  send an empty value for an unknown creator. Do not ask the caller to edit or supply `fileName`.
+- Use the numeric commission ID for image preview and replacement at
+  `/api/admin/commissions/:id/source-image`.
+- Date/creator edits are metadata-only and must leave the source-image object unchanged. Only
+  the explicit replace-image action may change the image reference.
+- Keep commission ID, date, and creator visible as the user-facing identity; legacy `fileName`
+  is an internal compatibility value, not a form field or image URL component.
+- Mutations use a single-attempt request unless the API adds an explicit idempotency contract.
+
 ## Guardrails
 
 - Route paths rooted at `/` on `admin.crystallize.cc` — no `/admin/*` public-site coupling

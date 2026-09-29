@@ -97,7 +97,8 @@ creator alias data. Used by the admin UI on initial load.
     id: number
     characterId: number
     characterName: string
-    fileName: string
+    commissionDate: string | null
+    creatorName: string | null
     design: string | null
     description: string | null
     keyword: string | null
@@ -188,7 +189,8 @@ hidden flag).
     id: number
     characterId: number
     characterName: string
-    fileName: string
+    commissionDate: string | null
+    creatorName: string | null
     links: string[]
     design: string | null
     description: string | null
@@ -212,26 +214,26 @@ curl https://admin.crystallize.cc/api/admin/characters/3/commissions
 
 ---
 
-### `GET /api/admin/source-image/:fileName`
+### `GET /api/admin/commissions/:id/source-image`
 
-Fetches a source image from R2 by commission file name. Tries `{fileName}.jpg`,
-`{fileName}.jpeg`, and `{fileName}.png` in that order for legacy objects. When a
-`source_images` D1 row exists, its immutable object key is used instead.
+Fetches the source image from R2 by stable commission ID. The Worker resolves the immutable
+object key through the commission's `source_images` metadata. Dates, creator names, and
+legacy file names are not part of the image URL.
 
-**Requires:** `IMAGES` (reads `DB` for key lookup if available, but `DB` is optional here)
+**Requires:** `DB` + `IMAGES`
 
-**Path param:** `:fileName` — URL-encoded commission file name without extension
-(format: `YYYYMMDD` or `YYYYMMDD_creator`)
+**Path param:** `:id` — numeric commission ID (positive integer)
 
 **Response `200`:** Raw image binary with `Content-Type: image/jpeg` or `image/png`
 
 **Errors:**
 
-- `400` — invalid file name format or forbidden characters
+- `400` — invalid commission ID
 - `404` — no matching object found in R2 (**plain-text** `Not Found`, not the JSON error envelope)
+- `503` — D1 or R2 binding not available
 
 ```bash
-curl -O https://admin.crystallize.cc/api/admin/source-image/20240315_creator
+curl -O https://admin.crystallize.cc/api/admin/commissions/12/source-image
 ```
 
 ---
@@ -383,8 +385,8 @@ Creates a new commission and uploads its source image to R2. The request must be
 
 ```
 characterId    string   Numeric character ID (parsed via Number())
-fileName       string   Commission file name: YYYYMMDD or YYYYMMDD_creator
-                        Forbidden chars: < > : " / \ | ? * and ..
+commissionDate string   Required real calendar date in YYYY-MM-DD format
+creatorName    string   Creator display name; submit an empty string when unknown
 links          string   Newline-separated URL list (one URL per line)
 design         string   Optional design label
 description    string   Optional description text
@@ -397,19 +399,20 @@ sourceImage    File     JPEG or PNG only; determined by Content-Type (image/jpeg
 **Response `200`:**
 
 ```json
-{ "status": "success", "message": "Commission \"20240315_creator\" added to Aria." }
+{ "status": "success", "message": "Commission dated 2024-03-15 added to Aria." }
 ```
 
 **Errors:**
 
-- `400` — missing `characterId`, missing or invalid `fileName`, missing `sourceImage`
-- `400` — source image with this file name already exists in R2 (no overwrite on create)
+- `400` — missing/invalid `characterId` or `commissionDate`, missing `sourceImage`
+- `400` — invalid image type or a commission/image collision
 - `503` — missing `DB` or `IMAGES` binding
 
 ```bash
 curl -X POST https://admin.crystallize.cc/api/admin/commissions \
   -F 'characterId=3' \
-  -F 'fileName=20240315_creator' \
+  -F 'commissionDate=2024-03-15' \
+  -F 'creatorName=creator' \
   -F 'links=https://example.com/art1' \
   -F 'design=Casual' \
   -F 'description=Summer outfit' \
@@ -422,11 +425,12 @@ curl -X POST https://admin.crystallize.cc/api/admin/commissions \
 
 ### `PATCH /api/admin/commissions/:id`
 
-Updates commission metadata. Does not replace the source image — use the dedicated
-source-image endpoint for that. If `fileName` changes, the source image object in R2 is
-automatically renamed and the D1 metadata record updated.
+Updates commission metadata by stable ID. `commissionDate` and `creatorName` are explicit
+business fields; the internal legacy `fileName` is not accepted as an editable field. Changing
+date or creator does not rename, copy, move, or delete the R2 object. Use the dedicated
+source-image endpoint to replace image bytes.
 
-**Requires:** `DB` (also needs `IMAGES` for the R2 rename when `fileName` changes)
+**Requires:** `DB`
 
 **Path param:** `:id` — numeric commission ID
 
@@ -435,7 +439,8 @@ automatically renamed and the D1 metadata record updated.
 ```typescript
 {
   characterId: number    // target character ID
-  fileName: string       // commission file name
+  commissionDate: string // required real calendar date in YYYY-MM-DD format
+  creatorName: string | null // creator display name, or null when unknown
   links: string          // newline-separated URL list (one URL per line)
   design?: string        // optional
   description?: string   // optional
@@ -444,27 +449,28 @@ automatically renamed and the D1 metadata record updated.
 }
 ```
 
-Note: `links` is a newline-separated `string` here (same as FormData), not an array.
+Note: `commissionDate` and `creatorName` must be present on every PATCH. `links` is a
+newline-separated `string` here (same as FormData), not an array.
 The worker parses it with the same line-splitting logic as the create endpoint.
 
 **Response `200`:**
 
 ```json
-{ "status": "success", "message": "Commission \"20240315_creator\" updated." }
+{ "status": "success", "message": "Commission dated 2024-03-15 updated." }
 ```
 
 **Errors:**
 
-- `400` — invalid ID, missing/invalid `characterId` or `fileName`
-- `503` — missing `IMAGES` binding when `fileName` changes
-- `500` — source object referenced by D1 metadata is missing, or the new image cannot be prepared
+- `400` — invalid ID, missing/invalid `characterId` or `commissionDate`
+- `400` — `creatorName` must be a string or `null`
 
 ```bash
 curl -X PATCH https://admin.crystallize.cc/api/admin/commissions/12 \
   -H 'Content-Type: application/json' \
   -d '{
     "characterId": 3,
-    "fileName": "20240315_creator",
+    "commissionDate": "2024-03-15",
+    "creatorName": "creator",
     "links": "https://example.com/art1\nhttps://example.com/art2",
     "design": "Casual",
     "description": "Summer outfit",
@@ -502,8 +508,9 @@ curl -X DELETE https://admin.crystallize.cc/api/admin/commissions/12
 
 ### `POST /api/admin/commissions/:id/source-image`
 
-Replaces the source image for an existing commission. Writes a new immutable R2 object key,
-updates D1 metadata to point to it, then best-effort deletes the previous object.
+Replaces the source image for an existing commission addressed by stable ID. Writes a new
+immutable R2 object key and updates the D1 image reference. Changing `commissionDate` or
+`creatorName` through PATCH does not invoke this endpoint or alter the R2 object.
 
 **Requires:** `DB` + `IMAGES`
 
@@ -512,19 +519,18 @@ updates D1 metadata to point to it, then best-effort deletes the previous object
 **Request body (FormData):**
 
 ```
-commissionFileName   string   Required for validation; actual R2 key is resolved from D1 by commission ID
 sourceImage          File     JPEG or PNG only (same rules as POST /commissions)
 ```
 
 **Response `200`:**
 
 ```json
-{ "status": "success", "message": "Source image for \"20240315_creator\" replaced." }
+{ "status": "success", "message": "Source image for commission 12 replaced." }
 ```
 
 **Errors:**
 
-- `400` — invalid ID, missing `commissionFileName`, missing or invalid `sourceImage`
+- `400` — invalid ID or missing/invalid `sourceImage`
 - `503` — missing `DB` or `IMAGES` binding
 
 If the D1 metadata update fails, the previous image remains active; the newly uploaded object
@@ -533,7 +539,6 @@ commit, the new image remains active and the old object is an orphan.
 
 ```bash
 curl -X POST https://admin.crystallize.cc/api/admin/commissions/12/source-image \
-  -F 'commissionFileName=20240315_creator' \
   -F 'sourceImage=@/path/to/new-image.png;type=image/png'
 ```
 
@@ -706,12 +711,15 @@ curl -X POST https://admin.crystallize.cc/api/admin/suggestion \
 
 ## Field Reference
 
-### Commission `fileName`
+### Commission identity fields
 
-- Format: `YYYYMMDD` or `YYYYMMDD_creator` (e.g. `20240315` or `20240315_someartist`)
-- No image extension — the worker appends `.jpg` or `.png` when writing to R2
-- Forbidden characters: `< > : " / \ | ? *` and `..`
-- Control characters (code points ≤ 0x1F) are also forbidden
+- `id` is the stable commission identity used in API paths, including source-image GET and
+  replacement.
+- `commissionDate` is an explicit `YYYY-MM-DD` calendar date. Invalid calendar dates are
+  rejected; it is independent of the legacy file name.
+- `creatorName` is a display name or `null` when unknown.
+- The legacy `fileName` remains an internal compatibility/migration field. Callers must not
+  send it, derive identity from it, or use it to construct source-image URLs.
 
 ### Commission `links` encoding
 

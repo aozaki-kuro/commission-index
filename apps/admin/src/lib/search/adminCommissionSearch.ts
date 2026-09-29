@@ -2,7 +2,11 @@ import type {
   AdminCommissionSearchRow,
   CreatorAliasRow,
 } from '@commission-index/domain'
-import { buildCommissionSearchMetadata } from '@commission-index/domain'
+import {
+  buildCommissionSearchMetadata,
+  buildDateSearchTokensFromCompactDate,
+  normalizeCreatorName,
+} from '@commission-index/domain'
 
 const WHITESPACE_PATTERN = /\s+/g
 
@@ -17,11 +21,26 @@ export function normalizeAdminSearchQuery(value: string) {
 }
 
 function buildCreatorAliasesMap(rows: CreatorAliasRow[]) {
-  return new Map(rows.map(row => [row.creatorName, row.aliases] as const))
+  const aliasesMap = new Map<string, string[]>()
+  for (const row of rows) {
+    aliasesMap.set(row.creatorName, row.aliases)
+    aliasesMap.set(row.creatorName.toLocaleLowerCase(), row.aliases)
+  }
+  return aliasesMap
 }
 
-function includeFileNameInSearchText(baseSearchText: string, fileName: string) {
-  return `${baseSearchText} ${fileName}`.toLowerCase()
+function getCommissionSearchDetails(row: AdminCommissionSearchRow, creatorAliasesMap: Map<string, string[]>) {
+  const creatorKey = row.creatorName ? normalizeCreatorName(row.creatorName) : null
+  const creatorAliases = creatorKey ? creatorAliasesMap.get(creatorKey.toLocaleLowerCase()) ?? [] : []
+  const dateTerms = row.commissionDate
+    ? [
+        row.commissionDate,
+        row.commissionDate.replaceAll('-', ''),
+        ...buildDateSearchTokensFromCompactDate(row.commissionDate.replaceAll('-', '')),
+      ]
+    : []
+
+  return [...dateTerms, row.creatorName ?? '', ...creatorAliases].join(' ').toLowerCase()
 }
 
 export function buildAdminCommissionSearchEntries(
@@ -33,7 +52,7 @@ export function buildAdminCommissionSearchEntries(
   return rows.map(row => ({
     characterId: row.characterId,
     id: row.id,
-    searchText: includeFileNameInSearchText(
+    searchText: [
       buildCommissionSearchMetadata({
         characterName: row.characterName,
         creatorAliasesMap,
@@ -41,11 +60,13 @@ export function buildAdminCommissionSearchEntries(
         creatorSuggestionMode: 'raw',
         description: row.description,
         design: row.design,
+        commissionDate: row.commissionDate,
+        creatorName: row.creatorName,
         fileName: row.fileName,
         keyword: row.keyword,
       }).searchText,
-      row.fileName,
-    ),
+      getCommissionSearchDetails(row, creatorAliasesMap),
+    ].join(' '),
   }))
 }
 

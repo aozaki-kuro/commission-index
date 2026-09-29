@@ -21,6 +21,7 @@ export interface BatchInterestPayload {
 
 export interface BatchEntryPayload {
   id: string
+  legacyAnchorId?: string | null
   sectionId: string
   searchKey: string
   searchText: string

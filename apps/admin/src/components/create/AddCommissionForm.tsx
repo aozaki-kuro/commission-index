@@ -5,7 +5,6 @@ import type {
 import type { ChangeEvent } from 'react'
 import { useActionState, useEffect, useMemo, useRef, useState } from 'react'
 import { addCommissionAction } from '../../lib/adminActions'
-import { isValidCommissionFileName } from '../../lib/commissionFileName'
 import { notifyDataUpdate } from '../../lib/dataUpdateSignal'
 import { findDuplicateCommissionHints } from '../../lib/duplicateCommissionHints'
 import { INITIAL_FORM_STATE } from '../../lib/formState'
@@ -35,15 +34,21 @@ type SourceImageHintTone = 'default' | 'success' | 'error'
 const DEFAULT_SOURCE_IMAGE_HINT
   = 'Choose a JPG/PNG, then position, zoom, and rotate it for the 1280×525 output.'
 
-function extractFileNameStem(fileName: string) {
-  const trimmed = fileName.trim()
-  const extIndex = trimmed.lastIndexOf('.')
-
-  if (extIndex <= 0) {
-    return trimmed
+function extractCommissionDetails(fileName: string) {
+  const stem = fileName.trim().replace(/\.[^.]+$/, '')
+  const match = stem.match(/^(\d{8})(?:_(.+))?$/)
+  if (!match) {
+    return null
   }
 
-  return trimmed.slice(0, extIndex)
+  const compactDate = match[1]
+  const commissionDate = `${compactDate.slice(0, 4)}-${compactDate.slice(4, 6)}-${compactDate.slice(6, 8)}`
+  const parsedDate = new Date(`${commissionDate}T00:00:00Z`)
+  if (!Number.isFinite(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== commissionDate) {
+    return null
+  }
+
+  return { commissionDate, creatorName: match[2]?.trim() ?? '' }
 }
 
 export function AddCommissionForm({
@@ -53,7 +58,8 @@ export function AddCommissionForm({
   const [state, formAction] = useActionState(addCommissionAction, INITIAL_FORM_STATE)
   const [characterId, setCharacterId] = useState<number | null>(null)
   const [isHidden, setIsHidden] = useState(false)
-  const [fileName, setFileName] = useState('')
+  const [commissionDate, setCommissionDate] = useState('')
+  const [creatorName, setCreatorName] = useState('')
   const [keywordValue, setKeywordValue] = useState('')
   const [sourceImageHint, setSourceImageHint] = useState(DEFAULT_SOURCE_IMAGE_HINT)
   const [sourceImageHintTone, setSourceImageHintTone] = useState<SourceImageHintTone>('default')
@@ -78,22 +84,12 @@ export function AddCommissionForm({
       findDuplicateCommissionHints({
         characterId,
         commissions: commissionSearchRows,
-        fileName,
+        commissionDate: commissionDate || null,
+        creatorName,
         keyword: keywordValue,
       }),
-    [characterId, commissionSearchRows, fileName, keywordValue],
+    [characterId, commissionDate, commissionSearchRows, creatorName, keywordValue],
   )
-
-  const handleFileNameChange = (nextValue: string) => {
-    setFileName(nextValue)
-
-    if (sourceImageHintTone === 'error' && nextValue.trim()) {
-      setSourceImageHint(
-        'Uploaded file name does not match pattern. Manual value will be validated when saving.',
-      )
-      setSourceImageHintTone('default')
-    }
-  }
 
   const handleSourceImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -147,17 +143,20 @@ export function AddCommissionForm({
     setCroppedImage(output)
     setPendingCropFile(null)
 
-    const stem = extractFileNameStem(originalFileName)
-    if (isValidCommissionFileName(stem)) {
-      setFileName(stem)
-      setSourceImageHint(`Ready: ${output.name} (1280×525 JPG). File name was detected as "${stem}".`)
+    const detectedDetails = extractCommissionDetails(originalFileName)
+    if (detectedDetails) {
+      setCommissionDate(detectedDetails.commissionDate)
+      if (detectedDetails.creatorName) {
+        setCreatorName(detectedDetails.creatorName)
+      }
+      setSourceImageHint(
+        `Ready: ${output.name} (1280×525 JPG). Delivery details were suggested from the image name.`,
+      )
       setSourceImageHintTone('success')
       return
     }
 
-    setSourceImageHint(
-      `Ready: ${output.name} (1280×525 JPG). Fill File name manually.`,
-    )
+    setSourceImageHint(`Ready: ${output.name} (1280×525 JPG). Add delivery details if known.`)
     setSourceImageHintTone('success')
   }
 
@@ -200,9 +199,10 @@ export function AddCommissionForm({
         characterOptions={options}
         selectedCharacterId={characterId}
         onCharacterChange={setCharacterId}
-        fileName={fileName}
-        onFileNameChange={handleFileNameChange}
-        fileNamePlaceholder="20250302_Artist"
+        commissionDate={commissionDate}
+        onCommissionDateChange={setCommissionDate}
+        creatorName={creatorName}
+        onCreatorNameChange={setCreatorName}
         linksRows={3}
         designPlaceholder="Design reference"
         descriptionPlaceholder="Short description"

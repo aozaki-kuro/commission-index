@@ -24,6 +24,7 @@ import { formControlStyles } from '../../app/ui'
 import { useCommissionManager } from '../../hooks/useCommissionManager'
 import { useNativeDragReorder } from '../../hooks/useNativeDragReorder'
 import { fetchCharacterCommissionsAction } from '../../lib/adminActions'
+import { compareCommissionsByDate } from '../../lib/commissionPresentation'
 import { notifyDataUpdate } from '../../lib/dataUpdateSignal'
 import { markPendingRebuild } from '../../lib/pendingRebuildSignal'
 import {
@@ -161,7 +162,7 @@ export function CommissionManager({
     for (const [characterId, rows] of commissionMap) {
       next.set(
         characterId,
-        rows.toSorted((left, right) => right.fileName.localeCompare(left.fileName)),
+        rows.toSorted(compareCommissionsByDate),
       )
     }
     return next

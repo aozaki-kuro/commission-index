@@ -28,7 +28,7 @@ function temporaryDirectory() {
 }
 
 function fixture() {
-  const meta = { schemaVersion: 1 as const, source: 'remote-admin-fact-source' as const, exportedAt: '2026-01-01T00:00:00Z', revision: 'fixture', databaseBinding: 'fixture', imagesBucket: 'fixture' }
+  const meta = { schemaVersion: 2 as const, source: 'remote-admin-fact-source' as const, exportedAt: '2026-01-01T00:00:00Z', revision: 'fixture', databaseBinding: 'fixture', imagesBucket: 'fixture' }
   const content: GeneratedFactSourceContent = { meta, characters: [], creatorAliases: [], characterAliases: [], keywordAliases: [], featuredSearchKeywords: ['old'] }
   const manifest: GeneratedSourceImageManifest = { meta, files: [], missing: [] }
   return { content, manifest }
@@ -67,7 +67,7 @@ describe('事实源快照导出', () => {
     content.featuredSearchKeywords = ['new']
     expect(createSnapshot(content, manifest).content.meta.revision).not.toBe(first.content.meta.revision)
     content.featuredSearchKeywords = ['old']
-    manifest.files = [{ commissionFileName: '20260101', objectKey: 'source-images/20260101/hash-id.png', relativePath: 'source-images/20260101.png', mimeType: 'image/png', byteSize: 1, sha256: 'changed' }]
+    manifest.files = [{ commissionId: 1, commissionFileName: '20260101', objectKey: 'source-images/20260101/hash-id.png', relativePath: 'source-images/20260101.png', mimeType: 'image/png', byteSize: 1, sha256: 'changed' }]
     expect(createSnapshot(content, manifest).content.meta.revision).not.toBe(first.content.meta.revision)
   })
 
@@ -76,7 +76,7 @@ describe('事实源快照导出', () => {
     const objectKey = 'source-images/20260101/sha-uuid.png'
     const filePath = path.join(directory, '20260101.png')
     writeFileSync(filePath, 'image')
-    const record = buildSourceImageFileRecord('20260101', objectKey, filePath)
+    const record = buildSourceImageFileRecord('20260101', objectKey, filePath, 1)
     expect(record.relativePath).toBe('source-images/20260101.png')
     expect(record.objectKey).toBe(objectKey)
     expect(resolveReusableSourceImageRecord(directory, { ...record, byteSize: 5 })).toEqual(record)
@@ -90,7 +90,7 @@ describe('事实源快照导出', () => {
     mkdirSync(path.join(directory, 'source-images'))
     const imagePath = path.join(directory, 'source-images/20260101.png')
     writeFileSync(imagePath, 'image')
-    manifest.files = [buildSourceImageFileRecord('20260101', 'source-images/20260101/hash.png', imagePath)]
+    manifest.files = [buildSourceImageFileRecord('20260101', 'source-images/20260101/hash.png', imagePath, 1)]
     const snapshot = createSnapshot(content, manifest)
     saveFixture(directory, snapshot)
     const revision = snapshot.content.meta.revision
@@ -113,11 +113,35 @@ describe('事实源快照导出', () => {
       const migrationsDirectory = path.resolve(import.meta.dirname, '../migrations')
       database.exec(readFileSync(path.join(migrationsDirectory, '0001_admin_fact_source.sql'), 'utf8'))
       database.exec(readFileSync(path.join(migrationsDirectory, '0002_source_image_metadata.sql'), 'utf8'))
+      database.exec(readFileSync(path.join(migrationsDirectory, '0003_rename_stale_to_archived.sql'), 'utf8'))
+      database.exec(readFileSync(path.join(migrationsDirectory, '0004_commission_identity.sql'), 'utf8'))
       database.exec('INSERT INTO characters(name, status, sort_order) VALUES (\'fixture\', \'active\', 1)')
+      database.exec('INSERT INTO commissions(character_id, file_name, links, commission_date, creator_name) VALUES (1, \'20260929_artist_fixture\', \'[]\', \'2026-09-29\', \'artist fixture\')')
+      database.exec('INSERT INTO source_images(commission_file_name, object_key, mime_type, byte_size, sha256, commission_id) VALUES (\'20260929_artist_fixture\', \'source-images/20260929/hash.png\', \'image/png\', 5, \'sha256\', 1)')
       database.exec('INSERT INTO home_featured_search_keywords(keyword, sort_order) VALUES (\'new remote content\', 1)')
       const row = database.prepare(factSourceSnapshotSql).get()
       expect(JSON.parse(String(row?.table0))).toEqual([{ id: 1, name: 'fixture', status: 'active', sortOrder: 1 }])
-      vi.mocked(spawnSync).mockReturnValue({ status: 0, stdout: JSON.stringify([{ results: [row] }]), stderr: '', pid: 0, signal: null, output: [] })
+      expect(JSON.parse(String(row?.table1))).toEqual([{
+        id: 1,
+        characterId: 1,
+        commissionDate: '2026-09-29',
+        creatorName: 'artist fixture',
+        fileName: '20260929_artist_fixture',
+        links: '[]',
+        design: null,
+        description: null,
+        hidden: 0,
+        keyword: null,
+      }])
+      expect(JSON.parse(String(row?.table6))).toEqual([{
+        commissionId: 1,
+        commissionFileName: '20260929_artist_fixture',
+        objectKey: 'source-images/20260929/hash.png',
+        mimeType: 'image/png',
+        byteSize: 5,
+        sha256: 'sha256',
+      }])
+      vi.mocked(spawnSync).mockReturnValue({ status: 0, stdout: JSON.stringify([{ results: [{ ...row, table1: '[]', table6: '[]' }] }]), stderr: '', pid: 0, signal: null, output: [] })
       const directory = temporaryDirectory()
       const old = fixture()
       saveFixture(directory, createSnapshot(old.content, old.manifest))
@@ -140,14 +164,14 @@ describe('事实源快照导出', () => {
   it('图片本地哈希不同于 D1 元数据时不能从旧缓存复用', () => {
     const directory = temporaryDirectory()
     writeFileSync(path.join(directory, '20260101.png'), 'old')
-    const row = { commissionFileName: '20260101', objectKey: 'source-images/20260101/new.png', mimeType: 'image/png', byteSize: 3, sha256: createHash('sha256').update('new').digest('hex') }
+    const row = { commissionId: 1, commissionFileName: '20260101', objectKey: 'source-images/20260101/new.png', mimeType: 'image/png', byteSize: 3, sha256: createHash('sha256').update('new').digest('hex') }
     expect(resolveReusableSourceImageRecord(directory, row)).toBeNull()
   })
 
   it('下载缺失元数据的旧图片只写本地快照，不修复远端 D1', async () => {
     const row = Object.fromEntries(Array.from({ length: 7 }, (_, index) => [`table${index}`, '[]']))
     row.table0 = JSON.stringify([{ id: 1, name: 'fixture', status: 'active', sortOrder: 1 }])
-    row.table1 = JSON.stringify([{ characterId: 1, fileName: '20260101', links: '[]', hidden: 0 }])
+    row.table1 = JSON.stringify([{ id: 1, characterId: 1, commissionDate: '2026-01-01', creatorName: 'creator', fileName: '20260101', links: '[]', hidden: 0 }])
     vi.mocked(spawnSync).mockReturnValue({ status: 0, stdout: JSON.stringify([{ results: [row] }]), stderr: '', pid: 0, signal: null, output: [] })
     vi.mocked(spawn).mockImplementation(((_command: string, args: string[]) => {
       const child = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough() })
@@ -175,7 +199,7 @@ describe('事实源快照导出', () => {
     for (const name of oldNames) {
       const imagePath = path.join(imagesDirectory, `${name}.png`)
       writeFileSync(imagePath, `old-${name}`)
-      manifest.files.push(buildSourceImageFileRecord(name, `source-images/${name}/old.png`, imagePath))
+      manifest.files.push(buildSourceImageFileRecord(name, `source-images/${name}/old.png`, imagePath, oldNames.indexOf(name) + 1))
     }
     const oldSnapshot = createSnapshot(content, manifest)
     saveFixture(directory, oldSnapshot)
@@ -183,8 +207,9 @@ describe('事实源快照导出', () => {
     const oldManifest = readFileSync(path.join(directory, 'fact-source/source-images-manifest.json'), 'utf8')
     const row = Object.fromEntries(Array.from({ length: 7 }, (_, index) => [`table${index}`, '[]']))
     row.table0 = JSON.stringify([{ id: 1, name: 'fixture', status: 'active', sortOrder: 1 }])
-    row.table1 = JSON.stringify(oldNames.slice(0, 2).map(fileName => ({ characterId: 1, fileName, links: '[]', hidden: 0 })))
-    row.table6 = JSON.stringify(oldNames.slice(0, 2).map(commissionFileName => ({
+    row.table1 = JSON.stringify(oldNames.slice(0, 2).map((fileName, index) => ({ id: index + 1, characterId: 1, commissionDate: `2026-01-0${index + 1}`, creatorName: 'creator', fileName, links: '[]', hidden: 0 })))
+    row.table6 = JSON.stringify(oldNames.slice(0, 2).map((commissionFileName, index) => ({
+      commissionId: index + 1,
       commissionFileName,
       objectKey: `source-images/${commissionFileName}/new.png`,
       mimeType: 'image/png',
