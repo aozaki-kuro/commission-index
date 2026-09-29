@@ -43,6 +43,8 @@ export function ImageCropDialog({
   onCancel,
   onConfirm,
 }: ImageCropDialogProps) {
+  const closeActionRef = useRef<(() => void) | null>(null)
+  const [isOpen, setIsOpen] = useState(true)
   const revokeTimerRef = useRef<number | null>(null)
   const workspaceRef = useRef<ImageCropWorkspaceHandle>(null)
   const [error, setError] = useState<string | null>(null)
@@ -68,7 +70,20 @@ export function ImageCropDialog({
     ? getCropUpscaleFactor(snapshot.mediaSize, snapshot.cropSize, snapshot.transform.zoom)
     : 1
   const isUpscaling = upscaleFactor > 1.005
-  const canSave = Boolean(snapshot && !error && !isProcessing)
+  const canSave = Boolean(snapshot && !error && !isProcessing && isOpen)
+
+  // 先让 Radix 完成退场，再通知父组件清理文件和卸载对话框。
+  const closeWithAction = (action: () => void) => {
+    if (closeActionRef.current)
+      return
+    closeActionRef.current = action
+    setIsOpen(false)
+  }
+
+  const handleCancel = () => {
+    if (!isProcessing)
+      closeWithAction(onCancel)
+  }
 
   const handleSave = async () => {
     if (!snapshot || !canSave)
@@ -85,7 +100,7 @@ export function ImageCropDialog({
         mediaSize: snapshot.mediaSize,
         transform: snapshot.transform,
       })
-      onConfirm(output)
+      closeWithAction(() => onConfirm(output))
     }
     catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Unable to process this image.')
@@ -97,15 +112,21 @@ export function ImageCropDialog({
 
   return (
     <Dialog
-      open
+      open={isOpen}
       onOpenChange={(open) => {
-        if (!open && !isProcessing)
-          onCancel()
+        if (!open)
+          handleCancel()
       }}
     >
       <DialogContent
         variant="crop"
         aria-describedby={undefined}
+        onPointerDownOutside={event => event.preventDefault()}
+        onCloseAutoFocus={() => {
+          const action = closeActionRef.current
+          closeActionRef.current = null
+          action?.()
+        }}
         onEscapeKeyDown={(event) => {
           if (isProcessing)
             event.preventDefault()
@@ -193,7 +214,7 @@ export function ImageCropDialog({
             <div className="ml-auto flex items-center gap-2">
               <button
                 type="button"
-                onClick={onCancel}
+                onClick={handleCancel}
                 disabled={isProcessing}
                 className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-700 transition hover:bg-white/70 focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/8"
               >

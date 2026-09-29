@@ -41,3 +41,5 @@
 - 2026-08-16: 做“全量升级到 latest”时，不能把每个包各自的 latest 当成一套天然兼容的工具链；必须先核对 framework checker、parser 与 lint toolchain 的 peer 区间，再分阶段升级，并只对有明确 peer 冲突或硬性验证失败的单包回退到最新兼容版本。
 - 2026-08-16: 同一工作区不能并行启动多个会触发 pnpm 依赖校验/重链接的命令；它们会竞争 `node_modules/.pnpm` 与临时目录，产生 `.bin` ENOENT、`workerd getcwd()` 等伪故障。依赖升级期间必须串行执行 install、lint、typecheck、test 与 build。
 - 2026-08-16: 不要把仍由仓库跟踪、且会被 `lint-staged` 自动格式化的 canonical 状态文件放在整目录 ignore 规则下；Git hook 重新暂存时会因 ignored path 失败。应只忽略该目录中的临时产物，并显式 unignore 需要长期维护的跟踪文件。
+
+- 2026-09-29: 对话框动画必须验证真实浏览器的关闭生命周期；父组件提前卸载会截断 Radix Presence。动画使用 motion-safe 限定，避免 motion-reduce:animate-none 被 data-state 选择器优先级覆盖。

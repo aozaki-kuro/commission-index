@@ -26,7 +26,7 @@ function DialogOverlay({
         variant === 'alert'
           ? 'z-50 data-[state=closed]:animate-none motion-safe:animate-[overlayFadeIn_200ms_ease-out]'
           : variant === 'crop'
-            ? 'z-60 data-[state=open]:animate-[dialog-overlay-in_150ms_ease-out] data-[state=closed]:animate-[dialog-crop-content-out_150ms_ease-in] motion-reduce:animate-none'
+            ? 'z-60 motion-safe:data-[state=open]:animate-[dialog-overlay-in_150ms_ease-out] motion-safe:data-[state=closed]:animate-[dialog-crop-content-out_150ms_ease-in]'
             : 'z-60 data-[state=open]:animate-[dialog-overlay-in_150ms_ease-out] data-[state=closed]:animate-[dialog-overlay-in_150ms_ease-in_reverse] motion-reduce:animate-none',
         variant === 'crop'
           ? 'bg-gray-200/[0.18] backdrop-blur-[20px] backdrop-saturate-150 dark:bg-gray-900/[0.18]'
@@ -56,9 +56,8 @@ const dialogContentBase = {
   crop: `
     fixed inset-0 z-70 flex flex-col overflow-hidden border-white/45
     bg-white/[0.96] backdrop-blur-xl dark:border-white/12 dark:bg-[#1c1c1e]/[0.96]
-    data-[state=open]:animate-[dialog-crop-content-in_200ms_ease-out]
-    data-[state=closed]:animate-[dialog-crop-content-out_150ms_ease-in]
-    motion-reduce:animate-none
+    motion-safe:data-[state=open]:animate-[dialog-crop-content-in_200ms_ease-out]
+    motion-safe:data-[state=closed]:animate-[dialog-crop-content-out_150ms_ease-in]
     sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-[min(90vh,52rem)]
     sm:w-[min(92vw,64rem)] sm:-translate-x-1/2 sm:-translate-y-1/2
     sm:rounded-2xl sm:border sm:shadow-[0_24px_80px_rgb(0_0_0_/_0.22)]

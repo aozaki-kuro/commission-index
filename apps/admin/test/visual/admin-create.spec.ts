@@ -293,3 +293,84 @@ test('overview quick actions stay inside the client shell', async ({ page }, tes
   await expect(page).toHaveURL(/\/edit$/)
   await expect.poll(async () => page.evaluate(() => sessionStorage.getItem('__admin-beforeunload'))).toBeNull()
 })
+
+// 使用模拟 API，覆盖两个入口；动画开启时必须等内容和遮罩实际退场。
+for (const routeName of ['create', 'edit']) {
+  for (const reducedMotion of ['no-preference', 'reduce'] as const) {
+    for (const action of ['Cancel', 'Close', 'Escape', 'Use image']) {
+      test(`crop lifecycle ${routeName} ${reducedMotion} ${action}`, async ({ page }) => {
+        const commission = {
+          id: 1,
+          characterId: 1,
+          characterName: 'Crop fixture',
+          fileName: '20250302_Test',
+          links: [],
+          hidden: false,
+        }
+        await page.route('**/api/admin/**', async (route) => {
+          const path = new URL(route.request().url()).pathname
+          if (path.includes('/source-image/')) {
+            await route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="525"/>' })
+            return
+          }
+          const body = path.endsWith('/bootstrap')
+            ? {
+                characters: [{ id: 1, name: 'Crop fixture', status: 'active', sortOrder: 0, commissionCount: 1 }],
+                commissionSearchRows: [{ ...commission, links: '' }],
+                creatorAliases: [],
+              }
+            : path.endsWith('/commissions')
+              ? { commissions: [commission] }
+              : { status: 'success', message: 'Crop fixture uploaded.' }
+          await route.fulfill({ json: body })
+        })
+        await page.emulateMedia({ reducedMotion })
+        await page.goto(`/${routeName}`)
+        if (routeName === 'edit') {
+          const character = page.locator('[data-character-section]').first()
+          await character.locator('button[aria-expanded]').click()
+          await character.locator('button:has(img)').first().click()
+        }
+        const input = page.locator('input[type="file"]').first()
+        await input.waitFor({ state: 'attached' })
+        await input.setInputFiles({
+          buffer: await createTestSourceImage(page),
+          mimeType: 'image/png',
+          name: 'crop.png',
+        })
+        const crop = page.getByRole('dialog', { name: /Crop source image/ })
+        await expect(crop.getByRole('button', { name: 'Use image' })).toBeEnabled()
+        await page.mouse.click(5, 5)
+        await expect(crop).toHaveAttribute('data-state', 'open')
+        await crop.getByRole('button', { name: 'Rotate image left 90 degrees' }).click()
+        await expect(page.getByLabel('Image rotation')).toHaveText('-90°')
+        await page.evaluate(() => {
+          const events: string[] = []
+          Object.assign(window, { cropExitEvents: events })
+          document.addEventListener('animationend', (event) => {
+            const target = event.target as HTMLElement
+            if (event.animationName === 'dialog-crop-content-out')
+              events.push(target.getAttribute('data-dialog-overlay') === 'crop' ? 'overlay' : 'content')
+          })
+        })
+        if (action === 'Escape')
+          await page.keyboard.press('Escape')
+        else
+          await crop.getByRole('button', { name: action, exact: true }).click()
+        await expect(crop).toHaveCount(0)
+        await expect(page.locator('[data-dialog-overlay="crop"]')).toHaveCount(0)
+        const events = await page.evaluate(() => (window as Window & { cropExitEvents: string[] }).cropExitEvents)
+        expect(events.sort()).toEqual(reducedMotion === 'reduce' ? [] : ['content', 'overlay'])
+        if (routeName === 'edit') {
+          await expect(page.getByRole('dialog')).toHaveCount(1)
+          if (action === 'Use image')
+            await expect(page.getByText('Crop fixture uploaded.')).toBeVisible()
+        }
+        else if (action === 'Use image') {
+          const file = await input.evaluate((element: HTMLInputElement) => element.files?.[0]?.type)
+          expect(file).toBe('image/jpeg')
+        }
+      })
+    }
+  }
+}
