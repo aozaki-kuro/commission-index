@@ -12,7 +12,7 @@
 - [x] 后台 Overview 调整为任务入口、紧凑概况、发布与最近作品，收起技术详情
 - [x] 修复最终审查发现的连续保存、请求 pending 与分篇身份问题并验证
 - [x] 按改动范围运行针对性测试、typecheck、lint 与 Admin build，复核全量 diff
-- [ ] 提交并推送通过验证的变更，检查 CI 与生产发布结果
+- [x] 提交并推送通过验证的变更，检查 CI 与生产发布结果
 
 ### Admin UI 稳定性修复 Review
 
@@ -21,7 +21,9 @@
 - 后台 Overview、Suggestion、Aliases、Keyword 已完成信息分区调整，未删除现有能力；上传/裁剪仍使用共享组件和 1280×525 JPEG 输出契约。完整说明见 `docs/admin-ui-stability-plan-2026-09-29.md`。
 - 最终本地验收：70 个文件 / 324 项单测、全仓 ESLint、四个 workspace TypeScript、Admin production build 通过；独立 Chromium 套件 27 项通过（320/390/768/1280px、深色、正常/reduced motion、长列表 reload 锚点、17° 裁剪输出、草稿与保存/重试）。截图复核覆盖 Edit、Overview、Suggestion、Aliases 与 Keyword；通知堆叠保持至少 7px 间距。
 - 测试通过模拟 API 验证错误、慢请求、部分成功与重试，不对生产 D1/R2 写入测试数据。未声称 WebKit/真实手机键盘或受 Access 保护的生产管理员会话已验收。构建仅有现存 Radix `use client` 指令提示，jsdom 的 scrollTo 提示由真实浏览器锚点测试补足。
-- 生产发布由本次 master 推送触发 `.github/workflows/ci.yml`，依次经过 Validate & Build，再部署 Admin/Web；具体提交、工作流与发布结果以交付回复及 GitHub Actions 为准。
+- 已提交并推送 `d73494468f7ba44dea6907792ebe9377ec5715b3`。GitHub Actions `36595054209` 的 Validate & Build、Admin Deploy、Web Snapshot & Deploy 全部成功；提交/推送钩子也通过。
+- 生产版本：Admin `b3261252-ac69-4303-b006-20324e78dd11`；Web `6c50bb37-7d2a-4718-b81d-6a8b0c816abb`。只读导出 141 张图片、0 missing，快照 revision `4dffce5aff17e8c9e5f855e0a20d1328aae43568f52d9000adf415d02f5e73fc`。
+- 上线后核验：公开站首页、搜索索引、RSS 均 200；公开域名 `/admin`、`/admin/aliases`、`/api/admin/bootstrap` 均 404；Admin 根与 bootstrap 均返回 Access 302。生产管理员登录态交互未冒充已验证。
 
 ## 本轮执行切片（2026-09-29 Admin Create/Edit 布局稳定性审计）
 
