@@ -97,6 +97,7 @@ Key patterns:
 - Worker owns all CRUD: character, commission, aliases, suggestions, source images
 - Production auth: Cloudflare Zero Trust (no worker-side auth)
 - Worker fails fast when D1/R2 bindings are missing
+- Admin Overview 以管理入口、概况、发布和最近作品分区，连接诊断按需展开；Suggestion 将显示顺序与词池并列，Aliases 保留跨 tab 草稿，Keyword 批量替换使用独立 Dialog 预览。页面通知与待发布操作共用浮动通知栈，不能分别定位造成重叠。具体状态边界见 `apps/admin/AGENTS.md`。
 
 ### Path Aliases (apps/web)
 
@@ -222,9 +223,14 @@ docs/
   audit-2026-09-29.md             代码与设计审计证据、风险和验证边界
   improvement-plan-2026-09-29.md  对应问题的分阶段整改与验收计划
   database-optimization-assessment-2026-09-29.md  数据库优化必要性、模型取舍、迁移风险、工作量与验收计划
+  admin-ui-stability-plan-2026-09-29.md  Create/Edit 漂移审计、模拟浏览器证据、状态设计与分阶段验收
 ```
 
 审计报告记录指定提交的状态，不是运行时依赖；改进计划依赖报告中的问题编号。2026-09-29 新增上述文档，未变更业务架构。后续整改应更新计划进度，并同步实际变更涉及的架构/API 文档。
+
+Admin 布局稳定性规划覆盖加载外壳、后台刷新、表单反馈、网格占位与滚动恢复；浏览器证据来自本地模拟 API，不代表生产回归。验收必须检查状态切换过程中的元素位置与焦点，稳定终态截图不能证明中间过程无漂移。
+
+Admin 整改现采用页面/模态各自的浮动通知，禁止常驻空状态槽；保留既有交互动效，角色选择在加载前后保留中性占位。短 UUID 使用 7 位，缩略卡放链接数量同行，弹窗放头部角色信息行，各只显示一次。模块边界见 `apps/admin/AGENTS.md`；`playwright.admin-ui.config.ts` 是不启动 Worker 的 fixture 专用入口，使用 `pnpm run test:admin-ui`。
 
 数据库专项评估补充既有 `docs/db-r2-identity-migration-plan-and-prompts-2026-09-29.md` 的交接预案；实施前须阅读专项评估中的带数据迁移风险、R2 上传身份和恢复闸门。schema v3 在内部整数键之外增加每条作品不可变随机 `public_id`，并以独立 group UUID 与正整数 part 编号显式表示分篇；R2 对象键和图片关联仍不变。应用 0005 前必须导出当前生产 D1 备份、核验完整迁移历史并回放旧数据，随后按 Worker/Admin/Web 顺序发布并检查公开端点与所有作品/图片计数。
 

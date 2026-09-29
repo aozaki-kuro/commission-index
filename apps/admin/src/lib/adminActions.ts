@@ -99,7 +99,7 @@ async function saveAliasesBatchAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    return postAdminJson(pathname, {
+    return await postAdminJson(pathname, {
       rows: parseJsonFormField<BatchSavePayload['rows']>(formData, 'rowsJson', []),
     })
   }
@@ -115,7 +115,7 @@ export async function addCharacterAction(
   void _prevState
 
   try {
-    return postAdminJson('/api/admin/characters', {
+    return await postAdminJson('/api/admin/characters', {
       name: formData.get('name')?.toString() ?? '',
       status: formData.get('status')?.toString() ?? 'active',
     })
@@ -140,7 +140,7 @@ export async function addCommissionAction(
       body: formData,
     })
 
-    return parseResponse(response)
+    return await parseResponse(response)
   }
   catch (error) {
     return toErrorState(error, 'Failed to add commission.')
@@ -162,7 +162,7 @@ export async function updateCommissionAction(
   }
 
   try {
-    return sendAdminJson(`/api/admin/commissions/${id}`, 'PATCH', {
+    return await sendAdminJson(`/api/admin/commissions/${id}`, 'PATCH', {
       characterId: Number(formData.get('characterId')),
       commissionDate: formData.get('commissionDate')?.toString().trim() || null,
       creatorName: formData.get('creatorName')?.toString().trim() || null,
@@ -198,7 +198,7 @@ export async function replaceCommissionSourceImageAction(formData: FormData): Pr
       body: formData,
     })
 
-    return parseResponse(response)
+    return await parseResponse(response)
   }
   catch (error) {
     return toErrorState(error, 'Failed to replace source image.')
@@ -210,7 +210,7 @@ export async function saveCharacterOrder(payload: {
   archived: number[]
 }): Promise<FormState> {
   try {
-    return sendAdminJson('/api/admin/characters/order', 'PUT', payload)
+    return await sendAdminJson('/api/admin/characters/order', 'PUT', payload)
   }
   catch (error) {
     return toErrorState(error, 'Failed to update character order.')
@@ -223,7 +223,7 @@ export async function renameCharacter(payload: {
   status: CharacterStatus
 }): Promise<FormState> {
   try {
-    return sendAdminJson(`/api/admin/characters/${payload.id}`, 'PATCH', payload)
+    return await sendAdminJson(`/api/admin/characters/${payload.id}`, 'PATCH', payload)
   }
   catch (error) {
     return toErrorState(error, 'Failed to update character.')
@@ -232,7 +232,7 @@ export async function renameCharacter(payload: {
 
 export async function deleteCommissionAction(id: number): Promise<FormState> {
   try {
-    return sendAdminRequest(`/api/admin/commissions/${id}`, 'DELETE')
+    return await sendAdminRequest(`/api/admin/commissions/${id}`, 'DELETE')
   }
   catch (error) {
     return toErrorState(error, 'Failed to delete commission.')
@@ -241,7 +241,7 @@ export async function deleteCommissionAction(id: number): Promise<FormState> {
 
 export async function deleteCharacterAction(id: number): Promise<FormState> {
   try {
-    return sendAdminRequest(`/api/admin/characters/${id}`, 'DELETE')
+    return await sendAdminRequest(`/api/admin/characters/${id}`, 'DELETE')
   }
   catch (error) {
     return toErrorState(error, 'Failed to delete character.')
@@ -290,7 +290,7 @@ export async function saveHomeFeaturedKeywordsAction(
   void _prevState
 
   try {
-    return postAdminJson('/api/admin/suggestion', {
+    return await postAdminJson('/api/admin/suggestion', {
       keywords: parseJsonFormField(formData, 'keywordsJson', []),
     })
   }

@@ -72,9 +72,9 @@ test('edit page stays visually stable', async ({ page }, testInfo) => {
 test('edit manager stays visually stable', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
   await page.goto('/edit')
-  const managerSection = page.locator('section.space-y-5').filter({
-    has: page.getByRole('heading', { name: 'Existing commissions' }),
-  })
+  const managerSection = page.getByRole('heading', { name: 'Existing commissions' })
+    .locator('..')
+    .locator('..')
 
   await page.getByRole('heading', { name: 'Existing commissions' }).waitFor()
   await prepareStablePage(page)

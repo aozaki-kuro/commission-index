@@ -1,9 +1,10 @@
 import type { ErrorInfo, ReactNode } from 'react'
-import { Component, lazy, startTransition, Suspense, useCallback, useEffect, useRef, useState } from 'react'
+import { Component, lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { adminSections, getAdminSectionForPath, normalizeAdminPath } from './app/sections'
 import { adminActionLinkStyles, adminSurfaceStyles } from './app/ui'
 import { AdminInternalLink } from './components/AdminInternalLink'
 import { AdminPageShell, AdminRootLayout } from './components/AdminLayout'
+import { FloatingNotice } from './components/FloatingNotice'
 import { FloatingRebuildButton } from './components/FloatingRebuildButton'
 
 const AdminOverviewPage = lazy(() => import('./pages/AdminOverviewPage').then(m => ({ default: m.AdminOverviewPage })))
@@ -32,6 +33,20 @@ function getPublicSiteUrl() {
 
 function getWindowScrollTop() {
   return Math.max(window.scrollY, window.pageYOffset, 0)
+}
+
+function RouteLoadingNotice() {
+  const [visible, setVisible] = useState(false)
+  useEffect(() => {
+    const timer = window.setTimeout(setVisible, 200, true)
+    return () => window.clearTimeout(timer)
+  }, [])
+  return visible ? <FloatingNotice>Loading page…</FloatingNotice> : null
+}
+
+function RouteContentReady({ onReady }: { onReady: () => void }) {
+  useLayoutEffect(onReady, [onReady])
+  return null
 }
 
 interface RouteLoadBoundaryProps {
@@ -89,8 +104,18 @@ export function App() {
     : normalizeAdminPath(window.location.pathname))
   const scrollPositionByPathRef = useRef(new Map<string, number>())
   const currentPathRef = useRef(currentPath)
+  const pendingScrollRef = useRef<{ path: string, top: number } | null>(null)
   const currentSection = getAdminSectionForPath(currentPath)
   const publicSiteUrl = getPublicSiteUrl()
+
+  const handlePageReady = useCallback(() => {
+    const pending = pendingScrollRef.current
+    if (!pending || pending.path !== currentPath) {
+      return
+    }
+    pendingScrollRef.current = null
+    window.scrollTo({ behavior: 'auto', top: pending.top })
+  }, [currentPath])
 
   useEffect(() => {
     currentPathRef.current = currentPath
@@ -113,6 +138,10 @@ export function App() {
     }
 
     scrollPositionByPathRef.current.set(previousPath, getWindowScrollTop())
+    pendingScrollRef.current = {
+      path: normalizedPath,
+      top: scrollPositionByPathRef.current.get(normalizedPath) ?? 0,
+    }
 
     if (historyMode === 'push') {
       window.history.pushState(null, '', normalizedPath)
@@ -124,15 +153,16 @@ export function App() {
     startTransition(() => {
       setCurrentPath(normalizedPath)
     })
-
-    window.requestAnimationFrame(() => {
-      const nextScrollTop = scrollPositionByPathRef.current.get(normalizedPath) ?? 0
-      window.scrollTo({
-        behavior: 'auto',
-        top: nextScrollTop,
-      })
-    })
   }, [])
+
+  useEffect(() => {
+    // Edit 按数据锚点恢复；其余页面刷新时仍交给浏览器恢复原位置。
+    const previous = window.history.scrollRestoration
+    window.history.scrollRestoration = currentSection?.key === 'edit' ? 'manual' : 'auto'
+    return () => {
+      window.history.scrollRestoration = previous
+    }
+  }, [currentSection?.key])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -143,29 +173,39 @@ export function App() {
       scrollPositionByPathRef.current.set(currentPathRef.current, getWindowScrollTop())
 
       const normalizedPath = normalizeAdminPath(window.location.pathname)
+      pendingScrollRef.current = {
+        path: normalizedPath,
+        top: scrollPositionByPathRef.current.get(normalizedPath) ?? 0,
+      }
       startTransition(() => {
         setCurrentPath(normalizedPath)
       })
-
-      window.requestAnimationFrame(() => {
-        const nextScrollTop = scrollPositionByPathRef.current.get(normalizedPath) ?? 0
-        window.scrollTo({
-          behavior: 'auto',
-          top: nextScrollTop,
-        })
-      })
     }
 
+    const cancelRestore = () => {
+      pendingScrollRef.current = null
+    }
+    const cancelOnScrollKey = (event: KeyboardEvent) => {
+      if (['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '].includes(event.key))
+        cancelRestore()
+    }
     window.addEventListener('popstate', handlePopState)
+    window.addEventListener('wheel', cancelRestore, { passive: true })
+    window.addEventListener('touchmove', cancelRestore, { passive: true })
+    window.addEventListener('keydown', cancelOnScrollKey)
 
     return () => {
       window.removeEventListener('popstate', handlePopState)
+      window.removeEventListener('wheel', cancelRestore)
+      window.removeEventListener('touchmove', cancelRestore)
+      window.removeEventListener('keydown', cancelOnScrollKey)
     }
   }, [])
 
   if (!currentSection) {
     return (
       <AdminRootLayout>
+        <RouteContentReady onReady={handlePageReady} />
         <div className="
           mx-auto max-w-5xl space-y-6 pt-6 pb-10
           md:px-4
@@ -237,7 +277,7 @@ export function App() {
     : currentSection.key === 'create'
       ? <AdminCreatePage />
       : currentSection.key === 'edit'
-        ? <AdminEditPage />
+        ? <AdminEditPage onReady={handlePageReady} />
         : currentSection.key === 'aliases'
           ? <AdminAliasesPage />
           : currentSection.key === 'suggestion'
@@ -254,22 +294,13 @@ export function App() {
         publicSiteUrl={publicSiteUrl}
       >
         <RouteLoadBoundary key={currentPath}>
-          <Suspense
-            fallback={(
-              <section
-                aria-busy="true"
-                aria-live="polite"
-                className="mx-auto max-w-5xl rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-gray-950"
-              >
-                <p className="text-sm text-gray-600 dark:text-gray-300">Loading page…</p>
-              </section>
-            )}
-          >
+          <Suspense fallback={<RouteLoadingNotice />}>
             {page}
+            {currentSection.key !== 'edit' && <RouteContentReady onReady={handlePageReady} />}
           </Suspense>
         </RouteLoadBoundary>
       </AdminPageShell>
-      <FloatingRebuildButton />
+      {currentSection.key !== 'overview' && <FloatingRebuildButton />}
     </AdminRootLayout>
   )
 }

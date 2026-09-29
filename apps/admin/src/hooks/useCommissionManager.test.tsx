@@ -38,6 +38,7 @@ function Harness() {
       },
       type: 'button',
     }, manager.isDeletePending ? 'Deleting' : 'Delete twice'),
+    createElement('output', null, manager.feedback?.text),
   )
 }
 
@@ -58,6 +59,30 @@ describe('useCommissionManager request lifecycle', () => {
   afterEach(async () => {
     await act(async () => root.unmount())
     container.remove()
+    vi.useRealTimers()
+  })
+
+  it('preserves stored disclosures until bootstrap data is ready', async () => {
+    window.localStorage.setItem('admin-existing-open', JSON.stringify({ ids: [1], timestamp: Date.now() }))
+    function BootstrapHarness({ ready }: { ready: boolean }) {
+      const manager = useCommissionManager({ characters: ready ? characters : [], commissions, isDataReady: ready })
+      return createElement('output', null, [...manager.openIds].join(','))
+    }
+    await act(async () => root.render(createElement(BootstrapHarness, { ready: false })))
+    expect(container.textContent).toBe('1')
+    expect(JSON.parse(window.localStorage.getItem('admin-existing-open')!).ids).toEqual([1])
+    await act(async () => root.render(createElement(BootstrapHarness, { ready: true })))
+    expect(container.textContent).toBe('1')
+  })
+
+  it('keeps a failed operation visible instead of clearing it on the success timer', async () => {
+    vi.useFakeTimers()
+    actions.saveCharacterOrder.mockResolvedValue({ status: 'error', message: 'Order was not saved' })
+    await act(async () => root.render(createElement(Harness)))
+    await act(async () => container.querySelector('button')!.click())
+    expect(container.querySelector('output')?.textContent).toBe('Order was not saved')
+    await act(async () => vi.advanceTimersByTime(3000))
+    expect(container.querySelector('output')?.textContent).toBe('Order was not saved')
   })
 
   it('recreates its order queue after StrictMode effect replay', async () => {

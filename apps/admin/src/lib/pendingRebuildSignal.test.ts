@@ -2,6 +2,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   clearPendingRebuild,
+  getPendingRebuildRevision,
   isPendingRebuild,
   markPendingRebuild,
   subscribeToPendingRebuild,
@@ -13,6 +14,17 @@ afterEach(() => {
 })
 
 describe('pendingRebuildSignal', () => {
+  it('advances every saved revision and only clears the matching snapshot', () => {
+    markPendingRebuild()
+    const dispatchedRevision = getPendingRebuildRevision()
+    markPendingRebuild()
+    expect(getPendingRebuildRevision()).toBe(dispatchedRevision + 1)
+    clearPendingRebuild(dispatchedRevision)
+    expect(isPendingRebuild()).toBe(true)
+    clearPendingRebuild(getPendingRebuildRevision())
+    expect(isPendingRebuild()).toBe(false)
+  })
+
   it('starts as not pending', () => {
     expect(isPendingRebuild()).toBe(false)
   })

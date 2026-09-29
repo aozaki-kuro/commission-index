@@ -6,14 +6,18 @@ export interface CommissionIdentity {
 }
 
 export function formatCommissionPublicId(publicId: string) {
-  return publicId.replaceAll('-', '').slice(0, 12)
+  return publicId.replaceAll('-', '').slice(0, 7)
+}
+
+export function getCommissionTitle(commission: CommissionIdentity) {
+  const date = commission.commissionDate || 'Undated'
+  const creator = commission.creatorName?.trim() || 'Anon'
+  return `${date} · ${creator}`
 }
 
 export function getCommissionDisplayLabel(commission: CommissionIdentity) {
-  const date = commission.commissionDate || 'Undated'
-  const creator = commission.creatorName?.trim() || 'Anon'
   const shortPublicId = formatCommissionPublicId(commission.publicId)
-  return `${date} · ${creator} · #${shortPublicId}`
+  return `${getCommissionTitle(commission)} · #${shortPublicId}`
 }
 
 export function getCommissionAccessibleLabel(commission: CommissionIdentity) {

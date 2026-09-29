@@ -1,6 +1,6 @@
 import type { AdminBootstrapData } from '@commission-index/domain'
-import { useEffect, useReducer, useState } from 'react'
-import { adminSurfaceStyles } from '../app/ui'
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { AdminBootstrapStatus } from '../components/AdminBootstrapStatus'
 import { AdminEditDashboard } from '../components/AdminEditDashboard'
 import { fetchAdminJsonWithRetry, readCachedAdminJson } from '../lib/adminApi'
 import { subscribeToDataUpdates } from '../lib/dataUpdateSignal'
@@ -19,6 +19,7 @@ interface EditState {
 interface StoredScrollState {
   timestamp: number
   top: number
+  anchor?: { id: number, offset: number, type: 'character' | 'commission' }
 }
 
 type EditAction
@@ -51,7 +52,7 @@ function isReloadNavigation() {
     : false
 }
 
-function readStoredScrollTop(): number | null {
+function readStoredScrollState(): StoredScrollState | null {
   if (typeof window === 'undefined' || !isReloadNavigation()) {
     return null
   }
@@ -73,7 +74,15 @@ function readStoredScrollTop(): number | null {
       return null
     }
 
-    return Math.max(0, top)
+    const anchor = parsed.anchor
+    return {
+      anchor: anchor && Number.isInteger(anchor.id) && anchor.id > 0 && Number.isFinite(anchor.offset)
+        && (anchor.type === 'character' || anchor.type === 'commission')
+        ? anchor as StoredScrollState['anchor']
+        : undefined,
+      timestamp,
+      top: Math.max(0, top),
+    }
   }
   catch {
     return null
@@ -85,11 +94,30 @@ function writeStoredScrollTop() {
     return
   }
 
+  const visibleAnchor = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)]
+    .map((element) => {
+      const rect = element.getBoundingClientRect()
+      return { element, rect }
+    })
+    .find(({ rect }) => rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight)
+  const anchor = visibleAnchor('[data-commission-id]') ?? visibleAnchor('[data-character-id]')
   const state: StoredScrollState = {
+    anchor: anchor
+      ? {
+          id: Number(anchor.element.dataset.characterId ?? anchor.element.dataset.commissionId),
+          offset: anchor.rect.top,
+          type: anchor.element.dataset.characterId ? 'character' : 'commission',
+        }
+      : undefined,
     timestamp: Date.now(),
     top: getCurrentScrollTop(),
   }
-  window.sessionStorage.setItem(scrollStorageKey, JSON.stringify(state))
+  try {
+    window.sessionStorage.setItem(scrollStorageKey, JSON.stringify(state))
+  }
+  catch {
+    // 存储不可用时不影响页面编辑。
+  }
 }
 
 function editReducer(state: EditState, action: EditAction): EditState {
@@ -115,15 +143,43 @@ function editReducer(state: EditState, action: EditAction): EditState {
   }
 }
 
-export function AdminEditPage() {
+export function AdminEditPage({ onReady }: { onReady?: () => void }) {
   const [state, dispatch] = useReducer(editReducer, undefined, createInitialEditState)
   const [reloadToken, setReloadToken] = useState(0)
-  const [pendingScrollTop] = useState<number | null>(() => readStoredScrollTop())
+  const [pendingScrollState] = useState<StoredScrollState | null>(() => readStoredScrollState())
   const [hasRestoredScroll, setHasRestoredScroll] = useState(false)
+  const cancelledScrollRestoreRef = useRef(false)
+  const [areOpenGroupsLoaded, setAreOpenGroupsLoaded] = useState(false)
+  const markOpenGroupsLoaded = useCallback(() => setAreOpenGroupsLoaded(true), [])
+  const refreshData = useCallback(() => setReloadToken(token => token + 1), [])
 
-  useEffect(() => subscribeToDataUpdates(() => {
-    setReloadToken(token => token + 1)
-  }), [])
+  useEffect(() => {
+    if (state.payload && areOpenGroupsLoaded) {
+      onReady?.()
+    }
+  }, [areOpenGroupsLoaded, onReady, state.payload])
+
+  useEffect(() => {
+    if (!pendingScrollState || hasRestoredScroll) {
+      return
+    }
+    const cancel = () => {
+      cancelledScrollRestoreRef.current = true
+      setHasRestoredScroll(true)
+    }
+    window.addEventListener('wheel', cancel, { passive: true })
+    window.addEventListener('touchstart', cancel, { passive: true })
+    window.addEventListener('pointerdown', cancel, { passive: true })
+    window.addEventListener('keydown', cancel)
+    return () => {
+      window.removeEventListener('wheel', cancel)
+      window.removeEventListener('touchstart', cancel)
+      window.removeEventListener('pointerdown', cancel)
+      window.removeEventListener('keydown', cancel)
+    }
+  }, [hasRestoredScroll, pendingScrollState])
+
+  useEffect(() => subscribeToDataUpdates(refreshData), [refreshData])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -166,11 +222,12 @@ export function AdminEditPage() {
   }, [reloadToken])
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' || (pendingScrollState && !hasRestoredScroll)) {
       return
     }
 
     let timeoutId: number | null = null
+    let savedBeforeUnload = false
 
     const persistNow = () => {
       if (timeoutId !== null) {
@@ -191,10 +248,23 @@ export function AdminEditPage() {
       }, scrollPersistThrottleMs)
     }
 
-    persistNow()
+    const persistBeforeUnload = () => {
+      persistNow()
+      savedBeforeUnload = true
+    }
+    const persistOnPageHide = () => {
+      // pagehide 阶段字体可能已卸载，不能用临时几何覆盖 beforeunload 的稳定快照。
+      if (!savedBeforeUnload)
+        persistNow()
+    }
+    const resetNavigationSave = () => {
+      savedBeforeUnload = false
+    }
+
     window.addEventListener('scroll', schedulePersist, { passive: true })
-    window.addEventListener('pagehide', persistNow)
-    window.addEventListener('beforeunload', persistNow)
+    window.addEventListener('pagehide', persistOnPageHide)
+    window.addEventListener('beforeunload', persistBeforeUnload)
+    window.addEventListener('pageshow', resetNavigationSave)
 
     return () => {
       if (timeoutId !== null) {
@@ -202,134 +272,74 @@ export function AdminEditPage() {
       }
 
       window.removeEventListener('scroll', schedulePersist)
-      window.removeEventListener('pagehide', persistNow)
-      window.removeEventListener('beforeunload', persistNow)
+      window.removeEventListener('pagehide', persistOnPageHide)
+      window.removeEventListener('beforeunload', persistBeforeUnload)
+      window.removeEventListener('pageshow', resetNavigationSave)
     }
-  }, [])
+  }, [hasRestoredScroll, pendingScrollState])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
       return
     }
-    if (pendingScrollTop === null || hasRestoredScroll || !state.payload) {
+    if (!pendingScrollState || hasRestoredScroll || !state.payload || !areOpenGroupsLoaded) {
       return
     }
 
-    let frameId: number | null = null
-    let attempts = 0
-
     const restore = () => {
-      attempts += 1
-      window.scrollTo({
-        behavior: 'auto',
-        top: pendingScrollTop,
-      })
-
-      const maxScrollTop = Math.max(
-        0,
-        Math.max(
-          document.documentElement.scrollHeight,
-          document.body.scrollHeight,
-          document.documentElement.offsetHeight,
-          document.body.offsetHeight,
-        ) - window.innerHeight,
-      )
-      const targetTop = Math.min(pendingScrollTop, maxScrollTop)
-      if (Math.abs(getCurrentScrollTop() - targetTop) <= 4 || attempts >= 120) {
-        setHasRestoredScroll(true)
+      if (cancelledScrollRestoreRef.current) {
         return
       }
-
-      frameId = window.requestAnimationFrame(restore)
-    }
-
-    frameId = window.requestAnimationFrame(restore)
-    return () => {
-      if (frameId !== null) {
-        window.cancelAnimationFrame(frameId)
+      const { anchor } = pendingScrollState
+      const target = anchor
+        ? document.querySelector<HTMLElement>(anchor.type === 'character'
+            ? `[data-character-id="${anchor.id}"]`
+            : `[data-commission-id="${anchor.id}"]`)
+        : null
+      if (target && anchor) {
+        window.scrollTo({
+          behavior: 'auto',
+          top: getCurrentScrollTop() + target.getBoundingClientRect().top - anchor.offset,
+        })
       }
+      else {
+        window.scrollTo({ behavior: 'auto', top: pendingScrollState.top })
+      }
+      setHasRestoredScroll(true)
     }
-  }, [hasRestoredScroll, pendingScrollTop, state.payload])
 
-  if (state.payload) {
-    return (
-      <>
-        {state.errorMessage
-          ? (
-              <div
-                role="status"
-                aria-live="polite"
-                className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
-              >
-                <p>
-                  Refresh failed. Showing cached data; it may be out of date.
-                  {' '}
-                  <span className="text-xs">{state.errorMessage}</span>
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setReloadToken(token => token + 1)}
-                  disabled={state.isLoading}
-                  className="shrink-0 rounded-lg border border-amber-500/50 px-3 py-1.5 text-xs font-semibold hover:bg-amber-100 focus-visible:ring-2 focus-visible:ring-amber-600 focus-visible:outline-none disabled:opacity-50 dark:hover:bg-amber-900/60"
-                >
-                  Try again
-                </button>
-              </div>
-            )
-          : state.isLoading
-            ? (
-                <p role="status" aria-live="polite" className="mb-4 text-xs text-gray-500 dark:text-gray-400">
-                  Refreshing cached data…
-                </p>
-              )
-            : null}
-        <AdminEditDashboard
-          characters={state.payload.characters}
-          commissionSearchRows={state.payload.commissionSearchRows}
-          creatorAliases={state.payload.creatorAliases}
-        />
-      </>
-    )
-  }
+    let disposed = false
+    let frameId = 0
+    // 等待有限的入场/展开动画结束，避免把动画位移保存为内容坐标。
+    const animations = document.getAnimations?.().filter(animation => animation.effect?.getComputedTiming().iterations !== Infinity) ?? []
+    void Promise.all(animations.map(animation => animation.finished.catch(() => {}))).then(() => {
+      if (!disposed && !cancelledScrollRestoreRef.current) {
+        frameId = window.requestAnimationFrame(restore)
+      }
+    })
+    return () => {
+      disposed = true
+      window.cancelAnimationFrame(frameId)
+    }
+  }, [areOpenGroupsLoaded, hasRestoredScroll, pendingScrollState, state.payload])
 
   return (
-    <section className={adminSurfaceStyles}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-1">
-          <h2 className="
-            text-sm font-semibold text-gray-900
-            dark:text-gray-100
-          "
-          >
-            Edit data
-          </h2>
-          <p className="
-            text-xs text-gray-600
-            dark:text-gray-300
-          "
-          >
-            {state.isLoading
-              ? 'Loading standalone edit data through the admin worker.'
-              : state.errorMessage ?? 'Admin data is unavailable.'}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setReloadToken(token => token + 1)}
-          disabled={state.isLoading}
-          className="
-            rounded-lg border border-gray-300/80 px-3 py-1.5 text-xs font-medium
-            text-gray-700 transition
-            hover:border-gray-400 hover:text-gray-900
-            disabled:pointer-events-none disabled:opacity-50
-            dark:border-gray-700 dark:text-gray-200
-            dark:hover:border-gray-600 dark:hover:text-gray-100
-          "
-        >
-          {state.isLoading ? 'Loading…' : 'Retry'}
-        </button>
-      </div>
-    </section>
+    <>
+      <AdminBootstrapStatus
+        errorMessage={state.errorMessage}
+        isLoading={state.isLoading}
+        hasPayload={state.payload !== null}
+        onRetry={refreshData}
+      />
+      <AdminEditDashboard
+        characters={state.payload?.characters ?? []}
+        commissionSearchRows={state.payload?.commissionSearchRows ?? []}
+        creatorAliases={state.payload?.creatorAliases ?? []}
+        isInitialLoading={!state.payload && state.isLoading}
+        isInitialError={!state.payload && Boolean(state.errorMessage)}
+        onOpenGroupsLoaded={markOpenGroupsLoaded}
+        onRefresh={refreshData}
+      />
+    </>
   )
 }

@@ -11,7 +11,6 @@ const inlineEditStyles
   = 'flex-1 min-w-0 bg-transparent px-0 py-0 text-base font-semibold text-gray-900 outline-none dark:text-gray-100'
 
 interface SortableCharacterCardProps {
-  buttonRefFor: (id: number) => (element: HTMLButtonElement | null) => void
   character: CharacterRow
   commissionList: CommissionRow[]
   disableDrag?: boolean
@@ -20,6 +19,7 @@ interface SortableCharacterCardProps {
   isActive: boolean
   isCommissionsLoaded: boolean
   isCommissionsLoading: boolean
+  commissionLoadError?: string | null
   isDeleting: boolean
   isDragging: boolean
   isEditing: boolean
@@ -30,17 +30,16 @@ interface SortableCharacterCardProps {
   onMoveUp?: () => void
   onRenameChange: (value: string) => void
   onRequestDelete: () => void
+  onRetryLoad?: () => void
   onSelectCommission: (commission: CommissionRow) => void
   onStartEdit: () => void
   onSubmitRename: () => void
   onToggle: () => void
-  reduceMotion?: boolean
   selectedCommissionId: number | null
   totalCommissions: number
 }
 
 export function SortableCharacterCard({
-  buttonRefFor,
   character,
   commissionList,
   disableDrag = false,
@@ -49,6 +48,7 @@ export function SortableCharacterCard({
   isActive,
   isCommissionsLoaded,
   isCommissionsLoading,
+  commissionLoadError = null,
   isDeleting,
   isDragging,
   isEditing,
@@ -59,11 +59,11 @@ export function SortableCharacterCard({
   onMoveUp,
   onRenameChange,
   onRequestDelete,
+  onRetryLoad,
   onSelectCommission,
   onStartEdit,
   onSubmitRename,
   onToggle,
-  reduceMotion = false,
   selectedCommissionId,
   totalCommissions,
 }: SortableCharacterCardProps) {
@@ -73,6 +73,7 @@ export function SortableCharacterCard({
   return (
     <div
       id={sectionId}
+      data-character-id={character.id}
       data-character-section="true"
       data-character-status={isActive ? 'active' : 'archived'}
       data-total-commissions={totalCommissions}
@@ -131,7 +132,6 @@ export function SortableCharacterCard({
 
           {/* 名字/输入区域 — 统一结构，编辑时原地替换内容 */}
           <button
-            ref={isEditing ? undefined : buttonRefFor(character.id)}
             type="button"
             aria-expanded={isEditing ? undefined : isOpen}
             aria-controls={isEditing ? undefined : panelId}
@@ -290,13 +290,9 @@ export function SortableCharacterCard({
 
         <div
           id={panelId}
-          className={`
-            grid
-            ${reduceMotion
-      ? ''
-      : `transition-[grid-template-rows] duration-200 ease-in-out`}
-            ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}
-          `}
+          aria-busy={isCommissionsLoading}
+          inert={!isOpen}
+          className={`grid motion-safe:transition-[grid-template-rows] motion-safe:duration-200 motion-safe:ease-in-out ${isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'}`}
         >
           <div className="overflow-hidden">
             <div
@@ -305,23 +301,32 @@ export function SortableCharacterCard({
                 border-t border-gray-200 bg-white/85 px-3
                 sm:px-5
                 dark:border-gray-700 dark:bg-gray-900/30
-                ${reduceMotion ? '' : 'transition-all duration-200 ease-out'}
-                ${isOpen
-      ? 'translate-y-0 opacity-100'
-      : `-translate-y-1 opacity-0`}
+                motion-safe:transition-all motion-safe:duration-200 motion-safe:ease-out
+                ${isOpen ? 'translate-y-0 opacity-100' : 'motion-safe:-translate-y-1 opacity-0'}
               `}
             >
               {/* Show skeleton only while the card is open and loading */}
-              {isOpen && (isCommissionsLoading || !isCommissionsLoaded)
+              {isOpen && commissionLoadError && !isCommissionsLoaded
+                ? (
+                    <div role="alert" className="flex min-h-24 flex-wrap items-center justify-between gap-3 py-4 text-sm text-red-600 dark:text-red-400">
+                      <span className="min-w-0 break-words">
+                        Could not load commissions:
+                        {commissionLoadError}
+                      </span>
+                      <button type="button" onClick={onRetryLoad} className="shrink-0 font-medium underline underline-offset-2">Try again</button>
+                    </div>
+                  )
+                : null}
+              {isOpen && !commissionLoadError && !isCommissionsLoaded
                 ? (
                     <div className="py-4">
-                      <CommissionThumbnailGridSkeleton />
+                      <CommissionThumbnailGridSkeleton count={totalCommissions} />
                     </div>
                   )
                 : null}
 
               {/* Thumbnail grid once loaded */}
-              {isCommissionsLoaded && !isCommissionsLoading
+              {isCommissionsLoaded
                 ? (
                     <div className="py-4">
                       <CommissionThumbnailGrid

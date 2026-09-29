@@ -1,6 +1,8 @@
 import type { FormStatus } from '../lib/formState'
 import { IconCheck } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
+import { useFormStatus } from 'react-dom'
+import { FloatingNotice } from './FloatingNotice'
 
 interface FormStatusIndicatorProps {
   status: FormStatus
@@ -10,72 +12,54 @@ interface FormStatusIndicatorProps {
   hideDelay?: number
 }
 
-export function FormStatusIndicator({
+export function FormStatusIndicator({ status, message, ...props }: FormStatusIndicatorProps) {
+  const { pending } = useFormStatus()
+  if (status === 'idle' || pending) {
+    return null
+  }
+
+  return <FormNotice key={`${status}:${message ?? ''}`} status={status} message={message} {...props} />
+}
+
+function FormNotice({
   status,
   message,
   successLabel = 'Saved',
   errorFallback = 'Unable to save.',
   hideDelay = 2500,
 }: FormStatusIndicatorProps) {
-  const [visibleStatus, setVisibleStatus] = useState<FormStatus>('idle')
+  const [dismissed, setDismissed] = useState(false)
 
   useEffect(() => {
-    let showTimer: ReturnType<typeof setTimeout> | null = null
-    let hideTimer: ReturnType<typeof setTimeout> | null = null
-
-    if (status === 'success') {
-      showTimer = setTimeout(setVisibleStatus, 0, 'success')
-      hideTimer = setTimeout(setVisibleStatus, hideDelay, 'idle')
+    if (status !== 'success') {
+      return
     }
-    else if (status === 'error') {
-      showTimer = setTimeout(setVisibleStatus, 0, 'error')
-    }
-    else {
-      showTimer = setTimeout(setVisibleStatus, 0, 'idle')
-    }
-
-    return () => {
-      if (showTimer) {
-        clearTimeout(showTimer)
-      }
-      if (hideTimer) {
-        clearTimeout(hideTimer)
-      }
-    }
+    const timer = setTimeout(setDismissed, hideDelay, true)
+    return () => clearTimeout(timer)
   }, [status, hideDelay])
 
-  if (visibleStatus === 'idle') {
+  if (dismissed) {
     return null
   }
 
-  const isError = visibleStatus === 'error'
-  const text = isError ? (message ?? errorFallback) : successLabel
-
-  if (isError) {
-    return (
-      <span
-        className="
-          text-sm text-red-500
-          motion-safe:animate-[slideInUp_180ms_ease-out]
-        "
-        aria-live="polite"
-      >
-        {text}
-      </span>
-    )
-  }
-
   return (
-    <span
-      className="
-        inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600
-        motion-safe:animate-[slideInUp_180ms_ease-out]
-        dark:text-emerald-400
-      "
-      aria-live="polite"
-    >
-      <IconCheck className="size-3.5" stroke={1.8} aria-hidden="true" />
-      {text}
-    </span>
+    <FloatingNotice tone={status === 'error' ? 'error' : 'success'} onDismiss={() => setDismissed(true)}>
+      {status === 'error'
+        ? (
+            <details>
+              <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-offset-2">
+                {errorFallback}
+                <span className="ml-1 text-xs underline underline-offset-2">Details</span>
+              </summary>
+              <p className="mt-2 whitespace-pre-wrap text-xs">{message ?? errorFallback}</p>
+            </details>
+          )
+        : (
+            <span className="inline-flex items-center gap-1.5 font-medium">
+              <IconCheck className="size-3.5" stroke={1.8} aria-hidden="true" />
+              {successLabel}
+            </span>
+          )}
+    </FloatingNotice>
   )
 }

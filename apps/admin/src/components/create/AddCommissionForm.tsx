@@ -11,6 +11,7 @@ import { findDuplicateCommissionHints } from '../../lib/duplicateCommissionHints
 import { INITIAL_FORM_STATE } from '../../lib/formState'
 import { isSupportedSourceImage, setFileInputValue } from '../../lib/imageCrop'
 import { markPendingRebuild } from '../../lib/pendingRebuildSignal'
+import { FloatingNotice } from '../FloatingNotice'
 import { FormStatusIndicator } from '../FormStatusIndicator'
 import { ImageCropDialog } from '../image/ImageCropDialog'
 import { SubmitButton } from '../SubmitButton'
@@ -28,16 +29,17 @@ interface CharacterOption {
 interface AddCommissionFormProps {
   characters: CharacterOption[]
   commissionSearchRows: AdminCommissionSearchRow[]
+  bootstrapState: 'loading' | 'ready' | 'unavailable'
+  onAddCharacter: () => void
 }
 
 type SourceImageHintTone = 'default' | 'success' | 'error'
 
-const DEFAULT_SOURCE_IMAGE_HINT
-  = 'Choose a JPG/PNG, then position, zoom, and rotate it for the 1280×525 output.'
-
 export function AddCommissionForm({
   characters,
   commissionSearchRows,
+  bootstrapState,
+  onAddCharacter,
 }: AddCommissionFormProps) {
   const [state, formAction] = useActionState(addCommissionAction, INITIAL_FORM_STATE)
   const [characterId, setCharacterId] = useState<number | null>(null)
@@ -47,7 +49,7 @@ export function AddCommissionForm({
   const [workGroupId, setWorkGroupId] = useState('')
   const [partNumber, setPartNumber] = useState('')
   const [keywordValue, setKeywordValue] = useState('')
-  const [sourceImageHint, setSourceImageHint] = useState(DEFAULT_SOURCE_IMAGE_HINT)
+  const [sourceImageHint, setSourceImageHint] = useState('')
   const [sourceImageHintTone, setSourceImageHintTone] = useState<SourceImageHintTone>('default')
   const [croppedImage, setCroppedImage] = useState<File | null>(null)
   const [pendingCropFile, setPendingCropFile] = useState<File | null>(null)
@@ -58,7 +60,7 @@ export function AddCommissionForm({
       notifyDataUpdate()
       markPendingRebuild()
     }
-  }, [state.status])
+  }, [state])
 
   const options = useMemo(
     () => characters.toSorted((left, right) => left.sortOrder - right.sortOrder),
@@ -135,10 +137,13 @@ export function AddCommissionForm({
     if (detectedDetails) {
       setCommissionDate(detectedDetails.commissionDate)
       setCreatorName(detectedDetails.creatorName)
-      setWorkGroupId(detectedDetails.workGroupId)
-      setPartNumber(detectedDetails.partNumber?.toString() ?? '')
+      if (!workGroupId) {
+        setPartNumber(current => current || detectedDetails.partNumber?.toString() || '')
+      }
       setSourceImageHint(
-        `Ready: ${output.name} (1280×525 JPG). Delivery details were suggested from the image name.`,
+        detectedDetails.partNumber
+          ? `Image ready (1280×525 JPG). Details were suggested; enable part grouping to use part ${detectedDetails.partNumber}.`
+          : 'Image ready (1280×525 JPG). Delivery details were suggested from the image name.',
       )
       setSourceImageHintTone('success')
       return
@@ -152,39 +157,54 @@ export function AddCommissionForm({
     <form
       action={formAction}
       className="
-        flex min-w-[20rem] flex-1 flex-col gap-5 rounded-2xl border
+        flex min-w-0 flex-1 flex-col gap-5 rounded-2xl border
         border-gray-200 bg-white/90 p-6 shadow-sm ring-1 ring-gray-900/5
         backdrop-blur-sm
         dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10
       "
     >
-      <div className="space-y-1">
-        <h2 className="
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <h2 className="
           text-lg font-semibold text-gray-900
           dark:text-gray-100
         "
-        >
-          Add Commission Entry
-        </h2>
-        <p className="
+          >
+            Add Commission Entry
+          </h2>
+          <p className="
           text-sm text-gray-600
           dark:text-gray-300
         "
+          >
+            Add artwork and its delivery details.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onAddCharacter}
+          className="shrink-0 rounded-md px-2 py-1 text-sm font-medium text-gray-600 underline underline-offset-4 hover:text-gray-950 focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-gray-300 dark:hover:text-white"
         >
-          Append a new commission record to an existing character. Links accept multiple lines.
-        </p>
+          New character
+        </button>
       </div>
 
       <CommissionSourceImageField
         required
         inputRef={sourceImageInputRef}
         onChange={handleSourceImageChange}
-        helperMessage={sourceImageHint}
-        helperTone={sourceImageHintTone}
       />
+      {sourceImageHint
+        ? (
+            <FloatingNotice tone={sourceImageHintTone === 'error' ? 'error' : 'success'} onDismiss={() => setSourceImageHint('')}>
+              {sourceImageHint}
+            </FloatingNotice>
+          )
+        : null}
 
       <CommissionSharedFields
         characterOptions={options}
+        characterDataState={bootstrapState}
         selectedCharacterId={characterId}
         onCharacterChange={setCharacterId}
         commissionSearchRows={commissionSearchRows}
@@ -203,15 +223,17 @@ export function AddCommissionForm({
         onKeywordChange={setKeywordValue}
       />
 
+      <CommissionHiddenSwitch isHidden={isHidden} onChange={setIsHidden} />
+
       <DuplicateCommissionNotice hints={duplicateHints} />
 
       <div className="
-        flex flex-wrap items-center gap-4 border-t border-gray-200/60 pt-5
+        mt-2 flex min-w-0 flex-wrap items-center gap-4 border-t border-gray-200/60 pt-6
         dark:border-gray-700/60
       "
       >
-        <div className="flex items-center gap-3">
-          <SubmitButton>Save commission</SubmitButton>
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <SubmitButton disabled={bootstrapState !== 'ready'}>Save commission</SubmitButton>
           <FormStatusIndicator
             status={state.status}
             message={state.message}
@@ -219,9 +241,6 @@ export function AddCommissionForm({
           />
         </div>
 
-        <div className="ml-auto">
-          <CommissionHiddenSwitch isHidden={isHidden} onChange={setIsHidden} />
-        </div>
       </div>
 
       {pendingCropFile

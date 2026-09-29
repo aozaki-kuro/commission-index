@@ -1,10 +1,12 @@
 import type { AdminAliasesData } from '@commission-index/domain'
-import { useEffect, useEffectEvent, useReducer, useState } from 'react'
-import { adminSurfaceStyles } from '../app/ui'
+import { useCallback, useEffect, useReducer, useState } from 'react'
 import { AdminAliasesDashboard } from '../components/AdminAliasesDashboard'
+import { AdminBootstrapStatus } from '../components/AdminBootstrapStatus'
 import { fetchAdminJsonWithRetry, readCachedAdminJson } from '../lib/adminApi'
+import { subscribeToDataUpdates } from '../lib/dataUpdateSignal'
 
 const aliasesCacheKey = '/api/admin/aliases/bootstrap'
+const emptyAliases: AdminAliasesData = { characterAliases: [], creatorAliases: [], keywordAliases: [] }
 
 interface AliasesState {
   errorMessage: string | null
@@ -53,15 +55,15 @@ function aliasesReducer(state: AliasesState, action: AliasesAction): AliasesStat
 export function AdminAliasesPage() {
   const [state, dispatch] = useReducer(aliasesReducer, undefined, createInitialAliasesState)
   const [reloadToken, setReloadToken] = useState(0)
-  const hasPayload = useEffectEvent(() => state.payload !== null)
+  const refreshData = useCallback(() => setReloadToken(token => token + 1), [])
+
+  useEffect(() => subscribeToDataUpdates(refreshData), [refreshData])
 
   useEffect(() => {
     const controller = new AbortController()
     let isDisposed = false
 
-    if (!hasPayload()) {
-      dispatch({ type: 'loading' })
-    }
+    dispatch({ type: 'loading' })
 
     void fetchAdminJsonWithRetry<AdminAliasesData>(aliasesCacheKey, {
       signal: controller.signal,
@@ -97,54 +99,18 @@ export function AdminAliasesPage() {
     }
   }, [reloadToken])
 
-  if (state.payload) {
-    return (
-      <AdminAliasesDashboard
-        characters={state.payload.characterAliases}
-        creators={state.payload.creatorAliases}
-        keywords={state.payload.keywordAliases}
-      />
-    )
-  }
-
+  const payload = state.payload ?? emptyAliases
   return (
-    <section className={adminSurfaceStyles}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-1">
-          <h2 className="
-            text-sm font-semibold text-gray-900
-            dark:text-gray-100
-          "
-          >
-            Alias data
-          </h2>
-          <p className="
-            text-xs text-gray-600
-            dark:text-gray-300
-          "
-          >
-            {state.isLoading
-              ? 'Loading standalone alias data through the admin worker.'
-              : state.errorMessage ?? 'Alias data is unavailable.'}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setReloadToken(token => token + 1)}
-          disabled={state.isLoading}
-          className="
-            rounded-lg border border-gray-300/80 px-3 py-1.5 text-xs font-medium
-            text-gray-700 transition
-            hover:border-gray-400 hover:text-gray-900
-            disabled:pointer-events-none disabled:opacity-50
-            dark:border-gray-700 dark:text-gray-200
-            dark:hover:border-gray-600 dark:hover:text-gray-100
-          "
-        >
-          {state.isLoading ? 'Loading…' : 'Retry'}
-        </button>
-      </div>
-    </section>
+    <>
+      <AdminBootstrapStatus errorMessage={state.errorMessage} isLoading={state.isLoading} hasPayload={state.payload !== null} onRetry={refreshData} />
+      <AdminAliasesDashboard
+        characters={payload.characterAliases}
+        creators={payload.creatorAliases}
+        keywords={payload.keywordAliases}
+        isLoading={!state.payload && state.isLoading}
+        isUnavailable={!state.payload && Boolean(state.errorMessage)}
+        onSaved={refreshData}
+      />
+    </>
   )
 }

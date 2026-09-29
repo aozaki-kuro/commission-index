@@ -5,8 +5,9 @@ import type {
 } from '@commission-index/domain'
 import { useRef } from 'react'
 import {
+  formatCommissionPublicId,
   getCommissionAccessibleLabel,
-  getCommissionDisplayLabel,
+  getCommissionTitle,
 } from '../../lib/commissionPresentation'
 import {
   Dialog,
@@ -62,15 +63,22 @@ export function CommissionEditDrawer({
               dark:text-gray-100
             "
             >
-              {displayCommission ? getCommissionDisplayLabel(displayCommission) : ''}
+              {displayCommission ? getCommissionTitle(displayCommission) : ''}
             </p>
-            <p className="
-              truncate text-sm text-gray-500
-              dark:text-gray-400
-            "
-            >
-              {displayCommission?.characterName ?? ''}
-            </p>
+            <div className="mt-1 flex min-w-0 items-baseline justify-between gap-3 text-sm font-normal text-gray-500 dark:text-gray-400">
+              <span className="truncate">{displayCommission?.characterName ?? ''}</span>
+              {displayCommission && (
+                <span
+                  data-commission-public-id={displayCommission.publicId}
+                  title={`Public UUID ${displayCommission.publicId}`}
+                  aria-label={`Public UUID ${displayCommission.publicId}`}
+                  className="shrink-0 font-mono text-xs"
+                >
+                  #
+                  {formatCommissionPublicId(displayCommission.publicId)}
+                </span>
+              )}
+            </div>
           </DialogTitle>
           <DialogCloseButton />
         </DialogHeader>

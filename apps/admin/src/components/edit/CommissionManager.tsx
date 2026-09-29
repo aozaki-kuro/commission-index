@@ -24,58 +24,71 @@ import { formControlStyles } from '../../app/ui'
 import { useCommissionManager } from '../../hooks/useCommissionManager'
 import { useNativeDragReorder } from '../../hooks/useNativeDragReorder'
 import { fetchCharacterCommissionsAction } from '../../lib/adminActions'
-import { compareCommissionsByDate } from '../../lib/commissionPresentation'
+import { compareCommissionsByDate, formatCommissionPublicId, getCommissionAccessibleLabel } from '../../lib/commissionPresentation'
 import { notifyDataUpdate } from '../../lib/dataUpdateSignal'
 import { markPendingRebuild } from '../../lib/pendingRebuildSignal'
 import {
   buildAdminCommissionSearchEntries,
-  buildCommissionToCharacterMap,
-  collectMatchedCharacterIds,
   normalizeAdminSearchQuery,
 } from '../../lib/search/adminCommissionSearch'
 import { DropIndicator } from '../DropIndicator'
+import { FloatingNotice } from '../FloatingNotice'
 import { CharacterDeleteDialog } from './CharacterDeleteDialog'
 import { CommissionEditDrawer } from './CommissionEditDrawer'
 import { KeywordReplacePopover } from './KeywordReplacePopover'
 import { SortableCharacterCard } from './SortableCharacterCard'
 import { SortableDivider } from './SortableDivider'
 
-const MAX_AUTO_LOAD_SEARCH_CHARACTERS = 8
-
 interface CommissionManagerProps {
   characters: CharacterRow[]
   commissionSearchRows: AdminCommissionSearchRow[]
   creatorAliases: CreatorAliasRow[]
+  isInitialLoading?: boolean
+  isInitialError?: boolean
+  onOpenGroupsLoaded?: () => void
+  onRefresh?: () => void
 }
 
 export function CommissionManager({
   characters,
   commissionSearchRows,
   creatorAliases,
+  isInitialLoading = false,
+  isInitialError = false,
+  onOpenGroupsLoaded,
+  onRefresh,
 }: CommissionManagerProps) {
   const [loadedCommissions, setLoadedCommissions] = useState<CommissionRow[]>([])
   const [loadingCharacterIds, setLoadingCharacterIds] = useState<Set<number>>(() => new Set())
   const [loadedCharacterIds, setLoadedCharacterIds] = useState<Set<number>>(() => new Set())
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const [loadErrors, setLoadErrors] = useState<Map<number, string>>(() => new Map())
+  const [refreshError, setRefreshError] = useState<string | null>(null)
+  const [searchUpdates, setSearchUpdates] = useState<{ base: AdminCommissionSearchRow[], rows: Map<number, CommissionRow | null> }>(() => ({ base: commissionSearchRows, rows: new Map() }))
   const [selectedCommission, setSelectedCommission] = useState<CommissionRow | null>(null)
+  const [pendingCommissionId, setPendingCommissionId] = useState<number | null>(null)
+  const [selectionError, setSelectionError] = useState<{ commissionId: number, characterId: number } | null>(null)
+  const pendingCommissionIdRef = useRef<number | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [isReorderMode, setIsReorderMode] = useState(false)
   const deferredSearchQuery = useDeferredValue(searchQuery)
   const loadedCharacterIdsRef = useRef<Set<number>>(new Set())
-  const inFlightLoadPromisesRef = useRef<Map<number, Promise<void>>>(new Map())
-  const buttonMapRef = useRef<Record<number, HTMLButtonElement | null>>({})
+  const inFlightLoadPromisesRef = useRef<Map<number, Promise<CommissionRow[] | null>>>(new Map())
+  const latestLoadPromisesRef = useRef(new Map<number, { version: number, promise: Promise<CommissionRow[] | null> }>())
+  const staleCharacterIdsRef = useRef(new Set<number>())
+  const loadVersionsRef = useRef(new Map<number, number>())
+  const previousSearchRowsRef = useRef(commissionSearchRows)
   const cancelDeleteButtonRef = useRef<HTMLButtonElement | null>(null)
   const deleteReturnFocusRef = useRef<HTMLElement | null>(null)
   const {
     activeCount,
     cancelEditing,
-    closeAllCharacterOpen,
     closeConfirmDialog,
     commissionMap,
     confirmingCharacter,
     deletingId,
     editing,
     feedback,
+    dismissFeedback,
     handleDeleteCommission,
     handleRenameChange,
     handleReorder,
@@ -91,6 +104,8 @@ export function CommissionManager({
   } = useCommissionManager({
     characters,
     commissions: loadedCommissions,
+    isDataReady: !isInitialLoading && !isInitialError,
+    onDataChanged: onRefresh,
   })
 
   const normalizedQuery = useMemo(
@@ -98,9 +113,16 @@ export function CommissionManager({
     [deferredSearchQuery],
   )
   const hasAppliedSearchQuery = normalizedQuery.length > 0
+  const currentSearchRows = useMemo(() => commissionSearchRows.flatMap((row) => {
+    if (searchUpdates.base !== commissionSearchRows || !searchUpdates.rows.has(row.id)) {
+      return [row]
+    }
+    const update = searchUpdates.rows.get(row.id)
+    return update ? [{ ...update, links: update.links.join('\n') }] : []
+  }), [commissionSearchRows, searchUpdates])
   const searchEntries = useMemo(
-    () => buildAdminCommissionSearchEntries(commissionSearchRows, creatorAliases),
-    [commissionSearchRows, creatorAliases],
+    () => buildAdminCommissionSearchEntries(currentSearchRows, creatorAliases),
+    [currentSearchRows, creatorAliases],
   )
   const baseSearchIndex = useMemo(
     () => createSearchIndex(searchEntries),
@@ -124,39 +146,12 @@ export function CommissionManager({
     [searchIndex, deferredSearchQuery],
   )
   const effectiveMatchedCommissionIds = hasAppliedSearchQuery ? matchedCommissionIds : allCommissionIds
-  const commissionToCharacterIdMap = useMemo(
-    () => buildCommissionToCharacterMap(commissionSearchRows),
-    [commissionSearchRows],
+  const matchedSearchRows = useMemo(
+    () => hasAppliedSearchQuery
+      ? currentSearchRows.filter(row => effectiveMatchedCommissionIds.has(row.id))
+      : [],
+    [currentSearchRows, effectiveMatchedCommissionIds, hasAppliedSearchQuery],
   )
-  const matchedCharacterIds = useMemo(() => {
-    if (!hasAppliedSearchQuery) {
-      return new Set<number>()
-    }
-
-    return collectMatchedCharacterIds(effectiveMatchedCommissionIds, commissionToCharacterIdMap)
-  }, [commissionToCharacterIdMap, effectiveMatchedCommissionIds, hasAppliedSearchQuery])
-  const autoLoadSearchCharacterIds = useMemo(() => {
-    if (!hasAppliedSearchQuery) {
-      return new Set<number>()
-    }
-
-    const next = new Set<number>()
-    for (const item of list) {
-      if (item.type !== 'character') {
-        continue
-      }
-      if (!matchedCharacterIds.has(item.data.id)) {
-        continue
-      }
-
-      next.add(item.data.id)
-      if (next.size >= MAX_AUTO_LOAD_SEARCH_CHARACTERS) {
-        break
-      }
-    }
-
-    return next
-  }, [hasAppliedSearchQuery, list, matchedCharacterIds])
   const sortedLoadedCommissionsByCharacter = useMemo(() => {
     const next = new Map<number, CommissionRow[]>()
     for (const [characterId, rows] of commissionMap) {
@@ -167,20 +162,6 @@ export function CommissionManager({
     }
     return next
   }, [commissionMap])
-  const visibleCommissionsByCharacter = useMemo(() => {
-    if (!hasAppliedSearchQuery) {
-      return sortedLoadedCommissionsByCharacter
-    }
-
-    const next = new Map<number, CommissionRow[]>()
-    for (const [characterId, rows] of sortedLoadedCommissionsByCharacter) {
-      next.set(
-        characterId,
-        rows.filter(row => effectiveMatchedCommissionIds.has(row.id)),
-      )
-    }
-    return next
-  }, [effectiveMatchedCommissionIds, hasAppliedSearchQuery, sortedLoadedCommissionsByCharacter])
   const dividerIndex = list.findIndex(item => item.type === 'divider')
 
   const {
@@ -195,50 +176,97 @@ export function CommissionManager({
     disabled: hasAppliedSearchQuery,
   })
 
-  const buttonRefFor = useCallback(
-    (characterId: number) => (element: HTMLButtonElement | null) => {
-      buttonMapRef.current[characterId] = element
-    },
-    [],
-  )
-
-  const loadCharacterCommissions = useCallback((characterId: number): Promise<void> => {
-    if (loadedCharacterIdsRef.current.has(characterId)) {
-      return Promise.resolve()
-    }
-
+  const loadCharacterCommissions = useCallback((characterId: number, force = false): Promise<CommissionRow[] | null> => {
     const inFlight = inFlightLoadPromisesRef.current.get(characterId)
-    if (inFlight) {
+    if (inFlight && !force) {
       return inFlight
     }
+    if (!force && loadedCharacterIdsRef.current.has(characterId) && !staleCharacterIdsRef.current.has(characterId)) {
+      return Promise.resolve(null)
+    }
+
+    staleCharacterIdsRef.current.add(characterId)
+
+    const version = (loadVersionsRef.current.get(characterId) ?? 0) + 1
+    loadVersionsRef.current.set(characterId, version)
+    const isCurrent = () => loadVersionsRef.current.get(characterId) === version
 
     setLoadingCharacterIds(previous => new Set(previous).add(characterId))
-    setLoadError(null)
+    setLoadErrors((previous) => {
+      const next = new Map(previous)
+      next.delete(characterId)
+      return next
+    })
 
-    const request = fetchCharacterCommissionsAction(characterId)
+    // 刷新取代旧请求时，等待旧请求的选中操作必须接续最新响应。
+    const latestResult = (): Promise<CommissionRow[] | null> | null => {
+      const latest = latestLoadPromisesRef.current.get(characterId)
+      return latest && latest.version !== version ? latest.promise : null
+    }
+    const request: Promise<CommissionRow[] | null> = fetchCharacterCommissionsAction(characterId)
       .then((commissions) => {
+        if (!isCurrent()) {
+          return latestResult()
+        }
+        staleCharacterIdsRef.current.delete(characterId)
         setLoadedCommissions(previous => [
           ...previous.filter(commission => commission.characterId !== characterId),
           ...commissions,
         ])
         loadedCharacterIdsRef.current.add(characterId)
         setLoadedCharacterIds(previous => new Set(previous).add(characterId))
+        return commissions
       })
       .catch((error) => {
-        setLoadError(error instanceof Error ? error.message : 'Failed to load commissions.')
+        if (!isCurrent()) {
+          return latestResult()
+        }
+        const message = error instanceof Error ? error.message : 'Failed to load commissions.'
+        setLoadErrors(previous => new Map(previous).set(characterId, message))
+        if (loadedCharacterIdsRef.current.has(characterId)) {
+          setRefreshError(message)
+        }
+        return null
       })
       .finally(() => {
-        setLoadingCharacterIds((previous) => {
-          const next = new Set(previous)
-          next.delete(characterId)
-          return next
-        })
-        inFlightLoadPromisesRef.current.delete(characterId)
+        if (inFlightLoadPromisesRef.current.get(characterId) === request) {
+          setLoadingCharacterIds((previous) => {
+            const next = new Set(previous)
+            next.delete(characterId)
+            return next
+          })
+          inFlightLoadPromisesRef.current.delete(characterId)
+        }
       })
 
     inFlightLoadPromisesRef.current.set(characterId, request)
+    latestLoadPromisesRef.current.set(characterId, { version, promise: request })
     return request
   }, [])
+
+  const refreshLoadedGroups = useCallback(() => {
+    const currentCharacterIds = new Set(characters.map(character => character.id))
+    const currentIds = [...loadedCharacterIdsRef.current].filter(id => currentCharacterIds.has(id))
+    void Promise.all(currentIds.map(characterId => loadCharacterCommissions(characterId, true))).then((results) => {
+      if (results.every(Boolean)) {
+        setRefreshError(null)
+      }
+    })
+  }, [characters, loadCharacterCommissions])
+
+  useEffect(() => {
+    if (previousSearchRowsRef.current !== commissionSearchRows) {
+      previousSearchRowsRef.current = commissionSearchRows
+      refreshLoadedGroups()
+    }
+  }, [commissionSearchRows, refreshLoadedGroups])
+
+  const updateSearchRow = useCallback((id: number, row: CommissionRow | null) => {
+    setSearchUpdates(previous => ({
+      base: commissionSearchRows,
+      rows: new Map(previous.base === commissionSearchRows ? previous.rows : []).set(id, row),
+    }))
+  }, [commissionSearchRows])
 
   const handleToggle = useCallback((characterId: number) => {
     const isOpening = !openIds.has(characterId)
@@ -247,82 +275,110 @@ export function CommissionManager({
     }
 
     toggleCharacterOpen(characterId)
-    queueMicrotask(() => {
-      const button = buttonMapRef.current[characterId]
-      button?.scrollIntoView({
-        behavior: hasAppliedSearchQuery ? 'auto' : 'smooth',
-        block: 'nearest',
-        inline: 'nearest',
-      })
-    })
-  }, [hasAppliedSearchQuery, loadCharacterCommissions, openIds, toggleCharacterOpen])
+  }, [loadCharacterCommissions, openIds, toggleCharacterOpen])
 
   const handleSearchChange = (value: string) => {
     setSearchQuery(value)
-    if (!normalizeAdminSearchQuery(value)) {
-      closeAllCharacterOpen()
-    }
+    pendingCommissionIdRef.current = null
+    setPendingCommissionId(null)
+    setSelectionError(null)
     if (normalizeAdminSearchQuery(value)) {
       setIsReorderMode(false)
     }
   }
 
   useEffect(() => {
-    if (!hasAppliedSearchQuery || autoLoadSearchCharacterIds.size === 0) {
+    if (isInitialLoading || isInitialError) {
       return
     }
-
     let active = true
-    const loadInSequence = async () => {
-      for (const characterId of autoLoadSearchCharacterIds) {
-        if (!active) {
-          return
+    const validIds = new Set(characters.map(character => character.id))
+    void Promise.all([...openIds].filter(id => validIds.has(id)).map(characterId => loadCharacterCommissions(characterId)))
+      .finally(() => {
+        if (active) {
+          onOpenGroupsLoaded?.()
         }
-        await loadCharacterCommissions(characterId)
-      }
-    }
-
-    void loadInSequence()
-
+      })
     return () => {
       active = false
     }
-  }, [autoLoadSearchCharacterIds, hasAppliedSearchQuery, loadCharacterCommissions])
+  }, [characters, isInitialError, isInitialLoading, loadCharacterCommissions, onOpenGroupsLoaded, openIds])
 
-  useEffect(() => {
-    openIds.forEach((characterId) => {
-      void loadCharacterCommissions(characterId)
-    })
-  }, [loadCharacterCommissions, openIds])
+  const invalidateCharacterLoad = useCallback((characterId: number) => {
+    loadVersionsRef.current.set(characterId, (loadVersionsRef.current.get(characterId) ?? 0) + 1)
+  }, [])
 
-  // Update a single commission in-place after a successful save — no network
-  // round-trip needed, and the updated characterId is handled automatically
-  // because commissionMap is derived from loadedCommissions.
+  // 保存后立即更新作品和搜索；后台同步只刷新已加载的角色组。
   const handleCommissionSaved = useCallback((updated: CommissionRow) => {
+    const previous = loadedCommissions.find(commission => commission.id === updated.id)
+    invalidateCharacterLoad(updated.characterId)
+    if (previous && previous.characterId !== updated.characterId) {
+      invalidateCharacterLoad(previous.characterId)
+    }
     setLoadedCommissions(previous =>
       previous.map(commission => commission.id === updated.id ? updated : commission),
     )
-  }, [])
+    updateSearchRow(updated.id, updated)
+    onRefresh?.()
+  }, [invalidateCharacterLoad, loadedCommissions, onRefresh, updateSearchRow])
+
+  const handleSearchResultSelect = useCallback((commissionId: number, characterId: number) => {
+    const cached = loadedCommissions.find(commission => commission.id === commissionId)
+    setSelectionError(null)
+    if (cached && !staleCharacterIdsRef.current.has(characterId) && !inFlightLoadPromisesRef.current.has(characterId)) {
+      pendingCommissionIdRef.current = null
+      setPendingCommissionId(null)
+      setSelectedCommission(cached)
+      return
+    }
+    pendingCommissionIdRef.current = commissionId
+    setPendingCommissionId(commissionId)
+    void loadCharacterCommissions(characterId, !cached && !inFlightLoadPromisesRef.current.has(characterId)).then((commissions) => {
+      if (pendingCommissionIdRef.current !== commissionId) {
+        return
+      }
+      const selected = commissions?.find(commission => commission.id === commissionId)
+      if (selected) {
+        setSelectedCommission(selected)
+        setPendingCommissionId(null)
+        pendingCommissionIdRef.current = null
+      }
+      else {
+        staleCharacterIdsRef.current.add(characterId)
+        setSelectionError({ commissionId, characterId })
+        setLoadErrors(previous => new Map(previous).set(characterId, commissions
+          ? 'Entry no longer available'
+          : previous.get(characterId) ?? 'Current details are unavailable'))
+      }
+    })
+  }, [loadCharacterCommissions, loadedCommissions])
 
   const handleSelectCommission = useCallback((commission: CommissionRow) => {
-    setSelectedCommission(commission)
-  }, [])
+    handleSearchResultSelect(commission.id, commission.characterId)
+  }, [handleSearchResultSelect])
 
   const handleCloseDrawer = useCallback(() => {
+    pendingCommissionIdRef.current = null
+    setPendingCommissionId(null)
+    setSelectionError(null)
     setSelectedCommission(null)
   }, [])
 
   const handleKeywordReplaceComplete = useCallback(() => {
+    // 旧网格可保留展示，但批量变更后的记录必须刷新后才能编辑。
+    for (const characterId of new Set([...loadedCharacterIdsRef.current, ...inFlightLoadPromisesRef.current.keys()])) {
+      staleCharacterIdsRef.current.add(characterId)
+      invalidateCharacterLoad(characterId)
+    }
     notifyDataUpdate()
     markPendingRebuild()
-    // Full reload to get fresh bootstrap data — simpler than surgical updates
-    // since the replace can affect commissions across multiple characters
-    window.location.reload()
-  }, [])
+    onRefresh?.()
+  }, [invalidateCharacterLoad, onRefresh])
 
   const handleDrawerDelete = useCallback(() => {
     if (!selectedCommission)
       return
+    invalidateCharacterLoad(selectedCommission.characterId)
     setLoadedCommissions(previous =>
       previous.filter(c => c.id !== selectedCommission.id),
     )
@@ -330,13 +386,15 @@ export function CommissionManager({
       selectedCommission.characterId,
       selectedCommission.id,
     )
+    updateSearchRow(selectedCommission.id, null)
     setSelectedCommission(null)
-  }, [handleDeleteCommission, selectedCommission])
+    onRefresh?.()
+  }, [handleDeleteCommission, invalidateCharacterLoad, onRefresh, selectedCommission, updateSearchRow])
 
   const handleDrawerSaveSuccess = useCallback((updated: CommissionRow) => {
     handleCommissionSaved(updated)
-    // Keep drawer open with updated data
-    setSelectedCommission(updated)
+    // 保存响应不得重新打开用户已关闭的抽屉，或切换回上一条作品。
+    setSelectedCommission(current => current?.id === updated.id ? updated : current)
   }, [handleCommissionSaved])
 
   return (
@@ -360,39 +418,27 @@ export function CommissionManager({
         </p>
       </header>
 
-      {feedback
-        ? (
-            <p
-              className={feedback.type === 'error'
-                ? `
-                  text-sm text-red-500
-                  dark:text-red-400
-                `
-                : `
-                  text-sm text-gray-700
-                  dark:text-gray-200
-                `}
-            >
-              {feedback.text}
-            </p>
-          )
-        : null}
-
-      {loadError
-        ? (
-            <p className="
-              text-sm text-red-500
-              dark:text-red-400
-            "
-            >
-              {loadError}
-            </p>
-          )
-        : null}
+      {feedback && <FloatingNotice tone={feedback.type} onDismiss={dismissFeedback}>{feedback.text}</FloatingNotice>}
+      {pendingCommissionId !== null && !selectionError && !hasAppliedSearchQuery && (
+        <FloatingNotice>Loading commission…</FloatingNotice>
+      )}
+      {selectionError && !hasAppliedSearchQuery && (
+        <FloatingNotice tone="error" onDismiss={() => setSelectionError(null)}>
+          <p>Could not load the latest commission. Try again before editing.</p>
+          <button type="button" onClick={() => handleSearchResultSelect(selectionError.commissionId, selectionError.characterId)} className="mt-2 font-medium underline underline-offset-2">Retry opening commission</button>
+        </FloatingNotice>
+      )}
+      {refreshError && (
+        <FloatingNotice tone="error" onDismiss={() => setRefreshError(null)}>
+          <p>Could not refresh commissions. Showing saved data.</p>
+          <p className="mt-1 text-xs">{refreshError}</p>
+          <button type="button" onClick={refreshLoadedGroups} className="mt-2 font-medium underline underline-offset-2">Try again</button>
+        </FloatingNotice>
+      )}
 
       <div className="space-y-2">
         <div className="flex gap-2">
-          <div className="relative flex-1">
+          <div className="relative min-w-0 flex-1">
             <IconSearch
               className="
                 pointer-events-none absolute top-1/2 left-3 size-4
@@ -410,7 +456,7 @@ export function CommissionManager({
               placeholder="Search commissions"
               className={`
                 ${formControlStyles}
-                pr-10 pl-9
+                pr-20 pl-9
               `}
             />
             {searchQuery
@@ -435,6 +481,12 @@ export function CommissionManager({
                   </button>
                 )
               : null}
+            {hasAppliedSearchQuery && (
+              <span aria-live="polite" className="pointer-events-none absolute top-1/2 right-11 -translate-y-1/2 text-xs tabular-nums text-gray-500 dark:text-gray-400">
+                {matchedCommissionIds.size}
+                <span className="sr-only"> matching commission entries</span>
+              </span>
+            )}
           </div>
           <button
             type="button"
@@ -466,103 +518,136 @@ export function CommissionManager({
             <IconArrowsSort className="size-4.5" stroke={2} aria-hidden="true" />
           </button>
           <KeywordReplacePopover
-            commissionSearchRows={commissionSearchRows}
+            commissionSearchRows={currentSearchRows}
             onComplete={handleKeywordReplaceComplete}
           />
         </div>
 
-        {hasAppliedSearchQuery
-          ? (
-              <p className="
-                text-xs text-gray-500
-                dark:text-gray-400
-              "
-              >
-                {matchedCommissionIds.size === 0
-                  ? 'No commissions match the current query.'
-                  : `${matchedCommissionIds.size} matching commission entries.`}
-              </p>
-            )
-          : null}
       </div>
 
-      <div className="animate-[tabFade_260ms_ease-out] space-y-4">
-        <div className="space-y-4" {...dragContainerProps}>
-          {list.map((item, index) => {
-            if (item.type === 'divider') {
-              return (
-                <div key="divider" className="relative" {...dragItemAttr(index)}>
-                  {dropIndicatorIndex === index && <DropIndicator />}
-                  <SortableDivider activeCount={activeCount} />
-                </div>
-              )
-            }
-
-            const character = item.data
-            const visibleCharacterCommissions
-              = visibleCommissionsByCharacter.get(character.id) ?? []
-            const isActive = dividerIndex === -1 ? true : index < dividerIndex
-            const shouldAutoOpen
-              = hasAppliedSearchQuery && autoLoadSearchCharacterIds.has(character.id)
-
-            return (
-              <div key={character.id} className="relative" {...dragItemAttr(index)}>
-                {dropIndicatorIndex === index && <DropIndicator />}
-                <SortableCharacterCard
-                  character={character}
-                  isActive={isActive}
-                  totalCommissions={character.commissionCount}
-                  commissionList={visibleCharacterCommissions}
-                  isCommissionsLoaded={loadedCharacterIds.has(character.id)}
-                  isCommissionsLoading={loadingCharacterIds.has(character.id)}
-                  isOpen={shouldAutoOpen || openIds.has(character.id)}
-                  onToggle={() => handleToggle(character.id)}
-                  selectedCommissionId={selectedCommission?.id ?? null}
-                  onSelectCommission={handleSelectCommission}
-                  buttonRefFor={buttonRefFor}
-                  isEditing={editing?.id === character.id}
-                  editingValue={editing?.id === character.id ? editing.value : character.name}
-                  onStartEdit={() => startEditingName(character)}
-                  onRenameChange={handleRenameChange}
-                  onCancelEdit={cancelEditing}
-                  onSubmitRename={submitRename}
-                  onRequestDelete={() => {
-                    deleteReturnFocusRef.current = document.activeElement instanceof HTMLElement
-                      ? document.activeElement
-                      : null
-                    handleRequestDelete(character)
-                  }}
-                  isDeleting={deletingId === character.id || isDeletePending}
-                  isDragging={draggingIndex === index}
-                  dragHandleProps={dragHandleProps(index)}
-                  disableDrag={hasAppliedSearchQuery}
-                  reduceMotion={hasAppliedSearchQuery}
-                  isReorderMode={isReorderMode}
-                  onMoveUp={index === 0
-                    ? undefined
-                    : () => {
-                        const targetIndex = dividerIndex !== -1 && index - 1 === dividerIndex
-                          ? index - 2
-                          : index - 1
-                        if (targetIndex >= 0)
-                          handleReorder(index, targetIndex)
-                      }}
-                  onMoveDown={index === list.length - 1
-                    ? undefined
-                    : () => {
-                        const targetIndex = dividerIndex !== -1 && index + 1 === dividerIndex
-                          ? index + 2
-                          : index + 1
-                        if (targetIndex < list.length)
-                          handleReorder(index, targetIndex)
-                      }}
-                />
+      {hasAppliedSearchQuery
+        ? (
+            <div className="space-y-2" aria-label="Search results">
+              {matchedSearchRows.length === 0 && <p className="py-4 text-sm text-gray-500 dark:text-gray-400">No commissions match the current query.</p>}
+              {matchedSearchRows.map(row => (
+                <button
+                  key={row.id}
+                  type="button"
+                  title={`Public ID: ${row.publicId}`}
+                  aria-label={`${row.characterName} · ${getCommissionAccessibleLabel(row)}`}
+                  aria-busy={pendingCommissionId === row.id && loadingCharacterIds.has(row.characterId)}
+                  onClick={() => handleSearchResultSelect(row.id, row.characterId)}
+                  className="flex min-h-16 w-full min-w-0 flex-col items-start justify-center gap-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-left transition hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:border-gray-700 dark:bg-gray-900/40 dark:hover:bg-gray-800"
+                >
+                  <span className="w-full truncate text-sm font-medium text-gray-800 dark:text-gray-100">
+                    {row.characterName}
+                    {' · '}
+                    {row.commissionDate || 'Undated'}
+                    {' · '}
+                    {row.creatorName?.trim() || 'Anon'}
+                  </span>
+                  <span className="w-full truncate text-xs text-gray-500 dark:text-gray-400">
+                    {pendingCommissionId === row.id && loadingCharacterIds.has(row.characterId)
+                      ? 'Loading commission…'
+                      : pendingCommissionId === row.id && loadErrors.has(row.characterId)
+                        ? `Could not load: ${loadErrors.get(row.characterId)} — click to retry`
+                        : row.design?.trim() || `#${formatCommissionPublicId(row.publicId)}`}
+                    {row.partNumber ? ` · Part ${row.partNumber}` : ''}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )
+        : isInitialLoading
+          ? (
+              <div aria-hidden="true" className="space-y-4">
+                {Array.from({ length: 4 }, (_, index) => (
+                  <div key={index} className="h-[3.75rem] motion-safe:animate-pulse rounded-2xl border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-900/50" />
+                ))}
               </div>
             )
-          })}
-          {dropIndicatorIndex === list.length && <DropIndicator />}
-        </div>
-      </div>
+          : isInitialError
+            ? (
+                <div className="flex min-h-60 items-center justify-center rounded-2xl border border-dashed border-gray-300 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                  Commission list is unavailable.
+                </div>
+              )
+            : (
+                <div className="motion-safe:animate-[tabFade_260ms_ease-out] space-y-4">
+                  <div className="space-y-4" {...dragContainerProps}>
+                    {list.map((item, index) => {
+                      if (item.type === 'divider') {
+                        return (
+                          <div key="divider" className="relative" {...dragItemAttr(index)}>
+                            {dropIndicatorIndex === index && <DropIndicator />}
+                            <SortableDivider activeCount={activeCount} />
+                          </div>
+                        )
+                      }
+
+                      const character = item.data
+                      const visibleCharacterCommissions
+                        = sortedLoadedCommissionsByCharacter.get(character.id) ?? []
+                      const isActive = dividerIndex === -1 ? true : index < dividerIndex
+                      return (
+                        <div key={character.id} className="relative" {...dragItemAttr(index)}>
+                          {dropIndicatorIndex === index && <DropIndicator />}
+                          <SortableCharacterCard
+                            character={character}
+                            isActive={isActive}
+                            totalCommissions={character.commissionCount}
+                            commissionList={visibleCharacterCommissions}
+                            isCommissionsLoaded={loadedCharacterIds.has(character.id)}
+                            isCommissionsLoading={loadingCharacterIds.has(character.id)}
+                            commissionLoadError={loadErrors.get(character.id) ?? null}
+                            onRetryLoad={() => void loadCharacterCommissions(character.id)}
+                            isOpen={openIds.has(character.id)}
+                            onToggle={() => handleToggle(character.id)}
+                            selectedCommissionId={selectedCommission?.id ?? null}
+                            onSelectCommission={handleSelectCommission}
+                            isEditing={editing?.id === character.id}
+                            editingValue={editing?.id === character.id ? editing.value : character.name}
+                            onStartEdit={() => startEditingName(character)}
+                            onRenameChange={handleRenameChange}
+                            onCancelEdit={cancelEditing}
+                            onSubmitRename={submitRename}
+                            onRequestDelete={() => {
+                              deleteReturnFocusRef.current = document.activeElement instanceof HTMLElement
+                                ? document.activeElement
+                                : null
+                              handleRequestDelete(character)
+                            }}
+                            isDeleting={deletingId === character.id || isDeletePending}
+                            isDragging={draggingIndex === index}
+                            dragHandleProps={dragHandleProps(index)}
+                            disableDrag={hasAppliedSearchQuery}
+                            isReorderMode={isReorderMode}
+                            onMoveUp={index === 0
+                              ? undefined
+                              : () => {
+                                  const targetIndex = dividerIndex !== -1 && index - 1 === dividerIndex
+                                    ? index - 2
+                                    : index - 1
+                                  if (targetIndex >= 0)
+                                    handleReorder(index, targetIndex)
+                                }}
+                            onMoveDown={index === list.length - 1
+                              ? undefined
+                              : () => {
+                                  const targetIndex = dividerIndex !== -1 && index + 1 === dividerIndex
+                                    ? index + 2
+                                    : index + 1
+                                  if (targetIndex < list.length)
+                                    handleReorder(index, targetIndex)
+                                }}
+                          />
+                        </div>
+                      )
+                    })}
+                    {dropIndicatorIndex === list.length && <DropIndicator />}
+                  </div>
+                </div>
+              )}
 
       <CharacterDeleteDialog
         isOpen={Boolean(confirmingCharacter)}
@@ -583,7 +668,7 @@ export function CommissionManager({
         open={selectedCommission !== null}
         commission={selectedCommission}
         characters={orderedCharacters}
-        commissionSearchRows={commissionSearchRows}
+        commissionSearchRows={currentSearchRows}
         onClose={handleCloseDrawer}
         onDelete={handleDrawerDelete}
         onSaveSuccess={handleDrawerSaveSuccess}

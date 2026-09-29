@@ -4,6 +4,7 @@ import type {
   CommissionRow,
 } from '@commission-index/domain'
 import type { ChangeEvent } from 'react'
+import type { FormState } from '../../lib/formState'
 import { IconUpload } from '@tabler/icons-react'
 import {
   useActionState,
@@ -28,6 +29,7 @@ import { markPendingRebuild } from '../../lib/pendingRebuildSignal'
 import { CommissionHiddenSwitch } from '../create/CommissionFormFields'
 import { CommissionSharedFields } from '../create/CommissionSharedFields'
 import { DuplicateCommissionNotice } from '../create/DuplicateCommissionNotice'
+import { FloatingNotice } from '../FloatingNotice'
 import { FormStatusIndicator } from '../FormStatusIndicator'
 import { ImageCropDialog } from '../image/ImageCropDialog'
 import { SubmitButton } from '../SubmitButton'
@@ -56,7 +58,7 @@ export function CommissionEditForm({
   onDelete,
   onSaveSuccess,
 }: CommissionEditFormProps) {
-  const [state, formAction] = useActionState(updateCommissionAction, INITIAL_FORM_STATE)
+  const [state, formAction, isSaving] = useActionState(saveCommission, INITIAL_FORM_STATE)
   const [isDeleting, startDelete] = useTransition()
   const [isUploading, startUpload] = useTransition()
   const [uploadStatus, setUploadStatus] = useState<OperationStatus | null>(null)
@@ -118,79 +120,45 @@ export function CommissionEditForm({
     [commission.id, commissionDate, commissionSearchRows, creatorName, keywordValue, partNumber, selectedCharacterId, workGroupId],
   )
 
-  // Capture latest form values so the save-success effect can read them without
-  // making every field a dependency (which would cause spurious re-fires).
-  const savedFormRef = useRef({
-    commissionId: commission.id,
-    publicId: commission.publicId,
-    commissionCharacterName: commission.characterName,
-    assetFileName: commission.fileName,
-    commissionDate,
-    creatorName,
-    descriptionValue,
-    designValue,
-    isHidden,
-    keywordValue,
-    linksValue,
-    workGroupId,
-    partNumber,
-    onSaveSuccess,
-    selectedCharacterId,
-    sortedCharacters,
-  })
-  savedFormRef.current = {
-    commissionId: commission.id,
-    publicId: commission.publicId,
-    commissionCharacterName: commission.characterName,
-    assetFileName: commission.fileName,
-    commissionDate,
-    creatorName,
-    descriptionValue,
-    designValue,
-    isHidden,
-    keywordValue,
-    linksValue,
-    workGroupId,
-    partNumber,
-    onSaveSuccess,
-    selectedCharacterId,
-    sortedCharacters,
+  async function saveCommission(previous: FormState, payload: FormData): Promise<FormState> {
+    // 回调只反映本次提交；等待响应期间继续输入的草稿不应冒充已保存数据。
+    const field = (name: string) => payload.get(name)?.toString().trim() ?? ''
+    const requestedGroupId = field('workGroupId')
+    const savedGroupId = requestedGroupId === 'new' ? crypto.randomUUID() : requestedGroupId
+    payload.set('workGroupId', savedGroupId)
+    const characterId = Number(field('characterId'))
+    const updated: CommissionRow = {
+      ...commission,
+      characterId,
+      characterName: sortedCharacters.find(character => character.id === characterId)?.name ?? commission.characterName,
+      commissionDate: field('commissionDate') || null,
+      creatorName: field('creatorName') || null,
+      workGroupId: savedGroupId || null,
+      partNumber: field('partNumber') ? Number(field('partNumber')) : null,
+      description: field('description') || null,
+      design: field('design') || null,
+      hidden: field('hidden') === 'on',
+      keyword: field('keyword') || null,
+      links: field('links').split('\n').map(link => link.trim()).filter(Boolean),
+    }
+    let result: FormState
+    try {
+      result = await updateCommissionAction(previous, payload)
+    }
+    catch {
+      return { status: 'error', message: 'Unable to update commission.' }
+    }
+    if (result.status === 'success') {
+      setWorkGroupId(current => current === requestedGroupId ? savedGroupId : current)
+      notifyDataUpdate()
+      markPendingRebuild()
+      onSaveSuccess?.(updated)
+    }
+    return result
   }
 
   useEffect(() => {
-    if (state.status !== 'success') {
-      return
-    }
-
-    // Notify other tabs a change occurred; the session-ID filter in
-    // dataUpdateSignal prevents the current tab from re-fetching bootstrap.
-    notifyDataUpdate()
-    markPendingRebuild()
-
-    // Update the commission in-place locally — no round-trip needed.
-    const vals = savedFormRef.current
-    vals.onSaveSuccess?.({
-      id: vals.commissionId,
-      publicId: vals.publicId,
-      characterId: vals.selectedCharacterId,
-      characterName:
-        vals.sortedCharacters.find(c => c.id === vals.selectedCharacterId)?.name
-        ?? vals.commissionCharacterName,
-      commissionDate: vals.commissionDate || null,
-      creatorName: vals.creatorName.trim() || null,
-      workGroupId: vals.workGroupId || null,
-      partNumber: vals.partNumber ? Number(vals.partNumber) : null,
-      fileName: vals.assetFileName,
-      description: vals.descriptionValue.trim() || null,
-      design: vals.designValue.trim() || null,
-      hidden: vals.isHidden,
-      keyword: vals.keywordValue.trim() || null,
-      links: vals.linksValue.split('\n').map(s => s.trim()).filter(Boolean),
-    })
-  }, [state.status])
-
-  useEffect(() => {
-    if (!uploadStatus) {
+    if (!uploadStatus || uploadStatus.type === 'error') {
       return
     }
 
@@ -208,9 +176,11 @@ export function CommissionEditForm({
     }
 
     startDelete(() => {
-      deleteCommissionAction(commission.id)
+      return deleteCommissionAction(commission.id)
         .then((result) => {
           if (result.status === 'success') {
+            notifyDataUpdate()
+            markPendingRebuild()
             setDeleteStatus({ text: 'Entry deleted.', type: 'success' })
             setIsDeleteArmed(false)
             onDelete?.()
@@ -256,10 +226,12 @@ export function CommissionEditForm({
     payload.set('sourceImage', file)
 
     startUpload(() => {
-      replaceCommissionSourceImageAction(payload)
+      return replaceCommissionSourceImageAction(payload)
         .then((result) => {
           if (result.status === 'success') {
             const nextVersion = Date.now()
+            notifyDataUpdate()
+            markPendingRebuild()
             setUploadStatus({
               text: result.message ?? `Source image for commission #${commission.id} replaced.`,
               type: 'success',
@@ -313,7 +285,6 @@ export function CommissionEditForm({
     >
       <input type="hidden" name="id" value={commission.id} />
       <input type="hidden" name="characterId" value={selectedCharacterId} />
-      {isHidden ? <input type="hidden" name="hidden" value="on" /> : null}
 
       <div className="
         group relative aspect-1280/525 w-full overflow-hidden rounded-xl
@@ -352,7 +323,7 @@ export function CommissionEditForm({
         <button
           type="button"
           onClick={handleSelectSourceImage}
-          disabled={isDeleting || isUploading}
+          disabled={isDeleting || isUploading || isSaving}
           aria-label={`Reupload source image for ${accessibleLabel}`}
           title={`Public ID: ${commission.publicId}`}
           className="
@@ -373,19 +344,9 @@ export function CommissionEditForm({
 
       {uploadStatus
         ? (
-            <p
-              className={uploadStatus.type === 'success'
-                ? `
-                  text-xs text-emerald-600
-                  dark:text-emerald-400
-                `
-                : `
-                  text-xs text-red-500
-                  dark:text-red-400
-                `}
-            >
+            <FloatingNotice tone={uploadStatus.type} onDismiss={() => setUploadStatus(null)}>
               {uploadStatus.text}
-            </p>
+            </FloatingNotice>
           )
         : null}
 
@@ -401,7 +362,6 @@ export function CommissionEditForm({
         : null}
 
       <CommissionSharedFields
-        publicId={commission.publicId}
         characterOptions={sortedCharacters}
         selectedCharacterId={selectedCharacterId}
         onCharacterChange={id => setSelectedCharacterId(id ?? initialCharacterId)}
@@ -425,15 +385,18 @@ export function CommissionEditForm({
         onKeywordChange={setKeywordValue}
       />
 
+      <CommissionHiddenSwitch isHidden={isHidden} onChange={setIsHidden} />
+
       <DuplicateCommissionNotice hints={duplicateHints} />
 
       <div className="
-        flex flex-col gap-3
-        sm:flex-row sm:flex-wrap sm:items-center sm:gap-4
+        mt-6 flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-gray-200/60 pt-6
+        dark:border-gray-700/60
+        sm:gap-4
       "
       >
-        <div className="flex items-center gap-3">
-          <SubmitButton>Save changes</SubmitButton>
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <SubmitButton disabled={isDeleting || isUploading}>Save changes</SubmitButton>
           <FormStatusIndicator
             status={state.status}
             message={state.message}
@@ -442,12 +405,10 @@ export function CommissionEditForm({
         </div>
 
         <div className="
-          flex flex-wrap items-center gap-2
-          sm:ml-auto sm:gap-4
+          ml-auto flex shrink-0 flex-wrap items-center gap-2
+          sm:gap-4
         "
         >
-          <CommissionHiddenSwitch isHidden={isHidden} onChange={setIsHidden} />
-
           {isDeleteArmed && !isDeleting
             ? (
                 <button
@@ -475,7 +436,7 @@ export function CommissionEditForm({
           <button
             type="button"
             onClick={handleDelete}
-            disabled={isDeleting}
+            disabled={isDeleting || isUploading || isSaving}
             className="
               inline-flex h-9 items-center justify-center rounded-md border
               border-red-200/70 px-3 text-sm font-medium text-red-600 transition
@@ -497,19 +458,9 @@ export function CommissionEditForm({
 
       {deleteStatus
         ? (
-            <p
-              className={deleteStatus.type === 'success'
-                ? `
-                  text-sm text-gray-700
-                  dark:text-gray-200
-                `
-                : `
-                  text-sm text-red-500
-                  dark:text-red-400
-                `}
-            >
+            <FloatingNotice tone={deleteStatus.type} onDismiss={() => setDeleteStatus(null)}>
               {deleteStatus.text}
-            </p>
+            </FloatingNotice>
           )
         : null}
     </form>

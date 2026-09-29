@@ -27,44 +27,27 @@ const statusOptions: Array<{ value: StatusValue, label: string }> = [
   },
 ]
 
-export function AddCharacterForm() {
-  const [state, formAction] = useActionState(addCharacterAction, INITIAL_FORM_STATE)
+export function AddCharacterForm({ onSaved, onPendingChange }: { onSaved: () => void, onPendingChange: (pending: boolean) => void }) {
+  const [state, formAction, isPending] = useActionState(addCharacterAction, INITIAL_FORM_STATE)
   const [status, setStatus] = useState<StatusValue>('active')
 
   useEffect(() => {
     if (state.status === 'success') {
       notifyDataUpdate()
       markPendingRebuild()
+      onSaved()
     }
-  }, [state.status])
+  }, [onSaved, state])
+
+  useEffect(() => onPendingChange(isPending), [isPending, onPendingChange])
 
   return (
     <form
       action={formAction}
       className="
-        flex min-w-[20rem] flex-1 flex-col gap-5 rounded-2xl border
-        border-gray-200 bg-white/90 p-6 shadow-sm ring-1 ring-gray-900/5
-        backdrop-blur-sm
-        dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10
+        flex min-w-0 flex-1 flex-col gap-5 p-5
       "
     >
-      <div className="space-y-1">
-        <h2 className="
-          text-lg font-semibold text-gray-900
-          dark:text-gray-100
-        "
-        >
-          Add Character
-        </h2>
-        <p className="
-          text-sm text-gray-600
-          dark:text-gray-300
-        "
-        >
-          Register a new character to start tracking commissions.
-        </p>
-      </div>
-
       <div className="
         grid gap-4
         sm:grid-cols-[minmax(0,1fr)_14rem]
@@ -74,7 +57,7 @@ export function AddCharacterForm() {
           <label
             htmlFor="add-character-name"
             className="
-              text-xs font-semibold tracking-wide text-gray-500 uppercase
+              block pl-1 text-xs font-semibold tracking-wide text-gray-500 uppercase
               dark:text-gray-300
             "
           >
@@ -94,7 +77,7 @@ export function AddCharacterForm() {
           <label
             htmlFor="add-character-status"
             className="
-              text-xs font-semibold tracking-wide text-gray-500 uppercase
+              block pl-1 text-xs font-semibold tracking-wide text-gray-500 uppercase
               dark:text-gray-300
             "
           >
@@ -131,7 +114,7 @@ export function AddCharacterForm() {
         dark:border-gray-700/60
       "
       >
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           <SubmitButton>Save character</SubmitButton>
           <FormStatusIndicator
             status={state.status}

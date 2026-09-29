@@ -31,6 +31,7 @@
     "prepare": "prek install",
     "preview": "pnpm -C apps/web preview",
     "test": "vitest run -c vitest.config.ts",
+    "test:admin-ui": "playwright test -c playwright.admin-ui.config.ts",
     "test:changed": "vitest run -c vitest.config.ts --changed",
     "test:visual": "playwright test -c playwright.config.ts",
     "test:visual:update": "playwright test -c playwright.config.ts --update-snapshots",

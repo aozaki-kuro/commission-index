@@ -1,6 +1,5 @@
 import type { AdminBootstrapData } from '@commission-index/domain'
-import { useEffect, useEffectEvent, useReducer, useState } from 'react'
-import { adminSurfaceStyles } from '../app/ui'
+import { useCallback, useEffect, useReducer, useState } from 'react'
 import { AdminCreateDashboard } from '../components/AdminCreateDashboard'
 import { fetchAdminJsonWithRetry, readCachedAdminJson } from '../lib/adminApi'
 import { subscribeToDataUpdates } from '../lib/dataUpdateSignal'
@@ -54,7 +53,7 @@ function createReducer(state: CreateState, action: CreateAction): CreateState {
 export function AdminCreatePage() {
   const [state, dispatch] = useReducer(createReducer, undefined, createInitialCreateState)
   const [reloadToken, setReloadToken] = useState(0)
-  const hasPayload = useEffectEvent(() => state.payload !== null)
+  const reloadData = useCallback(() => setReloadToken(token => token + 1), [])
 
   useEffect(() => subscribeToDataUpdates(() => {
     setReloadToken(token => token + 1)
@@ -64,9 +63,7 @@ export function AdminCreatePage() {
     const controller = new AbortController()
     let isDisposed = false
 
-    if (!hasPayload()) {
-      dispatch({ type: 'loading' })
-    }
+    dispatch({ type: 'loading' })
 
     void fetchAdminJsonWithRetry<AdminBootstrapData>(bootstrapCacheKey, {
       signal: controller.signal,
@@ -102,58 +99,19 @@ export function AdminCreatePage() {
     }
   }, [reloadToken])
 
-  if (state.payload) {
-    return (
-      <AdminCreateDashboard
-        characters={state.payload.characters.map(character => ({
-          id: character.id,
-          name: character.name,
-          sortOrder: character.sortOrder,
-          status: character.status,
-        }))}
-        commissionSearchRows={state.payload.commissionSearchRows}
-      />
-    )
-  }
-
   return (
-    <section className={`${adminSurfaceStyles} motion-safe:animate-[tabFade_240ms_cubic-bezier(0.25,1,0.5,1)_both]`}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-1">
-          <h2 className="
-            text-sm font-semibold text-gray-900
-            dark:text-gray-100
-          "
-          >
-            Create data
-          </h2>
-          <p className="
-            text-xs text-gray-600
-            dark:text-gray-300
-          "
-          >
-            {state.isLoading
-              ? 'Loading standalone create data through the admin worker.'
-              : state.errorMessage ?? 'Admin data is unavailable.'}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setReloadToken(token => token + 1)}
-          disabled={state.isLoading}
-          className="
-            rounded-lg border border-gray-300/80 px-3 py-1.5 text-xs font-medium
-            text-gray-700 transition
-            hover:border-gray-400 hover:text-gray-900
-            disabled:pointer-events-none disabled:opacity-50
-            dark:border-gray-700 dark:text-gray-200
-            dark:hover:border-gray-600 dark:hover:text-gray-100
-          "
-        >
-          {state.isLoading ? 'Loading…' : 'Retry'}
-        </button>
-      </div>
-    </section>
+    <AdminCreateDashboard
+      characters={state.payload?.characters.map(character => ({
+        id: character.id,
+        name: character.name,
+        sortOrder: character.sortOrder,
+        status: character.status,
+      })) ?? []}
+      commissionSearchRows={state.payload?.commissionSearchRows ?? []}
+      errorMessage={state.errorMessage}
+      isLoading={state.isLoading}
+      hasPayload={state.payload !== null}
+      onRetry={reloadData}
+    />
   )
 }

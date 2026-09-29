@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  addCharacterAction,
   addCommissionAction,
   replaceCommissionSourceImageAction,
+  saveHomeFeaturedKeywordsAction,
+  saveKeywordAliasesBatchAction,
   updateCommissionAction,
 } from './adminActions'
 
@@ -96,5 +99,28 @@ describe('commission admin actions', () => {
     expect(body.get('id')).toBe('15')
     expect(body.get('sourceImage')).toBeInstanceOf(File)
     expect(body.has('commissionFileName')).toBe(false)
+  })
+})
+
+describe('suggestion admin action', () => {
+  it('returns network failures as form errors without retrying a write', async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error('Connection interrupted'))
+    vi.stubGlobal('fetch', fetchMock)
+    const formData = new FormData()
+    formData.set('keywordsJson', JSON.stringify(['Summer', 'Winter']))
+    await expect(saveHomeFeaturedKeywordsAction({ status: 'idle' }, formData)).resolves.toEqual({
+      status: 'error',
+      message: 'Connection interrupted',
+    })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('character and alias network errors', () => {
+  it.each([addCharacterAction, saveKeywordAliasesBatchAction])('keeps rejected writes inside the form error boundary', async (action) => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error('Connection interrupted'))
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(action({ status: 'idle' }, new FormData())).resolves.toEqual({ status: 'error', message: 'Connection interrupted' })
+    expect(fetchMock).toHaveBeenCalledOnce()
   })
 })

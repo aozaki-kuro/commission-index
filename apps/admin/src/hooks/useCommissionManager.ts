@@ -255,11 +255,15 @@ function listReducer(state: ListItem[], action: ListAction): ListItem[] {
 interface UseCommissionManagerParams {
   characters: CharacterRow[]
   commissions: CommissionRow[]
+  isDataReady?: boolean
+  onDataChanged?: () => void
 }
 
 export function useCommissionManager({
   characters,
   commissions,
+  isDataReady = true,
+  onDataChanged,
 }: UseCommissionManagerParams) {
   const sortedCharacters = useMemo(
     () => characters.toSorted((left, right) => left.sortOrder - right.sortOrder),
@@ -322,8 +326,10 @@ export function useCommissionManager({
   }, [openIds])
 
   useSafeLayoutEffect(() => {
-    reconcileOpenIds(sortedCharacters)
-  }, [reconcileOpenIds, sortedCharacters])
+    if (isDataReady) {
+      reconcileOpenIds(sortedCharacters)
+    }
+  }, [isDataReady, reconcileOpenIds, sortedCharacters])
 
   useSafeLayoutEffect(() => {
     replaceCommissionMap(initialMap)
@@ -334,7 +340,7 @@ export function useCommissionManager({
   }, [initialList, replaceList])
 
   useEffect(() => {
-    if (!feedback) {
+    if (!feedback || feedback.type === 'error') {
       return
     }
 
@@ -504,13 +510,14 @@ export function useCommissionManager({
           setEditing(null)
           notifyDataUpdate()
           markPendingRebuild()
+          onDataChanged?.()
         })
         .catch(() => {
           setFeedback({ text: 'Unable to update character.', type: 'error' })
           cancelEditing()
         })
     })
-  }, [cancelEditing, editing, getCharacterStatus, list, startRenameTransition, toFeedback])
+  }, [cancelEditing, editing, getCharacterStatus, list, onDataChanged, startRenameTransition, toFeedback])
 
   const performDeleteCharacter = useCallback((character: CharacterRow) => {
     if (activeDeleteRequestIdRef.current !== null || isDeletePending || deletingId !== null) {
@@ -536,6 +543,7 @@ export function useCommissionManager({
         setFeedback(toFeedback(result))
         notifyDataUpdate()
         markPendingRebuild()
+        onDataChanged?.()
       })
       .catch(() => {
         setFeedback({ text: 'Unable to delete character.', type: 'error' })
@@ -548,7 +556,7 @@ export function useCommissionManager({
           setIsDeletePending(false)
         }
       })
-  }, [deletingId, isDeletePending, toFeedback])
+  }, [deletingId, isDeletePending, onDataChanged, toFeedback])
 
   const orderedCharacters = useMemo(
     () => list.filter((item): item is CharacterItem => item.type === 'character').map(item => item.data),
@@ -579,6 +587,7 @@ export function useCommissionManager({
     deletingId,
     editing,
     feedback,
+    dismissFeedback: () => setFeedback(null),
     handleDeleteCommission,
     handleRenameChange,
     handleReorder,

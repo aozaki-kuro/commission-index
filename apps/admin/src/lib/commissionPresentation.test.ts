@@ -19,6 +19,6 @@ describe('commission presentation helpers', () => {
       publicId: 'e593b69b-9e23-4433-877e-4cf0a869e17f',
       commissionDate: '2025-03-02',
       creatorName: null,
-    })).toBe('2025-03-02 · Anon · #e593b69b9e23')
+    })).toBe('2025-03-02 · Anon · #e593b69')
   })
 })

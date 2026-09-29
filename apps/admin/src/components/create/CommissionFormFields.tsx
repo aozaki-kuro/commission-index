@@ -4,7 +4,6 @@ import * as Popover from '@radix-ui/react-popover'
 import { IconCalendar, IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 import { useRef, useState } from 'react'
 import { formControlStyles } from '../../app/ui'
-import { formatCommissionPublicId } from '../../lib/commissionPresentation'
 import { getDefaultPartNumber } from '../../lib/commissionWorkGroups'
 import {
   Select,
@@ -15,8 +14,8 @@ import {
 } from '../ui/select'
 
 const fieldLabelStyles
-  = 'block text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300'
-const fieldDescriptionStyles = 'text-xs text-gray-500 dark:text-gray-400'
+  = 'block pl-1 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300'
+const fieldDescriptionStyles = 'pl-1 text-xs leading-4 text-gray-500 dark:text-gray-400'
 const alignedFieldStyles = 'min-w-0 space-y-2'
 const metadataControlStyles = `${formControlStyles} min-h-11 px-4`
 
@@ -127,6 +126,7 @@ interface CommissionCharacterFieldProps {
   selectedCharacterId: number | null
   onChange: (id: number | null) => void
   disabled?: boolean
+  dataState?: 'loading' | 'ready' | 'unavailable'
 }
 
 export function CommissionCharacterField({
@@ -134,9 +134,10 @@ export function CommissionCharacterField({
   selectedCharacterId,
   onChange,
   disabled = false,
+  dataState = 'ready',
 }: CommissionCharacterFieldProps) {
   const hasCharacters = options.length > 0
-  const isDisabled = disabled || !hasCharacters
+  const isDisabled = disabled || dataState !== 'ready' || !hasCharacters
 
   return (
     <div className={alignedFieldStyles}>
@@ -152,9 +153,10 @@ export function CommissionCharacterField({
         <SelectTrigger
           id="create-commission-character"
           aria-label="Character"
+          aria-busy={dataState === 'loading'}
           className="min-h-11 px-4 text-base sm:text-sm"
         >
-          <SelectValue placeholder={hasCharacters ? 'Select character' : 'No characters available'} />
+          <SelectValue placeholder="Select character" />
         </SelectTrigger>
         <SelectContent>
           {options.map(option => (
@@ -164,8 +166,8 @@ export function CommissionCharacterField({
           ))}
         </SelectContent>
       </Select>
-      <p className="min-h-4 text-xs text-gray-500 dark:text-gray-400">
-        Choose a character.
+      <p className={fieldDescriptionStyles}>
+        {dataState === 'ready' && !hasCharacters ? 'Add a character to get started.' : 'Choose a character.'}
       </p>
     </div>
   )
@@ -191,8 +193,6 @@ interface CommissionWorkGroupFieldProps {
 
 interface CommissionSourceImageFieldProps {
   accept?: string
-  helperMessage?: string
-  helperTone?: 'default' | 'success' | 'error'
   required?: boolean
   inputRef?: RefObject<HTMLInputElement | null>
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void
@@ -200,21 +200,12 @@ interface CommissionSourceImageFieldProps {
 
 export function CommissionSourceImageField({
   accept = 'image/jpeg,image/png,.jpg,.jpeg,.png',
-  helperMessage = 'Upload a JPG/PNG source image. Its storage identity is managed separately from commission details.',
-  helperTone = 'default',
   required = false,
   inputRef,
   onChange,
 }: CommissionSourceImageFieldProps) {
-  const helperMessageClassName
-    = helperTone === 'error'
-      ? 'text-red-600 dark:text-red-400'
-      : helperTone === 'success'
-        ? 'text-emerald-600 dark:text-emerald-400'
-        : fieldDescriptionStyles
-
   return (
-    <div className="space-y-1">
+    <div className={alignedFieldStyles}>
       <label className={fieldLabelStyles} htmlFor="create-commission-source-image">
         {required ? 'Source image' : 'Source image (optional)'}
       </label>
@@ -237,7 +228,9 @@ export function CommissionSourceImageField({
           dark:hover:file:bg-gray-700
         `}
       />
-      <p className={helperMessageClassName}>{helperMessage}</p>
+      <p className={fieldDescriptionStyles}>
+        JPG or PNG. Crop to 1280×525 before uploading.
+      </p>
     </div>
   )
 }
@@ -293,7 +286,7 @@ export function CommissionDateField({
           }}
         />
       </div>
-      <p id="create-commission-date-hint" className="min-h-4 text-xs text-gray-500 dark:text-gray-400">
+      <p id="create-commission-date-hint" className={fieldDescriptionStyles}>
         Use YYYY-MM-DD.
       </p>
     </div>
@@ -535,7 +528,7 @@ export function CommissionCreatorField({ value, onChange }: CommissionCreatorFie
         className={metadataControlStyles}
         {...(bindInputValue(value, onChange) ?? {})}
       />
-      <p className="min-h-4 text-xs text-gray-500 dark:text-gray-400">
+      <p className={fieldDescriptionStyles}>
         Leave blank if unknown.
       </p>
     </div>
@@ -551,68 +544,90 @@ export function CommissionWorkGroupField({
 }: CommissionWorkGroupFieldProps) {
   const selectedGroup = options.find(option => option.id === value)
   const isGrouped = Boolean(value)
+  const previousSelectionRef = useRef({ value, partNumber })
 
   return (
-    <div className="grid min-w-0 gap-4 md:grid-cols-[2fr_1fr]">
+    <div className="min-w-0">
       <input type="hidden" name="workGroupId" value={value} />
-      <div className={alignedFieldStyles}>
-        <label className={fieldLabelStyles} htmlFor="create-commission-work-group">
-          Part grouping
-        </label>
-        <Select
-          value={value || 'standalone'}
-          onValueChange={(nextValue) => {
-            if (nextValue === 'standalone') {
+      <label className="flex min-h-9 items-center gap-3 pl-1 text-sm font-medium text-gray-700 dark:text-gray-200">
+        <input
+          type="checkbox"
+          checked={isGrouped}
+          aria-expanded={isGrouped}
+          aria-controls="commission-parting-fields"
+          onChange={(event) => {
+            if (!event.target.checked) {
+              previousSelectionRef.current = { value, partNumber }
               onChange('')
               onPartNumberChange('')
               return
             }
+            const nextValue = previousSelectionRef.current.value || 'new'
             onChange(nextValue)
-            onPartNumberChange(getDefaultPartNumber(nextValue, options))
+            onPartNumberChange(previousSelectionRef.current.partNumber || partNumber || getDefaultPartNumber(nextValue, options))
           }}
-        >
-          <SelectTrigger
-            id="create-commission-work-group"
-            aria-label="Part grouping"
-            className="min-h-11 px-4 text-base sm:text-sm"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="standalone">Standalone work</SelectItem>
-            <SelectItem value="new">New multi-part group</SelectItem>
-            {options.map(option => (
-              <SelectItem key={option.id} value={option.id}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className="min-h-4 text-xs text-gray-500 dark:text-gray-400">
-          Keep separately published parts in one explicit group.
-        </p>
-      </div>
+          className="size-4 shrink-0 accent-gray-900 dark:accent-gray-100"
+        />
+        Part of a multi-part work
+      </label>
       {isGrouped
         ? (
-            <div className={alignedFieldStyles}>
-              <label className={fieldLabelStyles} htmlFor="create-commission-part-number">
-                Part number
-              </label>
-              <input
-                id="create-commission-part-number"
-                type="number"
-                name="partNumber"
-                min={1}
-                step={1}
-                required
-                value={partNumber}
-                onChange={event => onPartNumberChange(event.target.value)}
-                className={metadataControlStyles}
-                aria-label="Part number"
-              />
-              <p className="min-h-4 text-xs text-gray-500 dark:text-gray-400">
-                {selectedGroup ? `Next available: ${selectedGroup.highestPartNumber + 1}.` : 'Use a positive whole number.'}
-              </p>
+            <div id="commission-parting-fields" className="mt-3 grid min-w-0 gap-4 md:grid-cols-[2fr_1fr]">
+              <div className={alignedFieldStyles}>
+                <label className={fieldLabelStyles} htmlFor="create-commission-work-group">
+                  Part group
+                </label>
+                <Select
+                  value={value}
+                  onValueChange={(nextValue) => {
+                    onChange(nextValue)
+                    onPartNumberChange(
+                      nextValue === 'new' && partNumber
+                        ? partNumber
+                        : getDefaultPartNumber(nextValue, options),
+                    )
+                  }}
+                >
+                  <SelectTrigger
+                    id="create-commission-work-group"
+                    aria-label="Part grouping"
+                    className="min-h-11 min-w-0 px-4 text-base sm:text-sm"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="new">New multi-part group</SelectItem>
+                    {options.map(option => (
+                      <SelectItem key={option.id} value={option.id}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className={fieldDescriptionStyles}>
+                  Keep separately published parts in one explicit group.
+                </p>
+              </div>
+              <div className={alignedFieldStyles}>
+                <label className={fieldLabelStyles} htmlFor="create-commission-part-number">
+                  Part number
+                </label>
+                <input
+                  id="create-commission-part-number"
+                  type="number"
+                  name="partNumber"
+                  min={1}
+                  step={1}
+                  required
+                  value={partNumber}
+                  onChange={event => onPartNumberChange(event.target.value)}
+                  className={metadataControlStyles}
+                  aria-label="Part number"
+                />
+                <p className={fieldDescriptionStyles}>
+                  {selectedGroup ? `Next available: ${selectedGroup.highestPartNumber + 1}.` : 'Use a positive whole number.'}
+                </p>
+              </div>
             </div>
           )
         : null}
@@ -624,17 +639,15 @@ interface CommissionLinksFieldProps {
   value?: string
   onChange?: (value: string) => void
   rows?: number
-  publicId?: string
 }
 
 export function CommissionLinksField({
   value,
   onChange,
   rows = 4,
-  publicId,
 }: CommissionLinksFieldProps) {
   return (
-    <div className="space-y-1">
+    <div className={alignedFieldStyles}>
       <label className={fieldLabelStyles} htmlFor="create-commission-links">
         Links (optional, one per line)
       </label>
@@ -643,27 +656,12 @@ export function CommissionLinksField({
         name="links"
         rows={rows}
         placeholder="https://example.com"
-        className={formControlStyles}
+        className={metadataControlStyles}
         {...(bindTextareaValue(value, onChange) ?? {})}
       />
       <p className={fieldDescriptionStyles}>
         Paste each URL on a separate line, or leave blank if none.
       </p>
-      {publicId
-        ? (
-            <div className="flex justify-end">
-              <span
-                aria-label={`Public UUID ${publicId}`}
-                data-commission-public-id={publicId}
-                title={`Public UUID ${publicId}`}
-                className="font-mono text-xs text-blue-700 dark:text-blue-300"
-              >
-                UUID&nbsp;
-                {formatCommissionPublicId(publicId)}
-              </span>
-            </div>
-          )
-        : null}
     </div>
   )
 }
@@ -691,7 +689,7 @@ export function CommissionDesignDescriptionFields({
       md:grid-cols-2
     "
     >
-      <div className="space-y-1">
+      <div className={alignedFieldStyles}>
         <label className={fieldLabelStyles} htmlFor="create-commission-design">
           Design (optional)
         </label>
@@ -700,12 +698,12 @@ export function CommissionDesignDescriptionFields({
           type="text"
           name="design"
           placeholder={designPlaceholder}
-          className={formControlStyles}
+          className={metadataControlStyles}
           {...(bindInputValue(designValue, onDesignChange) ?? {})}
         />
       </div>
 
-      <div className="space-y-1">
+      <div className={alignedFieldStyles}>
         <label className={fieldLabelStyles} htmlFor="create-commission-description">
           Description (optional)
         </label>
@@ -714,7 +712,7 @@ export function CommissionDesignDescriptionFields({
           type="text"
           name="description"
           placeholder={descriptionPlaceholder}
-          className={formControlStyles}
+          className={metadataControlStyles}
           {...(bindInputValue(descriptionValue, onDescriptionChange) ?? {})}
         />
       </div>
@@ -729,7 +727,7 @@ interface CommissionKeywordFieldProps {
 
 export function CommissionKeywordField({ value, onChange }: CommissionKeywordFieldProps) {
   return (
-    <div className="space-y-1">
+    <div className={alignedFieldStyles}>
       <label className={fieldLabelStyles} htmlFor="create-commission-keyword">
         Keywords (optional, comma-separated, search-only)
       </label>
@@ -738,7 +736,7 @@ export function CommissionKeywordField({ value, onChange }: CommissionKeywordFie
         type="text"
         name="keyword"
         placeholder="e.g. studio k, skeb, private tag"
-        className={formControlStyles}
+        className={metadataControlStyles}
         {...(bindInputValue(value, onChange) ?? {})}
       />
       <p className={fieldDescriptionStyles}>
@@ -758,7 +756,7 @@ export function CommissionHiddenSwitch({
   onChange,
 }: CommissionHiddenSwitchProps) {
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-start gap-3 border-t border-gray-200/60 px-1 pt-5 dark:border-gray-700/60">
       <input
         id="commission-hidden"
         type="checkbox"
@@ -766,20 +764,26 @@ export function CommissionHiddenSwitch({
         checked={isHidden}
         onChange={event => onChange(event.target.checked)}
         aria-label="Hide commission from public list"
+        aria-describedby="commission-hidden-description"
         className="
-          size-4 accent-gray-900
+          mt-0.5 size-4 shrink-0 accent-gray-900
           dark:accent-gray-100
         "
       />
-      <label
-        htmlFor="commission-hidden"
-        className="
+      <div className="space-y-1">
+        <label
+          htmlFor="commission-hidden"
+          className="
           text-sm font-medium text-gray-700
           dark:text-gray-200
         "
-      >
-        Hidden
-      </label>
+        >
+          Hidden
+        </label>
+        <p id="commission-hidden-description" className="text-xs leading-4 text-gray-500 dark:text-gray-400">
+          Exclude from the public list. Applied when you save.
+        </p>
+      </div>
     </div>
   )
 }

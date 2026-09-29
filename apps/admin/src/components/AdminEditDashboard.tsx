@@ -9,12 +9,20 @@ interface AdminEditDashboardProps {
   characters: CharacterRow[]
   commissionSearchRows: AdminCommissionSearchRow[]
   creatorAliases: CreatorAliasRow[]
+  isInitialLoading: boolean
+  isInitialError: boolean
+  onOpenGroupsLoaded: () => void
+  onRefresh: () => void
 }
 
 export function AdminEditDashboard({
   characters,
   commissionSearchRows,
   creatorAliases,
+  isInitialLoading,
+  isInitialError,
+  onOpenGroupsLoaded,
+  onRefresh,
 }: AdminEditDashboardProps) {
   return (
     <section className="space-y-4">
@@ -22,6 +30,10 @@ export function AdminEditDashboard({
         characters={characters}
         commissionSearchRows={commissionSearchRows}
         creatorAliases={creatorAliases}
+        isInitialLoading={isInitialLoading}
+        isInitialError={isInitialError}
+        onOpenGroupsLoaded={onOpenGroupsLoaded}
+        onRefresh={onRefresh}
       />
     </section>
   )

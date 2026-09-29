@@ -6,6 +6,7 @@ const listeners = new Set<Listener>()
 let pending = typeof sessionStorage !== 'undefined'
   ? sessionStorage.getItem(STORAGE_KEY) === '1'
   : false
+let revision = 0
 
 function notify() {
   for (const fn of listeners) {
@@ -18,8 +19,7 @@ export function isPendingRebuild(): boolean {
 }
 
 export function markPendingRebuild(): void {
-  if (pending)
-    return
+  revision += 1
   pending = true
   try {
     sessionStorage.setItem(STORAGE_KEY, '1')
@@ -28,8 +28,12 @@ export function markPendingRebuild(): void {
   notify()
 }
 
-export function clearPendingRebuild(): void {
-  if (!pending)
+export function getPendingRebuildRevision(): number {
+  return revision
+}
+
+export function clearPendingRebuild(expectedRevision?: number): void {
+  if (!pending || (expectedRevision !== undefined && expectedRevision !== revision))
     return
   pending = false
   try {

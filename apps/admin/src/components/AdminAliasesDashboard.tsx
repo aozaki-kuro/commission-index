@@ -14,6 +14,9 @@ interface AdminAliasesDashboardProps {
   characters: CharacterAliasRow[]
   creators: CreatorAliasRow[]
   keywords: KeywordAliasRow[]
+  isLoading?: boolean
+  isUnavailable?: boolean
+  onSaved?: () => void
 }
 
 type AliasTab = 'character' | 'creator' | 'keyword'
@@ -34,7 +37,7 @@ function toCreatorAliasRows(creators: CreatorAliasRow[]): AliasRow[] {
     .map(row => ({
       key: row.creatorName,
       count: row.commissionCount,
-      initialValue: row.aliases[0] ?? '',
+      initialValue: row.aliases.join(', '),
     }))
 }
 
@@ -56,7 +59,7 @@ function buildCharacterPayload(rows: AliasRow[], drafts: Record<string, string>)
 function buildCreatorPayload(rows: AliasRow[], drafts: Record<string, string>) {
   return JSON.stringify(rows.map(row => ({
     creatorName: row.key,
-    alias: (drafts[row.key] ?? '').trim(),
+    aliases: (drafts[row.key] ?? '').trim(),
   })))
 }
 
@@ -69,7 +72,7 @@ function buildKeywordPayload(rows: AliasRow[], drafts: Record<string, string>) {
 
 interface TabButtonProps {
   activeTab: AliasTab
-  count: number
+  count: number | null
   label: string
   onSelect: (tab: AliasTab) => void
   tab: AliasTab
@@ -88,7 +91,7 @@ function TabButton({ activeTab, count, label, onSelect, tab }: TabButtonProps) {
       tabIndex={isActive ? 0 : -1}
       onClick={() => onSelect(tab)}
       className={`
-        relative inline-flex items-center gap-2 px-1 pb-2.5 text-sm font-medium
+        relative inline-flex min-w-0 items-center justify-center gap-1 px-0 pb-2.5 text-xs font-medium sm:gap-2 sm:px-1 sm:text-sm
         transition
         focus-visible:outline-none
         focus-visible:ring-2 focus-visible:ring-gray-400
@@ -110,7 +113,7 @@ function TabButton({ activeTab, count, label, onSelect, tab }: TabButtonProps) {
       : `bg-gray-200/80 text-gray-600 dark:bg-gray-700 dark:text-gray-300`}
       `}
       >
-        {count}
+        {count ?? '–'}
       </span>
       {isActive
         ? (
@@ -132,6 +135,9 @@ export function AdminAliasesDashboard({
   characters,
   creators,
   keywords,
+  isLoading = false,
+  isUnavailable = false,
+  onSaved,
 }: AdminAliasesDashboardProps) {
   const [activeTab, setActiveTab] = useState<AliasTab>('character')
   const tablistRef = useRef<HTMLDivElement>(null)
@@ -178,124 +184,111 @@ export function AdminAliasesDashboard({
 
   return (
     <section className="space-y-5">
-      <header className="space-y-1">
-        <h2 className="
-          text-lg font-semibold text-gray-900
-          dark:text-gray-100
-        "
-        >
-          Alias mapping
-        </h2>
-        <p className="
-          text-sm text-gray-600
-          dark:text-gray-300
-        "
-        >
-          Keep search synonyms consistent across character, creator, and keyword dimensions.
-        </p>
-      </header>
-
       <div
         ref={tablistRef}
         role="tablist"
         aria-label="Alias mapping sections"
         onKeyDown={handleTabKeyDown}
         className="
-          flex gap-5 border-b border-gray-200
+          grid grid-cols-3 gap-2 border-b border-gray-200 sm:flex sm:gap-5
           dark:border-gray-700
         "
       >
         <TabButton
           activeTab={activeTab}
-          count={characterRows.length}
+          count={isLoading || isUnavailable ? null : characterRows.length}
           label="Character"
           onSelect={setActiveTab}
           tab="character"
         />
         <TabButton
           activeTab={activeTab}
-          count={creatorRows.length}
+          count={isLoading || isUnavailable ? null : creatorRows.length}
           label="Creator"
           onSelect={setActiveTab}
           tab="creator"
         />
         <TabButton
           activeTab={activeTab}
-          count={keywordRows.length}
+          count={isLoading || isUnavailable ? null : keywordRows.length}
           label="Keyword"
           onSelect={setActiveTab}
           tab="keyword"
         />
       </div>
 
-      <div className="space-y-6">
-        {activeTab === 'character' && (
-          <div
-            key="character"
-            id="aliases-panel-character"
-            role="tabpanel"
-            aria-labelledby="aliases-tab-character"
-            className="motion-safe:animate-[tabFade_200ms_ease-out]"
-          >
-            <AliasPanel
-              rows={characterRows}
-              formAction={saveCharacterAliasesBatchAction}
-              title="Character aliases"
-              description="Character aliases have top priority over creator and keyword aliases for duplicate terms."
-              saveLabel="Save character aliases"
-              errorFallback="Unable to save character aliases."
-              emptyMessage="No characters available."
-              columnHeader="Character"
-              placeholder="e.g. 七市, ななし"
-              buildPayload={buildCharacter}
-            />
-          </div>
-        )}
-
-        {activeTab === 'creator' && (
-          <div
-            key="creator"
-            id="aliases-panel-creator"
-            role="tabpanel"
-            aria-labelledby="aliases-tab-creator"
-            className="motion-safe:animate-[tabFade_200ms_ease-out]"
-          >
-            <AliasPanel
-              rows={creatorRows}
-              formAction={saveCreatorAliasesBatchAction}
-              title="Creator aliases"
-              description="Edit romanized aliases for creators with CJK names to stabilize search matching."
-              saveLabel="Save creator aliases"
-              errorFallback="Unable to save creator aliases."
-              emptyMessage="No creators available for alias editing."
-              columnHeader="Creator"
-              buildPayload={buildCreator}
-            />
-          </div>
-        )}
-
-        {activeTab === 'keyword' && (
-          <div
-            key="keyword"
-            id="aliases-panel-keyword"
-            role="tabpanel"
-            aria-labelledby="aliases-tab-keyword"
-            className="motion-safe:animate-[tabFade_200ms_ease-out]"
-          >
-            <AliasPanel
-              rows={keywordRows}
-              formAction={saveKeywordAliasesBatchAction}
-              title="Keyword aliases"
-              description="Keywords duplicated in character or creator aliases are hidden here to avoid mapping conflicts."
-              saveLabel="Save keyword aliases"
-              errorFallback="Unable to save keyword aliases."
-              emptyMessage="No keywords available yet. Add keywords to commissions first."
-              columnHeader="Base keyword"
-              placeholder="e.g. 七市, ななし"
-              buildPayload={buildKeyword}
-            />
-          </div>
-        )}
+      <div>
+        <div
+          key="character"
+          id="aliases-panel-character"
+          role="tabpanel"
+          aria-labelledby="aliases-tab-character"
+          hidden={activeTab !== 'character'}
+          className="motion-safe:animate-[tabFade_200ms_ease-out]"
+        >
+          <AliasPanel
+            rows={characterRows}
+            formAction={saveCharacterAliasesBatchAction}
+            title="Character aliases"
+            description="Character aliases have top priority over creator and keyword aliases for duplicate terms."
+            saveLabel="Save character aliases"
+            errorFallback="Unable to save character aliases."
+            emptyMessage="No characters available."
+            columnHeader="Character"
+            placeholder="e.g. 七市, ななし"
+            buildPayload={buildCharacter}
+            isLoading={isLoading}
+            isUnavailable={isUnavailable}
+            onSaved={onSaved}
+          />
+        </div>
+        <div
+          key="creator"
+          id="aliases-panel-creator"
+          role="tabpanel"
+          aria-labelledby="aliases-tab-creator"
+          hidden={activeTab !== 'creator'}
+          className="motion-safe:animate-[tabFade_200ms_ease-out]"
+        >
+          <AliasPanel
+            rows={creatorRows}
+            formAction={saveCreatorAliasesBatchAction}
+            title="Creator aliases"
+            description="Edit romanized aliases for creators with CJK names to stabilize search matching."
+            saveLabel="Save creator aliases"
+            errorFallback="Unable to save creator aliases."
+            emptyMessage="No creators available for alias editing."
+            columnHeader="Creator"
+            buildPayload={buildCreator}
+            isLoading={isLoading}
+            isUnavailable={isUnavailable}
+            onSaved={onSaved}
+          />
+        </div>
+        <div
+          key="keyword"
+          id="aliases-panel-keyword"
+          role="tabpanel"
+          aria-labelledby="aliases-tab-keyword"
+          hidden={activeTab !== 'keyword'}
+          className="motion-safe:animate-[tabFade_200ms_ease-out]"
+        >
+          <AliasPanel
+            rows={keywordRows}
+            formAction={saveKeywordAliasesBatchAction}
+            title="Keyword aliases"
+            description="Keywords duplicated in character or creator aliases are hidden here to avoid mapping conflicts."
+            saveLabel="Save keyword aliases"
+            errorFallback="Unable to save keyword aliases."
+            emptyMessage="No keywords available yet. Add keywords to commissions first."
+            columnHeader="Base keyword"
+            placeholder="e.g. full body, fullbody"
+            buildPayload={buildKeyword}
+            isLoading={isLoading}
+            isUnavailable={isUnavailable}
+            onSaved={onSaved}
+          />
+        </div>
       </div>
     </section>
   )

@@ -3,7 +3,23 @@ import { act, createElement, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, describe, expect, it } from 'vitest'
 import { getDefaultPartNumber } from '../../lib/commissionWorkGroups'
-import { CommissionDateField, CommissionLinksField } from './CommissionFormFields'
+import { CommissionCharacterField, CommissionDateField, CommissionWorkGroupField } from './CommissionFormFields'
+
+function PartingHarness({ initialGroup = '', initialPart = '' }: { initialGroup?: string, initialPart?: string }) {
+  const [value, setValue] = useState(initialGroup)
+  const [partNumber, setPartNumber] = useState(initialPart)
+  return (
+    <form>
+      <CommissionWorkGroupField
+        options={[{ id: 'existing-group', highestPartNumber: 2, label: 'Existing group' }]}
+        value={value}
+        onChange={setValue}
+        partNumber={partNumber}
+        onPartNumberChange={setPartNumber}
+      />
+    </form>
+  )
+}
 
 function DateFieldHarness() {
   const [value, setValue] = useState('2026-04-01')
@@ -86,20 +102,44 @@ describe('commission form fields', () => {
     expect(getDefaultPartNumber('', options)).toBe('')
   })
 
-  it('shows a short public UUID at the bottom right of Links with the full value accessible', async () => {
-    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
-    container = document.createElement('div')
-    document.body.append(container)
-    root = createRoot(container)
-    const publicId = 'e593b69b-9e23-4433-877e-4cf0a869e17f'
+  it('shows part fields only after opt-in and omits them from standalone submission', async () => {
+    await renderDateField()
+    await act(async () => root.render(<PartingHarness />))
+    const checkbox = container.querySelector<HTMLInputElement>('input[type="checkbox"]')!
+    expect(checkbox.checked).toBe(false)
+    expect(container.querySelector('input[name="partNumber"]')).toBeNull()
+    expect(new FormData(container.querySelector('form')!).get('workGroupId')).toBe('')
+    await act(async () => checkbox.click())
+    const data = new FormData(container.querySelector('form')!)
+    expect(data.get('workGroupId')).toBe('new')
+    expect(data.get('partNumber')).toBe('1')
+    expect(container.querySelector<HTMLInputElement>('input[name="partNumber"]')?.required).toBe(true)
+  })
 
-    await act(async () => {
-      root.render(createElement(CommissionLinksField, { publicId }))
-    })
+  it('restores the existing group and part when an unchecked edit is checked again', async () => {
+    await renderDateField()
+    await act(async () => root.render(<PartingHarness initialGroup="existing-group" initialPart="2" />))
+    const checkbox = container.querySelector<HTMLInputElement>('input[type="checkbox"]')!
+    expect(checkbox.checked).toBe(true)
+    await act(async () => checkbox.click())
+    expect(new FormData(container.querySelector('form')!).get('partNumber')).toBeNull()
+    await act(async () => checkbox.click())
+    const data = new FormData(container.querySelector('form')!)
+    expect(data.get('workGroupId')).toBe('existing-group')
+    expect(data.get('partNumber')).toBe('2')
+  })
 
-    const identity = container.querySelector<HTMLElement>('[data-commission-public-id]')
-    expect(identity?.textContent?.replace(/\s+/g, ' ').trim()).toBe('UUID e593b69b9e23')
-    expect(identity?.title).toBe(`Public UUID ${publicId}`)
-    expect(identity?.getAttribute('aria-label')).toBe(`Public UUID ${publicId}`)
+  it('never presents a loading character list as empty and keeps the placeholder stable', async () => {
+    await renderDateField()
+    const onChange = () => {}
+    await act(async () => root.render(<CommissionCharacterField options={[]} selectedCharacterId={null} onChange={onChange} dataState="loading" />))
+    const loadingTrigger = container.querySelector<HTMLButtonElement>('[role="combobox"]')!
+    expect(loadingTrigger.textContent).toContain('Select character')
+    expect(loadingTrigger.disabled).toBe(true)
+    expect(container.textContent).not.toContain('No characters')
+    expect(container.textContent).not.toContain('Add a character')
+    await act(async () => root.render(<CommissionCharacterField options={[{ id: 1, name: 'Character 1' }]} selectedCharacterId={null} onChange={onChange} />))
+    expect(container.querySelector('[role="combobox"]')?.textContent).toBe(loadingTrigger.textContent)
+    expect(container.querySelector<HTMLButtonElement>('[role="combobox"]')?.disabled).toBe(false)
   })
 })

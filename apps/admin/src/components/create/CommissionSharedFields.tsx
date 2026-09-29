@@ -17,6 +17,7 @@ interface CharacterOption {
 
 interface CommissionSharedFieldsProps {
   characterOptions: CharacterOption[]
+  characterDataState?: 'loading' | 'ready' | 'unavailable'
   selectedCharacterId: number | null
   onCharacterChange: (id: number | null) => void
   commissionSearchRows: WorkGroupCandidate[]
@@ -24,7 +25,6 @@ interface CommissionSharedFieldsProps {
   onWorkGroupIdChange: (value: string) => void
   partNumber: string
   onPartNumberChange: (value: string) => void
-  publicId?: string
   commissionDate?: string
   onCommissionDateChange?: (value: string) => void
   creatorName?: string
@@ -44,6 +44,7 @@ interface CommissionSharedFieldsProps {
 
 export function CommissionSharedFields({
   characterOptions,
+  characterDataState = 'ready',
   selectedCharacterId,
   onCharacterChange,
   commissionSearchRows,
@@ -51,7 +52,6 @@ export function CommissionSharedFields({
   onWorkGroupIdChange,
   partNumber,
   onPartNumberChange,
-  publicId,
   commissionDate,
   onCommissionDateChange,
   creatorName,
@@ -71,13 +71,13 @@ export function CommissionSharedFields({
   return (
     <div className="space-y-5">
       <div className="
-        grid items-start gap-5 px-1
+        grid min-w-0 items-start gap-5
         md:grid-cols-3
-        sm:px-2
       "
       >
         <CommissionCharacterField
           options={characterOptions}
+          dataState={characterDataState}
           selectedCharacterId={selectedCharacterId}
           onChange={onCharacterChange}
         />
@@ -91,7 +91,7 @@ export function CommissionSharedFields({
         />
       </div>
 
-      <div className="px-1 sm:px-2">
+      <div>
         <CommissionWorkGroupField
           options={buildWorkGroupOptions(commissionSearchRows)}
           value={workGroupId}
@@ -110,7 +110,6 @@ export function CommissionSharedFields({
           value={linksValue}
           onChange={onLinksChange}
           rows={linksRows}
-          publicId={publicId}
         />
 
         <CommissionDesignDescriptionFields

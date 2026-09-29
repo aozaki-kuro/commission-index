@@ -14,14 +14,14 @@ export const adminSections: AdminSectionDefinition[] = [
     label: 'Overview',
     path: '/',
     title: 'Admin Overview',
-    description: 'Snapshot of content volume and maintenance workstreams.',
+    description: 'Create, maintain, and publish your collection.',
   },
   {
     key: 'create',
     label: 'Create',
     path: '/create',
     title: 'Create',
-    description: 'Add characters and append commissions with validated source images.',
+    description: 'Add artwork and its delivery details.',
   },
   {
     key: 'edit',
@@ -35,14 +35,14 @@ export const adminSections: AdminSectionDefinition[] = [
     label: 'Aliases',
     path: '/aliases',
     title: 'Aliases',
-    description: 'Maintain character, creator, and keyword alias mappings for search indexing.',
+    description: 'Connect alternate names and keywords for search.',
   },
   {
     key: 'suggestion',
     label: 'Suggestion',
     path: '/suggestion',
     title: 'Suggestion',
-    description: 'Curate first-batch home keywords and keep ordering under manual control.',
+    description: 'Choose the keywords visitors see first on the home page.',
   },
 ]
 

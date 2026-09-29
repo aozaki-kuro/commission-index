@@ -2,8 +2,9 @@ import type { CommissionRow } from '@commission-index/domain'
 import { useEffect, useMemo, useState } from 'react'
 import { getAdminApiUrl } from '../../lib/adminApi'
 import {
+  formatCommissionPublicId,
   getCommissionAccessibleLabel,
-  getCommissionDisplayLabel,
+  getCommissionTitle,
 } from '../../lib/commissionPresentation'
 
 interface CommissionThumbnailGridProps {
@@ -26,7 +27,7 @@ function ThumbnailCard({
   onSelect: () => void
 }) {
   const [errorSrc, setErrorSrc] = useState<string | null>(null)
-  const displayLabel = getCommissionDisplayLabel(commission)
+  const displayLabel = getCommissionTitle(commission)
   const accessibleLabel = getCommissionAccessibleLabel(commission)
   const imageSrc = useMemo(() => buildThumbnailSrc(commission.id), [commission.id])
 
@@ -44,6 +45,7 @@ function ThumbnailCard({
     const handlePreviewVersion = (event: Event) => {
       const detail = (event as CustomEvent<{ commissionId: number, version: number }>).detail
       if (detail?.commissionId === commission.id) {
+        setErrorSrc(null)
         setImageVersion(detail.version)
       }
     }
@@ -57,6 +59,7 @@ function ThumbnailCard({
   return (
     <button
       type="button"
+      data-commission-id={commission.id}
       onClick={onSelect}
       aria-label={accessibleLabel}
       title={`Public ID: ${commission.publicId}`}
@@ -103,7 +106,7 @@ function ThumbnailCard({
                 decoding="async"
                 className="
                   size-full object-contain transition
-                  group-hover:scale-[1.02]
+                  motion-safe:group-hover:scale-[1.02]
                 "
                 onError={() => setErrorSrc(imageSrc)}
               />
@@ -139,13 +142,16 @@ function ThumbnailCard({
           {displayLabel}
         </p>
         <p className="
-          text-xs text-gray-400
+          flex items-center justify-between gap-2 text-xs text-gray-400
           dark:text-gray-500
         "
         >
-          {commission.links.length}
-          {' '}
-          {commission.links.length === 1 ? 'link' : 'links'}
+          <span>
+            {commission.links.length}
+            {' '}
+            {commission.links.length === 1 ? 'link' : 'links'}
+          </span>
+          <span className="font-mono">{formatCommissionPublicId(commission.publicId)}</span>
         </p>
       </div>
     </button>
@@ -187,28 +193,32 @@ export function CommissionThumbnailGrid({
   )
 }
 
-export function CommissionThumbnailGridSkeleton() {
+export function CommissionThumbnailGridSkeleton({ count }: { count: number }) {
+  if (count === 0) {
+    return <p className="py-4 text-sm text-gray-500 dark:text-gray-300">No commissions recorded yet.</p>
+  }
+
   return (
     <div className="
       grid grid-cols-2 gap-3
       sm:grid-cols-3
     "
     >
-      {Array.from({ length: 6 }, (_, i) => (
+      {Array.from({ length: count }, (_, i) => (
         <div key={i} className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
           <div className="
-            aspect-1280/525 w-full animate-pulse bg-gray-200/80
+            aspect-1280/525 w-full motion-safe:animate-pulse bg-gray-200/80
             dark:bg-gray-800
           "
           />
-          <div className="space-y-1 px-2 py-1.5">
+          <div className="px-2 py-1.5">
             <div className="
-              h-3.5 w-3/4 animate-pulse rounded bg-gray-200/80
+              h-4 w-3/4 motion-safe:animate-pulse rounded bg-gray-200/80
               dark:bg-gray-800
             "
             />
             <div className="
-              h-3 w-1/3 animate-pulse rounded bg-gray-200/80
+              h-4 w-1/3 motion-safe:animate-pulse rounded bg-gray-200/80
               dark:bg-gray-800
             "
             />

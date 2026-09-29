@@ -26,30 +26,36 @@ test('create page stays visually stable', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
   await page.goto('/create')
   await page.getByRole('heading', { level: 1, name: 'Create' }).waitFor()
-  await page.getByRole('heading', { name: 'Add Character' }).waitFor()
+  await page.getByRole('heading', { name: 'Add Commission Entry' }).waitFor()
   await prepareStablePage(page)
 
   await expectUnionToMatchSnapshot(page, 'admin-create-page.png', [
     page.getByRole('heading', { level: 1, name: 'Create' }),
-    page.getByRole('heading', { name: 'Add Character' }),
-    page.getByRole('button', { name: 'Save character' }),
+    page.getByRole('button', { name: 'New character' }),
     page.getByRole('heading', { name: 'Add Commission Entry' }),
     page.getByRole('button', { name: 'Save commission' }),
   ])
 })
 
-test('create forms stay visually stable', async ({ page }, testInfo) => {
+test('new character dialog stays visually stable and preserves the commission draft', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
   await page.goto('/create')
-  await page.getByRole('heading', { name: 'Add Character' }).waitFor()
+  await page.getByRole('heading', { name: 'Add Commission Entry' }).waitFor()
+  await page.getByRole('textbox', { name: 'Creator (optional)' }).fill('Draft creator')
+  await page.getByRole('button', { name: 'New character' }).click()
+  const dialog = page.getByRole('dialog', { name: 'New character' })
+  await expect(dialog).toBeVisible()
   await prepareStablePage(page)
 
-  await expectUnionToMatchSnapshot(page, 'admin-create-forms.png', [
-    page.getByRole('heading', { name: 'Add Character' }),
-    page.getByLabel('Name', { exact: true }),
-    page.getByRole('heading', { name: 'Add Commission Entry' }),
-    page.getByRole('button', { name: 'Save commission' }),
-  ])
+  await expect(dialog).toHaveScreenshot('admin-create-character-dialog.png', {
+    animations: 'disabled',
+    caret: 'hide',
+  })
+  await expect(dialog.getByRole('textbox', { name: 'Name', exact: true })).toBeVisible()
+  await expect.poll(() => dialog.evaluate(element => element.contains(document.activeElement))).toBe(true)
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(dialog).toBeHidden()
+  await expect(page.getByRole('textbox', { name: 'Creator (optional)' })).toHaveValue('Draft creator')
 })
 
 test('commission metadata fields align and the date picker fits desktop and mobile', async ({ page }, testInfo) => {
@@ -67,11 +73,18 @@ test('commission metadata fields align and the date picker fits desktop and mobi
     ] as const
 
     for (const [label, control] of fieldPairs) {
-      const labelBox = await label.boundingBox()
+      const labelText = await label.evaluate((element) => {
+        const range = document.createRange()
+        range.selectNodeContents(element)
+        return {
+          x: range.getBoundingClientRect().x,
+          inset: Number.parseFloat(getComputedStyle(element).paddingLeft),
+        }
+      })
       const controlBox = await control.boundingBox()
-      expect(labelBox, `label should render at ${width}px`).not.toBeNull()
       expect(controlBox, `control should render at ${width}px`).not.toBeNull()
-      expect(Math.abs(labelBox!.x - controlBox!.x)).toBeLessThanOrEqual(1)
+      expect(labelText.inset).toBeGreaterThan(0)
+      expect(Math.abs(labelText.x - controlBox!.x - labelText.inset)).toBeLessThanOrEqual(1)
     }
 
     await page.getByRole('button', { name: 'Choose delivery date' }).click()
@@ -79,12 +92,20 @@ test('commission metadata fields align and the date picker fits desktop and mobi
     await expect(calendar).toBeVisible()
     await expect(calendar).toBeInViewport()
     await expect(calendar.getByRole('button', { name: /[A-Z][a-z]+ \d{1,2}, \d{4}/ }).first()).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(calendar).toBeHidden()
 
     const groupSelect = page.getByRole('combobox', { name: 'Part grouping' })
+    await expect(groupSelect).toHaveCount(0)
+    await page.getByRole('checkbox', { name: 'Part of a multi-part work' }).check()
     await groupSelect.click()
     await page.getByRole('option', { name: 'New multi-part group' }).click()
     await expect(page.getByRole('spinbutton', { name: 'Part number' })).toHaveValue('1')
     await expect(page.locator('input[name="workGroupId"]')).toHaveValue('new')
+    await page.getByRole('checkbox', { name: 'Part of a multi-part work' }).uncheck()
+    await expect(groupSelect).toHaveCount(0)
+    await expect(page.getByRole('spinbutton', { name: 'Part number' })).toHaveCount(0)
+    await expect(page.locator('input[name="workGroupId"]')).toHaveValue('')
   }
 })
 
@@ -292,7 +313,7 @@ test('cancelling a portrait recrop preserves the confirmed JPEG', async ({ page 
 test('admin nav switches sections without a full reload', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
   await page.goto('/create')
-  await page.getByRole('heading', { name: 'Add Character' }).waitFor()
+  await page.getByRole('heading', { name: 'Add Commission Entry' }).waitFor()
 
   await page.evaluate(() => {
     sessionStorage.removeItem('__admin-beforeunload')

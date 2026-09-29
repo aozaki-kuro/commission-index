@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { AdminSectionKey } from '../app/sections'
 import { AdminSectionNav } from './AdminSectionNav'
+import { FloatingNoticeProvider } from './FloatingNotice'
 
 interface AdminRootLayoutProps {
   children: ReactNode
@@ -29,7 +30,7 @@ export function AdminRootLayout({ children }: AdminRootLayoutProps) {
         md:mx-auto md:min-h-screen
       "
       >
-        {children}
+        <FloatingNoticeProvider>{children}</FloatingNoticeProvider>
       </div>
     </div>
   )
@@ -71,10 +72,7 @@ export function AdminPageShell({
 
       <div
         key={current}
-        className="
-          space-y-8
-          motion-safe:animate-[tabFade_240ms_ease-out]
-        "
+        className="space-y-8 motion-safe:animate-[tabFade_240ms_ease-out]"
       >
         {children}
       </div>

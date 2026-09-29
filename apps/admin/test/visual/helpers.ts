@@ -92,7 +92,7 @@ export function skipUnlessProject(testInfo: TestInfo, projectName: string) {
 }
 
 export function getAdminPageContainer(page: Page) {
-  return page.locator('div.mx-auto.max-w-5xl.space-y-6.px-4.pt-6.pb-10').first()
+  return page.getByRole('heading', { level: 1 }).locator('..').locator('..')
 }
 
 async function getUnionClip(locators: Locator[]) {

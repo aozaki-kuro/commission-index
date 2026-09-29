@@ -1,38 +1,13 @@
-import type { AdminCommissionSearchRow } from '@commission-index/domain'
-import type { ReactNode } from 'react'
-import type { StatusTone } from '../app/ui'
 import type { AdminOverviewPayload } from '../lib/adminApi'
-import { useCallback, useEffect, useEffectEvent, useReducer, useState } from 'react'
-import {
-  adminActionLinkStyles,
-  adminInsetCardStyles,
-  adminMetricCardStyles,
-  adminSurfaceStyles,
-  getStatusBadgeStyles,
-} from '../app/ui'
+import { useCallback, useEffect, useReducer, useState, useSyncExternalStore } from 'react'
+import { adminActionLinkStyles, adminSurfaceStyles } from '../app/ui'
+import { AdminBootstrapStatus } from '../components/AdminBootstrapStatus'
 import { AdminInternalLink } from '../components/AdminInternalLink'
-import {
-  fetchAdminOverviewPayload,
-  getAdminApiBaseUrl,
-  readCachedAdminJson,
-  triggerRebuildDeploy,
-} from '../lib/adminApi'
-import { compareCommissionsByDate, getCommissionDisplayLabel } from '../lib/commissionPresentation'
-
-const LATEST_ENTRY_LIMIT = 10
-const overviewCacheKey = '/api/admin/overview'
-
-interface OverviewMetrics {
-  activeCharacters: number
-  characterAliasCount: number
-  creatorAliasCount: number
-  featuredKeywordCount: number
-  keywordAliasCount: number
-  archivedCharacters: number
-  totalAliasRows: number
-  totalCharacters: number
-  totalCommissions: number
-}
+import { FloatingNotice } from '../components/FloatingNotice'
+import { fetchAdminOverviewPayload, getAdminApiBaseUrl, readCachedAdminJson } from '../lib/adminApi'
+import { compareCommissionsByDate, formatCommissionPublicId, getCommissionTitle } from '../lib/commissionPresentation'
+import { isPendingRebuild, subscribeToPendingRebuild } from '../lib/pendingRebuildSignal'
+import { dismissWebsiteRebuildNotice, getServerWebsiteRebuildState, getWebsiteRebuildState, queueWebsiteRebuild, subscribeToWebsiteRebuild } from '../lib/websiteRebuild'
 
 interface OverviewState {
   errorMessage: string | null
@@ -42,495 +17,161 @@ interface OverviewState {
 
 type OverviewAction
   = { type: 'loading' }
-    | { payload: AdminOverviewPayload, type: 'loaded' }
-    | { message: string, type: 'failed' }
+    | { type: 'loaded', payload: AdminOverviewPayload }
+    | { type: 'failed', message: string }
 
 function createInitialOverviewState(): OverviewState {
-  const payload = readCachedAdminJson<AdminOverviewPayload>(overviewCacheKey)
-
-  return {
-    errorMessage: null,
-    isLoading: payload === null,
-    payload,
-  }
+  const payload = readCachedAdminJson<AdminOverviewPayload>('/api/admin/overview')
+  return { payload, errorMessage: null, isLoading: payload === null }
 }
 
 function overviewReducer(state: OverviewState, action: OverviewAction): OverviewState {
   switch (action.type) {
-    case 'loading':
-      return {
-        ...state,
-        errorMessage: null,
-        isLoading: true,
-      }
-    case 'loaded':
-      return {
-        errorMessage: null,
-        isLoading: false,
-        payload: action.payload,
-      }
-    case 'failed':
-      return {
-        ...state,
-        errorMessage: action.message,
-        isLoading: false,
-      }
+    case 'loading': return { ...state, isLoading: true, errorMessage: null }
+    case 'loaded': return { payload: action.payload, isLoading: false, errorMessage: null }
+    case 'failed': return { ...state, errorMessage: action.message, isLoading: false }
   }
 }
 
-function buildOverviewMetrics(payload: AdminOverviewPayload): OverviewMetrics {
-  const totalCharacters = payload.bootstrap.characters.length
-  const activeCharacters = payload.bootstrap.characters.filter(row => row.status === 'active').length
-  const characterAliasCount = payload.aliases.characterAliases.length
-  const creatorAliasCount = payload.aliases.creatorAliases.length
-  const keywordAliasCount = payload.aliases.keywordAliases.length
+const secondaryLinkStyles = 'rounded-md py-1 text-sm text-gray-600 underline underline-offset-4 transition hover:text-gray-950 focus-visible:outline-2 focus-visible:outline-offset-4 dark:text-gray-300 dark:hover:text-white'
+const utilityButtonStyles = 'inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800'
 
-  return {
-    activeCharacters,
-    characterAliasCount,
-    creatorAliasCount,
-    featuredKeywordCount: payload.suggestion.featuredKeywords.length,
-    keywordAliasCount,
-    archivedCharacters: totalCharacters - activeCharacters,
-    totalAliasRows: characterAliasCount + creatorAliasCount + keywordAliasCount,
-    totalCharacters,
-    totalCommissions: payload.bootstrap.characters.reduce(
-      (count, row) => count + row.commissionCount,
-      0,
-    ),
-  }
-}
-
-function getLatestCommissions(rows: AdminCommissionSearchRow[]) {
-  return rows
-    .toSorted(compareCommissionsByDate)
-    .slice(0, LATEST_ENTRY_LIMIT)
-}
-
-function getMetricValue(value: number | null) {
-  return value === null ? '...' : String(value)
-}
-
-function getStatusTone(payload: AdminOverviewPayload | null, errorMessage: string | null): StatusTone {
-  if (errorMessage) {
-    return 'blocked'
-  }
-
-  if (payload?.health.status === 'ok') {
-    return 'done'
-  }
-
-  return 'pending'
-}
-
-function getStatusLabel(payload: AdminOverviewPayload | null, errorMessage: string | null, isLoading: boolean) {
-  if (errorMessage) {
-    return 'Worker error'
-  }
-
-  if (payload?.health.status === 'ok') {
-    return 'Healthy'
-  }
-
-  return isLoading ? 'Loading' : 'Pending'
-}
-
-function getStatusDescription(
-  payload: AdminOverviewPayload | null,
-  errorMessage: string | null,
-  isLoading: boolean,
-) {
-  if (errorMessage) {
-    return errorMessage
-  }
-
-  if (payload) {
-    return payload.health.message ?? 'Standalone admin worker is responding.'
-  }
-
-  return isLoading ? 'Loading live worker status...' : 'Worker status unavailable.'
-}
-
-function MetricCard({ title, value, children, index = 0 }: { title: string, value: string, children: ReactNode, index?: number }) {
-  return (
-    <article
-      className={`
-        ${adminMetricCardStyles}
-        motion-safe:animate-[tabFade_400ms_cubic-bezier(0.25,1,0.5,1)_backwards]
-      `}
-      style={{ animationDelay: `${index * 80}ms` }}
-    >
-      <p className="
-        text-xs font-semibold tracking-wide text-gray-500 uppercase
-        dark:text-gray-300
-      "
-      >
-        {title}
-      </p>
-      <p className="
-        mt-2 text-3xl font-semibold text-gray-900
-        dark:text-gray-100
-      "
-      >
-        {value}
-      </p>
-      <p className="
-        mt-2 text-xs text-gray-600
-        dark:text-gray-300
-      "
-      >
-        {children}
-      </p>
-    </article>
-  )
-}
-
-interface AdminOverviewPageProps {
-  onNavigate: (path: string) => void
-}
-
-export function AdminOverviewPage({ onNavigate }: AdminOverviewPageProps) {
+export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) => void }) {
   const [state, dispatch] = useReducer(overviewReducer, undefined, createInitialOverviewState)
   const [reloadToken, setReloadToken] = useState(0)
-  const apiBaseUrl = getAdminApiBaseUrl() || 'same-origin'
-  const [forceRebuildLabel, setForceRebuildLabel] = useState('Force rebuild')
-  const hasPayload = useEffectEvent(() => state.payload !== null)
-
-  const handleForceRebuild = useCallback(async () => {
-    setForceRebuildLabel('Dispatching…')
-    try {
-      await triggerRebuildDeploy()
-      setForceRebuildLabel('Dispatched ✓')
-    }
-    catch {
-      setForceRebuildLabel('Failed — retry')
-    }
-  }, [])
+  const rebuild = useSyncExternalStore(subscribeToWebsiteRebuild, getWebsiteRebuildState, getServerWebsiteRebuildState)
+  const isDispatching = rebuild.status === 'pending'
+  const hasPending = useSyncExternalStore(subscribeToPendingRebuild, isPendingRebuild, () => false)
+  const reload = useCallback(() => setReloadToken(value => value + 1), [])
 
   useEffect(() => {
     const controller = new AbortController()
-    let isDisposed = false
-
-    if (!hasPayload()) {
-      dispatch({ type: 'loading' })
-    }
-
-    void fetchAdminOverviewPayload({
-      signal: controller.signal,
-    })
+    dispatch({ type: 'loading' })
+    void fetchAdminOverviewPayload({ signal: controller.signal })
       .then((payload) => {
-        if (isDisposed) {
-          return
-        }
-
-        dispatch({
-          payload,
-          type: 'loaded',
-        })
+        if (!controller.signal.aborted)
+          dispatch({ type: 'loaded', payload })
       })
       .catch((error) => {
-        if (isDisposed) {
-          return
-        }
-
-        if (error instanceof DOMException && error.name === 'AbortError') {
-          return
-        }
-
-        dispatch({
-          message: error instanceof Error ? error.message : 'Failed to load admin overview.',
-          type: 'failed',
-        })
+        if (!controller.signal.aborted)
+          dispatch({ type: 'failed', message: error instanceof Error ? error.message : 'Could not load overview.' })
       })
-
-    return () => {
-      isDisposed = true
-      controller.abort()
-    }
+    return () => controller.abort()
   }, [reloadToken])
 
-  const metrics = state.payload ? buildOverviewMetrics(state.payload) : null
-  const latestCommissions = state.payload ? getLatestCommissions(state.payload.bootstrap.commissionSearchRows) : []
-  const statusTone = getStatusTone(state.payload, state.errorMessage)
-  const statusLabel = getStatusLabel(state.payload, state.errorMessage, state.isLoading)
-  const statusDescription = getStatusDescription(state.payload, state.errorMessage, state.isLoading)
+  const { payload } = state
+  const characters = payload?.bootstrap.characters
+  const count = (value: number | undefined) => value === undefined ? '—' : String(value)
+  const metrics = [
+    { label: 'Commissions', value: count(characters?.reduce((total, row) => total + row.commissionCount, 0)), detail: 'Indexed works' },
+    { label: 'Characters', value: count(characters?.length), detail: `${count(characters?.filter(row => row.status === 'active').length)} active · ${count(characters?.filter(row => row.status !== 'active').length)} archived` },
+    { label: 'Alias rows', value: payload ? String(payload.aliases.characterAliases.length + payload.aliases.creatorAliases.length + payload.aliases.keywordAliases.length) : '—', detail: 'Character, creator & keyword' },
+    { label: 'Suggestions', value: count(payload?.suggestion.featuredKeywords.length), detail: 'Featured keywords' },
+  ]
+  const latest = payload?.bootstrap.commissionSearchRows.toSorted(compareCommissionsByDate).slice(0, 10) ?? []
 
   return (
-    <>
-      <section className="
-        grid gap-4
-        sm:grid-cols-2
-      "
-      >
-        <MetricCard index={0} title="Characters" value={getMetricValue(metrics?.totalCharacters ?? null)}>
-          Active
-          {' '}
-          {getMetricValue(metrics?.activeCharacters ?? null)}
-          {' '}
-          / Archived
-          {' '}
-          {getMetricValue(metrics?.archivedCharacters ?? null)}
-        </MetricCard>
+    <div className="space-y-6">
+      <AdminBootstrapStatus errorMessage={state.errorMessage} isLoading={state.isLoading} hasPayload={payload !== null} onRetry={reload} />
+      {(rebuild.status === 'success' || rebuild.status === 'error') && <FloatingNotice tone={rebuild.status} onDismiss={dismissWebsiteRebuildNotice}>{rebuild.message}</FloatingNotice>}
 
-        <MetricCard index={1} title="Commissions" value={getMetricValue(metrics?.totalCommissions ?? null)}>
-          Indexed entries available for admin search.
-        </MetricCard>
-
-        <MetricCard index={2} title="Alias Rows" value={getMetricValue(metrics?.totalAliasRows ?? null)}>
-          Character
-          {' '}
-          {getMetricValue(metrics?.characterAliasCount ?? null)}
-          {' '}
-          / Creator
-          {' '}
-          {getMetricValue(metrics?.creatorAliasCount ?? null)}
-          {' '}
-          / Keyword
-          {' '}
-          {getMetricValue(metrics?.keywordAliasCount ?? null)}
-        </MetricCard>
-
-        <MetricCard index={3} title="Featured Keywords" value={getMetricValue(metrics?.featuredKeywordCount ?? null)}>
-          Curated home suggestions.
-        </MetricCard>
-      </section>
-
-      <section className={adminSurfaceStyles}>
-        <h2 className="
-          text-sm font-semibold text-gray-900
-          dark:text-gray-100
-        "
-        >
-          Quick actions
-        </h2>
-        <p className="
-          mt-1 text-xs text-gray-600
-          dark:text-gray-300
-        "
-        >
-          Split workflows for faster maintenance.
-        </p>
-        <div className="
-          mt-4 grid gap-3
-          sm:grid-cols-2
-        "
-        >
-          <AdminInternalLink href="/create" onNavigate={onNavigate} className={adminActionLinkStyles}>
+      <section aria-labelledby="overview-actions" className="space-y-4 motion-safe:animate-[tabFade_300ms_ease-out]">
+        <h2 id="overview-actions" className="pl-1 text-base font-semibold text-gray-900 dark:text-gray-100">Manage content</h2>
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <AdminInternalLink href="/create" onNavigate={onNavigate} className={`${adminActionLinkStyles} min-h-12`}>
             Create entries
+            {' '}
             <span aria-hidden="true">→</span>
           </AdminInternalLink>
-          <AdminInternalLink href="/edit" onNavigate={onNavigate} className={adminActionLinkStyles}>
+          <AdminInternalLink href="/edit" onNavigate={onNavigate} className={`${adminActionLinkStyles} min-h-12`}>
             Edit existing
-            <span aria-hidden="true">→</span>
-          </AdminInternalLink>
-          <AdminInternalLink href="/aliases" onNavigate={onNavigate} className={adminActionLinkStyles}>
-            Manage aliases
-            <span aria-hidden="true">→</span>
-          </AdminInternalLink>
-          <AdminInternalLink href="/suggestion" onNavigate={onNavigate} className={adminActionLinkStyles}>
-            Curate suggestions
+            {' '}
             <span aria-hidden="true">→</span>
           </AdminInternalLink>
         </div>
-
-        <div className="
-          mt-4 border-t border-gray-200/80 pt-4
-          dark:border-gray-700/80
-        "
-        >
-          <div className="flex items-center justify-between gap-3">
-            <p className="
-              text-xs text-gray-500
-              dark:text-gray-400
-            "
-            >
-              Trigger a full data export + web deploy via GitHub Actions.
-            </p>
-            <button
-              type="button"
-              onClick={handleForceRebuild}
-              disabled={forceRebuildLabel === 'Dispatching…'}
-              className="
-                shrink-0 rounded-lg border border-gray-300/80 px-3 py-1.5
-                text-xs font-medium text-gray-700 transition
-                hover:border-gray-400 hover:text-gray-900
-                active:scale-[0.97]
-                disabled:cursor-not-allowed disabled:opacity-50
-                dark:border-gray-700 dark:text-gray-200
-                dark:hover:border-gray-600 dark:hover:text-gray-100
-              "
-            >
-              {forceRebuildLabel}
-            </button>
-          </div>
+        <div className="flex flex-wrap gap-x-6 gap-y-2 px-1">
+          <AdminInternalLink href="/aliases" onNavigate={onNavigate} className={secondaryLinkStyles}>Manage aliases</AdminInternalLink>
+          <AdminInternalLink href="/suggestion" onNavigate={onNavigate} className={secondaryLinkStyles}>Curate suggestions</AdminInternalLink>
         </div>
-
       </section>
 
-      <section className={adminSurfaceStyles}>
-        <div className="flex items-center justify-between gap-3">
-          <div className="space-y-1">
-            <h2 className="
-              text-sm font-semibold text-gray-900
-              dark:text-gray-100
-            "
-            >
-              System status
-            </h2>
-            <p className="
-              text-xs text-gray-600
-              dark:text-gray-300
-            "
-            >
-              The standalone admin now reads and writes through the remote admin worker.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`
-              inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium
-              ${getStatusBadgeStyles(statusTone)}
-            `}
-            >
-              {statusLabel}
-            </span>
-            <button
-              type="button"
-              className="
-                rounded-lg border border-gray-300/80 px-3 py-1.5 text-xs
-                font-medium text-gray-700 transition
-                hover:border-gray-400 hover:text-gray-900
-                active:scale-[0.97]
-                dark:border-gray-700 dark:text-gray-200
-                dark:hover:border-gray-600 dark:hover:text-gray-100
-              "
-              onClick={() => setReloadToken(token => token + 1)}
-              disabled={state.isLoading}
-            >
-              {state.isLoading ? 'Loading…' : 'Reload'}
-            </button>
-          </div>
-        </div>
-
-        <div className="
-          mt-4 grid gap-3
-          md:grid-cols-2
-        "
-        >
-          <article className={adminInsetCardStyles}>
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="
-                text-sm font-medium text-gray-900
-                dark:text-gray-100
-              "
-              >
-                Admin worker
-              </h3>
-              <span className={`
-                inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium
-                ${getStatusBadgeStyles(statusTone)}
-              `}
-              >
-                {statusLabel}
-              </span>
+      <section aria-label="Collection summary" aria-busy={!payload && state.isLoading} className="border-y border-gray-200 py-5 dark:border-gray-800">
+        <dl className="grid min-w-0 grid-cols-2 gap-x-5 gap-y-5 sm:grid-cols-4">
+          {metrics.map(metric => (
+            <div key={metric.label} className="min-w-0 px-1">
+              <dt className="text-xs font-medium text-gray-500 dark:text-gray-400">{metric.label}</dt>
+              <dd className="mt-1 text-2xl font-semibold tabular-nums text-gray-900 dark:text-gray-100">{metric.value}</dd>
+              <dd className="mt-1 text-xs leading-4 text-gray-500 dark:text-gray-400">{metric.detail}</dd>
             </div>
-            <p className="
-              mt-3 text-xs text-gray-600
-              dark:text-gray-300
-            "
-            >
-              {statusDescription}
-            </p>
-          </article>
+          ))}
+        </dl>
+      </section>
 
-          <article className={adminInsetCardStyles}>
-            <h3 className="
-              text-sm font-medium text-gray-900
-              dark:text-gray-100
-            "
-            >
-              API origin
-            </h3>
-            <p className="
-              mt-3 font-mono text-xs break-all text-gray-600
-              dark:text-gray-300
-            "
-            >
-              {apiBaseUrl}
-            </p>
-            <p className="
-              mt-3 text-xs text-gray-600
-              dark:text-gray-300
-            "
-            >
-              All admin reads and writes now go through the worker-backed D1/R2 API.
-            </p>
-          </article>
+      <section aria-labelledby="overview-publish" className={adminSurfaceStyles}>
+        <div className="flex min-w-0 flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="min-w-0 flex-1 space-y-1">
+            <h2 id="overview-publish" className="text-base font-semibold text-gray-900 dark:text-gray-100">Publish website</h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Rebuild the public site from saved content.</p>
+          </div>
+          <button type="button" onClick={() => void queueWebsiteRebuild()} disabled={isDispatching} className={`${utilityButtonStyles} w-40`}>
+            {isDispatching ? 'Queueing…' : 'Rebuild website'}
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4 text-xs dark:border-gray-700">
+          <p className={hasPending ? 'text-amber-700 dark:text-amber-300' : 'text-gray-500 dark:text-gray-400'}>{hasPending ? 'Saved changes are waiting to be published.' : 'You can rebuild at any time.'}</p>
+          <details className="group w-full">
+            <summary className="cursor-pointer rounded text-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-gray-400">Connection details</summary>
+            <dl className="mt-3 space-y-2 break-words text-gray-600 dark:text-gray-300">
+              <div className="flex flex-wrap gap-x-2">
+                <dt>Connection:</dt>
+                <dd>{state.errorMessage ? 'Could not refresh data' : payload ? payload.health.status === 'ok' ? 'Connected' : 'Unavailable' : state.isLoading ? 'Checking…' : 'Unavailable'}</dd>
+              </div>
+              <div className="flex flex-wrap gap-x-2">
+                <dt>API origin:</dt>
+                <dd className="min-w-0 break-all font-mono">{getAdminApiBaseUrl() || 'same-origin'}</dd>
+              </div>
+              {payload?.health.message && (
+                <div>
+                  <dt className="sr-only">Health response</dt>
+                  <dd>{payload.health.message}</dd>
+                </div>
+              )}
+              {payload && (
+                <div>
+                  <dt className="sr-only">Alias breakdown</dt>
+                  <dd>{`${payload.aliases.characterAliases.length} character / ${payload.aliases.creatorAliases.length} creator / ${payload.aliases.keywordAliases.length} keyword alias rows`}</dd>
+                </div>
+              )}
+            </dl>
+            <button type="button" onClick={reload} disabled={state.isLoading} className={`${utilityButtonStyles} mt-3 w-28`}>{state.isLoading ? 'Checking…' : 'Refresh data'}</button>
+          </details>
         </div>
       </section>
 
-      <section className={adminSurfaceStyles}>
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="
-            text-sm font-semibold text-gray-900
-            dark:text-gray-100
-          "
-          >
-            Latest entries
-          </h2>
-          <AdminInternalLink
-            href="/edit"
-            onNavigate={onNavigate}
-            className="
-              text-xs text-gray-600
-              hover:text-gray-900
-              dark:text-gray-300
-              dark:hover:text-gray-100
-            "
-          >
-            Open edit view
-          </AdminInternalLink>
+      <section aria-labelledby="overview-latest" className="space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+          <h2 id="overview-latest" className="text-base font-semibold text-gray-900 dark:text-gray-100">Latest entries</h2>
+          <AdminInternalLink href="/edit" onNavigate={onNavigate} className={secondaryLinkStyles}>Open edit view</AdminInternalLink>
         </div>
-
-        {latestCommissions.length === 0
+        {latest.length > 0
           ? (
-              <p className="
-                mt-4 text-sm text-gray-600
-                dark:text-gray-300
-              "
-              >
-                {state.errorMessage ? 'Latest entries are unavailable until overview data loads.' : 'No commissions found.'}
-              </p>
-            )
-          : (
-              <ol className="mt-4 space-y-2">
-                {latestCommissions.map(item => (
-                  <li
-                    key={item.id}
-                    className="
-                      flex items-center justify-between gap-3 rounded-lg border
-                      border-gray-200/80 bg-white/80 px-3 py-2 text-xs
-                      dark:border-gray-700 dark:bg-gray-950/40
-                    "
-                  >
-                    <span className="
-                      min-w-0 truncate font-mono text-gray-800
-                      dark:text-gray-100
-                    "
-                    >
-                      {getCommissionDisplayLabel(item)}
-                    </span>
-                    <span className="
-                      shrink-0 text-gray-500
-                      dark:text-gray-300
-                    "
-                    >
-                      {item.characterName}
-                    </span>
+              <ol className="divide-y divide-gray-200 dark:divide-gray-800">
+                {latest.map(item => (
+                  <li key={item.id} className="min-w-0 space-y-1 px-1 py-3">
+                    <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-100" title={getCommissionTitle(item)}>{getCommissionTitle(item)}</p>
+                    <div className="flex min-w-0 items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
+                      <span className="truncate">{item.characterName}</span>
+                      <span className="shrink-0 font-mono" title={item.publicId}>
+                        #
+                        {formatCommissionPublicId(item.publicId)}
+                      </span>
+                    </div>
                   </li>
                 ))}
               </ol>
-            )}
+            )
+          : <p className="px-1 py-4 text-sm text-gray-500 dark:text-gray-400">{payload ? 'No commissions yet. Create your first entry above.' : state.isLoading ? 'Loading entries…' : 'Entries are unavailable. Retry loading the overview.'}</p>}
       </section>
-    </>
+    </div>
   )
 }

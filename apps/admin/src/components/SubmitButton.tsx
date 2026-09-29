@@ -3,11 +3,13 @@ import { useFormStatus } from 'react-dom'
 
 interface SubmitButtonProps {
   children: ReactNode
+  disabled?: boolean
   pendingLabel?: string
 }
 
 export function SubmitButton({
   children,
+  disabled = false,
   pendingLabel = 'Saving...',
 }: SubmitButtonProps) {
   const { pending } = useFormStatus()
@@ -15,9 +17,9 @@ export function SubmitButton({
   return (
     <button
       type="submit"
-      disabled={pending}
+      disabled={pending || disabled}
       className="
-        inline-flex h-10 w-[150px] items-center justify-center rounded-md
+        inline-flex h-10 w-[150px] shrink-0 items-center justify-center rounded-md
         bg-gray-900 px-3 text-sm font-semibold whitespace-nowrap text-white
         transition
         hover:bg-gray-700

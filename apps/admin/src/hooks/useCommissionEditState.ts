@@ -44,7 +44,7 @@ export function useCommissionEditState({
   const imageSrc = useMemo(() => buildImageSrc(commission.id), [commission.id])
 
   useEffect(() => {
-    if (!deleteStatus) {
+    if (!deleteStatus || deleteStatus.type === 'error') {
       return
     }
 
