@@ -75,7 +75,7 @@ const dialogContentBase = {
     motion-safe:data-[state=closed]:animate-[dialog-content-out_150ms_ease-in]
   `,
   // sheet：移动端全屏，>=sm 退化为居中浮层；避免 vaul 那种 fixed+transform 触发的键盘异常。
-  // max-w-3xl 刻意宽于 AdminRootLayout 的 max-w-2xl，保证轮廓不与下方容器边缘重合。
+  // 详情保持聚焦工作区，宽度独立于页面的侧栏与内容网格。
   sheet: `
     fixed inset-0 z-70 flex flex-col overflow-hidden bg-white
     dark:bg-gray-950

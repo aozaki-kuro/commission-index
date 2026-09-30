@@ -29,7 +29,7 @@ interface AliasPanelProps {
   onSaved?: () => void
 }
 
-const aliasGridTemplate = 'md:grid-cols-[minmax(10rem,16rem)_minmax(0,1fr)]'
+const aliasGridTemplate = 'md:grid-cols-[minmax(10rem,18rem)_minmax(0,1fr)]'
 
 export function AliasPanel({
   rows,
@@ -89,19 +89,31 @@ export function AliasPanel({
   return (
     <form action={action} className={`${adminSurfaceStyles} min-w-0`} aria-busy={isLoading || pending}>
       <input type="hidden" name="rowsJson" value={buildPayload(changedRows, values)} />
-      <header className="space-y-1 pl-1">
-        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
-        <p className="text-sm text-gray-600 dark:text-gray-300">{description}</p>
+      <header>
+        <h2 className="sr-only">{title}</h2>
+        <p className="max-w-2xl text-sm leading-relaxed text-gray-600 dark:text-gray-300">{description}</p>
       </header>
       <div className="space-y-2">
-        <label htmlFor={`${id}-filter`} className="block pl-1 text-xs font-semibold text-gray-600 dark:text-gray-300">
+        <label htmlFor={`${id}-filter`} className="sr-only">
           {`Filter ${title.toLowerCase()}`}
         </label>
-        <input id={`${id}-filter`} type="search" value={query} onChange={event => setQuery(event.target.value)} disabled={isLoading || isUnavailable} placeholder={`Search ${columnHeader.toLowerCase()} or alias`} className={`${formControlStyles} min-w-0`} />
-        <p className="pl-1 text-xs text-gray-500 dark:text-gray-400">Separate aliases with commas. Clear a field and save to remove its aliases.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <input id={`${id}-filter`} type="search" value={query} onChange={event => setQuery(event.target.value)} disabled={isLoading || isUnavailable} placeholder={`Search ${columnHeader.toLowerCase()} or alias`} className={`${formControlStyles} min-w-0 md:max-w-md`} />
+          <span className="pl-1 font-mono text-xs text-gray-500 dark:text-gray-400" aria-live="polite">{isLoading || isUnavailable ? '— entries' : `${visibleRows.length} of ${rows.length} entries`}</span>
+        </div>
+        <p className="pl-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Separate aliases with commas. Clear a field to remove its aliases.</p>
+      </div>
+      <div className="admin-glass sticky top-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 px-4 py-3 shadow-sm dark:border-gray-700">
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-200" aria-live="polite">{changedRows.length > 0 ? `${changedRows.length} unsaved ${changedRows.length === 1 ? 'change' : 'changes'}` : 'No unsaved changes'}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Only changed rows in this section are saved.</p>
+        </div>
+        <fieldset disabled={pending || isLoading || isUnavailable || changedRows.length === 0} className="min-w-0">
+          <SaveButton label={saveLabel} />
+        </fieldset>
       </div>
       <div>
-        <div className={`hidden gap-4 border-b border-gray-200 pb-2 text-xs font-semibold tracking-wide text-gray-500 uppercase md:grid dark:border-gray-700 dark:text-gray-400 ${aliasGridTemplate}`}>
+        <div className={`hidden gap-6 border-y border-gray-200 py-3 text-xs font-medium text-gray-500 md:grid dark:border-gray-700 dark:text-gray-400 ${aliasGridTemplate}`}>
           <span className="pl-1">{columnHeader}</span>
           <span className="pl-1">Aliases</span>
         </div>
@@ -114,9 +126,9 @@ export function AliasPanel({
               : visibleRows.map((row) => {
                   const inputId = `${id}-${encodeURIComponent(row.key)}`
                   return (
-                    <div key={row.key} className={`grid min-w-0 gap-2 border-b border-gray-200/80 py-4 last:border-0 md:items-center md:gap-4 dark:border-gray-700/80 ${aliasGridTemplate}`}>
+                    <div key={row.key} className={`grid min-w-0 scroll-mt-48 gap-2 border-b border-gray-200/80 py-3 last:border-0 md:scroll-mt-28 md:items-center md:gap-6 dark:border-gray-700/80 ${aliasGridTemplate}`}>
                       <div className="min-w-0 space-y-1 pl-1">
-                        <label htmlFor={inputId} className="block text-sm font-semibold break-words text-gray-900 dark:text-gray-100">
+                        <label htmlFor={inputId} className="block text-sm font-medium break-words text-gray-900 dark:text-gray-100">
                           {row.key}
                           <span className="sr-only"> aliases</span>
                         </label>
@@ -126,17 +138,14 @@ export function AliasPanel({
                           {row.count === 1 ? 'commission' : 'commissions'}
                         </p>
                       </div>
-                      <input id={inputId} type="text" value={values[row.key]} disabled={pending} onChange={event => setDrafts(current => ({ ...current, [row.key]: event.target.value }))} className={`${formControlStyles} min-w-0`} placeholder={placeholder} />
+                      <div className="relative min-w-0">
+                        <input id={inputId} type="text" value={values[row.key]} disabled={pending} onChange={event => setDrafts(current => ({ ...current, [row.key]: event.target.value }))} className={`${formControlStyles} min-w-0 scroll-mt-48 pr-8 md:scroll-mt-28`} placeholder={placeholder} />
+                        {values[row.key] !== baseline[row.key] && <span className="pointer-events-none absolute top-1/2 right-3 size-1.5 -translate-y-1/2 rounded-full bg-amber-600 dark:bg-amber-400" title="Unsaved change"><span className="sr-only">Unsaved change</span></span>}
+                      </div>
                     </div>
                   )
                 })}
       </div>
-      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-5 dark:border-gray-700">
-        <p className="pl-1 text-xs text-gray-500 dark:text-gray-400">Only changed rows in this section are saved.</p>
-        <fieldset disabled={pending || isLoading || isUnavailable || changedRows.length === 0} className="min-w-0">
-          <SaveButton label={saveLabel} />
-        </fieldset>
-      </footer>
       <FormStatusIndicator status={state.status} message={state.message} successLabel={`${title} saved`} errorFallback={errorFallback} />
     </form>
   )

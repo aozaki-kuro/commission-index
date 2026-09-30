@@ -19,7 +19,7 @@ export function SubmitButton({
       type="submit"
       disabled={pending || disabled}
       className="
-        inline-flex h-10 w-[150px] shrink-0 items-center justify-center rounded-md
+        inline-flex min-h-11 min-w-[150px] shrink-0 items-center justify-center rounded-md
         bg-gray-900 px-3 text-sm font-semibold whitespace-nowrap text-white
         transition
         hover:bg-gray-700

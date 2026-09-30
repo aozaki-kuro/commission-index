@@ -69,10 +69,10 @@ export function CommissionSharedFields({
   onKeywordChange,
 }: CommissionSharedFieldsProps) {
   return (
-    <div className="space-y-5">
+    <div className="@container/fields space-y-5">
       <div className="
         grid min-w-0 items-start gap-5
-        md:grid-cols-3
+        @min-[36rem]/fields:grid-cols-3
       "
       >
         <CommissionCharacterField
@@ -102,7 +102,7 @@ export function CommissionSharedFields({
       </div>
 
       <div className="
-        space-y-4 border-t border-gray-200/60 pt-5
+        space-y-5 border-t border-gray-200/60 pt-5
         dark:border-gray-700/60
       "
       >

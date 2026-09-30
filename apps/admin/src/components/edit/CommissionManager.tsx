@@ -36,7 +36,7 @@ import { FloatingNotice } from '../FloatingNotice'
 import { CharacterDeleteDialog } from './CharacterDeleteDialog'
 import { CommissionEditDrawer } from './CommissionEditDrawer'
 import { KeywordReplacePopover } from './KeywordReplacePopover'
-import { SortableCharacterCard } from './SortableCharacterCard'
+import { CharacterCardSkeleton, SortableCharacterCard } from './SortableCharacterCard'
 import { SortableDivider } from './SortableDivider'
 
 interface CommissionManagerProps {
@@ -80,7 +80,6 @@ export function CommissionManager({
   const cancelDeleteButtonRef = useRef<HTMLButtonElement | null>(null)
   const deleteReturnFocusRef = useRef<HTMLElement | null>(null)
   const {
-    activeCount,
     cancelEditing,
     closeConfirmDialog,
     commissionMap,
@@ -437,8 +436,8 @@ export function CommissionManager({
       )}
 
       <div className="space-y-2">
-        <div className="flex gap-2">
-          <div className="relative min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-0 basis-full @min-[44rem]/workspace:flex-1 @min-[44rem]/workspace:basis-0">
             <IconSearch
               className="
                 pointer-events-none absolute top-1/2 left-3 size-4
@@ -448,15 +447,14 @@ export function CommissionManager({
               aria-hidden="true"
             />
             <input
-              role="combobox"
+              type="search"
               aria-label="Search commissions"
-              aria-expanded="false"
               value={searchQuery}
               onChange={event => handleSearchChange(event.target.value)}
               placeholder="Search commissions"
               className={`
                 ${formControlStyles}
-                pr-20 pl-9
+                min-h-11 pr-20 pl-9 [&::-webkit-search-cancel-button]:hidden
               `}
             />
             {searchQuery
@@ -466,7 +464,7 @@ export function CommissionManager({
                     onClick={() => handleSearchChange('')}
                     aria-label="Clear search"
                     className="
-                      absolute top-1/2 right-3 inline-flex size-5 -translate-y-1/2
+                      absolute top-1/2 right-0 inline-flex size-11 -translate-y-1/2
                       items-center justify-center rounded-full text-gray-400
                       transition
                       hover:bg-gray-100 hover:text-gray-600
@@ -495,8 +493,8 @@ export function CommissionManager({
             aria-pressed={isReorderMode}
             aria-label={isReorderMode ? 'Exit reorder mode' : 'Enter reorder mode'}
             className={`
-              inline-flex sm:hidden size-10 shrink-0 items-center justify-center
-              rounded-xl border text-sm font-medium transition
+              inline-flex min-h-11 shrink-0 items-center justify-center gap-2 px-3
+              rounded-lg border text-sm font-medium transition
               focus-visible:ring-2 focus-visible:ring-gray-400
               focus-visible:ring-offset-2 focus-visible:ring-offset-white
               focus-visible:outline-none
@@ -504,8 +502,8 @@ export function CommissionManager({
               disabled:pointer-events-none disabled:opacity-50
               ${isReorderMode
       ? `
-                  border-blue-200 bg-blue-50 text-blue-600
-                  dark:border-blue-800 dark:bg-blue-950 dark:text-blue-400
+                  border-gray-900 bg-gray-900 text-white
+                  dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900
                 `
       : `
                   border-gray-200 bg-white text-gray-500
@@ -516,6 +514,7 @@ export function CommissionManager({
             `}
           >
             <IconArrowsSort className="size-4.5" stroke={2} aria-hidden="true" />
+            <span>{isReorderMode ? 'Done' : 'Reorder'}</span>
           </button>
           <KeywordReplacePopover
             commissionSearchRows={currentSearchRows}
@@ -523,6 +522,14 @@ export function CommissionManager({
           />
         </div>
 
+        <p className="text-xs leading-5 text-gray-500 dark:text-gray-400">
+          Active characters appear first on the public site. Archived characters are folded by default.
+        </p>
+        {isReorderMode && !hasAppliedSearchQuery && (
+          <p className="text-xs leading-5 text-gray-500 dark:text-gray-400">
+            Use the arrows or drag to reorder. Move below the divider to archive; move above to make active.
+          </p>
+        )}
       </div>
 
       {hasAppliedSearchQuery
@@ -562,7 +569,7 @@ export function CommissionManager({
           ? (
               <div aria-hidden="true" className="space-y-4">
                 {Array.from({ length: 4 }, (_, index) => (
-                  <div key={index} className="h-[3.75rem] motion-safe:animate-pulse rounded-2xl border border-gray-200 bg-gray-100 dark:border-gray-700 dark:bg-gray-900/50" />
+                  <CharacterCardSkeleton key={index} />
                 ))}
               </div>
             )
@@ -580,7 +587,7 @@ export function CommissionManager({
                         return (
                           <div key="divider" className="relative" {...dragItemAttr(index)}>
                             {dropIndicatorIndex === index && <DropIndicator />}
-                            <SortableDivider activeCount={activeCount} />
+                            <SortableDivider archivedCount={list.length - dividerIndex - 1} />
                           </div>
                         )
                       }
@@ -624,22 +631,10 @@ export function CommissionManager({
                             isReorderMode={isReorderMode}
                             onMoveUp={index === 0
                               ? undefined
-                              : () => {
-                                  const targetIndex = dividerIndex !== -1 && index - 1 === dividerIndex
-                                    ? index - 2
-                                    : index - 1
-                                  if (targetIndex >= 0)
-                                    handleReorder(index, targetIndex)
-                                }}
+                              : () => handleReorder(index, index - 1)}
                             onMoveDown={index === list.length - 1
                               ? undefined
-                              : () => {
-                                  const targetIndex = dividerIndex !== -1 && index + 1 === dividerIndex
-                                    ? index + 2
-                                    : index + 1
-                                  if (targetIndex < list.length)
-                                    handleReorder(index, targetIndex)
-                                }}
+                              : () => handleReorder(index, index + 1)}
                           />
                         </div>
                       )

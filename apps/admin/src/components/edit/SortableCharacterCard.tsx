@@ -4,11 +4,33 @@ import type {
 } from '@commission-index/domain'
 import type { KeyboardEvent } from 'react'
 import type { DragHandleProps } from '../../hooks/useNativeDragReorder'
-import { IconArrowDown, IconArrowUp, IconDeviceFloppy, IconGripHorizontal, IconPencil, IconTrash, IconX } from '@tabler/icons-react'
+import { IconArrowDown, IconArrowUp, IconChevronRight, IconDeviceFloppy, IconGripHorizontal, IconPencil, IconTrash, IconX } from '@tabler/icons-react'
 import { CommissionThumbnailGrid, CommissionThumbnailGridSkeleton } from './CommissionThumbnailGrid'
 
 const inlineEditStyles
-  = 'flex-1 min-w-0 bg-transparent px-0 py-0 text-base font-semibold text-gray-900 outline-none dark:text-gray-100'
+  = 'h-11 w-full min-w-0 rounded-md border border-gray-300 bg-white px-2 text-base font-medium text-gray-900 outline-none focus-visible:ring-2 focus-visible:ring-gray-500 dark:border-gray-600 dark:bg-gray-950 dark:text-gray-100'
+
+const characterHeaderStyles = 'grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 px-2 py-2 @min-[16rem]/thumbnails:flex sm:gap-2 sm:px-3'
+const characterIdentityStyles = 'col-span-2 flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3'
+
+export function CharacterCardSkeleton() {
+  return (
+    <div data-character-skeleton="true" className="@container/thumbnails rounded-xl border border-gray-200 bg-gray-100 motion-safe:animate-pulse dark:border-gray-800 dark:bg-gray-900/50">
+      <div className={characterHeaderStyles}>
+        <span className="hidden size-11 shrink-0 sm:block" />
+        <div className={characterIdentityStyles}>
+          <span className="min-h-11 w-full min-w-0 flex-1" />
+          <span className="h-4 w-16 shrink-0" />
+        </div>
+        <span className="h-4 w-5 shrink-0" />
+        <div className="flex shrink-0 gap-0.5">
+          <span className="size-11" />
+          <span className="size-11" />
+        </div>
+      </div>
+    </div>
+  )
+}
 
 interface SortableCharacterCardProps {
   character: CharacterRow
@@ -69,6 +91,7 @@ export function SortableCharacterCard({
 }: SortableCharacterCardProps) {
   const sectionId = `admin-character-${character.id}`
   const panelId = `${sectionId}-panel`
+  const statusId = `${sectionId}-status`
 
   return (
     <div
@@ -80,27 +103,11 @@ export function SortableCharacterCard({
       className={isDragging ? 'opacity-55' : ''}
     >
       <div className="
-        overflow-hidden rounded-2xl border border-gray-200 bg-white/95 shadow-sm
-        ring-1 ring-gray-900/5 transition
-        dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10
+        @container/thumbnails overflow-hidden rounded-xl border border-gray-200 bg-white transition
+        dark:border-gray-800 dark:bg-gray-900
       "
       >
-        <div
-          role={isEditing ? undefined : 'button'}
-          tabIndex={isEditing ? undefined : -1}
-          onClick={isEditing
-            ? undefined
-            : (event) => {
-                event.preventDefault()
-                onToggle()
-              }}
-          className={`
-            flex items-center gap-2 bg-white/90 px-3 py-2.5
-            sm:gap-3 sm:px-5 sm:py-3
-            dark:bg-gray-900/40
-            ${isEditing ? '' : 'cursor-pointer'}
-          `}
-        >
+        <div className={characterHeaderStyles}>
           {/* 桌面端拖拽手柄 — 移动端始终隐藏 */}
           <button
             type="button"
@@ -111,7 +118,7 @@ export function SortableCharacterCard({
               ? `Drag disabled while search is applied for ${character.name}`
               : `Drag ${character.name}`}
             className={`
-              hidden sm:inline-flex size-8 shrink-0 items-center justify-center rounded-lg
+              hidden sm:inline-flex size-11 shrink-0 items-center justify-center rounded-lg
               border border-transparent text-gray-400 transition
               focus-visible:ring-2 focus-visible:ring-gray-400
               focus-visible:ring-offset-2 focus-visible:ring-offset-white
@@ -130,59 +137,70 @@ export function SortableCharacterCard({
             <IconGripHorizontal className="size-5" stroke={2} aria-hidden="true" />
           </button>
 
-          {/* 名字/输入区域 — 统一结构，编辑时原地替换内容 */}
-          <button
-            type="button"
-            aria-expanded={isEditing ? undefined : isOpen}
-            aria-controls={isEditing ? undefined : panelId}
-            tabIndex={isEditing ? -1 : undefined}
-            className="
-              flex flex-1 items-center gap-3 rounded-lg text-left
+          {/* 输入框和展开按钮互斥，避免交互控件嵌套。 */}
+          <div className={characterIdentityStyles}>
+            {isEditing
+              ? (
+                  <div className="w-full min-w-0 flex-1">
+                    <input
+                      type="text"
+                      aria-label={`Name for ${character.name}`}
+                      aria-describedby={statusId}
+                      autoFocus
+                      value={editingValue}
+                      disabled={isDeleting}
+                      onChange={event => onRenameChange(event.target.value)}
+                      onBlur={(event) => {
+                        if (!event.relatedTarget?.hasAttribute('data-rename-action'))
+                          onSubmitRename()
+                      }}
+                      onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          onSubmitRename()
+                        }
+                        if (event.key === 'Escape') {
+                          event.preventDefault()
+                          onCancelEdit()
+                        }
+                      }}
+                      className={inlineEditStyles}
+                    />
+                  </div>
+                )
+              : (
+                  <button
+                    type="button"
+                    aria-expanded={isOpen}
+                    aria-controls={panelId}
+                    aria-describedby={statusId}
+                    onClick={onToggle}
+                    className="
+              flex min-h-11 w-full min-w-0 flex-1 items-center gap-2 rounded-lg text-left
               focus-visible:ring-2 focus-visible:ring-gray-400
               focus-visible:ring-offset-2
               focus-visible:ring-offset-white focus-visible:outline-none
               dark:focus-visible:ring-offset-gray-900
             "
-          >
-            <span
-              aria-hidden="true"
-              className={isActive
-                ? 'size-2.5 shrink-0 rounded-full bg-blue-500/90'
-                : 'size-2.5 shrink-0 rounded-full bg-gray-400/80'}
-            />
-            {isEditing
-              ? (
-                  <input
-                    type="text"
-                    autoFocus
-                    value={editingValue}
-                    disabled={isDeleting}
-                    onChange={event => onRenameChange(event.target.value)}
-                    onBlur={onSubmitRename}
-                    onClick={event => event.stopPropagation()}
-                    onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
-                      if (event.key === 'Enter') {
-                        event.preventDefault()
-                        onSubmitRename()
-                      }
-                      if (event.key === 'Escape') {
-                        event.preventDefault()
-                        onCancelEdit()
-                      }
-                    }}
-                    className={inlineEditStyles}
-                  />
-                )
-              : (
-                  <span className="
-                    truncate text-base font-semibold text-gray-800
+                  >
+                    <IconChevronRight aria-hidden="true" stroke={1.8} className={`size-4 shrink-0 text-gray-500 motion-safe:transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                    <span className="
+                    truncate text-sm font-medium text-gray-800
                     dark:text-gray-100
                   "
-                  >
-                    {character.name}
-                  </span>
+                    >
+                      {character.name}
+                    </span>
+                  </button>
                 )}
-          </button>
+            <span
+              id={statusId}
+              data-character-status-label="true"
+              className="shrink-0 pl-6 text-xs leading-4 text-gray-600 sm:pl-0 dark:text-gray-300"
+            >
+              {isActive ? 'Active' : 'Archived'}
+            </span>
+          </div>
 
           <span className="
             shrink-0 text-right font-mono text-xs font-normal text-gray-500
@@ -204,6 +222,11 @@ export function SortableCharacterCard({
           <div className="flex shrink-0 items-center gap-0.5">
             <button
               type="button"
+              data-rename-action={isEditing ? 'save' : undefined}
+              onPointerDown={(event) => {
+                if (isEditing)
+                  event.preventDefault()
+              }}
               onClick={(event) => {
                 event.stopPropagation()
                 if (isReorderMode) {
@@ -221,7 +244,7 @@ export function SortableCharacterCard({
                 ? `Move ${character.name} up`
                 : isEditing ? `Save name for ${character.name}` : `Rename ${character.name}`}
               className={`
-                inline-flex size-7 shrink-0 items-center justify-center
+                inline-flex size-11 shrink-0 items-center justify-center
                 rounded-lg border border-transparent text-gray-400
                 transition
                 hover:text-gray-600
@@ -244,6 +267,11 @@ export function SortableCharacterCard({
 
             <button
               type="button"
+              data-rename-action={isEditing ? 'cancel' : undefined}
+              onPointerDown={(event) => {
+                if (isEditing)
+                  event.preventDefault()
+              }}
               onClick={(event) => {
                 event.stopPropagation()
                 if (isReorderMode) {
@@ -261,7 +289,7 @@ export function SortableCharacterCard({
                 ? `Move ${character.name} down`
                 : isEditing ? `Cancel renaming ${character.name}` : `Remove ${character.name}`}
               className={`
-                inline-flex size-8 shrink-0 items-center justify-center
+                inline-flex size-11 shrink-0 items-center justify-center
                 rounded-lg border border-transparent text-gray-400
                 transition
                 focus-visible:ring-2 focus-visible:ring-offset-2
@@ -298,14 +326,14 @@ export function SortableCharacterCard({
             <div
               aria-hidden={!isOpen}
               className={`
-                border-t border-gray-200 bg-white/85 px-3
+                border-t border-gray-100 px-3
                 sm:px-5
-                dark:border-gray-700 dark:bg-gray-900/30
+                dark:border-gray-800
                 motion-safe:transition-all motion-safe:duration-200 motion-safe:ease-out
                 ${isOpen ? 'translate-y-0 opacity-100' : 'motion-safe:-translate-y-1 opacity-0'}
               `}
             >
-              {/* Show skeleton only while the card is open and loading */}
+              {/* 展开读取时保留完整网格几何。 */}
               {isOpen && commissionLoadError && !isCommissionsLoaded
                 ? (
                     <div role="alert" className="flex min-h-24 flex-wrap items-center justify-between gap-3 py-4 text-sm text-red-600 dark:text-red-400">
@@ -325,7 +353,7 @@ export function SortableCharacterCard({
                   )
                 : null}
 
-              {/* Thumbnail grid once loaded */}
+              {/* 已加载内容在后台刷新时保持挂载。 */}
               {isCommissionsLoaded
                 ? (
                     <div className="py-4">

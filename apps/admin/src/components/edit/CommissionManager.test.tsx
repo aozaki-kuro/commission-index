@@ -6,12 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FloatingNoticeProvider } from '../FloatingNotice'
 import { CommissionManager } from './CommissionManager'
 
-const api = vi.hoisted(() => ({ load: vi.fn(), refresh: vi.fn(), pendingSave: null as (() => void) | null }))
+const api = vi.hoisted(() => ({ load: vi.fn(), refresh: vi.fn(), rename: vi.fn(), saveOrder: vi.fn(), pendingSave: null as (() => void) | null }))
 vi.mock('../../lib/adminActions', () => ({
   fetchCharacterCommissionsAction: api.load,
   deleteCharacterAction: vi.fn(),
-  renameCharacter: vi.fn(),
-  saveCharacterOrder: vi.fn(),
+  renameCharacter: api.rename,
+  saveCharacterOrder: api.saveOrder,
 }))
 vi.mock('./KeywordReplacePopover', () => ({
   KeywordReplacePopover: ({ onComplete }: { onComplete: () => void }) => createElement('button', { onClick: onComplete }, 'Complete replacement'),
@@ -53,6 +53,8 @@ describe('commission manager search and disclosure lifecycle', () => {
     window.localStorage.clear()
     api.load.mockReset().mockImplementation(async (id: number) => commissions.filter(row => row.characterId === id))
     api.refresh.mockReset()
+    api.rename.mockReset().mockResolvedValue({ status: 'success' })
+    api.saveOrder.mockReset().mockResolvedValue({ status: 'success' })
     api.pendingSave = null
   })
   afterEach(async () => {
@@ -68,6 +70,61 @@ describe('commission manager search and disclosure lifecycle', () => {
     const input = container.querySelector('input[aria-label="Search commissions"]')!
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
     input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+
+  it('moves a character across the divider even when the stale group is empty', async () => {
+    await render()
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Enter reorder mode"]')!.click())
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Move Second down"]')!.click())
+    expect(container.querySelector('#admin-character-2')?.getAttribute('data-character-status')).toBe('archived')
+    expect(api.saveOrder).toHaveBeenLastCalledWith({ active: [1], archived: [2] })
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Move Second up"]')!.click())
+    expect(container.querySelector('#admin-character-2')?.getAttribute('data-character-status')).toBe('active')
+    expect(api.saveOrder).toHaveBeenLastCalledWith({ active: [1, 2], archived: [] })
+  })
+
+  it('saves the current name when focus moves to another character action', async () => {
+    await render()
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Rename First"]')!.click())
+    const input = container.querySelector<HTMLInputElement>('[aria-label="Name for First"]')!
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'Changed name')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Rename Second"]')!.focus())
+    expect(api.rename).toHaveBeenCalledExactlyOnceWith({ id: 1, name: 'Changed name', status: 'active' })
+    expect(container.querySelector('#admin-character-1 button[aria-expanded]')?.textContent).toContain('Changed name')
+  })
+
+  it('keeps the rename input outside buttons and cancels by keyboard or pointer without saving', async () => {
+    await render()
+    for (const interaction of ['keyboard', 'pointer']) {
+      await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Rename First"]')!.click())
+      const input = container.querySelector<HTMLInputElement>('[aria-label="Name for First"]')!
+      expect(input.closest('button')).toBeNull()
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, 'Changed name')
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+      const cancel = container.querySelector<HTMLButtonElement>('[aria-label="Cancel renaming First"]')!
+      if (interaction === 'keyboard') {
+        await act(async () => cancel.focus())
+      }
+      else {
+        const pointerDown = new MouseEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 })
+        await act(async () => {
+          cancel.dispatchEvent(pointerDown)
+          // jsdom 不执行指针默认焦点行为，模拟未取消时输入失焦的浏览器路径。
+          if (!pointerDown.defaultPrevented)
+            input.blur()
+        })
+        expect(pointerDown.defaultPrevented).toBe(true)
+        expect(document.activeElement).toBe(input)
+      }
+      await act(async () => cancel.click())
+      expect(api.rename).not.toHaveBeenCalled()
+      expect(container.querySelector('#admin-character-1 button[aria-expanded]')?.textContent).toContain('First')
+    }
   })
 
   it('searches bootstrap rows without fetching or changing the browse disclosures', async () => {

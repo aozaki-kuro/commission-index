@@ -91,7 +91,7 @@ function TabButton({ activeTab, count, label, onSelect, tab }: TabButtonProps) {
       tabIndex={isActive ? 0 : -1}
       onClick={() => onSelect(tab)}
       className={`
-        relative inline-flex min-w-0 items-center justify-center gap-1 px-0 pb-2.5 text-xs font-medium sm:gap-2 sm:px-1 sm:text-sm
+        relative inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium sm:gap-2 sm:px-4 sm:text-sm
         transition
         focus-visible:outline-none
         focus-visible:ring-2 focus-visible:ring-gray-400
@@ -99,34 +99,22 @@ function TabButton({ activeTab, count, label, onSelect, tab }: TabButtonProps) {
         focus-visible:rounded-sm
         dark:focus-visible:ring-offset-neutral-900
         ${isActive
-      ? `text-gray-900 dark:text-gray-100`
+      ? `bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-gray-100`
       : `text-gray-500 hover:text-gray-700
          dark:text-gray-400 dark:hover:text-gray-200`}
       `}
     >
       {label}
       <span className={`
-        inline-flex min-w-5 items-center justify-center rounded-full
-        px-1.5 py-0.5 text-[11px] font-semibold leading-none
+        inline-flex min-w-5 items-center justify-center
+        font-mono text-[11px] leading-none
         ${isActive
-      ? `bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900`
-      : `bg-gray-200/80 text-gray-600 dark:bg-gray-700 dark:text-gray-300`}
+      ? `text-gray-600 dark:text-gray-300`
+      : `text-gray-500 dark:text-gray-400`}
       `}
       >
         {count ?? '–'}
       </span>
-      {isActive
-        ? (
-            <span
-              aria-hidden="true"
-              className="
-                absolute right-0 bottom-0 left-0 h-0.5 rounded-full
-                bg-gray-900
-                dark:bg-gray-100
-              "
-            />
-          )
-        : null}
     </button>
   )
 }
@@ -190,8 +178,8 @@ export function AdminAliasesDashboard({
         aria-label="Alias mapping sections"
         onKeyDown={handleTabKeyDown}
         className="
-          grid grid-cols-3 gap-2 border-b border-gray-200 sm:flex sm:gap-5
-          dark:border-gray-700
+          grid grid-cols-3 gap-1 rounded-lg bg-gray-100/80 p-1 sm:w-fit sm:min-w-96
+          dark:bg-gray-950/50
         "
       >
         <TabButton

@@ -1,20 +1,20 @@
 export type StatusTone = 'done' | 'pending' | 'blocked'
 
 export const adminSurfaceStyles
-  = 'space-y-5 rounded-2xl border border-gray-200 bg-white/90 p-6 text-sm shadow-sm ring-1 ring-gray-900/5 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10'
+  = 'admin-surface space-y-6 rounded-xl border border-gray-200 p-4 text-sm sm:p-6 dark:border-gray-800'
 
 export const adminMetricCardStyles
-  = 'rounded-2xl border border-gray-200 bg-white/90 p-5 shadow-sm ring-1 ring-gray-900/5 backdrop-blur-sm dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10'
+  = 'admin-surface rounded-xl border border-gray-200 p-5 dark:border-gray-800'
 
 export const adminInsetCardStyles
-  = 'rounded-xl border border-gray-200/80 bg-white/80 p-4 dark:border-gray-700 dark:bg-gray-950/40'
+  = 'rounded-lg bg-gray-100/60 p-4 dark:bg-gray-800/40'
 
 export const adminActionLinkStyles
-  = 'inline-flex items-center justify-between rounded-xl border border-gray-300/80 bg-white px-4 py-3 text-sm font-medium text-gray-800 no-underline transition hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:bg-gray-950/40 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:text-gray-100'
+  = 'admin-surface inline-flex min-h-11 items-center justify-between gap-4 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-800 no-underline transition hover:border-gray-400 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 dark:border-gray-700 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:text-gray-100'
 
 // 移动端用 text-base (16px) 规避 iOS Safari 聚焦自动放大；桌面端维持 text-sm。
 export const formControlStyles
-  = 'w-full rounded-lg border border-gray-200 bg-white/80 px-3 py-2.5 text-base text-gray-900 shadow-sm transition placeholder:text-gray-400 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white sm:text-sm dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-100 dark:focus-visible:ring-offset-gray-900'
+  = 'admin-input w-full rounded-md border border-gray-300 px-3 py-2.5 text-base text-gray-900 transition placeholder:text-gray-500 focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white sm:text-sm dark:border-gray-700 dark:text-gray-100 dark:placeholder:text-gray-400 dark:focus-visible:ring-offset-gray-900'
 
 export function getStatusBadgeStyles(tone: StatusTone) {
   switch (tone) {

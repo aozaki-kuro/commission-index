@@ -1,32 +1,31 @@
 interface SortableDividerProps {
-  activeCount: number
+  archivedCount: number
 }
 
 export function SortableDivider({
-  activeCount,
+  archivedCount,
 }: SortableDividerProps) {
   return (
     <div
-      className="relative flex items-center gap-3 py-4"
+      className="relative flex items-center gap-3 py-3"
       data-stale-divider="true"
     >
       <div className="
-        flex-1 border-t-2 border-dashed border-gray-300
+        flex-1 border-t border-gray-200
         dark:border-gray-600
       "
       />
       <span className="
-        rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium
-        text-gray-700 shadow-sm
-        dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200
+        shrink-0 text-xs font-medium text-gray-500
+        dark:text-gray-400
       "
       >
-        Active (
-        {activeCount}
-        ) / Stale
+        Archived (
+        {archivedCount}
+        )
       </span>
       <div className="
-        flex-1 border-t-2 border-dashed border-gray-300
+        flex-1 border-t border-gray-200
         dark:border-gray-600
       "
       />

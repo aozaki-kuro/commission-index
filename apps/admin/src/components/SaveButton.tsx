@@ -12,7 +12,7 @@ export function SaveButton({ label }: SaveButtonProps) {
       type="submit"
       disabled={pending}
       className="
-        inline-flex h-9 items-center justify-center gap-2 rounded-md bg-gray-900
+        inline-flex h-11 items-center justify-center gap-2 rounded-md bg-gray-900
         px-3 text-sm font-medium whitespace-nowrap text-white transition
         hover:bg-gray-700
         focus-visible:ring-2 focus-visible:ring-gray-400

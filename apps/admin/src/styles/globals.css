@@ -1,5 +1,20 @@
 @import 'tailwindcss';
 
+/* ==================== Vercel 风格黑白中性色 ==================== */
+@theme {
+  --color-gray-50: #fafafa;
+  --color-gray-100: #f2f2f2;
+  --color-gray-200: #e5e5e5;
+  --color-gray-300: #d4d4d4;
+  --color-gray-400: #888888;
+  --color-gray-500: #666666;
+  --color-gray-600: #555555;
+  --color-gray-700: #333333;
+  --color-gray-800: #262626;
+  --color-gray-900: #171717;
+  --color-gray-950: #0a0a0a;
+}
+
 @keyframes tabFade {
   from {
     opacity: 0;
@@ -141,7 +156,12 @@
     --crop-shade: rgb(0 0 0 / 0.28);
     --crop-workspace: #d1d1d6;
     color-scheme: light dark;
-    background-color: #fff;
+    --admin-canvas: #fafafa;
+    --admin-surface: #ffffff;
+    --admin-nav: #ffffff;
+    --admin-nav-glass: rgb(255 255 255 / 0.86);
+    --admin-overlay-glass: rgb(255 255 255 / 0.94);
+    background-color: var(--admin-canvas);
   }
 
   @media (prefers-color-scheme: dark) {
@@ -149,7 +169,11 @@
       --crop-frame-shadow: rgb(0 0 0 / 0.58);
       --crop-shade: rgb(0 0 0 / 0.38);
       --crop-workspace: #2c2c2e;
-      background-color: #171717;
+      --admin-canvas: #000000;
+      --admin-surface: #0a0a0a;
+      --admin-nav: #000000;
+      --admin-nav-glass: rgb(0 0 0 / 0.86);
+      --admin-overlay-glass: rgb(10 10 10 / 0.94);
     }
   }
 
@@ -202,6 +226,43 @@
 }
 
 @layer components {
+  .admin-workspace {
+    background: var(--admin-canvas);
+  }
+  .admin-surface,
+  .admin-input {
+    background: var(--admin-surface);
+  }
+  .admin-navigation {
+    background: var(--admin-nav);
+  }
+  .admin-glass {
+    background: var(--admin-surface);
+  }
+
+  /* 只让覆盖层透出环境；正文与图片继续使用实底，避免阅读受背景干扰。 */
+  @supports (backdrop-filter: blur(1px)) {
+    .admin-navigation {
+      background: var(--admin-nav-glass);
+      backdrop-filter: blur(16px);
+    }
+    .admin-glass {
+      background: var(--admin-overlay-glass);
+      backdrop-filter: blur(16px);
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .admin-navigation {
+      background: var(--admin-nav);
+      backdrop-filter: none;
+    }
+    .admin-glass {
+      background: var(--admin-surface);
+      backdrop-filter: none;
+    }
+  }
+
   .crop-workspace {
     background: var(--crop-workspace);
     overscroll-behavior: none;

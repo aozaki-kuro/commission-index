@@ -1,5 +1,99 @@
 # 统一迁移状态板（2026-03-18）
 
+## 本轮执行切片（2026-09-30 重构提交前审查）
+
+用户已授权：发现问题先修复，全部门禁通过后提交重构，并合并至最新 `master` 后推送；跟踪仓库自动 CI/发布，不另行手动部署。
+
+- [x] 盘点完整差异与提交范围，分配异步状态和 UI 两项独立只读审查
+- [x] 补足标签计数对比度采样，并修复未选中别名计数及推荐词序号
+- [x] 复现并修复改名/归档/旧 bootstrap 交错导致的状态回退
+- [x] 通过 Node 24 的完整本地门禁和最终浏览器回归
+- [x] 同步审查结论，核对暂存范围与自动 hook 配置
+- [x] 按用户要求合并重复测试，仅保留代表性布局及真实状态回归
+
+提交与远端核验结果另存 `/tmp/admin-publish-result.json`，最终以 Git HEAD/upstream 为准；下面各阶段的“未提交”记录描述当时状态。
+
+提交前审查：新增回归先在旧代码稳定失败（本地归档数量被旧 bootstrap 回退），修复后在途排序仅保护本地顺序/分界，同时合并服务端元数据；最新排序成功或失败均解除保护并用最新回调刷新。不自动重试写入。远端 `master` 新增 `5c90182`，只升级 pnpm 12.8.1 及对应包管理器锁信息，合并时保留。
+
+### 提交前 Review
+
+33 个文件均属于本轮 Admin 重构、回归与文档；未触碰 Worker/schema/Web 数据逻辑。精简后 28 项 Chromium fixture（40.3s）、70 文件/334 项单测通过，四 workspace 无缓存 typecheck、全仓 lint、Admin build 通过。删除 47 个重复浏览器组合和 5 个重复异步场景，移除通用对比度指标采集器；完整 75 项截图仅作为历史审计。提交/推送保持仓库 hook，后续合并保留 Master 的包管理器升级。
+
+## 本轮执行切片（2026-09-30 页面边界与角色状态纠偏）
+
+分支：`redesign/admin-workspace`。使用 Impeccable critique / normalize / clarify；保留维护功能与 API，不部署。
+
+- [x] 核实角色状态语义、页面宽度跳变根因和设计上下文
+- [x] 输出修复规格，并通过独立只读审查确认布局与状态方案
+- [x] 五页统一 1600px 外壳，内部图片/字段使用合理列宽
+- [x] 圆点改为持续可见的 Active / Archived，改名和排序期间保持状态文字
+- [x] 浏览器验证 SPA 连续切页边界、跨分界状态、移动与 200% 文字
+- [x] 完成 lint、Admin 类型检查/构建及相关单测
+- [x] 同步架构/设计文档与截图证据，追加 Review
+
+规格：外壳、标题线和主要表面的左右边界在五页一致，不重新将整个表单居中限宽。Archived 对应公站默认折叠的角色，不表示隐藏或数据过期；移动端状态随角色名换行，不缩小操作目标。分界位置继续作为排序中状态的单一来源。
+
+### 页面边界与角色状态 Review
+
+- Impeccable critique / normalize / clarify 定位状态圆点与按页面居中限宽两处表达问题，独立只读审查确认领域语义和修复范围。
+- 五页共享 1600px 外壳；两种 CSS 视口/DPR2、浅深色连续导航测得所有标题/主表面边界偏差 0px，无整页刷新。角色文本 Active / Archived 在改名、取消及归档往返持续正确显示，并作为输入/展开按钮的无障碍说明。
+- 修复 320px/200% 文字时品牌/公站链接与关键词替换入口的真实溢出，窄角色头按容器分排；骨架和真实角色头共用布局，66/80/254px 三种场景等高。
+- 最终 75 项 Chromium fixture、70 文件 / 336 单测、全仓 ESLint、Admin TypeScript / production build 通过。没有新增 API/schema 行为，也没有改裁剪输出。
+- `/tmp/admin-consistency-review/index.html` 保存前后截图和测量，详情 `docs/admin-consistency-review-2026-09-30.md`。分支仍为 `redesign/admin-workspace`，未提交、推送或部署。
+
+## 本轮执行切片（2026-09-30 Vercel 配色与 HiDPI 密度）
+
+继续在 `redesign/admin-workspace` 工作，保留全部维护功能，不部署。
+
+- [x] 核对 Vercel Geist 配色参考、现有布局和 HiDPI 逻辑/物理尺寸
+- [x] 保存两种 HiDPI 视口的当前渲染和密度指标
+- [x] 改为黑白中性灰，导航/吸附保存栏/通知使用适量高不透明度毛玻璃
+- [x] 按页面用途限宽，收紧顶部与列表间距，作品网格与骨架按同一容器分栏
+- [x] 浏览器检查两种 HiDPI × 浅深色 × 五页面的对比度、裁切、首屏与密度
+- [x] 复跑移动/文字放大/状态回归、lint、类型检查和 Admin build
+- [x] 同步设计上下文、架构约束和最终对比证据
+
+规格：Edit 1600px、Overview/Aliases 1440px、Create 1120px、Suggestion 1200px 上限；桌面顶部 32px，移除重复眉题。图卡依容器采用 2/3/4/5 列，标题 14px、辅助信息 12px；输入与触控目标维持可用尺寸。以 2560×1440 CSS/DPR2 和 1280×720 CSS/DPR2 分别验收，不用 DPR 控制布局。
+
+### Vercel 配色与 HiDPI Review
+
+- 浏览器确认工作区信息起点 211.9→143px；2560 CSS Edit 宽度 1040→1600px、三列→五列、首屏完整作品 15→18/18 张；1280 CSS 保持三列，不把 DPR2 当作更大的布局空间。
+- 黑白中性灰和适量覆盖层毛玻璃已完成，正文及图片保留实底；关键文字样本最低对比度 5.08:1，无水平溢出或导航/操作裁切。浏览器模拟不等于真实显示器视觉接受或整页 WCAG 认证。
+- 标题增大后的骨架行高回归已修复；真实/占位网格共用同一分栏，标题 20px/metadata 16px，全部加载几何用例通过。
+- 最终 66 项 Chromium fixture、70 文件 / 336 单测、全仓 lint、四 workspace TypeScript 和 Admin production build 通过。未改 API/schema/裁剪契约，未写生产或部署。
+- 对比入口 `/tmp/admin-hidpi-review/index.html`，详情 `docs/admin-hidpi-review-2026-09-30.md`；分支保持 `redesign/admin-workspace`，设计上下文和架构文档已同步。
+
+## 本轮执行切片（2026-09-30 Admin 全页面设计重构）
+
+分支：`redesign/admin-workspace`；基线：`47c159c`。范围：保留完整功能，重设计 Admin 全页面，不部署。
+
+- [x] 读取 Impeccable audit/frontend-design、设计上下文与历史教训，审计全部维护页面
+- [x] 基线浏览器验证五项关键流程并保留截图至 `/tmp/admin-redesign-before`
+- [x] 建立独立重构分支
+- [x] 桌面侧栏、移动导航、共享表面/控件与页面层级重构
+- [x] Overview 的维护、概况、发布和最近作品重新排布
+- [x] Create 的图片、记录信息、分类与操作分区
+- [x] Edit 的角色展开、排序、重命名及作品预览改善
+- [x] Suggestion 与 Aliases 的编辑布局、功能反馈改善
+- [x] 完整功能矩阵、浅深色/响应式/键盘/动效浏览器验收
+- [x] lint、typecheck、单测与构建，归档审计及架构文档
+
+### 规格与验收
+
+- 设计：克制的私人收藏编辑台；保留 IBM Plex Sans、浅深色和细微粉色品牌点，移除装饰性玻璃/套卡，桌面 208px 导航与最大 1040px 内容。移动端完整显示五项导航，不隐去功能。
+- 功能：创建/角色新增、原图自由裁剪、全字段编辑、分篇/Hidden/重复提示、搜索/排序/改名/删除、关键词替换、三类别名、推荐词排序、发布与诊断全部保留。
+- 状态：不改 Worker/API/schema，保留 pending 防重入、草稿、局部重试、滚动恢复和通知边界。几何验收使用 fixture；不得触碰生产数据。
+- 验证：与同一基线 fixture 截图对比；320/390/768/1280/1440px、浅深色、正常和 reduced motion；运行完整 Admin fixture 套件及相关单测。
+
+### Admin 全页面设计重构 Review
+
+- 五页面已转为私人收藏编辑台：桌面 208px 侧栏与宽工作区，移动完整导航；首页维护/最近作品为主、发布/统计为辅；创建固定比例裁剪预览；Edit 明确浏览与排序；别名就近保存；推荐词顺序与词池并列。
+- 保留字段、分篇、Hidden、自由旋转裁剪、角色/作品 CRUD、搜索/滚动恢复、关键词替换、全部别名、推荐词与发布/诊断。最终功能矩阵和验证边界见 `docs/admin-design-audit-2026-09-30.md`。
+- 最后审查修复取消改名误保存、空分组排序、旧改名响应覆盖新草稿、改名 status 与归档竞争，以及创建失败被 React 自动 reset 清除草稿；新增回归锁住请求顺序和错误重试。
+- 最终 Node 24 验证：全仓 ESLint、四 workspace TypeScript、Admin production build、70 文件 / 336 单测通过。Chromium fixture 42 项通过，涵盖五种宽度与浅深色、200% 文字放大、正常/reduced motion、冷载/错误/草稿/裁剪输出。包管理器签名核验挂起的 Turbo 调用不计为成功；类型检查由本地 CLI 逐 workspace 重新完成。
+- 对比入口：`/tmp/admin-redesign-review/index.html`，保留五场景基线及最终矩阵截图。所有浏览器 API 均由 fixture 拦截；未写生产 D1/R2，未运行远端数据视觉套件，不声称生产登录态、WebKit/Firefox 或读屏已验收。
+- 交付留在独立分支 `redesign/admin-workspace`，未提交、未推送、未部署；根/Admin/test AGENTS、设计上下文、审计报告和任务记录已同步。
+
 ## 本轮执行切片（2026-09-29 Admin Create/Edit UI 稳定性修复）
 
 - [x] 读取审计规划与最新 HEAD，盘点共享工作区且不覆盖迁移提交
