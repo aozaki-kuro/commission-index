@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { WorkGroupCandidate } from '../../lib/commissionWorkGroups'
 import { buildWorkGroupOptions } from '../../lib/commissionWorkGroups'
 import {
@@ -40,6 +41,7 @@ interface CommissionSharedFieldsProps {
   descriptionPlaceholder?: string
   keywordValue?: string
   onKeywordChange?: (value: string) => void
+  visibilityControl?: ReactNode
 }
 
 export function CommissionSharedFields({
@@ -67,6 +69,7 @@ export function CommissionSharedFields({
   descriptionPlaceholder,
   keywordValue,
   onKeywordChange,
+  visibilityControl,
 }: CommissionSharedFieldsProps) {
   return (
     <div className="@container/fields space-y-5">
@@ -98,6 +101,7 @@ export function CommissionSharedFields({
           onChange={onWorkGroupIdChange}
           partNumber={partNumber}
           onPartNumberChange={onPartNumberChange}
+          visibilityControl={visibilityControl}
         />
       </div>
 

@@ -238,9 +238,8 @@ export function AddCommissionForm({
         descriptionPlaceholder="Short description"
         keywordValue={keywordValue}
         onKeywordChange={setKeywordValue}
+        visibilityControl={<CommissionHiddenSwitch isHidden={isHidden} onChange={setIsHidden} />}
       />
-
-      <CommissionHiddenSwitch isHidden={isHidden} onChange={setIsHidden} />
 
       <DuplicateCommissionNotice hints={duplicateHints} />
 

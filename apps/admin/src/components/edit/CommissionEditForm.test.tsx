@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import type { CharacterRow, CommissionRow } from '@commission-index/domain'
+import type { ReactNode } from 'react'
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -24,8 +25,10 @@ vi.mock('../create/CommissionSharedFields', () => ({
     onWorkGroupIdChange: (value: string) => void
     partNumber: string
     onPartNumberChange: (value: string) => void
+    visibilityControl: ReactNode
   }) => (
     <div>
+      {props.visibilityControl}
       <input name="creatorName" value={props.creatorName} onChange={event => props.onCreatorNameChange(event.target.value)} />
       <input name="commissionDate" value={props.commissionDate} readOnly />
       <input name="workGroupId" value={props.workGroupId} readOnly />

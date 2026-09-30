@@ -1,4 +1,4 @@
-import type { ChangeEvent, ComponentPropsWithoutRef, RefObject } from 'react'
+import type { ChangeEvent, ComponentPropsWithoutRef, ReactNode, RefObject } from 'react'
 import type { CommissionWorkGroupOption } from '../../lib/commissionWorkGroups'
 import * as Popover from '@radix-ui/react-popover'
 import { IconCalendar, IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
@@ -189,6 +189,7 @@ interface CommissionWorkGroupFieldProps {
   onChange: (value: string) => void
   partNumber: string
   onPartNumberChange: (value: string) => void
+  visibilityControl?: ReactNode
 }
 
 interface CommissionSourceImageFieldProps {
@@ -303,7 +304,8 @@ const monthNavigationButtonStyles
 
 function CommissionDatePicker({ value, onSelect }: CommissionDatePickerProps) {
   const selectedDate = parseIsoDate(value)
-  const [today] = useState(getLocalIsoDate)
+  const [today, setToday] = useState(getLocalIsoDate)
+  const calendarRef = useRef<HTMLDivElement>(null)
   const [visibleMonth, setVisibleMonth] = useState(
     () => selectedDate ?? parseIsoDate(today)!,
   )
@@ -312,7 +314,9 @@ function CommissionDatePicker({ value, onSelect }: CommissionDatePickerProps) {
 
   const handleOpenChange = (open: boolean) => {
     if (open) {
-      setVisibleMonth(selectedDate ?? parseIsoDate(today)!)
+      const currentToday = getLocalIsoDate()
+      setToday(currentToday)
+      setVisibleMonth(selectedDate ?? parseIsoDate(currentToday)!)
     }
     setIsOpen(open)
   }
@@ -340,11 +344,18 @@ function CommissionDatePicker({ value, onSelect }: CommissionDatePickerProps) {
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
+          ref={calendarRef}
           role="dialog"
           aria-label="Choose delivery date"
           side="bottom"
           align="start"
           sideOffset={8}
+          onOpenAutoFocus={(event) => {
+            event.preventDefault()
+            calendarRef.current?.querySelector<HTMLButtonElement>(
+              `[data-calendar-date="${formatIsoDate(selectedDate ?? parseIsoDate(today)!)}"]`,
+            )?.focus()
+          }}
           className="
             z-[90] w-[min(20rem,calc(100vw-2rem))] rounded-xl border
             border-gray-200 bg-white p-4 text-gray-900 shadow-xl
@@ -393,9 +404,19 @@ function CommissionDatePicker({ value, onSelect }: CommissionDatePickerProps) {
               })
             }}
           />
-          <p className="mt-3 border-t border-gray-100 pt-3 text-xs text-gray-500 dark:border-gray-800 dark:text-gray-400">
-            Dates use YYYY-MM-DD.
-          </p>
+          <div className="mt-3 flex justify-end border-t border-gray-100 pt-3 dark:border-gray-800">
+            <button
+              type="button"
+              aria-label="Select today"
+              onClick={() => {
+                onSelect(getLocalIsoDate())
+                setIsOpen(false)
+              }}
+              className="min-h-9 rounded-lg px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 dark:text-gray-200 dark:hover:bg-gray-800"
+            >
+              Today
+            </button>
+          </div>
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
@@ -541,6 +562,7 @@ export function CommissionWorkGroupField({
   onChange,
   partNumber,
   onPartNumberChange,
+  visibilityControl,
 }: CommissionWorkGroupFieldProps) {
   const selectedGroup = options.find(option => option.id === value)
   const isGrouped = Boolean(value)
@@ -549,27 +571,30 @@ export function CommissionWorkGroupField({
   return (
     <div className="min-w-0">
       <input type="hidden" name="workGroupId" value={value} />
-      <label className="flex min-h-9 items-center gap-3 pl-1 text-sm font-medium text-gray-700 dark:text-gray-200">
-        <input
-          type="checkbox"
-          checked={isGrouped}
-          aria-expanded={isGrouped}
-          aria-controls="commission-parting-fields"
-          onChange={(event) => {
-            if (!event.target.checked) {
-              previousSelectionRef.current = { value, partNumber }
-              onChange('')
-              onPartNumberChange('')
-              return
-            }
-            const nextValue = previousSelectionRef.current.value || 'new'
-            onChange(nextValue)
-            onPartNumberChange(previousSelectionRef.current.partNumber || partNumber || getDefaultPartNumber(nextValue, options))
-          }}
-          className="size-4 shrink-0 accent-gray-900 dark:accent-gray-100"
-        />
-        Part of a multi-part work
-      </label>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
+        <label className="flex min-h-9 items-center gap-3 pl-1 text-sm font-medium text-gray-700 dark:text-gray-200">
+          <input
+            type="checkbox"
+            checked={isGrouped}
+            aria-expanded={isGrouped}
+            aria-controls="commission-parting-fields"
+            onChange={(event) => {
+              if (!event.target.checked) {
+                previousSelectionRef.current = { value, partNumber }
+                onChange('')
+                onPartNumberChange('')
+                return
+              }
+              const nextValue = previousSelectionRef.current.value || 'new'
+              onChange(nextValue)
+              onPartNumberChange(previousSelectionRef.current.partNumber || partNumber || getDefaultPartNumber(nextValue, options))
+            }}
+            className="size-4 shrink-0 accent-gray-900 dark:accent-gray-100"
+          />
+          Part of a multi-part work
+        </label>
+        {visibilityControl}
+      </div>
       {isGrouped
         ? (
             <div id="commission-parting-fields" className="mt-3 grid min-w-0 gap-4 md:grid-cols-[2fr_1fr]">
@@ -756,7 +781,7 @@ export function CommissionHiddenSwitch({
   onChange,
 }: CommissionHiddenSwitchProps) {
   return (
-    <div className="flex items-start gap-3 border-t border-gray-200/60 px-1 pt-5 dark:border-gray-700/60">
+    <label className="flex min-h-9 items-center gap-3 pl-1 text-sm font-medium text-gray-700 dark:text-gray-200">
       <input
         id="commission-hidden"
         type="checkbox"
@@ -764,26 +789,12 @@ export function CommissionHiddenSwitch({
         checked={isHidden}
         onChange={event => onChange(event.target.checked)}
         aria-label="Hide commission from public list"
-        aria-describedby="commission-hidden-description"
         className="
-          mt-0.5 size-4 shrink-0 accent-gray-900
+          size-4 shrink-0 accent-gray-900
           dark:accent-gray-100
         "
       />
-      <div className="space-y-1">
-        <label
-          htmlFor="commission-hidden"
-          className="
-          text-sm font-medium text-gray-700
-          dark:text-gray-200
-        "
-        >
-          Hidden
-        </label>
-        <p id="commission-hidden-description" className="text-xs leading-4 text-gray-500 dark:text-gray-400">
-          Exclude from the public list. Applied when you save.
-        </p>
-      </div>
-    </div>
+      Hidden
+    </label>
   )
 }

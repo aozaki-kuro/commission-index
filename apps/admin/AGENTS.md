@@ -77,6 +77,7 @@ Before touching fetch logic or form actions, read:
   changes the group. A work group does not merge its commission records or images.
 - Unknown creators display as `Anon`. The shared create/edit date picker uses the same Radix
   popover, ISO date value, aligned label/control spacing, and keyboard-accessible calendar behavior.
+- 日期面板打开时定位并聚焦已选日期，空值/无效日期定位今天；Today 按钮明确选择本地今天并关闭。打开面板不修改输入值，每次打开和选择 Today 都重新计算本地日期，避免跨午夜沿用挂载时的今天。
 - Mutations use a single-attempt request unless the API adds an explicit idempotency contract.
 
 ## Create/Edit 布局与状态
@@ -124,7 +125,7 @@ src/components/
 - 页面通知在模态遮罩下；模态通知放在其内容内部、滚动 body 外，保持焦点约束。通知空闲时不产生表单节点，也不能遮挡到无法关闭自身。
 - `Select character` 在加载前后保持同一占位。loading、unavailable 和成功后确实为空必须区分，不能在请求完成前显示“没有角色”。
 - 每个表单分区使用同一外部左右边界，标签统一内缩 4px；按钮区用分隔线和显式间距与字段分开。不得靠多套嵌套 padding 对齐局部字段。
-- Hidden 是提交时应用的作品属性，独立放在可见性设置行；保存/删除放在操作区。属性不能混进危险操作组，原图替换仍贴近图片预览。
+- Hidden 是提交时应用的作品属性，与 Part 勾选共用可换行的紧凑选项行；不显示多余说明、不另建底部分区。分篇详情展开后仍占整宽，保存/删除保留在操作区；原图替换贴近图片预览。
 - 分篇是低频显式选项：勾选后才显示组/编号，已有分篇初始勾选。取消后不提交编号，重新勾选恢复当前草稿的组/编号；文件名推断不自动启用分篇或覆盖已选择的组。
 - 新增角色使用次级 Dialog，作品表单保持挂载。保存后显式刷新当前 tab 的 bootstrap；跨 tab 的 `notifyDataUpdate` 会忽略本 tab，不能用它代替本地刷新。当前创建接口无新 ID 响应，不按名称猜测并自动选择角色。
 - 保留现有页面入场、分组展开、按钮和弹窗动画；漂移应修数据/布局根因，不能通过删除动画规避。正常动效与 reduced motion 均需验收。
