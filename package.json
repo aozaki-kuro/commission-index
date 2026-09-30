@@ -26,16 +26,16 @@
     "dev:admin:remote": "tsx scripts/devAdminRemote.ts",
     "dev:web": "pnpm -C apps/web dev",
     "dev:worker": "pnpm -C apps/admin-worker dev",
-    "lint": "eslint . --max-warnings=0",
-    "lint:fix": "eslint . --fix",
+    "lint": "eslint . --config config/eslint.config.ts --max-warnings=0",
+    "lint:fix": "eslint . --config config/eslint.config.ts --fix",
     "prepare": "prek install",
     "preview": "pnpm -C apps/web preview",
-    "test": "vitest run -c vitest.config.ts",
-    "test:admin-ui": "playwright test -c playwright.admin-ui.config.ts",
-    "test:changed": "vitest run -c vitest.config.ts --changed",
-    "test:visual": "playwright test -c playwright.config.ts",
-    "test:visual:update": "playwright test -c playwright.config.ts --update-snapshots",
-    "test:watch": "vitest -c vitest.config.ts",
+    "test": "vitest run -c config/vitest.config.ts",
+    "test:admin-ui": "playwright test -c apps/admin/playwright.ui.config.ts",
+    "test:changed": "vitest run -c config/vitest.config.ts --changed",
+    "test:visual": "playwright test -c config/playwright.config.ts",
+    "test:visual:update": "playwright test -c config/playwright.config.ts --update-snapshots",
+    "test:watch": "vitest -c config/vitest.config.ts",
     "typecheck": "TURBO_TELEMETRY_DISABLED=1 turbo run typecheck"
   },
   "devDependencies": {
@@ -61,7 +61,7 @@
   },
   "lint-staged": {
     "*": [
-      "eslint --fix"
+      "eslint --config config/eslint.config.ts --fix"
     ],
     "*.{md,mdx}": [
       "prettier --write"

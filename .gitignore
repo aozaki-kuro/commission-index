@@ -42,17 +42,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 
-# sitemap & rss
-apps/web/public/feed.xml
-apps/web/public/sitemap*
-
-# imageMap
-apps/web/data/imageMap.ts
-
-# sqlite wal files
-apps/web/data/commissions.db-wal
-apps/web/data/commissions.db-shm
-
 # .env
 .env
 
@@ -60,10 +49,6 @@ apps/web/data/commissions.db-shm
 /.wrangler/
 **/.wrangler/
 
-apps/web/public/rss.xml
-apps/web/public/search/home-search-entries.json
-apps/web/public/data/site-payload.json
-apps/web/public/data/home-prerender.html
 apps/web/generated/
 
 # AI tool artifacts
@@ -71,5 +56,4 @@ apps/web/generated/
 .superpowers/
 tasks/*
 !tasks/lessons.md
-!tasks/roadmap.md
 !tasks/todo.md

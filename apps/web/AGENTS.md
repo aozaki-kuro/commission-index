@@ -10,6 +10,9 @@ Active Astro 7 public runtime (`crystallize.cc`).
 - `server/` — Astro dev integrations, admin API handler bridge
 - `data/` — schema-v3 generated fact-source loader and snapshot contract validation
 - `src/lib/rssItem.ts` — RSS item projection from stable ID and explicit date/creator fields
+- `src/lib/pipeline/homeSearchEntries.ts` — search-entry builder used by the Astro search JSON route;
+  no filesystem writes. Home update summaries are derived in the page and RSS uses its Astro route;
+  do not restore the retired asset pipeline or write generated modules under `src/`
 - `generated/` — gitignored build inputs from remote D1/R2 (fact-source JSON + source images)
 
 ## Responsibilities

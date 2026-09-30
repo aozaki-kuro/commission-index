@@ -1,15 +1,18 @@
+import { resolve } from 'node:path'
 import process from 'node:process'
 import { defineConfig } from '@playwright/test'
+
+const rootDir = resolve(import.meta.dirname, '..')
 
 const reuseExistingServer = !process.env.CI
 
 export default defineConfig({
-  outputDir: './test-results/playwright',
+  outputDir: resolve(rootDir, 'test-results/playwright'),
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: [
-    ['html', { open: 'never', outputFolder: 'playwright-report' }],
+    ['html', { open: 'never', outputFolder: resolve(rootDir, 'playwright-report') }],
     ['list'],
   ],
   use: {
@@ -23,16 +26,16 @@ export default defineConfig({
   projects: [
     {
       name: 'web',
-      testDir: './apps/web/test/visual',
-      snapshotPathTemplate: './test/visual/apps/web/{testFilePath}-snapshots/{arg}-{platform}{ext}',
+      testDir: resolve(rootDir, 'apps/web/test/visual'),
+      snapshotPathTemplate: resolve(rootDir, 'test/visual/apps/web/{testFilePath}-snapshots/{arg}-{platform}{ext}'),
       use: {
         baseURL: 'http://127.0.0.1:4173',
       },
     },
     {
       name: 'admin',
-      testDir: './apps/admin/test/visual',
-      snapshotPathTemplate: './test/visual/apps/admin/{testFilePath}-snapshots/{arg}-{platform}{ext}',
+      testDir: resolve(rootDir, 'apps/admin/test/visual'),
+      snapshotPathTemplate: resolve(rootDir, 'test/visual/apps/admin/{testFilePath}-snapshots/{arg}-{platform}{ext}'),
       use: {
         baseURL: 'http://127.0.0.1:4174',
       },
@@ -40,12 +43,14 @@ export default defineConfig({
   ],
   webServer: [
     {
+      cwd: rootDir,
       command: 'NODE_ENV=development pnpm -C apps/web run dev -- --host 127.0.0.1 --port 4173',
       url: 'http://127.0.0.1:4173',
       timeout: 120_000,
       reuseExistingServer,
     },
     {
+      cwd: rootDir,
       command: 'pnpm -C apps/admin-worker run dev -- --ip 127.0.0.1 --port 8787',
       url: 'http://127.0.0.1:8787/api/admin/health',
       timeout: 120_000,
@@ -53,6 +58,7 @@ export default defineConfig({
     },
     {
       // Admin visuals depend on worker-backed bootstrap data, not the legacy web stub.
+      cwd: rootDir,
       command: 'ADMIN_API_BASE_URL=http://127.0.0.1:8787 pnpm -C apps/admin run dev',
       url: 'http://127.0.0.1:4174',
       timeout: 120_000,

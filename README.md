@@ -52,3 +52,7 @@ pnpm run deploy:admin   # → commission-index-admin
 ```
 
 Push-triggered via Workers Builds — each worker owns its `wrangler.jsonc`.
+
+## 配置位置
+
+全仓共享配置集中在 `config/`（ESLint、Vitest、跨项目 Playwright、TypeScript base），命令由根 `package.json` 显式指定配置。应用专用配置留在各自 workspace；后台 fixture 测试使用 `apps/admin/playwright.ui.config.ts`。Renovate 位于 `.github/renovate.json`。包管理器、Turbo、mise、Git 与 hooks 需要自动发现的入口保留在根目录。

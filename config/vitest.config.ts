@@ -1,9 +1,10 @@
 import { resolve } from 'node:path'
 import { defineConfig } from 'vitest/config'
 
-const rootDir = import.meta.dirname
+const rootDir = resolve(import.meta.dirname, '..')
 
 export default defineConfig({
+  root: resolve(import.meta.dirname, '..'),
   resolve: {
     tsconfigPaths: true,
   },

@@ -9,9 +9,23 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 - 保持浅深色、IBM Plex Sans 与完整功能；页面采用私人收藏编辑台布局，避免重复标题和装饰性套卡
 - Where admin uses shadcn/Radix primitives, preserve them (don't downgrade to native controls)
 
+## Impeccable Context
+
+- `PRODUCT.md` records confirmed admin users, purpose, workflows, terminology, and product constraints.
+- `.impeccable/config.json` records the owner's default new-interface workflow: build directly in code.
+- `.impeccable/live/config.json` targets the Vite `index.html` shell for local live iteration. CSP
+  detection found no policy in this app; setup alone does not start live mode or inject a script.
+- Run Impeccable helpers from `apps/admin` so context and workflow settings stay scoped to this app.
+  Existing visual authority remains the implementation, this file, and local `.impeccable.md`.
+
+**When to update:** Sync `PRODUCT.md` when users, product purpose, capabilities, or durable constraints
+change. Update live configuration if the served HTML entry or development CSP changes; record workflow
+defaults only when the owner chooses them.
+
 ## Key Structure
 
-- `src/App.tsx` — path-based page routing
+- `src/App.tsx` — path-based page routing with an explicit page for every section; all five routes are
+  implemented, so do not restore legacy migration placeholders
 - `src/app/sections.ts` — route definitions and metadata
 - `src/app/ui.ts` — shared Tailwind class contracts
 - `src/lib/adminActions.ts` — worker-backed form actions

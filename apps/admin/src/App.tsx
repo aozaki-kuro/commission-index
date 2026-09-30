@@ -12,7 +12,6 @@ const AdminCreatePage = lazy(() => import('./pages/AdminCreatePage').then(m => (
 const AdminEditPage = lazy(() => import('./pages/AdminEditPage').then(m => ({ default: m.AdminEditPage })))
 const AdminAliasesPage = lazy(() => import('./pages/AdminAliasesPage').then(m => ({ default: m.AdminAliasesPage })))
 const AdminSuggestionPage = lazy(() => import('./pages/AdminSuggestionPage').then(m => ({ default: m.AdminSuggestionPage })))
-const AdminPlaceholderPage = lazy(() => import('./pages/AdminPlaceholderPage').then(m => ({ default: m.AdminPlaceholderPage })))
 
 function getPublicSiteUrl() {
   if (typeof window === 'undefined') {
@@ -272,17 +271,13 @@ export function App() {
     )
   }
 
-  const page = currentSection.key === 'overview'
-    ? <AdminOverviewPage onNavigate={navigateTo} />
-    : currentSection.key === 'create'
-      ? <AdminCreatePage />
-      : currentSection.key === 'edit'
-        ? <AdminEditPage onReady={handlePageReady} />
-        : currentSection.key === 'aliases'
-          ? <AdminAliasesPage />
-          : currentSection.key === 'suggestion'
-            ? <AdminSuggestionPage />
-            : <AdminPlaceholderPage section={currentSection} />
+  const page = {
+    overview: <AdminOverviewPage onNavigate={navigateTo} />,
+    create: <AdminCreatePage />,
+    edit: <AdminEditPage onReady={handlePageReady} />,
+    aliases: <AdminAliasesPage />,
+    suggestion: <AdminSuggestionPage />,
+  }[currentSection.key]
 
   return (
     <AdminRootLayout>

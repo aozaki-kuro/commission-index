@@ -49,6 +49,20 @@ apps/admin-worker   Cloudflare Worker — admin API, D1/R2 CRUD, asset serving
 packages/domain     Shared types and pure domain helpers (no app imports)
 ```
 
+### Configuration Layout
+
+- `config/` holds shared ESLint, Vitest, cross-workspace Playwright, and TypeScript base configuration.
+  Root package scripts pass explicit config paths; workspace `tsconfig.json` files extend the shared base.
+- `apps/admin/playwright.ui.config.ts` owns frontend-only API-fixture tests. Cross-workspace Playwright
+  uses repository-root paths for servers, snapshots, and output; moving a config must preserve these roots.
+- `.github/renovate.json` is the repository Renovate entry. Vite, Astro, Wrangler, and app-specific
+  settings stay with their workspace; admin design context is `apps/admin/.impeccable.md`.
+- Keep discovery-required package, lockfile, workspace, Turbo, mise, Git, and hook entry files at root.
+  VS Code ESLint uses `config/eslint.config.ts`; other integrations must pass the same explicit path.
+
+**When to update:** Sync scripts, editor settings, workspace extends, and this section whenever a
+configuration moves. Verify test collection and snapshot paths as well as builds before committing.
+
 ### Tech Stack
 
 - **Runtime:** Node 24 (mise) + pnpm 12 (package manager + scripts; new scripts use `.ts` not `.mjs`)
@@ -231,11 +245,13 @@ docs/
 
 审计报告记录指定提交的状态，不是运行时依赖；改进计划依赖报告中的问题编号。2026-09-29 新增上述文档，未变更业务架构。后续整改应更新计划进度，并同步实际变更涉及的架构/API 文档。
 
+过期实施计划不作为当前架构依据：已移除三月至五月的迁移 roadmap、旧 Superpowers 计划/规格、后台迁移占位页及未接线的资产生成链；当前约束以分层 AGENTS、API 文档和上述审计/整改记录为准。公开搜索 JSON 与 RSS 由 Astro 路由生成，更新摘要直接从固定构建输入推导，不能恢复向 `src/` 写入生成模块的旧路径。清理须核对源码和配置引用，保留生产备份、数据库迁移历史及仍使用的测试基线。
+
 Admin 布局稳定性规划覆盖加载外壳、后台刷新、表单反馈、网格占位与滚动恢复；浏览器证据来自本地模拟 API，不代表生产回归。验收必须检查状态切换过程中的元素位置与焦点，稳定终态截图不能证明中间过程无漂移。
 
 2026-09-30 Admin 设计改为桌面侧栏与五页统一 1600px 外壳，移动端保留完整导航；采用 Vercel 风格黑白灰，毛玻璃限于导航、吸附保存条和通知，正文实底。标题、分隔线和主表面跨路由保持边界，图片/字段列在内部调整。首页主辅分栏，Create 固定比例图片预览，Edit 提供跨尺寸键盘排序与 2–5 列自适应图卡，角色状态明确显示 Active / Archived，归档表示公站默认折叠。Aliases 顶部保存工具栏，Suggestion 序号排序与词池。HiDPI 按 CSS 视口与 DPR 分开验收。API/schema/裁剪契约不变，具体边界见 `apps/admin/AGENTS.md`。
 
-Admin 整改现采用页面/模态各自的浮动通知，禁止常驻空状态槽；保留既有交互动效，角色选择在加载前后保留中性占位。短 UUID 使用 7 位，缩略卡放链接数量同行，弹窗放头部角色信息行，各只显示一次。模块边界见 `apps/admin/AGENTS.md`；`playwright.admin-ui.config.ts` 是不启动 Worker 的 fixture 专用入口，使用 `pnpm run test:admin-ui`。
+Admin 整改现采用页面/模态各自的浮动通知，禁止常驻空状态槽；保留既有交互动效，角色选择在加载前后保留中性占位。短 UUID 使用 7 位，缩略卡放链接数量同行，弹窗放头部角色信息行，各只显示一次。模块边界见 `apps/admin/AGENTS.md`；`apps/admin/playwright.ui.config.ts` 是不启动 Worker 的 fixture 专用入口，使用 `pnpm run test:admin-ui`。
 
 数据库专项评估补充既有 `docs/db-r2-identity-migration-plan-and-prompts-2026-09-29.md` 的交接预案；实施前须阅读专项评估中的带数据迁移风险、R2 上传身份和恢复闸门。schema v3 在内部整数键之外增加每条作品不可变随机 `public_id`，并以独立 group UUID 与正整数 part 编号显式表示分篇；R2 对象键和图片关联仍不变。应用 0005 前必须导出当前生产 D1 备份、核验完整迁移历史并回放旧数据，随后按 Worker/Admin/Web 顺序发布并检查公开端点与所有作品/图片计数。
 

@@ -1,7 +1,3 @@
-import { mkdir } from 'node:fs/promises'
-import path from 'node:path'
-import process from 'node:process'
-
 import { getCharacterAliasesMap } from '../../../data/characterAliases'
 import { getCommissionDataMap } from '../../../data/commissionData'
 import { getCharacterRecords } from '../../../data/commissionRecords'
@@ -12,8 +8,6 @@ import {
   buildCommissionSearchDomKey,
   buildCommissionSearchMetadata,
 } from '../search/commissionSearchMetadata'
-import { createAstroStyleLogger } from './astroLogger'
-import { writeFileIfChanged } from './writeFileIfChanged'
 
 interface SearchEntry {
   publicId: string
@@ -63,22 +57,4 @@ export function buildHomeSearchEntries(): SearchEntry[] {
   }
 
   return entries
-}
-
-const outputPath = path.join(process.cwd(), 'public', 'search', 'home-search-entries.json')
-const logger = createAstroStyleLogger('assets')
-
-export async function generateHomeSearchEntriesFile() {
-  const entries = buildHomeSearchEntries()
-  await mkdir(path.dirname(outputPath), { recursive: true })
-  const payload = `${JSON.stringify(entries, null, 2)}\n`
-  const result = await writeFileIfChanged(outputPath, payload)
-  const relativeOutputPath = path.relative(process.cwd(), outputPath)
-
-  if (result === 'unchanged') {
-    logger.info(`home search entries unchanged (${entries.length}) -> ${relativeOutputPath}`)
-  }
-  else {
-    logger.success(`generated ${entries.length} home search entries -> ${relativeOutputPath}`)
-  }
 }
