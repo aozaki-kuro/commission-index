@@ -6,7 +6,7 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 
 - Talks only to admin worker API via `ADMIN_API_BASE_URL`
 - Default dev: `pnpm run dev:admin` from repo root (pairs frontend with local worker + remote D1/R2)
-- Preserve existing admin visual design, spacing, typography
+- 保持浅深色、IBM Plex Sans 与完整功能；页面采用私人收藏编辑台布局，避免重复标题和装饰性套卡
 - Where admin uses shadcn/Radix primitives, preserve them (don't downgrade to native controls)
 
 ## Key Structure
@@ -81,6 +81,32 @@ Before touching fetch logic or form actions, read:
 
 ## Create/Edit 布局与状态
 
+### 2026-09-30 设计结构
+
+```text
+src/components/AdminLayout.tsx       主内容 landmark、跳转链接、五页统一外壳
+src/components/AdminSectionNav.tsx   桌面 208px 侧栏、移动完整五项导航
+src/app/ui.ts                       共享单层表面与输入框契约
+src/styles/globals.css              黑白灰语义颜色、覆盖层毛玻璃与实底降级
+src/components/create/AddCommissionForm.tsx 图片预览、上传、记录信息与保存
+src/components/edit/SortableCharacterCard.tsx 状态文字、响应式角色头与匹配骨架
+src/components/edit/SortableDivider.tsx 归档分界与数量
+```
+
+- 侧栏从 1024px 开启，短窗口允许独立滚动；移动导航不隐藏任何目的地。内容保留 window 滚动，不能引入第二个主内容滚动容器破坏 Edit 锚点恢复。
+- 背景、面板、导航分别使用 `--admin-canvas` / `--admin-surface` / `--admin-nav`，采用 Vercel 风格黑白中性灰。导航、顶部吸附保存条和浮动通知可使用高不透明度毛玻璃，正文和图片保留实底；不支持 backdrop-filter 或要求减少透明度时退回实底。主保存按钮至少 44px。
+- 五页统一 1600px 外壳（含 padding），标题、分隔线与主要表面共用左右边界，切路由不得重新居中或改变页宽。只在内部调整图片/字段列宽，Create 桌面预览列上限 24rem。桌面顶部 32px，无重复眉题；不按 devicePixelRatio 改字号或断点。
+- 图卡与骨架共用 `gridStyles` 和 `thumbnails` 容器断点：默认 2 列，40/62/78rem 起为 3/4/5 列；标题 14px/20px 行高、辅助信息 12px/16px 行高，骨架分别保留 20px/16px。rem 断点随文字放大降列，加载前后必须几何一致。
+- Create 裁剪前后保留固定比例预览区域；URL 在 effect 中按当前 File 创建并释放，StrictMode 重放重新生成 URL，不复用已回收地址。1280×525 JPEG 契约及图片输入值保持不变。
+- Edit 搜索使用原生 searchbox 语义；角色展开按钮、改名输入、管理操作是独立交互元素。桌面与移动均提供排序模式和上下按钮，跨 active/archive 分界按相邻列表项移动，不能跳过分界导致空分组无法进入。
+- 角色状态使用持续可见的 Active / Archived 文字，不能只靠色差或圆点；改名时保留，移动端随角色名换行。Archived 表示公站默认折叠的角色，不等于隐藏/删除或缓存过期。状态按分界位置即时计算，不能在排序后读取旧角色快照。分界显示 Archived 数量，保留 `data-stale-divider` DOM 契约。
+- 角色头及初始占位共用布局契约；`thumbnails` 容器小于 16rem 时，姓名/状态与计数/操作分排，文字放大时不得挤压状态。导航顶部品牌/公站链接允许换行；关键词替换入口以 max-width 和文案换行适配窄栏，不裁掉文字。
+- 改名的保存/取消指针操作不能先触发 blur 提交；只有当前编辑行的两个操作带 rename 标识，切到别行仍按既有失焦保存规则处理。
+- 改名请求携带本地编辑会话身份；旧响应不得关闭后续草稿或覆盖其反馈。当前失败保留草稿供明确重试；改名与排序共享角色写入序列，避免改名 PATCH 中的旧 status 覆盖后续归档。排序仍合并为最新 payload；在途改名期间恢复原名也须排队提交，不自动重试写入。
+- 排序写入在途时，bootstrap 仅合并角色元数据及新增/删除，保留本地顺序与归档分界；改名不能抢先触发旧排序刷新。最新排序成功或失败后立即解除保护，使用最新 onDataChanged 刷新本 tab；不能长期等待匹配回显而忽略外部新顺序。
+- 主工作区与共享字段使用命名容器查询分栏（`workspace` / `fields`），不能仅依赖 viewport 判断可用空间；200% 字体时回归单列。保存按钮有最小宽度而非固定宽度，禁止裁掉放大后的文案。
+- Create 的 React 自动表单 reset 只在业务成功时生效，并清除已保存图片预览；业务失败保留文件与字段草稿，选择非法图片不得替换先前确认的有效图。
+
 ```text
 src/components/
   FloatingNotice.tsx           页面 fixed / 弹窗 absolute 的通知边界
@@ -128,12 +154,14 @@ src/
   lib/pendingRebuildSignal.ts          待发布标记和修改 revision
 ```
 
-- 首页按维护入口、汇总、发布、最近作品分区；API origin、health 响应、别名细分和手动刷新保留在连接详情中。首页发布按钮取代浮动入口，不能同时显示两个发布按钮。
+- 首页桌面主列放维护入口与最近作品缩略图，辅助列放发布与紧凑统计；移动端发布优先于异步列表。API origin、health 响应、别名细分和手动刷新保留在连接详情中。首页发布按钮取代浮动入口，不能同时显示两个发布按钮。
 - 发布入口必须订阅 `websiteRebuild` 的同一个请求和 pending 状态；切换路由或卸载组件不能解锁第二次 dispatch。成功提示短暂显示，错误保留且可重试。通知和发布浮窗共用 `FloatingNotice` 的页面堆叠，始终位于模态遮罩下。
 - `markPendingRebuild` 每次保存递增 revision，即使待发布标记已为 true。发布请求捕获 revision，成功仅清除该快照；等待期间的新保存必须继续显示待发布，不能无条件清空。
 - Suggestion 保留最多六项、大小写归一去重、拖拽及键盘按钮排序、移除、词池筛选和手动添加。已选顺序与词池分区，手动输入 Enter 只添加，筛选输入 Enter 不提交表单；显式保存才提交。首个响应初始化列表，后台刷新不能覆盖 dirty 草稿。
+- Suggestion 用序号与分隔行表达显示顺序，保留六行容量工作区；词池独立滚动，手动添加归属于词池。加载或添加词不推动保存位置。
 - Alias 三个 tab 保持挂载，切换不丢草稿，仍保留键盘导航和入场动画。`AliasPanel` 以最新服务端行作为未编辑字段的 baseline；刷新新增的行不能被初始化空草稿覆盖。只提交 dirty 行，空字符串仍表示显式删除，未提交行不受影响。作者保留全部 aliases，不能只取第一项。
-- Alias 筛选基于稳定 baseline，不能在编辑命中别名时让当前行消失并夺走焦点。每次保存成功都通知、标记待发布并刷新；错误保留草稿。分类说明、筛选、字段和底部操作区共用外边界，字段标签内缩 4px。
+- Alias 筛选基于稳定 baseline，不能在编辑命中别名时让当前行消失并夺走焦点。每次保存成功都通知、标记待发布并刷新；错误保留草稿。分类说明、筛选、字段和保存工具栏共用外边界，字段标签内缩 4px。
+- Alias 采用原名/别名双列，显示匹配数量和未保存数量；保存工具栏位于筛选与表格之间并顶部吸附，不能底部吸附与通知栈重叠。字段 scroll-margin 为工具栏保留可见焦点空间。
 - `KeywordReplacePopover.tsx` 保留文件名，但交互使用 Dialog；查询字段和底部操作区固定，预览区独立滚动。提交完整 metadata，保留分篇；部分成功要更新列表和待发布状态，重试仅处理未成功项，失败详情不能被自动刷新清掉。
 
 ## Guardrails

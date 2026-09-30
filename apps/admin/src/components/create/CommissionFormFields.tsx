@@ -14,7 +14,7 @@ import {
 } from '../ui/select'
 
 const fieldLabelStyles
-  = 'block pl-1 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-300'
+  = 'block pl-1 text-sm font-medium text-gray-700 dark:text-gray-300'
 const fieldDescriptionStyles = 'pl-1 text-xs leading-4 text-gray-500 dark:text-gray-400'
 const alignedFieldStyles = 'min-w-0 space-y-2'
 const metadataControlStyles = `${formControlStyles} min-h-11 px-4`
@@ -686,7 +686,7 @@ export function CommissionDesignDescriptionFields({
   return (
     <div className="
       grid gap-4
-      md:grid-cols-2
+      @min-[30rem]/fields:grid-cols-2
     "
     >
       <div className={alignedFieldStyles}>

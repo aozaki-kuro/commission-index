@@ -68,7 +68,7 @@ type CommissionMapAction
 type ListAction
   = | { characterId: number, type: 'remove-character' }
     | { characterId: number, name: string, type: 'rename-character' }
-    | { type: 'replace', value: ListItem[] }
+    | { type: 'replace', value: ListItem[], preserveOrder?: boolean }
     | { type: 'set', value: ListItem[] }
 
 export function createLatestCharacterOrderSaveQueue({
@@ -234,8 +234,26 @@ function commissionMapReducer(
   return next
 }
 
+function mergeCharactersInLocalOrder(current: ListItem[], incoming: ListItem[]): ListItem[] {
+  // 写入中的顺序以本地为准，外部快照仍可更新元数据、新增和删除角色。
+  const nextCharacters = new Map(incoming.flatMap(item => item.type === 'character' ? [[item.data.id, item] as const] : []))
+  const knownIds = new Set(current.flatMap(item => item.type === 'character' ? [item.data.id] : []))
+  const merged = current.flatMap<ListItem>((item) => {
+    if (item.type === 'divider')
+      return [item]
+    const replacement = nextCharacters.get(item.data.id)
+    return replacement ? [replacement] : []
+  })
+  const added = incoming.filter((item): item is CharacterItem => item.type === 'character' && !knownIds.has(item.data.id))
+  merged.splice(merged.findIndex(item => item.type === 'divider'), 0, ...added.filter(item => item.data.status === 'active'))
+  merged.push(...added.filter(item => item.data.status === 'archived'))
+  return merged
+}
+
 function listReducer(state: ListItem[], action: ListAction): ListItem[] {
   if (action.type === 'replace' || action.type === 'set') {
+    if (action.type === 'replace' && action.preserveOrder)
+      return mergeCharactersInLocalOrder(state, action.value)
     return action.value
   }
 
@@ -297,6 +315,11 @@ export function useCommissionManager({
   const [list, dispatchList] = useReducer(listReducer, initialList)
   const [feedback, setFeedback] = useState<FormFeedback>(null)
   const [editing, setEditing] = useState<EditingState>(null)
+  const renameSessionRef = useRef(0)
+  const renameRequestsRef = useRef(new Map<number, Promise<FormState>>())
+  const characterWritesRef = useRef<Promise<unknown>>(Promise.resolve())
+  const pendingOrderRef = useRef(false)
+  const onDataChangedRef = useRef(onDataChanged)
   const [, startRenameTransition] = useTransition()
   const [deletingId, setDeletingId] = useState<DeletingState>(null)
   const [isDeletePending, setIsDeletePending] = useState(false)
@@ -305,6 +328,16 @@ export function useCommissionManager({
   const orderSaveQueueRef = useRef<ReturnType<typeof createLatestCharacterOrderSaveQueue> | null>(null)
   const deleteRequestIdRef = useRef(0)
   const activeDeleteRequestIdRef = useRef<number | null>(null)
+
+  useSafeLayoutEffect(() => {
+    onDataChangedRef.current = onDataChanged
+  }, [onDataChanged])
+
+  const enqueueCharacterWrite = useCallback((write: () => Promise<FormState>) => {
+    const request = characterWritesRef.current.catch(() => undefined).then(write)
+    characterWritesRef.current = request
+    return request
+  }, [])
 
   const reconcileOpenIds = useCallback((nextCharacters: CharacterRow[]) => {
     dispatchOpenIds({
@@ -318,7 +351,7 @@ export function useCommissionManager({
   }, [])
 
   const replaceList = useCallback((nextList: ListItem[]) => {
-    dispatchList({ type: 'replace', value: nextList })
+    dispatchList({ type: 'replace', value: nextList, preserveOrder: pendingOrderRef.current })
   }, [])
 
   useEffect(() => {
@@ -354,13 +387,17 @@ export function useCommissionManager({
   useEffect(() => {
     const orderSaveQueue = createLatestCharacterOrderSaveQueue({
       onError: (message) => {
+        pendingOrderRef.current = false
         setFeedback({ text: message, type: 'error' })
+        onDataChangedRef.current?.()
       },
       onSaved: () => {
+        pendingOrderRef.current = false
         notifyDataUpdate()
         markPendingRebuild()
+        onDataChangedRef.current?.()
       },
-      saveOrder: saveCharacterOrder,
+      saveOrder: payload => enqueueCharacterWrite(() => saveCharacterOrder(payload)),
     })
     orderSaveQueueRef.current = orderSaveQueue
 
@@ -370,7 +407,7 @@ export function useCommissionManager({
         orderSaveQueueRef.current = null
       }
     }
-  }, [])
+  }, [enqueueCharacterWrite])
 
   const handleDeleteCommission = useCallback((characterId: number, commissionId: number) => {
     dispatchCommissionMap({
@@ -409,7 +446,10 @@ export function useCommissionManager({
       .filter((item): item is CharacterItem => item.type === 'character')
       .map(item => item.data.id)
 
-    orderSaveQueueRef.current?.enqueue({
+    if (!orderSaveQueueRef.current)
+      return
+    pendingOrderRef.current = true
+    orderSaveQueueRef.current.enqueue({
       active: activeIds,
       archived: archivedIds,
     })
@@ -435,6 +475,7 @@ export function useCommissionManager({
   }, [list])
 
   const startEditingName = useCallback((character: CharacterRow) => {
+    renameSessionRef.current += 1
     setEditing({
       id: character.id,
       value: character.name,
@@ -442,23 +483,14 @@ export function useCommissionManager({
   }, [])
 
   const handleRenameChange = useCallback((value: string) => {
+    renameSessionRef.current += 1
     setEditing(current => (current ? { ...current, value } : current))
   }, [])
 
   const cancelEditing = useCallback(() => {
-    setEditing((current) => {
-      if (!current) {
-        return current
-      }
-
-      const item = list.find(
-        entry => entry.type === 'character' && entry.data.id === current.id,
-      ) as CharacterItem | undefined
-
-      return item ? { id: current.id, value: item.data.name } : current
-    })
+    renameSessionRef.current += 1
     setEditing(null)
-  }, [list])
+  }, [])
 
   const submitRename = useCallback(() => {
     const current = editing
@@ -480,24 +512,36 @@ export function useCommissionManager({
       return
     }
 
-    if (trimmed === item.data.name) {
+    if (trimmed === item.data.name && !renameRequestsRef.current.has(current.id)) {
       setEditing(null)
       return
     }
 
     const status = getCharacterStatus(current.id)
+    const submittedSession = ++renameSessionRef.current
+    const finishEditing = (nextFeedback: FormFeedback, close = false) => {
+      // 响应只结束原提交会话，后续角色选择和草稿修改拥有独立生命周期。
+      if (renameSessionRef.current !== submittedSession)
+        return
+      renameSessionRef.current += 1
+      setFeedback(nextFeedback)
+      if (close)
+        setEditing(latest => latest === current ? null : latest)
+    }
     setFeedback({ text: 'Updating name…', type: 'success' })
 
     startRenameTransition(() => {
-      renameCharacter({
+      // 改名也提交 status，必须与排序写入串行，防止旧状态覆盖后续归档操作。
+      const request = enqueueCharacterWrite(() => renameCharacter({
         id: current.id,
         name: trimmed,
         status,
-      })
+      }))
+      renameRequestsRef.current.set(current.id, request)
+      request
         .then((result) => {
           if (result.status === 'error') {
-            setFeedback({ text: result.message ?? 'Unable to update character.', type: 'error' })
-            cancelEditing()
+            finishEditing({ text: result.message ?? 'Unable to update character.', type: 'error' })
             return
           }
 
@@ -506,18 +550,21 @@ export function useCommissionManager({
             name: trimmed,
             type: 'rename-character',
           })
-          setFeedback(toFeedback(result))
-          setEditing(null)
+          finishEditing(toFeedback(result), true)
           notifyDataUpdate()
           markPendingRebuild()
-          onDataChanged?.()
+          if (!pendingOrderRef.current)
+            onDataChangedRef.current?.()
         })
         .catch(() => {
-          setFeedback({ text: 'Unable to update character.', type: 'error' })
-          cancelEditing()
+          finishEditing({ text: 'Unable to update character.', type: 'error' })
+        })
+        .finally(() => {
+          if (renameRequestsRef.current.get(current.id) === request)
+            renameRequestsRef.current.delete(current.id)
         })
     })
-  }, [cancelEditing, editing, getCharacterStatus, list, onDataChanged, startRenameTransition, toFeedback])
+  }, [cancelEditing, editing, enqueueCharacterWrite, getCharacterStatus, list, startRenameTransition, toFeedback])
 
   const performDeleteCharacter = useCallback((character: CharacterRow) => {
     if (activeDeleteRequestIdRef.current !== null || isDeletePending || deletingId !== null) {
@@ -543,7 +590,7 @@ export function useCommissionManager({
         setFeedback(toFeedback(result))
         notifyDataUpdate()
         markPendingRebuild()
-        onDataChanged?.()
+        onDataChangedRef.current?.()
       })
       .catch(() => {
         setFeedback({ text: 'Unable to delete character.', type: 'error' })
@@ -556,7 +603,7 @@ export function useCommissionManager({
           setIsDeletePending(false)
         }
       })
-  }, [deletingId, isDeletePending, onDataChanged, toFeedback])
+  }, [deletingId, isDeletePending, toFeedback])
 
   const orderedCharacters = useMemo(
     () => list.filter((item): item is CharacterItem => item.type === 'character').map(item => item.data),

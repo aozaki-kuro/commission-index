@@ -192,10 +192,10 @@ export function KeywordReplacePopover({
         <button
           type="button"
           aria-label="Replace keywords"
-          className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white/80 px-3 text-sm font-medium text-gray-600 shadow-sm transition hover:border-gray-300 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-gray-100"
+          className="inline-flex min-h-11 max-w-full min-w-0 shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white/80 px-3 text-sm font-medium text-gray-600 shadow-sm transition hover:border-gray-300 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-gray-100"
         >
-          <IconReplace className="size-4" stroke={1.8} aria-hidden="true" />
-          <span className="hidden sm:inline">Keywords</span>
+          <IconReplace className="size-4 shrink-0" stroke={1.8} aria-hidden="true" />
+          <span className="min-w-0 text-left break-words">Replace keywords</span>
         </button>
       </DialogTrigger>
       <DialogContent className="h-[min(42rem,calc(100dvh-2rem))] max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)]">

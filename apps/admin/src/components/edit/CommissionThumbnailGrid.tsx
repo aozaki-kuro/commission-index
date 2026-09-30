@@ -7,6 +7,8 @@ import {
   getCommissionTitle,
 } from '../../lib/commissionPresentation'
 
+const gridStyles = 'grid grid-cols-2 gap-3 @min-[40rem]/thumbnails:grid-cols-3 @min-[62rem]/thumbnails:grid-cols-4 @min-[78rem]/thumbnails:grid-cols-5'
+
 interface CommissionThumbnailGridProps {
   commissions: CommissionRow[]
   selectedCommissionId: number | null
@@ -64,8 +66,7 @@ function ThumbnailCard({
       aria-label={accessibleLabel}
       title={`Public ID: ${commission.publicId}`}
       className={`
-        group overflow-hidden rounded-lg border text-left transition
-        hover:shadow-md
+        group min-w-0 overflow-hidden rounded-lg border text-left transition
         focus-visible:ring-2 focus-visible:ring-blue-500
         focus-visible:ring-offset-2 focus-visible:ring-offset-white
         focus-visible:outline-none
@@ -114,7 +115,7 @@ function ThumbnailCard({
       </div>
 
       <div className={`
-        px-2 py-1.5
+        px-3 py-2
         ${isSelected
       ? `
             bg-blue-50
@@ -127,7 +128,7 @@ function ThumbnailCard({
       `}
       >
         <p className={`
-          truncate text-xs font-medium
+          truncate text-sm font-medium
           ${isSelected
       ? `
               text-blue-700
@@ -142,8 +143,8 @@ function ThumbnailCard({
           {displayLabel}
         </p>
         <p className="
-          flex items-center justify-between gap-2 text-xs text-gray-400
-          dark:text-gray-500
+          flex items-center justify-between gap-2 text-xs text-gray-500
+          dark:text-gray-400
         "
         >
           <span>
@@ -176,11 +177,7 @@ export function CommissionThumbnailGrid({
   }
 
   return (
-    <div className="
-      grid grid-cols-2 gap-3
-      sm:grid-cols-3
-    "
-    >
+    <div className={gridStyles}>
       {commissions.map(commission => (
         <ThumbnailCard
           key={commission.id}
@@ -199,11 +196,7 @@ export function CommissionThumbnailGridSkeleton({ count }: { count: number }) {
   }
 
   return (
-    <div className="
-      grid grid-cols-2 gap-3
-      sm:grid-cols-3
-    "
-    >
+    <div className={gridStyles}>
       {Array.from({ length: count }, (_, i) => (
         <div key={i} className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
           <div className="
@@ -211,9 +204,9 @@ export function CommissionThumbnailGridSkeleton({ count }: { count: number }) {
             dark:bg-gray-800
           "
           />
-          <div className="px-2 py-1.5">
+          <div className="px-3 py-2">
             <div className="
-              h-4 w-3/4 motion-safe:animate-pulse rounded bg-gray-200/80
+              h-5 w-3/4 motion-safe:animate-pulse rounded bg-gray-200/80
               dark:bg-gray-800
             "
             />

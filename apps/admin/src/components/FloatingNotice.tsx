@@ -57,7 +57,7 @@ export function FloatingNotice({
       aria-live="polite"
       aria-atomic="true"
       className={cn(
-        'pointer-events-auto flex min-h-0 items-start gap-3 overflow-y-auto rounded-xl border bg-white px-4 py-3 text-sm shadow-lg dark:bg-gray-950',
+        'admin-glass pointer-events-auto flex min-h-0 items-start gap-3 overflow-y-auto rounded-xl border px-4 py-3 text-sm shadow-lg',
         toneClasses[tone],
       )}
     >

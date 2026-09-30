@@ -224,11 +224,16 @@ docs/
   improvement-plan-2026-09-29.md  对应问题的分阶段整改与验收计划
   database-optimization-assessment-2026-09-29.md  数据库优化必要性、模型取舍、迁移风险、工作量与验收计划
   admin-ui-stability-plan-2026-09-29.md  Create/Edit 漂移审计、模拟浏览器证据、状态设计与分阶段验收
+  admin-design-audit-2026-09-30.md  全后台设计审计、编辑台布局、功能保留矩阵与验收证据
+  admin-hidpi-review-2026-09-30.md  Vercel 风格配色、适量毛玻璃、HiDPI 密度与对比度证据
+  admin-consistency-review-2026-09-30.md  角色状态语义、统一页面边界与连续切页验收
 ```
 
 审计报告记录指定提交的状态，不是运行时依赖；改进计划依赖报告中的问题编号。2026-09-29 新增上述文档，未变更业务架构。后续整改应更新计划进度，并同步实际变更涉及的架构/API 文档。
 
 Admin 布局稳定性规划覆盖加载外壳、后台刷新、表单反馈、网格占位与滚动恢复；浏览器证据来自本地模拟 API，不代表生产回归。验收必须检查状态切换过程中的元素位置与焦点，稳定终态截图不能证明中间过程无漂移。
+
+2026-09-30 Admin 设计改为桌面侧栏与五页统一 1600px 外壳，移动端保留完整导航；采用 Vercel 风格黑白灰，毛玻璃限于导航、吸附保存条和通知，正文实底。标题、分隔线和主表面跨路由保持边界，图片/字段列在内部调整。首页主辅分栏，Create 固定比例图片预览，Edit 提供跨尺寸键盘排序与 2–5 列自适应图卡，角色状态明确显示 Active / Archived，归档表示公站默认折叠。Aliases 顶部保存工具栏，Suggestion 序号排序与词池。HiDPI 按 CSS 视口与 DPR 分开验收。API/schema/裁剪契约不变，具体边界见 `apps/admin/AGENTS.md`。
 
 Admin 整改现采用页面/模态各自的浮动通知，禁止常驻空状态槽；保留既有交互动效，角色选择在加载前后保留中性占位。短 UUID 使用 7 位，缩略卡放链接数量同行，弹窗放头部角色信息行，各只显示一次。模块边界见 `apps/admin/AGENTS.md`；`playwright.admin-ui.config.ts` 是不启动 Worker 的 fixture 专用入口，使用 `pnpm run test:admin-ui`。
 

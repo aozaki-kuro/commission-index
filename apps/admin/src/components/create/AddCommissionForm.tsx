@@ -35,6 +35,25 @@ interface AddCommissionFormProps {
 
 type SourceImageHintTone = 'default' | 'success' | 'error'
 
+function SourceImagePreview({ file }: { file: File | null }) {
+  const imageRef = useRef<HTMLImageElement>(null)
+  useEffect(() => {
+    if (!file || !imageRef.current)
+      return
+    const url = URL.createObjectURL(file)
+    imageRef.current.src = url
+    return () => URL.revokeObjectURL(url)
+  }, [file])
+
+  return (
+    <div className="flex aspect-1280/525 items-center justify-center overflow-hidden rounded-md bg-gray-100 dark:bg-gray-800">
+      {file
+        ? <img ref={imageRef} alt="Cropped artwork ready to upload" className="size-full object-contain" />
+        : <span className="text-xs text-gray-500 dark:text-gray-400">Artwork preview · 1280 × 525</span>}
+    </div>
+  )
+}
+
 export function AddCommissionForm({
   characters,
   commissionSearchRows,
@@ -88,7 +107,10 @@ export function AddCommissionForm({
     }
 
     if (!isSupportedSourceImage(file)) {
-      event.currentTarget.value = ''
+      if (croppedImage)
+        setFileInputValue(event.currentTarget, croppedImage)
+      else
+        event.currentTarget.value = ''
       setSourceImageHint('Choose a valid JPG or PNG image.')
       setSourceImageHintTone('error')
       return
@@ -156,44 +178,39 @@ export function AddCommissionForm({
   return (
     <form
       action={formAction}
+      onReset={(event) => {
+        // React action 正常返回也会重置；业务失败必须保留草稿和已确认图片。
+        if (state.status !== 'success')
+          event.preventDefault()
+        else
+          setCroppedImage(null)
+      }}
       className="
-        flex min-w-0 flex-1 flex-col gap-5 rounded-2xl border
-        border-gray-200 bg-white/90 p-6 shadow-sm ring-1 ring-gray-900/5
-        backdrop-blur-sm
-        dark:border-gray-700 dark:bg-gray-900/40 dark:ring-white/10
+        admin-surface flex min-w-0 flex-1 flex-col gap-6 rounded-xl border
+        border-gray-200 p-4 sm:p-6 dark:border-gray-800
       "
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 space-y-1">
-          <h2 className="
-          text-lg font-semibold text-gray-900
-          dark:text-gray-100
-        "
-          >
-            Add Commission Entry
-          </h2>
-          <p className="
-          text-sm text-gray-600
-          dark:text-gray-300
-        "
-          >
-            Add artwork and its delivery details.
-          </p>
+      <section aria-label="Artwork" className="grid min-w-0 items-center gap-5 border-b border-gray-200 pb-6 @min-[40rem]/workspace:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] dark:border-gray-800">
+        <SourceImagePreview file={croppedImage} />
+        <div className="min-w-0">
+          <CommissionSourceImageField
+            required
+            inputRef={sourceImageInputRef}
+            onChange={handleSourceImageChange}
+          />
         </div>
+      </section>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Entry details</h2>
         <button
           type="button"
           onClick={onAddCharacter}
-          className="shrink-0 rounded-md px-2 py-1 text-sm font-medium text-gray-600 underline underline-offset-4 hover:text-gray-950 focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-gray-300 dark:hover:text-white"
+          className="inline-flex min-h-11 shrink-0 items-center rounded-md px-2 text-sm font-medium text-gray-600 underline underline-offset-4 hover:text-gray-950 focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-gray-300 dark:hover:text-white"
         >
           New character
         </button>
       </div>
 
-      <CommissionSourceImageField
-        required
-        inputRef={sourceImageInputRef}
-        onChange={handleSourceImageChange}
-      />
       {sourceImageHint
         ? (
             <FloatingNotice tone={sourceImageHintTone === 'error' ? 'error' : 'success'} onDismiss={() => setSourceImageHint('')}>
