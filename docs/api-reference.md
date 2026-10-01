@@ -230,7 +230,12 @@ legacy file names are not part of the image URL.
 
 **Path param:** `:id` — numeric commission ID (positive integer)
 
-**Response `200`:** Raw image binary with `Content-Type: image/jpeg` or `image/png`
+**Response `200`:** Raw image binary with `Content-Type: image/jpeg` or `image/png`, an `ETag`
+derived from the R2 object, and `Cache-Control: private, no-cache`.
+
+**Response `304`:** Empty body when the request `If-None-Match` matches the object's `ETag`; still
+returns `ETag` and `Cache-Control: private, no-cache`. Clients may cache the bytes but must
+revalidate, so a replaced image is never served stale.
 
 **Errors:**
 

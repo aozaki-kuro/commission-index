@@ -22,6 +22,19 @@ function createJsonResponse(payload: unknown, status = 200) {
   })
 }
 
+function createR2SourceImageObject(
+  body: ArrayBuffer,
+  options: { contentType?: string, httpEtag?: string, size?: number } = {},
+) {
+  return {
+    httpMetadata: { contentType: options.contentType },
+    httpEtag: options.httpEtag,
+    size: options.size ?? body.byteLength,
+    body: new Response(body).body,
+    async arrayBuffer() { return body },
+  }
+}
+
 function createCrudBackend(overrides: Partial<AdminCrudBackend> = {}): AdminCrudBackend {
   return {
     getCharacterCommissions: vi.fn(async () => createJsonResponse({ commissions: [] })),
@@ -1574,7 +1587,7 @@ describe('admin worker CRUD contract routing', () => {
     const backend = createCrudBackend()
     const { db } = createD1Recorder({
       queryResults(query, values) {
-        if (query.includes('LEFT JOIN source_images') && Number(values[0]) === 19) {
+        if (query.includes('COALESCE') && Number(values[0]) === 19) {
           return [{ fileName: 'commission-opaque-key', objectKey: 'source-images/commission-opaque-key/hash.jpg' }]
         }
         return []
@@ -1582,10 +1595,7 @@ describe('admin worker CRUD contract routing', () => {
     })
     const imageBody = new Uint8Array([1, 2, 3]).buffer
     const get = vi.fn(async (key: string) => key === 'source-images/commission-opaque-key/hash.jpg'
-      ? {
-          httpMetadata: { contentType: 'image/jpeg' },
-          async arrayBuffer() { return imageBody },
-        }
+      ? createR2SourceImageObject(imageBody, { contentType: 'image/jpeg', httpEtag: '"hash-etag"' })
       : null)
 
     const response = await handleAdminApiRequest(
@@ -1595,9 +1605,115 @@ describe('admin worker CRUD contract routing', () => {
     )
 
     expect(response.status).toBe(200)
+    expect(response.headers.get('ETag')).toBe('"hash-etag"')
+    expect(response.headers.get('Cache-Control')).toBe('private, no-cache')
+    expect(response.headers.get('Content-Length')).toBe(String(imageBody.byteLength))
     expect(get).toHaveBeenCalledTimes(1)
     expect(get).toHaveBeenCalledWith('source-images/commission-opaque-key/hash.jpg')
     expect(await response.arrayBuffer()).toEqual(imageBody)
+  })
+
+  it('revalidates commission source images with If-None-Match', async () => {
+    const backend = createCrudBackend()
+    const imageBody = new Uint8Array([4, 5, 6]).buffer
+    const etag = '"hash-etag"'
+    const sourceImageRow = [
+      { fileName: 'commission-opaque-key', objectKey: 'source-images/commission-opaque-key/hash.jpg' },
+    ]
+    // Open stream (never closed) so cancel() reaches the underlying source; the 304 path
+    // must release the fetched body instead of leaking it.
+    let matchingBodyCancelled = false
+    const matchingObject = {
+      httpMetadata: { contentType: 'image/jpeg' },
+      httpEtag: etag,
+      size: imageBody.byteLength,
+      body: new ReadableStream({ cancel() { matchingBodyCancelled = true } }),
+      async arrayBuffer() { return imageBody },
+    }
+    const matchingGet = vi.fn(async () => matchingObject)
+
+    const matching = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/commissions/19/source-image`, {
+        method: 'GET',
+        headers: { 'If-None-Match': etag },
+      }),
+      { DB: createD1Recorder({ queryResults: () => sourceImageRow }).db, IMAGES: { get: matchingGet } },
+      backend,
+    )
+
+    expect(matching.status).toBe(304)
+    expect(matching.headers.get('ETag')).toBe(etag)
+    expect(matching.headers.get('Cache-Control')).toBe('private, no-cache')
+    expect((await matching.arrayBuffer()).byteLength).toBe(0)
+    expect(matchingBodyCancelled).toBe(true)
+
+    const get = vi.fn(async (key: string) => key === 'source-images/commission-opaque-key/hash.jpg'
+      ? createR2SourceImageObject(imageBody, { contentType: 'image/jpeg', httpEtag: etag })
+      : null)
+
+    const stale = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/commissions/19/source-image`, {
+        method: 'GET',
+        headers: { 'If-None-Match': '"other-etag"' },
+      }),
+      { DB: createD1Recorder({ queryResults: () => sourceImageRow }).db, IMAGES: { get } },
+      backend,
+    )
+
+    expect(stale.status).toBe(200)
+    expect(stale.headers.get('ETag')).toBe(etag)
+    expect(await stale.arrayBuffer()).toEqual(imageBody)
+  })
+
+  it('falls back to the legacy filename key when no id mapping exists', async () => {
+    const backend = createCrudBackend()
+    const { db } = createD1Recorder({
+      queryResults() {
+        return [{ fileName: 'legacy-fallback', objectKey: null }]
+      },
+    })
+    const imageBody = new Uint8Array([7, 8, 9]).buffer
+    const get = vi.fn(async (key: string) => key === 'legacy-fallback.png'
+      ? createR2SourceImageObject(imageBody, { contentType: 'image/png', httpEtag: '"legacy-etag"' })
+      : null)
+
+    const response = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/commissions/19/source-image`, { method: 'GET' }),
+      { DB: db, IMAGES: { get } },
+      backend,
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Content-Type')).toBe('image/png')
+    expect(get).toHaveBeenCalledTimes(3)
+    expect(get).toHaveBeenNthCalledWith(1, 'legacy-fallback.jpg')
+    expect(get).toHaveBeenNthCalledWith(2, 'legacy-fallback.jpeg')
+    expect(get).toHaveBeenNthCalledWith(3, 'legacy-fallback.png')
+  })
+
+  it('emits the commission source-image query with id-first precedence', async () => {
+    const backend = createCrudBackend()
+    const { db, executions } = createD1Recorder({
+      queryResults() {
+        return [{ fileName: 'commission-opaque-key', objectKey: 'source-images/commission-opaque-key/hash.jpg' }]
+      },
+    })
+    const imageBody = new Uint8Array([1]).buffer
+    const get = vi.fn(async (key: string) => key === 'source-images/commission-opaque-key/hash.jpg'
+      ? createR2SourceImageObject(imageBody, { contentType: 'image/jpeg', httpEtag: '"id-first"' })
+      : null)
+
+    const response = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/commissions/19/source-image`, { method: 'GET' }),
+      { DB: db, IMAGES: { get } },
+      backend,
+    )
+
+    expect(response.status).toBe(200)
+    const query = executions[0]?.query ?? ''
+    expect(query).toContain('COALESCE')
+    expect(query.indexOf('commission_id = c.id')).toBeGreaterThan(-1)
+    expect(query.indexOf('commission_id = c.id')).toBeLessThan(query.indexOf('commission_file_name = c.file_name'))
   })
 
   it('handles suggestion writes natively when DB binding exists', async () => {

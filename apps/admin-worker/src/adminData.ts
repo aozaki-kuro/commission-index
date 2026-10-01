@@ -68,7 +68,7 @@ interface CommissionDetailRow extends BootstrapCommissionRow {
 }
 
 interface SourceImageObjectKeyRow {
-  objectKey: string
+  objectKey: string | null
 }
 
 interface SourceImageByCommissionIdRow extends SourceImageObjectKeyRow {
@@ -115,6 +115,11 @@ interface R2HttpMetadataLike {
 
 interface R2ObjectBodyLike {
   arrayBuffer: () => Promise<ArrayBuffer>
+  // Streaming and revalidation metadata mirror the Cloudflare R2ObjectBody surface;
+  // optional here so existing metadata-only test fakes stay valid.
+  body?: ReadableStream | null
+  size?: number
+  httpEtag?: string
   httpMetadata?: R2HttpMetadataLike
 }
 
@@ -981,20 +986,25 @@ async function loadCommissionSourceImageResponse(
   bucket: R2BucketLike,
   db: D1DatabaseLike | null,
   commissionId: number,
+  requestHeaders: Headers,
 ) {
   if (!db) {
     return missingDbBinding()
   }
+  // Resolve the object key by commission id first, then fall back to the legacy filename
+  // relationship. The OR join previously had undefined priority when an id-mapped row and a
+  // filename row with a NULL commission_id both matched; COALESCE pins id-first precedence.
   const source = await queryFirstRow<SourceImageByCommissionIdRow>(
     db,
     `
-      SELECT commissions.file_name as fileName, source_images.object_key as objectKey
-      FROM commissions
-      LEFT JOIN source_images
-        ON source_images.commission_id = commissions.id
-        OR source_images.commission_file_name = commissions.file_name
-      WHERE commissions.id = ?
-      LIMIT 1
+      SELECT
+        c.file_name AS fileName,
+        COALESCE(
+          (SELECT object_key FROM source_images WHERE commission_id = c.id LIMIT 1),
+          (SELECT object_key FROM source_images WHERE commission_file_name = c.file_name LIMIT 1)
+        ) AS objectKey
+      FROM commissions c
+      WHERE c.id = ?
     `,
     [commissionId],
   )
@@ -1009,15 +1019,35 @@ async function loadCommissionSourceImageResponse(
     if (!object) {
       continue
     }
-    return new Response(await object.arrayBuffer(), {
-      status: 200,
-      headers: {
-        'Content-Type': getSourceImageMimeType(key, object),
-        'Cache-Control': 'no-store',
-      },
+
+    const headers = new Headers({
+      'Content-Type': getSourceImageMimeType(key, object),
+      // Browser may cache the bytes but must revalidate, so a replaced image is never stale.
+      'Cache-Control': 'private, no-cache',
     })
+    if (object.httpEtag) {
+      headers.set('ETag', object.httpEtag)
+    }
+    if (object.httpEtag && matchesIfNoneMatch(requestHeaders.get('If-None-Match'), object.httpEtag)) {
+      // Release the fetched body; the client reuses its cached copy.
+      await object.body?.cancel()
+      return new Response(null, { status: 304, headers })
+    }
+    if (object.size !== undefined) {
+      headers.set('Content-Length', String(object.size))
+    }
+    return new Response(object.body ?? await object.arrayBuffer(), { status: 200, headers })
   }
   return notFound()
+}
+
+function matchesIfNoneMatch(headerValue: string | null, etag: string) {
+  if (!headerValue) {
+    return false
+  }
+  return headerValue
+    .split(',')
+    .some(value => value.trim() === '*' || value.trim() === etag)
 }
 
 export interface AdminReadEnv {
@@ -1044,7 +1074,7 @@ export async function handleAdminReadRequest(request: Request, env: AdminReadEnv
       return failure('Invalid commission identifier.')
     }
     try {
-      return await loadCommissionSourceImageResponse(bucket, db, commissionId)
+      return await loadCommissionSourceImageResponse(bucket, db, commissionId, request.headers)
     }
     catch (error) {
       return failure(error instanceof Error ? error.message : 'Failed to load source image.', 500)
