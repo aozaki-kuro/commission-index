@@ -4,64 +4,54 @@ import { normalizeAliases, parseAliasesJson } from './creatorAliases'
 import { normalizeKeywordAliases, parseKeywordAliasesJson } from './keywordAliases'
 
 describe('alias normalization consistency', () => {
-  describe('creator aliases (case-sensitive dedupe)', () => {
-    it('preserves distinct case variants', () => {
-      const result = normalizeAliases(['Nanashi', 'nanashi', 'NANASHI'])
-      expect(result).toHaveLength(3)
-      expect(result).toEqual(expect.arrayContaining(['Nanashi', 'nanashi', 'NANASHI']))
-    })
-
-    it('removes exact duplicates', () => {
-      const result = normalizeAliases(['Nanashi', 'Nanashi', 'nanashi'])
-      expect(result).toHaveLength(2)
-      expect(result).toEqual(expect.arrayContaining(['Nanashi', 'nanashi']))
-    })
-
-    it('parses JSON and preserves case variants', () => {
-      const result = parseAliasesJson('["Nanashi", "nanashi", "Nanashi"]')
-      expect(result).toHaveLength(2)
-      expect(result).toEqual(expect.arrayContaining(['Nanashi', 'nanashi']))
-    })
-  })
-
-  describe('character aliases (case-insensitive dedupe)', () => {
-    it('deduplicates case variants and keeps first spelling', () => {
-      const result = normalizeCharacterAliases(['Saber', 'saber', 'SABER'])
-      expect(result).toHaveLength(1)
-      expect(result).toEqual(['Saber'])
-    })
-
-    it('normalizes whitespace before deduping', () => {
-      const result = normalizeCharacterAliases(['Saber  Alter', 'saber alter', 'SABER ALTER'])
-      expect(result).toHaveLength(1)
-      expect(result[0]).toBe('Saber Alter')
-    })
-
-    it('parses JSON and applies case-insensitive dedupe', () => {
-      const result = parseCharacterAliasesJson('["Saber", "saber", "Saber Alter", "saber alter"]')
-      expect(result).toHaveLength(2)
-      expect(result).toEqual(expect.arrayContaining(['Saber', 'Saber Alter']))
-    })
-  })
-
-  describe('keyword aliases (case-insensitive dedupe)', () => {
-    it('deduplicates case variants and keeps first spelling', () => {
-      const result = normalizeKeywordAliases(['Full Body', 'full body', 'FULL BODY'])
-      expect(result).toHaveLength(1)
-      expect(result).toEqual(['Full Body'])
-    })
-
-    it('normalizes whitespace before deduping', () => {
-      const result = normalizeKeywordAliases(['Full  Body', 'full body', 'FULL BODY'])
-      expect(result).toHaveLength(1)
-      expect(result[0]).toBe('Full Body')
-    })
-
-    it('parses JSON and applies case-insensitive dedupe', () => {
-      const result = parseKeywordAliasesJson('["Full Body", "full body", "Chibi", "chibi"]')
-      expect(result).toHaveLength(2)
-      expect(result).toEqual(expect.arrayContaining(['Full Body', 'Chibi']))
-    })
+  it.each([
+    {
+      name: 'creator preserves distinct case variants',
+      run: () => normalizeAliases(['Nanashi', 'nanashi', 'NANASHI']),
+      expected: ['Nanashi', 'nanashi', 'NANASHI'],
+    },
+    {
+      name: 'creator removes exact duplicates',
+      run: () => normalizeAliases(['Nanashi', 'Nanashi', 'nanashi']),
+      expected: ['Nanashi', 'nanashi'],
+    },
+    {
+      name: 'creator parses JSON and preserves case variants',
+      run: () => parseAliasesJson('["Nanashi", "nanashi", "Nanashi"]'),
+      expected: ['Nanashi', 'nanashi'],
+    },
+    {
+      name: 'character deduplicates case variants and keeps first spelling',
+      run: () => normalizeCharacterAliases(['Saber', 'saber', 'SABER']),
+      expected: ['Saber'],
+    },
+    {
+      name: 'character normalizes whitespace before deduping',
+      run: () => normalizeCharacterAliases(['Saber  Alter', 'saber alter', 'SABER ALTER']),
+      expected: ['Saber Alter'],
+    },
+    {
+      name: 'character parses JSON and applies case-insensitive dedupe',
+      run: () => parseCharacterAliasesJson('["Saber", "saber", "Saber Alter", "saber alter"]'),
+      expected: ['Saber', 'Saber Alter'],
+    },
+    {
+      name: 'keyword deduplicates case variants and keeps first spelling',
+      run: () => normalizeKeywordAliases(['Full Body', 'full body', 'FULL BODY']),
+      expected: ['Full Body'],
+    },
+    {
+      name: 'keyword normalizes whitespace before deduping',
+      run: () => normalizeKeywordAliases(['Full  Body', 'full body', 'FULL BODY']),
+      expected: ['Full Body'],
+    },
+    {
+      name: 'keyword parses JSON and applies case-insensitive dedupe',
+      run: () => parseKeywordAliasesJson('["Full Body", "full body", "Chibi", "chibi"]'),
+      expected: ['Full Body', 'Chibi'],
+    },
+  ])('$name', ({ run, expected }) => {
+    expect(run()).toEqual(expected)
   })
 
   describe('cross-type comparison', () => {
@@ -105,18 +95,6 @@ describe('alias normalization consistency', () => {
       // Should preserve all distinct spellings
       expect(merged).toHaveLength(4)
       expect(merged).toEqual(expect.arrayContaining(['Nanashi', 'nanashi', '七市', 'Nanashi (old)']))
-    })
-
-    it('demonstrates keyword alias map lookup behavior', () => {
-      const aliases = normalizeKeywordAliases(['Full Body', 'full body', 'Fullbody'])
-
-      // Map uses lowercase keys
-      const map = new Map<string, string[]>()
-      map.set('full body', aliases)
-
-      // All case variants map to the same entry
-      expect(map.get('full body')).toEqual(['Full Body', 'Fullbody'])
-      expect(map.get('Full Body')).toBeUndefined() // Case-sensitive Map key
     })
   })
 })

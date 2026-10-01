@@ -26,16 +26,8 @@ describeRealData('commission data pipeline (real sqlite snapshot)', () => {
       expect(dataMap.get(entry.Character)).toEqual(entry)
       expect(entry.Commissions.every(commission => commission.Hidden !== true)).toBe(true)
     }
-  })
 
-  it('filters hidden commissions from source records', async () => {
-    const [{ getCommissionData }, { getCharacterRecords }] = await Promise.all([
-      import('./commissionData'),
-      import('./commissionRecords'),
-    ])
-    const records = getCharacterRecords()
-    const data = getCommissionData()
-
+    // Hidden 作品从公开 data 中剔除，但仍保留在 records 源记录里
     const allRecordCommissions = records.flatMap(record =>
       record.commissions.map(commission => ({ ...commission, character: record.name })),
     )

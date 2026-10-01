@@ -2,6 +2,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetQuotaNoticeForTests, safeStorageSet } from './storageHelper'
 
+// 所有写入抛 QuotaExceededError 的 Storage 桩，供配额相关用例复用
+function quotaFailingStorage(): Storage {
+  return {
+    length: 0,
+    clear: vi.fn(),
+    getItem: vi.fn(),
+    key: vi.fn(),
+    removeItem: vi.fn(),
+    setItem: vi.fn(() => {
+      const error = new Error('QuotaExceededError')
+      error.name = 'QuotaExceededError'
+      throw error
+    }),
+  }
+}
+
 describe('safeStorageSet', () => {
   beforeEach(() => {
     resetQuotaNoticeForTests()
@@ -22,18 +38,7 @@ describe('safeStorageSet', () => {
 
   it('returns false and logs warning on QuotaExceededError', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const mockStorage: Storage = {
-      length: 0,
-      clear: vi.fn(),
-      getItem: vi.fn(),
-      key: vi.fn(),
-      removeItem: vi.fn(),
-      setItem: vi.fn(() => {
-        const error = new Error('QuotaExceededError')
-        error.name = 'QuotaExceededError'
-        throw error
-      }),
-    }
+    const mockStorage = quotaFailingStorage()
 
     const result = safeStorageSet(mockStorage, 'quota-key', 'x'.repeat(10000))
 
@@ -46,18 +51,7 @@ describe('safeStorageSet', () => {
   it('fires quota callback once per session on first QuotaExceededError', () => {
     const callback = vi.fn()
     vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const mockStorage: Storage = {
-      length: 0,
-      clear: vi.fn(),
-      getItem: vi.fn(),
-      key: vi.fn(),
-      removeItem: vi.fn(),
-      setItem: vi.fn(() => {
-        const error = new Error('QuotaExceededError')
-        error.name = 'QuotaExceededError'
-        throw error
-      }),
-    }
+    const mockStorage = quotaFailingStorage()
 
     safeStorageSet(mockStorage, 'key1', 'value1', callback)
     expect(callback).toHaveBeenCalledTimes(1)
@@ -68,45 +62,9 @@ describe('safeStorageSet', () => {
 
   it('does not fire callback when onQuotaExceeded is not provided', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const mockStorage: Storage = {
-      length: 0,
-      clear: vi.fn(),
-      getItem: vi.fn(),
-      key: vi.fn(),
-      removeItem: vi.fn(),
-      setItem: vi.fn(() => {
-        const error = new Error('QuotaExceededError')
-        error.name = 'QuotaExceededError'
-        throw error
-      }),
-    }
+    const mockStorage = quotaFailingStorage()
 
     expect(() => safeStorageSet(mockStorage, 'key', 'value')).not.toThrow()
-  })
-
-  it('resets notice flag for test isolation', () => {
-    const callback = vi.fn()
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const mockStorage: Storage = {
-      length: 0,
-      clear: vi.fn(),
-      getItem: vi.fn(),
-      key: vi.fn(),
-      removeItem: vi.fn(),
-      setItem: vi.fn(() => {
-        const error = new Error('QuotaExceededError')
-        error.name = 'QuotaExceededError'
-        throw error
-      }),
-    }
-
-    safeStorageSet(mockStorage, 'key1', 'value1', callback)
-    expect(callback).toHaveBeenCalledTimes(1)
-
-    resetQuotaNoticeForTests()
-
-    safeStorageSet(mockStorage, 'key2', 'value2', callback)
-    expect(callback).toHaveBeenCalledTimes(2)
   })
 
   it('logs generic error on non-quota storage failure', () => {

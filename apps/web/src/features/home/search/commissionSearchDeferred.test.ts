@@ -52,15 +52,10 @@ describe('createSeededRandom', () => {
 })
 
 describe('shuffleKeywords', () => {
-  it('preserves the same length', () => {
+  it('preserves the same length and all elements', () => {
     const keywords = ['alpha', 'beta', 'gamma', 'delta', 'epsilon']
     const result = shuffleKeywords(keywords, 42)
     expect(result).toHaveLength(keywords.length)
-  })
-
-  it('preserves all elements', () => {
-    const keywords = ['alpha', 'beta', 'gamma', 'delta', 'epsilon']
-    const result = shuffleKeywords(keywords, 42)
     expect(result.toSorted()).toEqual(keywords.toSorted())
   })
 
@@ -120,7 +115,6 @@ describe('collapseAliasKeywordVariants', () => {
       [{ term: 'cat', aliases: ['kitty'] }],
       42,
     )
-    expect(result).toBe(result)
     expect(result).toHaveLength(0)
   })
 

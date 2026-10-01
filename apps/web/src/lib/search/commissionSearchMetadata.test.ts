@@ -14,6 +14,9 @@ describe('commissionSearchMetadata', () => {
     expect(metadata.searchText).toContain('artist name')
     expect(metadata.searchSuggestionText).toContain('Date\t2024/02')
     expect(metadata.searchSuggestionText).toContain('Creator\tArtist Name')
+
+    const publicId = '00000000-0000-4000-8000-000000000042'
+    expect(buildCommissionSearchDomKey('section-alpha', publicId)).toBe(`section-alpha::${publicId}`)
   })
 
   it('does not invent date or creator terms when structured values are missing', () => {
@@ -26,10 +29,5 @@ describe('commissionSearchMetadata', () => {
     expect(metadata.searchText).not.toContain('date_')
     expect(metadata.searchSuggestionText).not.toContain('Date\t')
     expect(metadata.searchSuggestionText).not.toContain('Creator\t')
-  })
-
-  it('keys DOM search entries by stable opaque public ID', () => {
-    const publicId = '00000000-0000-4000-8000-000000000042'
-    expect(buildCommissionSearchDomKey('section-alpha', publicId)).toBe(`section-alpha::${publicId}`)
   })
 })

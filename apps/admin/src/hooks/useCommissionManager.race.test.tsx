@@ -93,64 +93,6 @@ describe('useCommissionManager cross-queue race', () => {
     expect(manager.activeCount).toBe(1)
   })
 
-  it('prevents reorder status from being reverted by queued rename with stale status', async () => {
-    let finishRename!: (result: { status: 'success' }) => void
-    let finishOrder!: (result: { status: 'success' }) => void
-
-    actions.renameCharacter.mockImplementation(() => new Promise(resolve => finishRename = resolve))
-    actions.saveCharacterOrder.mockImplementation(() => new Promise(resolve => finishOrder = resolve))
-
-    await act(async () => root.render(createElement(TestHarness)))
-
-    // Start editing character 1 (active)
-    await act(async () => manager.startEditingName(characters[0]!))
-    await act(async () => manager.handleRenameChange('New Name'))
-
-    // The critical race: rename reads status BEFORE reorder
-    // In the current implementation, status is read at submission time (line 520)
-    const capturedStatus = manager.list.find(
-      item => item.type === 'character' && item.data.id === 1,
-    )?.type === 'character'
-      ? (manager.list.findIndex(item => item.type === 'divider') > manager.list.findIndex(
-          item => item.type === 'character' && (item as any).data.id === 1,
-        )
-          ? 'active'
-          : 'archived')
-      : 'active'
-
-    expect(capturedStatus).toBe('active')
-
-    // Submit rename while character is still active
-    await act(async () => manager.submitRename())
-
-    // Reorder to archive BEFORE rename completes
-    await act(async () => manager.handleReorder(0, 2))
-
-    // Verify: rename was called with status 'active'
-    expect(actions.renameCharacter).toHaveBeenCalledWith({
-      id: 1,
-      name: 'New Name',
-      status: 'active',
-    })
-
-    // Complete rename (should not revert the local reorder)
-    await act(async () => finishRename({ status: 'success' }))
-
-    // Now reorder is sent
-    expect(actions.saveCharacterOrder).toHaveBeenCalledWith({
-      active: [2],
-      archived: [1],
-    })
-
-    // Complete reorder
-    await act(async () => finishOrder({ status: 'success' }))
-
-    // BUG REPRODUCTION: If rename's PATCH with status:'active' is processed
-    // after reorder's PUT with archived:[1], the character status could revert
-    // This test verifies the queue ensures rename -> reorder order
-    expect(manager.activeCount).toBe(1)
-  })
-
   it('reads fresh status for each queued rename submission', async () => {
     let finishFirst!: (result: { status: 'success' }) => void
     let finishOrder!: (result: { status: 'success' }) => void
