@@ -70,19 +70,4 @@ describe('createBatchRequestQueue', () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(2)
   })
-
-  it('clears all cached requests on reset', async () => {
-    const queue = createBatchRequestQueue<string>({ concurrency: 4 })
-    const fetchSpy = vi.fn(async (url: string) => `response-${url}`)
-
-    queue.fetch('url-1', () => fetchSpy('url-1'))
-    queue.fetch('url-2', () => fetchSpy('url-2'))
-
-    queue.clearForTests()
-
-    queue.fetch('url-1', () => fetchSpy('url-1'))
-    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(3))
-
-    expect(fetchSpy.mock.calls).toEqual([['url-1'], ['url-2'], ['url-1']])
-  })
 })

@@ -13,6 +13,11 @@ import { SIDEBAR_SEARCH_STATE_EVENT } from '@lib/navigation/sidebarSearchState'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearHomeCharacterBatchRequestCacheForTests } from '../batch/homeCharacterBatchClient'
 import { clearHomeCharacterBatchManifestCacheForTests } from '../batch/homeCharacterBatchManifest'
+import {
+  createCharacterBatchPayload,
+  createFreshCharacterManifest,
+  createUrlDispatchFetchHandler,
+} from './loaderTestFixtures'
 
 function setScrollEnvironment({
   innerHeight = 800,
@@ -309,63 +314,28 @@ describe('mountArchivedCharactersLoader', () => {
 
       window.history.replaceState(null, '', '#section-new-archived-20240101')
 
-      const freshManifest = {
-        locale: 'en',
-        v: 'fresh-v',
-        active: {
-          initialSectionIds: [],
-          totalBatches: 0,
-          targetBatchById: {},
-          batchVersions: [],
-        },
-        archived: {
-          initialSectionIds: [],
-          totalBatches: 2,
-          targetBatchById: {
-            'section-old': 0,
-            'section-new-archived': 1,
-            'section-new-archived-20240101': 1,
-          },
-          batchVersions: ['bv0', 'bv1-fresh'],
-        },
-      }
-
-      const batchPayload = {
-        batchIndex: 1,
+      const freshManifest = createFreshCharacterManifest({
         status: 'archived',
-        sections: [{
-          sectionId: 'section-new-archived',
-          titleId: 'title-section-new-archived',
-          sectionHash: '#section-new-archived',
-          displayName: 'New Archived',
-          totalCommissions: 1,
-          toBeAnnouncedText: 'TBA',
-          entries: [{
-            id: 'section-new-archived-20240101',
-            sectionId: 'section-new-archived',
-            searchKey: 'section-new-archived::20240101_new',
-            searchText: 'new archived 2024',
-            searchSuggest: 'Character\tNew Archived',
-            altText: '(c) 2024 New Archived & Crystallize',
-            image: null,
-            sourceImageNotFoundText: 'Source image not found',
-            timeLabel: '2024/01/01',
-            primaryText: 'New Archived',
-            secondaryText: null,
-            links: [],
-            interest: null,
-          }],
-        }],
-      }
+        targetBatchById: {
+          'section-old': 0,
+          'section-new-archived': 1,
+          'section-new-archived-20240101': 1,
+        },
+        batchVersions: ['bv0', 'bv1-fresh'],
+      })
 
-      vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
-        const url = typeof input === 'string' ? input : input.toString()
-        if (url.startsWith('/search/home-character-manifest/'))
-          return new Response(JSON.stringify(freshManifest))
-        if (url.startsWith('/search/home-character-batches/'))
-          return new Response(JSON.stringify(batchPayload))
-        return new Response(null, { status: 404 })
-      }))
+      const batchPayload = createCharacterBatchPayload({
+        status: 'archived',
+        batchIndex: 1,
+        sectionId: 'section-new-archived',
+        displayName: 'New Archived',
+        entryId: 'section-new-archived-20240101',
+      })
+
+      vi.stubGlobal('fetch', vi.fn(createUrlDispatchFetchHandler([
+        ['/search/home-character-manifest/', freshManifest],
+        ['/search/home-character-batches/', batchPayload],
+      ])))
 
       const requestAnimationFrameSpy = vi
         .spyOn(window, 'requestAnimationFrame')

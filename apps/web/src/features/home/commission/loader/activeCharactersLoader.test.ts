@@ -9,13 +9,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { clearHomeCharacterBatchRequestCacheForTests } from '../batch/homeCharacterBatchClient'
 import { clearHomeCharacterBatchManifestCacheForTests } from '../batch/homeCharacterBatchManifest'
 import { mountActiveCharactersLoader } from './activeCharactersLoader'
-
-async function flushAsyncWork() {
-  for (let index = 0; index < 8; index += 1) {
-    await Promise.resolve()
-    await new Promise(resolve => setTimeout(resolve, 0))
-  }
-}
+import {
+  createCharacterBatchPayload,
+  createFreshCharacterManifest,
+  createUrlDispatchFetchHandler,
+  flushAsyncWork,
+} from './loaderTestFixtures'
 
 function renderFixture() {
   document.body.innerHTML = `
@@ -41,16 +40,17 @@ describe('mountActiveCharactersLoader', () => {
 
     const cleanup = mountActiveCharactersLoader()
     window.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT))
-    await flushAsyncWork()
+    await vi.waitFor(() => {
+      expect(document.getElementById('section-beta')).toBeTruthy()
+      expect(onLoaded).toHaveBeenCalledTimes(1)
+      expect(onSidebarSync).toHaveBeenCalledTimes(1)
+    })
 
-    expect(document.getElementById('section-beta')).toBeTruthy()
     expect(
       document
         .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
         ?.getAttribute('data-active-sections-loaded'),
     ).toBe('true')
-    expect(onLoaded).toHaveBeenCalledTimes(1)
-    expect(onSidebarSync).toHaveBeenCalledTimes(1)
 
     cleanup()
     window.removeEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, onLoaded)
@@ -100,18 +100,18 @@ describe('mountActiveCharactersLoader', () => {
 
     const cleanup = mountActiveCharactersLoader()
     window.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT))
-    await flushAsyncWork()
+    await vi.waitFor(() => expect(onFailed).toHaveBeenCalledTimes(1))
 
-    expect(onFailed).toHaveBeenCalledTimes(1)
     const panel = document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')
     expect(panel?.dataset.activeSectionsLoaded).toBe('false')
 
     window.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT))
-    await flushAsyncWork()
+    await vi.waitFor(() => {
+      expect(onLoaded).toHaveBeenCalledTimes(1)
+      expect(document.getElementById('section-beta')).toBeTruthy()
+    })
 
     expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(onLoaded).toHaveBeenCalledTimes(1)
-    expect(document.getElementById('section-beta')).toBeTruthy()
     expect(panel?.dataset.activeSectionsLoaded).toBe('true')
 
     cleanup()
@@ -141,10 +141,10 @@ describe('mountActiveCharactersLoader', () => {
     const cleanup = mountActiveCharactersLoader({
       deps: { scrollToHashWithoutWrite },
     })
-    await flushAsyncWork()
-
-    expect(document.getElementById('section-beta')).toBeTruthy()
-    expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-beta-20240101')
+    await vi.waitFor(() => {
+      expect(document.getElementById('section-beta')).toBeTruthy()
+      expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-beta-20240101')
+    })
 
     cleanup()
     requestAnimationFrameSpy.mockRestore()
@@ -173,9 +173,7 @@ describe('mountActiveCharactersLoader', () => {
     // Simulate clearHashIfTargetOffscreen clearing the URL hash before the batch loads
     window.history.replaceState(null, '', '/')
 
-    await flushAsyncWork()
-
-    expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-beta')
+    await vi.waitFor(() => expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-beta'))
 
     cleanup()
     requestAnimationFrameSpy.mockRestore()
@@ -197,9 +195,7 @@ describe('mountActiveCharactersLoader', () => {
     const cleanup = mountActiveCharactersLoader({
       deps: { scrollToHashWithoutWrite },
     })
-    await flushAsyncWork()
-
-    expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-alpha')
+    await vi.waitFor(() => expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-alpha'))
 
     cleanup()
     requestAnimationFrameSpy.mockRestore()
@@ -240,74 +236,39 @@ describe('mountActiveCharactersLoader', () => {
       `
       window.history.replaceState(null, '', '#section-gamma-20240101')
 
-      const freshManifest = {
-        locale: 'en',
-        v: 'fresh-v',
-        active: {
-          initialSectionIds: ['section-alpha'],
-          totalBatches: 2,
-          targetBatchById: {
-            'section-beta': 0,
-            'section-gamma': 1,
-            'section-gamma-20240101': 1,
-          },
-          batchVersions: ['bv0', 'bv1-fresh'],
-        },
-        archived: {
-          initialSectionIds: [],
-          totalBatches: 0,
-          targetBatchById: {},
-          batchVersions: [],
-        },
-      }
-
-      const batchPayload = {
-        batchIndex: 1,
+      const freshManifest = createFreshCharacterManifest({
         status: 'active',
-        sections: [{
-          sectionId: 'section-gamma',
-          titleId: 'title-section-gamma',
-          sectionHash: '#section-gamma',
-          displayName: 'Gamma',
-          totalCommissions: 1,
-          toBeAnnouncedText: 'TBA',
-          entries: [{
-            id: 'section-gamma-20240101',
-            sectionId: 'section-gamma',
-            searchKey: 'section-gamma::20240101_gamma',
-            searchText: 'gamma 2024',
-            searchSuggest: 'Character\tGamma',
-            altText: '(c) 2024 Gamma & Crystallize',
-            image: null,
-            sourceImageNotFoundText: 'Source image not found',
-            timeLabel: '2024/01/01',
-            primaryText: 'Gamma',
-            secondaryText: null,
-            links: [],
-            interest: null,
-          }],
-        }],
-      }
-
-      const fetchSpy = vi.fn(async (input: string | URL | Request) => {
-        const url = typeof input === 'string' ? input : input.toString()
-        if (url.startsWith('/search/home-character-manifest/'))
-          return new Response(JSON.stringify(freshManifest))
-        if (url.startsWith('/search/home-character-batches/'))
-          return new Response(JSON.stringify(batchPayload))
-        return new Response(null, { status: 404 })
+        initialSectionIds: ['section-alpha'],
+        targetBatchById: {
+          'section-beta': 0,
+          'section-gamma': 1,
+          'section-gamma-20240101': 1,
+        },
+        batchVersions: ['bv0', 'bv1-fresh'],
       })
+
+      const batchPayload = createCharacterBatchPayload({
+        status: 'active',
+        batchIndex: 1,
+        sectionId: 'section-gamma',
+        displayName: 'Gamma',
+        entryId: 'section-gamma-20240101',
+      })
+
+      const fetchSpy = vi.fn(createUrlDispatchFetchHandler([
+        ['/search/home-character-manifest/', freshManifest],
+        ['/search/home-character-batches/', batchPayload],
+      ]))
       vi.stubGlobal('fetch', fetchSpy)
       const scrollToHashWithoutWrite = vi.fn().mockReturnValue(true)
 
       const cleanup = mountActiveCharactersLoader({
         deps: { scrollToHashWithoutWrite },
       })
-      await flushAsyncWork()
+      await vi.waitFor(() => expect(document.getElementById('section-gamma-20240101')).toBeTruthy())
 
       expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/search/home-character-manifest/'))
       expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/search/home-character-batches/'))
-      expect(document.getElementById('section-gamma-20240101')).toBeTruthy()
 
       const panel = document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')
       expect(panel?.dataset.activeBatchesLoadedCount).toBe('2')
@@ -414,63 +375,29 @@ describe('mountActiveCharactersLoader', () => {
 
       window.history.replaceState(null, '', '#section-gamma-20240101')
 
-      const freshManifest = {
-        locale: 'en',
-        v: 'fresh-v',
-        active: {
-          initialSectionIds: ['section-alpha'],
-          totalBatches: 2,
-          targetBatchById: {
-            'section-beta': 0,
-            'section-gamma': 1,
-            'section-gamma-20240101': 1,
-          },
-          batchVersions: ['bv0', 'bv1-fresh'],
-        },
-        archived: {
-          initialSectionIds: [],
-          totalBatches: 0,
-          targetBatchById: {},
-          batchVersions: [],
-        },
-      }
-
-      const batchPayload = {
-        batchIndex: 1,
+      const freshManifest = createFreshCharacterManifest({
         status: 'active',
-        sections: [{
-          sectionId: 'section-gamma',
-          titleId: 'title-section-gamma',
-          sectionHash: '#section-gamma',
-          displayName: 'Gamma',
-          totalCommissions: 1,
-          toBeAnnouncedText: 'TBA',
-          entries: [{
-            id: 'section-gamma-20240101',
-            sectionId: 'section-gamma',
-            searchKey: 'section-gamma::20240101_gamma',
-            searchText: 'gamma 2024',
-            searchSuggest: 'Character\tGamma',
-            altText: '(c) 2024 Gamma & Crystallize',
-            image: null,
-            sourceImageNotFoundText: 'Source image not found',
-            timeLabel: '2024/01/01',
-            primaryText: 'Gamma',
-            secondaryText: null,
-            links: [],
-            interest: null,
-          }],
-        }],
-      }
+        initialSectionIds: ['section-alpha'],
+        targetBatchById: {
+          'section-beta': 0,
+          'section-gamma': 1,
+          'section-gamma-20240101': 1,
+        },
+        batchVersions: ['bv0', 'bv1-fresh'],
+      })
 
-      vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
-        const url = typeof input === 'string' ? input : input.toString()
-        if (url.startsWith('/search/home-character-manifest/'))
-          return new Response(JSON.stringify(freshManifest))
-        if (url.startsWith('/search/home-character-batches/'))
-          return new Response(JSON.stringify(batchPayload))
-        return new Response(null, { status: 404 })
-      }))
+      const batchPayload = createCharacterBatchPayload({
+        status: 'active',
+        batchIndex: 1,
+        sectionId: 'section-gamma',
+        displayName: 'Gamma',
+        entryId: 'section-gamma-20240101',
+      })
+
+      vi.stubGlobal('fetch', vi.fn(createUrlDispatchFetchHandler([
+        ['/search/home-character-manifest/', freshManifest],
+        ['/search/home-character-batches/', batchPayload],
+      ])))
 
       const requestAnimationFrameSpy = vi
         .spyOn(window, 'requestAnimationFrame')
@@ -484,10 +411,10 @@ describe('mountActiveCharactersLoader', () => {
         deps: { scrollToHashWithoutWrite: scrollSpy },
       })
 
-      await flushAsyncWork()
-
-      expect(document.getElementById('section-gamma-20240101')).toBeTruthy()
-      expect(scrollSpy).toHaveBeenCalledWith('#section-gamma-20240101')
+      await vi.waitFor(() => {
+        expect(document.getElementById('section-gamma-20240101')).toBeTruthy()
+        expect(scrollSpy).toHaveBeenCalledWith('#section-gamma-20240101')
+      })
 
       requestAnimationFrameSpy.mockRestore()
       clearHomeCharacterBatchManifestCacheForTests()
@@ -534,10 +461,11 @@ describe('mountActiveCharactersLoader', () => {
     vi.stubGlobal('IntersectionObserver', MockIntersectionObserver)
 
     const cleanup = mountActiveCharactersLoader()
-    await flushAsyncWork()
+    await vi.waitFor(() => {
+      expect(document.getElementById('section-beta')).toBeTruthy()
+      expect(observe).toHaveBeenCalledTimes(1)
+    })
 
-    expect(document.getElementById('section-beta')).toBeTruthy()
-    expect(observe).toHaveBeenCalledTimes(1)
     expect(disconnect).toHaveBeenCalled()
 
     cleanup()

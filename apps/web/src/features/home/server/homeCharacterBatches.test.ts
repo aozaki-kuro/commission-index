@@ -53,33 +53,54 @@ describe('buildHomeCharacterBatchPlan', () => {
     expect(plan.active.targetBatchById[`${getCharacterSectionId('Gamma')}-commission-00000000-0000-4000-8000-000020240103`]).toBe(1)
   })
 
-  it('does not register empty active characters as deferred navigation targets', () => {
-    const alpha = buildCharacterCommissions('Alpha', '20240101')
-    const gamma = buildCharacterCommissions('Gamma', '20240103')
+  it.each([
+    {
+      status: 'active' as const,
+      chars: [
+        { name: 'Alpha', date: '20240101' },
+        { name: 'Empty Active', date: null },
+        { name: 'Gamma', date: '20240103' },
+      ],
+      emptyName: 'Empty Active',
+      realName: 'Gamma',
+      expectedBatches: [['Empty Active'], ['Gamma']],
+    },
+    {
+      status: 'archived' as const,
+      chars: [
+        { name: 'Archived Empty', date: null },
+        { name: 'Archived Two', date: '20240202' },
+      ],
+      emptyName: 'Archived Empty',
+      realName: 'Archived Two',
+      expectedBatches: [['Archived Empty'], ['Archived Two']],
+    },
+  ] as const)('does not register empty $status characters as deferred navigation targets', ({
+    status,
+    chars,
+    emptyName,
+    realName,
+    expectedBatches,
+  }) => {
+    const commissionMap = new Map(
+      chars.map(({ name, date }) => [
+        name,
+        date === null
+          ? { Character: name, Commissions: [] } satisfies CharacterCommissions
+          : buildCharacterCommissions(name, date),
+      ] satisfies [string, CharacterCommissions]),
+    )
 
     const plan = buildHomeCharacterBatchPlan({
-      activeChars: [
-        { DisplayName: 'Alpha' },
-        { DisplayName: 'Empty Active' },
-        { DisplayName: 'Gamma' },
-      ],
-      archivedChars: [],
-      commissionMap: new Map(
-        [
-          alpha,
-          {
-            Character: 'Empty Active',
-            Commissions: [],
-          },
-          gamma,
-        ].map(entry => [entry.Character, entry] satisfies [string, CharacterCommissions]),
-      ),
+      activeChars: status === 'active' ? chars.map(({ name }) => ({ DisplayName: name })) : [],
+      archivedChars: status === 'archived' ? chars.map(({ name }) => ({ DisplayName: name })) : [],
+      commissionMap,
     })
 
-    expect(plan.active.batches).toEqual([['Empty Active'], ['Gamma']])
-    expect(plan.active.targetBatchById[getCharacterSectionId('Empty Active')]).toBeUndefined()
-    expect(plan.active.targetBatchById[getCharacterTitleId('Empty Active')]).toBeUndefined()
-    expect(plan.active.targetBatchById[getCharacterSectionId('Gamma')]).toBe(1)
+    expect(plan[status].batches).toEqual(expectedBatches)
+    expect(plan[status].targetBatchById[getCharacterSectionId(emptyName)]).toBeUndefined()
+    expect(plan[status].targetBatchById[getCharacterTitleId(emptyName)]).toBeUndefined()
+    expect(plan[status].targetBatchById[getCharacterSectionId(realName)]).toBe(1)
   })
 
   it('keeps archived batches at single-character granularity including the first batch', () => {
@@ -107,32 +128,6 @@ describe('buildHomeCharacterBatchPlan', () => {
     expect(plan.archived.targetBatchById[getCharacterSectionId('Archived One')]).toBe(0)
     expect(plan.archived.targetBatchById[getCharacterSectionId('Archived Two')]).toBe(1)
     expect(plan.archived.targetBatchById[getCharacterSectionId('Archived Three')]).toBe(2)
-  })
-
-  it('does not register empty archived characters as deferred navigation targets', () => {
-    const archivedTwo = buildCharacterCommissions('Archived Two', '20240202')
-
-    const plan = buildHomeCharacterBatchPlan({
-      activeChars: [],
-      archivedChars: [
-        { DisplayName: 'Archived Empty' },
-        { DisplayName: 'Archived Two' },
-      ],
-      commissionMap: new Map(
-        [
-          {
-            Character: 'Archived Empty',
-            Commissions: [],
-          },
-          archivedTwo,
-        ].map(entry => [entry.Character, entry] satisfies [string, CharacterCommissions]),
-      ),
-    })
-
-    expect(plan.archived.batches).toEqual([['Archived Empty'], ['Archived Two']])
-    expect(plan.archived.targetBatchById[getCharacterSectionId('Archived Empty')]).toBeUndefined()
-    expect(plan.archived.targetBatchById[getCharacterTitleId('Archived Empty')]).toBeUndefined()
-    expect(plan.archived.targetBatchById[getCharacterSectionId('Archived Two')]).toBe(1)
   })
 })
 

@@ -4,6 +4,11 @@ import { SIDEBAR_SEARCH_STATE_EVENT } from '@lib/navigation/sidebarSearchState'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clearHomeTimelineBatchRequestCacheForTests } from '../batch/homeTimelineBatchClient'
 import { clearHomeTimelineBatchManifestCacheForTests } from '../batch/homeTimelineBatchManifest'
+import {
+  createFreshTimelineManifest,
+  createUrlDispatchFetchHandler,
+  flushAsyncWork,
+} from './loaderTestFixtures'
 import { requestTimelineViewLoad } from './timelineViewEvent'
 import { mountTimelineViewLoader, TIMELINE_VIEW_LOADED_EVENT } from './timelineViewLoader'
 
@@ -74,13 +79,6 @@ function createTimelineBatchPayload(batchIndex: number, year: string) {
   }
 }
 
-async function flushTimelineQueue() {
-  for (let index = 0; index < 4; index += 1) {
-    await Promise.resolve()
-    await new Promise(resolve => setTimeout(resolve, 0))
-  }
-}
-
 afterEach(() => {
   clearHomeTimelineBatchRequestCacheForTests()
   clearHomeTimelineBatchManifestCacheForTests(document)
@@ -134,9 +132,11 @@ describe('mountTimelineViewLoader', () => {
         scrollToHashWithoutWrite,
       },
     })
-    await flushTimelineQueue()
+    await vi.waitFor(() => {
+      expect(document.getElementById('timeline-year-2024')).toBeTruthy()
+      expect(onLoaded).toHaveBeenCalled()
+    })
 
-    expect(document.getElementById('timeline-year-2024')).toBeTruthy()
     expect(
       document
         .querySelector<HTMLElement>('[data-commission-view-panel="timeline"]')
@@ -147,7 +147,6 @@ describe('mountTimelineViewLoader', () => {
         .querySelector<HTMLElement>('[data-commission-view-panel="timeline"]')
         ?.getAttribute('data-timeline-batches-loaded-count'),
     ).toBe('2')
-    expect(onLoaded).toHaveBeenCalled()
     expect(onSidebarSync).toHaveBeenCalled()
     expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#timeline-year-2024')
     expect(fetchMock).toHaveBeenCalledTimes(2)
@@ -194,9 +193,8 @@ describe('mountTimelineViewLoader', () => {
 
     window.history.replaceState(null, '', '/?view=timeline#timeline-year-2025')
     window.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
-    await flushTimelineQueue()
+    await vi.waitFor(() => expect(document.getElementById('timeline-year-2025')).toBeTruthy())
 
-    expect(document.getElementById('timeline-year-2025')).toBeTruthy()
     expect(
       document
         .querySelector<HTMLElement>('[data-commission-view-panel="timeline"]')
@@ -235,10 +233,11 @@ describe('mountTimelineViewLoader', () => {
     const cleanup = mountTimelineViewLoader()
 
     requestTimelineViewLoad(window, { strategy: 'all' })
-    await flushTimelineQueue()
+    await vi.waitFor(() => {
+      expect(document.getElementById('timeline-year-2025')).toBeTruthy()
+      expect(document.getElementById('timeline-year-2024')).toBeTruthy()
+    })
 
-    expect(document.getElementById('timeline-year-2025')).toBeTruthy()
-    expect(document.getElementById('timeline-year-2024')).toBeTruthy()
     expect(
       document
         .querySelector<HTMLElement>('[data-commission-view-panel="timeline"]')
@@ -281,18 +280,17 @@ describe('mountTimelineViewLoader', () => {
 
     const cleanup = mountTimelineViewLoader()
     requestTimelineViewLoad(window, { strategy: 'all' })
-    await Promise.resolve()
-    await Promise.resolve()
-
-    const requestedUrls = fetchMock.mock.calls.map(([input]) =>
-      typeof input === 'string' ? input : input.toString(),
-    )
-    expect(requestedUrls).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining('/search/home-timeline-batches/en/0.json'),
-        expect.stringContaining('/search/home-timeline-batches/en/1.json'),
-      ]),
-    )
+    await vi.waitFor(() => {
+      const requestedUrls = fetchMock.mock.calls.map(([input]) =>
+        typeof input === 'string' ? input : input.toString(),
+      )
+      expect(requestedUrls).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('/search/home-timeline-batches/en/0.json'),
+          expect.stringContaining('/search/home-timeline-batches/en/1.json'),
+        ]),
+      )
+    })
 
     resolveFirstBatchResponse(
       new Response(`${JSON.stringify(createTimelineBatchPayload(0, '2025'))}\n`, {
@@ -302,10 +300,10 @@ describe('mountTimelineViewLoader', () => {
         },
       }),
     )
-    await flushTimelineQueue()
-
-    expect(document.getElementById('timeline-year-2025')).toBeTruthy()
-    expect(document.getElementById('timeline-year-2024')).toBeTruthy()
+    await vi.waitFor(() => {
+      expect(document.getElementById('timeline-year-2025')).toBeTruthy()
+      expect(document.getElementById('timeline-year-2024')).toBeTruthy()
+    })
 
     cleanup()
   })
@@ -358,28 +356,13 @@ describe('mountTimelineViewLoader', () => {
       renderFixture()
       window.history.replaceState(null, '', '/?view=timeline#timeline-year-2023')
 
-      const freshManifest = {
-        locale: 'en',
-        v: 'fresh-v',
-        batchVersions: ['bv0', 'bv1', 'bv2'],
-        initialSectionIds: ['timeline-year-2026'],
-        totalBatches: 3,
-        targetBatchById: {
-          'timeline-year-2025': 0,
-          'timeline-year-2024': 1,
-          'timeline-year-2023': 2,
-        },
-      }
+      const freshManifest = createFreshTimelineManifest()
       const batchPayload = createTimelineBatchPayload(2, '2023')
 
-      vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
-        const url = typeof input === 'string' ? input : input.toString()
-        if (url.startsWith('/search/home-timeline-manifest/'))
-          return new Response(JSON.stringify(freshManifest))
-        if (url.startsWith('/search/home-timeline-batches/'))
-          return new Response(JSON.stringify(batchPayload))
-        return new Response(null, { status: 404 })
-      }))
+      vi.stubGlobal('fetch', vi.fn(createUrlDispatchFetchHandler([
+        ['/search/home-timeline-manifest/', freshManifest],
+        ['/search/home-timeline-batches/', batchPayload],
+      ])))
 
       const requestAnimationFrameSpy = vi
         .spyOn(window, 'requestAnimationFrame')
@@ -394,11 +377,11 @@ describe('mountTimelineViewLoader', () => {
       })
 
       window.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
-      await flushTimelineQueue()
-
-      const container = document.querySelector('[data-timeline-sections-container="true"]')
-      expect(container?.querySelector('#character-alpha-20230101')).toBeTruthy()
-      expect(scrollSpy).toHaveBeenCalledWith('#timeline-year-2023')
+      await vi.waitFor(() => {
+        const container = document.querySelector('[data-timeline-sections-container="true"]')
+        expect(container?.querySelector('#character-alpha-20230101')).toBeTruthy()
+        expect(scrollSpy).toHaveBeenCalledWith('#timeline-year-2023')
+      })
 
       requestAnimationFrameSpy.mockRestore()
       cleanup()
@@ -411,26 +394,11 @@ describe('mountTimelineViewLoader', () => {
       panel.dataset.timelineLoaded = 'true'
       panel.dataset.timelineBatchesLoadedCount = '2'
 
-      const freshManifest = {
-        locale: 'en',
-        v: 'fresh-v',
-        batchVersions: ['bv0', 'bv1', 'bv2'],
-        initialSectionIds: ['timeline-year-2026'],
-        totalBatches: 3,
-        targetBatchById: {
-          'timeline-year-2025': 0,
-          'timeline-year-2024': 1,
-          'timeline-year-2023': 2,
-        },
-      }
-      const fetchMock = vi.fn(async (input: string | URL | Request) => {
-        const url = typeof input === 'string' ? input : input.toString()
-        if (url.startsWith('/search/home-timeline-manifest/'))
-          return new Response(JSON.stringify(freshManifest))
-        if (url.startsWith('/search/home-timeline-batches/'))
-          return new Response(JSON.stringify(createTimelineBatchPayload(2, '2023')))
-        return new Response(null, { status: 404 })
-      })
+      const freshManifest = createFreshTimelineManifest()
+      const fetchMock = vi.fn(createUrlDispatchFetchHandler([
+        ['/search/home-timeline-manifest/', freshManifest],
+        ['/search/home-timeline-batches/', createTimelineBatchPayload(2, '2023')],
+      ]))
       vi.stubGlobal('fetch', fetchMock)
       const scrollToHashWithoutWrite = vi.fn().mockReturnValue(true)
 
@@ -438,10 +406,9 @@ describe('mountTimelineViewLoader', () => {
         deps: { scrollToHashWithoutWrite },
       })
       window.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
-      await flushTimelineQueue()
+      await vi.waitFor(() => expect(document.getElementById('character-alpha-20230101')).toBeTruthy())
 
       expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/search/home-timeline-batches/'))
-      expect(document.getElementById('character-alpha-20230101')).toBeTruthy()
       expect(panel.dataset.timelineBatchesLoadedCount).toBe('3')
       expect(panel.dataset.timelineLoaded).toBe('true')
 
@@ -459,7 +426,7 @@ describe('mountTimelineViewLoader', () => {
 
       const cleanup = mountTimelineViewLoader()
       window.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
-      await flushTimelineQueue()
+      await flushAsyncWork()
 
       expect(fetchMock).not.toHaveBeenCalled()
       cleanup()
@@ -485,9 +452,8 @@ describe('mountTimelineViewLoader', () => {
     const cleanup = mountTimelineViewLoader()
 
     requestTimelineViewLoad(window, { strategy: 'all' })
-    await flushTimelineQueue()
+    await vi.waitFor(() => expect(document.getElementById('timeline-year-2025')).toBeTruthy())
 
-    expect(document.getElementById('timeline-year-2025')).toBeTruthy()
     expect(fetchMock).not.toHaveBeenCalled()
 
     cleanup()

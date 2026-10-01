@@ -131,16 +131,16 @@
 
 `apps/web/src/lib/` 下三处实现与 `packages/domain` 几乎同源，而 `apps/web/package.json` **已经**依赖 `@commission-index/domain`。`packages/domain/src/index.ts` 已经导出了这三组 API。
 
-| domain                                            | web 副本                                              | 差异（本次直读确认）                                                                                                                                                                                                                                                           |
-| ------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `packages/domain/src/dateSearch.ts`（87 行）      | `apps/web/src/lib/date/search.ts`（86 行）            | 正则、`isValidDateParts`、导出集合一致；仅空行与 `const parts` 书写差异。属于纯复制。                                                                                                                                                                                          |
-| `packages/domain/src/commissionSearchMetadata.ts` | `apps/web/src/lib/search/commissionSearchMetadata.ts` | **已分叉**：入参 domain 要求 `fileName: string`（`domain:14`），web 没有；`buildCommissionSearchDomKey` domain 用 `fileName`（`domain:60–62`），web 用 `publicId`（`web:52–54`）。                                                                                             |
-| `packages/domain/src/timeline.ts`                 | `apps/web/src/lib/commissions/timeline.ts`            | **已分叉**：domain 用类型谓词 `commissionDate !== null`（`domain:51`）并自带 `sortCommissionsByDate`（`domain:38–41`）；web 用真值过滤 `.filter(c => c.commissionDate)`（`web:44`）加非空断言 `commissionDate!.slice(0,4)`（`web:52`），且从 `@lib/commissions` 外部引入排序。 |
+| domain                                            | web 副本                                                                         | 差异（本次直读确认）                                                                                                                                                                                                                                                           |
+| ------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `packages/domain/src/dateSearch.ts`（87 行）      | `apps/web/src/lib/date/search.ts`（已删除；web 改用 `@commission-index/domain`） | 正则、`isValidDateParts`、导出集合一致；仅空行与 `const parts` 书写差异。属于纯复制。                                                                                                                                                                                          |
+| `packages/domain/src/commissionSearchMetadata.ts` | `apps/web/src/lib/search/commissionSearchMetadata.ts`                            | **已分叉**：入参 domain 要求 `fileName: string`（`domain:14`），web 没有；`buildCommissionSearchDomKey` domain 用 `fileName`（`domain:60–62`），web 用 `publicId`（`web:52–54`）。                                                                                             |
+| `packages/domain/src/timeline.ts`                 | `apps/web/src/lib/commissions/timeline.ts`                                       | **已分叉**：domain 用类型谓词 `commissionDate !== null`（`domain:51`）并自带 `sortCommissionsByDate`（`domain:38–41`）；web 用真值过滤 `.filter(c => c.commissionDate)`（`web:44`）加非空断言 `commissionDate!.slice(0,4)`（`web:52`），且从 `@lib/commissions` 外部引入排序。 |
 
 **风险**
 
 1. 行为已经不同。`commissionSearchMetadata` 的 DOM key 契约不一致，意味着同一份搜索元数据在前后端会生成不同的锚点键。
-2. 测试覆盖错了对象：`apps/web/src/lib/date/search.test.ts`、`apps/web/src/lib/search/commissionSearchMetadata.test.ts` 测的是**副本**，domain 的正确性无人验证。
+2. 测试覆盖错了对象：`apps/web/src/lib/search/commissionSearchMetadata.test.ts` 测的是**副本**，domain 的正确性无人验证。
 
 **修复方向（顺序不能颠倒）**
 
@@ -396,7 +396,7 @@ for (let batchIndex = firstBatchIndex; batchIndex <= finalBatchIndex; batchIndex
 1. `hasMoreHomeCharacterBatches`（`homeCharacterBatchClient.ts:56`）—— 无调用方的导出。
 2. 根 `package.json` 的纯别名脚本：`build` → `build:web`、`deploy` → `deploy:web`、`dev:admin` 与 `dev:admin:remote` 同为 `tsx scripts/devAdminRemote.ts`。
 3. `apps/admin-worker/package.json` 中 `dev` 与 `dev:remote` 完全相同。
-4. `apps/web/src/lib/{date/search.ts, search/commissionSearchMetadata.ts, commissions/timeline.ts}` —— **仅在第 2 节完成后**删除，不能先删。
+4. `apps/web/src/lib/{search/commissionSearchMetadata.ts, commissions/timeline.ts}` —— **仅在第 2 节完成后**删除，不能先删（`date/search.ts` 已合入 `@commission-index/domain` 并删除）。
 
 **不要清理**：`apps/web/src/lib/` 下其他文件、任何 `is:inline` 脚本、R2 回退探测、legacy batch 挂载函数、测试专用导出。
 

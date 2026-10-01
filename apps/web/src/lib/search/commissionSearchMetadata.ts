@@ -1,6 +1,6 @@
+import { buildDateSearchTokensFromCompactDate } from '@commission-index/domain'
 import { normalizeCharacterAliasKey } from '@lib/characterAliases'
 import { normalizeCreatorName } from '@lib/creatorAliases'
-import { buildDateSearchTokensFromCompactDate } from '@lib/date/search'
 import { normalizeKeywordAliasKey, splitKeywordTerms } from '@lib/keywordAliases'
 
 type SuggestionSource = 'Character' | 'Creator' | 'Keyword' | 'Date'

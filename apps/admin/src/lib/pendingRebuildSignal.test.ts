@@ -14,46 +14,32 @@ afterEach(() => {
 })
 
 describe('pendingRebuildSignal', () => {
-  it('advances every saved revision and only clears the matching snapshot', () => {
+  it('tracks pending state and clears only the matching revision snapshot', () => {
+    expect(isPendingRebuild()).toBe(false)
+
     markPendingRebuild()
+    expect(isPendingRebuild()).toBe(true)
     const dispatchedRevision = getPendingRebuildRevision()
+
     markPendingRebuild()
     expect(getPendingRebuildRevision()).toBe(dispatchedRevision + 1)
     clearPendingRebuild(dispatchedRevision)
     expect(isPendingRebuild()).toBe(true)
+
     clearPendingRebuild(getPendingRebuildRevision())
     expect(isPendingRebuild()).toBe(false)
   })
 
-  it('starts as not pending', () => {
-    expect(isPendingRebuild()).toBe(false)
-  })
-
-  it('becomes pending after markPendingRebuild', () => {
-    markPendingRebuild()
-    expect(isPendingRebuild()).toBe(true)
-  })
-
-  it('clears after clearPendingRebuild', () => {
-    markPendingRebuild()
-    clearPendingRebuild()
-    expect(isPendingRebuild()).toBe(false)
-  })
-
-  it('notifies subscribers on mark', () => {
+  it('notifies subscribers on mark and clear', () => {
     const listener = vi.fn()
     const unsub = subscribeToPendingRebuild(listener)
+
     markPendingRebuild()
     expect(listener).toHaveBeenCalledWith(true)
-    unsub()
-  })
 
-  it('notifies subscribers on clear', () => {
-    const listener = vi.fn()
-    markPendingRebuild()
-    const unsub = subscribeToPendingRebuild(listener)
     clearPendingRebuild()
     expect(listener).toHaveBeenCalledWith(false)
+
     unsub()
   })
 
