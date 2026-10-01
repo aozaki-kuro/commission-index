@@ -175,6 +175,7 @@ CI gotchas:
 - CI Web 与 rebuild 使用相同 job concurrency group `release-web-production`；在锁内导出新数据，避免旧队列项携带旧数据快照覆盖新发布。Admin 使用独立环境锁
 - required checks 的 GitHub 仓库设置需要另行核验，工作流文件本身不代表线上分支保护已启用
 - Tests that depend on `apps/web/generated/*` must guard imports behind existence checks (lazy import, not top-level) — CI may run before export
+- 内联脚本（`node --input-type=module` / heredoc / `-e`）的裸模块说明符从 cwd 解析；根 `package.json` 不依赖任何 workspace 包，pnpm 也不会把它们链接到根 `node_modules`，因此导入 `@commission-index/*` 的内联脚本必须设 `working-directory` 到声明了该依赖的包（如 `apps/admin-worker`）
 
 ## Guardrails
 
