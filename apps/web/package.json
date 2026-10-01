@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@commission-index/domain": "workspace:*",
-    "@iconify-json/tabler": "^1.2.40",
+    "@iconify-json/tabler": "^1.2.41",
     "astro-icon": "^1.2.0",
     "fuse.js": "^7.5.0"
   },
