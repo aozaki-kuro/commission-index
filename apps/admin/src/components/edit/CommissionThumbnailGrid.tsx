@@ -1,5 +1,5 @@
 import type { CommissionRow } from '@commission-index/domain'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { getAdminApiUrl } from '../../lib/adminApi'
 import {
   formatCommissionPublicId,
@@ -9,29 +9,70 @@ import {
 
 const gridStyles = 'grid grid-cols-2 gap-3 @min-[40rem]/thumbnails:grid-cols-3 @min-[62rem]/thumbnails:grid-cols-4 @min-[78rem]/thumbnails:grid-cols-5'
 
+/** Source images are 1280×525; reserve the same box before/after load for stable lazy layout. */
+const thumbnailImageWidth = 1280
+const thumbnailImageHeight = 525
+/** Only start fetching an image once its card is (nearly) on screen. */
+const thumbnailViewportMargin = '200px'
+
 interface CommissionThumbnailGridProps {
   commissions: CommissionRow[]
   selectedCommissionId: number | null
   onSelect: (commission: CommissionRow) => void
+  isExpanded: boolean
 }
 
 function buildThumbnailSrc(commissionId: number) {
   return getAdminApiUrl(`/api/admin/commissions/${commissionId}/source-image`)
 }
 
+// Do not render an image or its src while collapsed or far from the viewport.
+// Environments without IntersectionObserver fall back to native lazy loading.
+function useNearViewport<T extends HTMLElement>(isEnabled: boolean) {
+  const ref = useRef<T | null>(null)
+  const [isNear, setIsNear] = useState(() => typeof IntersectionObserver === 'undefined')
+
+  useEffect(() => {
+    const node = ref.current
+    if (!isEnabled || !node || typeof IntersectionObserver === 'undefined') {
+      return
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        setIsNear(true)
+        observer.disconnect()
+      }
+    }, { rootMargin: thumbnailViewportMargin })
+
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [isEnabled])
+
+  return [ref, isNear] as const
+}
+
 function ThumbnailCard({
   commission,
   isSelected,
   onSelect,
+  isExpanded,
 }: {
   commission: CommissionRow
   isSelected: boolean
   onSelect: () => void
+  isExpanded: boolean
 }) {
   const [errorSrc, setErrorSrc] = useState<string | null>(null)
   const displayLabel = getCommissionTitle(commission)
   const accessibleLabel = getCommissionAccessibleLabel(commission)
   const imageSrc = useMemo(() => buildThumbnailSrc(commission.id), [commission.id])
+  const hasBeenExpandedRef = useRef(isExpanded)
+  if (isExpanded) {
+    hasBeenExpandedRef.current = true
+  }
+  const hasBeenExpanded = hasBeenExpandedRef.current
+  const [cardRef, isNearViewport] = useNearViewport<HTMLDivElement>(hasBeenExpanded)
 
   const [imageVersion, setImageVersion] = useState(() => {
     if (typeof window === 'undefined') {
@@ -57,6 +98,17 @@ function ThumbnailCard({
   }, [commission.id])
 
   const previewSrc = imageVersion > 0 ? `${imageSrc}?v=${imageVersion}` : imageSrc
+
+  // Retry the same URL once by remounting the image, then show the fallback.
+  const [retriedSrc, setRetriedSrc] = useState<string | null>(null)
+  const shouldRenderImage = hasBeenExpanded && isNearViewport && errorSrc !== imageSrc
+  const handleImageError = () => {
+    if (retriedSrc !== previewSrc) {
+      setRetriedSrc(previewSrc)
+      return
+    }
+    setErrorSrc(imageSrc)
+  }
 
   return (
     <button
@@ -84,10 +136,12 @@ function ThumbnailCard({
           `}
       `}
     >
-      <div className="
-        aspect-1280/525 w-full overflow-hidden bg-gray-50
-        dark:bg-gray-900/30
-      "
+      <div
+        ref={cardRef}
+        className="
+          aspect-1280/525 w-full overflow-hidden bg-gray-50
+          dark:bg-gray-900/30
+        "
       >
         {errorSrc === imageSrc
           ? (
@@ -99,19 +153,24 @@ function ThumbnailCard({
                 No image
               </div>
             )
-          : (
-              <img
-                src={previewSrc}
-                alt={`Source image for ${accessibleLabel}`}
-                loading="lazy"
-                decoding="async"
-                className="
-                  size-full object-contain transition
-                  motion-safe:group-hover:scale-[1.02]
-                "
-                onError={() => setErrorSrc(imageSrc)}
-              />
-            )}
+          : shouldRenderImage
+            ? (
+                <img
+                  key={retriedSrc === previewSrc ? 'retry' : 'initial'}
+                  src={previewSrc}
+                  alt={`Source image for ${accessibleLabel}`}
+                  loading="lazy"
+                  decoding="async"
+                  width={thumbnailImageWidth}
+                  height={thumbnailImageHeight}
+                  className="
+                    size-full object-contain transition
+                    motion-safe:group-hover:scale-[1.02]
+                  "
+                  onError={handleImageError}
+                />
+              )
+            : null}
       </div>
 
       <div className={`
@@ -163,6 +222,7 @@ export function CommissionThumbnailGrid({
   commissions,
   selectedCommissionId,
   onSelect,
+  isExpanded,
 }: CommissionThumbnailGridProps) {
   if (commissions.length === 0) {
     return (
@@ -184,6 +244,7 @@ export function CommissionThumbnailGrid({
           commission={commission}
           isSelected={selectedCommissionId === commission.id}
           onSelect={() => onSelect(commission)}
+          isExpanded={isExpanded}
         />
       ))}
     </div>

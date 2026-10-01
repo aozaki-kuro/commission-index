@@ -293,4 +293,19 @@ describe('commission manager search and disclosure lifecycle', () => {
     await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Retry opening commission')!.click())
     expect(container.querySelector('[role="dialog"]')?.getAttribute('data-keyword')).toBe('After replacement')
   })
+
+  it('keeps unopened groups image-free and retains images after expand then collapse', async () => {
+    await render()
+    const firstToggle = container.querySelector<HTMLButtonElement>('#admin-character-1 button[aria-expanded]')!
+    const secondToggle = container.querySelector<HTMLButtonElement>('#admin-character-2 button[aria-expanded]')!
+
+    expect(container.querySelectorAll('#admin-character-2 img[src*="/api/admin/commissions/"]')).toHaveLength(0)
+    await act(async () => firstToggle.click())
+    const expandedImages = [...container.querySelectorAll<HTMLImageElement>('#admin-character-1 img[src*="/api/admin/commissions/"]')]
+    expect(expandedImages.length).toBeGreaterThan(0)
+
+    await act(async () => firstToggle.click())
+    expect([...container.querySelectorAll('#admin-character-1 img[src*="/api/admin/commissions/"]')]).toEqual(expandedImages)
+    expect(secondToggle.getAttribute('aria-expanded')).toBe('false')
+  })
 })

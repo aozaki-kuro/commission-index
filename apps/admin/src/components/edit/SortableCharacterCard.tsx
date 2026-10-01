@@ -353,7 +353,7 @@ export function SortableCharacterCard({
                   )
                 : null}
 
-              {/* 已加载内容在后台刷新时保持挂载。 */}
+              {/* 已加载内容在后台刷新时保持挂载；折叠时由网格跳过图片请求。 */}
               {isCommissionsLoaded
                 ? (
                     <div className="py-4">
@@ -361,6 +361,7 @@ export function SortableCharacterCard({
                         commissions={commissionList}
                         selectedCommissionId={selectedCommissionId}
                         onSelect={onSelectCommission}
+                        isExpanded={isOpen}
                       />
                     </div>
                   )
