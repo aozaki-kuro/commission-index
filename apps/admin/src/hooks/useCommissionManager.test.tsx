@@ -11,11 +11,17 @@ const actions = vi.hoisted(() => ({
   saveCharacterOrder: vi.fn(),
 }))
 
+const storage = vi.hoisted(() => ({
+  safeStorageSet: vi.fn(),
+}))
+
 vi.mock('../lib/adminActions', () => ({
   deleteCharacterAction: actions.deleteCharacterAction,
   renameCharacter: actions.renameCharacter,
   saveCharacterOrder: actions.saveCharacterOrder,
 }))
+
+vi.mock('../lib/storageHelper', () => storage)
 
 const characters: CharacterRow[] = [
   { id: 1, name: 'First', status: 'active', sortOrder: 0, commissionCount: 1 },
@@ -66,6 +72,7 @@ describe('useCommissionManager request lifecycle', () => {
     actions.saveCharacterOrder.mockReset().mockResolvedValue({ status: 'success' })
     actions.deleteCharacterAction.mockReset()
     actions.renameCharacter.mockReset()
+    storage.safeStorageSet.mockReset().mockReturnValue(true)
     window.localStorage.clear()
   })
 
@@ -73,6 +80,19 @@ describe('useCommissionManager request lifecycle', () => {
     await act(async () => root.unmount())
     container.remove()
     vi.useRealTimers()
+  })
+
+  it('shows feedback when panel disclosure persistence exceeds storage quota', async () => {
+    storage.safeStorageSet.mockImplementation((_storage, _key, _value, onQuotaExceeded) => {
+      onQuotaExceeded?.()
+      return false
+    })
+    window.localStorage.setItem('admin-existing-open', JSON.stringify({ ids: [1], timestamp: Date.now() }))
+
+    await act(async () => root.render(createElement(Harness)))
+    await act(async () => {})
+
+    expect(container.querySelector('output')?.textContent).toBe('Browser storage is full; panel state was not saved.')
   })
 
   it('preserves stored disclosures until bootstrap data is ready', async () => {
@@ -171,6 +191,30 @@ describe('useCommissionManager request lifecycle', () => {
     // 请求结束后正常接受外部新顺序，保护不能长期忽略服务端。
     await act(async () => root.render(createElement(RefreshHarness, { rows: characters })))
     expect(manager.activeCount).toBe(2)
+  })
+
+  it('queues a rename after an in-flight reorder with the reordered status', async () => {
+    let finishRename!: (result: { status: 'success' }) => void
+    let finishOrder!: (result: { status: 'success' }) => void
+    actions.renameCharacter.mockImplementationOnce(() => new Promise(resolve => finishRename = resolve))
+    actions.saveCharacterOrder.mockImplementationOnce(() => new Promise(resolve => finishOrder = resolve))
+    await act(async () => root.render(createElement(RenameHarness)))
+
+    await act(async () => manager.handleReorder(0, 2))
+    await editName(characters[0]!, 'Renamed after archive')
+    await act(async () => manager.submitRename())
+
+    expect(actions.saveCharacterOrder).toHaveBeenCalledWith({ active: [2], archived: [1] })
+    expect(actions.renameCharacter).not.toHaveBeenCalled()
+
+    await act(async () => finishOrder({ status: 'success' }))
+    expect(actions.renameCharacter).toHaveBeenCalledWith({
+      id: 1,
+      name: 'Renamed after archive',
+      status: 'archived',
+    })
+
+    await act(async () => finishRename({ status: 'success' }))
   })
 
   it('refreshes through the latest callback after an order failure without retrying', async () => {

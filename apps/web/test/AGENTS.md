@@ -1,6 +1,6 @@
 # web/test
 
-- `setup.tsx` — Vitest DOM/global setup for React unit tests
+- Vitest DOM tests declare `@vitest-environment jsdom` per file; no global setup is required
 - `visual/` — Playwright visual regression specs
 
 ## Rules

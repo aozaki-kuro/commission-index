@@ -403,6 +403,67 @@ describe('mountTimelineViewLoader', () => {
       requestAnimationFrameSpy.mockRestore()
       cleanup()
     })
+
+    it('fetches and mounts new batches when loaded=true but fresh manifest has larger count', async () => {
+      renderFixture()
+      window.history.replaceState(null, '', '/?view=timeline#timeline-year-2023')
+      const panel = document.querySelector<HTMLElement>('[data-commission-view-panel="timeline"]')!
+      panel.dataset.timelineLoaded = 'true'
+      panel.dataset.timelineBatchesLoadedCount = '2'
+
+      const freshManifest = {
+        locale: 'en',
+        v: 'fresh-v',
+        batchVersions: ['bv0', 'bv1', 'bv2'],
+        initialSectionIds: ['timeline-year-2026'],
+        totalBatches: 3,
+        targetBatchById: {
+          'timeline-year-2025': 0,
+          'timeline-year-2024': 1,
+          'timeline-year-2023': 2,
+        },
+      }
+      const fetchMock = vi.fn(async (input: string | URL | Request) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        if (url.startsWith('/search/home-timeline-manifest/'))
+          return new Response(JSON.stringify(freshManifest))
+        if (url.startsWith('/search/home-timeline-batches/'))
+          return new Response(JSON.stringify(createTimelineBatchPayload(2, '2023')))
+        return new Response(null, { status: 404 })
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      const scrollToHashWithoutWrite = vi.fn().mockReturnValue(true)
+
+      const cleanup = mountTimelineViewLoader({
+        deps: { scrollToHashWithoutWrite },
+      })
+      window.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
+      await flushTimelineQueue()
+
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/search/home-timeline-batches/'))
+      expect(document.getElementById('character-alpha-20230101')).toBeTruthy()
+      expect(panel.dataset.timelineBatchesLoadedCount).toBe('3')
+      expect(panel.dataset.timelineLoaded).toBe('true')
+
+      cleanup()
+    })
+
+    it('does not fetch when loaded=true and counts match', async () => {
+      renderFixture()
+      window.history.replaceState(null, '', '/?view=timeline')
+      const panel = document.querySelector<HTMLElement>('[data-commission-view-panel="timeline"]')!
+      panel.dataset.timelineLoaded = 'true'
+      panel.dataset.timelineBatchesLoadedCount = '2'
+      const fetchMock = vi.fn()
+      vi.stubGlobal('fetch', fetchMock)
+
+      const cleanup = mountTimelineViewLoader()
+      window.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
+      await flushTimelineQueue()
+
+      expect(fetchMock).not.toHaveBeenCalled()
+      cleanup()
+    })
   })
 
   it('falls back to legacy template mounting when external batch manifest is missing', async () => {

@@ -62,8 +62,6 @@
       "matchPackageNames": [
         "vitest",
         "jsdom",
-        "@testing-library/jest-dom",
-        "@testing-library/react",
         "@playwright/test"
       ],
       "groupName": "test stack"

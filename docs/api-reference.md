@@ -393,7 +393,7 @@ Creates a new commission and uploads its source image to R2. The request must be
 characterId    string   Numeric character ID (parsed via Number())
 commissionDate string   Required real calendar date in YYYY-MM-DD format
 creatorName    string   Creator display name; submit an empty string when unknown
-workGroupId    string   Optional lowercase UUID v4 for a multi-part work group
+workGroupId    string   Optional UUID v4 for a multi-part work group; trimmed and normalized to lowercase
 partNumber     string   Positive integer; required together with workGroupId
 links          string   Newline-separated URL list (one URL per line)
 design         string   Optional design label
@@ -413,8 +413,13 @@ sourceImage    File     JPEG or PNG only; determined by Content-Type (image/jpeg
 **Errors:**
 
 - `400` — missing/invalid `characterId` or `commissionDate`, missing `sourceImage`
+- `400` — malformed `workGroupId`, non-positive/non-integer `partNumber`, or only one part field set
 - `400` — invalid image type or a commission/image collision
 - `503` — missing `DB` or `IMAGES` binding
+
+Empty or whitespace-only `workGroupId` and `partNumber` values are normalized to `null` before
+validation. Submit both as empty values (FormData) for a standalone work; submit both values for
+a grouped part.
 
 ```bash
 curl -X POST https://admin.crystallize.cc/api/admin/commissions \
@@ -449,7 +454,7 @@ source-image endpoint to replace image bytes.
   characterId: number    // target character ID
   commissionDate: string // required real calendar date in YYYY-MM-DD format
   creatorName: string | null // creator display name, or null when unknown
-  workGroupId: string | null // optional lowercase UUID v4; identifies a multi-part work group
+  workGroupId: string | null // optional UUID v4, normalized to lowercase; identifies a multi-part work group
   partNumber: number | null  // positive integer; both part fields must be set together
   links: string          // newline-separated URL list (one URL per line)
   design?: string        // optional
@@ -460,7 +465,9 @@ source-image endpoint to replace image bytes.
 ```
 
 Note: `commissionDate`, `creatorName`, `workGroupId`, and `partNumber` must be present on every
-PATCH; use `null` for both part fields on a standalone work. Parts retain separate commission
+PATCH; use `null` or empty strings for both part fields on a standalone work. Empty strings are
+normalized to `null` before validation. Both fields must otherwise be set: `workGroupId` is a UUID
+v4 (normalized to lowercase) and `partNumber` is a positive integer. Parts retain separate commission
 rows, IDs, and source images. `links` is a
 newline-separated `string` here (same as FormData), not an array.
 The worker parses it with the same line-splitting logic as the create endpoint.
@@ -475,6 +482,7 @@ The worker parses it with the same line-splitting logic as the create endpoint.
 
 - `400` — invalid ID, missing/invalid `characterId` or `commissionDate`
 - `400` — `creatorName` must be a string or `null`
+- `400` — malformed `workGroupId`, non-positive/non-integer `partNumber`, or only one part field set
 
 ```bash
 curl -X PATCH https://admin.crystallize.cc/api/admin/commissions/12 \

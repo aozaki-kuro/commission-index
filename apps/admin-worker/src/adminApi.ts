@@ -169,6 +169,13 @@ function parseOptionalField(rawValue: string) {
   return rawValue.trim() || undefined
 }
 
+function normalizeCommissionPartFields(input: { workGroupId: string, partNumber: string }) {
+  const workGroupId = input.workGroupId.trim().toLowerCase() || null
+  const rawPartNumber = input.partNumber.trim()
+  const partNumber = rawPartNumber ? Number(rawPartNumber) : null
+  return { workGroupId, partNumber }
+}
+
 function parseCharacterStatus(value: unknown): CharacterStatus {
   return String(value) === 'archived' ? 'archived' : 'active'
 }
@@ -185,12 +192,13 @@ function parseCommissionFields(input: {
   keyword: string
   hidden: boolean
 }): CommissionFields {
+  const { workGroupId, partNumber } = normalizeCommissionPartFields(input)
   return {
     characterId: input.characterId,
     commissionDate: input.commissionDate.trim(),
     creatorName: input.creatorName.trim() || null,
-    workGroupId: input.workGroupId.trim().toLowerCase() || null,
-    partNumber: input.partNumber.trim() ? Number(input.partNumber) : null,
+    workGroupId,
+    partNumber,
     links: parseLinks(input.links),
     design: parseOptionalField(input.design),
     description: parseOptionalField(input.description),

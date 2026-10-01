@@ -1,92 +1,10 @@
-import type { D1DatabaseLike, D1PreparedStatementLike } from './adminPersistence'
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
-import { DatabaseSync } from 'node:sqlite'
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import { createSQLiteD1 } from '../test/sqliteD1'
 import { createCommission, saveHomeFeaturedSearchKeywords, updateCharacterOrder } from './adminPersistence'
 
-interface TestD1Result {
-  success?: boolean
-}
-
-interface SQLiteD1Options {
-  failAtBatchStatement?: number
-}
-
-function createSQLiteD1({ failAtBatchStatement }: SQLiteD1Options = {}) {
-  const database = new DatabaseSync(':memory:')
-  const migrationsDirectory = path.resolve(import.meta.dirname, '../migrations')
-  for (const migrationName of [
-    '0001_admin_fact_source.sql',
-    '0002_source_image_metadata.sql',
-    '0003_rename_stale_to_archived.sql',
-    '0004_commission_identity.sql',
-    '0005_public_commission_identity_and_parts.sql',
-  ]) {
-    database.exec(readFileSync(path.join(migrationsDirectory, migrationName), 'utf8'))
-  }
-
-  let batchCallCount = 0
-  const db: D1DatabaseLike = {
-    prepare(query) {
-      return createStatement(query)
-    },
-    async batch(statements) {
-      batchCallCount += 1
-      database.exec('BEGIN')
-      try {
-        const results: TestD1Result[] = []
-        for (const [index, statement] of statements.entries()) {
-          if (index + 1 === failAtBatchStatement) {
-            throw new Error('Injected batch statement failure.')
-          }
-          results.push(await statement.run())
-        }
-        database.exec('COMMIT')
-        return results
-      }
-      catch (error) {
-        database.exec('ROLLBACK')
-        throw error
-      }
-    },
-  }
-
-  function createStatement(query: string, values: unknown[] = []): D1PreparedStatementLike {
-    return {
-      bind(...nextValues) {
-        return createStatement(query, nextValues)
-      },
-      async all<TRow>() {
-        return { results: database.prepare(query).all(...values as never[]) as TRow[] }
-      },
-      async run() {
-        database.prepare(query).run(...values as never[])
-        return { success: true }
-      },
-    }
-  }
-
-  return { batchCallCount: () => batchCallCount, database, db }
-}
-
 describe('d1 batch persistence', () => {
-  const databases: DatabaseSync[] = []
-
-  afterEach(() => {
-    for (const database of databases.splice(0)) {
-      database.close()
-    }
-  })
-
-  function createDatabase(options?: SQLiteD1Options) {
-    const fixture = createSQLiteD1(options)
-    databases.push(fixture.database)
-    return fixture
-  }
-
   it('stores explicit identity fields and binds source-image metadata to the new commission id', async () => {
-    const { database, db } = createDatabase()
+    const { database, db } = createSQLiteD1()
     database.exec('INSERT INTO characters (id, name, status, sort_order) VALUES (1, \'Fixture\', \'active\', 1)')
 
     await createCommission(db, {
@@ -112,7 +30,7 @@ describe('d1 batch persistence', () => {
   })
 
   it('creates a new multi-part group with distinct commission identities and ordered parts', async () => {
-    const { database, db } = createDatabase()
+    const { database, db } = createSQLiteD1()
     database.exec('INSERT INTO characters (id, name, status, sort_order) VALUES (1, \'Fixture\', \'active\', 1)')
 
     await createCommission(db, {
@@ -158,7 +76,7 @@ describe('d1 batch persistence', () => {
   })
 
   it('rolls back commission creation when the source-image metadata insert conflicts', async () => {
-    const { database, db, batchCallCount } = createDatabase()
+    const { database, db, batchCallCount } = createSQLiteD1()
     database.exec(`
       INSERT INTO characters (id, name, status, sort_order) VALUES (1, 'Fixture', 'active', 1);
       INSERT INTO commissions (character_id, file_name, links) VALUES (1, '20250301_existing', '[]');
@@ -190,7 +108,7 @@ describe('d1 batch persistence', () => {
   })
 
   it('keeps the entire featured-keyword list when the second D1 statement fails', async () => {
-    const { database, db, batchCallCount } = createDatabase({ failAtBatchStatement: 2 })
+    const { database, db, batchCallCount } = createSQLiteD1({ failAtBatchStatement: 2 })
     database.exec(`
       INSERT INTO home_featured_search_keywords (keyword, sort_order) VALUES ('old-a', 1), ('old-b', 2);
     `)
@@ -203,7 +121,7 @@ describe('d1 batch persistence', () => {
   })
 
   it('rolls back active and archived ordering together when an archived update fails', async () => {
-    const { database, db, batchCallCount } = createDatabase({ failAtBatchStatement: 2 })
+    const { database, db, batchCallCount } = createSQLiteD1({ failAtBatchStatement: 2 })
     database.exec(`
       INSERT INTO characters (id, name, status, sort_order) VALUES
         (1, 'Active A', 'active', 4),

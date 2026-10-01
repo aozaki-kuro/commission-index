@@ -108,6 +108,9 @@ Before modifying any route or data shape, read:
 
 ## Guardrails
 
+- API/persistence tests use `test/sqliteD1.ts`: in-memory SQLite with the ordered migrations,
+  atomic D1-style batches, optional failure injection, and per-test connection cleanup.
+  Assert stored results and rollback invariants instead of SQL spelling; keep R2 mocked.
 - Do not reintroduce worker-side auth (Zero Trust owns it)
 - Do not mix public site routes into this worker
 - CORS allowances limited to local dev origins; production is same-origin

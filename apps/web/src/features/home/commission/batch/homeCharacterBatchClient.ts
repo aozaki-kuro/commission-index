@@ -2,12 +2,10 @@ import type { HomeCharacterBatchPayload } from '@features/home/commission/batch/
 import type { HomeCharacterBatchManifest, HomeCharacterBatchStatus } from '@features/home/server/homeCharacterBatches'
 import { readHomeCharacterBatchManifest } from '@features/home/commission/batch/homeCharacterBatchManifest'
 import { renderHomeCharacterBatchPayload } from '@features/home/commission/batch/homeCharacterBatchRender'
-import {
-  buildHomeCharacterBatchUrl,
+import { buildHomeCharacterBatchUrl } from '@features/home/server/homeCharacterBatches'
+import { createBatchRequestQueue } from './batchRequestQueue'
 
-} from '@features/home/server/homeCharacterBatches'
-
-const batchRequestCache = new Map<string, Promise<HomeCharacterBatchPayload>>()
+const batchRequestQueue = createBatchRequestQueue<HomeCharacterBatchPayload>()
 const ACTIVE_TEMPLATE_SELECTOR = 'template[data-active-sections-template="true"]'
 const STALE_TEMPLATE_SELECTOR = 'template[data-archived-sections-template="true"]'
 const ARCHIVED_DEFERRED_TEMPLATE_SELECTOR = 'template[data-archived-deferred-sections-template="true"]'
@@ -53,16 +51,22 @@ export function getHomeCharacterBatchTotalCount({
   return manifest?.[status].totalBatches ?? getLegacyBatchTotalCount({ doc, status })
 }
 
-export function hasMoreHomeCharacterBatches({
-  doc,
-  loadedBatchCount,
+function loadHomeCharacterBatch({
+  batchIndex,
   status,
+  url,
 }: {
-  doc: Document
-  loadedBatchCount: number
+  batchIndex: number
   status: HomeCharacterBatchStatus
+  url: string
 }) {
-  return loadedBatchCount < getHomeCharacterBatchTotalCount({ doc, status })
+  return fetch(url).then(async (response) => {
+    if (!response.ok) {
+      throw new Error(`Failed to load ${status} batch ${batchIndex}: ${response.status}`)
+    }
+
+    return (await response.json()) as HomeCharacterBatchPayload
+  })
 }
 
 export async function fetchHomeCharacterBatch({
@@ -87,24 +91,7 @@ export async function fetchHomeCharacterBatch({
     v: manifest[status].batchVersions?.[batchIndex] ?? manifest.v,
   })
 
-  let request = batchRequestCache.get(url)
-  if (!request) {
-    request = fetch(url)
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`Failed to load ${status} batch ${batchIndex}: ${response.status}`)
-        }
-
-        return (await response.json()) as HomeCharacterBatchPayload
-      })
-      .catch((error) => {
-        batchRequestCache.delete(url)
-        throw error
-      })
-    batchRequestCache.set(url, request)
-  }
-
-  return request
+  return batchRequestQueue.fetch(url, () => loadHomeCharacterBatch({ batchIndex, status, url }))
 }
 
 export function prefetchHomeCharacterBatches({
@@ -127,15 +114,25 @@ export function prefetchHomeCharacterBatches({
   if (finalBatchIndex < firstBatchIndex)
     return
 
+  const manifest = readHomeCharacterBatchManifest(doc)
+  if (!manifest)
+    return
+
   for (let batchIndex = firstBatchIndex; batchIndex <= finalBatchIndex; batchIndex += 1) {
-    void fetchHomeCharacterBatch({ batchIndex, doc, status }).catch(() => {
+    const url = buildHomeCharacterBatchUrl({
+      batchIndex,
+      locale: manifest.locale,
+      status,
+      v: manifest[status].batchVersions?.[batchIndex] ?? manifest.v,
+    })
+    void batchRequestQueue.prefetch(url, () => loadHomeCharacterBatch({ batchIndex, status, url })).catch(() => {
       // Ignore prefetch failures and fall back to on-demand loading later.
     })
   }
 }
 
 export function clearHomeCharacterBatchRequestCacheForTests() {
-  batchRequestCache.clear()
+  batchRequestQueue.clearForTests()
 }
 
 export function mountHomeCharacterBatch({

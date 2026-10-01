@@ -2,8 +2,10 @@ import type { AdminBootstrapData } from '@commission-index/domain'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { AdminBootstrapStatus } from '../components/AdminBootstrapStatus'
 import { AdminEditDashboard } from '../components/AdminEditDashboard'
+import { FloatingNotice } from '../components/FloatingNotice'
 import { fetchAdminJsonWithRetry, readCachedAdminJson } from '../lib/adminApi'
 import { subscribeToDataUpdates } from '../lib/dataUpdateSignal'
+import { safeStorageSet } from '../lib/storageHelper'
 
 const scrollStorageKey = 'admin-dashboard-scroll'
 const scrollExpiryMs = 10 * 60 * 1000
@@ -89,7 +91,7 @@ function readStoredScrollState(): StoredScrollState | null {
   }
 }
 
-function writeStoredScrollTop() {
+function writeStoredScrollTop(onQuotaExceeded?: () => void) {
   if (typeof window === 'undefined') {
     return
   }
@@ -112,12 +114,7 @@ function writeStoredScrollTop() {
     timestamp: Date.now(),
     top: getCurrentScrollTop(),
   }
-  try {
-    window.sessionStorage.setItem(scrollStorageKey, JSON.stringify(state))
-  }
-  catch {
-    // 存储不可用时不影响页面编辑。
-  }
+  safeStorageSet(window.sessionStorage, scrollStorageKey, JSON.stringify(state), onQuotaExceeded)
 }
 
 function editReducer(state: EditState, action: EditAction): EditState {
@@ -152,6 +149,8 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
   const [areOpenGroupsLoaded, setAreOpenGroupsLoaded] = useState(false)
   const markOpenGroupsLoaded = useCallback(() => setAreOpenGroupsLoaded(true), [])
   const refreshData = useCallback(() => setReloadToken(token => token + 1), [])
+  const [storageQuotaNotice, setStorageQuotaNotice] = useState(false)
+  const handleStorageQuotaExceeded = useCallback(() => setStorageQuotaNotice(true), [])
 
   useEffect(() => {
     if (state.payload && areOpenGroupsLoaded) {
@@ -234,7 +233,7 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
         window.clearTimeout(timeoutId)
         timeoutId = null
       }
-      writeStoredScrollTop()
+      writeStoredScrollTop(handleStorageQuotaExceeded)
     }
 
     const schedulePersist = () => {
@@ -244,7 +243,7 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
 
       timeoutId = window.setTimeout(() => {
         timeoutId = null
-        writeStoredScrollTop()
+        writeStoredScrollTop(handleStorageQuotaExceeded)
       }, scrollPersistThrottleMs)
     }
 
@@ -276,7 +275,7 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
       window.removeEventListener('beforeunload', persistBeforeUnload)
       window.removeEventListener('pageshow', resetNavigationSave)
     }
-  }, [hasRestoredScroll, pendingScrollState])
+  }, [handleStorageQuotaExceeded, hasRestoredScroll, pendingScrollState])
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -331,6 +330,11 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
         hasPayload={state.payload !== null}
         onRetry={refreshData}
       />
+      {storageQuotaNotice && (
+        <FloatingNotice tone="warning" onDismiss={() => setStorageQuotaNotice(false)}>
+          Browser storage is full. Scroll position and expanded groups will not persist across reloads.
+        </FloatingNotice>
+      )}
       <AdminEditDashboard
         characters={state.payload?.characters ?? []}
         commissionSearchRows={state.payload?.commissionSearchRows ?? []}

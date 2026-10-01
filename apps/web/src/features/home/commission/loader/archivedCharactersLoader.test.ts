@@ -14,13 +14,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { clearHomeCharacterBatchRequestCacheForTests } from '../batch/homeCharacterBatchClient'
 import { clearHomeCharacterBatchManifestCacheForTests } from '../batch/homeCharacterBatchManifest'
 
-async function flushAsyncWork() {
-  for (let index = 0; index < 8; index += 1) {
-    await Promise.resolve()
-    await new Promise(resolve => setTimeout(resolve, 0))
-  }
-}
-
 function setScrollEnvironment({
   innerHeight = 800,
   x = 0,
@@ -95,9 +88,8 @@ describe('mountArchivedCharactersLoader', () => {
     document
       .querySelector<HTMLElement>('[data-load-archived-characters="true"]')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    await flushAsyncWork()
+    await vi.waitFor(() => expect(restoreScrollPosition).toHaveBeenCalledTimes(1))
 
-    expect(restoreScrollPosition).toHaveBeenCalledTimes(1)
     expect(restoreScrollPosition).toHaveBeenCalledWith(window, { x: 24, y: 480 })
 
     cleanup()
@@ -117,7 +109,7 @@ describe('mountArchivedCharactersLoader', () => {
     document
       .querySelector<HTMLElement>('[data-load-archived-characters="true"]')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    await flushAsyncWork()
+    await vi.waitFor(() => expect(onStateChanged).toHaveBeenCalledTimes(2))
 
     expect(document.getElementById('section-archived')).toBeTruthy()
     expect(
@@ -138,7 +130,7 @@ describe('mountArchivedCharactersLoader', () => {
     ).toBe(true)
     expect(onLoaded).toHaveBeenCalledTimes(1)
     expect(onSidebarSync).toHaveBeenCalledTimes(1)
-    expect(onStateChanged).toHaveBeenCalledTimes(2)
+
     expect(
       (onStateChanged.mock.calls[0]?.[0] as CustomEvent<{ visibility: string, loaded: boolean }>)
         .detail,
@@ -167,18 +159,8 @@ describe('mountArchivedCharactersLoader', () => {
     const disconnect = vi.fn()
 
     class MockIntersectionObserver {
-      constructor(_callback: IntersectionObserverCallback) {}
-
       observe = observe
       disconnect = disconnect
-      unobserve() {}
-      takeRecords() {
-        return []
-      }
-
-      readonly root = null
-      readonly rootMargin = ''
-      readonly thresholds = []
     }
 
     window.addEventListener(ARCHIVED_CHARACTERS_LOADED_EVENT, onLoaded)
@@ -188,7 +170,7 @@ describe('mountArchivedCharactersLoader', () => {
     document
       .querySelector<HTMLElement>('[data-load-archived-characters="true"]')
       ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    await flushAsyncWork()
+    await vi.waitFor(() => expect(observe).toHaveBeenCalledTimes(1))
 
     expect(document.getElementById('section-archived-initial')).toBeTruthy()
     expect(document.getElementById('section-archived-deferred')).toBeNull()
@@ -205,7 +187,7 @@ describe('mountArchivedCharactersLoader', () => {
     expect(onLoaded).toHaveBeenCalledTimes(1)
 
     window.dispatchEvent(new Event(ARCHIVED_CHARACTERS_LOAD_REQUEST_EVENT))
-    await flushAsyncWork()
+    await vi.waitFor(() => expect(document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')?.dataset.archivedLoaded).toBe('true'))
 
     expect(document.getElementById('section-archived-deferred')).toBeTruthy()
     expect(
@@ -214,7 +196,7 @@ describe('mountArchivedCharactersLoader', () => {
         ?.getAttribute('data-archived-loaded'),
     ).toBe('true')
     expect(onLoaded).toHaveBeenCalledTimes(2)
-    expect(observe).toHaveBeenCalledTimes(1)
+
     expect(disconnect).toHaveBeenCalled()
 
     cleanup()
@@ -228,25 +210,15 @@ describe('mountArchivedCharactersLoader', () => {
     const disconnect = vi.fn()
 
     class MockIntersectionObserver {
-      constructor(_callback: IntersectionObserverCallback) {}
-
       observe = observe
       disconnect = disconnect
-      unobserve() {}
-      takeRecords() {
-        return []
-      }
-
-      readonly root = null
-      readonly rootMargin = ''
-      readonly thresholds = []
     }
 
     persistArchivedCharactersVisibility(window, 'visible')
     vi.stubGlobal('IntersectionObserver', MockIntersectionObserver)
 
     const cleanup = mountArchivedCharactersLoader()
-    await flushAsyncWork()
+    await vi.waitFor(() => expect(observe).toHaveBeenCalledTimes(1))
 
     expect(readSavedArchivedCharactersVisibility(window)).toBe('visible')
     expect(document.getElementById('section-archived-initial')).toBeTruthy()
@@ -261,7 +233,6 @@ describe('mountArchivedCharactersLoader', () => {
         .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
         ?.getAttribute('data-archived-loaded'),
     ).toBe('false')
-    expect(observe).toHaveBeenCalledTimes(1)
 
     cleanup()
     vi.unstubAllGlobals()
@@ -287,7 +258,7 @@ describe('mountArchivedCharactersLoader', () => {
     const cleanup = mountArchivedCharactersLoader({
       deps: { restoreScrollPosition, scrollToHashWithoutWrite },
     })
-    await flushAsyncWork()
+    await vi.waitFor(() => expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-archived-20240101'))
 
     expect(document.getElementById('section-archived')).toBeTruthy()
     expect(
@@ -295,7 +266,7 @@ describe('mountArchivedCharactersLoader', () => {
         .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
         ?.getAttribute('data-archived-loaded'),
     ).toBe('true')
-    expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#section-archived-20240101')
+
     expect(restoreScrollPosition).not.toHaveBeenCalled()
 
     cleanup()
@@ -408,10 +379,9 @@ describe('mountArchivedCharactersLoader', () => {
         deps: { scrollToHashWithoutWrite: scrollSpy },
       })
 
-      await flushAsyncWork()
+      await vi.waitFor(() => expect(scrollSpy).toHaveBeenCalledWith('#section-new-archived-20240101'))
 
       expect(document.getElementById('section-new-archived-20240101')).toBeTruthy()
-      expect(scrollSpy).toHaveBeenCalledWith('#section-new-archived-20240101')
 
       cleanup()
       requestAnimationFrameSpy.mockRestore()
@@ -432,7 +402,7 @@ describe('mountArchivedCharactersLoader', () => {
 
     const cleanup = mountArchivedCharactersLoader()
     window.dispatchEvent(new Event(ARCHIVED_CHARACTERS_LOAD_REQUEST_EVENT))
-    await flushAsyncWork()
+    await vi.waitFor(() => expect(onStateChanged).toHaveBeenCalledTimes(2))
     window.dispatchEvent(new Event(ARCHIVED_CHARACTERS_COLLAPSE_REQUEST_EVENT))
 
     expect(document.getElementById('section-archived')).toBeNull()

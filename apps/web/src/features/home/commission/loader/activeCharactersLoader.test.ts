@@ -206,6 +206,180 @@ describe('mountActiveCharactersLoader', () => {
     window.history.replaceState(null, '', '/')
   })
 
+  describe('stale manifest count mismatch', () => {
+    it('fetches and mounts new batches when loaded=true but fresh manifest has larger count', async () => {
+      clearHomeCharacterBatchManifestCacheForTests()
+      document.body.innerHTML = `
+        <div data-commission-view-panel="character" data-active-sections-loaded="true" data-active-batches-loaded-count="1">
+          <section id="section-alpha"></section>
+          <div data-active-sections-container="true">
+            <section id="section-beta"></section>
+          </div>
+          <div data-active-sections-sentinel="true"></div>
+        </div>
+        <script type="application/json" data-home-character-batch-manifest="true">
+          {
+            "locale": "en",
+            "v": "stale-v",
+            "active": {
+              "initialSectionIds": ["section-alpha"],
+              "totalBatches": 1,
+              "targetBatchById": {
+                "section-beta": 0
+              },
+              "batchVersions": ["bv0"]
+            },
+            "archived": {
+              "initialSectionIds": [],
+              "totalBatches": 0,
+              "targetBatchById": {},
+              "batchVersions": []
+            }
+          }
+        </script>
+      `
+      window.history.replaceState(null, '', '#section-gamma-20240101')
+
+      const freshManifest = {
+        locale: 'en',
+        v: 'fresh-v',
+        active: {
+          initialSectionIds: ['section-alpha'],
+          totalBatches: 2,
+          targetBatchById: {
+            'section-beta': 0,
+            'section-gamma': 1,
+            'section-gamma-20240101': 1,
+          },
+          batchVersions: ['bv0', 'bv1-fresh'],
+        },
+        archived: {
+          initialSectionIds: [],
+          totalBatches: 0,
+          targetBatchById: {},
+          batchVersions: [],
+        },
+      }
+
+      const batchPayload = {
+        batchIndex: 1,
+        status: 'active',
+        sections: [{
+          sectionId: 'section-gamma',
+          titleId: 'title-section-gamma',
+          sectionHash: '#section-gamma',
+          displayName: 'Gamma',
+          totalCommissions: 1,
+          toBeAnnouncedText: 'TBA',
+          entries: [{
+            id: 'section-gamma-20240101',
+            sectionId: 'section-gamma',
+            searchKey: 'section-gamma::20240101_gamma',
+            searchText: 'gamma 2024',
+            searchSuggest: 'Character\tGamma',
+            altText: '(c) 2024 Gamma & Crystallize',
+            image: null,
+            sourceImageNotFoundText: 'Source image not found',
+            timeLabel: '2024/01/01',
+            primaryText: 'Gamma',
+            secondaryText: null,
+            links: [],
+            interest: null,
+          }],
+        }],
+      }
+
+      const fetchSpy = vi.fn(async (input: string | URL | Request) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        if (url.startsWith('/search/home-character-manifest/'))
+          return new Response(JSON.stringify(freshManifest))
+        if (url.startsWith('/search/home-character-batches/'))
+          return new Response(JSON.stringify(batchPayload))
+        return new Response(null, { status: 404 })
+      })
+      vi.stubGlobal('fetch', fetchSpy)
+      const scrollToHashWithoutWrite = vi.fn().mockReturnValue(true)
+
+      const cleanup = mountActiveCharactersLoader({
+        deps: { scrollToHashWithoutWrite },
+      })
+      await flushAsyncWork()
+
+      expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/search/home-character-manifest/'))
+      expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/search/home-character-batches/'))
+      expect(document.getElementById('section-gamma-20240101')).toBeTruthy()
+
+      const panel = document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+      expect(panel?.dataset.activeBatchesLoadedCount).toBe('2')
+      expect(panel?.dataset.activeSectionsLoaded).toBe('true')
+
+      clearHomeCharacterBatchManifestCacheForTests()
+      clearHomeCharacterBatchRequestCacheForTests()
+      vi.unstubAllGlobals()
+      cleanup()
+    })
+
+    it('does not fetch when loaded=true and counts match', async () => {
+      clearHomeCharacterBatchManifestCacheForTests()
+      document.body.innerHTML = `
+        <div data-commission-view-panel="character" data-active-sections-loaded="true" data-active-batches-loaded-count="2">
+          <section id="section-alpha"></section>
+          <div data-active-sections-container="true">
+            <section id="section-beta"></section>
+            <section id="section-gamma"></section>
+          </div>
+          <div data-active-sections-sentinel="true"></div>
+        </div>
+        <script type="application/json" data-home-character-batch-manifest="true">
+          {
+            "locale": "en",
+            "v": "current-v",
+            "active": {
+              "initialSectionIds": ["section-alpha"],
+              "totalBatches": 2,
+              "targetBatchById": {
+                "section-beta": 0,
+                "section-gamma": 1
+              },
+              "batchVersions": ["bv0", "bv1"]
+            },
+            "archived": {
+              "initialSectionIds": [],
+              "totalBatches": 0,
+              "targetBatchById": {},
+              "batchVersions": []
+            }
+          }
+        </script>
+      `
+      clearHomeCharacterBatchManifestCacheForTests()
+
+      window.history.replaceState(null, '', '#section-alpha')
+
+      const fetchSpy = vi.fn()
+      vi.stubGlobal('fetch', fetchSpy)
+      const scrollToHashWithoutWrite = vi.fn().mockReturnValue(true)
+      const requestAnimationFrameSpy = vi
+        .spyOn(window, 'requestAnimationFrame')
+        .mockImplementation((callback) => {
+          callback(0)
+          return 1
+        })
+
+      const cleanup = mountActiveCharactersLoader({
+        deps: { scrollToHashWithoutWrite },
+      })
+      await flushAsyncWork()
+
+      expect(fetchSpy).not.toHaveBeenCalled()
+
+      clearHomeCharacterBatchManifestCacheForTests()
+      vi.unstubAllGlobals()
+      requestAnimationFrameSpy.mockRestore()
+      cleanup()
+    })
+  })
+
   describe('fresh manifest fallback', () => {
     it('fetches fresh manifest when inline manifest misses hash target', async () => {
       clearHomeCharacterBatchManifestCacheForTests()

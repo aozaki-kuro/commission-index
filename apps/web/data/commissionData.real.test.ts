@@ -28,7 +28,7 @@ describeRealData('commission data pipeline (real sqlite snapshot)', () => {
     }
   })
 
-  it('filters hidden commissions from source records while preserving real-data edge cases', async () => {
+  it('filters hidden commissions from source records', async () => {
     const [{ getCommissionData }, { getCharacterRecords }] = await Promise.all([
       import('./commissionData'),
       import('./commissionRecords'),
@@ -59,11 +59,5 @@ describeRealData('commission data pipeline (real sqlite snapshot)', () => {
         allVisibleDataCommissions.some(commission => hiddenFileNames.has(commission.fileName)),
       ).toBe(false)
     }
-
-    expect(allRecordCommissions.some(commission => !commission.fileName.includes('_'))).toBe(true)
-    expect(
-      allRecordCommissions.some(commission => /\(part\s+\d+\)$/i.test(commission.fileName)),
-    ).toBe(true)
-    expect(allRecordCommissions.some(commission => !!commission.Keyword?.trim())).toBe(true)
   })
 })

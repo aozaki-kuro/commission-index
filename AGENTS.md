@@ -143,6 +143,13 @@ When you discover a non-obvious bug, footgun, or architecture-specific gotcha du
 
 ## Validation Gates
 
+### Unit Test Scope
+
+- Vitest 使用根配置收集各 workspace 的 `*.test.ts(x)`，默认 Node；需要 DOM 的测试按文件声明 `@vitest-environment jsdom`，不设置全局 cwd 或加载 matcher 扩展。
+- 保留领域规则、API 输入/输出、数据守恒/回滚和异步竞态测试；不以源码字符串、Tailwind 拼写或当前生产数据中的特定记录代替行为断言。
+- Worker API/persistence 共用 `apps/admin-worker/test/sqliteD1.ts` 执行真实 SQL 与事务回滚；R2 保留边界 mock。不要用 SQL 字符串匹配再实现一套数据库。
+- 异步 DOM 测试使用 `vi.waitFor` 等待可观察结果，不以固定次数的 Promise/timer 循环猜测完成时间；真实布局、滚动和动画交给 Playwright。
+
 ### Local Hooks (enforced by prek)
 
 **Pre-commit:**
@@ -202,7 +209,7 @@ CI gotchas:
 
 #### Production `/admin` verification
 
-Production deployment is static-only (no Worker entrypoint). `/admin` and `/api/admin/*` must return 404 — enforced via `assets.not_found_handling = "404-page"` and explicit mappings in `apps/web/public/_redirects`. Verify after deploy:
+Production deployment is static-only (no Worker entrypoint). `/admin` and `/api/admin/*` must return 404 — enforced via `assets.not_found_handling = "404-page"`. `apps/web/public/_redirects` currently contains only public-site redirects (/commission, /feed.xml, /rss); admin path blocking relies on the Workers asset handler's 404 behavior. Verify after deploy:
 
 ```bash
 curl -I https://<your-domain>/admin

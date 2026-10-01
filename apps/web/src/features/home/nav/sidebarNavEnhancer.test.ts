@@ -142,45 +142,12 @@ describe('sidebarNavEnhancer', () => {
     const emptyTitle = document.getElementById('title-empty')
     const introduction = document.getElementById('title-introduction')
 
-    emptyTitle!.getBoundingClientRect = () =>
-      ({
-        top: 180,
-        bottom: 220,
-        left: 0,
-        right: 0,
-        width: 200,
-        height: 40,
-        x: 0,
-        y: 180,
-        toJSON: () => ({}),
-      }) as DOMRect
+    emptyTitle!.getBoundingClientRect = () => new DOMRect(0, 180, 200, 40)
     emptyTitle!.getClientRects = () =>
       [emptyTitle!.getBoundingClientRect()] as unknown as DOMRectList
-    title!.getBoundingClientRect = () =>
-      ({
-        top: 900,
-        bottom: 940,
-        left: 0,
-        right: 0,
-        width: 200,
-        height: 40,
-        x: 0,
-        y: 900,
-        toJSON: () => ({}),
-      }) as DOMRect
+    title!.getBoundingClientRect = () => new DOMRect(0, 900, 200, 40)
     title!.getClientRects = () => [title!.getBoundingClientRect()] as unknown as DOMRectList
-    introduction!.getBoundingClientRect = () =>
-      ({
-        top: -200,
-        bottom: -100,
-        left: 0,
-        right: 0,
-        width: 200,
-        height: 40,
-        x: 0,
-        y: -200,
-        toJSON: () => ({}),
-      }) as DOMRect
+    introduction!.getBoundingClientRect = () => new DOMRect(0, -200, 200, 100)
     introduction!.getClientRects = () =>
       [introduction!.getBoundingClientRect()] as unknown as DOMRectList
 
@@ -200,31 +167,9 @@ describe('sidebarNavEnhancer', () => {
     const title = document.getElementById('title-alpha')
     const introduction = document.getElementById('title-introduction')
 
-    title!.getBoundingClientRect = () =>
-      ({
-        top: 200,
-        bottom: 240,
-        left: 0,
-        right: 0,
-        width: 200,
-        height: 40,
-        x: 0,
-        y: 200,
-        toJSON: () => ({}),
-      }) as DOMRect
+    title!.getBoundingClientRect = () => new DOMRect(0, 200, 200, 40)
     title!.getClientRects = () => [title!.getBoundingClientRect()] as unknown as DOMRectList
-    introduction!.getBoundingClientRect = () =>
-      ({
-        top: -200,
-        bottom: -100,
-        left: 0,
-        right: 0,
-        width: 200,
-        height: 40,
-        x: 0,
-        y: -200,
-        toJSON: () => ({}),
-      }) as DOMRect
+    introduction!.getBoundingClientRect = () => new DOMRect(0, -200, 200, 100)
     introduction!.getClientRects = () =>
       [introduction!.getBoundingClientRect()] as unknown as DOMRectList
 

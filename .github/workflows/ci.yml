@@ -38,10 +38,11 @@ jobs:
         run: |
           node --import tsx --input-type=module <<'JS'
           import { mkdirSync, writeFileSync } from 'node:fs'
+          import { GENERATED_FACT_SOURCE_SCHEMA_VERSION } from '@commission-index/domain'
           import { createSnapshot } from './apps/admin-worker/scripts/exportWebFactSource.ts'
           const directory = 'apps/web/generated/fact-source'
           mkdirSync(directory, { recursive: true })
-          const meta = { schemaVersion: 1, source: 'remote-admin-fact-source', exportedAt: '2000-01-01T00:00:00.000Z', databaseBinding: 'fixture', imagesBucket: 'fixture' }
+          const meta = { schemaVersion: GENERATED_FACT_SOURCE_SCHEMA_VERSION, source: 'remote-admin-fact-source', exportedAt: '2000-01-01T00:00:00.000Z', databaseBinding: 'fixture', imagesBucket: 'fixture' }
           const content = { meta, characters: [], creatorAliases: [], characterAliases: [], keywordAliases: [], featuredSearchKeywords: [] }
           const snapshot = createSnapshot(content, { meta, files: [], missing: [] })
           writeFileSync(`${directory}/content.json`, JSON.stringify(snapshot.content))

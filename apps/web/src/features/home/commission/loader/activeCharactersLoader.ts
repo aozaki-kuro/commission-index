@@ -90,9 +90,9 @@ export function mountActiveCharactersLoader({
   }
   const isLocalLoaded = () => panel.dataset.activeSectionsLoaded !== 'false'
 
-  const updateLoadedState = (loadedBatchCount: number) => {
+  const updateLoadedState = (loadedBatchCount: number, batchTotal = totalBatchCount) => {
     panel.dataset.activeBatchesLoadedCount = String(loadedBatchCount)
-    panel.dataset.activeSectionsLoaded = loadedBatchCount >= totalBatchCount ? 'true' : 'false'
+    panel.dataset.activeSectionsLoaded = loadedBatchCount >= batchTotal ? 'true' : 'false'
   }
 
   const stopAutoLoad = () => {
@@ -178,7 +178,7 @@ export function mountActiveCharactersLoader({
     const effectiveTotalBatchCount = manifestOverride?.active.totalBatches ?? totalBatchCount
 
     if (loadedBatchCount >= effectiveTotalBatchCount) {
-      updateLoadedState(loadedBatchCount)
+      updateLoadedState(loadedBatchCount, effectiveTotalBatchCount)
       return false
     }
 
@@ -216,7 +216,7 @@ export function mountActiveCharactersLoader({
       didChange = true
     }
 
-    updateLoadedState(loadedBatchCount)
+    updateLoadedState(loadedBatchCount, effectiveTotalBatchCount)
     if (didChange) {
       deps.dispatchSidebarSync()
     }
@@ -226,25 +226,31 @@ export function mountActiveCharactersLoader({
 
   const queueLoad = (options: RequestActiveCharactersLoadOptions = {}) => {
     const run = async () => {
-      if (isLocalLoaded()) {
+      const canExtendLoadedContent
+        = options.manifestOverride?.active.totalBatches !== undefined
+          && options.manifestOverride.active.totalBatches > readLocalBatchCount()
+      if (isLocalLoaded() && !canExtendLoadedContent) {
         syncAutoLoad()
         return false
       }
 
       const loadedBatchCount = readLocalBatchCount()
-      if (loadedBatchCount >= totalBatchCount) {
+      if (loadedBatchCount >= totalBatchCount && !options.manifestOverride) {
         updateLoadedState(loadedBatchCount)
         syncAutoLoad()
         return false
       }
 
       const strategy = options.strategy ?? 'next'
+      const effectiveTotalBatchCount = options.manifestOverride?.active.totalBatches ?? totalBatchCount
       const targetBatchIndex = Number.isInteger(options.targetBatchCount)
         ? Math.max(loadedBatchCount, Number(options.targetBatchCount) - 1)
         : strategy === 'all'
-          ? totalBatchCount - 1
+          ? effectiveTotalBatchCount - 1
           : strategy === 'target'
-            ? (resolveDeferredActiveCharacterBatch(doc, options.targetId) ?? loadedBatchCount)
+            ? (options.manifestOverride
+                ? loadedBatchCount
+                : resolveDeferredActiveCharacterBatch(doc, options.targetId) ?? loadedBatchCount)
             : loadedBatchCount
 
       const didChange = await loadBatchesThrough(targetBatchIndex, options.manifestOverride)
@@ -278,8 +284,16 @@ export function mountActiveCharactersLoader({
 
   const syncHashTarget = async () => {
     const hash = win.location.hash
-    if (!hash || isLocalLoaded())
+    if (!hash)
       return
+
+    const loadedBatchCount = readLocalBatchCount()
+    if (isLocalLoaded() && loadedBatchCount < totalBatchCount) {
+      const freshManifest = await fetchFreshHomeCharacterBatchManifest(doc)
+      if (freshManifest && freshManifest.active.totalBatches > loadedBatchCount) {
+        void queueLoad({ strategy: 'all', manifestOverride: freshManifest })
+      }
+    }
 
     if (getHashTarget(hash)) {
       // Element is in the initial HTML. Browser native scroll may have fired at parse

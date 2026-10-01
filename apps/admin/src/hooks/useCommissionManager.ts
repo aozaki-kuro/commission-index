@@ -21,6 +21,7 @@ import {
 } from '../lib/adminActions'
 import { notifyDataUpdate } from '../lib/dataUpdateSignal'
 import { markPendingRebuild } from '../lib/pendingRebuildSignal'
+import { safeStorageSet } from '../lib/storageHelper'
 import { arrayMove } from './useNativeDragReorder'
 
 const disclosureStorageKey = 'admin-existing-open'
@@ -168,7 +169,7 @@ function readOpenIdsFromStorage(): Set<number> {
   }
 }
 
-function saveOpenIdsToStorage(openIds: Set<number>) {
+function saveOpenIdsToStorage(openIds: Set<number>, onQuotaExceeded?: () => void) {
   if (typeof window === 'undefined') {
     return
   }
@@ -182,7 +183,12 @@ function saveOpenIdsToStorage(openIds: Set<number>) {
     ids: [...openIds],
     timestamp: Date.now(),
   }
-  window.localStorage.setItem(disclosureStorageKey, JSON.stringify(payload))
+  safeStorageSet(
+    window.localStorage,
+    disclosureStorageKey,
+    JSON.stringify(payload),
+    onQuotaExceeded,
+  )
 }
 
 function openIdsReducer(state: Set<number>, action: OpenIdsAction): Set<number> {
@@ -325,6 +331,9 @@ export function useCommissionManager({
   const [isDeletePending, setIsDeletePending] = useState(false)
   const [confirmingCharacter, setConfirmingCharacter] = useState<CharacterRow | null>(null)
   const [openIds, dispatchOpenIds] = useReducer(openIdsReducer, undefined, readOpenIdsFromStorage)
+  const handleStorageQuotaExceeded = useCallback(() => {
+    setFeedback({ text: 'Browser storage is full; panel state was not saved.', type: 'error' })
+  }, [])
   const orderSaveQueueRef = useRef<ReturnType<typeof createLatestCharacterOrderSaveQueue> | null>(null)
   const deleteRequestIdRef = useRef(0)
   const activeDeleteRequestIdRef = useRef<number | null>(null)
@@ -355,8 +364,8 @@ export function useCommissionManager({
   }, [])
 
   useEffect(() => {
-    saveOpenIdsToStorage(openIds)
-  }, [openIds])
+    saveOpenIdsToStorage(openIds, handleStorageQuotaExceeded)
+  }, [handleStorageQuotaExceeded, openIds])
 
   useSafeLayoutEffect(() => {
     if (isDataReady) {

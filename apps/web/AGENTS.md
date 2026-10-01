@@ -2,6 +2,17 @@
 
 Active Astro 7 public runtime (`crystallize.cc`).
 
+## Product Context
+
+- `PRODUCT.md` records the public site's confirmed audience, purpose, workflows, and content boundaries;
+  private-admin product context lives separately in `apps/admin/PRODUCT.md`.
+- `.impeccable/config.json` records the user-selected code-first default for new public surfaces.
+- `.impeccable/live/config.json` targets `src/layouts/BaseLayout.astro` for optional live iteration.
+  Initialization checks CSP and writes configuration only; it does not inject the helper or start live mode.
+
+**When to update:** Keep `PRODUCT.md` aligned when confirmed product facts change; update this section
+when the context scope, default workflow, or live entry layout changes.
+
 ## Key Files
 
 - `astro.config.ts` — Astro config + dev integrations

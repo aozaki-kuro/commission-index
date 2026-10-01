@@ -483,6 +483,328 @@ describe('admin worker CRUD contract routing', () => {
     expect(updateCommission).not.toHaveBeenCalled()
   })
 
+  it('normalizes empty string workGroupId and partNumber to null for create-commission', async () => {
+    const createCommission = vi.fn(async (input: CreateCommissionInput) => {
+      void input
+      return createJsonResponse({ status: 'success', message: 'Commission created.' })
+    })
+    const backend = createCrudBackend({ createCommission })
+
+    const formData = new FormData()
+    formData.set('characterId', '7')
+    formData.set('commissionDate', '2025-03-01')
+    formData.set('creatorName', 'test-creator')
+    formData.set('workGroupId', '')
+    formData.set('partNumber', '')
+    formData.set('links', '')
+    formData.set('hidden', 'off')
+    formData.set('sourceImage', new File(['png'], 'test.png', { type: 'image/png' }))
+
+    const request = new Request(`${baseUrl}/api/admin/commissions`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    const response = await handleAdminApiRequest(request, {}, backend)
+
+    expect(response.status).toBe(200)
+    expect(createCommission).toHaveBeenCalledOnce()
+    const callArg = createCommission.mock.calls[0]?.[0]
+    expect(callArg?.workGroupId).toBe(null)
+    expect(callArg?.partNumber).toBe(null)
+  })
+
+  it('rejects workGroupId without partNumber before create-commission persistence', async () => {
+    const createCommission = vi.fn(async (_input: CreateCommissionInput) =>
+      createJsonResponse({ status: 'success', message: 'unexpected' }))
+    const backend = createCrudBackend({ createCommission })
+
+    const formData = new FormData()
+    formData.set('characterId', '7')
+    formData.set('commissionDate', '2025-03-01')
+    formData.set('creatorName', 'test-creator')
+    formData.set('workGroupId', 'a1b2c3d4-e5f6-4789-a012-3456789abcde')
+    formData.set('partNumber', '')
+    formData.set('links', '')
+    formData.set('sourceImage', new File(['png'], 'test.png', { type: 'image/png' }))
+
+    const request = new Request(`${baseUrl}/api/admin/commissions`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    const response = await handleAdminApiRequest(request, {}, backend)
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      status: 'error',
+      message: 'Work group and part number must be set together.',
+    })
+    expect(createCommission).not.toHaveBeenCalled()
+  })
+
+  it('rejects partNumber without workGroupId before create-commission persistence', async () => {
+    const createCommission = vi.fn(async (_input: CreateCommissionInput) =>
+      createJsonResponse({ status: 'success', message: 'unexpected' }))
+    const backend = createCrudBackend({ createCommission })
+
+    const formData = new FormData()
+    formData.set('characterId', '7')
+    formData.set('commissionDate', '2025-03-01')
+    formData.set('creatorName', 'test-creator')
+    formData.set('workGroupId', '')
+    formData.set('partNumber', '1')
+    formData.set('links', '')
+    formData.set('sourceImage', new File(['png'], 'test.png', { type: 'image/png' }))
+
+    const request = new Request(`${baseUrl}/api/admin/commissions`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    const response = await handleAdminApiRequest(request, {}, backend)
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      status: 'error',
+      message: 'Work group and part number must be set together.',
+    })
+    expect(createCommission).not.toHaveBeenCalled()
+  })
+
+  it('rejects invalid UUID format for workGroupId before create-commission persistence', async () => {
+    const createCommission = vi.fn(async (_input: CreateCommissionInput) =>
+      createJsonResponse({ status: 'success', message: 'unexpected' }))
+    const backend = createCrudBackend({ createCommission })
+
+    const formData = new FormData()
+    formData.set('characterId', '7')
+    formData.set('commissionDate', '2025-03-01')
+    formData.set('creatorName', 'test-creator')
+    formData.set('workGroupId', 'not-a-uuid')
+    formData.set('partNumber', '1')
+    formData.set('links', '')
+    formData.set('sourceImage', new File(['png'], 'test.png', { type: 'image/png' }))
+
+    const request = new Request(`${baseUrl}/api/admin/commissions`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    const response = await handleAdminApiRequest(request, {}, backend)
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      status: 'error',
+      message: 'Work group must be a lowercase UUID v4.',
+    })
+    expect(createCommission).not.toHaveBeenCalled()
+  })
+
+  it('rejects zero partNumber before create-commission persistence', async () => {
+    const createCommission = vi.fn(async (_input: CreateCommissionInput) =>
+      createJsonResponse({ status: 'success', message: 'unexpected' }))
+    const backend = createCrudBackend({ createCommission })
+
+    const formData = new FormData()
+    formData.set('characterId', '7')
+    formData.set('commissionDate', '2025-03-01')
+    formData.set('creatorName', 'test-creator')
+    formData.set('workGroupId', 'a1b2c3d4-e5f6-4789-a012-3456789abcde')
+    formData.set('partNumber', '0')
+    formData.set('links', '')
+    formData.set('sourceImage', new File(['png'], 'test.png', { type: 'image/png' }))
+
+    const request = new Request(`${baseUrl}/api/admin/commissions`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    const response = await handleAdminApiRequest(request, {}, backend)
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      status: 'error',
+      message: 'Part number must be a positive integer.',
+    })
+    expect(createCommission).not.toHaveBeenCalled()
+  })
+
+  it('rejects negative partNumber before create-commission persistence', async () => {
+    const createCommission = vi.fn(async (_input: CreateCommissionInput) =>
+      createJsonResponse({ status: 'success', message: 'unexpected' }))
+    const backend = createCrudBackend({ createCommission })
+
+    const formData = new FormData()
+    formData.set('characterId', '7')
+    formData.set('commissionDate', '2025-03-01')
+    formData.set('creatorName', 'test-creator')
+    formData.set('workGroupId', 'a1b2c3d4-e5f6-4789-a012-3456789abcde')
+    formData.set('partNumber', '-1')
+    formData.set('links', '')
+    formData.set('sourceImage', new File(['png'], 'test.png', { type: 'image/png' }))
+
+    const request = new Request(`${baseUrl}/api/admin/commissions`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    const response = await handleAdminApiRequest(request, {}, backend)
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      status: 'error',
+      message: 'Part number must be a positive integer.',
+    })
+    expect(createCommission).not.toHaveBeenCalled()
+  })
+
+  it('rejects non-integer partNumber before create-commission persistence', async () => {
+    const createCommission = vi.fn(async (_input: CreateCommissionInput) =>
+      createJsonResponse({ status: 'success', message: 'unexpected' }))
+    const backend = createCrudBackend({ createCommission })
+
+    const formData = new FormData()
+    formData.set('characterId', '7')
+    formData.set('commissionDate', '2025-03-01')
+    formData.set('creatorName', 'test-creator')
+    formData.set('workGroupId', 'a1b2c3d4-e5f6-4789-a012-3456789abcde')
+    formData.set('partNumber', '1.5')
+    formData.set('links', '')
+    formData.set('sourceImage', new File(['png'], 'test.png', { type: 'image/png' }))
+
+    const request = new Request(`${baseUrl}/api/admin/commissions`, {
+      method: 'POST',
+      body: formData,
+    })
+
+    const response = await handleAdminApiRequest(request, {}, backend)
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      status: 'error',
+      message: 'Part number must be a positive integer.',
+    })
+    expect(createCommission).not.toHaveBeenCalled()
+  })
+
+  it('normalizes empty string workGroupId and partNumber to null for PATCH', async () => {
+    const updateCommission = vi.fn(async (input: UpdateCommissionInput) => {
+      void input
+      return createJsonResponse({ status: 'success', message: 'Commission updated.' })
+    })
+    const backend = createCrudBackend({ updateCommission })
+
+    const request = new Request(`${baseUrl}/api/admin/commissions/19`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        characterId: 3,
+        commissionDate: '2025-03-01',
+        creatorName: 'test-creator',
+        workGroupId: '',
+        partNumber: '',
+        links: '',
+        hidden: false,
+      }),
+    })
+
+    const response = await handleAdminApiRequest(request, {}, backend)
+
+    expect(response.status).toBe(200)
+    expect(updateCommission).toHaveBeenCalledOnce()
+    const callArg = updateCommission.mock.calls[0]?.[0]
+    expect(callArg?.workGroupId).toBe(null)
+    expect(callArg?.partNumber).toBe(null)
+  })
+
+  it('rejects workGroupId without partNumber before PATCH persistence', async () => {
+    const updateCommission = vi.fn(async (_input: UpdateCommissionInput) =>
+      createJsonResponse({ status: 'success', message: 'unexpected' }))
+    const backend = createCrudBackend({ updateCommission })
+
+    const request = new Request(`${baseUrl}/api/admin/commissions/19`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        characterId: 3,
+        commissionDate: '2025-03-01',
+        creatorName: 'test-creator',
+        workGroupId: 'a1b2c3d4-e5f6-4789-a012-3456789abcde',
+        partNumber: null,
+        links: '',
+        hidden: false,
+      }),
+    })
+
+    const response = await handleAdminApiRequest(request, {}, backend)
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      status: 'error',
+      message: 'Work group and part number must be set together.',
+    })
+    expect(updateCommission).not.toHaveBeenCalled()
+  })
+
+  it('rejects partNumber without workGroupId before PATCH persistence', async () => {
+    const updateCommission = vi.fn(async (_input: UpdateCommissionInput) =>
+      createJsonResponse({ status: 'success', message: 'unexpected' }))
+    const backend = createCrudBackend({ updateCommission })
+
+    const request = new Request(`${baseUrl}/api/admin/commissions/19`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        characterId: 3,
+        commissionDate: '2025-03-01',
+        creatorName: 'test-creator',
+        workGroupId: null,
+        partNumber: 2,
+        links: '',
+        hidden: false,
+      }),
+    })
+
+    const response = await handleAdminApiRequest(request, {}, backend)
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      status: 'error',
+      message: 'Work group and part number must be set together.',
+    })
+    expect(updateCommission).not.toHaveBeenCalled()
+  })
+
+  it('rejects invalid UUID format for workGroupId before PATCH persistence', async () => {
+    const updateCommission = vi.fn(async (_input: UpdateCommissionInput) =>
+      createJsonResponse({ status: 'success', message: 'unexpected' }))
+    const backend = createCrudBackend({ updateCommission })
+
+    const request = new Request(`${baseUrl}/api/admin/commissions/19`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        characterId: 3,
+        commissionDate: '2025-03-01',
+        creatorName: 'test-creator',
+        workGroupId: 'invalid-uuid',
+        partNumber: 1,
+        links: '',
+        hidden: false,
+      }),
+    })
+
+    const response = await handleAdminApiRequest(request, {}, backend)
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      status: 'error',
+      message: 'Work group must be a lowercase UUID v4.',
+    })
+    expect(updateCommission).not.toHaveBeenCalled()
+  })
+
   it('normalizes update-commission payload before delegating to backend', async () => {
     const updateCommission = vi.fn(async (_input: UpdateCommissionInput) =>
       createJsonResponse({ status: 'success', message: 'Commission updated.' }))

@@ -4,24 +4,24 @@ import { defineConfig } from 'vitest/config'
 const rootDir = resolve(import.meta.dirname, '..')
 
 export default defineConfig({
-  root: resolve(import.meta.dirname, '..'),
+  root: rootDir,
   resolve: {
-    tsconfigPaths: true,
+    alias: {
+      '@layouts': resolve(rootDir, 'apps/web/src/layouts'),
+      '@features': resolve(rootDir, 'apps/web/src/features'),
+      '@components': resolve(rootDir, 'apps/web/src/components'),
+      '@images': resolve(rootDir, 'apps/web/public/images'),
+      '@data': resolve(rootDir, 'apps/web/data'),
+      '@lib': resolve(rootDir, 'apps/web/src/lib'),
+      '@styles': resolve(rootDir, 'apps/web/src/styles'),
+      '@config': resolve(rootDir, 'apps/web/src/config'),
+    },
   },
   test: {
     environment: 'node',
-    setupFiles: [resolve(rootDir, 'apps/web/test/setup.tsx')],
     include: [
-      'apps/*/src/**/*.test.ts',
-      'apps/*/src/**/*.test.tsx',
-      'apps/*/data/**/*.test.ts',
-      'apps/*/server/**/*.test.ts',
-      'apps/*/test/**/*.test.ts',
-      'apps/*/test/**/*.test.tsx',
-      'packages/*/src/**/*.test.ts',
-      'packages/*/src/**/*.test.tsx',
-      'packages/*/test/**/*.test.ts',
-      'packages/*/test/**/*.test.tsx',
+      'apps/*/{src,data,server,test}/**/*.test.{ts,tsx}',
+      'packages/*/{src,test}/**/*.test.{ts,tsx}',
     ],
     exclude: [
       '**/node_modules/**',

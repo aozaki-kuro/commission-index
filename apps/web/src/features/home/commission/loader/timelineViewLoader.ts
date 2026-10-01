@@ -88,9 +88,9 @@ export function mountTimelineViewLoader({
   }
   const isLocalLoaded = () => timelinePanel.dataset.timelineLoaded === 'true'
 
-  const updateLoadedState = (loadedBatchCount: number) => {
+  const updateLoadedState = (loadedBatchCount: number, batchTotal = totalBatchCount) => {
     writeTimelineLoadedBatchCount(timelinePanel, loadedBatchCount)
-    writeTimelineLoadedState(timelinePanel, loadedBatchCount >= totalBatchCount)
+    writeTimelineLoadedState(timelinePanel, loadedBatchCount >= batchTotal)
   }
 
   const stopAutoLoad = () => {
@@ -135,7 +135,7 @@ export function mountTimelineViewLoader({
     let loadedBatchCount = readLocalBatchCount()
     const effectiveTotalBatchCount = manifestOverride?.totalBatches ?? totalBatchCount
     if (loadedBatchCount >= effectiveTotalBatchCount) {
-      updateLoadedState(loadedBatchCount)
+      updateLoadedState(loadedBatchCount, effectiveTotalBatchCount)
       return false
     }
 
@@ -173,7 +173,7 @@ export function mountTimelineViewLoader({
       didChange = true
     }
 
-    updateLoadedState(loadedBatchCount)
+    updateLoadedState(loadedBatchCount, effectiveTotalBatchCount)
     if (didChange) {
       deps.dispatchSidebarSync()
       win.dispatchEvent(new Event(TIMELINE_VIEW_LOADED_EVENT))
@@ -183,25 +183,31 @@ export function mountTimelineViewLoader({
 
   const queueLoad = (options: RequestTimelineViewLoadOptions = {}) => {
     const run = async () => {
-      if (isLocalLoaded()) {
+      const canExtendLoadedContent
+        = options.manifestOverride?.totalBatches !== undefined
+          && options.manifestOverride.totalBatches > readLocalBatchCount()
+      if (isLocalLoaded() && !canExtendLoadedContent) {
         syncAutoLoad()
         return false
       }
 
       const loadedBatchCount = readLocalBatchCount()
-      if (loadedBatchCount >= totalBatchCount) {
-        updateLoadedState(loadedBatchCount)
+      if (loadedBatchCount >= totalBatchCount && !options.manifestOverride) {
+        updateLoadedState(loadedBatchCount, totalBatchCount)
         syncAutoLoad()
         return false
       }
 
       const strategy = options.strategy ?? 'next'
+      const effectiveTotalBatchCount = options.manifestOverride?.totalBatches ?? totalBatchCount
       const targetBatchIndex = Number.isInteger(options.targetBatchCount)
         ? Math.max(loadedBatchCount, Number(options.targetBatchCount) - 1)
         : strategy === 'all'
-          ? totalBatchCount - 1
+          ? effectiveTotalBatchCount - 1
           : strategy === 'target'
-            ? (resolveDeferredTimelineBatch(doc, options.targetId) ?? loadedBatchCount)
+            ? (options.manifestOverride
+                ? loadedBatchCount
+                : resolveDeferredTimelineBatch(doc, options.targetId) ?? loadedBatchCount)
             : loadedBatchCount
 
       const didChange = await loadBatchesThrough(targetBatchIndex, options.manifestOverride)
@@ -241,6 +247,14 @@ export function mountTimelineViewLoader({
     if (readCommissionViewMode(win) !== 'timeline') {
       stopAutoLoad()
       return
+    }
+
+    const loadedBatchCount = readLocalBatchCount()
+    if (isLocalLoaded() && loadedBatchCount < totalBatchCount) {
+      const freshManifest = await fetchFreshHomeTimelineBatchManifest(doc)
+      if (freshManifest && freshManifest.totalBatches > loadedBatchCount) {
+        void queueLoad({ strategy: 'all', manifestOverride: freshManifest })
+      }
     }
 
     syncAutoLoad()

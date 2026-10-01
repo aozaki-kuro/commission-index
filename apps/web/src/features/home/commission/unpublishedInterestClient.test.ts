@@ -32,29 +32,12 @@ function expectInterestIconState(
   ).toBe(recordedHidden)
 }
 
-function createMemoryStorage(): Storage {
-  const values = new Map<string, string>()
-  return {
-    get length() {
-      return values.size
-    },
-    clear: () => values.clear(),
-    getItem: key => values.get(key) ?? null,
-    key: index => [...values.keys()][index] ?? null,
-    removeItem: key => values.delete(key),
-    setItem: (key, value) => values.set(key, value),
-  }
-}
-
 describe('unpublishedInterestClient', () => {
   let storage: Storage
 
   beforeEach(() => {
-    storage = createMemoryStorage()
-    Object.defineProperty(window, 'localStorage', {
-      configurable: true,
-      value: storage,
-    })
+    storage = window.localStorage
+    storage.clear()
     document.body.innerHTML = ''
   })
 
@@ -75,7 +58,7 @@ describe('unpublishedInterestClient', () => {
 
     expect(trackEvent).toHaveBeenCalledTimes(1)
     expect(trackEvent).toHaveBeenCalledWith({ sub_event: 'artoria-pendragon-20240203' })
-    expect(button).toBeDisabled()
+    expect(button?.disabled).toBe(true)
     expect(button?.getAttribute('aria-pressed')).toBe('true')
     expect(button?.title).toBe('Already recorded')
     expect(button?.dataset.linkStyle).toBeUndefined()
@@ -98,7 +81,7 @@ describe('unpublishedInterestClient', () => {
     const cleanup = mountUnpublishedInterestButtons()
     const button = document.querySelector<HTMLButtonElement>('[data-commission-interest-key]')
 
-    expect(button).toBeDisabled()
+    expect(button?.disabled).toBe(true)
     expect(button?.getAttribute('aria-pressed')).toBe('true')
     expect(button?.title).toBe('Already recorded')
     expect(button?.querySelector('[data-commission-interest-label]')?.textContent).toBe('Recorded')
@@ -121,7 +104,7 @@ describe('unpublishedInterestClient', () => {
 
     expect(trackEvent).toHaveBeenCalledTimes(1)
     expect(trackEvent).toHaveBeenCalledWith({ sub_event: 'mash-kyrielight-20240311' })
-    expect(button).toBeDisabled()
+    expect(button?.disabled).toBe(true)
     expect(button.getAttribute('aria-pressed')).toBe('true')
     expect(button.querySelector('[data-commission-interest-label]')?.textContent).toBe('Recorded')
     expectInterestIconState(button, { defaultHidden: true, recordedHidden: false })
@@ -150,7 +133,7 @@ describe('unpublishedInterestClient', () => {
     expect(trackEvent).toHaveBeenCalledWith({ sub_event: 'shared-20240315' })
 
     for (const button of buttons) {
-      expect(button).toBeDisabled()
+      expect(button?.disabled).toBe(true)
       expect(button.getAttribute('aria-pressed')).toBe('true')
       expect(button.title).toBe('Already recorded')
       expect(button.dataset.linkStyle).toBeUndefined()
@@ -187,7 +170,7 @@ describe('unpublishedInterestClient', () => {
 
     expect(trackEvent).toHaveBeenCalledTimes(1)
     expect(trackEvent).toHaveBeenCalledWith({ sub_event: 'deferred-20240316' })
-    expect(deferredButton).toBeDisabled()
+    expect(deferredButton.disabled).toBe(true)
     expect(deferredButton.getAttribute('aria-pressed')).toBe('true')
     expect(deferredButton.title).toBe('Already recorded')
     expect(deferredButton.dataset.linkStyle).toBeUndefined()
