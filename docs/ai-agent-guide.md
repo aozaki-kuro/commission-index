@@ -373,21 +373,19 @@ until the D1 result is checked, and do not overwrite or delete another commissio
 
 The worker updates D1 to the new immutable key before deleting the previous referenced object.
 Cleanup is best effort; failure leaves an orphan and does not turn a committed update into an
-error. Root-level and historical commission-folder objects retained by the completed source-image
-key migration are rollback copies, even when no current D1 row references them. Exclude both
-generations from orphan sweeps until the rollback window is explicitly closed.
+error. Before any orphan cleanup, read fresh D1 references and actual bucket inventory, then
+confirm the backup and retention policy permit deleting each candidate.
 
 **R2 cleanup on commission delete:**
 
 Deleting a commission via `DELETE /api/admin/commissions/:id` removes the D1 metadata row and
 commission record atomically but leaves its R2 object as an orphan. R2 cleanup is the
 operator's responsibility; never delete objects solely because they are absent from one
-potentially stale export snapshot. The same retention rule applies to the legacy-key
-migration's root-level and historical commission-folder rollback copies; lack of a current
-reference is not permission to clean either generation before the rollback window is explicitly
-closed. The migration's v2 plan targets flat keys; unversioned v1 folder plans are rollback-only.
-To restore the original root mapping, first roll back v2 to the folder mapping, then use the
-retained v1 plan.
+potentially stale export snapshot. The source-image migration's old root and commission-folder
+objects were deleted with operator approval on 2026-10-03; the bucket now holds only current flat
+objects. Local byte backups and both migration plans remain available. To restore a historical
+mapping, first re-upload and verify its corresponding objects from local backup, then apply the
+guarded mapping update; a direct rollback to deleted objects would break image reads.
 
 ---
 
