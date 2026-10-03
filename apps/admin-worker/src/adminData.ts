@@ -71,10 +71,6 @@ interface SourceImageObjectKeyRow {
   objectKey: string | null
 }
 
-interface SourceImageByCommissionIdRow extends SourceImageObjectKeyRow {
-  fileName: string
-}
-
 interface AliasJsonRow {
   aliasesJson: string
 }
@@ -129,8 +125,6 @@ export interface R2BucketLike {
 
 const CHARACTER_COMMISSIONS_PATH_PATTERN = /^\/api\/admin\/characters\/\d+\/commissions$/
 const CHARACTER_COMMISSIONS_ID_PATTERN = /^\/api\/admin\/characters\/(\d+)\/commissions$/
-const SOURCE_IMAGE_FILE_NAME_PATTERN = /^\d{8}(?:_.+)?$/
-const SOURCE_IMAGE_FORBIDDEN_PATTERN = /[<>:"/\\|?*]/
 const SOURCE_IMAGE_SUFFIX_PATTERN = /\s*\((preview|part).*?\)$/i
 const NORMALIZE_SPACES_PATTERN = /\s+/g
 const MAX_FEATURED_SEARCH_KEYWORDS = 6
@@ -889,37 +883,6 @@ async function loadCharacterCommissions(
   }))
 }
 
-function hasControlCharacter(value: string) {
-  for (let index = 0; index < value.length; index += 1) {
-    if (value.charCodeAt(index) <= 0x1F) {
-      return true
-    }
-  }
-
-  return false
-}
-
-function validateSourceImageFileName(rawValue: string) {
-  const fileName = rawValue.trim()
-  if (!fileName) {
-    return 'File name is required.'
-  }
-
-  if (!SOURCE_IMAGE_FILE_NAME_PATTERN.test(fileName)) {
-    return 'File name must start with YYYYMMDD, optionally followed by "_creator".'
-  }
-
-  if (
-    SOURCE_IMAGE_FORBIDDEN_PATTERN.test(fileName)
-    || fileName.includes('..')
-    || hasControlCharacter(fileName)
-  ) {
-    return 'File name contains forbidden path characters.'
-  }
-
-  return null
-}
-
 function getSourceImageMimeType(key: string, object: R2ObjectBodyLike) {
   const contentType = object.httpMetadata?.contentType?.trim()
   if (contentType) {
@@ -934,54 +897,6 @@ function getSourceImageMimeType(key: string, object: R2ObjectBodyLike) {
   return 'image/jpeg'
 }
 
-async function loadSourceImageResponse(
-  bucket: R2BucketLike,
-  rawFileName: string,
-  db?: D1DatabaseLike | null,
-) {
-  const validationError = validateSourceImageFileName(rawFileName)
-  if (validationError) {
-    return failure(validationError)
-  }
-
-  const fileName = rawFileName.trim()
-  const preferredKeys: string[] = []
-  if (db && await hasTable(db, 'source_images')) {
-    const row = await queryFirstRow<SourceImageObjectKeyRow>(
-      db,
-      'SELECT object_key as objectKey FROM source_images WHERE commission_file_name = ? LIMIT 1',
-      [fileName],
-    )
-    if (row?.objectKey) {
-      preferredKeys.push(row.objectKey)
-    }
-  }
-  const candidateKeys = [
-    ...preferredKeys,
-    ...[`${fileName}.jpg`, `${fileName}.jpeg`, `${fileName}.png`].filter(
-      key => !preferredKeys.includes(key),
-    ),
-  ]
-
-  for (const key of candidateKeys) {
-    const object = await bucket.get(key)
-    if (!object) {
-      continue
-    }
-
-    const imageBuffer = await object.arrayBuffer()
-    return new Response(imageBuffer, {
-      status: 200,
-      headers: {
-        'Content-Type': getSourceImageMimeType(key, object),
-        'Cache-Control': 'no-store',
-      },
-    })
-  }
-
-  return notFound()
-}
-
 async function loadCommissionSourceImageResponse(
   bucket: R2BucketLike,
   db: D1DatabaseLike | null,
@@ -994,11 +909,10 @@ async function loadCommissionSourceImageResponse(
   // Resolve the object key by commission id first, then fall back to the legacy filename
   // relationship. The OR join previously had undefined priority when an id-mapped row and a
   // filename row with a NULL commission_id both matched; COALESCE pins id-first precedence.
-  const source = await queryFirstRow<SourceImageByCommissionIdRow>(
+  const source = await queryFirstRow<SourceImageObjectKeyRow>(
     db,
     `
       SELECT
-        c.file_name AS fileName,
         COALESCE(
           (SELECT object_key FROM source_images WHERE commission_id = c.id LIMIT 1),
           (SELECT object_key FROM source_images WHERE commission_file_name = c.file_name LIMIT 1)
@@ -1008,37 +922,35 @@ async function loadCommissionSourceImageResponse(
     `,
     [commissionId],
   )
-  if (!source?.fileName) {
+  // 对象身份只来自 D1 的 object_key：没有 source_images 行的作品视为无图，
+  // 不再按 `<file_name>.<ext>` 探测桶根目录的旧 key。
+  const key = source?.objectKey
+  if (!key) {
     return notFound()
   }
 
-  const keys = [source.objectKey, `${source.fileName}.jpg`, `${source.fileName}.jpeg`, `${source.fileName}.png`]
-    .filter((key): key is string => Boolean(key))
-  for (const key of keys) {
-    const object = await bucket.get(key)
-    if (!object) {
-      continue
-    }
-
-    const headers = new Headers({
-      'Content-Type': getSourceImageMimeType(key, object),
-      // Browser may cache the bytes but must revalidate, so a replaced image is never stale.
-      'Cache-Control': 'private, no-cache',
-    })
-    if (object.httpEtag) {
-      headers.set('ETag', object.httpEtag)
-    }
-    if (object.httpEtag && matchesIfNoneMatch(requestHeaders.get('If-None-Match'), object.httpEtag)) {
-      // Release the fetched body; the client reuses its cached copy.
-      await object.body?.cancel()
-      return new Response(null, { status: 304, headers })
-    }
-    if (object.size !== undefined) {
-      headers.set('Content-Length', String(object.size))
-    }
-    return new Response(object.body ?? await object.arrayBuffer(), { status: 200, headers })
+  const object = await bucket.get(key)
+  if (!object) {
+    return notFound()
   }
-  return notFound()
+
+  const headers = new Headers({
+    'Content-Type': getSourceImageMimeType(key, object),
+    // Browser may cache the bytes but must revalidate, so a replaced image is never stale.
+    'Cache-Control': 'private, no-cache',
+  })
+  if (object.httpEtag) {
+    headers.set('ETag', object.httpEtag)
+  }
+  if (object.httpEtag && matchesIfNoneMatch(requestHeaders.get('If-None-Match'), object.httpEtag)) {
+    // Release the fetched body; the client reuses its cached copy.
+    await object.body?.cancel()
+    return new Response(null, { status: 304, headers })
+  }
+  if (object.size !== undefined) {
+    headers.set('Content-Length', String(object.size))
+  }
+  return new Response(object.body ?? await object.arrayBuffer(), { status: 200, headers })
 }
 
 function matchesIfNoneMatch(headerValue: string | null, etag: string) {
@@ -1137,30 +1049,6 @@ export async function handleAdminReadRequest(request: Request, env: AdminReadEnv
     }
     catch (error) {
       return failure(error instanceof Error ? error.message : 'Failed to load commissions.', 500)
-    }
-  }
-
-  if (pathname.startsWith('/api/admin/source-image/')) {
-    const bucket = resolveImagesBucket(env.IMAGES)
-    if (!bucket) {
-      return missingImagesBinding()
-    }
-
-    const encodedFileName = pathname.slice('/api/admin/source-image/'.length)
-    if (!encodedFileName) {
-      return failure('File name is required.')
-    }
-
-    try {
-      const fileName = decodeURIComponent(encodedFileName)
-      return await loadSourceImageResponse(bucket, fileName, db)
-    }
-    catch (error) {
-      if (error instanceof URIError) {
-        return failure('Invalid file name.')
-      }
-
-      return failure(error instanceof Error ? error.message : 'Failed to load source image.', 500)
     }
   }
 

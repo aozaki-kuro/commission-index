@@ -3,7 +3,10 @@
  * Unlike exportWebFactSource, this never queries D1 — just checks local files against the manifest.
  * If all images are present locally and match their expected sha256/byteSize, exits with no network calls.
  */
-import type { GeneratedSourceImageManifest } from '@commission-index/domain'
+import type {
+  GeneratedSourceImageManifest,
+  GeneratedSourceImageManifestFile,
+} from '@commission-index/domain'
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
@@ -164,6 +167,12 @@ function hashFile(filePath: string) {
   return createHash('sha256').update(readFileSync(filePath)).digest('hex')
 }
 
+// 本地落盘位置由 manifest 的 relativePath 决定，与导出器写入的路径一致；
+// objectKey 是 R2 对象身份：新 key 只有 source-images/ 分类前缀，历史 key 也可能含作品目录；不能当作本地路径。
+function resolveLocalImagePath(file: Pick<GeneratedSourceImageManifestFile, 'relativePath'>) {
+  return path.join(generatedRoot, file.relativePath)
+}
+
 function isStale(
   filePath: string,
   expected: { byteSize: number | null, sha256: string },
@@ -200,7 +209,7 @@ async function main() {
 
   // ==================== 检查：哪些图片缺失或内容已变更 ====================
   const staleFiles = files.filter(file =>
-    isStale(path.join(outputImagesDir, file.objectKey), file),
+    isStale(resolveLocalImagePath(file), file),
   )
 
   if (staleFiles.length === 0) {
@@ -214,7 +223,7 @@ async function main() {
   mkdirSync(outputImagesDir, { recursive: true })
 
   const results = await mapWithConcurrency(staleFiles, downloadConcurrency, async (file, index) => {
-    const outputPath = path.join(outputImagesDir, file.objectKey)
+    const outputPath = resolveLocalImagePath(file)
     const tempPath = `${outputPath}.download`
     rmSync(tempPath, { force: true })
 

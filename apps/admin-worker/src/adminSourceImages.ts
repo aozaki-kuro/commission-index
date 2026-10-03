@@ -80,17 +80,11 @@ export function getSourceImageFileNameValidationError(rawValue: string) {
   return null
 }
 
-export function buildSourceImageCandidateKeys(rawCommissionFileName: string) {
-  const fileName = normalizeCommissionFileName(rawCommissionFileName)
-  return [`${fileName}.jpg`, `${fileName}.jpeg`, `${fileName}.png`]
-}
-
 export function buildVersionedSourceImageKey(
-  commissionFileName: string,
   sha256: string,
   extension: '.jpg' | '.png',
 ) {
-  return `source-images/${normalizeCommissionFileName(commissionFileName)}/${sha256}-${crypto.randomUUID()}${extension}`
+  return `source-images/${sha256}-${crypto.randomUUID()}${extension}`
 }
 
 export function getSourceImageMimeType(key: string, object?: R2ObjectBodyLike | null) {
@@ -133,7 +127,6 @@ export async function saveSourceImageToBucket(
   input: {
     commissionFileName: string
     file: File
-    overwrite: boolean
   },
 ): Promise<SavedSourceImage> {
   const validationError = getSourceImageFileNameValidationError(input.commissionFileName)
@@ -151,20 +144,10 @@ export async function saveSourceImageToBucket(
   }
 
   const fileName = normalizeCommissionFileName(input.commissionFileName)
-  const candidateKeys = buildSourceImageCandidateKeys(fileName)
   const imageBuffer = await input.file.arrayBuffer()
   const sha256 = await hashArrayBuffer(imageBuffer)
-  const targetKey = buildVersionedSourceImageKey(fileName, sha256, extension)
+  const targetKey = buildVersionedSourceImageKey(sha256, extension)
   const mimeType = getSourceImageContentType(extension)
-
-  if (!input.overwrite) {
-    for (const key of candidateKeys) {
-      const existing = await bucket.get(key)
-      if (existing) {
-        throw new Error(`Source image already exists: ${key}`)
-      }
-    }
-  }
 
   await bucket.put(targetKey, imageBuffer, {
     httpMetadata: {

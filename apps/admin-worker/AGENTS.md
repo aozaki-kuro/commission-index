@@ -12,6 +12,8 @@ Standalone admin Cloudflare Worker: API router, D1/R2 CRUD, asset serving.
 - `src/adminApi.test.ts` — contract tests locking CRUD normalization and failure responses
 - `src/exportWebFactSource.test.ts` — 只读导出、SQLite 快照、revision、不可变对象与本地路径映射测试
 - `scripts/exportWebFactSource.ts` — 只读 D1/R2 -> `apps/web/generated/*`，输出带稳定 `meta.revision` 的 content/manifest
+- `scripts/migrateLegacySourceImageKeys.ts` — 根/历史作品目录 key 迁到扁平 `source-images/<sha256>-<UUIDv4>.<ext>`：先验证全部复制字节再条件更新 D1，始终保留两代可回滚源对象，永不删除；v2 计划复用稳定目标，无版本 v1 目录计划只允许回滚，细节见 `scripts/AGENTS.md`
+- `src/migrateLegacySourceImageKeys.test.ts` — 迁移计划复用、SQL guard、漂移中止、R2 校验、重试和完整计划读回测试
 - `migrations/` — versioned D1 schema and commission identity backfills
 
 ## Responsibilities
@@ -116,5 +118,7 @@ Before modifying any route or data shape, read:
 - CORS allowances limited to local dev origins; production is same-origin
 - Keep `source_images` D1 metadata aligned with R2 objects for incremental export reuse
 - 普通导出不修复或回写 D1 metadata；单个 SELECT 读取结构化快照，图片下载需匹配快照 hash/size
-- R2 key 为不可变对象身份，本地文件仍以作品文件名为 stem；manifest `objectKey` 与 `relativePath` 各司其职
+- 新上传/替换的 R2 key 仅为 `source-images/<sha256>-<UUIDv4>.jpg|png`，每次 UUID 独立；作品文件名仍校验并持久化，本地文件以它为 stem。读取按 D1 不透明 key 兼容根/历史作品目录/扁平布局；manifest `objectKey` 与 `relativePath` 各司其职
+- 迁移保留的根和历史作品目录源对象均是受保护的回滚副本；无引用不代表可删除，关闭回滚窗口后才可独立审批清理
+- 对象 key 只经 `source_images.object_key` 解析：图片 GET 在无 metadata 时返回 404，导出遇到缺少 metadata 行的作品直接抛错；不按 `<file_name>.<ext>` 探测桶根 key，上传前也不做 R2 预检
 - 两份 JSON 共用稳定 revision，保留独立 exportedAt；发布只导出一次，后续构建校验并复用该快照

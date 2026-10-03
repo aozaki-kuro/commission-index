@@ -408,7 +408,6 @@ function createNativeCrudBackend(
         uploadedSourceImage = await saveSourceImageToBucket(imagesBucket, {
           commissionFileName: assetKey,
           file: input.sourceImage,
-          overwrite: false,
         })
       }
       catch (error) {
@@ -466,7 +465,6 @@ function createNativeCrudBackend(
         const savedSourceImage = await saveSourceImageToBucket(imagesBucket, {
           commissionFileName,
           file: input.sourceImage,
-          overwrite: true,
         })
         try {
           await persistSourceImageMetadata(db, savedSourceImage)

@@ -76,7 +76,7 @@ configuration moves. Verify test collection and snapshot paths as well as builds
 ### Data Flow
 
 1. Admin writes explicit commission ID/date/creator metadata to remote D1 and immutable source-image objects to R2 via `apps/admin-worker`; commission dates/authors are not encoded in new internal asset keys
-2. `exportWebFactSource.ts` 只读导出 D1/R2 -> `apps/web/generated/*`，不回写生产 metadata；单个 D1 SELECT 读取结构化快照，下载图片必须匹配该快照的 hash/size
+2. `exportWebFactSource.ts` 只读导出 D1/R2 -> `apps/web/generated/*`，不回写生产 metadata；单个 D1 SELECT 读取结构化快照，下载图片必须匹配该快照的 hash/size；每条作品必须有 `source_images` 行，缺失即中止导出
 3. content 与 source-image manifest 的 `meta.revision` 共同标识内容版本，排除 `exportedAt`；Astro 从这份固定输入生成 HTML，无运行时 D1/R2 访问
 4. `apps/web/wrangler.jsonc` carries read-only D1/R2 bindings for build-time export
 
@@ -229,7 +229,8 @@ All three should return `404`. Note: `vite preview` does not validate edge HTTP 
 ### Images
 
 - Source images: `apps/web/generated/source-images/*.{jpg,jpeg,png}`
-- R2 `objectKey` 是不可变对象身份，可含目录；`commissions.file_name` 只作内部资产键，历史行保留旧值，新作品使用不透明键。日期/作者只能从显式字段读取。导出后的本地 `relativePath` 以该内部键映射，不能把远端 key 当成本地路径
+- 新上传的 R2 `objectKey` 唯一规范为 `source-images/<sha256>-<UUIDv4>.jpg|png`：保留分类前缀，不含作品名目录，相同字节每次上传仍有独立 UUID。读取把 D1 `source_images.object_key` 当作不透明身份，兼容历史根 key、作品目录 key 和扁平 key，不按文件名探测桶根；`commissions.file_name` 仍作内部资产键并保留校验/持久化。日期/作者只能从显式字段读取，本地 `relativePath` 以该内部键映射，不能把远端 key 当成本地路径
+- 源图迁移复用 `migrateLegacySourceImageKeys.ts`：v2 计划顶层 `schemaVersion: 2` / `targetLayout: 'flat-v1'`，严格校验后从根/作品目录迁到扁平，目录 basename/UUID 保留；无版本 v1 目录计划只允许回滚。迁移从不删除对象，保留的根目录和作品目录两代源对象均受回滚窗口保护；先回滚 v2，再按 v1 恢复根 key，不能按无引用直接清理
 - Resolution: `sourceImageRegistry.ts` maps the internal commission asset key to the generated image stem; user-visible identity and search never parse that key
 - Listing widths: `768/960/1280`, sizes `(max-width: 768px) 92vw, 640px`
 

@@ -789,13 +789,9 @@ describe('admin worker CRUD contract routing', () => {
       status: 'success',
       message: 'Commission dated 2025-03-01 added to Alice.',
     })
-    expect(get).toHaveBeenCalledTimes(3)
-    const assetKey = put.mock.calls[0]?.[0].split('/')[1]
-    expect(get).toHaveBeenNthCalledWith(1, `${assetKey}.jpg`)
-    expect(get).toHaveBeenNthCalledWith(2, `${assetKey}.jpeg`)
-    expect(get).toHaveBeenNthCalledWith(3, `${assetKey}.png`)
+    expect(get).not.toHaveBeenCalled()
     expect(put).toHaveBeenCalledTimes(1)
-    expect(put.mock.calls[0]?.[0]).toMatch(/^source-images\/commission-[\w-]+\/[a-f0-9]{64}-[\w-]+\.png$/)
+    expect(put.mock.calls[0]?.[0]).toMatch(/^source-images\/[a-f0-9]{64}-[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}\.png$/)
     expect(put.mock.calls[0]?.[2]).toEqual({
       httpMetadata: {
         contentType: 'image/png',
@@ -864,7 +860,7 @@ describe('admin worker CRUD contract routing', () => {
     })
     expect(put).toHaveBeenCalledTimes(1)
     expect(deleteObject).not.toHaveBeenCalled()
-    expect(put.mock.calls[0]?.[0]).toMatch(/^source-images\/commission-[\w-]+\//)
+    expect(put.mock.calls[0]?.[0]).toMatch(/^source-images\/[a-f0-9]{64}-[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}\.png$/)
   })
 
   it('handles update-commission natively when DB binding exists', async () => {
@@ -999,8 +995,45 @@ describe('admin worker CRUD contract routing', () => {
     })
     expect(get).not.toHaveBeenCalled()
     expect(put).toHaveBeenCalledTimes(1)
-    expect(put.mock.calls[0]?.[0]).toMatch(/^source-images\/20250301_alice-maker\/[a-f0-9]{64}-[\w-]+\.jpg$/)
+    expect(put.mock.calls[0]?.[0]).toMatch(/^source-images\/[a-f0-9]{64}-[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}\.jpg$/)
     expect(deleteObject).not.toHaveBeenCalled()
+  })
+
+  it('keeps filename metadata while identical successive uploads get distinct flat keys', async () => {
+    const { db, executions } = createD1Recorder({
+      queryResults(query) {
+        return query.includes('SELECT file_name as fileName FROM commissions WHERE id = ?')
+          ? [{ fileName: '20250301_alice-maker' }]
+          : []
+      },
+    })
+    const { bucket, put } = createImagesBucketRecorder()
+    for (let index = 0; index < 2; index += 1) {
+      const formData = new FormData()
+      formData.set('commissionFileName', 'stale-client-name')
+      formData.set('sourceImage', new File(['same bytes'], 'sample.png', { type: 'image/png' }))
+      const response = await handleAdminApiRequest(
+        new Request(`${baseUrl}/api/admin/commissions/19/source-image`, { method: 'POST', body: formData }),
+        { DB: db, IMAGES: bucket },
+      )
+      expect(response.status).toBe(200)
+    }
+    const keys = put.mock.calls.map(call => call[0])
+    expect(keys).toHaveLength(2)
+    expect(keys[0]).not.toBe(keys[1])
+    for (const key of keys) {
+      expect(key).toMatch(/^source-images\/[a-f0-9]{64}-[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}\.png$/)
+      expect(key).not.toContain('20250301_alice-maker')
+    }
+    const writes = executions.filter(item => item.query.includes('INSERT INTO source_images'))
+    expect(writes).toHaveLength(2)
+    expect(writes.map(item => item.values.slice(0, 4))).toEqual(keys.map(key => [
+      '20250301_alice-maker',
+      '20250301_alice-maker',
+      key,
+      'image/png',
+    ]))
+    expect(writes[0]?.values.slice(4)).toEqual(writes[1]?.values.slice(4))
   })
 
   it('loads bootstrap data natively when DB binding exists', async () => {
@@ -1206,83 +1239,6 @@ describe('admin worker CRUD contract routing', () => {
     })
   })
 
-  it('loads source images natively when IMAGES binding exists', async () => {
-    const backend = createCrudBackend()
-    const imageBody = new Uint8Array([137, 80, 78, 71]).buffer
-    const get = vi.fn(async (key: string) => {
-      if (key !== '20250301_alice-maker.png') {
-        return null
-      }
-
-      return {
-        httpMetadata: {
-          contentType: 'image/png',
-        },
-        async arrayBuffer() {
-          return imageBody
-        },
-      }
-    })
-
-    const response = await handleAdminApiRequest(
-      new Request(`${baseUrl}/api/admin/source-image/20250301_alice-maker`, { method: 'GET' }),
-      { IMAGES: { get } },
-      backend,
-    )
-
-    expect(response.status).toBe(200)
-    expect(response.headers.get('Content-Type')).toBe('image/png')
-    expect(get).toHaveBeenCalledTimes(3)
-    expect(get).toHaveBeenNthCalledWith(1, '20250301_alice-maker.jpg')
-    expect(get).toHaveBeenNthCalledWith(2, '20250301_alice-maker.jpeg')
-    expect(get).toHaveBeenNthCalledWith(3, '20250301_alice-maker.png')
-    expect(await response.arrayBuffer()).toEqual(imageBody)
-  })
-
-  it('loads source images via D1 metadata before probing fallback extensions', async () => {
-    const backend = createCrudBackend()
-    const { db } = createD1Recorder({
-      queryResults(query, values) {
-        if (query.includes('sqlite_master')) {
-          return [{ name: String(values[1] ?? '') }]
-        }
-
-        if (query.includes('FROM source_images')) {
-          return [{ objectKey: '20250301_alice-maker.png' }]
-        }
-
-        return []
-      },
-    })
-    const imageBody = new Uint8Array([137, 80, 78, 71]).buffer
-    const get = vi.fn(async (key: string) => {
-      if (key !== '20250301_alice-maker.png') {
-        return null
-      }
-
-      return {
-        httpMetadata: {
-          contentType: 'image/png',
-        },
-        async arrayBuffer() {
-          return imageBody
-        },
-      }
-    })
-
-    const response = await handleAdminApiRequest(
-      new Request(`${baseUrl}/api/admin/source-image/20250301_alice-maker`, { method: 'GET' }),
-      { DB: db, IMAGES: { get } },
-      backend,
-    )
-
-    expect(response.status).toBe(200)
-    expect(response.headers.get('Content-Type')).toBe('image/png')
-    expect(get).toHaveBeenCalledTimes(1)
-    expect(get).toHaveBeenCalledWith('20250301_alice-maker.png')
-    expect(await response.arrayBuffer()).toEqual(imageBody)
-  })
-
   it('loads source images by commission ID without exposing the legacy asset key', async () => {
     const backend = createCrudBackend()
     const { db } = createD1Recorder({
@@ -1365,16 +1321,36 @@ describe('admin worker CRUD contract routing', () => {
     expect(await stale.arrayBuffer()).toEqual(imageBody)
   })
 
-  it('falls back to the legacy filename key when no id mapping exists', async () => {
+  it('returns 404 without probing root keys when the commission has no source-image metadata', async () => {
     const backend = createCrudBackend()
     const { db } = createD1Recorder({
       queryResults() {
         return [{ fileName: 'legacy-fallback', objectKey: null }]
       },
     })
-    const imageBody = new Uint8Array([7, 8, 9]).buffer
+    const get = vi.fn(async (_key: string) =>
+      createR2SourceImageObject(new Uint8Array([7, 8, 9]).buffer, { contentType: 'image/png' }))
+
+    const response = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/commissions/19/source-image`, { method: 'GET' }),
+      { DB: db, IMAGES: { get } },
+      backend,
+    )
+
+    expect(response.status).toBe(404)
+    expect(await response.text()).toBe('Not Found')
+    expect(get).not.toHaveBeenCalled()
+  })
+
+  it('returns 404 when the resolved object key is missing from R2 instead of trying other keys', async () => {
+    const backend = createCrudBackend()
+    const { db } = createD1Recorder({
+      queryResults() {
+        return [{ fileName: 'legacy-fallback', objectKey: 'source-images/legacy-fallback/hash.png' }]
+      },
+    })
     const get = vi.fn(async (key: string) => key === 'legacy-fallback.png'
-      ? createR2SourceImageObject(imageBody, { contentType: 'image/png', httpEtag: '"legacy-etag"' })
+      ? createR2SourceImageObject(new Uint8Array([7, 8, 9]).buffer, { contentType: 'image/png' })
       : null)
 
     const response = await handleAdminApiRequest(
@@ -1383,12 +1359,9 @@ describe('admin worker CRUD contract routing', () => {
       backend,
     )
 
-    expect(response.status).toBe(200)
-    expect(response.headers.get('Content-Type')).toBe('image/png')
-    expect(get).toHaveBeenCalledTimes(3)
-    expect(get).toHaveBeenNthCalledWith(1, 'legacy-fallback.jpg')
-    expect(get).toHaveBeenNthCalledWith(2, 'legacy-fallback.jpeg')
-    expect(get).toHaveBeenNthCalledWith(3, 'legacy-fallback.png')
+    expect(response.status).toBe(404)
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(get).toHaveBeenCalledWith('source-images/legacy-fallback/hash.png')
   })
 
   it('handles suggestion writes natively when DB binding exists', async () => {

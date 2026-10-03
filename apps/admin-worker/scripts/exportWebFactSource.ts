@@ -31,10 +31,7 @@ import {
   parseCharacterAliasesJson,
   parseKeywordAliasesJson,
 } from '@commission-index/domain'
-import {
-  buildSourceImageCandidateKeys,
-  getSourceImageMimeType,
-} from '../src/adminSourceImages'
+import { getSourceImageMimeType } from '../src/adminSourceImages'
 
 interface ParsedArgs {
   outputRoot: string
@@ -620,6 +617,20 @@ function buildSourceImageRowMap(rows: SourceImageRow[]) {
   return byId
 }
 
+// 作品缺少 source_images 行属于数据完整性错误而非瞬时失败：必须整体中止导出，
+// 不能记入 missing 后继续，否则该作品的图片会从快照里静默消失。
+function assertSourceImageMetadataComplete(
+  expectedImages: ExpectedSourceImage[],
+  sourceImageRowMap: Map<number, SourceImageRow>,
+) {
+  const missingFileNames = expectedImages
+    .filter(image => !sourceImageRowMap.has(image.commissionId))
+    .map(image => image.commissionFileName)
+  if (missingFileNames.length > 0) {
+    throw new Error(`作品缺少 source_images 元数据，无法定位 R2 对象：${missingFileNames.join(', ')}`)
+  }
+}
+
 export function resolveReusableSourceImageRecord(
   outputImagesDir: string,
   sourceImageRow?: SourceImageRow,
@@ -790,6 +801,7 @@ async function stageSourceImages(
   const files: GeneratedSourceImageManifestFile[] = []
   const missing: GeneratedSourceImageManifestMissing[] = []
   const sourceImageRowMap = buildSourceImageRowMap(sourceImageRows)
+  assertSourceImageMetadataComplete(expectedImages, sourceImageRowMap)
   let downloadedCount = 0
   let reusedCount = 0
 
@@ -804,9 +816,9 @@ async function stageSourceImages(
     downloadConcurrency,
     async ({ commissionId, commissionFileName }, index): Promise<ExportSourceImageTaskResult> => {
       const progressLabel = `[${index + 1}/${expectedImages.length}] ${commissionFileName}`
-      const candidateObjectKeys = buildSourceImageCandidateKeys(commissionFileName)
       const sourceImageRow = sourceImageRowMap.get(commissionId)
-      if (sourceImageRow && sourceImageRow.commissionFileName !== commissionFileName) {
+      // 完整性已在上方断言；这里的空值判断只为类型收窄。
+      if (!sourceImageRow || sourceImageRow.commissionFileName !== commissionFileName) {
         throw new Error(`source_images commission_id ${commissionId} 的文件映射与作品快照不一致。`)
       }
       const reusableRecord = resolveReusableSourceImageRecord(outputImagesDir, sourceImageRow)
@@ -820,9 +832,8 @@ async function stageSourceImages(
         }
       }
 
-      const orderedCandidateObjectKeys = sourceImageRow
-        ? [sourceImageRow.objectKey]
-        : candidateObjectKeys
+      // R2 对象身份只来自 D1 的 object_key，不再按文件名猜测根目录 key。
+      const orderedCandidateObjectKeys = [sourceImageRow.objectKey]
       console.log(`  ↓ ${progressLabel}`)
       let exportedRecord: GeneratedSourceImageManifestFile | null = null
       let hardFailureMessage = ''
@@ -835,7 +846,7 @@ async function stageSourceImages(
         const downloadResult = await downloadSourceImageObject(bucketName, objectKey, tempOutputPath)
         if (downloadResult.ok) {
           const record = buildSourceImageFileRecord(commissionFileName, objectKey, tempOutputPath, commissionId)
-          if (sourceImageRow && (sourceImageRow.sha256 !== record.sha256 || sourceImageRow.byteSize !== record.byteSize)) {
+          if (sourceImageRow.sha256 !== record.sha256 || sourceImageRow.byteSize !== record.byteSize) {
             rmSync(tempOutputPath, { force: true })
             hardFailureMessage = `图片内容与读取的 D1 快照不一致：${commissionFileName}`
             break
@@ -889,7 +900,7 @@ async function stageSourceImages(
       return {
         downloadedCount: 0,
         file: null,
-        hardFailure: Boolean(sourceImageRow),
+        hardFailure: true,
         missing: {
           commissionId,
           commissionFileName,

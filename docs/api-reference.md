@@ -223,8 +223,10 @@ curl https://admin.crystallize.cc/api/admin/characters/3/commissions
 ### `GET /api/admin/commissions/:id/source-image`
 
 Fetches the source image from R2 by stable commission ID. The Worker resolves the immutable
-object key through the commission's `source_images` metadata. Dates, creator names, and
-legacy file names are not part of the image URL.
+object key through the commission's `source_images` metadata; there is no filename-based
+fallback. The stored key is read opaquely, including historical root keys, historical
+commission-folder keys, and the current flat keys under `source-images/`. Dates, creator
+names, and legacy file names are not part of the image URL.
 
 **Requires:** `DB` + `IMAGES`
 
@@ -240,7 +242,8 @@ revalidate, so a replaced image is never served stale.
 **Errors:**
 
 - `400` — invalid commission ID
-- `404` — no matching object found in R2 (**plain-text** `Not Found`, not the JSON error envelope)
+- `404` — unknown commission, no `source_images` metadata for it, or the referenced object is
+  missing from R2 (**plain-text** `Not Found`, not the JSON error envelope)
 - `503` — D1 or R2 binding not available
 
 ```bash
@@ -389,6 +392,9 @@ curl -X DELETE https://admin.crystallize.cc/api/admin/characters/3
 
 Creates a new commission and uploads its source image to R2. The request must be
 `multipart/form-data`. This is the only endpoint that accepts a file upload for creation.
+New objects use `source-images/<sha256>-<UUIDv4>.jpg` or `.png`, with a fresh UUID for each
+upload, including identical bytes. The internal commission filename is still validated and
+persisted in D1; it is not part of the new R2 key.
 
 **Requires:** `DB` + `IMAGES`
 
@@ -419,7 +425,7 @@ sourceImage    File     JPEG or PNG only; determined by Content-Type (image/jpeg
 
 - `400` — missing/invalid `characterId` or `commissionDate`, missing `sourceImage`
 - `400` — malformed `workGroupId`, non-positive/non-integer `partNumber`, or only one part field set
-- `400` — invalid image type or a commission/image collision
+- `400` — invalid image type or a D1 uniqueness conflict (R2 is not probed before upload)
 - `503` — missing `DB` or `IMAGES` binding
 
 Empty or whitespace-only `workGroupId` and `partNumber` values are normalized to `null` before
@@ -511,7 +517,9 @@ curl -X PATCH https://admin.crystallize.cc/api/admin/commissions/12 \
 ### `DELETE /api/admin/commissions/:id`
 
 Deletes a commission record and its source-image metadata from D1 in one atomic batch. The
-source image remains in R2 for later orphan cleanup.
+source image remains in R2 for later orphan cleanup. Root-level and historical commission-folder
+objects retained by `migrateLegacySourceImageKeys.ts` are rollback copies: never include them in orphan cleanup
+until the migration's rollback window is explicitly closed.
 
 **Requires:** `DB`
 
@@ -535,8 +543,9 @@ curl -X DELETE https://admin.crystallize.cc/api/admin/commissions/12
 
 ### `POST /api/admin/commissions/:id/source-image`
 
-Replaces the source image for an existing commission addressed by stable ID. Writes a new
-immutable R2 object key and updates the D1 image reference. Changing `commissionDate` or
+Replaces the source image for an existing commission addressed by stable ID. Writes a fresh
+`source-images/<sha256>-<UUIDv4>.jpg` or `.png` object and updates the D1 image reference,
+retaining the commission filename metadata. Changing `commissionDate` or
 `creatorName` through PATCH does not invoke this endpoint or alter the R2 object.
 
 **Requires:** `DB` + `IMAGES`
@@ -562,7 +571,10 @@ sourceImage          File     JPEG or PNG only (same rules as POST /commissions)
 
 If the D1 metadata update fails, the previous image remains active; the newly uploaded object
 may remain orphaned for later cleanup. If cleanup of the previous object fails after the D1
-commit, the new image remains active and the old object is an orphan.
+commit, the new image remains active and the old object is an orphan. This does not authorize
+sweeping root-level or historical commission-folder objects retained by
+`migrateLegacySourceImageKeys.ts`: both generations are rollback copies and must remain
+until the migration's rollback window is explicitly closed.
 
 ```bash
 curl -X POST https://admin.crystallize.cc/api/admin/commissions/12/source-image \
