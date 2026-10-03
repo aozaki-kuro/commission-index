@@ -20,7 +20,6 @@ export function CharacterCardSkeleton() {
         <span className="hidden size-11 shrink-0 sm:block" />
         <div className={characterIdentityStyles}>
           <span className="min-h-11 w-full min-w-0 flex-1" />
-          <span className="h-4 w-16 shrink-0" />
         </div>
         <span className="h-4 w-5 shrink-0" />
         <div className="flex shrink-0 gap-0.5">
@@ -92,6 +91,7 @@ export function SortableCharacterCard({
   const sectionId = `admin-character-${character.id}`
   const panelId = `${sectionId}-panel`
   const statusId = `${sectionId}-status`
+  const statusLabel = isActive ? 'Active' : 'Archived'
 
   return (
     <div
@@ -184,6 +184,14 @@ export function SortableCharacterCard({
             "
                   >
                     <IconChevronRight aria-hidden="true" stroke={1.8} className={`size-4 shrink-0 text-gray-500 motion-safe:transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                    {/* 状态圆点：绿=active、灰=archived，仅作视觉标记；无障碍语义由下方 statusId 文本提供 */}
+                    <span
+                      data-character-status-dot="true"
+                      role="img"
+                      aria-label={statusLabel}
+                      title={statusLabel}
+                      className={`size-2.5 shrink-0 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                    />
                     <span className="
                     truncate text-sm font-medium text-gray-800
                     dark:text-gray-100
@@ -196,9 +204,9 @@ export function SortableCharacterCard({
             <span
               id={statusId}
               data-character-status-label="true"
-              className="shrink-0 pl-6 text-xs leading-4 text-gray-600 sm:pl-0 dark:text-gray-300"
+              className="sr-only"
             >
-              {isActive ? 'Active' : 'Archived'}
+              {statusLabel}
             </span>
           </div>
 
