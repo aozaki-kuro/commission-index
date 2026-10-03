@@ -25,6 +25,12 @@ export function mountCommissionViewModeDomSync({
   doc = document,
 }: MountCommissionViewModeDomSyncOptions = {}) {
   let transitioning = false
+  // 各视图各自记住滚动位置：没打开过的视图从顶部开始，而不是继承另一个视图的 scrollY
+  const savedScrollY = new Map<string, number>()
+
+  const restoreScrollFor = (mode: string) => {
+    win.scrollTo({ top: savedScrollY.get(mode) ?? 0, left: win.scrollX, behavior: 'instant' })
+  }
 
   const applyInstant = (panels: NodeListOf<HTMLElement>, mode: string) => {
     for (const panel of panels) {
@@ -57,12 +63,22 @@ export function mountCommissionViewModeDomSync({
     }
 
     if (!outgoing || !incoming || outgoing === incoming || transitioning || prefersReducedMotion()) {
+      const outgoingMode = outgoing && incoming && outgoing !== incoming && !transitioning
+        ? outgoing.dataset.commissionViewPanel
+        : undefined
+      const switched = outgoingMode !== undefined
+      if (outgoingMode)
+        savedScrollY.set(outgoingMode, win.scrollY)
       applyInstant(panels, mode)
       transitioning = false
+      if (switched)
+        restoreScrollFor(mode)
       return
     }
 
     transitioning = true
+    // 必须在隐藏 outgoing 前读取，隐藏后文档变短会被浏览器钳制 scrollY
+    savedScrollY.set(outgoing.dataset.commissionViewPanel!, win.scrollY)
 
     outgoing.style.transition = `opacity ${FADE_OUT_MS}ms ease-out`
     outgoing.style.opacity = '0'
@@ -81,6 +97,7 @@ export function mountCommissionViewModeDomSync({
       incoming.style.opacity = '0'
       incoming.classList.remove('hidden')
       incoming.dataset.commissionViewActive = 'true'
+      restoreScrollFor(mode)
 
       requestAnimationFrame(() => {
         incoming.style.transition = `opacity ${FADE_IN_MS}ms ${EASE_OUT}`
