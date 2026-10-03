@@ -230,7 +230,7 @@ All three should return `404`. Note: `vite preview` does not validate edge HTTP 
 
 - Source images: `apps/web/generated/source-images/*.{jpg,jpeg,png}`
 - 新上传的 R2 `objectKey` 唯一规范为 `source-images/<sha256>-<UUIDv4>.jpg|png`：保留分类前缀，不含作品名目录，相同字节每次上传仍有独立 UUID。读取把 D1 `source_images.object_key` 当作不透明身份，兼容历史根 key、作品目录 key 和扁平 key，不按文件名探测桶根；`commissions.file_name` 仍作内部资产键并保留校验/持久化。日期/作者只能从显式字段读取，本地 `relativePath` 以该内部键映射，不能把远端 key 当成本地路径
-- 源图迁移复用 `migrateLegacySourceImageKeys.ts`：v2 计划顶层 `schemaVersion: 2` / `targetLayout: 'flat-v1'`，严格校验后从根/作品目录迁到扁平，目录 basename/UUID 保留；无版本 v1 目录计划只允许回滚。迁移从不删除对象，保留的根目录和作品目录两代源对象均受回滚窗口保护；先回滚 v2，再按 v1 恢复根 key，不能按无引用直接清理
+- 源图 key 迁移已执行完毕，迁移 CLI 作为一次性工具已从仓库移除（副本与回滚用法见 `.backups/`，不入库）。桶内仍保留原始根目录和作品目录两代源对象作为回滚副本，均受回滚窗口保护，不能按无引用直接清理；两代对象在任何孤儿清理前都必须先确认回滚窗口已明确关闭。新代码不再包含任何按旧布局推测 key 的分支
 - Resolution: `sourceImageRegistry.ts` maps the internal commission asset key to the generated image stem; user-visible identity and search never parse that key
 - Listing widths: `768/960/1280`, sizes `(max-width: 768px) 92vw, 640px`
 

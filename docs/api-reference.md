@@ -518,8 +518,8 @@ curl -X PATCH https://admin.crystallize.cc/api/admin/commissions/12 \
 
 Deletes a commission record and its source-image metadata from D1 in one atomic batch. The
 source image remains in R2 for later orphan cleanup. Root-level and historical commission-folder
-objects retained by `migrateLegacySourceImageKeys.ts` are rollback copies: never include them in orphan cleanup
-until the migration's rollback window is explicitly closed.
+objects retained by the completed source-image key migration are rollback copies: never include
+them in orphan cleanup until the migration's rollback window is explicitly closed.
 
 **Requires:** `DB`
 
@@ -572,9 +572,9 @@ sourceImage          File     JPEG or PNG only (same rules as POST /commissions)
 If the D1 metadata update fails, the previous image remains active; the newly uploaded object
 may remain orphaned for later cleanup. If cleanup of the previous object fails after the D1
 commit, the new image remains active and the old object is an orphan. This does not authorize
-sweeping root-level or historical commission-folder objects retained by
-`migrateLegacySourceImageKeys.ts`: both generations are rollback copies and must remain
-until the migration's rollback window is explicitly closed.
+sweeping root-level or historical commission-folder objects retained by the completed
+source-image key migration: both generations are rollback copies and must remain until the
+migration's rollback window is explicitly closed.
 
 ```bash
 curl -X POST https://admin.crystallize.cc/api/admin/commissions/12/source-image \

@@ -13,21 +13,14 @@
 - `FACT_SOURCE_USE_EXISTING_SNAPSHOT=1` 只校验快照和图片字节；若提供 `WEB_BUILD_CACHE_TOKEN`，必须等于快照 revision。此路径不调用 Wrangler
 - 导出模块可安全导入；CLI 入口使用 main guard。对应测试位于 `../src/exportWebFactSource.test.ts`
 
-## migrateLegacySourceImageKeys.ts
+## 源图 key 迁移（工具已移除）
 
-将 `source_images.object_key` 的根目录旧 key 和严格验证的历史作品目录 key 迁移到新上传的扁平 `source-images/<sha256>-<UUIDv4>.jpg|png`。合法扁平 key 跳过；作品目录必须匹配本行 filename/SHA/UUIDv4/扩展名，扁平化时保留完整 basename；根 key 才生成新 UUID。SHA 自相矛盾、未知布局、URL 不安全、扩展/MIME 不一致、目标冲突或交叉 key 重叠均中止，已跳过的行也须通过全量关联/metadata 校验。
+把 `source_images.object_key` 从根目录旧 key 和作品目录 key 迁到扁平 `source-images/<sha256>-<UUIDv4>.jpg|png` 的一次性 CLI 已完成使命，并从仓库移除。它当时复用 exporter 的配置/桶环境变量、要求桶等于配置的 `IMAGES.bucket_name`，先复制并回读校验全部字节，再做带条件的 D1 更新并逐行回读完整计划，全程不删除任何 R2 对象或 D1 行。
 
-从仓库根目录调用 `pnpm exec tsx apps/admin-worker/scripts/migrateLegacySourceImageKeys.ts`；默认 `--dry-run` 只读 D1 并落盘计划。显式 `--execute --plan <path>` 执行迁移，`--rollback --plan <path>` 仅反向条件更新 D1（先只读校验旧对象）。支持 `--binding` 和 `--concurrency 1..8`，并发默认 4；新默认计划位于 `.backups/r2-flat-key-migration-20261003/plan.json`，顶层固定 `schemaVersion: 2` / `targetLayout: 'flat-v1'`。复用 exporter 的配置/桶环境变量，并要求桶与配置的 `IMAGES.bucket_name` 一致。
-
-无版本字段的 v1 计划严格按根 → 作品目录布局校验，只允许 `--rollback`；forward 和 dry-run 复用明确拒绝，未知/混合版本拒绝。v1 回滚不依赖扁平化资格，允许计划外合法扁平行，并以 `.v1-rollback-<UUID>` SQL 前缀保存本次记录，保护第一次 SQL/JSON。新规划排他创建，不覆写旧备份或原计划；同一 v2 计划 partial resume/rollback 保留目标 key。
-
-- 安全不变量：D1 每行始终指向存在且 hash/size 正确的对象；保留旧对象保证在途导出和回滚可用。
-- 已有计划复用原 UUID；写前再次读取完整计划，任意 key 或元数据漂移整体中止；导入后逐行验证原始完整计划，`rows_written` 因 UNIQUE 索引写入膨胀，仅作统计。
-- 完整 forward/rollback SQL 与本次 pending SQL 分开保存，只在漂移检查通过后写入；先持久化计划再执行任何远端写入。
-- `d1 execute --remote --file` 使用 import API，期间 D1 短暂不可查询；操作前冻结 admin 写入并暂停导出。
-- 回滚整体校验完整计划；若计划中图片已被后台合法替换，先人工核对计划，不自动跳过该行并回滚其他行。
-- 迁移从不删除 R2 对象或 D1 行；保留的根目录和历史作品目录两代源对象都是回滚副本，必须明确关闭回滚窗口后才能独立审批清理，不能按孤儿对象扫描结果直接删除。若需恢复根布局，先回滚 v2 恢复作品目录，再按第一次 v1 计划回滚。
-- 可安全导入，CLI 有 main guard；离线测试位于 `../src/migrateLegacySourceImageKeys.test.ts`，不得在本地验证时运行生产迁移。
+- 副本、校验和与回滚命令见 `.backups/r2-flat-key-migration-20261003/archived-tool/`（不入库）；恢复步骤见同目录 `RESTORE.md` 与 `../r2-key-migration-20261003/RESTORE.md`。
+- 两个计划仍保留：v2 将扁平 key 回滚为作品目录，v1 再把作品目录回滚为原始根 key；顺序不可颠倒，v1 计划只认作品目录 key。
+- 桶内原始根目录与作品目录两代对象都是回滚副本，即使当前无 D1 引用也不是孤儿，必须明确关闭回滚窗口后才能单独审批清理。
+- 若将来需要再次迁移，应从归档副本恢复该工具并重新走完整的备份、dry-run、校验流程，不要临时手写 SQL 直接改 D1。
 
 ## syncMissingSourceImages.ts
 

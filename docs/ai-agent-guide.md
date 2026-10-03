@@ -373,10 +373,9 @@ until the D1 result is checked, and do not overwrite or delete another commissio
 
 The worker updates D1 to the new immutable key before deleting the previous referenced object.
 Cleanup is best effort; failure leaves an orphan and does not turn a committed update into an
-error. Root-level and historical commission-folder objects retained by
-`migrateLegacySourceImageKeys.ts` are migration rollback copies, even when no current D1 row
-references them. Exclude both generations from orphan sweeps until
-the rollback window is explicitly closed.
+error. Root-level and historical commission-folder objects retained by the completed source-image
+key migration are rollback copies, even when no current D1 row references them. Exclude both
+generations from orphan sweeps until the rollback window is explicitly closed.
 
 **R2 cleanup on commission delete:**
 
