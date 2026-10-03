@@ -12,7 +12,7 @@ Standalone admin Cloudflare Worker: API router, D1/R2 CRUD, asset serving.
 - `src/adminApi.test.ts` — contract tests locking CRUD normalization and failure responses
 - `src/exportWebFactSource.test.ts` — 只读导出、SQLite 快照、revision、不可变对象与本地路径映射测试
 - `scripts/exportWebFactSource.ts` — 只读 D1/R2 -> `apps/web/generated/*`，输出带稳定 `meta.revision` 的 content/manifest
-- 源图 key 迁移 CLI（`migrateLegacySourceImageKeys.ts` 及其测试）已作为一次性工具从仓库移除；副本、回滚命令与恢复步骤保存在 `.backups/`（不入库）
+- 源图 key 迁移 CLI（`migrateLegacySourceImageKeys.ts` 及其测试）是一次性工具，已完成使命并从仓库移除；随任务结束，其计划、SQL、备份与工具副本也已清除，迁移前的旧 key 布局不可回滚
 - `migrations/` — versioned D1 schema and commission identity backfills
 
 ## Responsibilities
