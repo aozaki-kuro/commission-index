@@ -257,7 +257,7 @@ docs/
 
 Admin 布局稳定性规划覆盖加载外壳、后台刷新、表单反馈、网格占位与滚动恢复；浏览器证据来自本地模拟 API，不代表生产回归。验收必须检查状态切换过程中的元素位置与焦点，稳定终态截图不能证明中间过程无漂移。
 
-2026-09-30 Admin 设计改为桌面侧栏与五页统一 1600px 外壳，移动端保留完整导航；采用 Vercel 风格黑白灰，毛玻璃限于导航、吸附保存条和通知，正文实底。标题、分隔线和主表面跨路由保持边界，图片/字段列在内部调整。首页主辅分栏，Create 固定比例图片预览，Edit 提供跨尺寸键盘排序与 2–5 列自适应图卡，角色状态以箭头与名称之间的可访问状态圆点显示（绿=Active、灰=Archived），归档表示公站默认折叠。Aliases 顶部保存工具栏，Suggestion 序号排序与词池。HiDPI 按 CSS 视口与 DPR 分开验收。API/schema/裁剪契约不变，具体边界见 `apps/admin/AGENTS.md`。
+2026-09-30 Admin 设计改为桌面侧栏与五页统一 1600px 外壳，移动端保留完整导航；采用 Vercel 风格黑白灰，毛玻璃限于导航、吸附保存条和通知，正文实底。标题、分隔线和主表面跨路由保持边界，图片/字段列在内部调整。首页主辅分栏，Create 固定比例图片预览，Edit 提供跨尺寸键盘排序与 2–5 列自适应图卡，角色状态只标记例外：Active 不显示标记，Archived 名称降为灰色并在名称后显示 IconArchiveFilled（role=img、aria-label、title），不只依赖颜色——分界位置 + sr-only 文本提供语义，长名截断时图标保持可见，归档表示公站默认折叠。Aliases 顶部保存工具栏，Suggestion 序号排序与词池。HiDPI 按 CSS 视口与 DPR 分开验收。API/schema/裁剪契约不变，具体边界见 `apps/admin/AGENTS.md`。
 
 Admin 整改现采用页面/模态各自的浮动通知，禁止常驻空状态槽；保留既有交互动效，角色选择在加载前后保留中性占位。短 UUID 使用 7 位，缩略卡放链接数量同行，弹窗放头部角色信息行，各只显示一次。模块边界见 `apps/admin/AGENTS.md`；`apps/admin/playwright.ui.config.ts` 是不启动 Worker 的 fixture 专用入口，使用 `pnpm run test:admin-ui`。
 

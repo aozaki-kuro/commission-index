@@ -4,7 +4,7 @@ import type {
 } from '@commission-index/domain'
 import type { KeyboardEvent } from 'react'
 import type { DragHandleProps } from '../../hooks/useNativeDragReorder'
-import { IconArrowDown, IconArrowUp, IconChevronRight, IconDeviceFloppy, IconGripHorizontal, IconPencil, IconTrash, IconX } from '@tabler/icons-react'
+import { IconArchiveFilled, IconArrowDown, IconArrowUp, IconChevronRight, IconDeviceFloppy, IconGripHorizontal, IconPencil, IconTrash, IconX } from '@tabler/icons-react'
 import { CommissionThumbnailGrid, CommissionThumbnailGridSkeleton } from './CommissionThumbnailGrid'
 
 const inlineEditStyles
@@ -184,21 +184,24 @@ export function SortableCharacterCard({
             "
                   >
                     <IconChevronRight aria-hidden="true" stroke={1.8} className={`size-4 shrink-0 text-gray-500 motion-safe:transition-transform ${isOpen ? 'rotate-90' : ''}`} />
-                    {/* 状态圆点：绿=active、灰=archived，仅作视觉标记；无障碍语义由下方 statusId 文本提供 */}
-                    <span
-                      data-character-status-dot="true"
-                      role="img"
-                      aria-label={statusLabel}
-                      title={statusLabel}
-                      className={`size-2.5 shrink-0 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'}`}
-                    />
-                    <span className="
-                    truncate text-sm font-medium text-gray-800
-                    dark:text-gray-100
-                  "
+                    {/* 只标记例外：Active 不加标记，Archived 名称降灰并在名称后加归档图标；
+                        分界位置已区分两组，sr-only 的 statusId 文本提供完整语义 */}
+                    <span className={`
+                    min-w-0 truncate text-sm font-medium
+                    ${isActive ? 'text-gray-800 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}
+                  `}
                     >
                       {character.name}
                     </span>
+                    {!isActive && (
+                      <IconArchiveFilled
+                        data-character-status-icon="true"
+                        role="img"
+                        aria-label={statusLabel}
+                        title={statusLabel}
+                        className="size-4 shrink-0 text-gray-500 dark:text-gray-400"
+                      />
+                    )}
                   </button>
                 )}
             <span

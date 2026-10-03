@@ -562,14 +562,13 @@ test('character cancellation and archive roundtrip keep visible status', async (
   const secondCharacter = page.locator('[data-character-id="2"]')
   const firstStatus = firstCharacter.locator('[data-character-status-label]')
   const secondStatus = secondCharacter.locator('[data-character-status-label]')
-  const firstStatusDot = firstCharacter.locator('[data-character-status-dot]')
-  const secondStatusDot = secondCharacter.locator('[data-character-status-dot]')
+  const firstStatusIcon = firstCharacter.locator('[data-character-status-icon]')
+  const secondStatusIcon = secondCharacter.locator('[data-character-status-icon]')
   await expect(firstStatus).toHaveText('Active')
-  await expect(firstStatusDot).toBeVisible()
-  await expect(firstStatusDot).toHaveAccessibleName('Active')
+  await expect(firstStatusIcon).toHaveCount(0)
   await expect(firstCharacter.locator('button[aria-expanded]')).toHaveAccessibleDescription('Active')
   await expect(secondStatus).toHaveText('Active')
-  await expect(secondStatusDot).toBeVisible()
+  await expect(secondStatusIcon).toHaveCount(0)
   await page.getByRole('button', { name: 'Rename Character 1', exact: true }).click()
   const input = page.getByRole('textbox', { name: 'Name for Character 1', exact: true })
   await input.fill('Cancelled name')
@@ -587,7 +586,8 @@ test('character cancellation and archive roundtrip keep visible status', async (
   await expect.poll(() => control.bootstrapRequests).toBe(2)
   await expect(page.locator('[data-character-id="2"]')).toHaveAttribute('data-character-status', 'archived')
   await expect(secondStatus).toHaveText('Archived')
-  await expect(secondStatusDot).toBeVisible()
+  await expect(secondStatusIcon).toBeVisible()
+  await expect(secondStatusIcon).toHaveAccessibleName('Archived')
   await expect(secondCharacter.locator('button[aria-expanded]')).toHaveAccessibleDescription('Archived')
   await expect(page.locator('[data-stale-divider]')).toHaveText('Archived (1)')
   const restore = page.getByRole('button', { name: 'Move Character 2 up', exact: true })
@@ -598,11 +598,11 @@ test('character cancellation and archive roundtrip keep visible status', async (
   await expect.poll(() => control.bootstrapRequests).toBe(3)
   await expect(secondCharacter).toHaveAttribute('data-character-status', 'active')
   await expect(secondStatus).toHaveText('Active')
-  await expect(secondStatusDot).toBeVisible()
+  await expect(secondStatusIcon).toHaveCount(0)
   await expect(page.locator('[data-stale-divider]')).toHaveText('Archived (0)')
 })
 
-test('archived status dot stays visible with long names and doubled mobile text', async ({ page }, testInfo) => {
+test('archived status icon stays visible with long names and doubled mobile text', async ({ page }, testInfo) => {
   const colorScheme = 'dark'
   const control = await mockApi(page)
   control.archivedCharacter = true
@@ -615,15 +615,16 @@ test('archived status dot stays visible with long names and doubled mobile text'
   await page.evaluate(() => document.fonts.ready)
   const character = page.locator('[data-character-id="2"]')
   const status = character.locator('[data-character-status-label]')
-  const statusDot = character.locator('[data-character-status-dot]')
+  const statusIcon = character.locator('[data-character-status-icon]')
   await expect(character).toHaveAttribute('data-character-status', 'archived')
   await expect(status).toHaveText('Archived')
-  await expect(statusDot).toBeVisible()
+  await expect(statusIcon).toBeVisible()
+  await expect(statusIcon).toHaveAccessibleName('Archived')
   await expect(character.locator('button[aria-expanded]')).toHaveAccessibleDescription('Archived')
-  await statusDot.scrollIntoViewIfNeeded()
+  await statusIcon.scrollIntoViewIfNeeded()
   const geometry = await character.evaluate((element) => {
     const bounds = element.getBoundingClientRect()
-    const statusElement = element.querySelector<HTMLElement>('[data-character-status-dot]')!
+    const statusElement = element.querySelector<SVGSVGElement>('[data-character-status-icon]')!
     const statusBounds = statusElement.getBoundingClientRect()
     const actions = [...element.querySelectorAll<HTMLElement>('button[aria-label]')].filter(button => button.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })).map((button) => {
       const { left, right, width, height } = button.getBoundingClientRect()
