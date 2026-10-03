@@ -114,7 +114,7 @@ src/components/edit/SortableDivider.tsx 归档分界与数量
 - 图卡与骨架共用 `gridStyles` 和 `thumbnails` 容器断点：默认 2 列，40/62/78rem 起为 3/4/5 列；标题 14px/20px 行高、辅助信息 12px/16px 行高，骨架分别保留 20px/16px。rem 断点随文字放大降列，加载前后必须几何一致。
 - Create 裁剪前后保留固定比例预览区域；URL 在 effect 中按当前 File 创建并释放，StrictMode 重放重新生成 URL，不复用已回收地址。1280×525 JPEG 契约及图片输入值保持不变。
 - Edit 搜索使用原生 searchbox 语义；角色展开按钮、改名输入、管理操作是独立交互元素。桌面与移动均提供排序模式和上下按钮，跨 active/archive 分界按相邻列表项移动，不能跳过分界导致空分组无法进入。
-- 角色状态在展开箭头与角色名之间以状态圆点表示（绿=Active、灰=Archived），不能只依赖颜色：圆点以 `role="img"` 和 Active / Archived `aria-label` 提供自身可访问名称，持续存在、`aria-describedby` 引用的 `data-character-status-label` 文本（sr-only）也为展开按钮与改名输入提供状态描述，圆点带 `title` 供鼠标用户；因此移除可见文字后移动端不再换行。内联改名时不渲染圆点但保留该文本。Archived 表示公站默认折叠的角色，不等于隐藏/删除或缓存过期。状态按分界位置即时计算，不能在排序后读取旧角色快照。分界显示 Archived 数量，保留 `data-stale-divider` DOM 契约。
+- 角色状态只标记例外：Active 不显示任何标记；Archived 角色名降为灰色（`text-gray-500 dark:text-gray-400`），并在名称后显示 `IconArchiveFilled`（`data-character-status-icon`、`role="img"`、Archived `aria-label` 与 `title`）。不只依赖颜色：分界位置区分两组，持续存在、`aria-describedby` 引用的 `data-character-status-label` 文本（sr-only）为展开按钮与改名输入提供 Active / Archived 状态描述。长名截断时名称 `min-w-0 truncate`、图标 `shrink-0` 保持可见。内联改名时不渲染图标但保留该文本。Archived 表示公站默认折叠的角色，不等于隐藏/删除或缓存过期。状态按分界位置即时计算，不能在排序后读取旧角色快照。分界显示 Archived 数量，保留 `data-stale-divider` DOM 契约。
 - 角色头及初始占位共用布局契约；`thumbnails` 容器小于 16rem 时，姓名/状态与计数/操作分排，文字放大时不得挤压状态。导航顶部品牌/公站链接允许换行；关键词替换入口以 max-width 和文案换行适配窄栏，不裁掉文字。
 - 改名的保存/取消指针操作不能先触发 blur 提交；只有当前编辑行的两个操作带 rename 标识，切到别行仍按既有失焦保存规则处理。
 - 改名请求携带本地编辑会话身份；旧响应不得关闭后续草稿或覆盖其反馈。当前失败保留草稿供明确重试；改名与排序共享角色写入序列，避免改名 PATCH 中的旧 status 覆盖后续归档。排序仍合并为最新 payload；在途改名期间恢复原名也须排队提交，不自动重试写入。
