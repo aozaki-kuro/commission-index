@@ -18,11 +18,11 @@ export function AdminSectionNav({ current, onNavigate, publicSiteUrl }: AdminSec
     >
       <div className="mb-5 flex shrink-0 flex-wrap items-center justify-between gap-3 lg:mb-8">
         <div>
-          <p className="flex items-center gap-2.5 text-base font-semibold tracking-tight text-gray-900 dark:text-gray-100">
-            <span aria-hidden="true" className="size-2 rounded-full bg-rose-400" />
+          <p className="flex items-center gap-2 text-base font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+            <img src="/favicon.svg" alt="" width={16} height={16} className="size-4 shrink-0" />
             Commission Index
           </p>
-          <p className="mt-0.5 pl-[18px] text-xs text-gray-500 dark:text-gray-400">Private collection</p>
+          <p className="mt-0.5 pl-6 text-xs text-gray-500 dark:text-gray-400">Private collection</p>
         </div>
         <a href={publicSiteUrl} className="inline-flex min-h-11 items-center gap-1 text-xs no-underline lg:hidden">
           Public Site
