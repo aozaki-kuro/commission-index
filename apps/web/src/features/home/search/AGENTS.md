@@ -27,6 +27,11 @@ Vanilla TS search system for the home page. Goals: stable first paint, precise f
 ## Modification Rules
 
 - Keep search box, dropdown, and stale hint DOM structure + className stable — no layout jumps
+- Help uses native `popover` for toggle, Escape, outside dismissal, and focus restoration.
+  Its scoped CSS owns the trigger anchor, 8px gap, viewport collision fallbacks, rounded surface,
+  and open/close transitions (including discrete `display`/`overlay` retention). Keep these together:
+  `popovertarget` alone does not position or animate the panel. Without CSS anchor support, retain
+  the centered `m-auto` fallback; reduced motion is governed by the global accessibility rule.
 - Any suggestion/stale/timeline interaction change requires regression test updates
 - Keep controller-local state in `commissionSearchController.ts`, query derivation in
   `commissionSearchModel.ts`, and view/panel state in their existing event modules. The unused global

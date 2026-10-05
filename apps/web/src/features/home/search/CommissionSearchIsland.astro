@@ -121,8 +121,9 @@ const controls = resolveHomeSearchControls(locale)
           id="search-help-popover"
           popover
           class="
-            w-[min(calc(100vw-1rem),26rem)] border border-gray-300/80
-            bg-white/95 p-0 text-gray-700
+            m-auto w-[min(calc(100vw-1rem),26rem)] overflow-auto rounded-lg
+            border border-gray-300/80 bg-white/95 p-0 text-gray-700
+            shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm
             md:text-base
             dark:border-gray-700 dark:bg-black/90 dark:text-gray-300
           "
@@ -402,6 +403,56 @@ const controls = resolveHomeSearchControls(locale)
   {/* Live region for screen reader announcements */}
   <p id="search-live-region" aria-live="polite" class="sr-only" />
 </section>
+
+<style>
+  #search-help-popover {
+    --search-help-width: min(calc(100vw - 1rem), 26rem);
+    max-height: calc(100dvh - 1rem);
+    opacity: 0;
+    transform: scale(0.97);
+    transform-origin: top right;
+    transition:
+      opacity 120ms ease-in,
+      transform 120ms ease-in,
+      display 120ms allow-discrete,
+      overlay 120ms allow-discrete;
+  }
+
+  #search-help-popover:popover-open {
+    opacity: 1;
+    transform: scale(1);
+    transition-duration: 180ms;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  @starting-style {
+    #search-help-popover:popover-open {
+      opacity: 0;
+      transform: scale(0.97);
+    }
+  }
+
+  @supports (position-anchor: --search-help) {
+    #search-help-trigger {
+      anchor-name: --search-help;
+    }
+
+    #search-help-popover {
+      position-anchor: --search-help;
+      inset: auto;
+      top: calc(anchor(bottom) + 0.5rem);
+      right: clamp(0.5rem, anchor(right), calc(100vw - var(--search-help-width) - 0.5rem));
+      margin: 0;
+      position-try-fallbacks: flip-block, --search-help-constrained;
+    }
+
+    /* Keep the close control reachable when neither side has room for the full panel. */
+    @position-try --search-help-constrained {
+      bottom: 0.5rem;
+      height: auto;
+    }
+  }
+</style>
 
 <script>
 async function init() {
