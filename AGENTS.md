@@ -187,6 +187,11 @@ fails on ignored paths. Anchor ignore rules (e.g. `/.impeccable/` at root; `apps
 2. 生成无生产凭证的离线 fixture，执行 Astro check 和 admin build
 3. master 部署依赖上述门禁；Web 获得共享环境锁后只导出一次，记录 SHA/revision
 4. Astro check 与 Wrangler custom build 使用相同快照；部署前核对当前 master SHA，过期候选跳过
+5. `ci.yml` web job 与 `rebuild.yml` 的候选校验/导出/校验/Astro check/构建部署序列统一放在
+   `.github/actions/deploy-web-snapshot` 复合动作中，作为 step 运行在调用方 job 内（composite 而非 reusable
+   workflow），因此 job 级 `concurrency` 锁仍覆盖整个 export->deploy 窗口；`rebuild` 无上游 build job，用
+   `validate-code: true` 在锁内自校验，`ci.yml` 留默认 `false`。composite 无 `secrets` 上下文，两个 Cloudflare
+   secret 通过 `with:` 以 input 传入
 
 CI gotchas:
 
@@ -198,6 +203,9 @@ CI gotchas:
   （如 `apps/admin-worker`）
 - Workflows sharing one `actions/cache` key must not run concurrently from the same push and each save —
   release workflows use their own cache namespace under the shared concurrency group
+- 源图片缓存（`web-source-images-*`）只放在 `deploy-web-snapshot` 里、只由发布路径存取，namespace 与其它 job 隔离；
+  restore/save 以内容 revision 为键（revision 不变则跳过 save，缓存按不同 revision 增长，靠 LRU 淘汰）。复用的本地
+  图片仍逐个按 D1 快照的 size/sha256 校验、不匹配即重下，manifest 之外的旧文件会被删除，绝不信任缓存字节
 
 ## Guardrails
 
