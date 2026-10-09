@@ -183,4 +183,3 @@ src/
 
 - Route paths rooted at `/` on `admin.crystallize.cc` — no `/admin/*` public-site coupling
 - Validate every migrated page with Playwright visual regression
-- Validate admin pages with Playwright visual regression

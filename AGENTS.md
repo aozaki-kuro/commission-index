@@ -32,6 +32,7 @@ pnpm run test:watch       # Vitest watch mode
 pnpm run test:changed     # test changed files only
 pnpm run test:visual      # Playwright visual regression
 pnpm run test:visual:update  # update Playwright baselines
+pnpm run test:admin-ui     # Playwright, admin frontend only (API fixtures, no Worker)
 
 # Deploy (manual)
 pnpm run deploy:web       # deploy public site Worker
@@ -111,7 +112,6 @@ Key patterns:
 - Worker owns all CRUD: character, commission, aliases, suggestions, source images
 - Production auth: Cloudflare Zero Trust (no worker-side auth)
 - Worker fails fast when D1/R2 bindings are missing
-- Admin Overview 以管理入口、概况、发布和最近作品分区，连接诊断按需展开；Suggestion 将显示顺序与词池并列，Aliases 保留跨 tab 草稿，Keyword 批量替换使用独立 Dialog 预览。页面通知与待发布操作共用浮动通知栈，不能分别定位造成重叠。具体状态边界见 `apps/admin/AGENTS.md`。
 
 ### Path Aliases (apps/web)
 
@@ -119,23 +119,12 @@ Key patterns:
 
 ## API Documentation
 
-Two reference docs live in `docs/`:
+- `docs/api-reference.md` — endpoint contract (method, path, request/response types, `curl` examples)
+- `docs/ai-agent-guide.md` — implicit behaviors, serialization quirks, retry strategy, normalization, pitfalls
 
-| File                     | Purpose                                                                                               |
-| ------------------------ | ----------------------------------------------------------------------------------------------------- |
-| `docs/api-reference.md`  | Complete endpoint reference — method, path, request/response types, `curl` examples                   |
-| `docs/ai-agent-guide.md` | Integration guide — implicit behaviors, serialization quirks, retry strategy, normalization, pitfalls |
+**When to read:** before calling or modifying any `/api/admin/*` endpoint (links encoding, alias batch semantics, retry rules, etc.).
 
-**When to read:** Before calling or modifying any `/api/admin/*` endpoint, read `docs/api-reference.md` for the contract and `docs/ai-agent-guide.md` for non-obvious behaviors (links encoding, alias batch semantics, retry rules, etc.).
-
-**When to update:** Keep both docs in sync whenever:
-
-- A new endpoint is added or removed in `apps/admin-worker/src/adminApi.ts` or `adminData.ts`
-- Request/response shapes change (field names, types, required/optional status)
-- Implicit behaviors change (normalization logic, R2 lifecycle, error codes)
-- New serialization quirks or footguns are discovered
-
-Update `AGENTS.md` at the same time for any architecture-level change. **This is the agent's responsibility** — don't wait for the user to remind you. After any endpoint, schema, or behavior change, update the relevant docs in the same session.
+**When to update:** keep both docs in sync whenever an endpoint is added/removed in `apps/admin-worker/src/adminApi.ts` or `adminData.ts`, request/response shapes change, implicit behaviors change (normalization, R2 lifecycle, error codes), or new footguns are discovered. Update this file for any architecture-level change. **This is the agent's responsibility** — do it in the same session, without waiting for a reminder.
 
 ### Lessons Learned
 
@@ -187,10 +176,7 @@ CI gotchas:
 - Astro and admin both use Vite 8/Rolldown; keep production bundler customization under `build.rolldownOptions` and verify Tailwind plugins with `astro check` + real build
 - Keep TypeScript on 6.x until both `@astrojs/check` and `typescript-eslint` publish TypeScript 7-compatible peer ranges; never bypass this mismatch with peer overrides
 
-### Dependency Boundaries
-
-- `apps/web` imports from `packages/*` only — never from `apps/admin` or `apps/admin-worker`
-- `packages/domain` is app-agnostic — never imports from `apps/*`
+- `apps/web` imports from `packages/*` only; `packages/domain` never imports from `apps/*` (per-app detail: `apps/AGENTS.md`)
 - Admin features go in `apps/admin` + `apps/admin-worker`, not `apps/web`
 - Keep pnpm workspace policy lint-clean: retain `minimumReleaseAgeExcludePrune: true` and the
   canonical key order/blank lines; target workspaces with `pnpm -C <dir> run <script>`, not the
@@ -230,7 +216,7 @@ All three should return `404`. Note: `vite preview` does not validate edge HTTP 
 
 - Source images: `apps/web/generated/source-images/*.{jpg,jpeg,png}`
 - 新上传的 R2 `objectKey` 唯一规范为 `source-images/<sha256>-<UUIDv4>.jpg|png`：保留分类前缀，不含作品名目录，相同字节每次上传仍有独立 UUID。读取把 D1 `source_images.object_key` 当作不透明身份，兼容历史根 key、作品目录 key 和扁平 key，不按文件名探测桶根；`commissions.file_name` 仍作内部资产键并保留校验/持久化。日期/作者只能从显式字段读取，本地 `relativePath` 以该内部键映射，不能把远端 key 当成本地路径
-- 源图 key 迁移与旧对象清理已完成（2026-10-03）：R2 仅保留 141 个被 D1 引用的扁平对象，287 个旧根文件/作品目录对象已按用户授权删除。一次性迁移 CLI、计划、SQL 与备份均已随任务结束清除，旧布局**不可回滚**。新代码不再按旧布局推测 key
+- 旧 R2 布局（根 key / 作品目录 key）已清除且**不可回滚**；一次性迁移工具与备份均已移除。新代码不得按旧布局推测 key，`object_key` 视为不透明身份
 - Resolution: `sourceImageRegistry.ts` maps the internal commission asset key to the generated image stem; user-visible identity and search never parse that key
 - Listing widths: `768/960/1280`, sizes `(max-width: 768px) 92vw, 640px`
 
@@ -239,30 +225,22 @@ All three should return `404`. Note: `vite preview` does not validate edge HTTP 
 - 表重建必须验证带数据升级：父表 `DROP TABLE` 可触发子表 `ON DELETE CASCADE`，`defer_foreign_keys` 只延迟检查，不阻止级联动作。空库迁移通过与 `foreign_key_check` 为空均不证明业务数据守恒。
 - 迁移前后核对稳定 ID 集、逐行内容摘要、父子关系、索引和自增序列；先确认线上已应用版本，不重跑历史迁移。D1 恢复方案须同时覆盖 R2 对象保留及已读取旧 metadata 的在途导出。
 
-## 审计文档索引
+## docs/ Index
 
-```text
-docs/
-  audit-2026-09-29.md             代码与设计审计证据、风险和验证边界
-  improvement-plan-2026-09-29.md  对应问题的分阶段整改与验收计划
-  database-optimization-assessment-2026-09-29.md  数据库优化必要性、模型取舍、迁移风险、工作量与验收计划
-  admin-ui-stability-plan-2026-09-29.md  Create/Edit 漂移审计、模拟浏览器证据、状态设计与分阶段验收
-  admin-design-audit-2026-09-30.md  全后台设计审计、编辑台布局、功能保留矩阵与验收证据
-  admin-hidpi-review-2026-09-30.md  Vercel 风格配色、适量毛玻璃、HiDPI 密度与对比度证据
-  admin-consistency-review-2026-09-30.md  角色状态语义、统一页面边界与连续切页验收
-```
+Audit reports record state at a given commit — they are evidence, not runtime dependencies or current architecture. Current constraints come from the layered `AGENTS.md` files and the API docs.
 
-审计报告记录指定提交的状态，不是运行时依赖；改进计划依赖报告中的问题编号。2026-09-29 新增上述文档，未变更业务架构。后续整改应更新计划进度，并同步实际变更涉及的架构/API 文档。
+- `api-reference.md`, `ai-agent-guide.md` — admin API contract and integration pitfalls; read before touching `/api/admin/*`
+- `audit-2026-09-29.md` — code/design audit evidence and issue numbers; `improvement-plan-2026-09-29.md` is its phased remediation plan (depends on those numbers)
+- `performance-logic-audit-2026-09-29.md` — performance/logic audit and plan; read before perf or async-race work
+- `database-optimization-assessment-2026-09-29.md` — DB model trade-offs, data-bearing migration risks, R2 upload identity, recovery gates; read before any schema change
+- `db-r2-identity-migration-plan-and-prompts-2026-09-29.md` — D1/R2 identity migration (`public_id`, parts, migration 0005) handoff plan and prompts; read before any production D1/R2 change
+- `admin-ui-stability-plan-2026-09-29.md` — Create/Edit layout-drift audit, state design, acceptance method (check element position and focus during transitions, not just final screenshots)
+- `admin-design-audit-2026-09-30.md`, `admin-hidpi-review-2026-09-30.md`, `admin-consistency-review-2026-09-30.md` — admin redesign audit, HiDPI/colour evidence, page-shell and role-status acceptance; successive snapshots (latest wins)
+- `full-repo-audit-plan-2026-09-30.md` — whole-repo audit consolidation (workspaces, Turbo/CI, config, layout)
+- `audit-2026-10-05-web-architecture.md` — web architecture assessment (keep static Astro; island lifecycle, publish feedback, fuzzy image match)
+- `benchmarks/` — dated performance benchmarks (e.g. React removal)
 
-过期实施计划不作为当前架构依据：已移除三月至五月的迁移 roadmap、旧 Superpowers 计划/规格、后台迁移占位页及未接线的资产生成链；当前约束以分层 AGENTS、API 文档和上述审计/整改记录为准。公开搜索 JSON 与 RSS 由 Astro 路由生成，更新摘要直接从固定构建输入推导，不能恢复向 `src/` 写入生成模块的旧路径。清理须核对源码和配置引用，保留生产备份、数据库迁移历史及仍使用的测试基线。
-
-Admin 布局稳定性规划覆盖加载外壳、后台刷新、表单反馈、网格占位与滚动恢复；浏览器证据来自本地模拟 API，不代表生产回归。验收必须检查状态切换过程中的元素位置与焦点，稳定终态截图不能证明中间过程无漂移。
-
-2026-09-30 Admin 设计改为桌面侧栏与五页统一 1600px 外壳，移动端保留完整导航；采用 Vercel 风格黑白灰，毛玻璃限于导航、吸附保存条和通知，正文实底。标题、分隔线和主表面跨路由保持边界，图片/字段列在内部调整。首页主辅分栏，Create 固定比例图片预览，Edit 提供跨尺寸键盘排序与 2–5 列自适应图卡，角色状态只标记例外：Active 不显示标记，Archived 名称降为灰色并在名称后显示 IconArchiveFilled（role=img、aria-label、title），不只依赖颜色——分界位置 + sr-only 文本提供语义，长名截断时图标保持可见，归档表示公站默认折叠。Aliases 顶部保存工具栏，Suggestion 序号排序与词池。HiDPI 按 CSS 视口与 DPR 分开验收。API/schema/裁剪契约不变，具体边界见 `apps/admin/AGENTS.md`。
-
-Admin 整改现采用页面/模态各自的浮动通知，禁止常驻空状态槽；保留既有交互动效，角色选择在加载前后保留中性占位。短 UUID 使用 7 位，缩略卡放链接数量同行，弹窗放头部角色信息行，各只显示一次。模块边界见 `apps/admin/AGENTS.md`；`apps/admin/playwright.ui.config.ts` 是不启动 Worker 的 fixture 专用入口，使用 `pnpm run test:admin-ui`。
-
-数据库专项评估补充既有 `docs/db-r2-identity-migration-plan-and-prompts-2026-09-29.md` 的交接预案；实施前须阅读专项评估中的带数据迁移风险、R2 上传身份和恢复闸门。schema v3 在内部整数键之外增加每条作品不可变随机 `public_id`，并以独立 group UUID 与正整数 part 编号显式表示分篇；R2 对象键和图片关联仍不变。应用 0005 前必须导出当前生产 D1 备份、核验完整迁移历史并回放旧数据，随后按 Worker/Admin/Web 顺序发布并检查公开端点与所有作品/图片计数。
+Before deleting stale docs or code, check source and config references; keep production backups, DB migration history, and test baselines still in use.
 
 ## Commit Convention
 
@@ -274,8 +252,4 @@ Allowed types: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`, `style`, `per
 
 ## Dev Ports
 
-| App                          | Port |
-| ---------------------------- | ---- |
-| apps/web (Astro)             | 4321 |
-| apps/admin (Vite)            | 4174 |
-| apps/admin-worker (Wrangler) | 8787 |
+`apps/web` (Astro) 4321 · `apps/admin` (Vite) 4174 · `apps/admin-worker` (Wrangler) 8787
