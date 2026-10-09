@@ -308,8 +308,10 @@ curl -X PUT https://admin.crystallize.cc/api/admin/characters/order \
 ### `DELETE /api/admin/characters/:id`
 
 Deletes the character **and all of its commissions and their `source_images` rows** in one atomic
-D1 batch. R2 image objects are not deleted and become orphans (see
-[Source image storage](#source-image-storage)).
+D1 batch. After the batch commits, the character's R2 image objects are deleted; a cleanup failure
+does not roll back D1 or change the response (the surviving objects become orphans — reclaim them with
+`r2:list-orphans`, see [Source image storage](#source-image-storage)). Requires `DB` and `IMAGES`;
+without `IMAGES` it returns `503` and deletes nothing.
 
 **`200`:** `{ "status": "success", "message": "Character deleted." }`
 
@@ -629,5 +631,6 @@ supported.` The stored content type is derived from the resolved extension.
 - The D1 `source_images.object_key` is opaque identity. Reads use it as stored; historical keys
   are read as-is. Do not infer keys from file names.
 - R2 and D1 share no transaction. Failures after upload (create or replace) leave an orphaned
-  object; deleting a commission or character, or replacing an image whose cleanup fails, also leaves
-  orphans. Cleanup procedure: `ai-agent-guide.md` §7.
+  object; deleting a commission, or replacing an image whose cleanup fails, also leaves orphans.
+  `DELETE /characters/:id` deletes the character's objects after the D1 commit, but a cleanup
+  failure still leaves orphans. Cleanup procedure: `r2:list-orphans` (see `ai-agent-guide.md` §7).

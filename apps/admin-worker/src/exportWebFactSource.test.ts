@@ -41,6 +41,32 @@ function saveFixture(directory: string, snapshot: ReturnType<typeof createSnapsh
   writeFileSync(path.join(target, 'source-images-manifest.json'), JSON.stringify(snapshot.manifest))
 }
 
+function buildSnapshotRow({
+  characters,
+  imageRows,
+  commissions,
+}: {
+  characters?: Array<Record<string, unknown>>
+  imageRows?: Array<Record<string, unknown>>
+  commissions?: Array<Record<string, unknown>>
+} = {}) {
+  const row = Object.fromEntries(Array.from({ length: 7 }, (_, index) => [`table${index}`, '[]']))
+  if (characters) {
+    row.table0 = JSON.stringify(characters)
+  }
+  if (commissions) {
+    row.table1 = JSON.stringify(commissions)
+  }
+  if (imageRows) {
+    row.table6 = JSON.stringify(imageRows)
+  }
+  return row
+}
+
+function mockD1Snapshot(row: Record<string, string>) {
+  vi.mocked(spawnSync).mockReturnValue({ status: 0, stdout: JSON.stringify([{ results: [row] }]), stderr: '', pid: 0, signal: null, output: [] })
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   vi.stubEnv('FACT_SOURCE_USE_EXISTING_SNAPSHOT', '')
@@ -283,7 +309,8 @@ describe('事实源快照导出', () => {
       return child
     }) as unknown as typeof spawn)
     await expect(main(['--output-root', directory])).rejects.toThrow('图片导出失败')
-    expect(spawn).toHaveBeenCalledTimes(2)
+    // First pass downloads both, then the not-found triggers one bounded re-read + retry pass.
+    expect(spawn).toHaveBeenCalledTimes(4)
     expect(readFileSync(path.join(directory, 'fact-source/content.json'), 'utf8')).toBe(oldContent)
     expect(readFileSync(path.join(directory, 'fact-source/source-images-manifest.json'), 'utf8')).toBe(oldManifest)
     expect(readdirSync(imagesDirectory).toSorted()).toEqual(oldNames.map(name => `${name}.png`))
@@ -291,5 +318,103 @@ describe('事实源快照导出', () => {
       expect(readFileSync(path.join(imagesDirectory, `${name}.png`), 'utf8')).toBe(`old-${name}`)
     }
     expect(verifyExistingSnapshot(directory)).toBe(oldSnapshot.content.meta.revision)
+  })
+
+  it('图片被换图回收导致 not-found 时重取一次 D1 快照，再按新 object_key 下载并成功', async () => {
+    const directory = temporaryDirectory()
+    const newObjectKey = 'source-images/new-object.jpg'
+    const newBytes = 'new-bytes'
+    const oldObjectKey = 'source-images/old-object.jpg'
+    const settleRow = buildSnapshotRow({
+      characters: [{ id: 1, name: 'fixture', status: 'active', sortOrder: 1 }],
+      commissions: [{ id: 1, characterId: 1, commissionDate: '2026-01-01', creatorName: 'creator', fileName: '20260101', links: '[]', hidden: 0 }],
+      imageRows: [{ commissionId: 1, commissionFileName: '20260101', objectKey: newObjectKey, mimeType: 'image/jpeg', byteSize: newBytes.length, sha256: createHash('sha256').update(newBytes).digest('hex') }],
+    })
+    const initialRow = buildSnapshotRow({
+      characters: [{ id: 1, name: 'fixture', status: 'active', sortOrder: 1 }],
+      commissions: [{ id: 1, characterId: 1, commissionDate: '2026-01-01', creatorName: 'creator', fileName: '20260101', links: '[]', hidden: 0 }],
+      imageRows: [{ commissionId: 1, commissionFileName: '20260101', objectKey: oldObjectKey, mimeType: 'image/jpeg', byteSize: newBytes.length, sha256: createHash('sha256').update(newBytes).digest('hex') }],
+    })
+    // First D1 read serves the pre-replacement snapshot, the retry read serves the committed one.
+    vi.mocked(spawnSync)
+      .mockReturnValueOnce({ status: 0, stdout: JSON.stringify([{ results: [initialRow] }]), stderr: '', pid: 0, signal: null, output: [] })
+      .mockReturnValueOnce({ status: 0, stdout: JSON.stringify([{ results: [settleRow] }]), stderr: '', pid: 0, signal: null, output: [] })
+    const downloadedKeys: string[] = []
+    vi.mocked(spawn).mockImplementation(((_command: string, args: string[]) => {
+      const child = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough() })
+      const requestedKey = args[3]
+      queueMicrotask(() => {
+        if (requestedKey.endsWith(`/${newObjectKey}`)) {
+          writeFileSync(args[args.indexOf('--file') + 1], newBytes)
+          child.emit('close', 0)
+          return
+        }
+        downloadedKeys.push(requestedKey)
+        child.stderr.write('NoSuchKey')
+        child.emit('close', 1)
+      })
+      return child
+    }) as unknown as typeof spawn)
+
+    await main(['--output-root', directory])
+
+    expect(spawnSync).toHaveBeenCalledTimes(2)
+    expect(downloadedKeys).toEqual([`commission-index-images/${oldObjectKey}`])
+    const manifest = JSON.parse(readFileSync(path.join(directory, 'fact-source/source-images-manifest.json'), 'utf8'))
+    expect(manifest.files[0].objectKey).toBe(newObjectKey)
+    expect(manifest.missing).toEqual([])
+    expect(verifyExistingSnapshot(directory)).toBe(manifest.meta.revision)
+  })
+
+  it('重取快照后旧 key 仍缺失时按边界中止导出，只读取两次 D1', async () => {
+    const directory = temporaryDirectory()
+    const old = fixture()
+    saveFixture(directory, createSnapshot(old.content, old.manifest))
+    const oldManifest = readFileSync(path.join(directory, 'fact-source/source-images-manifest.json'), 'utf8')
+    const imageRows = [{ commissionId: 1, commissionFileName: '20260101', objectKey: 'source-images/gone.jpg', mimeType: 'image/jpeg', byteSize: 5, sha256: 'sha256' }]
+    // Both reads return the same stale key, so the bounded retry must give up.
+    const staleRow = buildSnapshotRow({
+      characters: [{ id: 1, name: 'fixture', status: 'active', sortOrder: 1 }],
+      commissions: [{ id: 1, characterId: 1, commissionDate: '2026-01-01', creatorName: 'creator', fileName: '20260101', links: '[]', hidden: 0 }],
+      imageRows,
+    })
+    mockD1Snapshot(staleRow)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(spawn).mockImplementation(((_command: string, _args: string[]) => {
+      const child = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough() })
+      queueMicrotask(() => {
+        child.stderr.write('NoSuchKey')
+        child.emit('close', 1)
+      })
+      return child
+    }) as unknown as typeof spawn)
+
+    await expect(main(['--output-root', directory])).rejects.toThrow('图片导出失败')
+
+    expect(spawnSync).toHaveBeenCalledTimes(2)
+    expect(readFileSync(path.join(directory, 'fact-source/source-images-manifest.json'), 'utf8')).toBe(oldManifest)
+  })
+
+  it('下载对象的字节与读取的 D1 快照不一致时立即中止，不重取快照', async () => {
+    const directory = temporaryDirectory()
+    const staleRow = buildSnapshotRow({
+      characters: [{ id: 1, name: 'fixture', status: 'active', sortOrder: 1 }],
+      commissions: [{ id: 1, characterId: 1, commissionDate: '2026-01-01', creatorName: 'creator', fileName: '20260101', links: '[]', hidden: 0 }],
+      imageRows: [{ commissionId: 1, commissionFileName: '20260101', objectKey: 'source-images/hash.jpg', mimeType: 'image/jpeg', byteSize: 5, sha256: createHash('sha256').update('expected').digest('hex') }],
+    })
+    mockD1Snapshot(staleRow)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(spawn).mockImplementation(((_command: string, args: string[]) => {
+      const child = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough() })
+      queueMicrotask(() => {
+        writeFileSync(args[args.indexOf('--file') + 1], 'mismatch')
+        child.emit('close', 0)
+      })
+      return child
+    }) as unknown as typeof spawn)
+
+    await expect(main(['--output-root', directory])).rejects.toThrow('图片导出失败')
+
+    expect(spawnSync).toHaveBeenCalledTimes(1)
   })
 })

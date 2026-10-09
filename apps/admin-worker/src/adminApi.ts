@@ -22,6 +22,8 @@ import {
   saveSourceImageToBucket,
 } from './adminSourceImages'
 
+// R2 bulk delete rejects calls with more than 1000 keys.
+const R2_DELETE_BATCH_LIMIT = 1000
 const CHARACTER_ITEM_PATH_PATTERN = /^\/api\/admin\/characters\/\d+$/
 const CHARACTER_ITEM_ID_PATTERN = /^\/api\/admin\/characters\/(\d+)$/
 const CHARACTER_COMMISSIONS_PATH_PATTERN = /^\/api\/admin\/characters\/\d+\/commissions$/
@@ -337,7 +339,8 @@ function createUnavailableCrudBackend(hasDb: boolean, hasImages: boolean): Admin
     createCharacter: async () => missing.dbOnly(),
     updateCharacter: async () => missing.dbOnly(),
     updateCharacterOrder: async () => missing.dbOnly(),
-    deleteCharacter: async () => missing.dbOnly(),
+    // Cascade delete now also cleans R2 objects, so missing IMAGES cannot delete only D1 rows and leave unrecoverable orphans.
+    deleteCharacter: async () => missing.dbAndImages(),
     createCommission: async () => missing.dbAndImages(),
     updateCommission: async () => missing.dbOnly(),
     deleteCommission: async () => missing.dbOnly(),
@@ -389,16 +392,34 @@ function createNativeCrudBackend(
       }
     },
     async deleteCharacter(id) {
+      if (!imagesBucket) {
+        return unavailableBackend.deleteCharacter(id)
+      }
+
+      let objectKeys: string[]
       try {
-        await persistCharacterDelete(db, id)
-        return json({
-          status: 'success',
-          message: 'Character deleted.',
-        })
+        // Commit D1 first: a failure keeps the old 400 semantics and no R2 object has been touched yet.
+        objectKeys = await persistCharacterDelete(db, id)
       }
       catch (error) {
         return failure(error instanceof Error ? error.message : 'Failed to delete character.')
       }
+
+      try {
+        // R2 bulk delete accepts at most 1000 keys per call.
+        for (let offset = 0; offset < objectKeys.length; offset += R2_DELETE_BATCH_LIMIT) {
+          await imagesBucket.delete(objectKeys.slice(offset, offset + R2_DELETE_BATCH_LIMIT))
+        }
+      }
+      catch (error) {
+        // D1 already committed, so the response must not roll back or 5xx; the surviving objects stay in R2 and the inventory script reclaims them by D1 diff.
+        console.warn(`Character ${id} deleted, but R2 cleanup for ${objectKeys.length} object(s) failed.`, error)
+      }
+
+      return json({
+        status: 'success',
+        message: 'Character deleted.',
+      })
     },
     async createCommission(input) {
       if (!imagesBucket) {

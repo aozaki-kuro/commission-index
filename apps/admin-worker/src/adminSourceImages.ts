@@ -8,7 +8,8 @@ export interface R2ObjectBodyLike {
 }
 
 export interface R2WriteBucketLike {
-  delete: (key: string) => Promise<unknown>
+  // Single-key delete for replacing an object; the array form clears every source image of one character during cascade delete.
+  delete: (keys: string | string[]) => Promise<unknown>
   get: (key: string) => Promise<R2ObjectBodyLike | null>
   put: (
     key: string,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createSQLiteD1 } from '../test/sqliteD1'
-import { createCommission, saveHomeFeaturedSearchKeywords, updateCharacterOrder } from './adminPersistence'
+import { createCommission, deleteCharacter, saveHomeFeaturedSearchKeywords, updateCharacterOrder } from './adminPersistence'
 
 describe('d1 batch persistence', () => {
   it('stores explicit identity fields and binds source-image metadata to the new commission id', async () => {
@@ -139,5 +139,66 @@ describe('d1 batch persistence', () => {
       { id: 2, status: 'active', sort_order: 5 },
       { id: 3, status: 'archived', sort_order: 6 },
     ])
+  })
+})
+
+describe('character delete source-image selection', () => {
+  it('returns exactly the object keys of every source_images row the cascade removes', async () => {
+    const { database, db } = createSQLiteD1()
+    database.exec(`
+      INSERT INTO characters (id, name, status, sort_order) VALUES (1, 'Doomed', 'active', 1);
+      INSERT INTO characters (id, name, status, sort_order) VALUES (2, 'Kept', 'active', 2);
+      INSERT INTO commissions (id, character_id, file_name, commission_date, creator_name, links) VALUES
+        (10, 1, 'linked-by-id', '2025-01-01', 'A', '[]'),
+        (11, 1, 'linked-by-name', '2025-01-02', 'B', '[]'),
+        (20, 2, 'kept', '2025-01-03', 'C', '[]');
+      INSERT INTO source_images (commission_file_name, commission_id, object_key, mime_type, byte_size, sha256) VALUES
+        ('renamed-away', 10, 'source-images/by-id.jpg', 'image/jpeg', 1, 'a'),
+        ('linked-by-name', NULL, 'source-images/by-name.jpg', 'image/jpeg', 1, 'b'),
+        ('kept', 20, 'source-images/kept.jpg', 'image/jpeg', 1, 'c');
+    `)
+
+    const objectKeys = await deleteCharacter(db, 1)
+
+    expect(objectKeys.toSorted()).toEqual(['source-images/by-id.jpg', 'source-images/by-name.jpg'])
+    expect(database.prepare('SELECT object_key FROM source_images ORDER BY object_key').all())
+      .toEqual([{ object_key: 'source-images/kept.jpg' }])
+  })
+
+  it('never returns an object key that a row surviving the delete still references', async () => {
+    const { database, db } = createSQLiteD1()
+    // object_key is UNIQUE in the real schema (0002), so a shared key can only be built after dropping that constraint.
+    database.exec(`
+      CREATE TABLE source_images_unconstrained (
+        commission_file_name TEXT PRIMARY KEY,
+        object_key TEXT NOT NULL,
+        mime_type TEXT NOT NULL,
+        byte_size INTEGER NOT NULL,
+        sha256 TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        commission_id INTEGER REFERENCES commissions(id) ON DELETE CASCADE
+      );
+      INSERT INTO source_images_unconstrained SELECT commission_file_name, object_key, mime_type, byte_size, sha256, updated_at, commission_id FROM source_images;
+      DROP TABLE source_images;
+      ALTER TABLE source_images_unconstrained RENAME TO source_images;
+      CREATE UNIQUE INDEX idx_source_images_commission_id ON source_images(commission_id) WHERE commission_id IS NOT NULL;
+
+      INSERT INTO characters (id, name, status, sort_order) VALUES (1, 'Doomed', 'active', 1);
+      INSERT INTO characters (id, name, status, sort_order) VALUES (2, 'Kept', 'active', 2);
+      INSERT INTO commissions (id, character_id, file_name, commission_date, creator_name, links) VALUES
+        (10, 1, 'shared-a', '2025-01-01', 'A', '[]'),
+        (11, 1, 'own', '2025-01-02', 'B', '[]'),
+        (20, 2, 'shared-b', '2025-01-03', 'C', '[]');
+      INSERT INTO source_images (commission_file_name, commission_id, object_key, mime_type, byte_size, sha256) VALUES
+        ('shared-a', 10, 'source-images/shared.jpg', 'image/jpeg', 1, 'a'),
+        ('own', 11, 'source-images/own.jpg', 'image/jpeg', 1, 'b'),
+        ('shared-b', 20, 'source-images/shared.jpg', 'image/jpeg', 1, 'a');
+    `)
+
+    const objectKeys = await deleteCharacter(db, 1)
+
+    expect(objectKeys).toEqual(['source-images/own.jpg'])
+    expect(database.prepare('SELECT object_key FROM source_images ORDER BY commission_file_name').all())
+      .toEqual([{ object_key: 'source-images/shared.jpg' }])
   })
 })

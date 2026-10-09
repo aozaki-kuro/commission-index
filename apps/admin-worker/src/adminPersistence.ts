@@ -56,6 +56,10 @@ interface CommissionFileNameRow {
   fileName: string
 }
 
+interface SourceImageObjectKeyRow {
+  objectKey: string
+}
+
 interface NormalizedCommissionMutation {
   characterId: number
   commissionDate: string
@@ -392,6 +396,13 @@ export async function updateCharacterOrder(
   await runStatementsAtomically(db, operations)
 }
 
+// Rows link to a commission by commission_id (0004) or, legacy, by commission_file_name. The SELECT and
+// DELETE must share this predicate so the returned keys are exactly the rows the cascade removes.
+const CHARACTER_SOURCE_IMAGE_PREDICATE = `(
+  commission_id IN (SELECT id FROM commissions WHERE character_id = ?)
+  OR commission_file_name IN (SELECT file_name FROM commissions WHERE character_id = ?)
+)`
+
 export async function deleteCharacter(db: D1DatabaseLike, id: number) {
   const existing = await queryFirstRow<CharacterNameRow>(
     db,
@@ -404,14 +415,29 @@ export async function deleteCharacter(db: D1DatabaseLike, id: number) {
   }
 
   await ensureSourceImagesTable(db)
+  // Read the object_key values before the delete: once the rows are gone they can no longer be located, so the orphans become untraceable.
+  const objectKeys = (await queryRows<SourceImageObjectKeyRow>(
+    db,
+    `SELECT object_key as objectKey FROM source_images WHERE ${CHARACTER_SOURCE_IMAGE_PREDICATE}`,
+    [id, id],
+  )).map(row => row.objectKey)
+
   await runStatementsAtomically(db, [
     {
-      query: 'DELETE FROM source_images WHERE commission_file_name IN (SELECT file_name FROM commissions WHERE character_id = ?)',
-      values: [id],
+      query: `DELETE FROM source_images WHERE ${CHARACTER_SOURCE_IMAGE_PREDICATE}`,
+      values: [id, id],
     },
     { query: 'DELETE FROM commissions WHERE character_id = ?', values: [id] },
     { query: 'DELETE FROM characters WHERE id = ?', values: [id] },
   ])
+
+  // Check survivors only after the commit: a key is safe to remove once no committed row references it.
+  // New uploads get fresh UUID keys, so no concurrent insert can start referencing a candidate key here.
+  const survivingKeys = new Set((await queryRows<SourceImageObjectKeyRow>(
+    db,
+    'SELECT DISTINCT object_key as objectKey FROM source_images',
+  )).map(row => row.objectKey))
+  return [...new Set(objectKeys)].filter(key => !survivingKeys.has(key))
 }
 
 export async function createCommission(

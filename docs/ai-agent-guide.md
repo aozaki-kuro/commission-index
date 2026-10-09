@@ -112,30 +112,34 @@ against a live worker). Always send well-formed bodies with the right content ty
 
 ## 7. Images and R2
 
-R2 and D1 have no shared transaction, and the API never deletes R2 objects. (Key format and image
-rules: AR "Source image storage".)
+R2 and D1 have no shared transaction. R2 objects are only deleted as a best-effort cleanup after a
+D1 commit; the API never deletes an object that a live `source_images` row still references. (Key
+format and image rules: AR "Source image storage".)
 
-| Operation                              | D1 result                                                            | R2 result                                  |
-| -------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------ |
-| `POST /commissions` succeeds           | rows inserted                                                        | new object                                 |
-| `POST /commissions`, D1 step fails     | nothing (or ambiguous)                                               | uploaded object **kept** (orphan or live)  |
-| `POST .../source-image` succeeds       | `object_key` switched                                                | new object; previous deleted best effort   |
-| `POST .../source-image`, D1 step fails | unchanged, old image still live                                      | new object is an orphan; response is `400` |
-| `DELETE /commissions/:id`              | commission + image row removed                                       | object orphaned                            |
-| `DELETE /characters/:id`               | **character, all its commissions, and all their image rows removed** | **all their objects orphaned**             |
+| Operation                              | D1 result                                                            | R2 result                                                    |
+| -------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `POST /commissions` succeeds           | rows inserted                                                        | new object                                                   |
+| `POST /commissions`, D1 step fails     | nothing (or ambiguous)                                               | uploaded object **kept** (orphan or live)                    |
+| `POST .../source-image` succeeds       | `object_key` switched                                                | new object; previous deleted best effort                     |
+| `POST .../source-image`, D1 step fails | unchanged, old image still live                                      | new object is an orphan; response is `400`                   |
+| `DELETE /commissions/:id`              | commission + image row removed                                       | object orphaned                                              |
+| `DELETE /characters/:id`               | **character, all its commissions, and all their image rows removed** | **all their objects deleted after the commit (best effort)** |
 
 **Footgun: `DELETE /characters/:id` cascades** to every commission and `source_images` row of that
-character in one atomic batch. There is no confirmation and no undo; the objects remain in R2 but
-are unreachable. Read `GET /characters/:id/commissions` first and confirm intent. `DELETE
+character in one atomic batch. There is no confirmation and no undo. After the batch commits, the
+character's R2 objects are deleted; if that cleanup fails the response is still `200` and the objects
+are unreachable until reclaimed (see below). Requires `IMAGES` — without it the request is `503` and
+nothing is deleted. Read `GET /characters/:id/commissions` first and confirm intent. `DELETE
 /commissions/:id` on an unknown ID returns `200` and does nothing, so a success message does not
 prove a row existed.
 
-**Cleaning up orphans is a manual operator task.** Before deleting any object: list the actual
-bucket inventory, read fresh D1 `source_images.object_key` references, and confirm the backup and
-retention policy. Never delete based on a single stale export snapshot, and never delete after an
-ambiguous create until the D1 state is verified. The legacy root and commission-folder R2 layouts
-were deleted and the migration tooling and backups removed; that is **not rollbackable**. Do not
-assume any key layout: `object_key` is opaque, and historical keys are simply read as stored.
+**Cleaning up orphans is an operator task** (`r2:list-orphans`, dry-run by default). Before deleting
+any object: list the actual bucket inventory, read fresh D1 `source_images.object_key` references, and
+confirm the backup and retention policy. Never delete based on a single stale export snapshot, and
+never delete after an ambiguous create until the D1 state is verified. The legacy root and
+commission-folder R2 layouts were deleted and the migration tooling and backups removed; that is
+**not rollbackable**. Do not assume any key layout: `object_key` is opaque, and historical keys are
+simply read as stored.
 
 ---
 
@@ -176,3 +180,9 @@ state only once the snapshot's `dataExportedAt` reaches the returned `dispatched
 tolerance absorbs runner↔worker clock skew); on timeout or poll error it leaves the pending state
 set and shows an "unconfirmed — check the workflow" notice. Treat `502` as "GitHub
 unreachable or rejected" and `503` as a missing worker secret.
+
+**Replace-image during an export.** The build reads one D1 snapshot up front, then downloads images
+by `object_key`. A replace-image commits D1 before deleting the old object, so an export that already
+read the pre-replacement snapshot can 404 on the old key; the exporter then re-reads D1 once and
+retries against the fresh snapshot before failing the build. A build only fails if that fresh
+snapshot still misses the object, so a single automatic retry is expected and not a defect.
