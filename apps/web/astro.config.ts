@@ -2,14 +2,15 @@ import tailwindcss from '@tailwindcss/vite'
 import icon from 'astro-icon'
 import { defineConfig, fontProviders } from 'astro/config'
 import { assetsPipelineIntegration } from './server/assetsPipelineAstro'
+import { DEFAULT_WEB_LOCALE, WEB_LOCALES } from './src/config/locales'
 
 export default defineConfig({
   output: 'static',
   // Persist image cache outside node_modules so it survives dependency reinstalls
   cacheDir: '.astro',
   i18n: {
-    defaultLocale: 'en',
-    locales: ['en', 'zh-tw', 'ja'],
+    defaultLocale: DEFAULT_WEB_LOCALE,
+    locales: [...WEB_LOCALES],
     routing: {
       prefixDefaultLocale: false,
       redirectToDefaultLocale: false,

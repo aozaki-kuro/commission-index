@@ -1,7 +1,9 @@
-export const HOME_LOCALES = ['en', 'zh-tw', 'ja'] as const
+import { DEFAULT_WEB_LOCALE, WEB_LOCALES } from '../../../config/locales'
+
+export const HOME_LOCALES = WEB_LOCALES
 export type HomeLocale = (typeof HOME_LOCALES)[number]
 
-export const DEFAULT_HOME_LOCALE: HomeLocale = 'en'
+export const DEFAULT_HOME_LOCALE: HomeLocale = DEFAULT_WEB_LOCALE
 
 export interface HomeLocaleOption {
   locale: HomeLocale
