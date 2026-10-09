@@ -1,13 +1,13 @@
+import {
+  buildCommissionSearchDomKey,
+  buildCommissionSearchMetadata,
+} from '@commission-index/domain'
 import { getCharacterAliasesMap } from '../../../data/characterAliases'
 import { getCommissionDataMap } from '../../../data/commissionData'
 import { getCharacterRecords } from '../../../data/commissionRecords'
 import { getCreatorAliasesMap } from '../../../data/creatorAliases'
 import { getKeywordAliasesMap } from '../../../data/keywordAliases'
 import { getCharacterSectionId } from '../characters/nav'
-import {
-  buildCommissionSearchDomKey,
-  buildCommissionSearchMetadata,
-} from '../search/commissionSearchMetadata'
 
 interface SearchEntry {
   publicId: string

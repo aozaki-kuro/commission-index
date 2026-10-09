@@ -1,7 +1,25 @@
 import type { AdminSectionKey } from '../app/sections'
 import { IconArrowUpRight, IconHome, IconListDetails, IconPlus, IconSearch, IconTags } from '@tabler/icons-react'
+import { useSyncExternalStore } from 'react'
 import { adminSections } from '../app/sections'
+import { getLiveBuildInfo, getServerLiveBuildInfo, subscribeToLiveBuildInfo } from '../lib/liveBuildInfo'
 import { AdminInternalLink } from './AdminInternalLink'
+
+function LiveBuildVersion() {
+  const info = useSyncExternalStore(subscribeToLiveBuildInfo, getLiveBuildInfo, getServerLiveBuildInfo)
+  if (!info)
+    return null
+
+  return (
+    <p className="mt-2 px-3 text-[11px]/4 text-gray-500 dark:text-gray-400" title={`Revision ${info.dataRevision}\nBuilt ${info.builtAt}`}>
+      Live
+      {' '}
+      {info.dataRevision.slice(0, 7)}
+      {' · '}
+      {new Date(info.builtAt).toLocaleString()}
+    </p>
+  )
+}
 
 interface AdminSectionNavProps {
   current: AdminSectionKey
@@ -64,6 +82,7 @@ export function AdminSectionNav({ current, onNavigate, publicSiteUrl }: AdminSec
       </div>
 
       <div className="mt-auto hidden shrink-0 border-t border-gray-200 pt-5 lg:block dark:border-gray-800">
+        <LiveBuildVersion />
         <a href={publicSiteUrl} className="flex min-h-11 items-center justify-between px-3 text-sm text-gray-600 no-underline dark:text-gray-400">
           Public Site
           <IconArrowUpRight className="size-4" aria-hidden="true" />

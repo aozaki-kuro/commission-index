@@ -3,10 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildSourceImageLookup,
   listMissingSourceImages,
-  normalizeSourceImageStem,
-  resolveSourceImageByCommissionFileName,
-  resolveSourceImageStem,
-
+  resolveSourceImageByCommissionId,
 } from './sourceImageRegistry'
 
 function createMetadata(label: string): ImageMetadata {
@@ -19,49 +16,47 @@ function createMetadata(label: string): ImageMetadata {
 }
 
 describe('sourceImageRegistry', () => {
-  it('normalizes stems consistently', () => {
-    expect(normalizeSourceImageStem('20240421_Gisyu (part 1)')).toBe('20240421gisyupart1')
-    expect(normalizeSourceImageStem('20240421_Gisyu-part-1')).toBe('20240421gisyupart1')
-  })
-
-  it('resolves exact and fallback stems', () => {
+  it('resolves an exact commission ID to its own image', () => {
     const records: SourceImageRecord[] = [
-      { commissionId: 1, stem: '20240421_Gisyu (part 1)', metadata: createMetadata('a') },
-      { commissionId: 2, stem: '20260208_Dorei', metadata: createMetadata('b') },
-      { commissionId: 3, stem: '20260226_七市', metadata: createMetadata('c') },
+      { commissionId: 1, metadata: createMetadata('a') },
+      { commissionId: 2, metadata: createMetadata('b') },
     ]
     const lookup = buildSourceImageLookup(records)
 
-    expect(resolveSourceImageStem('20260208_Dorei', lookup)).toBe('20260208_Dorei')
-    expect(resolveSourceImageStem('20240421_Gisyu part 1', lookup)).toBe('20240421_Gisyu (part 1)')
-    expect(resolveSourceImageStem('20260226_ナナシ', lookup)).toBe('20260226_七市')
-
-    const resolved = resolveSourceImageByCommissionFileName('20240421_Gisyu part 1', lookup)
-    expect(resolved?.src).toBe('/mock/a.jpg')
-    expect(lookup.byCommissionId.get(2)?.src).toBe('/mock/b.jpg')
+    expect(resolveSourceImageByCommissionId(2, lookup)?.src).toBe('/mock/b.jpg')
+    expect(resolveSourceImageByCommissionId(1, lookup)?.src).toBe('/mock/a.jpg')
   })
 
-  it('reports missing source images from commission file names', () => {
+  it('keeps commissions that share a date prefix on their own images', () => {
     const lookup = buildSourceImageLookup([
-      { commissionId: 1, stem: '20260208_Dorei', metadata: createMetadata('a') },
-      { commissionId: 2, stem: '20260226_七市', metadata: createMetadata('b') },
+      { commissionId: 2, metadata: createMetadata('nanashi-city') },
+      { commissionId: 3, metadata: createMetadata('nanashi') },
     ])
 
-    const missing = listMissingSourceImages(
-      ['20260208_Dorei', '20260221_七市', '20260226_七市', '20260221_七市'],
-      lookup,
-    )
-
-    expect(missing).toEqual(['20260221_七市'])
+    expect(resolveSourceImageByCommissionId(2, lookup)?.src).toBe('/mock/nanashi-city.jpg')
+    expect(resolveSourceImageByCommissionId(3, lookup)?.src).toBe('/mock/nanashi.jpg')
   })
 
-  it('rejects duplicate or invalid commission identities in image records', () => {
+  it('reports a commission without its own image as missing instead of a neighbour', () => {
+    // Same date and similar creator name as commission 2, but a different commission.
+    const lookup = buildSourceImageLookup([
+      { commissionId: 1, metadata: createMetadata('a') },
+    ])
+
+    expect(resolveSourceImageByCommissionId(2, lookup)).toBeNull()
+    expect(listMissingSourceImages([
+      { id: 1, fileName: '20260226_七市' },
+      { id: 2, fileName: '20260226_ナナシ' },
+    ], lookup)).toEqual(['20260226_ナナシ'])
+  })
+
+  it('rejects duplicate or invalid commission IDs in image records', () => {
     expect(() => buildSourceImageLookup([
-      { commissionId: 1, stem: 'first', metadata: createMetadata('a') },
-      { commissionId: 1, stem: 'second', metadata: createMetadata('b') },
+      { commissionId: 1, metadata: createMetadata('a') },
+      { commissionId: 1, metadata: createMetadata('b') },
     ])).toThrow(/commission ID/)
     expect(() => buildSourceImageLookup([
-      { commissionId: 0, stem: 'invalid', metadata: createMetadata('a') },
+      { commissionId: 0, metadata: createMetadata('a') },
     ])).toThrow(/commission ID/)
   })
 })

@@ -7,6 +7,10 @@ import type {
 import type { HomeLocale } from '@features/home/i18n/homeLocale'
 import type { HomeCharacterBatchStatus } from './homeCharacterBatches'
 import {
+  buildCommissionSearchDomKey,
+  buildCommissionSearchMetadata,
+} from '@commission-index/domain'
+import {
   COMMISSION_LINK_TEXT_CLASS,
   selectDisplayLinks,
 } from '@features/home/commission/linkDisplay'
@@ -17,10 +21,6 @@ import {
   getCharacterTitleId,
 } from '@lib/characters/nav'
 import { parseAndFormatDate } from '@lib/date/format'
-import {
-  buildCommissionSearchDomKey,
-  buildCommissionSearchMetadata,
-} from '@lib/search/commissionSearchMetadata'
 import { buildImagePayload, buildInterestPayload, COMMISSION_IMAGE_SIZES } from './batchPayloadBuilder'
 
 async function buildEntryPayload({

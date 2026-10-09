@@ -75,8 +75,8 @@ curl https://admin.crystallize.cc/api/admin/health
 Sends a GitHub `repository_dispatch` (`event_type: "admin-data-changed"`) to trigger a web
 rebuild. No request body. Requires the `GITHUB_DISPATCH_TOKEN` worker secret.
 
-**`200`:** `{ "status": "success", "message": "Web rebuild dispatched to GitHub Actions." }` —
-returned as soon as GitHub answers `204`, not when the build finishes.
+**`200`:** `{ "status": "success", "message": "Web rebuild dispatched to GitHub Actions.", "dispatchedAt": "2026-10-09T10:00:00.000Z" }` —
+returned as soon as GitHub answers `204`, not when the build finishes. `dispatchedAt` is the UTC time immediately before the dispatch request and is also sent to the workflow as `fact_source_version`; the admin compares the public snapshot's export time against it before clearing its pending state.
 
 **Errors:** `503` token not configured (`GITHUB_DISPATCH_TOKEN is not configured on the worker.`);
 `502` GitHub returned a non-204 status (`GitHub API returned <status>: <body>`); `502` network
@@ -308,8 +308,10 @@ curl -X PUT https://admin.crystallize.cc/api/admin/characters/order \
 ### `DELETE /api/admin/characters/:id`
 
 Deletes the character **and all of its commissions and their `source_images` rows** in one atomic
-D1 batch. R2 image objects are not deleted and become orphans (see
-[Source image storage](#source-image-storage)).
+D1 batch. After the batch commits, the character's R2 image objects are deleted; a cleanup failure
+does not roll back D1 or change the response (the surviving objects become orphans — reclaim them with
+`r2:list-orphans`, see [Source image storage](#source-image-storage)). Requires `DB` and `IMAGES`;
+without `IMAGES` it returns `503` and deletes nothing.
 
 **`200`:** `{ "status": "success", "message": "Character deleted." }`
 
@@ -328,7 +330,7 @@ curl -X DELETE https://admin.crystallize.cc/api/admin/characters/3
 | Field                   | Rule                                                                                                                                                  |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `characterId`           | Required; finite number > 0; must reference an existing character                                                                                     |
-| `commissionDate`        | Required; real calendar date `YYYY-MM-DD`                                                                                                             |
+| `commissionDate`        | Required; real calendar date `YYYY-MM-DD`, not later than today's date in UTC+14 at request time (see below)                                          |
 | `creatorName`           | Form: send empty string when unknown. JSON (`PATCH`): required, string or `null`. Trimmed; empty stores `null`; control characters (<= 0x1F) rejected |
 | `workGroupId`           | `null`/empty for standalone works, else a lowercase UUID v4 (input is trimmed and lowercased), or the sentinel `new`                                  |
 | `partNumber`            | Positive integer; must be set if and only if `workGroupId` is set                                                                                     |
@@ -344,7 +346,14 @@ group only expresses grouping and order. `fileName` is never accepted from calle
 Validation errors (`400`): `Character selection is required.`, `Commission date must use
 YYYY-MM-DD format.`, `Commission date must be a real calendar date.`, `Creator name must be a
 string or null.`, `Work group and part number must be set together.`, `Work group must be a
-lowercase UUID v4.`, `Part number must be a positive integer.`
+lowercase UUID v4.`, `Part number must be a positive integer.`, `Commission date cannot be in the future.`
+
+**Future dates.** `commissionDate` is rejected when it is later than the current calendar date in
+UTC+14 (`packages/domain/src/commissionDate.ts`). This is an owner-approved assumption: the UTC+14
+date is the latest possible "today" anywhere, so no legitimate same-day entry is blocked. It
+applies to create and to every `PATCH`. Because `PATCH` re-validates the whole body, an existing
+row with a future date fails any metadata edit until its `commissionDate` is corrected to a past or
+current date.
 
 ### `POST /api/admin/commissions`
 
@@ -622,5 +631,6 @@ supported.` The stored content type is derived from the resolved extension.
 - The D1 `source_images.object_key` is opaque identity. Reads use it as stored; historical keys
   are read as-is. Do not infer keys from file names.
 - R2 and D1 share no transaction. Failures after upload (create or replace) leave an orphaned
-  object; deleting a commission or character, or replacing an image whose cleanup fails, also leaves
-  orphans. Cleanup procedure: `ai-agent-guide.md` §7.
+  object; deleting a commission, or replacing an image whose cleanup fails, also leaves orphans.
+  `DELETE /characters/:id` deletes the character's objects after the D1 commit, but a cleanup
+  failure still leaves orphans. Cleanup procedure: `r2:list-orphans` (see `ai-agent-guide.md` §7).

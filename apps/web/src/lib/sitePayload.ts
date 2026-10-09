@@ -1,6 +1,6 @@
+import type { TimelineYearGroup } from '@commission-index/domain'
 import type { Props } from '@data/types'
 import type { CharacterNavItem } from '@lib/characters/nav'
-import type { TimelineYearGroup } from '@lib/commissions/timeline'
 
 export interface CharacterDisplay {
   DisplayName: string

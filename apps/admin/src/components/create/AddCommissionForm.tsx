@@ -13,7 +13,7 @@ import { isSupportedSourceImage, setFileInputValue } from '../../lib/imageCrop'
 import { markPendingRebuild } from '../../lib/pendingRebuildSignal'
 import { FloatingNotice } from '../FloatingNotice'
 import { FormStatusIndicator } from '../FormStatusIndicator'
-import { ImageCropDialog } from '../image/ImageCropDialog'
+import { LazyImageCropDialog } from '../image/LazyImageCropDialog'
 import { SubmitButton } from '../SubmitButton'
 import { CommissionHiddenSwitch, CommissionSourceImageField } from './CommissionFormFields'
 import { CommissionSharedFields } from './CommissionSharedFields'
@@ -261,7 +261,7 @@ export function AddCommissionForm({
 
       {pendingCropFile
         ? (
-            <ImageCropDialog
+            <LazyImageCropDialog
               key={`${pendingCropFile.name}:${pendingCropFile.lastModified}`}
               file={pendingCropFile}
               onCancel={restoreCroppedImageSelection}

@@ -1,11 +1,11 @@
 <script>
 import { buildNoticeFromContextMenu } from '@features/home/commission/commissionImageNoticeShared'
+import { bindSoftNavMount } from '@lib/astro/softNavMount'
 
 type NoticeClientModule = typeof import('@features/home/commission/commissionImageNoticeClient')
 
 let cachedNoticeClientModule: NoticeClientModule | null = null
 let noticeClientPromise: Promise<NoticeClientModule> | null = null
-let noticeCleanup: (() => void) | null = null
 
 async function loadNoticeClientModule(): Promise<NoticeClientModule> {
   if (cachedNoticeClientModule)
@@ -22,34 +22,43 @@ async function loadNoticeClientModule(): Promise<NoticeClientModule> {
   return noticeClientPromise
 }
 
-function onFirstContextMenu(event: MouseEvent) {
-  if (noticeCleanup)
-    return
+function mountCommissionImageNotice(): () => void {
+  let noticeCleanup: (() => void) | null = null
+  let disposed = false
 
-  const initialNotice = buildNoticeFromContextMenu(event, window)
-  if (!initialNotice)
-    return
+  function onFirstContextMenu(event: MouseEvent) {
+    if (noticeCleanup)
+      return
 
-  document.removeEventListener('contextmenu', onFirstContextMenu)
+    const initialNotice = buildNoticeFromContextMenu(event, window)
+    if (!initialNotice)
+      return
 
-  void loadNoticeClientModule()
-    .then((module) => {
-      noticeCleanup = module.mountCommissionImageNoticeClient(initialNotice, window, document)
-    })
-    .catch(() => {
-      document.addEventListener('contextmenu', onFirstContextMenu)
-    })
-}
+    document.removeEventListener('contextmenu', onFirstContextMenu)
 
-document.addEventListener('contextmenu', onFirstContextMenu)
+    // The client module loads asynchronously; a teardown during that window must not mount
+    // into the swapped-out DOM or re-arm the listener on it.
+    void loadNoticeClientModule()
+      .then((module) => {
+        if (disposed)
+          return
+        noticeCleanup = module.mountCommissionImageNoticeClient(initialNotice, window, document)
+      })
+      .catch(() => {
+        if (!disposed)
+          document.addEventListener('contextmenu', onFirstContextMenu)
+      })
+  }
 
-window.addEventListener(
-  'pagehide',
-  () => {
+  document.addEventListener('contextmenu', onFirstContextMenu)
+
+  return () => {
+    disposed = true
     document.removeEventListener('contextmenu', onFirstContextMenu)
     noticeCleanup?.()
     noticeCleanup = null
-  },
-  { once: true },
-)
+  }
+}
+
+bindSoftNavMount(mountCommissionImageNotice)
 </script>

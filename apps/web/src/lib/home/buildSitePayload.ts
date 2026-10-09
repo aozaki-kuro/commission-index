@@ -1,10 +1,10 @@
 import type { SitePayload } from '@lib/sitePayload'
 import process from 'node:process'
+import { buildCommissionTimeline } from '@commission-index/domain'
 import { buildCommissionData } from '@data/commissionData'
 import { characterRecords, getCharacterRecords } from '@data/commissionRecords'
 import { buildCharacterStatus } from '@data/commissionStatus'
 import { getCreatorAliases } from '@data/creatorAliases'
-import { buildCommissionTimeline } from '@lib/commissions/timeline'
 import { buildCommissionDataMap } from '@lib/sitePayload'
 
 const isDevelopment = process.env.NODE_ENV === 'development'

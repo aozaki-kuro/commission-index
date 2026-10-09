@@ -1,7 +1,7 @@
 import type { Commission } from '@data/types'
 import type { HomeLocale } from '@features/home/i18n/homeLocale'
 import { getHomeLocaleMessages } from '@features/home/i18n/homeLocale'
-import { resolveSourceImageByCommissionFileName } from '@lib/images/sourceImageRegistry'
+import { resolveSourceImageByCommissionId } from '@lib/images/sourceImageRegistry'
 import { getImage } from 'astro:assets'
 
 export const COMMISSION_IMAGE_WIDTH = 1280
@@ -26,7 +26,7 @@ export function buildInterestPayload({
 }
 
 export async function buildImagePayload(commission: Commission) {
-  const sourceImage = resolveSourceImageByCommissionFileName(commission.fileName)
+  const sourceImage = resolveSourceImageByCommissionId(commission.id)
   if (!sourceImage)
     return null
 

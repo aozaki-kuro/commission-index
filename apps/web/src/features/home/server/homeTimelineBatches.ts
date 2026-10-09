@@ -1,5 +1,5 @@
+import type { TimelineYearGroup } from '@commission-index/domain'
 import type { HomeLocale } from '@features/home/i18n/homeLocale'
-import type { TimelineYearGroup } from '@lib/commissions/timeline'
 import { getCharacterSectionId } from '@lib/characters/nav'
 import { hashString } from '@lib/utils/hash'
 

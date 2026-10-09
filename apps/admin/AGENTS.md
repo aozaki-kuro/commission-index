@@ -13,12 +13,14 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 - `src/lib/websiteRebuild.ts` — shared rebuild request/pending state; `src/lib/pendingRebuildSignal.ts` — pending flag + revision
 - `src/components/FloatingNotice.tsx` — Portal notices kept out of form flow
 - `src/components/image/ImageCropDialog.tsx`, `ImageCropWorkspace.tsx` (Cropper.js bridge), `src/lib/imageCrop.ts` (geometry authority)
+- `src/components/image/LazyImageCropDialog.tsx` — the only entry point forms may use for the crop dialog (loads the cropper chunk on first pick)
 - `src/components/ui/dialog.tsx` — shared Radix dialog (`alert` / `crop` / `default` / `sheet` variants)
 - `KeywordReplacePopover.tsx` keeps its filename but is a Dialog
 
 ## Source Image Editing
 
 - Create and replacement uploads share `ImageCropDialog`; keep both entry points aligned.
+- Heavy dialogs such as the cropper stay lazy: forms import `LazyImageCropDialog`, never `ImageCropDialog` directly. A static import drags cropperjs into the create/edit chunk. Its failures are shown as a dismissable error notice, and failed loads are not cached so the next pick retries.
 - Output is a single `1280×525 image/jpeg` (transparent pixels flattened onto white; warn on upscaling). The frame ratio is fixed but its edges are resizable; rotation is continuous, not 90° steps.
 - `imageCrop.ts`, not Cropper.js bounding boxes, decides whether a rotated image covers every crop corner (including the 2px bleed).
 - No scale-based opening animation on the crop Dialog: the workspace measures its container on mount.
@@ -30,7 +32,7 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 
 - Never infer a work-group relationship from matching artist/date/character/link; only explicit selection changes it. Part is a low-frequency opt-in: unchecking stops submitting the number, re-checking restores the draft.
 - Show the 7-char short ID (`formatCommissionPublicId`) for display only; keep the full UUID in title/accessible name, never use truncated text as identity or API key. The edit dialog shows it once in the header character row, not in a truncatable title.
-- Unknown creators display as `Anon`; send an empty `creatorName` for unknown.
+- Unknown creators display as `Anon`; create sends an empty `creatorName` for unknown, while the edit PATCH sends `null` (`adminActions.ts`).
 - Date picker: opening focuses the selected date (today if empty/invalid) without changing the value; recompute local today on each open/select so it survives midnight.
 - Mutations are single-attempt unless the API adds an idempotency contract.
 - Create form auto-reset applies only on business success; failures keep file and field drafts, and an invalid file never replaces a previously confirmed image.
@@ -64,6 +66,6 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 ## Publish, Suggestion, Aliases
 
 - Every rebuild entry (overview button, floating button) subscribes to the same `websiteRebuild` request and pending state, so route changes cannot unlock a second dispatch. The overview button replaces the floating one; never show both.
-- `markPendingRebuild` bumps a revision on every save even if already pending; a rebuild captures the revision and clears only that snapshot, so saves made while waiting keep the pending state.
+- `markPendingRebuild` bumps a revision on every save even if already pending; a rebuild captures the revision and clears only that snapshot, so saves made while waiting keep the pending state. Dispatch acceptance does not clear pending; poll the public build-info snapshot and clear only when its `dataExportedAt` is at or after the dispatch timestamp. Poll errors/timeouts remain pending and report an unconfirmed workflow. The poll window is ~10 min (backoff capped at 30 s) to cover the full workflow plus CDN propagation, and confirms a snapshot exported up to 30 s before dispatch to absorb runner↔worker clock skew (`rebuildClockSkewToleranceMs`); it only admits near-current snapshots, so a genuinely stale one still fails.
 - Suggestion: max six, case-normalized dedupe, explicit save only (Enter in the filter input never submits); background refresh must not overwrite a dirty draft.
 - Aliases: three tabs stay mounted (drafts survive switching). The latest server rows are the baseline for untouched fields; submit only dirty rows; an empty string is an explicit delete; keep all aliases. Filtering uses the stable baseline so editing a matching alias does not remove the row and steal focus. The save toolbar is top-sticky (bottom collides with the notice stack).

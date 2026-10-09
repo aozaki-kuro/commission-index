@@ -31,7 +31,8 @@ pnpm run preview          # preview built web
 # Validate
 pnpm run lint             # ESLint (also lints Markdown), --max-warnings=0
 pnpm run lint:fix
-pnpm run check            # Astro type-check (.astro + TS)
+pnpm run check            # Astro type-check; Turbo runs fact-source:export first (remote D1/R2 read)
+# offline: pnpm -C apps/web exec astro check .  (uses the existing apps/web/generated/)
 pnpm run typecheck        # TS check all workspaces via Turbo
 
 # Test
@@ -63,7 +64,8 @@ apps/web            Astro 7 static site — public runtime (crystallize.cc)
 apps/admin          React 19 + Vite 8 SPA — admin UI (admin.crystallize.cc)
 apps/admin-worker   Cloudflare Worker — admin API, D1/R2 CRUD, asset serving
 packages/domain     Shared types and pure domain helpers; single export surface src/index.ts
-scripts/            Repo-level dev scripts (devAdminRemote.ts backs dev:admin)
+scripts/            Repo-level dev scripts (devAdminRemote.ts backs dev:admin; not covered by `typecheck`;
+                    its `adminPort` must match apps/admin/package.json `dev`)
 test/visual/        Committed cross-workspace Playwright baselines
 ```
 
@@ -76,8 +78,14 @@ Admin features go in `apps/admin` + `apps/admin-worker`, never `apps/web`.
 - `config/` holds shared ESLint, Vitest, cross-workspace Playwright, and TypeScript base configuration.
   Root scripts pass explicit config paths; workspace `tsconfig.json` files extend the shared base.
   VS Code ESLint uses `config/eslint.config.ts`; other integrations must pass the same explicit path.
-- `apps/admin/playwright.ui.config.ts` owns frontend-only API-fixture tests. Cross-workspace Playwright
-  uses repository-root paths for servers, snapshots, and output; moving a config must preserve these roots.
+- `apps/admin/playwright.ui.config.ts` owns frontend-only API-fixture tests and matches `*.spec.ts` while
+  excluding the `admin-*.spec.ts` screenshot specs owned by cross-workspace Playwright.
+- `VISUAL_OFFLINE=1 pnpm run test:visual` writes an empty generated fact-source fixture and runs only web visual
+  specs, without D1/R2 access. It is a server-start/smoke mode only: committed baselines are real-data screenshots,
+  so fixture runs fail screenshot assertions; never update baselines from it. The default cross-workspace visual run
+  still starts the remote-bound admin worker.
+  Cross-workspace Playwright uses repository-root paths for servers, snapshots, and output; moving a config must
+  preserve these roots.
 - `.github/renovate.json` is the Renovate entry. Vite, Astro, Wrangler, and app-specific settings stay with
   their workspace; admin design context is `apps/admin/.impeccable.md`.
 - Keep discovery-required package, lockfile, workspace, Turbo, mise, Git, and hook entry files at root.
@@ -101,7 +109,8 @@ Admin features go in `apps/admin` + `apps/admin-worker`, never `apps/web`.
    读取结构化快照，下载图片必须匹配该快照的 hash/size；每条作品必须有 `source_images` 行，缺失即中止导出
 3. content 与 source-image manifest 的 `meta.revision` 共同标识内容版本，排除 `exportedAt`；Astro 从这份固定
    输入生成 HTML，无运行时 D1/R2 访问
-4. `apps/web/wrangler.jsonc` carries read-only D1/R2 bindings for build-time export
+4. `exportedAt` 在 D1 快照读取之前采样（不参与 `revision`），因此 admin 能拒绝一份早于发布请求读取的快照
+5. `apps/web/wrangler.jsonc` carries read-only D1/R2 bindings for build-time export
 
 ### Home Page Architecture (Astro-first)
 
@@ -123,6 +132,9 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   `data-stale-visibility` = stale group expanded; `data-stale-loaded` = deferred stale sections mounted.
 - Character/stale section templates must mount with the full entry list intact (no per-section entry lazy
   mounts above anchor targets)
+- **Soft navigation lifecycle:** `<ClientRouter />` never fires `pagehide` and runs bundled module scripts once.
+  Client islands mount via `bindSoftNavMount` (`@lib/astro/softNavMount`) on `astro:page-load` and dispose on
+  `astro:before-swap`; never mount from top-level module code
 - **Re-hydration on append:** batch DOM appended after first mount must re-hydrate / re-bind interactive
   controls — a single first-paint hydrate pass is not enough
 - **Hidden DOM + observers:** sections rendered with `display: none` must not be marked "entered viewport"
@@ -187,6 +199,11 @@ fails on ignored paths. Anchor ignore rules (e.g. `/.impeccable/` at root; `apps
 2. 生成无生产凭证的离线 fixture，执行 Astro check 和 admin build
 3. master 部署依赖上述门禁；Web 获得共享环境锁后只导出一次，记录 SHA/revision
 4. Astro check 与 Wrangler custom build 使用相同快照；部署前核对当前 master SHA，过期候选跳过
+5. `ci.yml` web job 与 `rebuild.yml` 的候选校验/导出/校验/Astro check/构建部署序列统一放在
+   `.github/actions/deploy-web-snapshot` 复合动作中，作为 step 运行在调用方 job 内（composite 而非 reusable
+   workflow），因此 job 级 `concurrency` 锁仍覆盖整个 export->deploy 窗口；`rebuild` 无上游 build job，用
+   `validate-code: true` 在锁内自校验，`ci.yml` 留默认 `false`。composite 无 `secrets` 上下文，两个 Cloudflare
+   secret 通过 `with:` 以 input 传入
 
 CI gotchas:
 
@@ -198,6 +215,9 @@ CI gotchas:
   （如 `apps/admin-worker`）
 - Workflows sharing one `actions/cache` key must not run concurrently from the same push and each save —
   release workflows use their own cache namespace under the shared concurrency group
+- 源图片缓存（`web-source-images-*`）只放在 `deploy-web-snapshot` 里、只由发布路径存取，namespace 与其它 job 隔离；
+  restore/save 以内容 revision 为键（revision 不变则跳过 save，缓存按不同 revision 增长，靠 LRU 淘汰）。复用的本地
+  图片仍逐个按 D1 快照的 size/sha256 校验、不匹配即重下，manifest 之外的旧文件会被删除，绝不信任缓存字节
 
 ## Guardrails
 
@@ -225,6 +245,8 @@ CI gotchas:
 
 - Web export/build 设 `cache: false`，防止 Turbo 恢复旧 generated 或在导出前计算过期输入 hash；恢复缓存前必须
   验证显式 snapshot 构建契约
+- `/build-info.json` reads `GITHUB_SHA` / `WORKERS_CI_COMMIT_SHA`, so the web build task passes both through
+  in `turbo.json` `passThroughEnv`
 - Turbo does not pass outer environment variables into task processes unless listed: credentials such as
   `CLOUDFLARE_API_TOKEN` must be in the task's `passThroughEnv`
 - A prerequisite owned by one workspace (e.g. `fact-source:export`) must be wired with a
@@ -267,8 +289,9 @@ curl -I https://<your-domain>/api/admin/bootstrap
   仍作内部资产键并保留校验/持久化。日期/作者只能从显式字段读取，本地 `relativePath` 以该内部键映射，不能把远端 key
   当成本地路径
 - 旧 R2 布局（根 key / 作品目录 key）已清除且**不可回滚**；新代码不得按旧布局推测 key
-- `sourceImageRegistry.ts` maps the internal commission asset key to the generated image stem; user-visible
-  identity and search never parse that key
+- `sourceImageRegistry.ts` resolves a commission's image by integer `id` through the generated manifest only (exact
+  match, no filename/stem fallback); a missing image renders as missing. User-visible identity and search never parse
+  `fileName`
 - Listing widths: `768/960/1280`, sizes `(max-width: 768px) 92vw, 640px`
 
 ### 数据库迁移验证

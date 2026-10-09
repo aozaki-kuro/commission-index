@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, createElement, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getDefaultPartNumber } from '../../lib/commissionWorkGroups'
 import { CommissionCharacterField, CommissionDateField, CommissionWorkGroupField } from './CommissionFormFields'
 
@@ -88,6 +88,29 @@ describe('commission form fields', () => {
     expect(input?.value).toBe('2026-04-27')
     expect(new FormData(container.querySelector('form')!).get('commissionDate')).toBe('2026-04-27')
     expect(document.querySelector('[role="dialog"][aria-label="Choose delivery date"]')).toBeNull()
+  })
+
+  it('flags a future delivery date with a custom validity message before submit', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-09T12:00:00Z'))
+    try {
+      await renderDateField()
+      const input = container.querySelector<HTMLInputElement>('input[name="commissionDate"]')!
+      const setTypedValue = (value: string) => act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(input, value)
+        input.dispatchEvent(new Event('input', { bubbles: true }))
+      })
+
+      await setTypedValue('2999-12-31')
+      expect(input.validity.customError).toBe(true)
+      expect(input.validationMessage).toBe('Commission date cannot be in the future.')
+
+      await setTypedValue('2026-10-10')
+      expect(input.validity.customError).toBe(false)
+    }
+    finally {
+      vi.useRealTimers()
+    }
   })
 
   it('defaults new groups to part one and existing groups to their next part', () => {

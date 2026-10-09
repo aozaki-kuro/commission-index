@@ -1,0 +1,96 @@
+name: Deploy web snapshot
+description: >-
+  Reject stale code candidates, export one read-only fact-source snapshot, type-check against it,
+  then build and deploy that frozen snapshot. Invoked as a step inside the caller's release job so
+  the job-level `release-web-production` concurrency lock spans the whole export->deploy sequence.
+
+inputs:
+  # Rebuild has no upstream build job, so it must lint/typecheck/test itself before exporting.
+  # ci.yml's web job already did this in its `build` dependency, so it leaves this false.
+  validate-code:
+    description: Run lint/typecheck/test before exporting.
+    required: false
+    default: 'false'
+  # Composite actions have no `secrets` context; callers must pass secrets explicitly as inputs.
+  cloudflare-api-token:
+    description: CLOUDFLARE_API_TOKEN, passed as an input from the caller's secrets.
+    required: true
+  cloudflare-account-id:
+    description: CLOUDFLARE_ACCOUNT_ID, passed as an input from the caller's secrets.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Reject outdated code candidate
+      id: candidate
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        current_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/master" --jq '.object.sha')
+        if [ "$current_sha" != "$GITHUB_SHA" ]; then
+          echo "部署跳过：候选 ${GITHUB_SHA} 已过期，master=${current_sha}" >> "$GITHUB_STEP_SUMMARY"
+          echo 'current=false' >> "$GITHUB_OUTPUT"
+        else
+          echo 'current=true' >> "$GITHUB_OUTPUT"
+        fi
+    - name: Validate current code
+      if: inputs.validate-code == 'true' && steps.candidate.outputs.current == 'true'
+      shell: bash
+      run: |
+        pnpm run lint
+        pnpm run typecheck
+        pnpm run test
+    # Restore the previously materialized source images. Never trusted blindly: the exporter re-hashes
+    # every local file against the current D1 snapshot (size + sha256) and re-downloads any mismatch,
+    # and drops files not retained by the new manifest, so stale bytes can never be published.
+    - name: Restore cached source images
+      id: restore-images
+      if: steps.candidate.outputs.current == 'true'
+      uses: actions/cache/restore@v6
+      with:
+        path: apps/web/generated/source-images
+        key: web-source-images-${{ github.run_id }}
+        restore-keys: |
+          web-source-images-
+    - name: Export one read-only snapshot
+      if: steps.candidate.outputs.current == 'true'
+      shell: bash
+      env:
+        CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare-api-token }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare-account-id }}
+      run: |
+        pnpm run web:fact-source:export
+        revision=$(node -p "require('./apps/web/generated/fact-source/content.json').meta.revision")
+        echo "WEB_BUILD_CACHE_TOKEN=${revision}" >> "$GITHUB_ENV"
+        echo 'FACT_SOURCE_USE_EXISTING_SNAPSHOT=1' >> "$GITHUB_ENV"
+        echo "code=${GITHUB_SHA} revision=${revision}" >> "$GITHUB_STEP_SUMMARY"
+    # Keyed on the content revision: an unchanged revision means an identical image set already
+    # exists, so the immutable save is skipped and the cache does not grow per run.
+    - name: Save cached source images
+      if: steps.candidate.outputs.current == 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: apps/web/generated/source-images
+        key: web-source-images-${{ env.WEB_BUILD_CACHE_TOKEN }}
+    - name: Astro check against frozen snapshot
+      if: steps.candidate.outputs.current == 'true'
+      shell: bash
+      run: pnpm -C apps/web run check:astro
+    # Wrangler 的 custom build 是唯一正式构建入口；export 依赖只校验已有快照。
+    - name: Build and deploy frozen snapshot
+      if: steps.candidate.outputs.current == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        CLOUDFLARE_API_TOKEN: ${{ inputs.cloudflare-api-token }}
+        CLOUDFLARE_ACCOUNT_ID: ${{ inputs.cloudflare-account-id }}
+      run: |
+        current_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/master" --jq '.object.sha')
+        if [ "$current_sha" != "$GITHUB_SHA" ]; then
+          echo "部署跳过：校验期间 master 已更新为 ${current_sha}" >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+        pnpm run deploy:web
+        find apps/web/dist -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum >> "$GITHUB_STEP_SUMMARY"

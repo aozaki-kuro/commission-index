@@ -73,7 +73,7 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
   return (
     <div className="grid min-w-0 items-start gap-7 @min-[50rem]/workspace:grid-cols-[minmax(0,1fr)_17rem] @min-[50rem]/workspace:grid-rows-[auto_1fr] @min-[50rem]/workspace:gap-x-8">
       <AdminBootstrapStatus errorMessage={state.errorMessage} isLoading={state.isLoading} hasPayload={payload !== null} onRetry={reload} />
-      {(rebuild.status === 'success' || rebuild.status === 'error') && <FloatingNotice tone={rebuild.status} onDismiss={dismissWebsiteRebuildNotice}>{rebuild.message}</FloatingNotice>}
+      {(rebuild.status === 'success' || rebuild.status === 'error' || rebuild.status === 'unconfirmed') && <FloatingNotice tone={rebuild.status === 'unconfirmed' ? 'error' : rebuild.status} onDismiss={dismissWebsiteRebuildNotice}>{rebuild.message}</FloatingNotice>}
 
       <section aria-labelledby="overview-actions" className="min-w-0 space-y-4 motion-safe:animate-[tabFade_300ms_ease-out] @min-[50rem]/workspace:col-start-1 @min-[50rem]/workspace:row-start-1">
         <h2 id="overview-actions" className="text-base font-semibold text-gray-900 dark:text-gray-100">Manage content</h2>
@@ -101,6 +101,11 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
             <div className="min-w-0 flex-1 space-y-1">
               <h2 id="overview-publish" className="text-base font-semibold text-gray-900 dark:text-gray-100">Publish website</h2>
               <p className="text-sm leading-relaxed text-gray-500 dark:text-gray-400">Rebuild the public site from saved content.</p>
+              {(rebuild.status === 'pending' || rebuild.status === 'success' || rebuild.status === 'error' || rebuild.status === 'unconfirmed') && (
+                <p role={rebuild.status === 'error' || rebuild.status === 'unconfirmed' ? 'alert' : 'status'} className="text-xs text-gray-600 dark:text-gray-400">
+                  {rebuild.message ?? (rebuild.status === 'pending' ? 'Waiting for the public site to confirm the update.' : null)}
+                </p>
+              )}
             </div>
             <button type="button" onClick={() => void queueWebsiteRebuild()} disabled={isDispatching} className={`${utilityButtonStyles} w-full`}>
               {isDispatching ? 'Queueing…' : 'Rebuild website'}

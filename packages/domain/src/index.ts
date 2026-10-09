@@ -15,13 +15,17 @@ export type {
   KeywordAliasEntry,
   KeywordAliasRow,
 } from './aliases'
+export type { BuildInfo } from './buildInfo'
 export {
   normalizeCharacterAliases,
   normalizeCharacterAliasKey,
   normalizeCharacterAliasName,
   parseCharacterAliasesJson,
 } from './characterAliases'
-export { getCommissionFileNameValidationError, parseCommissionFileName } from './commissionFileName'
+export {
+  getLatestCommissionDate,
+  isFutureCommissionDate,
+} from './commissionDate'
 export type {
   BuildCommissionSearchMetadataInput,
   CommissionSearchMetadata,

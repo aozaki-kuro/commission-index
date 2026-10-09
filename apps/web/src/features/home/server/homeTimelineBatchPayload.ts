@@ -1,3 +1,4 @@
+import type { TimelineYearGroup } from '@commission-index/domain'
 import type { Commission } from '@data/types'
 import type {
   HomeTimelineBatchEntryPayload,
@@ -5,7 +6,10 @@ import type {
   HomeTimelineBatchSectionPayload,
 } from '@features/home/commission/batch/homeTimelineBatchPayload'
 import type { HomeLocale } from '@features/home/i18n/homeLocale'
-import type { TimelineYearGroup } from '@lib/commissions/timeline'
+import {
+  buildCommissionSearchDomKey,
+  buildCommissionSearchMetadata,
+} from '@commission-index/domain'
 import {
   COMMISSION_LINK_TEXT_CLASS,
   selectDisplayLinks,
@@ -13,10 +17,6 @@ import {
 import { getHomeLocaleMessages } from '@features/home/i18n/homeLocale'
 import { getCharacterSectionId } from '@lib/characters/nav'
 import { parseAndFormatDate } from '@lib/date/format'
-import {
-  buildCommissionSearchDomKey,
-  buildCommissionSearchMetadata,
-} from '@lib/search/commissionSearchMetadata'
 import { buildImagePayload, buildInterestPayload, COMMISSION_IMAGE_SIZES } from './batchPayloadBuilder'
 
 async function buildEntryPayload({

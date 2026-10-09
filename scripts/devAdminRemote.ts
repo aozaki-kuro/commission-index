@@ -10,6 +10,8 @@ const workerReadyTimeoutMs = Number.parseInt(
   10,
 ) || 30_000
 const workerReadyPollMs = 400
+// Must match `--port` in apps/admin/package.json `dev` (--strictPort); Vite would otherwise fail late.
+const adminPort = 4174
 
 const children = new Set<ReturnType<typeof spawn>>()
 let stopping = false
@@ -32,6 +34,11 @@ function startProcess(name: string, args: string[], extraEnv: Record<string, str
       return
     }
 
+    // Log here: the outer catch stays silent once `stopping` is set, so an unexpected exit
+    // would otherwise be indistinguishable from a normal Ctrl+C shutdown.
+    console.error(
+      `[dev:admin] ${name} exited unexpectedly (${signal ? `signal ${signal}` : `code ${code}`}); stopping.`,
+    )
     stopping = true
     stopAll(signal ? 0 : (code ?? 1))
   })
@@ -109,8 +116,9 @@ async function waitForWorkerReady(url: string, timeoutMs: number) {
     }
 
     if (Date.now() - startedAt >= timeoutMs) {
+      // Reached only while the worker is still alive; a crash is reported by its exit handler.
       throw new Error(
-        `Timed out waiting for admin worker readiness at ${url} after ${timeoutMs}ms.`,
+        `Timed out waiting for admin worker readiness at ${url} after ${timeoutMs}ms; the worker process is still running (not exited).`,
       )
     }
 
@@ -149,10 +157,16 @@ process.on('SIGTERM', () => {
 
 async function main() {
   await assertPortAvailable(Number.parseInt(workerPort, 10), 'admin worker')
+  // Check before spawning: a busy 4174 would otherwise only surface after the worker has booted.
+  await assertPortAvailable(adminPort, 'admin frontend')
   startProcess('admin-worker', ['-C', 'apps/admin-worker', 'dev'])
 
   console.log(`[dev:admin] waiting for worker data readiness at ${workerReadyUrl}`)
   await waitForWorkerReady(workerReadyUrl, workerReadyTimeoutMs)
+  // The wait returns early without throwing when the worker exits; do not start the frontend then.
+  if (stopping) {
+    return
+  }
   console.log('[dev:admin] worker is ready, starting admin frontend')
 
   startProcess('admin', ['-C', 'apps/admin', 'dev'], {

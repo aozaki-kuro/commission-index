@@ -19,8 +19,9 @@ Standalone admin Cloudflare Worker: API router, D1/R2 CRUD, asset serving. Produ
 - CORS: same-origin, or an `Origin` host of `localhost`, `*.localhost`, or `127.0.0.1` (see `isLocalHostname` in `src/index.ts`).
 - Create/PATCH take `commissionDate` + `creatorName`; `workGroupId` and `partNumber` are given together or both `null`, and `workGroupId: "new"` creates a group.
 - Editing date/creator only updates D1; it never renames, copies, moves, or deletes R2 objects. Replacing an image is a separate explicit operation.
+- `commissionDate` may not be later than today in UTC+14 (`isFutureCommissionDate` in `packages/domain/src/commissionDate.ts`, checked in `adminApi.ts` and `adminPersistence.ts`). The UTC+14 zone is an owner-approved assumption; tighten it in that one helper if needed.
 - Source-image GET (`/api/admin/commissions/:id/source-image`) resolves the key from `source_images` (by `commission_id`, falling back to `commission_file_name = c.file_name` for legacy rows). No row means 404; never probe the bucket by filename.
-- `DELETE /characters/:id` also deletes that character's commissions and their `source_images` rows, and leaves the R2 objects orphaned. Treat it as data loss.
+- `DELETE /characters/:id` also deletes that character's commissions and their `source_images` rows; after the D1 batch commits it deletes the character's R2 objects (best effort — a cleanup failure leaves orphans, reclaimed via `r2:list-orphans`). Requires `IMAGES`; treat a cascade as data loss.
 
 ## D1 migrations
 

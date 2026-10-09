@@ -10,6 +10,7 @@
     "d1:migrate": "wrangler d1 migrations apply DB --config wrangler.jsonc --remote",
     "web:fact-source:export": "tsx ./scripts/exportWebFactSource.ts",
     "web:fact-source:sync-images": "tsx ./scripts/syncMissingSourceImages.ts",
+    "r2:list-orphans": "tsx ./scripts/listR2Orphans.ts",
     "deploy": "wrangler deploy --config wrangler.jsonc",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },

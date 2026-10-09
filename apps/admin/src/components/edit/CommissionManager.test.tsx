@@ -18,7 +18,7 @@ vi.mock('./KeywordReplacePopover', () => ({
 }))
 vi.mock('./CommissionEditDrawer', () => ({
   CommissionEditDrawer: ({ commission, onSaveSuccess, onDelete, onClose }: { commission: CommissionRow | null, onSaveSuccess: (row: CommissionRow) => void, onDelete: () => void, onClose: () => void }) => commission
-    ? createElement('div', { 'role': 'dialog', 'data-keyword': commission.keyword }, `Editing ${commission.id}`, createElement('button', { onClick: () => onSaveSuccess({ ...commission, creatorName: 'Changed creator' }) }, 'Save edit'), createElement('button', { onClick: onDelete }, 'Delete entry'), createElement('button', { onClick: onClose }, 'Close editor'), createElement('button', { onClick: () => { api.pendingSave = () => onSaveSuccess({ ...commission, creatorName: 'Late edit' }) } }, 'Start delayed save'))
+    ? createElement('div', { 'role': 'dialog', 'data-keyword': commission.keyword }, `Editing ${commission.id}`, createElement('button', { onClick: () => onSaveSuccess({ ...commission, creatorName: 'Changed creator' }) }, 'Save edit'), createElement('button', { onClick: () => onSaveSuccess({ ...commission, keyword: 'Fresh keyword' }) }, 'Save keyword'), createElement('button', { onClick: onDelete }, 'Delete entry'), createElement('button', { onClick: onClose }, 'Close editor'), createElement('button', { onClick: () => { api.pendingSave = () => onSaveSuccess({ ...commission, creatorName: 'Late edit' }) } }, 'Start delayed save'))
     : null,
 }))
 
@@ -176,6 +176,28 @@ describe('commission manager search and disclosure lifecycle', () => {
     await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Delete entry')!.click())
     expect(container.querySelector('[aria-label="Search results"]')?.textContent).toContain('No commissions match')
     expect(api.refresh).toHaveBeenCalledTimes(2)
+  })
+
+  it('finds a keyword saved in this tab immediately', async () => {
+    await render()
+    await search('Second')
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Search results"] button')!.click())
+    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Save keyword')!.click())
+    await search('Fresh keyword')
+    expect(container.querySelector('[aria-label="Search results"]')?.textContent).toContain('Second')
+    expect(api.refresh).toHaveBeenCalledOnce()
+  })
+
+  it('applies a save that finishes after a bootstrap refresh replaced the search rows', async () => {
+    await render()
+    await search('Second')
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Search results"] button')!.click())
+    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Start delayed save')!.click())
+    // The save callback was created before this refresh; its overlay must still target the latest rows.
+    await render([...rows])
+    await act(async () => api.pendingSave?.())
+    await search('Late edit')
+    expect(container.querySelector('[aria-label="Search results"]')?.textContent).toContain('Second')
   })
 
   it('keeps a closed editor closed when its save finishes later', async () => {

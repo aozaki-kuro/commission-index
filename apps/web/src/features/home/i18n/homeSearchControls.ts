@@ -1,4 +1,7 @@
-type HomeSearchLocale = 'en' | 'zh-tw' | 'ja'
+import type { WebLocale } from '../../../config/locales'
+import { DEFAULT_WEB_LOCALE, WEB_LOCALES } from '../../../config/locales'
+
+type HomeSearchLocale = WebLocale
 
 interface SearchHelpRow {
   syntax: string
@@ -43,8 +46,8 @@ export interface HomeSearchControls {
   surpriseMeYear: string
 }
 
-const DEFAULT_HOME_SEARCH_LOCALE: HomeSearchLocale = 'en'
-const HOME_SEARCH_LOCALE_SET = new Set<HomeSearchLocale>(['en', 'zh-tw', 'ja'])
+const DEFAULT_HOME_SEARCH_LOCALE: HomeSearchLocale = DEFAULT_WEB_LOCALE
+const HOME_SEARCH_LOCALE_SET = new Set<HomeSearchLocale>(WEB_LOCALES)
 
 const HOME_SEARCH_CONTROLS: Record<HomeSearchLocale, HomeSearchControls> = {
   'en': {

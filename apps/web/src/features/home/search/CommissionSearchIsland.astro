@@ -455,16 +455,8 @@ const controls = resolveHomeSearchControls(locale)
 </style>
 
 <script>
-async function init() {
-  const { initSearchController } = await import('@features/home/search/commissionSearchController')
-  const root = document.getElementById('commission-search')
-  if (root)
-    initSearchController(root)
-}
-if ('requestIdleCallback' in window) {
-  requestIdleCallback(() => void init())
-}
-else {
-  setTimeout(() => void init(), 1)
-}
+  import { mountCommissionSearchIsland } from '@features/home/search/commissionSearchIsland'
+  import { bindSoftNavMount } from '@lib/astro/softNavMount'
+
+  bindSoftNavMount(mountCommissionSearchIsland)
 </script>

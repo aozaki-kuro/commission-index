@@ -6,29 +6,14 @@ import { AdminInternalLink } from './components/AdminInternalLink'
 import { AdminPageShell, AdminRootLayout } from './components/AdminLayout'
 import { FloatingNotice } from './components/FloatingNotice'
 import { FloatingRebuildButton } from './components/FloatingRebuildButton'
+import { fetchLiveBuildInfo } from './lib/liveBuildInfo'
+import { getPublicSiteUrl } from './lib/publicSiteUrl'
 
 const AdminOverviewPage = lazy(() => import('./pages/AdminOverviewPage').then(m => ({ default: m.AdminOverviewPage })))
 const AdminCreatePage = lazy(() => import('./pages/AdminCreatePage').then(m => ({ default: m.AdminCreatePage })))
 const AdminEditPage = lazy(() => import('./pages/AdminEditPage').then(m => ({ default: m.AdminEditPage })))
 const AdminAliasesPage = lazy(() => import('./pages/AdminAliasesPage').then(m => ({ default: m.AdminAliasesPage })))
 const AdminSuggestionPage = lazy(() => import('./pages/AdminSuggestionPage').then(m => ({ default: m.AdminSuggestionPage })))
-
-function getPublicSiteUrl() {
-  if (typeof window === 'undefined') {
-    return 'https://crystallize.cc'
-  }
-
-  const { hostname, protocol } = window.location
-  if (hostname === '127.0.0.1' || hostname === 'localhost') {
-    return 'http://localhost:4321'
-  }
-
-  if (hostname === 'admin.crystallize.cc') {
-    return 'https://crystallize.cc'
-  }
-
-  return `${protocol}//${hostname}`
-}
 
 function getWindowScrollTop() {
   return Math.max(window.scrollY, window.pageYOffset, 0)
@@ -119,6 +104,10 @@ export function App() {
   useEffect(() => {
     currentPathRef.current = currentPath
   }, [currentPath])
+
+  useEffect(() => {
+    void fetchLiveBuildInfo().catch(() => {})
+  }, [])
 
   useEffect(() => {
     const pageTitle = currentSection ? currentSection.title : 'Not Found'

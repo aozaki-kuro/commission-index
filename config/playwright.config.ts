@@ -6,6 +6,55 @@ const rootDir = resolve(import.meta.dirname, '..')
 
 const reuseExistingServer = !process.env.CI
 
+// Offline: web only, fixture data, no D1/R2 (the admin worker binds remote D1/R2 in wrangler.jsonc).
+const offlineVisual = process.env.VISUAL_OFFLINE === '1'
+
+const webProject = {
+  name: 'web',
+  testDir: resolve(rootDir, 'apps/web/test/visual'),
+  snapshotPathTemplate: resolve(rootDir, 'test/visual/apps/web/{testFilePath}-snapshots/{arg}-{platform}{ext}'),
+  use: {
+    baseURL: 'http://127.0.0.1:4173',
+  },
+}
+
+const adminProject = {
+  name: 'admin',
+  testDir: resolve(rootDir, 'apps/admin/test/visual'),
+  snapshotPathTemplate: resolve(rootDir, 'test/visual/apps/admin/{testFilePath}-snapshots/{arg}-{platform}{ext}'),
+  use: {
+    baseURL: 'http://127.0.0.1:4174',
+  },
+}
+
+const webServer = {
+  cwd: rootDir,
+  command: offlineVisual
+    ? 'node --import tsx apps/admin-worker/scripts/writeOfflineFactSource.ts && ASTRO_DEV_BACKGROUND=0 pnpm -C apps/web run dev:offline --host 127.0.0.1 --port 4173 --ignore-lock'
+    : 'ASTRO_DEV_BACKGROUND=0 NODE_ENV=development pnpm -C apps/web run dev --host 127.0.0.1 --port 4173 --ignore-lock',
+  url: 'http://127.0.0.1:4173',
+  timeout: 120_000,
+  reuseExistingServer,
+}
+
+const adminServers = [
+  {
+    cwd: rootDir,
+    command: 'pnpm -C apps/admin-worker run dev -- --ip 127.0.0.1 --port 8787',
+    url: 'http://127.0.0.1:8787/api/admin/health',
+    timeout: 120_000,
+    reuseExistingServer,
+  },
+  {
+    // Admin visuals depend on worker-backed bootstrap data, not the legacy web stub.
+    cwd: rootDir,
+    command: 'ADMIN_API_BASE_URL=http://127.0.0.1:8787 pnpm -C apps/admin run dev',
+    url: 'http://127.0.0.1:4174',
+    timeout: 120_000,
+    reuseExistingServer,
+  },
+]
+
 export default defineConfig({
   outputDir: resolve(rootDir, 'test-results/playwright'),
   fullyParallel: true,
@@ -23,46 +72,6 @@ export default defineConfig({
     timezoneId: 'Asia/Shanghai',
     trace: 'on-first-retry',
   },
-  projects: [
-    {
-      name: 'web',
-      testDir: resolve(rootDir, 'apps/web/test/visual'),
-      snapshotPathTemplate: resolve(rootDir, 'test/visual/apps/web/{testFilePath}-snapshots/{arg}-{platform}{ext}'),
-      use: {
-        baseURL: 'http://127.0.0.1:4173',
-      },
-    },
-    {
-      name: 'admin',
-      testDir: resolve(rootDir, 'apps/admin/test/visual'),
-      snapshotPathTemplate: resolve(rootDir, 'test/visual/apps/admin/{testFilePath}-snapshots/{arg}-{platform}{ext}'),
-      use: {
-        baseURL: 'http://127.0.0.1:4174',
-      },
-    },
-  ],
-  webServer: [
-    {
-      cwd: rootDir,
-      command: 'NODE_ENV=development pnpm -C apps/web run dev -- --host 127.0.0.1 --port 4173',
-      url: 'http://127.0.0.1:4173',
-      timeout: 120_000,
-      reuseExistingServer,
-    },
-    {
-      cwd: rootDir,
-      command: 'pnpm -C apps/admin-worker run dev -- --ip 127.0.0.1 --port 8787',
-      url: 'http://127.0.0.1:8787/api/admin/health',
-      timeout: 120_000,
-      reuseExistingServer,
-    },
-    {
-      // Admin visuals depend on worker-backed bootstrap data, not the legacy web stub.
-      cwd: rootDir,
-      command: 'ADMIN_API_BASE_URL=http://127.0.0.1:8787 pnpm -C apps/admin run dev',
-      url: 'http://127.0.0.1:4174',
-      timeout: 120_000,
-      reuseExistingServer,
-    },
-  ],
+  projects: offlineVisual ? [webProject] : [webProject, adminProject],
+  webServer: offlineVisual ? [webServer] : [webServer, ...adminServers],
 })

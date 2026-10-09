@@ -68,47 +68,13 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      - name: Reject outdated code candidate
-        id: candidate
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          current_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/master" --jq '.object.sha')
-          if [ "$current_sha" != "$GITHUB_SHA" ]; then
-            echo "部署跳过：候选 ${GITHUB_SHA} 已过期，master=${current_sha}" >> "$GITHUB_STEP_SUMMARY"
-            echo 'current=false' >> "$GITHUB_OUTPUT"
-          else
-            echo 'current=true' >> "$GITHUB_OUTPUT"
-          fi
-      - name: Export one read-only snapshot
-        if: steps.candidate.outputs.current == 'true'
-        run: |
-          pnpm run web:fact-source:export
-          revision=$(node -p "require('./apps/web/generated/fact-source/content.json').meta.revision")
-          echo "WEB_BUILD_CACHE_TOKEN=${revision}" >> "$GITHUB_ENV"
-          echo 'FACT_SOURCE_USE_EXISTING_SNAPSHOT=1' >> "$GITHUB_ENV"
-          echo "code=${GITHUB_SHA} revision=${revision}" >> "$GITHUB_STEP_SUMMARY"
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      - name: Astro check against frozen snapshot
-        if: steps.candidate.outputs.current == 'true'
-        run: pnpm -C apps/web run check:astro
-      # Wrangler 的 custom build 是唯一正式构建入口；export 依赖只校验已有快照。
-      - name: Build and deploy frozen snapshot
-        if: steps.candidate.outputs.current == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          current_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/master" --jq '.object.sha')
-          if [ "$current_sha" != "$GITHUB_SHA" ]; then
-            echo "部署跳过：校验期间 master 已更新为 ${current_sha}" >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          pnpm run deploy:web
-          find apps/web/dist -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum >> "$GITHUB_STEP_SUMMARY"
+      # The shared snapshot/validate/deploy sequence lives in the composite action; it runs inside
+      # this job so the `release-web-production` lock above spans the whole export->deploy window.
+      # `build` already ran lint/typecheck/test, so validation is not repeated here.
+      - uses: ./.github/actions/deploy-web-snapshot
+        with:
+          cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare-account-id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   admin:
     name: Admin — Deploy

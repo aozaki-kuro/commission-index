@@ -200,7 +200,7 @@ function createImagesBucketRecorder(options: {
   const existingKeys = new Set(options.existingKeys ?? [])
   const existingObjects = options.existingObjects ?? {}
   const put = vi.fn(async (_key: string, _value: ArrayBuffer, _options?: { httpMetadata?: { contentType?: string } }) => ({}))
-  const deleteObject = vi.fn(async (_key: string) => ({}))
+  const deleteObject = vi.fn(async (_keys: string | string[]) => ({}))
   const get = vi.fn(async (key: string) => {
     if (key in existingObjects) {
       const object = existingObjects[key]!
@@ -236,6 +236,27 @@ function createImagesBucketRecorder(options: {
 }
 
 describe('admin worker CRUD contract routing', () => {
+  it('returns the rebuild dispatch timestamp and includes it in the GitHub event', async () => {
+    const originalFetch = globalThis.fetch
+    const githubFetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(null, { status: 204 }))
+    globalThis.fetch = githubFetch as typeof fetch
+    try {
+      const response = await handleAdminApiRequest(
+        new Request(`${baseUrl}/api/admin/rebuild`, { method: 'POST' }),
+        { GITHUB_DISPATCH_TOKEN: 'test-token' },
+        createCrudBackend(),
+      )
+      const payload = await response.json() as { dispatchedAt: string }
+      const dispatchRequest = githubFetch.mock.calls[0]?.[1]
+      expect(response.status).toBe(200)
+      expect(Number.isFinite(Date.parse(payload.dispatchedAt))).toBe(true)
+      expect(JSON.parse(String(dispatchRequest?.body)).client_payload.fact_source_version).toBe(payload.dispatchedAt)
+    }
+    finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
   it('normalizes create-character payload before delegating to backend', async () => {
     const createCharacter = vi.fn(async (_input: CreateCharacterInput) =>
       createJsonResponse({ status: 'success', message: 'Character "Alice" created.' }))
@@ -730,11 +751,12 @@ describe('admin worker CRUD contract routing', () => {
         return []
       },
     })
+    const { bucket } = createImagesBucketRecorder()
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/characters/7`, {
         method: 'DELETE',
       }),
-      { DB: db },
+      { DB: db, IMAGES: bucket },
     )
 
     expect(response.status).toBe(200)
@@ -746,6 +768,123 @@ describe('admin worker CRUD contract routing', () => {
       .toHaveLength(1)
     expect(executions.filter(item => item.query.includes('DELETE FROM characters WHERE id = ?')))
       .toHaveLength(1)
+  })
+
+  it('deletes exactly the character source-image R2 objects after the D1 commit', async () => {
+    const objectKeys = ['source-images/aaa-hash.jpg', 'source-images/bbb-hash.png']
+    const events: string[] = []
+    const { db } = createD1Recorder({
+      queryResults(query) {
+        if (query.includes('SELECT name FROM characters WHERE id = ?')) {
+          return [{ name: 'Alice' }]
+        }
+        if (query.includes('SELECT object_key as objectKey FROM source_images WHERE')) {
+          return objectKeys.map(objectKey => ({ objectKey }))
+        }
+
+        return []
+      },
+      runBehavior(query) {
+        if (query.includes('DELETE FROM characters WHERE id = ?')) {
+          events.push('d1-commit')
+        }
+      },
+    })
+    const { bucket, deleteObject } = createImagesBucketRecorder()
+    deleteObject.mockImplementation(async () => {
+      events.push('r2-delete')
+      return {}
+    })
+
+    const response = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/characters/7`, {
+        method: 'DELETE',
+      }),
+      { DB: db, IMAGES: bucket },
+    )
+
+    expect(response.status).toBe(200)
+    // One batched delete call keeps the keys exactly the set read back from D1 before the commit.
+    expect(deleteObject).toHaveBeenCalledTimes(1)
+    expect((deleteObject.mock.calls[0]![0] as string[]).toSorted()).toEqual(objectKeys.toSorted())
+    // D1 must commit before any object is removed; a lost delete keeps the row and loses the object otherwise.
+    expect(events).toEqual(['d1-commit', 'r2-delete'])
+  })
+
+  it('keeps the D1 delete committed and returns 200 when R2 cleanup fails', async () => {
+    const { db, executions } = createD1Recorder({
+      queryResults(query) {
+        if (query.includes('SELECT name FROM characters WHERE id = ?')) {
+          return [{ name: 'Alice' }]
+        }
+        if (query.includes('SELECT object_key as objectKey FROM source_images WHERE')) {
+          return [{ objectKey: 'source-images/aaa-hash.jpg' }]
+        }
+
+        return []
+      },
+    })
+    const { bucket, deleteObject } = createImagesBucketRecorder()
+    deleteObject.mockRejectedValue(new Error('R2 unavailable'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const response = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/characters/7`, {
+        method: 'DELETE',
+      }),
+      { DB: db, IMAGES: bucket },
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({
+      status: 'success',
+      message: 'Character deleted.',
+    })
+    expect(executions.filter(item => item.query.includes('DELETE FROM characters WHERE id = ?')))
+      .toHaveLength(1)
+    expect(warn).toHaveBeenCalled()
+  })
+
+  it('returns 503 without deleting D1 rows when the IMAGES binding is missing', async () => {
+    const { db, executions } = createD1Recorder()
+    const response = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/characters/7`, {
+        method: 'DELETE',
+      }),
+      { DB: db },
+    )
+
+    expect(response.status).toBe(503)
+    expect(executions).toEqual([])
+  })
+
+  it('deletes R2 objects in batches of at most 1000 keys', async () => {
+    const objectKeys = Array.from({ length: 2500 }, (_, index) => `source-images/key-${index}.jpg`)
+    const { db } = createD1Recorder({
+      queryResults(query) {
+        if (query.includes('SELECT name FROM characters WHERE id = ?')) {
+          return [{ name: 'Alice' }]
+        }
+        if (query.includes('SELECT object_key as objectKey FROM source_images WHERE')) {
+          return objectKeys.map(objectKey => ({ objectKey }))
+        }
+
+        return []
+      },
+    })
+    const { bucket, deleteObject } = createImagesBucketRecorder()
+
+    const response = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/characters/7`, {
+        method: 'DELETE',
+      }),
+      { DB: db, IMAGES: bucket },
+    )
+
+    expect(response.status).toBe(200)
+    // The R2 binding rejects more than 1000 keys per delete call.
+    expect(deleteObject.mock.calls.map(([keys]) => (keys as string[]).length)).toEqual([1000, 1000, 500])
+    expect(deleteObject.mock.calls.flatMap(([keys]) => keys as string[]).toSorted()).toEqual(objectKeys.toSorted())
   })
 
   it('handles create-commission natively when DB and IMAGES bindings exist', async () => {

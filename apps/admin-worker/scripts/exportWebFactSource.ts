@@ -684,14 +684,16 @@ function cleanupStaleSourceImages(outputImagesDir: string, retainedObjectKeys: S
 function buildMeta({
   databaseBinding,
   imagesBucket,
+  exportedAt = new Date().toISOString(),
 }: {
   databaseBinding: string
   imagesBucket: string
+  exportedAt?: string
 }): Omit<GeneratedFactSourceMeta, 'revision'> {
   return {
     schemaVersion: GENERATED_FACT_SOURCE_SCHEMA_VERSION,
     source: GENERATED_FACT_SOURCE_SOURCE,
-    exportedAt: new Date().toISOString(),
+    exportedAt,
     databaseBinding,
     imagesBucket,
   }
@@ -1005,17 +1007,45 @@ export async function main(argv: string[] = process.argv.slice(2)) {
   const factSourceDir = path.join(outputRoot, factSourceDirectoryName)
   const outputImagesDir = path.join(outputRoot, imageOutputDirectoryName)
 
-  // ==================== 导出结构化事实源 ====================
-  const factSource = loadRemoteFactSource({
+  // Sampled before each D1 SELECT whose result is exported, so confirmation cannot accept a
+  // snapshot whose read began before a publish request (the retry re-read samples again).
+  let snapshotReadStartedAt = new Date().toISOString()
+  // A replace-image commits D1 before deleting the old R2 object, so an exporter that read the
+  // pre-replacement snapshot can 404 on the old key; re-read D1 once and retry to close that window.
+  // A hash/size mismatch is not that race (versioned keys are immutable) and stays a hard failure.
+  let factSource = loadRemoteFactSource({
     databaseBinding: defaultDatabaseBinding,
     usePreview,
   })
+  let imageExport = await exportSourceImages(listExpectedSourceImages(factSource.characters), {
+    bucketName: defaultBucketName,
+    outputImagesDir,
+    sourceImageRows: factSource.sourceImages,
+  })
+
+  if (imageExport.missing.some(entry => entry.reason === 'not_found')) {
+    console.log('R2 缺少部分 object_key（可能刚换图），重取一次 D1 快照后重试导出。')
+    snapshotReadStartedAt = new Date().toISOString()
+    factSource = loadRemoteFactSource({
+      databaseBinding: defaultDatabaseBinding,
+      usePreview,
+    })
+    imageExport = await exportSourceImages(listExpectedSourceImages(factSource.characters), {
+      bucketName: defaultBucketName,
+      outputImagesDir,
+      sourceImageRows: factSource.sourceImages,
+    })
+  }
+
+  if (imageExport.hasHardFailure) {
+    throw new Error('图片导出失败，未提交新的事实源快照。')
+  }
 
   const meta = buildMeta({
     databaseBinding: defaultDatabaseBinding,
     imagesBucket: defaultBucketName,
+    exportedAt: snapshotReadStartedAt,
   })
-
   const content = {
     meta,
     characters: factSource.characters,
@@ -1024,18 +1054,6 @@ export async function main(argv: string[] = process.argv.slice(2)) {
     keywordAliases: factSource.keywordAliases,
     featuredSearchKeywords: factSource.featuredSearchKeywords,
   } satisfies SnapshotContentInput
-
-  // ==================== 导出 source images 到 generated 目录 ====================
-  const expectedSourceImages = listExpectedSourceImages(factSource.characters)
-  const imageExport = await exportSourceImages(expectedSourceImages, {
-    bucketName: defaultBucketName,
-    outputImagesDir,
-    sourceImageRows: factSource.sourceImages,
-  })
-
-  if (imageExport.hasHardFailure) {
-    throw new Error('图片导出失败，未提交新的事实源快照。')
-  }
   const snapshot = createSnapshot(content, { meta, files: imageExport.files, missing: imageExport.missing })
   writeJsonFile(path.join(factSourceDir, 'content.json'), snapshot.content)
   writeJsonFile(path.join(factSourceDir, 'source-images-manifest.json'), snapshot.manifest)

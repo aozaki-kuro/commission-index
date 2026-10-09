@@ -48,7 +48,8 @@ export function buildCommissionTimeline(commissionMap: Map<string, CharacterComm
     .flatMap(({ Character, Commissions }) =>
       Commissions.map(commission => ({ character: Character, commission })),
     )
-    .filter((entry): entry is typeof entry & { commission: DatedCommission } => entry.commission.commissionDate !== null)
+    // Truthy check, not `!== null`: an empty date must stay undated instead of creating a phantom '' year group.
+    .filter((entry): entry is typeof entry & { commission: DatedCommission } => Boolean(entry.commission.commissionDate))
     .sort((a, b) => sortCommissionsByDate(a.commission, b.commission))
 
   const groupsByYear = new Map<string, TimelineYearGroup>()
