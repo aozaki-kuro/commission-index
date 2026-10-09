@@ -16,3 +16,7 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
   through `bindSoftNavMount` (`@lib/astro/softNavMount`) on `astro:page-load` and tear down on `astro:before-swap`.
   A mount that defers work (idle callback, dynamic import) must cancel it in its teardown and check a disposed flag
   after the import resolves.
+- Search interaction (focus/pointerdown/keyword) prefetches only the next unloaded batch, not all of
+  them — request count must not scale with character count. Deeper batches are mounted on demand: a
+  query requests the full active load, and a clicked result / hash / sidebar target loads its own batch
+  via the manifest `targetBatchById` / stale-HTML fallback. Keep it that way when touching prefetch.

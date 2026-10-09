@@ -266,7 +266,7 @@ export function initSearchController(root: HTMLElement) {
 
   // ==================== Prefetch helpers ====================
 
-  function prefetchDeferredBatches(status: 'active' | 'archived') {
+  function prefetchDeferredBatches(status: 'active' | 'archived', maxBatchCount = Number.POSITIVE_INFINITY) {
     if (mode !== 'character')
       return
 
@@ -282,7 +282,7 @@ export function initSearchController(root: HTMLElement) {
     const startBatchIndex = status === 'active'
       ? readActiveCharactersLoadedBatchCount(document)
       : readArchivedCharactersLoadedBatchCount(document)
-    const targetBatchIndex = totalBatchCount - 1
+    const targetBatchIndex = Math.min(totalBatchCount - 1, startBatchIndex + maxBatchCount - 1)
 
     if (status === 'active')
       prefetchedActive = true
@@ -300,10 +300,15 @@ export function initSearchController(root: HTMLElement) {
     })
   }
 
+  // Interaction only warms the next batch. Deeper batches are not needed up front: a query
+  // requests the full active load itself, and sidebar/hash/shuffle targets load their own batch.
+  // Warming every batch made focus cost grow with the character count.
+  const SEARCH_INTERACTION_PREFETCH_BATCH_COUNT = 1
+
   function prepareSearchInteraction() {
     isIndexReady = true
     shouldWarmFuse = true
-    prefetchDeferredBatches('active')
+    prefetchDeferredBatches('active', SEARCH_INTERACTION_PREFETCH_BATCH_COUNT)
   }
 
   function shouldSuspendDomFilteringForActiveLoad() {
