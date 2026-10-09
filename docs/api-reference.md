@@ -1,27 +1,58 @@
 # Commission Index — Admin API Reference
 
-**Base URL (production):** `https://admin.crystallize.cc`
-**Base URL (local dev):** `http://127.0.0.1:8787`
+Endpoint contract for `apps/admin-worker`. Implicit behaviours, footguns, and retry strategy
+live in `ai-agent-guide.md`; this file links there instead of repeating them.
 
-**Auth:** All `/api/admin/*` endpoints are protected by Cloudflare Zero Trust at the network
-boundary. The worker itself performs no token validation — authenticated sessions pass through
-transparently. In local dev, CORS allows any `*.localhost` or `127.0.0.1:*` origin. No
-credentials are required when calling the worker directly at `127.0.0.1:8787` in local dev —
-Zero Trust is only enforced in production.
+**Base URL:** production `https://admin.crystallize.cc`, local dev `http://127.0.0.1:8787`.
 
-**Response envelope (mutations):**
+## Conventions
 
-```json
+**Auth.** `/api/admin/*` is protected by Cloudflare Zero Trust at the network boundary. The
+worker performs no token validation. Local dev (direct to `127.0.0.1:8787`) needs no credentials.
+
+**CORS.** `Access-Control-Allow-Origin` is set only when the request `Origin` is same-origin with
+the request URL, or its hostname is `localhost`, `*.localhost`, or `127.0.0.1` (any port). Other
+origins get no CORS headers. When allowed, responses carry `Access-Control-Allow-Methods:
+GET, POST, PUT, PATCH, DELETE, OPTIONS`, `Access-Control-Allow-Headers` (echoes
+`Access-Control-Request-Headers`, default `Authorization, Content-Type`), and `Vary: Origin`.
+`OPTIONS /api/admin/*` (any path under the prefix) returns `204` with no body.
+
+**Routing.** Paths outside `/api/admin/` are served by the static assets binding. Any
+`/api/admin/*` request that matches no route (unknown path, wrong method, non-numeric `:id`) gets
+`404` with the JSON envelope `{ "status": "error", "message": "Not Found" }`. Only
+`GET /commissions/:id/source-image` uses a plain-text 404 (see its section).
+
+**Response envelope (mutations and errors):**
+
+```text
 { "status": "success" | "error", "message": "string" }
 ```
 
-**HTTP status on success:** All successful responses use `200 OK` regardless of HTTP method
-(no `201`/`204`).
+Every successful mutation is `200 OK` (no `201`/`204`). `GET` endpoints return their payload
+directly. All JSON responses send `Cache-Control: no-store`.
 
-**Error format:** HTTP 400/404/500/503 + `{ "status": "error", "message": "..." }`.
+**Status codes.**
 
-**Binding errors (503):** Returned when the D1 (`DB`) or R2 (`IMAGES`) Cloudflare binding is
-missing. Each endpoint notes which bindings it requires.
+| Status | Meaning                                                                                                     |
+| ------ | ----------------------------------------------------------------------------------------------------------- |
+| `400`  | Validation failure, **and** any failure inside a mutation (including D1 errors and missing rows)            |
+| `404`  | Unmatched route; unresolved source image                                                                    |
+| `500`  | Failure while loading a `GET` payload (bootstrap, aliases, suggestion, character commissions, source image) |
+| `502`  | `POST /rebuild` could not reach or was rejected by GitHub                                                   |
+| `503`  | Missing `DB` / `IMAGES` binding, or missing `GITHUB_DISPATCH_TOKEN`                                         |
+
+Mutation wrappers convert every thrown error into `400` with the error message (for example a D1
+`UNIQUE` violation or `D1 write operation failed.`), so a mutation never returns `500` in practice.
+See `ai-agent-guide.md` §8 for what to do with these.
+
+**Binding errors (`503`).** Messages: `Admin worker DB binding is required for this route.`,
+`Admin worker IMAGES binding is required for this route.`, or `Admin worker DB and IMAGES bindings
+are required for this route.` Each endpoint lists its required bindings. For mutations the binding
+check runs after request parsing and field validation, so a bad payload still gets `400` when
+bindings are missing.
+
+**Path IDs.** `:id` must be digits to match the route; `0` matches but is rejected with
+`400 Invalid character identifier.` / `Invalid commission identifier.`
 
 ---
 
@@ -29,9 +60,7 @@ missing. Each endpoint notes which bindings it requires.
 
 ### `GET /api/admin/health`
 
-Confirms the worker is running. Does not require any bindings.
-
-**Response `200`:**
+No bindings required.
 
 ```json
 { "status": "ok", "message": "Admin worker D1/R2 runtime is responding." }
@@ -41,26 +70,17 @@ Confirms the worker is running. Does not require any bindings.
 curl https://admin.crystallize.cc/api/admin/health
 ```
 
----
-
 ### `POST /api/admin/rebuild`
 
-Dispatches a `repository_dispatch` event to GitHub Actions to trigger a web rebuild.
-Requires the `GITHUB_DISPATCH_TOKEN` environment variable to be set on the worker.
+Sends a GitHub `repository_dispatch` (`event_type: "admin-data-changed"`) to trigger a web
+rebuild. No request body. Requires the `GITHUB_DISPATCH_TOKEN` worker secret.
 
-**Request:** No body.
+**`200`:** `{ "status": "success", "message": "Web rebuild dispatched to GitHub Actions." }` —
+returned as soon as GitHub answers `204`, not when the build finishes.
 
-**Response `200`:**
-
-```json
-{ "status": "success", "message": "Web rebuild dispatched to GitHub Actions." }
-```
-
-**Errors:**
-
-- `503` — `GITHUB_DISPATCH_TOKEN` not configured
-- `502` — GitHub API returned a non-204 status
-- `502` — network error reaching GitHub API (fetch failed or timed out)
+**Errors:** `503` token not configured (`GITHUB_DISPATCH_TOKEN is not configured on the worker.`);
+`502` GitHub returned a non-204 status (`GitHub API returned <status>: <body>`); `502` network
+failure reaching GitHub.
 
 ```bash
 curl -X POST https://admin.crystallize.cc/api/admin/rebuild
@@ -68,16 +88,14 @@ curl -X POST https://admin.crystallize.cc/api/admin/rebuild
 
 ---
 
-## Bootstrap / Read Endpoints
+## Read Endpoints
+
+All require `DB` unless noted. All can return `500` with `{ "status": "error", "message": ... }`
+if the query fails.
 
 ### `GET /api/admin/bootstrap`
 
-Loads the full admin bootstrap payload: all characters, their commission search rows, and
-creator alias data. Used by the admin UI on initial load.
-
-**Requires:** `DB`
-
-**Response `200`:**
+All characters, a flat commission row list for admin search, and creator alias data.
 
 ```typescript
 {
@@ -87,12 +105,8 @@ creator alias data. Used by the admin UI on initial load.
     status: 'active' | 'archived'
     sortOrder: number
     commissionCount: number
-  }>
-  creatorAliases: Array<{
-    creatorName: string
-    aliases: string[]
-    commissionCount: number
-  }>
+  }> // ordered by sortOrder
+  creatorAliases: Array<{ creatorName: string; aliases: string[]; commissionCount: number }>
   commissionSearchRows: Array<{
     id: number
     publicId: string
@@ -102,10 +116,13 @@ creator alias data. Used by the admin UI on initial load.
     creatorName: string | null
     workGroupId: string | null
     partNumber: number | null
+    fileName: string // internal asset key; do not parse or use as identity
+    links: string // RAW stored JSON string (e.g. '["https://a"]'), not an array
     design: string | null
     description: string | null
     keyword: string | null
-  }>
+    hidden: boolean
+  }> // ordered by character sortOrder, commissionDate desc, id desc
 }
 ```
 
@@ -113,78 +130,46 @@ creator alias data. Used by the admin UI on initial load.
 curl https://admin.crystallize.cc/api/admin/bootstrap
 ```
 
----
-
 ### `GET /api/admin/aliases/bootstrap`
 
-Loads alias data for all three alias types: characters, creators, and keywords. Used by the
-aliases admin page.
-
-**Requires:** `DB`
-
-**Response `200`:**
+Alias data for all three alias types.
 
 ```typescript
 {
-  characterAliases: Array<{
-    characterName: string
-    aliases: string[]
-    commissionCount: number
-  }>
-  creatorAliases: Array<{
-    creatorName: string
-    aliases: string[]
-    commissionCount: number
-  }>
-  keywordAliases: Array<{
-    baseKeyword: string
-    aliases: string[]
-    commissionCount: number
-  }>
+  characterAliases: Array<{ characterName: string; aliases: string[]; commissionCount: number }>
+  creatorAliases: Array<{ creatorName: string; aliases: string[]; commissionCount: number }>
+  keywordAliases: Array<{ baseKeyword: string; aliases: string[]; commissionCount: number }>
 }
 ```
 
-Note: Creator and keyword alias rows are deduplicated against character aliases by normalized
-key to avoid priority conflicts.
+Each list is sorted by name (`ja` locale collation). To avoid priority conflicts, creator rows
+whose normalized key equals a character name, and keyword rows whose key equals a character or
+creator name, are dropped (priority: character > creator > keyword). This differs from the
+`creatorAliases` returned by `/bootstrap`, which is not filtered.
 
 ```bash
 curl https://admin.crystallize.cc/api/admin/aliases/bootstrap
 ```
 
----
-
 ### `GET /api/admin/suggestion`
 
-Loads the home search suggestion admin data: the current featured keywords list (up to 6)
-and a pool of up to 240 popular keyword options derived from commission metadata.
-
-**Requires:** `DB`
-
-**Response `200`:**
-
-```typescript
+```text
 {
-  featuredKeywords: string[]   // up to 6, from home_featured_search_keywords table
-  keywordOptions: string[]     // up to 240, ranked by frequency across all commissions
+  featuredKeywords: string[] // saved featured keywords, in order, at most 6
+  keywordOptions: string[]   // at most 240 candidates, most frequent first
 }
 ```
+
+`keywordOptions` is derived from commission search metadata (character, creator, keyword terms,
+including aliases). Dates are excluded and only a commission's primary creator is counted.
 
 ```bash
 curl https://admin.crystallize.cc/api/admin/suggestion
 ```
 
----
-
 ### `GET /api/admin/characters/:id/commissions`
 
-Returns all commissions belonging to a specific character, including full detail (links,
-hidden flag).
-
-**Requires:** `DB`
-
-**Path param:** `:id` — numeric character ID (positive integer)
-
-**Response `200`:**
+All commissions of one character (hidden ones included), ordered by `commissionDate` desc, `id` desc.
 
 ```typescript
 {
@@ -197,7 +182,8 @@ hidden flag).
     creatorName: string | null
     workGroupId: string | null
     partNumber: number | null
-    links: string[]
+    fileName: string // internal asset key; do not parse or use as identity
+    links: string[] // parsed array (contrast with /bootstrap, which returns a raw string)
     design: string | null
     description: string | null
     keyword: string | null
@@ -206,45 +192,38 @@ hidden flag).
 }
 ```
 
-**Errors:**
-
-- `400` — invalid (non-numeric or non-positive) character ID
-- `503` — D1 binding not available
-
-Note: Returns `{ "commissions": [] }` when no matching character or commissions exist — no 404
-is returned for a valid but non-existent character ID.
+**Errors:** `503` missing `DB` (checked first); `400 Invalid character identifier.` for ID `0`.
+An unknown character ID yields `{ "commissions": [] }`, not 404.
 
 ```bash
 curl https://admin.crystallize.cc/api/admin/characters/3/commissions
 ```
 
----
-
 ### `GET /api/admin/commissions/:id/source-image`
 
-Fetches the source image from R2 by stable commission ID. The Worker resolves the immutable
-object key through the commission's `source_images` metadata; there is no filename-based
-fallback. The stored key is read opaquely, including historical root keys, historical
-commission-folder keys, and the current flat keys under `source-images/`. Dates, creator
-names, and legacy file names are not part of the image URL.
+Streams the source image from R2. Requires `DB` + `IMAGES`.
 
-**Requires:** `DB` + `IMAGES`
+The object key is resolved from `source_images` by `commission_id`; if no row has that
+`commission_id`, it falls back to the row whose `commission_file_name` equals the commission's
+internal `file_name` (`COALESCE` in `adminData.ts`). The stored `object_key` is opaque and read
+as-is. A commission with no `source_images` row has no image; the bucket is never probed by
+file name.
 
-**Path param:** `:id` — numeric commission ID (positive integer)
+**`200`:** image bytes. `Content-Type` is the R2 object's stored content type, falling back to
+`image/png` for a `.png` key and `image/jpeg` otherwise. Also sends `Content-Length` (when known),
+`ETag` (when R2 provides one), and `Cache-Control: private, no-cache`.
 
-**Response `200`:** Raw image binary with `Content-Type: image/jpeg` or `image/png`, an `ETag`
-derived from the R2 object, and `Cache-Control: private, no-cache`.
+**`304`:** empty body when `If-None-Match` (comma-separated list or `*`) matches the `ETag`;
+`ETag` and `Cache-Control` are still sent. Clients may cache bytes but must revalidate.
 
-**Response `304`:** Empty body when the request `If-None-Match` matches the object's `ETag`; still
-returns `ETag` and `Cache-Control: private, no-cache`. Clients may cache the bytes but must
-revalidate, so a replaced image is never served stale.
+**Errors** (checked in this order):
 
-**Errors:**
-
-- `400` — invalid commission ID
-- `404` — unknown commission, no `source_images` metadata for it, or the referenced object is
-  missing from R2 (**plain-text** `Not Found`, not the JSON error envelope)
-- `503` — D1 or R2 binding not available
+1. `503` — `IMAGES` binding missing (checked before the ID)
+2. `400` — ID `0` or not a safe integer (`Invalid commission identifier.`)
+3. `503` — `DB` binding missing
+4. `404` — **plain-text** `Not Found` (not JSON): unknown commission, no `source_images` row, or
+   object missing from R2
+5. `500` — JSON envelope, lookup or R2 read failed
 
 ```bash
 curl -O https://admin.crystallize.cc/api/admin/commissions/12/source-image
@@ -254,30 +233,20 @@ curl -O https://admin.crystallize.cc/api/admin/commissions/12/source-image
 
 ## Character Mutations
 
+All require `DB`. Request bodies are JSON. A body that is not a JSON object is treated as `{}`.
+
 ### `POST /api/admin/characters`
 
-Creates a new character.
-
-**Requires:** `DB`
-
-**Request body (JSON):**
-
-```typescript
+```text
 {
-  name: string // required, non-empty after trim
-  status: 'active' | 'archived' // defaults to 'active' if not 'archived'
+  name: string                 // required; trimmed; empty -> 400 "Character name is required."
+  status?: 'active' | 'archived' // anything other than 'archived' becomes 'active'
 }
 ```
 
-**Response `200`:**
+The new character gets `sortOrder = max(sort_order) + 1` regardless of status.
 
-```json
-{ "status": "success", "message": "Character \"Name\" created." }
-```
-
-**Errors:**
-
-- `400` — missing or empty name
+**`200`:** `{ "status": "success", "message": "Character \"Aria\" created." }`
 
 ```bash
 curl -X POST https://admin.crystallize.cc/api/admin/characters \
@@ -285,35 +254,14 @@ curl -X POST https://admin.crystallize.cc/api/admin/characters \
   -d '{"name":"Aria","status":"active"}'
 ```
 
----
-
 ### `PATCH /api/admin/characters/:id`
 
-Updates an existing character's name and/or status.
+Same body as `POST`. Both fields are written every time: an omitted or unrecognised `status`
+resets the character to `active`. `sortOrder` is not changed.
 
-**Requires:** `DB`
+**`200`:** `{ "status": "success", "message": "Character \"Aria\" updated." }`
 
-**Path param:** `:id` — numeric character ID
-
-**Request body (JSON):**
-
-```typescript
-{
-  name: string // required, non-empty after trim
-  status: 'active' | 'archived'
-}
-```
-
-**Response `200`:**
-
-```json
-{ "status": "success", "message": "Character \"Name\" updated." }
-```
-
-**Errors:**
-
-- `400` — invalid ID or empty name
-- `400` — character ID not found in D1 (`"Character not found."`)
+**Errors:** `400` ID `0`; `400` empty name; `400 Character not found.`
 
 ```bash
 curl -X PATCH https://admin.crystallize.cc/api/admin/characters/3 \
@@ -321,37 +269,35 @@ curl -X PATCH https://admin.crystallize.cc/api/admin/characters/3 \
   -d '{"name":"Aria","status":"archived"}'
 ```
 
----
-
 ### `PUT /api/admin/characters/order`
 
-Replaces the full sort order for all characters. Both lists must together enumerate every
-character ID — omitting an ID removes it from the sort order.
+Assigns display order and status from two ID lists.
 
-**Requires:** `DB`
-
-**Request body (JSON):**
-
-```typescript
+```text
 {
-  active: number[]    // ordered IDs for active characters
-  archived: number[]  // ordered IDs for archived characters
+  active: number[]   // ordered IDs to mark 'active'
+  archived: number[] // ordered IDs to mark 'archived'
 }
 ```
 
-**Response `200`:**
+Semantics:
 
-```json
-{ "status": "success", "message": "Character order updated." }
-```
+- Listed IDs get `sort_order` 1..n over `active`, then n+1.. over `archived`, and `status` from the
+  list they appear in.
+- **Omitted IDs are left untouched** (keep their old `sort_order` and `status`); they are not
+  removed. Their old `sort_order` values may collide with the new sequence.
+- Both lists empty (or not arrays — non-arrays are coerced to `[]`) is a no-op that still
+  returns `200`.
+- Entries are mapped with `Number()`. All updates run in one D1 batch.
 
-**Errors / coercion behavior:**
+**`200`:** `{ "status": "success", "message": "Character order updated." }`
 
-- Non-array `active`/`archived` fields are coerced to empty arrays — no validation error is
-  returned for missing or non-array values.
-- Every entry must be a positive safe integer. Duplicate IDs across either list cause `400`.
-- Every submitted ID must exist; unknown IDs cause `400` and no order update is issued.
-- Active and archived changes are committed together in one D1 batch.
+**Errors (all `400`):**
+
+- `Invalid character order payload.` — any entry is not a positive safe integer
+- `Character order payload contains duplicate identifiers.` — duplicates within or across lists
+- `Character order payload must include existing character identifiers only.` — unknown ID
+  (nothing is written)
 
 ```bash
 curl -X PUT https://admin.crystallize.cc/api/admin/characters/order \
@@ -359,26 +305,15 @@ curl -X PUT https://admin.crystallize.cc/api/admin/characters/order \
   -d '{"active":[2,1,3],"archived":[4]}'
 ```
 
----
-
 ### `DELETE /api/admin/characters/:id`
 
-Deletes a character by ID.
+Deletes the character **and all of its commissions and their `source_images` rows** in one atomic
+D1 batch. R2 image objects are not deleted and become orphans (see
+[Source image storage](#source-image-storage)).
 
-**Requires:** `DB`
+**`200`:** `{ "status": "success", "message": "Character deleted." }`
 
-**Path param:** `:id` — numeric character ID
-
-**Response `200`:**
-
-```json
-{ "status": "success", "message": "Character deleted." }
-```
-
-**Errors:**
-
-- `400` — invalid ID
-- `400` — character ID not found in D1 (`"Character not found."`)
+**Errors:** `400` ID `0`; `400 Character not found.`
 
 ```bash
 curl -X DELETE https://admin.crystallize.cc/api/admin/characters/3
@@ -388,49 +323,62 @@ curl -X DELETE https://admin.crystallize.cc/api/admin/characters/3
 
 ## Commission Mutations
 
+### Commission fields
+
+| Field                   | Rule                                                                                                                                                  |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `characterId`           | Required; finite number > 0; must reference an existing character                                                                                     |
+| `commissionDate`        | Required; real calendar date `YYYY-MM-DD`                                                                                                             |
+| `creatorName`           | Form: send empty string when unknown. JSON (`PATCH`): required, string or `null`. Trimmed; empty stores `null`; control characters (<= 0x1F) rejected |
+| `workGroupId`           | `null`/empty for standalone works, else a lowercase UUID v4 (input is trimmed and lowercased), or the sentinel `new`                                  |
+| `partNumber`            | Positive integer; must be set if and only if `workGroupId` is set                                                                                     |
+| `links`                 | Newline-separated string; trimmed, blank lines dropped, stored as a JSON array                                                                        |
+| `design`, `description` | Trimmed; empty stores `null`                                                                                                                          |
+| `keyword`               | Normalized on write (see [Keyword](#keyword)); empty stores `null`                                                                                    |
+| `hidden`                | Boolean (see [Hidden](#hidden))                                                                                                                       |
+
+`workGroupId: "new"` (case-insensitive) makes the worker generate a fresh UUID v4 group and is
+accepted on both create and `PATCH`. Parts keep separate commission rows, IDs, and images; the
+group only expresses grouping and order. `fileName` is never accepted from callers.
+
+Validation errors (`400`): `Character selection is required.`, `Commission date must use
+YYYY-MM-DD format.`, `Commission date must be a real calendar date.`, `Creator name must be a
+string or null.`, `Work group and part number must be set together.`, `Work group must be a
+lowercase UUID v4.`, `Part number must be a positive integer.`
+
 ### `POST /api/admin/commissions`
 
-Creates a new commission and uploads its source image to R2. The request must be
-`multipart/form-data`. This is the only endpoint that accepts a file upload for creation.
-New objects use `source-images/<sha256>-<UUIDv4>.jpg` or `.png`, with a fresh UUID for each
-upload, including identical bytes. The internal commission filename is still validated and
-persisted in D1; it is not part of the new R2 key.
-
-**Requires:** `DB` + `IMAGES`
-
-**Request body (FormData):**
+Creates a commission and uploads its source image. `multipart/form-data`. Requires `DB` + `IMAGES`.
 
 ```
-characterId    string   Numeric character ID (parsed via Number())
-commissionDate string   Required real calendar date in YYYY-MM-DD format
-creatorName    string   Creator display name; submit an empty string when unknown
-workGroupId    string   Optional UUID v4 for a multi-part work group; trimmed and normalized to lowercase
-partNumber     string   Positive integer; required together with workGroupId
-links          string   Newline-separated URL list (one URL per line)
-design         string   Optional design label
-description    string   Optional description text
-keyword        string   Optional comma-separated keyword terms
-hidden         string   Send "on" to mark as hidden; omit or any other value = not hidden
-sourceImage    File     JPEG or PNG only; determined by Content-Type (image/jpeg / image/png)
-                        or by file extension (.jpg / .jpeg / .png). Must be non-empty.
+characterId    string  Number() of this must be valid (see fields table)
+commissionDate string  YYYY-MM-DD
+creatorName    string  empty string when unknown
+workGroupId    string  optional (see fields table)
+partNumber     string  optional; required together with workGroupId
+links          string  newline-separated URLs
+design         string  optional
+description    string  optional
+keyword        string  optional
+hidden         string  "on" hides; anything else / omitted = visible
+sourceImage    File    JPEG or PNG, non-empty, with a file name
 ```
 
-**Response `200`:**
+Order of operations: validate fields -> check `sourceImage` -> check bindings -> upload to R2 ->
+D1 insert. The worker assigns the internal asset key `commission-<uuid>`; the R2 key is
+`source-images/<sha256>-<UUIDv4>.jpg|png` (see [Source image storage](#source-image-storage)).
 
-```json
-{ "status": "success", "message": "Commission dated 2024-03-15 added to Aria." }
-```
+**`200`:** `{ "status": "success", "message": "Commission dated 2024-03-15 added to Aria." }`
 
 **Errors:**
 
-- `400` — missing/invalid `characterId` or `commissionDate`, missing `sourceImage`
-- `400` — malformed `workGroupId`, non-positive/non-integer `partNumber`, or only one part field set
-- `400` — invalid image type or a D1 uniqueness conflict (R2 is not probed before upload)
-- `503` — missing `DB` or `IMAGES` binding
-
-Empty or whitespace-only `workGroupId` and `partNumber` values are normalized to `null` before
-validation. Submit both as empty values (FormData) for a standalone work; submit both values for
-a grouped part.
+- `400` — any field validation error above; `Source image is required for new commission entries.`
+  (missing, unnamed, or empty file); `Only JPG and PNG uploads are supported.`; `Uploaded image is
+empty.`
+- `400 Selected character does not exist.` — raised after upload, so the R2 object is orphaned
+- `400` — any D1 failure after upload (uniqueness conflict, `D1 write operation failed.`); the
+  uploaded object is kept
+- `503` — missing `DB` or `IMAGES`
 
 ```bash
 curl -X POST https://admin.crystallize.cc/api/admin/commissions \
@@ -445,55 +393,34 @@ curl -X POST https://admin.crystallize.cc/api/admin/commissions \
   # To hide from public site: add -F 'hidden=on'
 ```
 
----
-
 ### `PATCH /api/admin/commissions/:id`
 
-Updates commission metadata by stable ID. `commissionDate` and `creatorName` are explicit
-business fields; the internal legacy `fileName` is not accepted as an editable field. Changing
-date or creator does not rename, copy, move, or delete the R2 object. Use the dedicated
-source-image endpoint to replace image bytes.
+**Full replace of metadata.** Every field in the table is overwritten; there is no partial update.
+Requires `DB`. Does not touch R2 or the image reference; use the source-image endpoint to change
+bytes.
 
-**Requires:** `DB`
-
-**Path param:** `:id` — numeric commission ID
-
-**Request body (JSON):**
-
-```typescript
+```text
 {
-  characterId: number    // target character ID
-  commissionDate: string // required real calendar date in YYYY-MM-DD format
-  creatorName: string | null // creator display name, or null when unknown
-  workGroupId: string | null // optional UUID v4, normalized to lowercase; identifies a multi-part work group
-  partNumber: number | null  // positive integer; both part fields must be set together
-  links: string          // newline-separated URL list (one URL per line)
-  design?: string        // optional
-  description?: string   // optional
-  keyword?: string       // optional comma-separated keyword terms
-  hidden: boolean        // true to hide from public site
+  characterId: number        // required
+  commissionDate: string     // required
+  creatorName: string | null // required; string or null (omitted or any other type -> 400)
+  workGroupId: string | null // key must be present; null for standalone
+  partNumber: number | null  // key must be present; null for standalone
+  links?: string             // newline-separated string, NOT an array; omitted -> []
+  design?: string            // omitted -> cleared (null)
+  description?: string       // omitted -> cleared (null)
+  keyword?: string           // omitted -> cleared (null)
+  hidden?: boolean           // omitted -> false
 }
 ```
 
-Note: `commissionDate`, `creatorName`, `workGroupId`, and `partNumber` must be present on every
-PATCH; use `null` or empty strings for both part fields on a standalone work. Empty strings are
-normalized to `null` before validation. Both fields must otherwise be set: `workGroupId` is a UUID
-v4 (normalized to lowercase) and `partNumber` is a positive integer. Parts retain separate commission
-rows, IDs, and source images. `links` is a
-newline-separated `string` here (same as FormData), not an array.
-The worker parses it with the same line-splitting logic as the create endpoint.
+If the new values equal the stored ones, nothing is written and the response is still `200`.
 
-**Response `200`:**
+**`200`:** `{ "status": "success", "message": "Commission dated 2024-03-15 updated." }`
 
-```json
-{ "status": "success", "message": "Commission dated 2024-03-15 updated." }
-```
-
-**Errors:**
-
-- `400` — invalid ID, missing/invalid `characterId` or `commissionDate`
-- `400` — `creatorName` must be a string or `null`
-- `400` — malformed `workGroupId`, non-positive/non-integer `partNumber`, or only one part field set
+**Errors (`400`):** `Invalid commission identifier.` (ID `0`); `workGroupId and partNumber must be
+present; use null for standalone commissions.`; field validation errors; `Commission not found.`
+(checked before the character); `Selected character does not exist.`; D1 failures.
 
 ```bash
 curl -X PATCH https://admin.crystallize.cc/api/admin/commissions/12 \
@@ -512,69 +439,40 @@ curl -X PATCH https://admin.crystallize.cc/api/admin/commissions/12 \
   }'
 ```
 
----
-
 ### `DELETE /api/admin/commissions/:id`
 
-Deletes a commission record and its source-image metadata from D1 in one atomic batch. The
-source image remains in R2 for later orphan cleanup. Before cleanup, compare the actual bucket
-inventory with fresh D1 references and confirm the backup and retention policy permit deletion.
-The completed source-image migration's old root and commission-folder objects were removed on
-2026-10-03; restoring an old mapping now requires re-uploading its bytes from local backup first.
+Deletes the commission row and its `source_images` row in one atomic D1 batch. The R2 object is
+kept (orphan). Requires `DB`.
 
-**Requires:** `DB`
+**`200`:** `{ "status": "success", "message": "Commission deleted." }` — also returned when the
+ID does not exist (no-op).
 
-**Path param:** `:id` — numeric commission ID
-
-**Response `200`:**
-
-```json
-{ "status": "success", "message": "Commission deleted." }
-```
-
-**Errors:**
-
-- `400` — invalid ID
+**Errors:** `400 Invalid commission identifier.` (ID `0`).
 
 ```bash
 curl -X DELETE https://admin.crystallize.cc/api/admin/commissions/12
 ```
 
----
-
 ### `POST /api/admin/commissions/:id/source-image`
 
-Replaces the source image for an existing commission addressed by stable ID. Writes a fresh
-`source-images/<sha256>-<UUIDv4>.jpg` or `.png` object and updates the D1 image reference,
-retaining the commission filename metadata. Changing `commissionDate` or
-`creatorName` through PATCH does not invoke this endpoint or alter the R2 object.
+Replaces the image for an existing commission. `multipart/form-data` with one field
+`sourceImage` (JPEG/PNG, non-empty, named). Requires `DB` + `IMAGES`.
 
-**Requires:** `DB` + `IMAGES`
+Writes a new `source-images/<sha256>-<UUIDv4>.jpg|png` object, upserts the `source_images` row
+(keeping the commission's internal asset key; creates the row if missing), then deletes the
+previous object on a best-effort basis.
 
-**Path param:** `:id` — numeric commission ID
-
-**Request body (FormData):**
-
-```
-sourceImage          File     JPEG or PNG only (same rules as POST /commissions)
-```
-
-**Response `200`:**
-
-```json
-{ "status": "success", "message": "Source image for commission 12 replaced." }
-```
+**`200`:** `{ "status": "success", "message": "Source image for commission 12 replaced." }`
 
 **Errors:**
 
-- `400` — invalid ID or missing/invalid `sourceImage`
-- `503` — missing `DB` or `IMAGES` binding
+- `400 Invalid commission identifier.` (ID `0`); `400 Source image is required.`; `400 Commission
+not found.`; `400 Only JPG and PNG uploads are supported.`
+- `400` — D1 update failed: the previous image stays active and the newly uploaded object is orphaned
+- `503` — missing `DB` or `IMAGES`
 
-If the D1 metadata update fails, the previous image remains active; the newly uploaded object
-may remain orphaned for later cleanup. If cleanup of the previous object fails after the D1
-commit, the new image remains active and the old object is an orphan. Cleanup still requires a
-fresh D1 reference check and confirmation that backup and retention requirements are satisfied;
-an unreferenced object is not automatically eligible for deletion.
+If deleting the previous object fails after the D1 update, the request still returns `200` and
+the old object is an orphan.
 
 ```bash
 curl -X POST https://admin.crystallize.cc/api/admin/commissions/12/source-image \
@@ -585,37 +483,34 @@ curl -X POST https://admin.crystallize.cc/api/admin/commissions/12/source-image 
 
 ## Alias Mutations
 
+All four endpoints require `DB` and a JSON body. Malformed JSON is caught here and returned as
+`400`.
+
+**Alias row semantics** (the three `*/batch` endpoints):
+
+- **Upsert per row; not a full replace.** For each submitted row: non-empty aliases are
+  upserted by name, an empty alias list **deletes** that name's record. Names not in the request
+  are untouched. Everything is applied in one atomic batch. An empty `rows` is a successful no-op.
+- Rows in one request with the same normalized name are merged (aliases unioned) first; rows with an
+  empty name are skipped.
+- `aliases` may be `string[]` or a single string split on `, \n ， 、 ; ；`. A row's singular `alias`
+  string is an undocumented fallback used only when `aliases` is absent. Array elements are not split.
+- `rows` must be an array to be used directly; otherwise the worker parses `rowsJson` (or, if
+  absent, the `rows` value) with `JSON.parse(String(...))`. Use `rowsJson` only for clients that
+  cannot send nested JSON.
+- Normalization per type:
+
+| Type      | Name key                                               | Alias normalization                                                |
+| --------- | ------------------------------------------------------ | ------------------------------------------------------------------ |
+| creator   | trimmed, trailing ` (part N)` stripped; case-sensitive | trim, drop empty, case-sensitive dedupe                            |
+| character | trim, collapse spaces, case-insensitive                | trim, collapse spaces, case-insensitive dedupe (first casing kept) |
+| keyword   | trim, collapse spaces, case-insensitive                | same as character                                                  |
+
+**`200` messages:** `Creator aliases saved.`, `Character aliases saved.`, `Keyword aliases saved.`
+
 ### `POST /api/admin/aliases/batch`
 
-Replaces all creator alias records in bulk. Each row maps a canonical creator name to its
-aliases.
-
-**Requires:** `DB`
-
-**Request body (JSON):**
-
-```typescript
-{
-  rows: Array<{
-    creatorName: string
-    aliases: string[] | string  // array preferred; single string also accepted
-  }>
-  // Alternative: pass rows as a JSON-encoded string in rowsJson if rows is absent
-  rowsJson?: string
-}
-```
-
-Note: Each row also accepts a singular `alias` string field as an undocumented fallback
-(`aliases` takes precedence when both are present).
-
-Note: When both `rows` and `rowsJson` are present, `rows` takes precedence. Use `rowsJson`
-only when your HTTP client cannot send a JSON body (e.g., plain form posts).
-
-**Response `200`:**
-
-```json
-{ "status": "success", "message": "Creator aliases saved." }
-```
+Row shape: `{ creatorName: string, aliases: string[] | string }`.
 
 ```bash
 curl -X POST https://admin.crystallize.cc/api/admin/aliases/batch \
@@ -628,117 +523,43 @@ curl -X POST https://admin.crystallize.cc/api/admin/aliases/batch \
   }'
 ```
 
----
-
 ### `POST /api/admin/character-aliases/batch`
 
-Replaces all character alias records in bulk.
-
-**Requires:** `DB`
-
-**Request body (JSON):**
-
-```typescript
-{
-  rows: Array<{
-    characterName: string
-    aliases: string[] | string
-  }>
-  rowsJson?: string  // JSON-encoded string fallback for rows
-}
-```
-
-Note: Each row also accepts a singular `alias` string field as an undocumented fallback
-(`aliases` takes precedence when both are present).
-
-Note: When both `rows` and `rowsJson` are present, `rows` takes precedence. Use `rowsJson`
-only when your HTTP client cannot send a JSON body (e.g., plain form posts).
-
-**Response `200`:**
-
-```json
-{ "status": "success", "message": "Character aliases saved." }
-```
+Row shape: `{ characterName: string, aliases: string[] | string }`.
 
 ```bash
 curl -X POST https://admin.crystallize.cc/api/admin/character-aliases/batch \
   -H 'Content-Type: application/json' \
-  -d '{
-    "rows": [
-      {"characterName": "Aria", "aliases": ["アリア", "Aria-chan"]}
-    ]
-  }'
+  -d '{"rows": [{"characterName": "Aria", "aliases": ["アリア", "Aria-chan"]}]}'
 ```
-
----
 
 ### `POST /api/admin/keyword-aliases/batch`
 
-Replaces all keyword alias records in bulk. Keyword aliases allow alternate terms to resolve
-to a canonical keyword during search.
-
-**Requires:** `DB`
-
-**Request body (JSON):**
-
-```typescript
-{
-  rows: Array<{
-    baseKeyword: string
-    aliases: string[] | string
-  }>
-  rowsJson?: string  // JSON-encoded string fallback for rows
-}
-```
-
-Note: Each row also accepts a singular `alias` string field as an undocumented fallback
-(`aliases` takes precedence when both are present).
-
-Note: When both `rows` and `rowsJson` are present, `rows` takes precedence. Use `rowsJson`
-only when your HTTP client cannot send a JSON body (e.g., plain form posts).
-
-**Response `200`:**
-
-```json
-{ "status": "success", "message": "Keyword aliases saved." }
-```
+Row shape: `{ baseKeyword: string, aliases: string[] | string }`. Aliases let alternate terms
+resolve to the canonical keyword in search.
 
 ```bash
 curl -X POST https://admin.crystallize.cc/api/admin/keyword-aliases/batch \
   -H 'Content-Type: application/json' \
-  -d '{
-    "rows": [
-      {"baseKeyword": "casual", "aliases": ["カジュアル", "everyday"]}
-    ]
-  }'
+  -d '{"rows": [{"baseKeyword": "casual", "aliases": ["カジュアル", "everyday"]}]}'
 ```
-
----
 
 ### `POST /api/admin/suggestion`
 
-Replaces the home page featured search keywords. Accepts an ordered list of up to 6
-keywords. Excess entries beyond 6 are silently discarded.
+**Full replace** of the home page featured keywords.
 
-**Requires:** `DB`
-
-**Request body (JSON):**
-
-```typescript
+```text
 {
-  keywords: string[]   // ordered list of featured keywords (max 6 used)
-  keywordsJson?: string  // JSON-encoded string fallback for keywords
+  keywords: string[]    // ordered
+  keywordsJson?: string // JSON-string fallback, same rule as rowsJson
 }
 ```
 
-Note: When both `keywords` and `keywordsJson` are present, `keywords` takes precedence. Use
-`keywordsJson` only when your HTTP client cannot send a JSON body (e.g., plain form posts).
+Each keyword is converted with `String()`, whitespace-collapsed, empty values dropped, deduped
+case-insensitively (first wins), then the first 6 unique keywords are kept. An empty list clears
+the featured keywords.
 
-**Response `200`:**
-
-```json
-{ "status": "success", "message": "Home featured keywords saved." }
-```
+**`200`:** `{ "status": "success", "message": "Home featured keywords saved." }`
 
 ```bash
 curl -X POST https://admin.crystallize.cc/api/admin/suggestion \
@@ -750,46 +571,56 @@ curl -X POST https://admin.crystallize.cc/api/admin/suggestion \
 
 ## Field Reference
 
-### Commission identity and part fields
+### Commission identity
 
-- `id` is the internal integer key used by the authenticated Admin API and relational joins.
-- `publicId` is an immutable lowercase UUID v4, unique per commission row. Public page anchors,
-  RSS identities, and search output use it so external identity does not expose insertion order.
-- `commissionDate` is an explicit `YYYY-MM-DD` calendar date. Invalid calendar dates are
-  rejected; it is independent of the legacy file name.
-- `creatorName` is a display name or `null` when unknown; presentation layers render unknown as
-  `Anon` without storing that label as a creator.
-- `workGroupId` and positive `partNumber` are either both set or both `null`. Every part remains
-  its own commission row, UUID, content, and image. They only express grouping and order.
-- The legacy `fileName` remains an internal compatibility/migration field. Callers must not
-  send it, derive identity from it, or use it to construct source-image URLs.
+- `id` is the internal integer key for the admin API and joins.
+- `publicId` is an immutable lowercase UUID v4 per commission; public anchors, RSS, and search use
+  it.
+- `commissionDate` and `creatorName` are explicit fields, independent of any file name.
+  `creatorName` is `null` when unknown (the public site renders `Anon` without storing it).
+- `fileName` (returned by two read endpoints) is an internal asset key. Callers must not send
+  it, parse it, derive identity from it, or build image URLs from it. New commissions get
+  `commission-<uuid>`.
 
-### Commission `links` encoding
+### `links`
 
-| Endpoint                                  | Format                                     |
-| ----------------------------------------- | ------------------------------------------ |
-| `POST /api/admin/commissions` (FormData)  | Newline-separated string; one URL per line |
-| `PATCH /api/admin/commissions/:id` (JSON) | Newline-separated string; one URL per line |
-| Read responses (`GET …/commissions`)      | `string[]` (parsed array)                  |
+| Where                                           | Format                                     |
+| ----------------------------------------------- | ------------------------------------------ |
+| `POST /commissions` (FormData), `PATCH` (JSON)  | newline-separated string, one URL per line |
+| `GET /characters/:id/commissions`               | `string[]`                                 |
+| `GET /bootstrap` `commissionSearchRows[].links` | raw JSON string of the array               |
 
-### Commission `keyword`
+### `keyword`
 
-Comma-separated keyword string (e.g. `"casual,summer,outdoor"`). The worker stores this
-as-is; term splitting occurs at query/export time via `splitKeywordTerms`.
+Normalized on write for create and `PATCH`: split on `, \n ， 、 ; ；`, trimmed with internal
+whitespace collapsed, empty terms dropped, case-insensitive dedupe (first casing wins), joined
+with `", "`. `"Full Body,  nsfw , solo, full body"` is stored as `"Full Body, nsfw, solo"`. If no
+terms remain, `null` is stored. No alias-map lookup takes place. Reads return the stored string;
+split it on `,`.
 
-### Commission `hidden`
+### `hidden`
 
-| Endpoint                                  | Encoding                                                                 |
-| ----------------------------------------- | ------------------------------------------------------------------------ |
-| `POST /api/admin/commissions` (FormData)  | Send field value `"on"` to hide; omit or send anything else = not hidden |
-| `PATCH /api/admin/commissions/:id` (JSON) | `boolean` (`true` / `false`)                                             |
-| Read responses                            | `boolean`                                                                |
+| Where                          | Encoding                                               |
+| ------------------------------ | ------------------------------------------------------ |
+| `POST /commissions` (FormData) | `"on"` hides; omitted or any other value = visible     |
+| `PATCH` (JSON)                 | JSON value coerced with `Boolean()`; omitted = `false` |
+| Read responses                 | `boolean`                                              |
 
 ### Source image formats
 
-Accepted by `POST /api/admin/commissions` and `POST /api/admin/commissions/:id/source-image`:
+Accepted by `POST /commissions` and `POST /commissions/:id/source-image`: the file must be
+non-empty and have a non-empty name. The type is `image/jpeg` -> `.jpg` or `image/png` -> `.png`
+by `Content-Type`; only when `Content-Type` is neither, the file extension (`.jpg`/`.jpeg`/`.png`)
+decides. Anything else (including WebP) is rejected with `Only JPG and PNG uploads are
+supported.` The stored content type is derived from the resolved extension.
 
-- JPEG: `Content-Type: image/jpeg` OR file extension `.jpg` / `.jpeg`
-- PNG: `Content-Type: image/png` OR file extension `.png`
+### Source image storage
 
-Content-Type takes precedence over file extension. WebP is not supported.
+- New uploads (create and replace) write `source-images/<sha256>-<UUIDv4>.jpg|png`, with a fresh
+  UUID for every upload, including identical bytes. The key contains no date, creator, or
+  commission name.
+- The D1 `source_images.object_key` is opaque identity. Reads use it as stored; historical keys
+  are read as-is. Do not infer keys from file names.
+- R2 and D1 share no transaction. Failures after upload (create or replace) leave an orphaned
+  object; deleting a commission or character, or replacing an image whose cleanup fails, also leaves
+  orphans. Cleanup procedure: `ai-agent-guide.md` §7.

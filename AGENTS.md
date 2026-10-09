@@ -1,43 +1,58 @@
 # AGENTS.md
 
-This file provides guidance to coding agents when working with code in this repository.
+Guidance for coding agents working in this repository. Nested `AGENTS.md` files add per-directory rules;
+each directory's `CLAUDE.md` is only `@AGENTS.md`.
 
-> **Maintenance rule:** Update the corresponding sections of this file whenever you change architecture, conventions, or non-obvious behaviors — and sync `docs/api-reference.md` / `docs/ai-agent-guide.md` for any admin API changes. Each section that can go stale has its own **When to update** note; follow it.
+> **Maintenance rule:** in the same change, update this file (and any nested `AGENTS.md`) when you change
+> architecture, configuration layout, the deferred-loading contract, or a non-obvious behavior; update
+> `docs/api-reference.md` / `docs/ai-agent-guide.md` when any `/api/admin/*` contract or implicit behavior
+> changes. Record a new gotcha in the closest section here — no separate lessons/todo files. Only record what
+> would prevent a future mistake; no history narration or one-off fixes.
 
 ## Project Overview
 
-Commission Index — a personal commission listing/indexing site. pnpm monorepo with Astro 7 static site (public web), React 19 SPA (admin), and Cloudflare Worker (admin API). Data lives in remote D1/R2.
+Commission Index — a personal commission listing/indexing site. pnpm monorepo with an Astro 7 static site
+(public web), a React 19 SPA (admin), and a Cloudflare Worker (admin API). Data lives in remote D1/R2.
 
 ## Commands
 
 ```bash
 # Dev
-pnpm run dev              # web Astro dev (localhost:4321)
-pnpm run dev:admin        # admin frontend + worker with remote D1/R2 (localhost:4174 + :8787)
+pnpm run dev              # web Astro dev (localhost:4321); alias dev:web
+pnpm run dev:admin        # worker with remote D1/R2 (:8787), then admin Vite (:4174) once the API answers
+pnpm run dev:worker       # admin-worker only
 
-# Build
-pnpm run build            # build apps/web static output
+# Build / preview
+pnpm run build            # build apps/web (Turbo, filtered)
 pnpm run build:all        # build all workspaces via Turbo
 pnpm run build:admin      # build admin only
+pnpm run preview          # preview built web
 
 # Validate
-pnpm run lint             # ESLint check
-pnpm run lint:fix         # ESLint auto-fix
+pnpm run lint             # ESLint (also lints Markdown), --max-warnings=0
+pnpm run lint:fix
 pnpm run check            # Astro type-check (.astro + TS)
 pnpm run typecheck        # TS check all workspaces via Turbo
 
 # Test
 pnpm run test             # Vitest unit tests (all workspaces)
-pnpm run test:watch       # Vitest watch mode
-pnpm run test:changed     # test changed files only
-pnpm run test:visual      # Playwright visual regression
-pnpm run test:visual:update  # update Playwright baselines
-pnpm run test:admin-ui     # Playwright, admin frontend only (API fixtures, no Worker)
+pnpm run test:changed     # changed files only
+pnpm run test:visual      # cross-workspace Playwright visual regression
+pnpm run test:visual:update
+pnpm run test:admin-ui    # Playwright, admin frontend only (API fixtures, no Worker)
+
+# Data (remote, read-only on production metadata)
+pnpm run web:fact-source:export       # D1/R2 -> apps/web/generated/*
+pnpm run web:fact-source:sync-images  # fetch source images missing locally per manifest
 
 # Deploy (manual)
-pnpm run deploy:web       # deploy public site Worker
-pnpm run deploy:admin     # deploy admin Worker
+pnpm run deploy:web
+pnpm run deploy:admin
 ```
+
+Never run pnpm commands that verify/relink dependencies in parallel in the same checkout (install, lint,
+typecheck, test, build): they race on `node_modules/.pnpm` and produce fake `.bin` ENOENT / `workerd`
+errors. Run them sequentially.
 
 ## Architecture
 
@@ -47,28 +62,32 @@ pnpm run deploy:admin     # deploy admin Worker
 apps/web            Astro 7 static site — public runtime (crystallize.cc)
 apps/admin          React 19 + Vite 8 SPA — admin UI (admin.crystallize.cc)
 apps/admin-worker   Cloudflare Worker — admin API, D1/R2 CRUD, asset serving
-packages/domain     Shared types and pure domain helpers (no app imports)
+packages/domain     Shared types and pure domain helpers; single export surface src/index.ts
+scripts/            Repo-level dev scripts (devAdminRemote.ts backs dev:admin)
+test/visual/        Committed cross-workspace Playwright baselines
 ```
+
+Dependency boundaries: `apps/web` imports from `packages/*` only; `packages/domain` is runtime-light pure
+logic and never imports from `apps/*`; `apps/admin` reaches data only through `apps/admin-worker`.
+Admin features go in `apps/admin` + `apps/admin-worker`, never `apps/web`.
 
 ### Configuration Layout
 
 - `config/` holds shared ESLint, Vitest, cross-workspace Playwright, and TypeScript base configuration.
-  Root package scripts pass explicit config paths; workspace `tsconfig.json` files extend the shared base.
+  Root scripts pass explicit config paths; workspace `tsconfig.json` files extend the shared base.
+  VS Code ESLint uses `config/eslint.config.ts`; other integrations must pass the same explicit path.
 - `apps/admin/playwright.ui.config.ts` owns frontend-only API-fixture tests. Cross-workspace Playwright
   uses repository-root paths for servers, snapshots, and output; moving a config must preserve these roots.
-- `.github/renovate.json` is the repository Renovate entry. Vite, Astro, Wrangler, and app-specific
-  settings stay with their workspace; admin design context is `apps/admin/.impeccable.md`.
+- `.github/renovate.json` is the Renovate entry. Vite, Astro, Wrangler, and app-specific settings stay with
+  their workspace; admin design context is `apps/admin/.impeccable.md`.
 - Keep discovery-required package, lockfile, workspace, Turbo, mise, Git, and hook entry files at root.
-  VS Code ESLint uses `config/eslint.config.ts`; other integrations must pass the same explicit path.
-
-**When to update:** Sync scripts, editor settings, workspace extends, and this section whenever a
-configuration moves. Verify test collection and snapshot paths as well as builds before committing.
+- When moving a config, verify test collection and snapshot paths as well as builds.
 
 ### Tech Stack
 
-- **Runtime:** Node 24 (mise) + pnpm 12 (package manager + scripts; new scripts use `.ts` not `.mjs`)
+- **Runtime:** Node 24 (mise) + pnpm 12 (new scripts use `.ts`, not `.mjs`, and must be type-checked)
 - **Build orchestration:** Turbo（Web 导出和构建暂不缓存；部署位于 Turbo 之外）
-- **Public site:** Astro 7 + Tailwind CSS 4 (vanilla TS client behavior)
+- **Public site:** Astro 7 + Tailwind CSS 4 (vanilla TS client behavior, no React on the client)
 - **Admin frontend:** React 19 + Vite 8 + Tailwind CSS + shadcn/ui
 - **Admin backend:** Cloudflare Worker + D1 (SQL) + R2 (images)
 - **Testing:** Vitest + Playwright (visual regression)
@@ -76,81 +95,91 @@ configuration moves. Verify test collection and snapshot paths as well as builds
 
 ### Data Flow
 
-1. Admin writes explicit commission ID/date/creator metadata to remote D1 and immutable source-image objects to R2 via `apps/admin-worker`; commission dates/authors are not encoded in new internal asset keys
-2. `exportWebFactSource.ts` 只读导出 D1/R2 -> `apps/web/generated/*`，不回写生产 metadata；单个 D1 SELECT 读取结构化快照，下载图片必须匹配该快照的 hash/size；每条作品必须有 `source_images` 行，缺失即中止导出
-3. content 与 source-image manifest 的 `meta.revision` 共同标识内容版本，排除 `exportedAt`；Astro 从这份固定输入生成 HTML，无运行时 D1/R2 访问
+1. Admin writes explicit commission ID/date/creator metadata to remote D1 and immutable source-image objects
+   to R2 via `apps/admin-worker`; dates/authors are never encoded in new internal asset keys
+2. `exportWebFactSource.ts` 只读导出 D1/R2 -> `apps/web/generated/*`，不回写生产 metadata；单个 D1 SELECT
+   读取结构化快照，下载图片必须匹配该快照的 hash/size；每条作品必须有 `source_images` 行，缺失即中止导出
+3. content 与 source-image manifest 的 `meta.revision` 共同标识内容版本，排除 `exportedAt`；Astro 从这份固定
+   输入生成 HTML，无运行时 D1/R2 访问
 4. `apps/web/wrangler.jsonc` carries read-only D1/R2 bindings for build-time export
 
 ### Home Page Architecture (Astro-first)
 
-Static markup is Astro templates. All client-side behavior uses Astro script components (`HomeClientScript.astro`) and vanilla TS modules — no React on the client.
+Static markup is Astro templates. All client-side behavior uses Astro script components
+(`HomeClientScript.astro`) and vanilla TS modules.
 
-Key patterns:
+- **Deferred sections:** active/stale character sections and timeline use an inline manifest + external
+  batch JSON, lazy-loaded by script loaders
+- **Batch URL versioning:** each batch URL carries its own `?v=<hash>` (djb2, `lib/utils/hash.ts`) over the
+  full serialized content of that batch, so editing one commission only invalidates its batch. Manifests
+  also carry a global `v` (hash of all commissions) used for `/search/home-search-entries.json`. Key files:
+  `features/home/server/homeCharacterBatches.ts`, `homeTimelineBatches.ts`,
+  `features/home/search/commissionSearchController.ts`.
+- **Stale-HTML manifest fallback:** when hash navigation misses because the inline manifest in cached HTML
+  lacks the target, loaders fetch `/search/home-character-manifest/<locale>.json` or
+  `/search/home-timeline-manifest/<locale>.json` (`Cache-Control: no-cache`) with cache-busting, and thread its
+  `targetBatchById` / `batchVersions` into the batch fetch. Only fetched on the fallback path.
+- **DOM contracts:** `data-*` attributes drive search/nav/hash navigation — preserve attribute names.
+  `data-stale-visibility` = stale group expanded; `data-stale-loaded` = deferred stale sections mounted.
+- Character/stale section templates must mount with the full entry list intact (no per-section entry lazy
+  mounts above anchor targets)
+- **Re-hydration on append:** batch DOM appended after first mount must re-hydrate / re-bind interactive
+  controls — a single first-paint hydrate pass is not enough
+- **Hidden DOM + observers:** sections rendered with `display: none` must not be marked "entered viewport"
+  by reveal/lazy observers; toggling visibility must re-scan
+- **Scroll stability:** never lazy-load content above an anchor target on the navigation path — browser
+  scroll restoration and lazy injection fight each other. Verify scroll position after expand/inject, not
+  just visibility
+- **Search index freshness:** the search rebuild snapshot key must include the batch mount count, not just
+  a `visible/loaded` boolean — otherwise newly injected DOM briefly shows unfiltered
 
-- **Deferred sections:** Active/stale character sections and timeline use inline manifest + external batch JSON, lazy-loaded via script loaders
-- **Batch URL versioning:** Each batch file gets its own `?v=<hash>` from per-batch content hashing (djb2 of the serialized commission data in that batch). Editing one commission only invalidates the batch containing it, not all batches. The manifests also carry a global `v` (hash of all commissions) used by the search entries URL (`/search/home-search-entries.json`) in the search controller. Hash inputs include full commission content (fileName, Links, Description, Design, Keyword) — so both structural and metadata changes produce new versions. Key files: `homeCharacterBatches.ts`, `homeTimelineBatches.ts`, `commissionSearchController.ts`.
-- **DOM contracts:** `data-*` attributes drive search/nav/hash navigation — preserve attribute names when editing templates
-- **`data-stale-visibility`** = stale group expanded; **`data-stale-loaded`** = deferred stale sections mounted
-- Character/stale section templates must mount with full entry list intact (no per-section entry lazy mounts above anchor targets)
-- **Stale-HTML manifest fallback:** When hash navigation fails because the inline manifest (embedded in cached HTML) doesn't contain the target, the loaders fetch a standalone manifest endpoint (`/search/home-character-manifest.json` or `/search/home-timeline-manifest.json`) with cache-busting. The fresh manifest's `targetBatchById` and `batchVersions` are threaded through the batch fetch so that new entries added after the HTML was cached can still be navigated to. The standalone manifests use `Cache-Control: no-cache` and are only fetched on the fallback path — zero overhead for the happy case.
-- **Re-hydration on append:** Deferred batch DOM appended after initial mount must trigger re-hydration / re-binding of interactive controls — a single first-paint hydrate pass is not enough
-- **Hidden DOM + observers:** Sections rendered with `display: none` must not be marked "entered viewport" by reveal/lazy observers while hidden; toggling visibility must re-scan
-- **Scroll stability:** Never lazy-load content above an anchor target on the navigation path — browser scroll restoration and lazy injection fight each other. If above-anchor height cannot be fully fixed, keep the lazy load off the nav critical path
-- **Search index freshness:** Search rebuild after batch mount must include batch mount count (or structural change counter) in its snapshot key, not just a `visible/loaded` boolean — otherwise newly injected DOM briefly shows unfiltered
-
-**When to update this section:** Any change to the deferred loading system requires updating the bullet points above — specifically:
-
-- Adding/removing fields from `HomeCharacterBatchManifest` or `HomeTimelineBatchManifest`
-- Changing how `v` is computed (hash inputs, algorithm)
-- Changing which URL builder appends `?v=` or how search entries derive their version
-- Changing the `_headers` cache policy for `/search/*` or `/*.html`
-- Adding new deferred JSON endpoints or batch types
+Update this section when manifest fields, `v` hash inputs, `?v=` URL builders, `_headers` cache policy for
+the search JSON / HTML, or deferred endpoints change.
 
 ### Admin Architecture
 
-- Admin UI: `apps/admin`; admin API: `apps/admin-worker`
 - Worker owns all CRUD: character, commission, aliases, suggestions, source images
 - Production auth: Cloudflare Zero Trust (no worker-side auth)
-- Worker fails fast when D1/R2 bindings are missing
+- Worker answers 503 when D1/R2 bindings are missing (`createMissingBindingResponses`)
+- `.mcp.json` registers the official shadcn MCP against `apps/admin/components.json` (registry lookup only). Admin uses relative imports and has no `@/*` tsconfig alias, so do not run `shadcn add` blindly — generated imports would not resolve
 
 ### Path Aliases (apps/web)
 
-`#layouts/*`, `#features/*`, `#components/*`, `#images/*`, `#data/*`, `#lib/*`, `#styles/*`, `#config/*`, `#admin/*`
+`@layouts/*`, `@features/*`, `@components/*`, `@images/*`, `@data/*`, `@lib/*`, `@styles/*`, `@config/*`
+(defined in `apps/web/tsconfig.json`, mirrored in `config/vitest.config.ts` — keep both in sync)
 
 ## API Documentation
 
-- `docs/api-reference.md` — endpoint contract (method, path, request/response types, `curl` examples)
-- `docs/ai-agent-guide.md` — implicit behaviors, serialization quirks, retry strategy, normalization, pitfalls
+- `docs/api-reference.md` — endpoint contract (method, path, request/response, status codes, `curl`)
+- `docs/ai-agent-guide.md` — implicit behaviors, serialization quirks, retry strategy, footguns
 
-**When to read:** before calling or modifying any `/api/admin/*` endpoint (links encoding, alias batch semantics, retry rules, etc.).
-
-**When to update:** keep both docs in sync whenever an endpoint is added/removed in `apps/admin-worker/src/adminApi.ts` or `adminData.ts`, request/response shapes change, implicit behaviors change (normalization, R2 lifecycle, error codes), or new footguns are discovered. Update this file for any architecture-level change. **This is the agent's responsibility** — do it in the same session, without waiting for a reminder.
-
-### Lessons Learned
-
-When you discover a non-obvious bug, footgun, or architecture-specific gotcha during development, add it to the relevant section of this file (not a separate lessons file). Only record insights that would prevent a future mistake — not one-time fixes or migration-era workarounds. If the lesson fits an existing guardrail section, merge it there; otherwise add it under the closest heading.
+Read both before calling or modifying any `/api/admin/*` endpoint (in `apps/admin-worker/src/adminApi.ts`,
+`adminData.ts`).
 
 ## Validation Gates
 
 ### Unit Test Scope
 
-- Vitest 使用根配置收集各 workspace 的 `*.test.ts(x)`，默认 Node；需要 DOM 的测试按文件声明 `@vitest-environment jsdom`，不设置全局 cwd 或加载 matcher 扩展。
-- 保留领域规则、API 输入/输出、数据守恒/回滚和异步竞态测试；不以源码字符串、Tailwind 拼写或当前生产数据中的特定记录代替行为断言。
-- Worker API/persistence 共用 `apps/admin-worker/test/sqliteD1.ts` 执行真实 SQL 与事务回滚；R2 保留边界 mock。不要用 SQL 字符串匹配再实现一套数据库。
-- 异步 DOM 测试使用 `vi.waitFor` 等待可观察结果，不以固定次数的 Promise/timer 循环猜测完成时间；真实布局、滚动和动画交给 Playwright。
+- Vitest 使用根配置收集各 workspace 的 `*.test.ts(x)`，默认 Node；需要 DOM 的测试按文件声明
+  `@vitest-environment jsdom`，不设置全局 cwd 或加载 matcher 扩展。
+- 保留领域规则、API 输入/输出、数据守恒/回滚和异步竞态测试；不以源码字符串、Tailwind 拼写或当前生产数据中的
+  特定记录代替行为断言。不保留尺寸×主题×数量的截图笛卡尔积，同一规则的多个用例合并。
+- Worker API/persistence 共用 `apps/admin-worker/test/sqliteD1.ts` 执行真实 SQL 与事务回滚；R2 保留边界 mock。
+  不要用 SQL 字符串匹配再实现一套数据库。
+- 异步 DOM 测试使用 `vi.waitFor` 等待可观察结果，不以固定次数的 Promise/timer 循环猜测完成时间；真实布局、
+  滚动和动画交给 Playwright。
+- Tests depending on `apps/web/generated/*` must guard behind an existence check and lazy import — CI may
+  collect tests before export.
+- Visual baselines live under `test/visual/`; never replace them with `playwright-report/` or `test-results/`
+  output. Confirm visual deltas on both desktop and mobile before updating snapshots.
 
-### Local Hooks (enforced by prek)
+### Local Hooks (prek)
 
-**Pre-commit:**
+- **Pre-commit:** `pnpm install --frozen-lockfile`, then `lint-staged` (ESLint fix on staged files)
+- **Pre-push:** `pnpm run lint`, `pnpm run typecheck`, `pnpm run test`
 
-1. `pnpm install --frozen-lockfile` — lockfile integrity
-2. `lint-staged` — ESLint fix on staged files
-
-**Pre-push:**
-
-1. `pnpm run lint` — full ESLint check
-2. `pnpm run typecheck` — TypeScript across all workspaces
-3. `pnpm run test` — Vitest unit tests
+Never put a tracked file that lint-staged rewrites under a whole-directory ignore rule — the hook's re-stage
+fails on ignored paths. Anchor ignore rules (e.g. `/.impeccable/` at root; `apps/*/.impeccable/` is tracked).
 
 ### CI（PR 校验；master 发布）
 
@@ -161,10 +190,14 @@ When you discover a non-obvious bug, footgun, or architecture-specific gotcha du
 
 CI gotchas:
 
-- CI Web 与 rebuild 使用相同 job concurrency group `release-web-production`；在锁内导出新数据，避免旧队列项携带旧数据快照覆盖新发布。Admin 使用独立环境锁
-- required checks 的 GitHub 仓库设置需要另行核验，工作流文件本身不代表线上分支保护已启用
-- Tests that depend on `apps/web/generated/*` must guard imports behind existence checks (lazy import, not top-level) — CI may run before export
-- 内联脚本（`node --input-type=module` / heredoc / `-e`）的裸模块说明符从 cwd 解析；根 `package.json` 不依赖任何 workspace 包，pnpm 也不会把它们链接到根 `node_modules`，因此导入 `@commission-index/*` 的内联脚本必须设 `working-directory` 到声明了该依赖的包（如 `apps/admin-worker`）
+- CI Web 与 rebuild 使用相同 concurrency group `release-web-production`；在锁内导出新数据，避免旧队列项携带
+  旧数据快照覆盖新发布。Admin 使用独立的 `release-admin-production`
+- required checks / 分支保护需要在 GitHub 仓库设置中另行核验，工作流文件本身不代表已启用
+- 内联脚本（`node --input-type=module` / heredoc / `-e`）的裸模块说明符从 cwd 解析；根 `package.json` 不依赖
+  workspace 包，因此导入 `@commission-index/*` 的内联脚本必须把 `working-directory` 设到声明了该依赖的包
+  （如 `apps/admin-worker`）
+- Workflows sharing one `actions/cache` key must not run concurrently from the same push and each save —
+  release workflows use their own cache namespace under the shared concurrency group
 
 ## Guardrails
 
@@ -173,38 +206,52 @@ CI gotchas:
 - Keep `i18n.routing.redirectToDefaultLocale` explicit
 - Keep `apps/web/src/content.config.ts` present even when empty (suppresses dev warning)
 - Do not enable CSP (Shiki inline styles conflict; analytics needs `https://sight.crystallize.cc`)
-- Astro and admin both use Vite 8/Rolldown; keep production bundler customization under `build.rolldownOptions` and verify Tailwind plugins with `astro check` + real build
-- Keep TypeScript on 6.x until both `@astrojs/check` and `typescript-eslint` publish TypeScript 7-compatible peer ranges; never bypass this mismatch with peer overrides
+- Astro and admin both use Vite 8/Rolldown; keep production bundler customization under
+  `build.rolldownOptions` and verify Tailwind plugins with `astro check` + a real build
 
-- `apps/web` imports from `packages/*` only; `packages/domain` never imports from `apps/*` (per-app detail: `apps/AGENTS.md`)
-- Admin features go in `apps/admin` + `apps/admin-worker`, not `apps/web`
-- Keep pnpm workspace policy lint-clean: retain `minimumReleaseAgeExcludePrune: true` and the
-  canonical key order/blank lines; target workspaces with `pnpm -C <dir> run <script>`, not the
-  pnpm 11-incompatible `pnpm run --cwd <dir> <script>` form
-- pnpm 12 records the pinned package manager as a separate first YAML document in
-  `pnpm-lock.yaml`; keep that document when updating the lockfile and verify with a repeated
-  `pnpm install --frozen-lockfile`
+### Dependencies / pnpm
+
+- Before "upgrade all to latest", check peer ranges of framework checkers, parsers, and the lint toolchain;
+  upgrade in stages and pin back only packages with a real peer conflict or failing gate
+- Keep TypeScript on 6.x until both `@astrojs/check` and `typescript-eslint` publish TypeScript 7-compatible
+  peer ranges; never bypass the mismatch with peer overrides
+- Keep pnpm workspace policy lint-clean: retain `minimumReleaseAgeExcludePrune: true` and the canonical key
+  order/blank lines; target workspaces with `pnpm -C <dir> run <script>`, not
+  `pnpm run --cwd <dir> <script>` (pnpm 11+ incompatible)
+- pnpm 12 records the pinned package manager as a separate first YAML document in `pnpm-lock.yaml`; keep it
+  when updating the lockfile and verify with a repeated `pnpm install --frozen-lockfile`
+
+### Turbo
+
+- Web export/build 设 `cache: false`，防止 Turbo 恢复旧 generated 或在导出前计算过期输入 hash；恢复缓存前必须
+  验证显式 snapshot 构建契约
+- Turbo does not pass outer environment variables into task processes unless listed: credentials such as
+  `CLOUDFLARE_API_TOKEN` must be in the task's `passThroughEnv`
+- A prerequisite owned by one workspace (e.g. `fact-source:export`) must be wired with a
+  `@commission-index/<pkg>#task` dependency, not a global task rule that spreads to every package
 
 ### Cloudflare Deploy
 
-- No repo-root `wrangler.jsonc` — each Worker owns its own config
-- Workers Builds connects same repo to two Workers with different root dirs (`apps/web` and `apps/admin-worker`)
-- Web export/build 暂设 `cache: false`，防止 Turbo 恢复旧 generated 或在导出前计算过期输入 hash；恢复缓存前必须验证显式 snapshot 构建契约
-- 发布只导出一次，将 `meta.revision` 传入 `WEB_BUILD_CACHE_TOKEN`，并设置 `FACT_SOURCE_USE_EXISTING_SNAPSHOT=1`；后续 export 依赖仅校验两份 revision 和本地图片 hash，不再访问远端
-- 不预先 build:web；Wrangler custom build 是正式构建入口。工作流允许显式导出和 Astro check，二者必须绑定上述固定快照
-- Turbo `envMode: "strict"`: credentials set in outer workflow don't auto-propagate into task subprocesses — add `CLOUDFLARE_API_TOKEN` etc. to `passThroughEnv` explicitly
+- No repo-root `wrangler.jsonc` — each Worker owns its config. Workers Builds connects this repo to two
+  Workers with root dirs `apps/web` and `apps/admin-worker`
+- Call the repo-local `node_modules/.bin/wrangler`; extra runner wrappers have broken `d1 execute --command`
+  argument parsing in Cloudflare Builds
+- 发布只导出一次，将 `meta.revision` 传入 `WEB_BUILD_CACHE_TOKEN`，并设置 `FACT_SOURCE_USE_EXISTING_SNAPSHOT=1`；
+  后续 export 依赖仅校验两份 revision 和本地图片 hash，不再访问远端
+- 不预先 build:web；Wrangler custom build 是正式构建入口。工作流允许显式导出和 Astro check，二者必须绑定上述
+  固定快照
 
 #### Production `/admin` verification
 
-Production deployment is static-only (no Worker entrypoint). `/admin` and `/api/admin/*` must return 404 — enforced via `assets.not_found_handling = "404-page"`. `apps/web/public/_redirects` currently contains only public-site redirects (/commission, /feed.xml, /rss); admin path blocking relies on the Workers asset handler's 404 behavior. Verify after deploy:
+The public deployment is static-only. `/admin` and `/api/admin/*` must return 404 via
+`assets.not_found_handling = "404-page"` (`apps/web/public/_redirects` holds only public redirects). After
+deploy, all of these must be `404` (`vite preview` does not reproduce edge status behavior):
 
 ```bash
 curl -I https://<your-domain>/admin
 curl -I https://<your-domain>/admin/aliases
 curl -I https://<your-domain>/api/admin/bootstrap
 ```
-
-All three should return `404`. Note: `vite preview` does not validate edge HTTP status behavior for static host routing.
 
 ### Search UX
 
@@ -215,32 +262,34 @@ All three should return `404`. Note: `vite preview` does not validate edge HTTP 
 ### Images
 
 - Source images: `apps/web/generated/source-images/*.{jpg,jpeg,png}`
-- 新上传的 R2 `objectKey` 唯一规范为 `source-images/<sha256>-<UUIDv4>.jpg|png`：保留分类前缀，不含作品名目录，相同字节每次上传仍有独立 UUID。读取把 D1 `source_images.object_key` 当作不透明身份，兼容历史根 key、作品目录 key 和扁平 key，不按文件名探测桶根；`commissions.file_name` 仍作内部资产键并保留校验/持久化。日期/作者只能从显式字段读取，本地 `relativePath` 以该内部键映射，不能把远端 key 当成本地路径
-- 旧 R2 布局（根 key / 作品目录 key）已清除且**不可回滚**；一次性迁移工具与备份均已移除。新代码不得按旧布局推测 key，`object_key` 视为不透明身份
-- Resolution: `sourceImageRegistry.ts` maps the internal commission asset key to the generated image stem; user-visible identity and search never parse that key
+- 新上传的 R2 `objectKey` 唯一规范为 `source-images/<sha256>-<UUIDv4>.jpg|png`：不含作品名目录，相同字节每次上传
+  仍有独立 UUID。读取把 D1 `source_images.object_key` 当作不透明身份，不按文件名探测桶根；`commissions.file_name`
+  仍作内部资产键并保留校验/持久化。日期/作者只能从显式字段读取，本地 `relativePath` 以该内部键映射，不能把远端 key
+  当成本地路径
+- 旧 R2 布局（根 key / 作品目录 key）已清除且**不可回滚**；新代码不得按旧布局推测 key
+- `sourceImageRegistry.ts` maps the internal commission asset key to the generated image stem; user-visible
+  identity and search never parse that key
 - Listing widths: `768/960/1280`, sizes `(max-width: 768px) 92vw, 640px`
 
 ### 数据库迁移验证
 
-- 表重建必须验证带数据升级：父表 `DROP TABLE` 可触发子表 `ON DELETE CASCADE`，`defer_foreign_keys` 只延迟检查，不阻止级联动作。空库迁移通过与 `foreign_key_check` 为空均不证明业务数据守恒。
-- 迁移前后核对稳定 ID 集、逐行内容摘要、父子关系、索引和自增序列；先确认线上已应用版本，不重跑历史迁移。D1 恢复方案须同时覆盖 R2 对象保留及已读取旧 metadata 的在途导出。
+- 无查询需求不拆表：keyword 暂留在 `commissions` 列中；不引入 EAV 或通用 `owner_type/owner_id` 表。
+- 不要在有数据的 D1 上盲目 `migrations apply`；`migrations list` 不能代替检查远端真实 schema。远端命令不属于
+  本地验证。
+- 表重建必须验证带数据升级：父表 `DROP TABLE` 可触发子表 `ON DELETE CASCADE`，`defer_foreign_keys` 只延迟检查，
+  不阻止级联动作。空库迁移通过与 `foreign_key_check` 为空均不证明业务数据守恒。
+- 迁移前后核对稳定 ID 集、逐行内容摘要、父子关系、索引和自增序列；先确认线上已应用版本，不重跑历史迁移。D1 恢复
+  不会恢复 R2，恢复方案须同时覆盖 R2 对象保留及已读取旧 metadata 的在途导出。
 
 ## docs/ Index
 
-Audit reports record state at a given commit — they are evidence, not runtime dependencies or current architecture. Current constraints come from the layered `AGENTS.md` files and the API docs.
+Current constraints come from the layered `AGENTS.md` files and the API docs. Dated audits are evidence at a
+commit, not instructions.
 
-- `api-reference.md`, `ai-agent-guide.md` — admin API contract and integration pitfalls; read before touching `/api/admin/*`
-- `audit-2026-09-29.md` — code/design audit evidence and issue numbers; `improvement-plan-2026-09-29.md` is its phased remediation plan (depends on those numbers)
-- `performance-logic-audit-2026-09-29.md` — performance/logic audit and plan; read before perf or async-race work
-- `database-optimization-assessment-2026-09-29.md` — DB model trade-offs, data-bearing migration risks, R2 upload identity, recovery gates; read before any schema change
-- `db-r2-identity-migration-plan-and-prompts-2026-09-29.md` — D1/R2 identity migration (`public_id`, parts, migration 0005) handoff plan and prompts; read before any production D1/R2 change
-- `admin-ui-stability-plan-2026-09-29.md` — Create/Edit layout-drift audit, state design, acceptance method (check element position and focus during transitions, not just final screenshots)
-- `admin-design-audit-2026-09-30.md`, `admin-hidpi-review-2026-09-30.md`, `admin-consistency-review-2026-09-30.md` — admin redesign audit, HiDPI/colour evidence, page-shell and role-status acceptance; successive snapshots (latest wins)
-- `full-repo-audit-plan-2026-09-30.md` — whole-repo audit consolidation (workspaces, Turbo/CI, config, layout)
-- `audit-2026-10-05-web-architecture.md` — web architecture assessment (keep static Astro; island lifecycle, publish feedback, fuzzy image match)
-- `benchmarks/` — dated performance benchmarks (e.g. React removal)
-
-Before deleting stale docs or code, check source and config references; keep production backups, DB migration history, and test baselines still in use.
+- `api-reference.md`, `ai-agent-guide.md` — admin API contract and integration pitfalls
+- `open-issues.md` — verified open backlog and "verified not a defect" list; re-verify before acting
+- `audit-2026-10-05-web-architecture.md` — web architecture decision (keep static Astro, no SSR) and the
+  WS1–WS5 work packages; fold into `open-issues.md` once they land
 
 ## Commit Convention
 

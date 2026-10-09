@@ -1,521 +1,172 @@
 # Commission Index — AI Agent Integration Guide
 
-This guide documents implicit behaviors, serialization rules, normalization quirks, and
-workflow patterns that are not visible from the endpoint list in `api-reference.md`. Read
-this before writing automation or an AI agent against the admin API.
+Non-obvious behaviour, footguns, and retry strategy for the admin API. Endpoint contracts
+(paths, bodies, status codes, `curl` examples) live in `api-reference.md` (AR); this file does not
+repeat them. Read both before writing automation.
 
 ---
 
-## 1. Base URL Resolution
+## 1. Environment
 
-The frontend resolves the API base URL at runtime via `getAdminApiBaseUrl()`:
-
-| Context                  | URL                                                              |
-| ------------------------ | ---------------------------------------------------------------- |
-| Production (same-origin) | `""` (relative paths, e.g. `/api/admin/health`)                  |
-| Local dev (default)      | `http://127.0.0.1:8787`                                          |
-| Custom override          | Value of `ADMIN_API_BASE_URL` env var, trailing slashes stripped |
-
-For an external agent or script, default to `http://127.0.0.1:8787` in dev. In production
-the worker is behind Cloudflare Zero Trust and same-origin, so agent calls from outside the
-browser must supply the Zero Trust access token (cookie or header as appropriate).
-
-There is no CORS requirement in production — the admin frontend and API are same-origin.
-Local dev allows any `*.localhost` or `127.0.0.1:*` origin.
+- The frontend resolves its base URL in `getAdminApiBaseUrl()`: `ADMIN_API_BASE_URL` if set, else
+  `http://127.0.0.1:8787` in dev, else same-origin. Production is behind Zero Trust, so external
+  scripts must present an Access token.
+- The local worker (`pnpm run dev:admin`) talks to the **real remote D1/R2**. There is no mock or
+  dev database; use a dedicated test character and clean up afterwards.
 
 ---
 
 ## 2. Retry Strategy
 
-The frontend's `fetchAdminJsonWithRetry` uses the following constants:
+`fetchAdminJsonWithRetry` (frontend, **GET only**) makes up to 4 attempts with a linear backoff of
+250 ms x attempt number (250, 500, 750 ms before attempts 2-4) and an 8 000 ms per-request abort.
+Any non-ok response, 4xx included, throws and is retried.
 
-```ts
-const DEFAULT_ATTEMPTS = 4 // up to 4 total attempts
-const DEFAULT_BASE_DELAY_MS = 250 // base backoff delay
-const DEFAULT_REQUEST_TIMEOUT_MS = 8000 // per-request abort timeout
-```
-
-**Backoff schedule** (linear, not exponential):
-
-| Attempt | Delay before attempt |
-| ------- | -------------------- |
-| 1       | 0 ms (immediate)     |
-| 2       | 250 ms               |
-| 3       | 500 ms               |
-| 4       | 750 ms               |
-
-Each request is individually aborted after 8 000 ms via `AbortController`.
-
-**Retry rule:** A non-ok HTTP response (including 4xx) causes the helper to throw, which is
-treated like a network error and retried up to `DEFAULT_ATTEMPTS` times. This means 4xx
-responses will be retried for GET endpoints. **For mutation endpoints (POST/PATCH/PUT/DELETE)
-you must use a single-attempt fetch or implement idempotency guards** — retrying a mutation
-on 4xx will repeat the failed write attempt and may cause duplicate writes or conflicting
-state.
-
-> **Cross-reference — commission identity and image operations:** See Section 8. PATCH
-> changes metadata only; it does not rename, move, copy, or delete the referenced R2 object.
+- Reads: retrying is safe. Do not retry 4xx on principle; they will not change.
+- **Mutations: single attempt only.** The frontend sends them with plain `fetch`. Retrying
+  `POST /commissions` re-uploads the image and creates another orphaned object, and a lost response
+  may hide a committed write. After an ambiguous failure, re-read the data (§8) before deciding.
+- `POST /rebuild` is also single attempt (the frontend uses a plain `fetch`).
 
 ---
 
-## 3. Commission Identity Fields
+## 3. Commission Identity and `fileName`
 
-Use the numeric `id` as the stable identity for every commission. Create and PATCH requests
-must send `commissionDate` as a real calendar date in `YYYY-MM-DD` format and `creatorName`
-as a string or `null` when unknown. PATCH is a full metadata update: include both fields on
-every request. Do not send or derive identity from `fileName`; it remains an internal legacy
-compatibility field during migration.
-
-Dates and creator names are ordinary metadata. Editing either field does not rename, move,
-copy, or delete the existing source-image object. Use
-`/api/admin/commissions/:id/source-image` to read or replace image bytes.
-
-### Legacy file name (migration history only)
-
-```
-YYYYMMDD
-YYYYMMDD_creator
-```
-
-- This historical filename pattern is not the create/PATCH API contract and must not be used
-  to derive commission identity, date, creator, or image URLs.
-
-### Valid / invalid examples
-
-```
-20240315            valid — date only
-20240315_artistname valid — date + creator
-20240315_艺术家       valid — CJK creator names are supported
-20240315_foo_bar    valid — underscores after the first are part of the creator name
-20240315.jpg        INVALID — must not include an image extension
-2024031             INVALID — date must be 8 digits
-20240315_           INVALID — trailing underscore produces empty creator segment
-                             (passes regex but trim makes creator empty)
-```
-
-### Forbidden characters
-
-`< > : " / \ | ? *`, `..` sequences, and any control character (codepoint ≤ 0x1F).
-
-### Legacy creator parsing
-
-The part after the first `_` was historically treated as a creator name. This parse rule is
-for migration review only; it must not overwrite explicit API fields. For FormData create,
-send an empty `creatorName` string when unknown; the Worker stores it as `null`.
-
-### CJK support
-
-CJK characters in the creator name segment are supported. `hasCjkCharacter` is used for
-display/search hinting only; it does not affect validation.
+- Identity is the numeric `id` (admin API) or `publicId` (public site). `commissionDate` and
+  `creatorName` are explicit fields; editing them never renames, moves, or deletes an R2 object.
+- `fileName` (in bootstrap rows and character commission rows) is an internal asset key, assigned
+  by the worker as `commission-<uuid>` on create. Never send it, parse it, or build URLs from it.
+- The only validation applied to the asset key (`getSourceImageFileNameValidationError`): non-empty,
+  at most 180 characters, no `/`, `\`, `..`, or control characters. Legacy file-name conventions
+  (`YYYYMMDD_creator`, CJK handling, forbidden-character lists) are **not enforced** and must not
+  be used to derive date, creator, or identity. `packages/domain/src/commissionFileName.ts` still
+  exists but the worker does not use it.
+- `GET .../source-image` resolves by commission `id` through `source_images.commission_id`, and
+  falls back to `source_images.commission_file_name = commissions.file_name`. A missing row means
+  no image (404); nothing is probed in the bucket.
 
 ---
 
-## 4. Links Field Serialization
+## 4. Serialization Quirks
 
-The `links` field is stored as a JSON string in D1 but handled differently depending on
-the request type.
+**`links`.** Writes take a newline-separated **string**; the worker splits, trims, drops blanks, and
+stores a JSON array. Do not send an array to `PATCH`: the worker applies `String()`, so
+`["a","b"]` becomes the single link `"a,b"`. Reads differ by endpoint: `GET /bootstrap` returns the
+**raw stored JSON string** in `commissionSearchRows[].links` (you must `JSON.parse` it), while
+`GET /characters/:id/commissions` returns a parsed `string[]`.
 
-| Context                            | Format                                        | Notes                                          |
-| ---------------------------------- | --------------------------------------------- | ---------------------------------------------- |
-| GET response body                  | JSON array `["url1", "url2"]`                 | Already parsed from D1 JSON string             |
-| `PATCH /commissions/:id` JSON body | newline-separated string `"url1\nurl2"`       | Worker calls `parseLinks` which splits on `\n` |
-| `POST /commissions` FormData       | newline-separated string in the `links` field | Same `parseLinks` splitting                    |
+**`hidden`.** `PATCH` coerces with `Boolean()`, so the string `"false"` or `"0"` becomes `true`.
+Send a real boolean. FormData hides only on the exact value `"on"`.
 
-**Sending links in a POST (FormData):**
+**`keyword`.** Normalized on every create/`PATCH` write (rules in AR "Field Reference"). It does not
+consult the keyword alias table: `normalizeKeywordAliases` in `packages/domain` only splits, trims,
+collapses whitespace, and dedupes case-insensitively. When parsing a returned `keyword`, split on
+`,` only; the wider separator set is for input.
 
-```ts
-const form = new FormData()
-form.append('links', 'https://example.com/a\nhttps://example.com/b')
-// Worker splits on \n internally
-```
+**`PATCH /commissions/:id` is a full replace.** Omitting `design`, `description`, `keyword`, or
+`links` clears them, and omitting `hidden` sets `false`. `creatorName`, `workGroupId`, and
+`partNumber` keys must be present (use `null`). Always read-modify-write from the current row.
+Work groups: `workGroupId: "new"` creates a fresh group; sending it again on a later `PATCH` of an
+already-grouped part moves that part to yet another new group, so reuse the existing UUID to keep it.
 
-**Sending links in a PATCH (JSON):**
-
-```ts
-const body = {
-  links: 'https://example.com/a\nhttps://example.com/b',
-  // ... other fields
-}
-fetch('/api/admin/commissions/42', {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(body),
-})
-```
-
-Do NOT send a JSON array for `links` in PATCH — the worker coerces `payload.links` with
-`String()` before splitting, so `["url1","url2"]` becomes the literal string
-`"url1,url2"` and will be treated as one link.
+**Unhandled bad bodies.** Mutation routes outside the alias/suggestion batches parse the body
+outside any `try`. Malformed JSON or a non-multipart upload throws out of the worker handler
+instead of returning the JSON envelope (inferred from reading `adminApi.ts`; not exercised
+against a live worker). Always send well-formed bodies with the right content type.
 
 ---
 
-## 5. Keyword Field
+## 5. Alias Batches
 
-The `keyword` field is a comma-separated string, not an array.
+**Alias batch endpoints are upsert-per-row, not "replace all".** (Contract: AR "Alias Mutations".)
 
-**What you send:**
-
-```
-"full body, NSFW, solo"
-```
-
-**What the worker stores (after normalization):**
-
-Keywords are split on `,`, `\n`, `，`, `、`, `;`, `；`. Each term is trimmed and
-multi-spaces collapsed. Empty terms are dropped. Duplicates are removed (case-insensitive
-dedup, first occurrence wins). Result is joined back with `", "`.
-
-**Example round-trip:**
-
-```
-Input:   "Full Body,  nsfw , solo, Full Body"
-Stored:  "Full Body, nsfw, solo"
-```
-
-`normalizeKeywordAliases` is applied during this normalization (aliases map normalized
-keyword terms). The final stored value uses the canonical term from the alias map when
-a match exists.
-
-**What comes back in GET responses:**
-
-The keyword field is returned as a normalized comma-separated string exactly as stored,
-e.g. `"Full Body, nsfw, solo"`. When reading `keyword` from a GET response, split on `,`
-(comma). The broader separator pattern (`/[,\n，、;；]/`) is for user input normalization
-on write — do not use it to parse API responses.
+- To delete an entry you must send it with empty `aliases` (`[]` or `""`). Omitting it leaves it
+  intact. Partial submissions are safe: only send changed rows.
+- A deletion row for a name that never existed is a harmless no-op.
+- Use the right endpoint per type: `/aliases/batch` (creators), `/character-aliases/batch`,
+  `/keyword-aliases/batch`. The row key differs (`creatorName`, `characterName`, `baseKeyword`).
+- Matching is by normalized name, and the three types normalize differently (AR table). Creator
+  aliases dedupe case-sensitively; character and keyword aliases dedupe case-insensitively and keep
+  the first casing. Example: keyword aliases `"full body, FullBody , full body"` are stored as
+  `["full body", "FullBody"]`; `baseKeyword` `"Full Body"` and `"full body"` address the same row.
+- `GET /aliases/bootstrap` hides creator/keyword rows that collide with a higher-priority name, so a
+  name you just saved under one type may not show up in that list.
+- `POST /suggestion` is the opposite: it is a **full replace** of the featured list (empty list
+  clears it, duplicates are dropped before the cap of 6).
 
 ---
 
-## 6. Alias Batch Semantics
+## 6. Character Order and Status
 
-**CRITICAL: alias batch endpoints are upsert-per-row, not full-replace.**
-
-Each `POST .../batch` call iterates the submitted rows and:
-
-- Upserts rows with non-empty aliases (INSERT ... ON CONFLICT DO UPDATE).
-- **Deletes** rows from D1 whose aliases normalize to an empty array.
-
-Rows not mentioned in the request are NOT touched.
-
-This means partial updates are safe — you can POST only the changed rows. However, if
-you want to **delete** an entry, you must POST it with an empty aliases value, not simply
-omit it.
-
-There are three distinct batch endpoints — **use the correct one for each alias type**:
-
-| Alias type        | Endpoint                                  |
-| ----------------- | ----------------------------------------- |
-| Creator aliases   | `POST /api/admin/aliases/batch`           |
-| Character aliases | `POST /api/admin/character-aliases/batch` |
-| Keyword aliases   | `POST /api/admin/keyword-aliases/batch`   |
-
-**Wrong pattern (omitting a row does not delete it):**
-
-```ts
-// Before: { creatorName: "artistA", aliases: ["a1"] }
-//         { creatorName: "artistB", aliases: ["b1"] }
-// Goal: remove artistA
-
-// WRONG — artistA is untouched
-// Substitute the correct endpoint path per alias type:
-//   /aliases/batch           for creators
-//   /character-aliases/batch for characters
-//   /keyword-aliases/batch   for keywords
-await fetch('/api/admin/aliases/batch', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ rows: [{ creatorName: 'artistB', aliases: ['b1'] }] }),
-})
-```
-
-**Correct pattern (explicit empty aliases to delete):**
-
-```ts
-// CORRECT — explicitly pass empty aliases to trigger DELETE
-// Substitute the correct endpoint path per alias type:
-//   /aliases/batch           for creators
-//   /character-aliases/batch for characters
-//   /keyword-aliases/batch   for keywords
-await fetch('/api/admin/aliases/batch', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    rows: [
-      { creatorName: 'artistA', aliases: [] }, // triggers DELETE
-      { creatorName: 'artistB', aliases: ['b1'] },
-    ],
-  }),
-})
-```
-
-**Supported row shapes** (all three alias endpoints accept these fields):
-
-```ts
-// Creator aliases
-{ creatorName: string, aliases: string[] | string }
-// also accepts legacy: { creatorName: string, alias: string }
-
-// Character aliases
-{ characterName: string, aliases: string[] | string }
-
-// Keyword aliases
-{ baseKeyword: string, aliases: string[] | string }
-```
-
-The `aliases` field can be a string with comma/semicolon/newline separators — the worker
-calls `normalizeAliases` / `normalizeKeywordAliases` to split it.
-
-> **Note — silent-empty response for missing character:**
-> `GET /api/admin/characters/:id/commissions` returns `{ commissions: [] }` for both
-> "character exists but has no commissions" AND "character ID does not exist" — no 404 is
-> returned. If you need to distinguish these cases, check the character's existence in
-> bootstrap data first.
+- `PUT /characters/order` only touches the IDs you send: it writes `sort_order` 1..n (active first,
+  then archived continuing) and the status implied by the list. **Omitted characters keep their old
+  `sort_order` and `status`**, so a partial list can produce duplicate or interleaved orders.
+  Always send every character (read `/bootstrap`, split by status, sort by `sortOrder`, move IDs,
+  PUT both full lists).
+- Empty lists, or non-array fields (silently coerced to `[]`), are a successful no-op, so a typo in
+  a key name looks like success.
+- `POST` / `PATCH /characters` coerce `status`: anything other than the string `"archived"` becomes
+  `"active"`, so omitting `status` on `PATCH` un-archives the character.
+- `sortOrder` set by `PATCH` is unchanged; new characters go to the end (`max + 1`).
 
 ---
 
-## 7. Character Order Update
+## 7. Images and R2
 
-`PUT /api/admin/characters/order` sets the `sort_order` for **every character** in the
-database. It also authoritative-sets the `status` column for each ID based on which array
-it appears in.
+R2 and D1 have no shared transaction, and the API never deletes R2 objects. (Key format and image
+rules: AR "Source image storage".)
 
-**You must include ALL character IDs in the payload.** Any ID omitted will keep its
-previous `sort_order` but will NOT have its status updated. More importantly, the
-`sort_order` values of included characters are set to sequential integers starting from 1
-based on array position — so omitting IDs creates gaps.
+| Operation                              | D1 result                                                            | R2 result                                  |
+| -------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------ |
+| `POST /commissions` succeeds           | rows inserted                                                        | new object                                 |
+| `POST /commissions`, D1 step fails     | nothing (or ambiguous)                                               | uploaded object **kept** (orphan or live)  |
+| `POST .../source-image` succeeds       | `object_key` switched                                                | new object; previous deleted best effort   |
+| `POST .../source-image`, D1 step fails | unchanged, old image still live                                      | new object is an orphan; response is `400` |
+| `DELETE /commissions/:id`              | commission + image row removed                                       | object orphaned                            |
+| `DELETE /characters/:id`               | **character, all its commissions, and all their image rows removed** | **all their objects orphaned**             |
 
-**Safe read-modify-write pattern:**
+**Footgun: `DELETE /characters/:id` cascades** to every commission and `source_images` row of that
+character in one atomic batch. There is no confirmation and no undo; the objects remain in R2 but
+are unreachable. Read `GET /characters/:id/commissions` first and confirm intent. `DELETE
+/commissions/:id` on an unknown ID returns `200` and does nothing, so a success message does not
+prove a row existed.
 
-```ts
-// 1. Fetch current character list
-const bootstrap = await fetchAdminJsonWithRetry<AdminBootstrapData>('/api/admin/bootstrap')
-
-// 2. Build arrays preserving all IDs
-const activeIds = bootstrap.characters
-  .filter(c => c.status === 'active')
-  .sort((a, b) => a.sortOrder - b.sortOrder)
-  .map(c => c.id)
-
-const archivedIds = bootstrap.characters
-  .filter(c => c.status === 'archived')
-  .sort((a, b) => a.sortOrder - b.sortOrder)
-  .map(c => c.id)
-
-// 3. Make your desired change, e.g. move id=5 to archived
-const newActiveIds = activeIds.filter(id => id !== 5)
-const newArchivedIds = [5, ...archivedIds]
-
-// 4. PUT with complete lists
-// single-attempt — mutation must not be retried (see Section 2)
-await fetch('/api/admin/characters/order', {
-  method: 'PUT',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ active: newActiveIds, archived: newArchivedIds }),
-})
-```
+**Cleaning up orphans is a manual operator task.** Before deleting any object: list the actual
+bucket inventory, read fresh D1 `source_images.object_key` references, and confirm the backup and
+retention policy. Never delete based on a single stale export snapshot, and never delete after an
+ambiguous create until the D1 state is verified. The legacy root and commission-folder R2 layouts
+were deleted and the migration tooling and backups removed; that is **not rollbackable**. Do not
+assume any key layout: `object_key` is opaque, and historical keys are simply read as stored.
 
 ---
 
-## 8. Commission Create vs Update: Source Image Handling
+## 8. Errors and Partial Failures
 
-There are three separate operations with different image semantics:
+(Status codes and message catalogue: AR "Conventions" and each endpoint.)
 
-| Operation         | Endpoint                                       | Image behavior                                                                  |
-| ----------------- | ---------------------------------------------- | ------------------------------------------------------------------------------- |
-| Create commission | `POST /api/admin/commissions`                  | FormData with explicit `commissionDate`, `creatorName`, and `sourceImage`       |
-| Update metadata   | `PATCH /api/admin/commissions/:id`             | JSON body with explicit date/creator fields — never touches the R2 object       |
-| Read image        | `GET /api/admin/commissions/:id/source-image`  | Resolves the image by stable commission ID                                      |
-| Replace image     | `POST /api/admin/commissions/:id/source-image` | FormData with `sourceImage`; the commission ID identifies the metadata relation |
-
-Changing `commissionDate` or `creatorName` with PATCH does not rename, move, copy, overwrite,
-or delete an R2 object. The stable commission ID continues to resolve the same image.
-`fileName` is a legacy internal compatibility field and is not a caller-supplied identity.
-
-**POST atomicity:**
-
-`POST /api/admin/commissions` uploads an immutable image object to R2 first, then inserts the
-commission and its image reference in D1. D1 and R2 do not share a transaction. If the D1
-result is ambiguous or fails after upload, retain the object until the D1 state is checked;
-do not delete it as automatic compensation.
-
----
-
-## 9. Source Image Constraints
-
-**Accepted MIME types / extensions:**
-
-| MIME type    | Extension stored |
-| ------------ | ---------------- |
-| `image/jpeg` | `.jpg`           |
-| `image/png`  | `.png`           |
-
-`image/webp` is listed in the worker's file-name extension pattern but is NOT supported
-for upload (resolveUploadExtension returns null for webp). Only JPEG and PNG uploads are
-accepted.
-
-Extension resolution priority: MIME type first, then filename extension as fallback.
-
-Every new upload or replacement writes `source-images/<sha256>-<UUIDv4>.jpg` or `.png`.
-The classification prefix remains, but there is no commission-name directory. A fresh UUID
-keeps identical bytes in separate objects, so replacing one commission cannot delete a shared
-object. `commission_file_name` is still validated and persisted as the internal asset mapping;
-it does not participate in new R2 keys. Reads resolve the stored key opaquely and continue to
-support historical root keys and commission-folder keys. Exports preserve the local
-`source-images/<commissionFileName>.<ext>` path across all three layouts.
-
-**Duplicate behavior (create):**
-
-The create endpoint accepts `commissionDate` and `creatorName`; callers do not supply a
-filename. The Worker assigns its internal compatibility value. New images use unique,
-immutable R2 keys; a failed or ambiguous D1 create can leave an unreferenced object. Keep it
-until the D1 result is checked, and do not overwrite or delete another commission's object.
-
-**R2 cleanup on replacement:**
-
-The worker updates D1 to the new immutable key before deleting the previous referenced object.
-Cleanup is best effort; failure leaves an orphan and does not turn a committed update into an
-error. Before any orphan cleanup, read fresh D1 references and actual bucket inventory, then
-confirm the backup and retention policy permit deleting each candidate.
-
-**R2 cleanup on commission delete:**
-
-Deleting a commission via `DELETE /api/admin/commissions/:id` removes the D1 metadata row and
-commission record atomically but leaves its R2 object as an orphan. R2 cleanup is the
-operator's responsibility; never delete objects solely because they are absent from one
-potentially stale export snapshot. The source-image migration's old root and commission-folder
-objects were deleted with operator approval on 2026-10-03; the bucket now holds only current flat
-objects. Local byte backups and both migration plans remain available. To restore a historical
-mapping, first re-upload and verify its corresponding objects from local backup, then apply the
-guarded mapping update; a direct rollback to deleted objects would break image reads.
+- Check `response.status` first, then `body.status`. A `200` is always `"success"`; there is no
+  `200` with `"status": "error"`.
+- **Mutation failures are `400`, not `500`.** Every thrown error (validation, missing row, D1
+  constraint, `D1 write operation failed.`) is wrapped into `400` with the raw message, so `400`
+  does not imply a client mistake: a D1 outage also surfaces as `400`. `500` only comes from
+  `GET` payload loaders.
+- `503` means a missing binding (or rebuild token) and will not heal on retry.
+- Missing-row cases return `400` (`Character not found.`, `Commission not found.`), except
+  `DELETE /commissions/:id` (200 no-op) and `GET /characters/:id/commissions` (`200` with an empty
+  list for an unknown character; check `/bootstrap` first if you need to tell the cases apart).
+- `GET .../source-image` returns **plain text** `Not Found` on 404. Call `.text()`, not `.json()`.
+  Its error `500` and `503` are JSON.
+- Validation precedes bindings for mutations, and `IMAGES` precedes the ID check for the
+  source-image `GET`, so a `503` can mask a `400` and vice versa.
+- `PATCH /commissions/:id` returns `200` even when nothing changed.
+- After an ambiguous failure (timeout, dropped connection) on a mutation, re-read
+  (`/bootstrap` or `/characters/:id/commissions`) instead of retrying blindly.
 
 ---
 
-## 10. Keyword Normalization (Aliases)
+## 9. Triggering a Rebuild
 
-`normalizeKeywordAliases` is applied to alias arrays on write. Rules:
-
-1. Split on `/[,\n，、;；]/` (comma, newline, fullwidth comma, enumeration comma, semicolon, fullwidth semicolon).
-2. Trim each term and collapse internal whitespace.
-3. Drop empty terms.
-4. Dedupe case-insensitively (first occurrence wins, original casing preserved).
-
-**Example:**
-
-```
-Input rows: [
-  { baseKeyword: "Full Body", aliases: "full body, FullBody , full body" },
-]
-
-Stored: baseKeyword = "Full Body", aliases = ["full body", "FullBody"]
-// "full body" appears twice → deduped; "FullBody" has different casing → kept
-```
-
-`normalizeKeywordBaseTerm` on `baseKeyword`: trim + collapse spaces. The lookup key is
-then lowercased (`normalizeKeywordAliasKey`), so `"Full Body"` and `"full body"` map to
-the same D1 row.
-
----
-
-## 11. Bootstrap Load Strategy
-
-The frontend loads all initial data in parallel via `fetchAdminOverviewPayload`:
-
-```ts
-const [health, bootstrap, aliases, suggestion] = await Promise.all([
-  fetchAdminJsonWithRetry('/api/admin/health'),
-  fetchAdminJsonWithRetry('/api/admin/bootstrap'),
-  fetchAdminJsonWithRetry('/api/admin/aliases/bootstrap'),
-  fetchAdminJsonWithRetry('/api/admin/suggestion'),
-])
-```
-
-All four requests fire simultaneously with the same retry/timeout settings. The result is
-cached in `adminJsonCache` keyed by pathname (only applies if using the frontend's
-built-in fetch helpers — external agents are not affected).
-
-**Abort-if-health-fails strategy:**
-
-The frontend does not short-circuit on health failure in this parallel load — all four
-requests race and `Promise.all` rejects if any fails. For agents that want to fail fast on
-worker unavailability, call `/api/admin/health` first (it requires no D1/R2 bindings and
-responds immediately), then fire the remaining three in parallel.
-
----
-
-## 12. Common Error Patterns
-
-Always check **both** `response.status` and `body.status` — the worker uses `200` for all
-successful mutations, so a `200` with `body.status === "error"` indicates a write-side
-business rule failure.
-
-| Scenario                       | HTTP status | `body.status` | Typical `body.message`                               |
-| ------------------------------ | ----------- | ------------- | ---------------------------------------------------- |
-| Successful mutation            | `200`       | `"success"`   | Human-readable confirmation                          |
-| Validation error (bad input)   | `400`       | `"error"`     | Field-specific message                               |
-| D1 uniqueness conflict         | `400`       | `"error"`     | D1 constraint failure (no R2 duplicate pre-check)    |
-| Commission/character not found | `400`       | `"error"`     | `"Commission not found."` / `"Character not found."` |
-| Missing D1 binding             | `503`       | `"error"`     | `"Admin worker DB binding is required..."`           |
-| Missing R2 binding             | `503`       | `"error"`     | `"Admin worker IMAGES binding is required..."`       |
-| D1 write failed                | `500`       | `"error"`     | `"D1 write operation failed."`                       |
-| Route not matched              | `404`       | `"error"`     | `"Not Found"`                                        |
-| GitHub rebuild not configured  | `503`       | `"error"`     | `"GITHUB_DISPATCH_TOKEN is not configured..."`       |
-| GitHub API non-204             | `502`       | `"error"`     | `"GitHub API returned <status>: <body>"`             |
-
-Note: `updateCommission` (PATCH) returns `200 success` even when nothing changed (the
-persistence layer detects no-op and skips the DB write, but the API layer always returns
-success).
-
-**Exception:** `GET /api/admin/commissions/:id/source-image` returns plain-text `Not Found`
-on 404 — NOT the JSON envelope. Calling `.json()` on this response will throw a parse error.
-Use `response.text()` for this endpoint's error case.
-
----
-
-## 13. Triggering a Rebuild
-
-`POST /api/admin/rebuild` fires a `repository_dispatch` event to GitHub Actions. It is
-**fire-and-forget** from the worker's perspective — the worker returns `200` as soon as
-GitHub acknowledges the dispatch (HTTP 204 from GitHub), not when the build completes.
-
-Typical build latency: ~2–5 minutes.
-
-```ts
-async function triggerRebuild(signal?: AbortSignal) {
-  // Replace with production URL or use ADMIN_API_BASE_URL env var
-  const response = await fetch('http://127.0.0.1:8787/api/admin/rebuild', {
-    method: 'POST',
-    signal,
-    cache: 'no-store',
-  })
-  const data = (await response.json()) as { status: string; message: string }
-  if (!response.ok) {
-    throw new Error(data.message || `Rebuild failed: HTTP ${response.status}`)
-  }
-  return data
-}
-```
-
-Requires `GITHUB_DISPATCH_TOKEN` to be configured as a worker secret. Returns `503` if
-the token is missing, `502` if GitHub returns a non-204 status.
-
----
-
-## 14. Dev Environment Quick Start
-
-```bash
-# Start the admin frontend (port 4174) and local worker (port 8787)
-# Worker connects to remote D1/R2 — there is no mock data layer
-pnpm run dev:admin
-```
-
-Verify the worker is running:
-
-```bash
-curl http://127.0.0.1:8787/api/admin/health
-# Expected: {"status":"ok","message":"Admin worker D1/R2 runtime is responding."}
-```
-
-**Important:** The local worker connects to the real remote D1/R2 — all reads and writes
-hit production data. There is no separate dev database or mock layer. Use a dedicated test
-character/commission when experimenting, and clean up afterwards.
-
-Worker port: `8787`. Admin frontend port: `4174`. Astro web (if needed): `4321`.
+`POST /rebuild` is fire-and-forget: it returns `200` when GitHub accepts the dispatch, not when the
+site is rebuilt (typically a few minutes). The web build exports D1/R2 once at build time, so admin
+edits are not visible on the public site until a rebuild finishes. Treat `502` as "GitHub
+unreachable or rejected" and `503` as a missing worker secret.
