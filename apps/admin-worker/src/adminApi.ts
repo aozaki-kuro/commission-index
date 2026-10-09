@@ -39,11 +39,11 @@ export interface Env {
   GITHUB_DISPATCH_TOKEN?: string
 }
 
-function buildRebuildDispatchBody() {
+function buildRebuildDispatchBody(dispatchedAt: string) {
   return {
     event_type: 'admin-data-changed',
     client_payload: {
-      fact_source_version: new Date().toISOString(),
+      fact_source_version: dispatchedAt,
     },
   }
 }
@@ -758,6 +758,7 @@ export async function handleAdminApiRequest(
       return failure('GITHUB_DISPATCH_TOKEN is not configured on the worker.', 503)
     }
 
+    const dispatchedAt = new Date().toISOString()
     try {
       const response = await fetch(
         'https://api.github.com/repos/aozaki-kuro/commission-index/dispatches',
@@ -769,12 +770,12 @@ export async function handleAdminApiRequest(
             'Content-Type': 'application/json',
             'User-Agent': 'commission-index-admin-worker',
           },
-          body: JSON.stringify(buildRebuildDispatchBody()),
+          body: JSON.stringify(buildRebuildDispatchBody(dispatchedAt)),
         },
       )
 
       if (response.status === 204) {
-        return json({ status: 'success', message: 'Web rebuild dispatched to GitHub Actions.' } satisfies ApiState)
+        return json({ status: 'success', message: 'Web rebuild dispatched to GitHub Actions.', dispatchedAt })
       }
 
       const text = await response.text().catch(() => '')

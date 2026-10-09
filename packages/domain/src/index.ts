@@ -15,6 +15,7 @@ export type {
   KeywordAliasEntry,
   KeywordAliasRow,
 } from './aliases'
+export type { BuildInfo } from './buildInfo'
 export {
   normalizeCharacterAliases,
   normalizeCharacterAliasKey,

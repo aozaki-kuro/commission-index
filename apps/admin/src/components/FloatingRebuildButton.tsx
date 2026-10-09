@@ -11,14 +11,14 @@ export function FloatingRebuildButton() {
     return null
 
   const label = status === 'pending'
-    ? 'Dispatching…'
+    ? 'Checking…'
     : status === 'success'
-      ? 'Dispatched ✓'
-      : status === 'error'
+      ? 'Updated ✓'
+      : status === 'error' || status === 'unconfirmed'
         ? 'Retry'
         : 'Rebuild'
 
-  const toneStyles = status === 'error'
+  const toneStyles = status === 'error' || status === 'unconfirmed'
     ? 'border-red-300 text-red-600 hover:border-red-400 dark:border-red-700 dark:text-red-300 dark:hover:border-red-600'
     : status === 'success'
       ? 'border-emerald-300 text-emerald-600 dark:border-emerald-700 dark:text-emerald-300'
@@ -27,7 +27,7 @@ export function FloatingRebuildButton() {
   return (
     <FloatingNotice tone={status === 'error' ? 'error' : status === 'success' ? 'success' : 'warning'}>
       <div className="flex min-w-0 items-center justify-between gap-4">
-        <p className="min-w-0 text-xs">{status === 'error' ? 'Rebuild could not be queued.' : status === 'success' ? 'Rebuild queued.' : status === 'pending' ? 'Queueing the website rebuild.' : 'Saved changes are ready to publish.'}</p>
+        <p className="min-w-0 text-xs">{rebuild.message ?? (status === 'error' ? 'Rebuild could not be queued.' : status === 'success' ? 'Website updated and confirmed live.' : status === 'pending' ? 'Waiting for the public site to confirm the update.' : 'Saved changes are ready to publish.')}</p>
         <button
           type="button"
           onClick={() => void queueWebsiteRebuild()}

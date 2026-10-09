@@ -174,14 +174,14 @@ export async function fetchAdminJsonWithRetry<TPayload>(
   throw lastError instanceof Error ? lastError : new Error(`Failed to load ${pathname}.`)
 }
 
-export async function triggerRebuildDeploy(signal?: AbortSignal): Promise<{ status: string, message: string }> {
+export async function triggerRebuildDeploy(signal?: AbortSignal): Promise<{ status: string, message: string, dispatchedAt: string }> {
   const url = getAdminApiUrl('/api/admin/rebuild')
   const response = await fetch(url, {
     method: 'POST',
     signal,
     cache: 'no-store',
   })
-  const data = await response.json() as { status: string, message: string }
+  const data = await response.json() as { status: string, message: string, dispatchedAt: string }
   if (!response.ok) {
     throw new Error(data.message || `Rebuild failed: HTTP ${response.status}`)
   }

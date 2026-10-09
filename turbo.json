@@ -32,7 +32,9 @@
       "passThroughEnv": [
         "CLOUDFLARE_ACCOUNT_ID",
         "CLOUDFLARE_API_TOKEN",
-        "FACT_SOURCE_USE_EXISTING_SNAPSHOT"
+        "FACT_SOURCE_USE_EXISTING_SNAPSHOT",
+        "GITHUB_SHA",
+        "WORKERS_CI_COMMIT_SHA"
       ],
       "outputs": ["dist/**", ".astro/**"],
       "inputs": ["$TURBO_DEFAULT$", "generated/**"],

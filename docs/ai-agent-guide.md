@@ -170,5 +170,9 @@ assume any key layout: `object_key` is opaque, and historical keys are simply re
 
 `POST /rebuild` is fire-and-forget: it returns `200` when GitHub accepts the dispatch, not when the
 site is rebuilt (typically a few minutes). The web build exports D1/R2 once at build time, so admin
-edits are not visible on the public site until a rebuild finishes. Treat `502` as "GitHub
+edits are not visible on the public site until a rebuild finishes. The admin does not treat the
+dispatch as done: it polls the public `/build-info.json` for up to ~10 min and clears its pending
+state only once the snapshot's `dataExportedAt` reaches the returned `dispatchedAt` (a 30 s
+tolerance absorbs runner↔worker clock skew); on timeout or poll error it leaves the pending state
+set and shows an "unconfirmed — check the workflow" notice. Treat `502` as "GitHub
 unreachable or rejected" and `503` as a missing worker secret.

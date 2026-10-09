@@ -75,8 +75,8 @@ curl https://admin.crystallize.cc/api/admin/health
 Sends a GitHub `repository_dispatch` (`event_type: "admin-data-changed"`) to trigger a web
 rebuild. No request body. Requires the `GITHUB_DISPATCH_TOKEN` worker secret.
 
-**`200`:** `{ "status": "success", "message": "Web rebuild dispatched to GitHub Actions." }` —
-returned as soon as GitHub answers `204`, not when the build finishes.
+**`200`:** `{ "status": "success", "message": "Web rebuild dispatched to GitHub Actions.", "dispatchedAt": "2026-10-09T10:00:00.000Z" }` —
+returned as soon as GitHub answers `204`, not when the build finishes. `dispatchedAt` is the UTC time immediately before the dispatch request and is also sent to the workflow as `fact_source_version`; the admin compares the public snapshot's export time against it before clearing its pending state.
 
 **Errors:** `503` token not configured (`GITHUB_DISPATCH_TOKEN is not configured on the worker.`);
 `502` GitHub returned a non-204 status (`GitHub API returned <status>: <body>`); `502` network

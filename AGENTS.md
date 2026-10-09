@@ -109,7 +109,8 @@ Admin features go in `apps/admin` + `apps/admin-worker`, never `apps/web`.
    读取结构化快照，下载图片必须匹配该快照的 hash/size；每条作品必须有 `source_images` 行，缺失即中止导出
 3. content 与 source-image manifest 的 `meta.revision` 共同标识内容版本，排除 `exportedAt`；Astro 从这份固定
    输入生成 HTML，无运行时 D1/R2 访问
-4. `apps/web/wrangler.jsonc` carries read-only D1/R2 bindings for build-time export
+4. `exportedAt` 在 D1 快照读取之前采样（不参与 `revision`），因此 admin 能拒绝一份早于发布请求读取的快照
+5. `apps/web/wrangler.jsonc` carries read-only D1/R2 bindings for build-time export
 
 ### Home Page Architecture (Astro-first)
 
@@ -244,6 +245,8 @@ CI gotchas:
 
 - Web export/build 设 `cache: false`，防止 Turbo 恢复旧 generated 或在导出前计算过期输入 hash；恢复缓存前必须
   验证显式 snapshot 构建契约
+- `/build-info.json` reads `GITHUB_SHA` / `WORKERS_CI_COMMIT_SHA`, so the web build task passes both through
+  in `turbo.json` `passThroughEnv`
 - Turbo does not pass outer environment variables into task processes unless listed: credentials such as
   `CLOUDFLARE_API_TOKEN` must be in the task's `passThroughEnv`
 - A prerequisite owned by one workspace (e.g. `fact-source:export`) must be wired with a

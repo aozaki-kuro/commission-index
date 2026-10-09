@@ -684,14 +684,16 @@ function cleanupStaleSourceImages(outputImagesDir: string, retainedObjectKeys: S
 function buildMeta({
   databaseBinding,
   imagesBucket,
+  exportedAt = new Date().toISOString(),
 }: {
   databaseBinding: string
   imagesBucket: string
+  exportedAt?: string
 }): Omit<GeneratedFactSourceMeta, 'revision'> {
   return {
     schemaVersion: GENERATED_FACT_SOURCE_SCHEMA_VERSION,
     source: GENERATED_FACT_SOURCE_SOURCE,
-    exportedAt: new Date().toISOString(),
+    exportedAt,
     databaseBinding,
     imagesBucket,
   }
@@ -1005,6 +1007,8 @@ export async function main(argv: string[] = process.argv.slice(2)) {
   const factSourceDir = path.join(outputRoot, factSourceDirectoryName)
   const outputImagesDir = path.join(outputRoot, imageOutputDirectoryName)
 
+  // This timestamp precedes the D1 SELECT so confirmation cannot accept an older in-flight snapshot.
+  const exportedAt = new Date().toISOString()
   // ==================== 导出结构化事实源 ====================
   const factSource = loadRemoteFactSource({
     databaseBinding: defaultDatabaseBinding,
@@ -1014,6 +1018,7 @@ export async function main(argv: string[] = process.argv.slice(2)) {
   const meta = buildMeta({
     databaseBinding: defaultDatabaseBinding,
     imagesBucket: defaultBucketName,
+    exportedAt,
   })
 
   const content = {

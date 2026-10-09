@@ -7,6 +7,10 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=()
   X-Robots-Tag: noindex
 
+/build-info.json
+  Cache-Control: no-cache
+  Access-Control-Allow-Origin: https://admin.crystallize.cc
+
 /*.html
   Cache-Control: public, max-age=300, stale-while-revalidate=86400
 

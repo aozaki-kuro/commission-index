@@ -236,6 +236,27 @@ function createImagesBucketRecorder(options: {
 }
 
 describe('admin worker CRUD contract routing', () => {
+  it('returns the rebuild dispatch timestamp and includes it in the GitHub event', async () => {
+    const originalFetch = globalThis.fetch
+    const githubFetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => new Response(null, { status: 204 }))
+    globalThis.fetch = githubFetch as typeof fetch
+    try {
+      const response = await handleAdminApiRequest(
+        new Request(`${baseUrl}/api/admin/rebuild`, { method: 'POST' }),
+        { GITHUB_DISPATCH_TOKEN: 'test-token' },
+        createCrudBackend(),
+      )
+      const payload = await response.json() as { dispatchedAt: string }
+      const dispatchRequest = githubFetch.mock.calls[0]?.[1]
+      expect(response.status).toBe(200)
+      expect(Number.isFinite(Date.parse(payload.dispatchedAt))).toBe(true)
+      expect(JSON.parse(String(dispatchRequest?.body)).client_payload.fact_source_version).toBe(payload.dispatchedAt)
+    }
+    finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
   it('normalizes create-character payload before delegating to backend', async () => {
     const createCharacter = vi.fn(async (_input: CreateCharacterInput) =>
       createJsonResponse({ status: 'success', message: 'Character "Alice" created.' }))
