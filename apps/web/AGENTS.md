@@ -12,3 +12,4 @@ product context is `PRODUCT.md`.
 - The exporter derives legacy preview markers from filenames. Web aggregation consumes the explicit `legacySeriesKind`/`seriesOrder` fields and never parses `fileName`.
 - Reject stale, duplicate-ID or malformed generated input at the read boundary, not deeper in the pipeline.
 - Imports use the `@layouts/*`, `@features/*`, `@lib/*` aliases from `tsconfig.json`. Do not add `#` aliases.
+- Search metadata and timeline grouping have one implementation in `@commission-index/domain`; do not re-fork them into web. `buildCommissionSearchMetadata` takes `fileName` only from admin (legacy-key search term); the public site omits it so its search text stays identity-free.

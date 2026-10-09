@@ -7,16 +7,16 @@ import type {
 } from '@features/home/commission/batch/homeTimelineBatchPayload'
 import type { HomeLocale } from '@features/home/i18n/homeLocale'
 import {
+  buildCommissionSearchDomKey,
+  buildCommissionSearchMetadata,
+} from '@commission-index/domain'
+import {
   COMMISSION_LINK_TEXT_CLASS,
   selectDisplayLinks,
 } from '@features/home/commission/linkDisplay'
 import { getHomeLocaleMessages } from '@features/home/i18n/homeLocale'
 import { getCharacterSectionId } from '@lib/characters/nav'
 import { parseAndFormatDate } from '@lib/date/format'
-import {
-  buildCommissionSearchDomKey,
-  buildCommissionSearchMetadata,
-} from '@lib/search/commissionSearchMetadata'
 import { buildImagePayload, buildInterestPayload, COMMISSION_IMAGE_SIZES } from './batchPayloadBuilder'
 
 async function buildEntryPayload({

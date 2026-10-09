@@ -1,13 +1,13 @@
 ---
 import type { Commission } from '@data/types'
+import {
+  buildCommissionSearchDomKey,
+  buildCommissionSearchMetadata,
+} from '@commission-index/domain'
 import IllustratorInfo from '@features/home/commission/IllustratorInfo.astro'
 import ProtectedCommissionImage from '@features/home/commission/ProtectedCommissionImage.astro'
 import { getHomeLocaleMessages, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
 import { resolveSourceImageByCommissionId } from '@lib/images/sourceImageRegistry'
-import {
-  buildCommissionSearchDomKey,
-  buildCommissionSearchMetadata,
-} from '@lib/search/commissionSearchMetadata'
 
 export interface CommissionRenderEntry {
   character: string
