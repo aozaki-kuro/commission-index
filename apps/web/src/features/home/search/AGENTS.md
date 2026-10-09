@@ -1,39 +1,14 @@
 # home/search
 
-Vanilla TS search system for the home page. Goals: stable first paint, precise filtering, minimal interaction regression.
+Vanilla TS search for the home page. Goals: stable first paint, precise filtering, minimal interaction regression.
 
-## File Responsibilities
+## Rules
 
-- `CommissionSearchIsland.astro` — static search shell markup (input, dropdown, help popover, live region)
-- `commissionSearchIndex.ts` — index construction, DOM context collection, suggestion aggregation (pure, no framework)
-- `commissionSearchModel.ts` — query/index/suggestion derivation chain and search analytics
-- `commissionSearchDomSync.ts` — DOM filter sync, section/stale divider visibility, live region text
-- `commissionSearchDropdownRenderer.ts` — suggestion dropdown rendering (vanilla DOM, keyboard navigation)
-- `commissionSearchHelpRenderer.ts` — help popover toggle and rendering
-- `commissionSearchKeyboard.ts` — keyboard navigation for dropdown items
-- `commissionSearchPanelState.ts` — subscribe to character/timeline panel load state (DOM reads + event bridge only)
-- `commissionSearchSuggestions.ts` — dropdown close, outside click, Escape, programmatic refocus suppression
-- `commissionViewMode.ts` — view mode persistence (character/timeline toggle)
-- `commissionSearchController.ts` — top-level controller that wires all modules together
-- `../i18n/homeSearchControls.ts` — locale label resolution for search UI
-
-## Dependency Rules
-
-- Modules must not create circular imports
-- Pure logic modules must not read `window`/`document` directly (except DOM sync and renderers)
-- `commissionSearchIndex.ts` has no framework dependency
-- Search algorithm comes from `@lib/search/index` — do not duplicate filtering rules in UI layer
-
-## Modification Rules
-
-- Keep search box, dropdown, and stale hint DOM structure + className stable — no layout jumps
-- Help uses native `popover` for toggle, Escape, outside dismissal, and focus restoration.
-  Its scoped CSS owns the trigger anchor, 8px gap, viewport collision fallbacks, rounded surface,
-  and open/close transitions (including discrete `display`/`overlay` retention). Keep these together:
-  `popovertarget` alone does not position or animate the panel. Without CSS anchor support, retain
-  the centered `m-auto` fallback; reduced motion is governed by the global accessibility rule.
-- Any suggestion/stale/timeline interaction change requires regression test updates
-- Keep controller-local state in `commissionSearchController.ts`, query derivation in
-  `commissionSearchModel.ts`, and view/panel state in their existing event modules. The unused global
-  `commissionSearchStore.ts` has been removed; do not reintroduce a second state owner.
-- New pure derivation? Put it in `commissionSearchIndex.ts`, not a renderer
+- Pure logic modules must not read `window`/`document`; only DOM sync and renderers may.
+- Keep one state owner. Controller-local state lives in `commissionSearchController.ts`; query derivation in `commissionSearchModel.ts`. Do not add a second store.
+- New pure derivation goes in `commissionSearchIndex.ts`, not in a renderer.
+- Do not duplicate the filter algorithm here; use `@lib/search`.
+- Locale labels resolve from `../i18n/homeSearchControls.ts`.
+- Keep search box, dropdown and stale hint DOM structure and classNames stable to avoid layout jumps.
+- Help popover: native `popover` does not position or animate itself. Its anchor positioning, 8px gap, collision fallbacks and transitions live together in the scoped CSS of `CommissionSearchIsland.astro`. Without CSS anchor support, keep the centered `m-auto` fallback.
+- Any suggestion, stale or timeline interaction change needs regression test updates.

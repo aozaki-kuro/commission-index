@@ -55,6 +55,6 @@ apps/web/generated/
 # AI tool artifacts
 .claude/
 .superpowers/
-tasks/*
-!tasks/lessons.md
-!tasks/todo.md
+/.playwright-mcp/
+/.impeccable/
+/tasks/

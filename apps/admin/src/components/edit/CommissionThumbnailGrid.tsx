@@ -52,6 +52,100 @@ function useNearViewport<T extends HTMLElement>(isEnabled: boolean) {
   return [ref, isNear] as const
 }
 
+/** Lazy source-image box shared by the thumbnail grid and search results. */
+export function CommissionThumbnail({
+  commissionId,
+  alt,
+  isEnabled,
+  className = '',
+}: {
+  commissionId: number
+  alt: string
+  /** Gates fetching entirely (e.g. while the owning section is collapsed). */
+  isEnabled: boolean
+  className?: string
+}) {
+  const [errorSrc, setErrorSrc] = useState<string | null>(null)
+  const imageSrc = useMemo(() => buildThumbnailSrc(commissionId), [commissionId])
+  const [cardRef, isNearViewport] = useNearViewport<HTMLDivElement>(isEnabled)
+
+  const [imageVersion, setImageVersion] = useState(() => {
+    if (typeof window === 'undefined') {
+      return 0
+    }
+
+    const stored = window.sessionStorage.getItem(`admin-preview-image-version:${commissionId}`)
+    const parsed = Number(stored)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+  })
+
+  useEffect(() => {
+    const handlePreviewVersion = (event: Event) => {
+      const detail = (event as CustomEvent<{ commissionId: number, version: number }>).detail
+      if (detail?.commissionId === commissionId) {
+        setErrorSrc(null)
+        setImageVersion(detail.version)
+      }
+    }
+
+    window.addEventListener('admin-preview-image-version', handlePreviewVersion)
+    return () => window.removeEventListener('admin-preview-image-version', handlePreviewVersion)
+  }, [commissionId])
+
+  const previewSrc = imageVersion > 0 ? `${imageSrc}?v=${imageVersion}` : imageSrc
+
+  // Retry the same URL once by remounting the image, then show the fallback.
+  const [retriedSrc, setRetriedSrc] = useState<string | null>(null)
+  const shouldRenderImage = isEnabled && isNearViewport && errorSrc !== imageSrc
+  const handleImageError = () => {
+    if (retriedSrc !== previewSrc) {
+      setRetriedSrc(previewSrc)
+      return
+    }
+    setErrorSrc(imageSrc)
+  }
+
+  return (
+    <div
+      ref={cardRef}
+      className={`
+        aspect-1280/525 w-full overflow-hidden bg-gray-50
+        dark:bg-gray-900/30
+        ${className}
+      `}
+    >
+      {errorSrc === imageSrc
+        ? (
+            <div className="
+              flex size-full items-center justify-center text-xs text-gray-400
+              dark:text-gray-500
+            "
+            >
+              No image
+            </div>
+          )
+        : shouldRenderImage
+          ? (
+              <img
+                key={retriedSrc === previewSrc ? 'retry' : 'initial'}
+                src={previewSrc}
+                alt={alt}
+                loading="lazy"
+                decoding="async"
+                width={thumbnailImageWidth}
+                height={thumbnailImageHeight}
+                className="
+                  size-full object-contain transition
+                  motion-safe:group-hover:scale-[1.02]
+                "
+                onError={handleImageError}
+              />
+            )
+          : null}
+    </div>
+  )
+}
+
 function ThumbnailCard({
   commission,
   isSelected,
@@ -63,52 +157,13 @@ function ThumbnailCard({
   onSelect: () => void
   isExpanded: boolean
 }) {
-  const [errorSrc, setErrorSrc] = useState<string | null>(null)
   const displayLabel = getCommissionTitle(commission)
   const accessibleLabel = getCommissionAccessibleLabel(commission)
-  const imageSrc = useMemo(() => buildThumbnailSrc(commission.id), [commission.id])
   const hasBeenExpandedRef = useRef(isExpanded)
   if (isExpanded) {
     hasBeenExpandedRef.current = true
   }
   const hasBeenExpanded = hasBeenExpandedRef.current
-  const [cardRef, isNearViewport] = useNearViewport<HTMLDivElement>(hasBeenExpanded)
-
-  const [imageVersion, setImageVersion] = useState(() => {
-    if (typeof window === 'undefined') {
-      return 0
-    }
-
-    const stored = window.sessionStorage.getItem(`admin-preview-image-version:${commission.id}`)
-    const parsed = Number(stored)
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
-  })
-
-  useEffect(() => {
-    const handlePreviewVersion = (event: Event) => {
-      const detail = (event as CustomEvent<{ commissionId: number, version: number }>).detail
-      if (detail?.commissionId === commission.id) {
-        setErrorSrc(null)
-        setImageVersion(detail.version)
-      }
-    }
-
-    window.addEventListener('admin-preview-image-version', handlePreviewVersion)
-    return () => window.removeEventListener('admin-preview-image-version', handlePreviewVersion)
-  }, [commission.id])
-
-  const previewSrc = imageVersion > 0 ? `${imageSrc}?v=${imageVersion}` : imageSrc
-
-  // Retry the same URL once by remounting the image, then show the fallback.
-  const [retriedSrc, setRetriedSrc] = useState<string | null>(null)
-  const shouldRenderImage = hasBeenExpanded && isNearViewport && errorSrc !== imageSrc
-  const handleImageError = () => {
-    if (retriedSrc !== previewSrc) {
-      setRetriedSrc(previewSrc)
-      return
-    }
-    setErrorSrc(imageSrc)
-  }
 
   return (
     <button
@@ -136,42 +191,11 @@ function ThumbnailCard({
           `}
       `}
     >
-      <div
-        ref={cardRef}
-        className="
-          aspect-1280/525 w-full overflow-hidden bg-gray-50
-          dark:bg-gray-900/30
-        "
-      >
-        {errorSrc === imageSrc
-          ? (
-              <div className="
-                flex size-full items-center justify-center text-xs text-gray-400
-                dark:text-gray-500
-              "
-              >
-                No image
-              </div>
-            )
-          : shouldRenderImage
-            ? (
-                <img
-                  key={retriedSrc === previewSrc ? 'retry' : 'initial'}
-                  src={previewSrc}
-                  alt={`Source image for ${accessibleLabel}`}
-                  loading="lazy"
-                  decoding="async"
-                  width={thumbnailImageWidth}
-                  height={thumbnailImageHeight}
-                  className="
-                    size-full object-contain transition
-                    motion-safe:group-hover:scale-[1.02]
-                  "
-                  onError={handleImageError}
-                />
-              )
-            : null}
-      </div>
+      <CommissionThumbnail
+        commissionId={commission.id}
+        alt={`Source image for ${accessibleLabel}`}
+        isEnabled={hasBeenExpanded}
+      />
 
       <div className={`
         px-3 py-2
