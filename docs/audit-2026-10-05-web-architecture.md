@@ -1,6 +1,8 @@
 # 主站 web 架构评估与修复计划（2026-10-05）
 
-> 2026-10-09：WS1 的 `softNavMount.ts` 与 WS4 的 `build-info.json.ts` 半成品已删除；WS1–WS5 均未落地，下文文件清单里标“新建”的文件当前都不存在。
+> 2026-10-09 更新：WS1–WS5 均已落地（WS1 `225944b`、WS2 `fce98b7`、WS5 `0843d1c` + `5810884`、WS4 `b3e8f5d`；
+> WS3 见 `chore/handoff-closeout` 上的 R2 删除 commit）。**剩余开放项已并入 `docs/open-issues.md`**，
+> 本文只保留决策与工作包记录，不再逐条跟踪。下文文件清单里标“新建”的文件以工作树实际存在为准。
 
 ## 结论
 
@@ -127,21 +129,21 @@ GitHub API 返回 404 Branch not protected；质量检查已有但未强制合�
 
 并行 = 文件所有权互斥；文档同步留到最后（避免 `AGENTS.md` 冲突）。
 
-| WS      | 范围                     | 文件所有权                                                                                                                                                                                                                                                                                                    | 验证                                                                                               |
-| ------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| **WS1** | P1+P2+P3 岛生命周期统一  | `apps/web/src/lib/astro/softNavMount.ts`(+test，新建)、`features/home/search/CommissionSearchIsland.astro`、`features/home/warning/AgeGateScript.astro`、`features/home/commission/CommissionImageNoticeScript.astro`、`features/home/search/AGENTS.md`、`apps/web/test/visual/search-soft-nav.spec.ts`(新建) | 新增 jsdom 单测覆盖 boot/teardown/取消延迟回调；`pnpm typecheck`；可行时按复现步骤做浏览器前后对比 |
-| **WS2** | P4 图片精确映射          | `lib/images/sourceImageRegistry.ts`(+test)、`features/home/commission/CommissionEntries.astro`、`features/home/server/batchPayloadBuilder.ts`、`features/home/pages/HomePage.astro`                                                                                                                           | 更新单测：删除模糊回退断言，改为按 `commissionId` 解析；`pnpm typecheck`                           |
-| **WS3** | P5 换图/导出竞争         | `apps/admin-worker/src/adminApi.ts`、其存储辅助模块（必要时 `scripts/exportWebFactSource.ts`）                                                                                                                                                                                                                | 单测覆盖「旧对象已被回收」路径；不得引入新 D1 schema，除非论证充分                                 |
-| **WS4** | P6 发布结果反馈          | `apps/web/src/pages/build-info.json.ts`(新建)、`apps/web/public/_headers`、`apps/admin/src/lib/websiteRebuild.ts`、`apps/admin/src/lib/pendingRebuildSignal.ts`、后台展示组件                                                                                                                                 | 构建产物含 `build-info.json` 且 `dataRevision` 与快照一致；后台能在 revision 不匹配时保持 pending  |
-| **WS5** | P7+P8 文档与 locale 收敛 | 根 `AGENTS.md`、`apps/web/AGENTS.md`、locale 配置                                                                                                                                                                                                                                                             | 文档与代码一致；主会话在 WS1–WS4 回收后执行                                                        |
+| WS                                                                                           | 范围                     | 文件所有权                                                                                                                                                                                                                                                                                                    | 验证                                                                                               |
+| -------------------------------------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **WS1**（已落地 `225944b`）                                                                  | P1+P2+P3 岛生命周期统一  | `apps/web/src/lib/astro/softNavMount.ts`(+test，新建)、`features/home/search/CommissionSearchIsland.astro`、`features/home/warning/AgeGateScript.astro`、`features/home/commission/CommissionImageNoticeScript.astro`、`features/home/search/AGENTS.md`、`apps/web/test/visual/search-soft-nav.spec.ts`(新建) | 新增 jsdom 单测覆盖 boot/teardown/取消延迟回调；`pnpm typecheck`；可行时按复现步骤做浏览器前后对比 |
+| **WS2**（已落地 `fce98b7`）                                                                  | P4 图片精确映射          | `lib/images/sourceImageRegistry.ts`(+test)、`features/home/commission/CommissionEntries.astro`、`features/home/server/batchPayloadBuilder.ts`、`features/home/pages/HomePage.astro`                                                                                                                           | 更新单测：删除模糊回退断言，改为按 `commissionId` 解析；`pnpm typecheck`                           |
+| **WS3**（已落地，R2 删除 commit on `chore/handoff-closeout`：导出器 R2 not-found 时重读 D1） | P5 换图/导出竞争         | `apps/admin-worker/src/adminApi.ts`、其存储辅助模块（必要时 `scripts/exportWebFactSource.ts`）                                                                                                                                                                                                                | 单测覆盖「旧对象已被回收」路径；不得引入新 D1 schema，除非论证充分                                 |
+| **WS4**（已落地 `b3e8f5d`，`build-info.json` + 后台轮询）                                    | P6 发布结果反馈          | `apps/web/src/pages/build-info.json.ts`(新建)、`apps/web/public/_headers`、`apps/admin/src/lib/websiteRebuild.ts`、`apps/admin/src/lib/pendingRebuildSignal.ts`、后台展示组件                                                                                                                                 | 构建产物含 `build-info.json` 且 `dataRevision` 与快照一致；后台能在 revision 不匹配时保持 pending  |
+| **WS5**（已落地 `0843d1c` + `5810884`）                                                      | P7+P8 文档与 locale 收敛 | 根 `AGENTS.md`、`apps/web/AGENTS.md`、locale 配置                                                                                                                                                                                                                                                             | 文档与代码一致；主会话在 WS1–WS4 回收后执行                                                        |
 
 **验收线**：必须解决的问题 = 需求达成 + 检查通过，不是「所有 reviewer 都同意」。
 
 ### 本次不做（需你决定或另开）
 
-- **P9 双渲染器收敛** — 等技术性触发点（条目 markup 下次改动）。
-- **P10 Playwright 离线 fixture** — 独立基建任务，做完再补视觉回归。
-- **P11 branch protection** — GitHub 仓库设置，需要你开 required checks。
+- **P9 双渲染器收敛** — 仍延后，等技术性触发点（条目 markup 下次改动）。
+- **P10 Playwright 离线 fixture** — 部分落地：`VISUAL_OFFLINE=1` 离线 web 冒烟模式（真实数据基线会失败，仅测启动）；移动端 project 与视口/可访问性/性能验收仍未做，见 `open-issues.md`。
+- **P11 branch protection** — GitHub 仓库设置，需要你开 required checks（仓库内无法核验）。
 - **SSR / 框架迁移** — 不建议，现有显式发布模型无立即上线需求证据。
 
 ---
