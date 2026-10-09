@@ -22,7 +22,7 @@ import BaseLayout from '@layouts/BaseLayout.astro'
 import { normalizeCharacterAliasKey } from '@lib/characterAliases'
 import { buildSitePayload } from '@lib/home/buildSitePayload'
 import { buildHomeUpdateSummary } from '@lib/home/updateSummary'
-import { listMissingSourceImages, resolveSourceImageByCommissionFileName } from '@lib/images/sourceImageRegistry'
+import { listMissingSourceImages, resolveSourceImageByCommissionId } from '@lib/images/sourceImageRegistry'
 import { normalizeKeywordAliasKey } from '@lib/keywordAliases'
 import { buildCommissionDataMap, buildCreatorAliasesMap } from '@lib/sitePayload'
 import { getImage } from 'astro:assets'
@@ -85,10 +85,8 @@ const suggestionAliasGroups = [
 ]
 const COMMISSION_IMAGE_SIZES = '(max-width: 768px) 92vw, 640px'
 
-const commissionFileNames = payload.commissionData.flatMap(character =>
-  character.Commissions.map(commission => commission.fileName),
-)
-const missingSourceImages = listMissingSourceImages(commissionFileNames)
+const commissions = payload.commissionData.flatMap(character => character.Commissions)
+const missingSourceImages = listMissingSourceImages(commissions)
 
 if (missingSourceImages.length > 0) {
   const message = `Missing source images for ${missingSourceImages.length} commissions: ${missingSourceImages.join(', ')}`
@@ -103,11 +101,11 @@ if (missingSourceImages.length > 0) {
 
 const firstCharacterName
   = payload.characterStatus.active[0]?.DisplayName ?? payload.characterStatus.archived[0]?.DisplayName
-const firstCommissionFileName = firstCharacterName
-  ? commissionMap.get(firstCharacterName)?.Commissions?.[0]?.fileName
+const firstCommission = firstCharacterName
+  ? commissionMap.get(firstCharacterName)?.Commissions?.[0]
   : undefined
-const firstSourceImage = firstCommissionFileName
-  ? resolveSourceImageByCommissionFileName(firstCommissionFileName)
+const firstSourceImage = firstCommission
+  ? resolveSourceImageByCommissionId(firstCommission.id)
   : null
 
 const priorityImage = firstSourceImage

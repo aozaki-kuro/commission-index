@@ -7,7 +7,7 @@ product context is `PRODUCT.md`.
 
 - Static output only. `generated/*` is the only fact source; never read SQLite or `data/images/*`.
 - Fact-source schema v3: `publicId` is the identity for anchors, search, RSS and update summaries. Integer `id` is internal only.
-- Never parse `fileName` for metadata or identity. It is only the local source-image mapping key.
+- Never parse `fileName` for metadata or identity. Source images resolve only by integer `id` through the generated manifest (exact match); a missing image renders as missing, never a neighbouring file.
 - Multi-part works (`workGroupId`/`partNumber`) stay separate; lists, search and RSS keep every numbered non-preview part.
 - The exporter derives legacy preview markers from filenames. Web aggregation consumes the explicit `legacySeriesKind`/`seriesOrder` fields and never parses `fileName`.
 - Reject stale, duplicate-ID or malformed generated input at the read boundary, not deeper in the pipeline.

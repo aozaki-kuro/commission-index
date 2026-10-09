@@ -3,7 +3,7 @@ import type { Commission } from '@data/types'
 import IllustratorInfo from '@features/home/commission/IllustratorInfo.astro'
 import ProtectedCommissionImage from '@features/home/commission/ProtectedCommissionImage.astro'
 import { getHomeLocaleMessages, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
-import { resolveSourceImageByCommissionFileName } from '@lib/images/sourceImageRegistry'
+import { resolveSourceImageByCommissionId } from '@lib/images/sourceImageRegistry'
 import {
   buildCommissionSearchDomKey,
   buildCommissionSearchMetadata,
@@ -58,7 +58,7 @@ const legacyAnchorIds = new Set<string>()
     const altText = year
       ? `© ${year} ${copyrightCreator} & Crystallize`
       : `${copyrightCreator} & Crystallize`
-    const sourceImage = resolveSourceImageByCommissionFileName(commission.fileName)
+    const sourceImage = resolveSourceImageByCommissionId(commission.id)
     const elementId = `${entryAnchorPrefix}-commission-${commission.publicId}`
     const searchKey = buildCommissionSearchDomKey(entryAnchorPrefix, commission.publicId)
     const legacyAnchorId = compactDate ? `${entryAnchorPrefix}-${compactDate}` : ''
