@@ -21,6 +21,10 @@ export {
   normalizeCharacterAliasName,
   parseCharacterAliasesJson,
 } from './characterAliases'
+export {
+  getLatestCommissionDate,
+  isFutureCommissionDate,
+} from './commissionDate'
 export type {
   BuildCommissionSearchMetadataInput,
   CommissionSearchMetadata,

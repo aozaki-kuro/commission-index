@@ -1,4 +1,5 @@
 import {
+  isFutureCommissionDate,
   normalizeAliases,
   normalizeCharacterAliases,
   normalizeCharacterAliasKey,
@@ -157,6 +158,9 @@ function normalizeCommissionMutation(input: {
   const date = new Date(`${commissionDate}T00:00:00Z`)
   if (date.toISOString().slice(0, 10) !== commissionDate) {
     throw new Error('Commission date must be a real calendar date.')
+  }
+  if (isFutureCommissionDate(commissionDate, new Date())) {
+    throw new Error('Commission date cannot be in the future.')
   }
 
   const rawWorkGroupId = input.workGroupId?.trim().toLowerCase() || null

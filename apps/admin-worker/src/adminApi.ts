@@ -1,4 +1,5 @@
 import type { D1DatabaseLike } from './adminPersistence'
+import { isFutureCommissionDate } from '../../../packages/domain/src/index'
 import { handleAdminReadRequest } from './adminData'
 import {
   createCharacter as persistCharacterCreate,
@@ -254,6 +255,9 @@ function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' |
   const parsedDate = new Date(`${date}T00:00:00Z`)
   if (Number.isNaN(parsedDate.valueOf()) || parsedDate.toISOString().slice(0, 10) !== date) {
     return 'Commission date must be a real calendar date.'
+  }
+  if (isFutureCommissionDate(date, new Date())) {
+    return 'Commission date cannot be in the future.'
   }
 
   if (fields.creatorName && [...fields.creatorName].some(character => character.charCodeAt(0) <= 0x1F)) {

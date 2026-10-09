@@ -158,6 +158,9 @@ assume any key layout: `object_key` is opaque, and historical keys are simply re
 - Validation precedes bindings for mutations, and `IMAGES` precedes the ID check for the
   source-image `GET`, so a `503` can mask a `400` and vice versa.
 - `PATCH /commissions/:id` returns `200` even when nothing changed.
+- Dates after today in UTC+14 are rejected on create and `PATCH`. Because `PATCH` re-validates the
+  whole body, an old row with a future `commissionDate` fails every metadata edit (`400`) until the
+  date is corrected (AR "Commission fields").
 - After an ambiguous failure (timeout, dropped connection) on a mutation, re-read
   (`/bootstrap` or `/characters/:id/commissions`) instead of retrying blindly.
 

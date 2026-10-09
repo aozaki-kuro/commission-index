@@ -328,7 +328,7 @@ curl -X DELETE https://admin.crystallize.cc/api/admin/characters/3
 | Field                   | Rule                                                                                                                                                  |
 | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `characterId`           | Required; finite number > 0; must reference an existing character                                                                                     |
-| `commissionDate`        | Required; real calendar date `YYYY-MM-DD`                                                                                                             |
+| `commissionDate`        | Required; real calendar date `YYYY-MM-DD`, not later than today's date in UTC+14 at request time (see below)                                          |
 | `creatorName`           | Form: send empty string when unknown. JSON (`PATCH`): required, string or `null`. Trimmed; empty stores `null`; control characters (<= 0x1F) rejected |
 | `workGroupId`           | `null`/empty for standalone works, else a lowercase UUID v4 (input is trimmed and lowercased), or the sentinel `new`                                  |
 | `partNumber`            | Positive integer; must be set if and only if `workGroupId` is set                                                                                     |
@@ -344,7 +344,14 @@ group only expresses grouping and order. `fileName` is never accepted from calle
 Validation errors (`400`): `Character selection is required.`, `Commission date must use
 YYYY-MM-DD format.`, `Commission date must be a real calendar date.`, `Creator name must be a
 string or null.`, `Work group and part number must be set together.`, `Work group must be a
-lowercase UUID v4.`, `Part number must be a positive integer.`
+lowercase UUID v4.`, `Part number must be a positive integer.`, `Commission date cannot be in the future.`
+
+**Future dates.** `commissionDate` is rejected when it is later than the current calendar date in
+UTC+14 (`packages/domain/src/commissionDate.ts`). This is an owner-approved assumption: the UTC+14
+date is the latest possible "today" anywhere, so no legitimate same-day entry is blocked. It
+applies to create and to every `PATCH`. Because `PATCH` re-validates the whole body, an existing
+row with a future date fails any metadata edit until its `commissionDate` is corrected to a past or
+current date.
 
 ### `POST /api/admin/commissions`
 

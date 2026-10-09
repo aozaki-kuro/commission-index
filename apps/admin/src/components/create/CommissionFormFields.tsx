@@ -1,5 +1,6 @@
 import type { ChangeEvent, ComponentPropsWithoutRef, ReactNode, RefObject } from 'react'
 import type { CommissionWorkGroupOption } from '../../lib/commissionWorkGroups'
+import { isFutureCommissionDate } from '@commission-index/domain'
 import * as Popover from '@radix-ui/react-popover'
 import { IconCalendar, IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 import { useRef, useState } from 'react'
@@ -89,6 +90,17 @@ function buildCalendarDates(month: Date) {
 
 function isValidIsoDate(value: string) {
   return parseIsoDate(value) !== null
+}
+
+// Mirrors the worker rule so the error shows before submit; the worker stays authoritative.
+function getCommissionDateValidityMessage(value: string) {
+  if (!value) {
+    return ''
+  }
+  if (!isValidIsoDate(value)) {
+    return 'Enter a real date in YYYY-MM-DD format.'
+  }
+  return isFutureCommissionDate(value, new Date()) ? 'Commission date cannot be in the future.' : ''
 }
 
 type InputBinding = Pick<ComponentPropsWithoutRef<'input'>, 'value' | 'onChange'>
@@ -244,9 +256,7 @@ export function CommissionDateField({
 
   const handleDateInput = (event: ChangeEvent<HTMLInputElement>) => {
     const nextValue = event.target.value
-    event.target.setCustomValidity(
-      nextValue && !isValidIsoDate(nextValue) ? 'Enter a real date in YYYY-MM-DD format.' : '',
-    )
+    event.target.setCustomValidity(getCommissionDateValidityMessage(nextValue))
     onChange?.(nextValue)
   }
 
@@ -271,9 +281,7 @@ export function CommissionDateField({
           onChange={handleDateInput}
           onBlur={(event) => {
             event.currentTarget.setCustomValidity(
-              event.currentTarget.value && !isValidIsoDate(event.currentTarget.value)
-                ? 'Enter a real date in YYYY-MM-DD format.'
-                : '',
+              getCommissionDateValidityMessage(event.currentTarget.value),
             )
           }}
           className={`${metadataControlStyles} min-w-0 rounded-r-none border-r-0`}
@@ -282,7 +290,7 @@ export function CommissionDateField({
         <CommissionDatePicker
           value={value}
           onSelect={(dateValue) => {
-            dateInputRef.current?.setCustomValidity('')
+            dateInputRef.current?.setCustomValidity(getCommissionDateValidityMessage(dateValue))
             onChange?.(dateValue)
           }}
         />
