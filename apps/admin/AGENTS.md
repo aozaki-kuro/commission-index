@@ -13,12 +13,14 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 - `src/lib/websiteRebuild.ts` — shared rebuild request/pending state; `src/lib/pendingRebuildSignal.ts` — pending flag + revision
 - `src/components/FloatingNotice.tsx` — Portal notices kept out of form flow
 - `src/components/image/ImageCropDialog.tsx`, `ImageCropWorkspace.tsx` (Cropper.js bridge), `src/lib/imageCrop.ts` (geometry authority)
+- `src/components/image/LazyImageCropDialog.tsx` — the only entry point forms may use for the crop dialog (loads the cropper chunk on first pick)
 - `src/components/ui/dialog.tsx` — shared Radix dialog (`alert` / `crop` / `default` / `sheet` variants)
 - `KeywordReplacePopover.tsx` keeps its filename but is a Dialog
 
 ## Source Image Editing
 
 - Create and replacement uploads share `ImageCropDialog`; keep both entry points aligned.
+- Heavy dialogs such as the cropper stay lazy: forms import `LazyImageCropDialog`, never `ImageCropDialog` directly. A static import drags cropperjs into the create/edit chunk. Its failures are shown as a dismissable error notice, and failed loads are not cached so the next pick retries.
 - Output is a single `1280×525 image/jpeg` (transparent pixels flattened onto white; warn on upscaling). The frame ratio is fixed but its edges are resizable; rotation is continuous, not 90° steps.
 - `imageCrop.ts`, not Cropper.js bounding boxes, decides whether a rotated image covers every crop corner (including the 2px bleed).
 - No scale-based opening animation on the crop Dialog: the workspace measures its container on mount.

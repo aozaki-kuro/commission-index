@@ -31,7 +31,7 @@ import { CommissionSharedFields } from '../create/CommissionSharedFields'
 import { DuplicateCommissionNotice } from '../create/DuplicateCommissionNotice'
 import { FloatingNotice } from '../FloatingNotice'
 import { FormStatusIndicator } from '../FormStatusIndicator'
-import { ImageCropDialog } from '../image/ImageCropDialog'
+import { LazyImageCropDialog } from '../image/LazyImageCropDialog'
 import { SubmitButton } from '../SubmitButton'
 
 interface CommissionEditFormProps {
@@ -352,7 +352,7 @@ export function CommissionEditForm({
 
       {pendingCropFile
         ? (
-            <ImageCropDialog
+            <LazyImageCropDialog
               key={`${pendingCropFile.name}:${pendingCropFile.lastModified}`}
               file={pendingCropFile}
               onCancel={handleCropCancel}
