@@ -9,6 +9,7 @@
     "build:astro": "astro build",
     "check:astro": "astro check .",
     "dev": "pnpm run fact-source:sync-images && NODE_ENV=development astro dev",
+    "dev:offline": "NODE_ENV=development astro dev",
     "build": "astro build",
     "check": "astro check .",
     "preview": "pnpm run fact-source:export && astro build --clean && astro preview",

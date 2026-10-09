@@ -12,3 +12,8 @@
 ## syncMissingSourceImages.ts
 
 Reads the manifest only (no D1). Downloads by `objectKey`, validates and writes at `generated/<relativePath>`.
+
+## writeOfflineFactSource.ts
+
+Writes the empty `databaseBinding: fixture` snapshot for offline web visual tests. Refuses to overwrite a
+non-fixture snapshot; mirrors the CI fixture shape in `.github/workflows/ci.yml`.
