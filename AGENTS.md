@@ -280,6 +280,8 @@ curl -I https://<your-domain>/api/admin/bootstrap
 - Search UI must be layout-stable on first paint — no shell-to-content swaps
 - Production search index: `/search/home-search-entries.json` (not DOM metadata)
 - Search locale labels resolve from `homeSearchControls.ts` (not the full `homeLocale` graph)
+- JS `\b` is ASCII-only: never wrap user search terms in `\b…\b`; strict matching adds a boundary only on
+  sides with an ASCII word char, so CJK/kana terms match as substrings.
 
 ### Images
 

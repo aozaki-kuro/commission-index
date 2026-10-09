@@ -81,6 +81,8 @@ const PREVIEW_PART_SUFFIX_PATTERN = /\s*\((preview|part).*?\)$/i
 const escapeRegExp = (s: string) => s.replace(ESCAPE_REGEXP_PATTERN, '\\$&')
 const normalizeSuggestionMatchToken = (term: string) => normalize(term).replace(SUGGESTION_MATCH_TOKEN_PATTERN, '')
 const indexedTermPattern = /^[a-z0-9_]+$/
+const ASCII_WORD_START_PATTERN = /^\w/
+const ASCII_WORD_END_PATTERN = /\w$/
 const MAX_QUERY_CACHE_SIZE = 300
 const MAX_PARSED_QUERY_CACHE_SIZE = 300
 const BASE_SEARCH_FUSE_OPTIONS = {
@@ -202,7 +204,11 @@ function getStrictTermMatches<T extends SearchEntryLike>(index: SearchIndexLike<
     return result
   }
 
-  const pattern = new RegExp(`\\b${escapeRegExp(term)}\\b`, 'i')
+  // JS \b is ASCII-only, so a term side without an ASCII word character (e.g. CJK/kana) gets no
+  // boundary there; those scripts have no word separators, so a substring match is the intent.
+  const leadingBoundary = ASCII_WORD_START_PATTERN.test(term) ? '\\b' : ''
+  const trailingBoundary = ASCII_WORD_END_PATTERN.test(term) ? '\\b' : ''
+  const pattern = new RegExp(`${leadingBoundary}${escapeRegExp(term)}${trailingBoundary}`, 'i')
   const matches = new Set(
     index.entries.filter(entry => pattern.test(entry.searchText)).map(entry => entry.id),
   )

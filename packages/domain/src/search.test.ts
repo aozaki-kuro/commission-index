@@ -92,6 +92,44 @@ describe('search strict matching', () => {
   })
 })
 
+describe('search strict matching with CJK terms', () => {
+  const entries: Entry[] = [
+    { id: 1, searchText: 'kanaut nishe 七市画伯' },
+    { id: 2, searchText: 'kanaut nishe ナナシ' },
+    { id: 3, searchText: 'kanaut nishe ななし' },
+    { id: 4, searchText: 'kanaut nishe lucia' },
+    { id: 5, searchText: 'vtuber七市' },
+    { id: 6, searchText: 'kanaut nisheline' },
+  ]
+  const index = buildStrictIndex(entries)
+
+  it('excludes CJK/kana terms in a combined query', () => {
+    expect(sortedIds(getMatchedEntryIds('"Kanaut Nishe" !Lucia !七市', index))).toEqual([2, 3])
+    expect(sortedIds(getMatchedEntryIds('"Kanaut Nishe" !ナナシ !ななし', index))).toEqual([1, 4])
+  })
+
+  it('intersects CJK terms with English terms and matches CJK substrings', () => {
+    expect(sortedIds(getMatchedEntryIds('kanaut 七市', index))).toEqual([1])
+    expect(sortedIds(getMatchedEntryIds('七市', index))).toEqual([1, 5])
+    expect(sortedIds(getMatchedEntryIds('画伯', index))).toEqual([1])
+    expect(sortedIds(getMatchedEntryIds('vtuber七市', index))).toEqual([5])
+  })
+
+  it('keeps ASCII word boundaries for non-indexed multi-word terms', () => {
+    expect(sortedIds(getMatchedEntryIds('"kanaut nishe"', index))).toEqual([1, 2, 3, 4])
+  })
+
+  it('applies CJK exclusion on the strict path without falling back to fuse', () => {
+    const fuse = {
+      search: vi.fn(() => entries.map(item => ({ item }))),
+    } as unknown as Fuse<Entry>
+    const warmed = buildStrictIndex(entries, fuse)
+
+    expect(sortedIds(getMatchedEntryIds('"kanaut nishe" !七市', warmed))).toEqual([2, 3, 4])
+    expect(fuse.search).not.toHaveBeenCalled()
+  })
+})
+
 describe('search index cache', () => {
   it('reuses the index object for the same entries array and falls back to fuzzy search on a strict miss', () => {
     const entries: Entry[] = [{ id: 1, searchText: 'lucia' }]

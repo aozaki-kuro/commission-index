@@ -1,5 +1,7 @@
 import type { CommissionSearchEntrySource } from './commissionSearchIndex'
 // @vitest-environment jsdom
+import { buildCommissionSearchMetadata } from '@commission-index/domain'
+import { getMatchedEntryIds } from '@lib/search/index'
 import { describe, expect, it } from 'vitest'
 import { buildSearchIndex } from './commissionSearchIndex'
 
@@ -17,6 +19,32 @@ function buildEntry({
     domKey,
     searchText: `entry-${id}`,
     searchSuggest,
+  }
+}
+
+function buildMetadataEntry({
+  id,
+  domKey,
+  characterName,
+  creatorName,
+}: {
+  id: number
+  domKey: string
+  characterName: string
+  creatorName: string
+}): CommissionSearchEntrySource {
+  const metadata = buildCommissionSearchMetadata({
+    characterName,
+    commissionDate: null,
+    creatorName,
+    creatorSearchTextMode: 'both',
+    creatorSuggestionMode: 'raw',
+  })
+  return {
+    id,
+    domKey,
+    searchText: metadata.searchText,
+    searchSuggest: metadata.searchSuggestionText,
   }
 }
 
@@ -100,5 +128,29 @@ describe('commissionSearchIndex', () => {
     expect(second.entries[0]?.sectionId).toBeUndefined()
     expect(second.entries[1]?.element).toBeInstanceOf(HTMLElement)
     expect(second.entries[1]?.sectionId).toBe('beta')
+  })
+})
+
+describe('commissionSearchIndex strict term matching across scripts', () => {
+  function buildIndex() {
+    return buildSearchIndex(
+      'character',
+      [
+        buildMetadataEntry({ id: 1, domKey: 'han', characterName: 'Kanaut Nishe', creatorName: '七市' }),
+        buildMetadataEntry({ id: 2, domKey: 'latin', characterName: 'Kanaut Nishe', creatorName: 'Lucia' }),
+        buildMetadataEntry({ id: 3, domKey: 'kana', characterName: 'Kanaut Nishe', creatorName: 'ナナシ' }),
+      ],
+      { skipDomContext: true },
+    )
+  }
+
+  it('excludes a CJK creator term in strict negation', () => {
+    const matched = getMatchedEntryIds('"Kanaut Nishe" !Lucia !七市', buildIndex())
+    expect(matched).toEqual(new Set([3]))
+  })
+
+  it('excludes a katakana creator term in strict negation', () => {
+    const matched = getMatchedEntryIds('"Kanaut Nishe" !ナナシ', buildIndex())
+    expect(matched).toEqual(new Set([1, 2]))
   })
 })
