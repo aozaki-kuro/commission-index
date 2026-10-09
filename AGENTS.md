@@ -31,7 +31,8 @@ pnpm run preview          # preview built web
 # Validate
 pnpm run lint             # ESLint (also lints Markdown), --max-warnings=0
 pnpm run lint:fix
-pnpm run check            # Astro type-check (.astro + TS)
+pnpm run check            # Astro type-check; Turbo runs fact-source:export first (remote D1/R2 read)
+# offline: pnpm -C apps/web exec astro check .  (uses the existing apps/web/generated/)
 pnpm run typecheck        # TS check all workspaces via Turbo
 
 # Test
@@ -63,7 +64,8 @@ apps/web            Astro 7 static site — public runtime (crystallize.cc)
 apps/admin          React 19 + Vite 8 SPA — admin UI (admin.crystallize.cc)
 apps/admin-worker   Cloudflare Worker — admin API, D1/R2 CRUD, asset serving
 packages/domain     Shared types and pure domain helpers; single export surface src/index.ts
-scripts/            Repo-level dev scripts (devAdminRemote.ts backs dev:admin)
+scripts/            Repo-level dev scripts (devAdminRemote.ts backs dev:admin; not covered by `typecheck`;
+                    its `adminPort` must match apps/admin/package.json `dev`)
 test/visual/        Committed cross-workspace Playwright baselines
 ```
 
@@ -123,6 +125,9 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   `data-stale-visibility` = stale group expanded; `data-stale-loaded` = deferred stale sections mounted.
 - Character/stale section templates must mount with the full entry list intact (no per-section entry lazy
   mounts above anchor targets)
+- **Soft navigation lifecycle:** `<ClientRouter />` never fires `pagehide` and runs bundled module scripts once.
+  Client islands mount via `bindSoftNavMount` (`@lib/astro/softNavMount`) on `astro:page-load` and dispose on
+  `astro:before-swap`; never mount from top-level module code
 - **Re-hydration on append:** batch DOM appended after first mount must re-hydrate / re-bind interactive
   controls — a single first-paint hydrate pass is not enough
 - **Hidden DOM + observers:** sections rendered with `display: none` must not be marked "entered viewport"
@@ -275,8 +280,9 @@ curl -I https://<your-domain>/api/admin/bootstrap
   仍作内部资产键并保留校验/持久化。日期/作者只能从显式字段读取，本地 `relativePath` 以该内部键映射，不能把远端 key
   当成本地路径
 - 旧 R2 布局（根 key / 作品目录 key）已清除且**不可回滚**；新代码不得按旧布局推测 key
-- `sourceImageRegistry.ts` maps the internal commission asset key to the generated image stem; user-visible
-  identity and search never parse that key
+- `sourceImageRegistry.ts` resolves a commission's image by integer `id` through the generated manifest only (exact
+  match, no filename/stem fallback); a missing image renders as missing. User-visible identity and search never parse
+  `fileName`
 - Listing widths: `768/960/1280`, sizes `(max-width: 768px) 92vw, 640px`
 
 ### 数据库迁移验证
