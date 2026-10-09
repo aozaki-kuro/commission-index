@@ -1,3 +1,4 @@
+import type { TimelineYearGroup } from '@commission-index/domain'
 import type { Commission } from '@data/types'
 import type {
   HomeTimelineBatchEntryPayload,
@@ -5,7 +6,6 @@ import type {
   HomeTimelineBatchSectionPayload,
 } from '@features/home/commission/batch/homeTimelineBatchPayload'
 import type { HomeLocale } from '@features/home/i18n/homeLocale'
-import type { TimelineYearGroup } from '@lib/commissions/timeline'
 import {
   COMMISSION_LINK_TEXT_CLASS,
   selectDisplayLinks,

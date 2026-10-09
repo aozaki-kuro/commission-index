@@ -11,7 +11,8 @@ export interface BuildCommissionSearchMetadataInput {
   characterName: string
   commissionDate: string | null
   creatorName: string | null
-  fileName: string
+  // Optional: admin search indexes the internal asset key, the public site does not (its identity is publicId).
+  fileName?: string
   design?: string | null
   description?: string | null
   keyword?: string | null
@@ -57,8 +58,8 @@ function resolveCreatorSearchTerms(
   return normalizedCreatorName ? [normalizedCreatorName] : []
 }
 
-export function buildCommissionSearchDomKey(sectionId: string, fileName: string) {
-  return `${sectionId}::${fileName}`
+export function buildCommissionSearchDomKey(sectionId: string, publicId: string) {
+  return `${sectionId}::${publicId}`
 }
 
 export function buildCommissionSearchMetadata({
@@ -84,7 +85,7 @@ export function buildCommissionSearchMetadata({
       ? (characterAliasesMap.get(characterAliasKey) ?? [])
       : []
   const rawCreatorName = creatorName?.trim() || null
-  const legacyIdentitySearchTerm = /^\d{8}(?:_|$)/.test(fileName) ? fileName : ''
+  const legacyIdentitySearchTerm = fileName && /^\d{8}(?:_|$)/.test(fileName) ? fileName : ''
   const normalizedCreatorName = rawCreatorName ? normalizeCreatorName(rawCreatorName) : null
   const creatorAliases
     = normalizedCreatorName && creatorAliasesMap
@@ -140,7 +141,7 @@ export function buildCommissionSearchMetadata({
       ...creatorSearchTerms,
       ...creatorAliases,
       ...searchableDateTerms,
-      legacyIdentitySearchTerm,
+      ...(legacyIdentitySearchTerm ? [legacyIdentitySearchTerm] : []),
       design ?? '',
       description ?? '',
       keywordSearchText,

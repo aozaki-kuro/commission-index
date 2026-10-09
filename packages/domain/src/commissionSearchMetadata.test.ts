@@ -19,6 +19,8 @@ describe('commissionSearchMetadata', () => {
       expect(metadata.searchText).toContain('date_ym_2024_02')
       expect(metadata.searchText).toContain('blue')
       expect(metadata.searchText).toContain('dragon')
+      expect(metadata.searchSuggestionText).toContain('Date\t2024/02')
+      expect(metadata.searchSuggestionText).toContain('Creator\tArtist Name')
     })
 
     it('includes design and description in search text', () => {

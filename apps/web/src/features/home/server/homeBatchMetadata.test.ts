@@ -1,5 +1,5 @@
 import type { CharacterCommissions, Commission } from '@data/types'
-import { buildTimelineYearNavItem } from '@lib/commissions/timeline'
+import { buildTimelineYearNavItem } from '@commission-index/domain'
 import { describe, expect, it, vi } from 'vitest'
 import { buildHomeCharacterBatchPayload } from './homeCharacterBatchPayload'
 import { buildHomeTimelineBatchPayload } from './homeTimelineBatchPayload'
