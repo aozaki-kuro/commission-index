@@ -120,22 +120,27 @@ const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
 </div>
 
 <script>
+import { bindSoftNavMount } from '@lib/astro/softNavMount'
+
 const CONFIRMED_AGE_KEY = 'hasConfirmedAge'
 const AGE_CONFIRM_DURATION = 30 * 24 * 60 * 60 * 1000
 const AGE_CONFIRM_EVENT = 'age-confirm-changed'
 const AGE_GATE_STATE_EVENT = 'age-gate-state-change'
 const LIGHTHOUSE_USER_AGENT_TOKEN = 'lighthouse'
 
-const root = document.querySelector<HTMLElement>('[data-age-gate-root]')
-const overlay = root?.querySelector<HTMLElement>('[data-age-gate-overlay]')
-const panel = root?.querySelector<HTMLElement>('[data-age-gate-panel]')
-const confirmButton = root?.querySelector<HTMLButtonElement>('[data-age-gate-confirm]')
-const leaveButton = root?.querySelector<HTMLButtonElement>('[data-age-gate-leave]')
+// Elements are queried per mount: after a soft navigation the old nodes are gone.
+function mountAgeGate(): (() => void) | null {
+  const root = document.querySelector<HTMLElement>('[data-age-gate-root]')
+  const overlay = root?.querySelector<HTMLElement>('[data-age-gate-overlay]')
+  const panel = root?.querySelector<HTMLElement>('[data-age-gate-panel]')
+  const confirmButton = root?.querySelector<HTMLButtonElement>('[data-age-gate-confirm]')
+  const leaveButton = root?.querySelector<HTMLButtonElement>('[data-age-gate-leave]')
 
-if (!root || !overlay || !panel || !confirmButton || !leaveButton) {
-  console.warn('[age-gate] root elements are missing')
-}
-else {
+  if (!root || !overlay || !panel || !confirmButton || !leaveButton) {
+    console.warn('[age-gate] root elements are missing')
+    return null
+  }
+
   let hasOpened = false
   let isOpen = false
   const originalHtmlOverflow = document.documentElement.style.overflow
@@ -255,19 +260,17 @@ else {
   document.addEventListener('keydown', onKeyDown)
   syncOpenState()
 
-  window.addEventListener(
-    'pagehide',
-    () => {
-      confirmButton.removeEventListener('click', onConfirmAge)
-      leaveButton.removeEventListener('click', onLeave)
-      window.removeEventListener('storage', onStorage)
-      window.removeEventListener(AGE_CONFIRM_EVENT, syncOpenState)
-      document.removeEventListener('keydown', onKeyDown)
-      delete document.documentElement.dataset.ageGateOpen
-      document.documentElement.style.overflow = originalHtmlOverflow
-      document.body.style.overflow = originalBodyOverflow
-    },
-    { once: true },
-  )
+  return () => {
+    confirmButton.removeEventListener('click', onConfirmAge)
+    leaveButton.removeEventListener('click', onLeave)
+    window.removeEventListener('storage', onStorage)
+    window.removeEventListener(AGE_CONFIRM_EVENT, syncOpenState)
+    document.removeEventListener('keydown', onKeyDown)
+    delete document.documentElement.dataset.ageGateOpen
+    document.documentElement.style.overflow = originalHtmlOverflow
+    document.body.style.overflow = originalBodyOverflow
+  }
 }
+
+bindSoftNavMount(mountAgeGate)
 </script>
