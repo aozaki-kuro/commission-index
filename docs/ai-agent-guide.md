@@ -39,8 +39,7 @@ Any non-ok response, 4xx included, throws and is retried.
 - The only validation applied to the asset key (`getSourceImageFileNameValidationError`): non-empty,
   at most 180 characters, no `/`, `\`, `..`, or control characters. Legacy file-name conventions
   (`YYYYMMDD_creator`, CJK handling, forbidden-character lists) are **not enforced** and must not
-  be used to derive date, creator, or identity. `packages/domain/src/commissionFileName.ts` still
-  exists but the worker does not use it.
+  be used to derive date, creator, or identity.
 - `GET .../source-image` resolves by commission `id` through `source_images.commission_id`, and
   falls back to `source_images.commission_file_name = commissions.file_name`. A missing row means
   no image (404); nothing is probed in the bucket.
