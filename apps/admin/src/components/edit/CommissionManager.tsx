@@ -78,6 +78,7 @@ export function CommissionManager({
   const staleCharacterIdsRef = useRef(new Set<number>())
   const loadVersionsRef = useRef(new Map<number, number>())
   const previousSearchRowsRef = useRef(commissionSearchRows)
+  const commissionSearchRowsRef = useRef(commissionSearchRows)
   const cancelDeleteButtonRef = useRef<HTMLButtonElement | null>(null)
   const deleteReturnFocusRef = useRef<HTMLElement | null>(null)
   const {
@@ -255,6 +256,7 @@ export function CommissionManager({
   }, [characters, loadCharacterCommissions])
 
   useEffect(() => {
+    commissionSearchRowsRef.current = commissionSearchRows
     if (previousSearchRowsRef.current !== commissionSearchRows) {
       previousSearchRowsRef.current = commissionSearchRows
       refreshLoadedGroups()
@@ -262,11 +264,13 @@ export function CommissionManager({
   }, [commissionSearchRows, refreshLoadedGroups])
 
   const updateSearchRow = useCallback((id: number, row: CommissionRow | null) => {
+    // Save callbacks can outlive the render that created them; bind the overlay to the latest rows.
+    const base = commissionSearchRowsRef.current
     setSearchUpdates(previous => ({
-      base: commissionSearchRows,
-      rows: new Map(previous.base === commissionSearchRows ? previous.rows : []).set(id, row),
+      base,
+      rows: new Map(previous.base === base ? previous.rows : []).set(id, row),
     }))
-  }, [commissionSearchRows])
+  }, [])
 
   const handleToggle = useCallback((characterId: number) => {
     const isOpening = !openIds.has(characterId)

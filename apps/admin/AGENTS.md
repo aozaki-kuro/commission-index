@@ -32,7 +32,7 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 
 - Never infer a work-group relationship from matching artist/date/character/link; only explicit selection changes it. Part is a low-frequency opt-in: unchecking stops submitting the number, re-checking restores the draft.
 - Show the 7-char short ID (`formatCommissionPublicId`) for display only; keep the full UUID in title/accessible name, never use truncated text as identity or API key. The edit dialog shows it once in the header character row, not in a truncatable title.
-- Unknown creators display as `Anon`; send an empty `creatorName` for unknown.
+- Unknown creators display as `Anon`; create sends an empty `creatorName` for unknown, while the edit PATCH sends `null` (`adminActions.ts`).
 - Date picker: opening focuses the selected date (today if empty/invalid) without changing the value; recompute local today on each open/select so it survives midnight.
 - Mutations are single-attempt unless the API adds an idempotency contract.
 - Create form auto-reset applies only on business success; failures keep file and field drafts, and an invalid file never replaces a previously confirmed image.
