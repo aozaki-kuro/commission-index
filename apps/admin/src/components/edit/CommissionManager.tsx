@@ -35,6 +35,7 @@ import { DropIndicator } from '../DropIndicator'
 import { FloatingNotice } from '../FloatingNotice'
 import { CharacterDeleteDialog } from './CharacterDeleteDialog'
 import { CommissionEditDrawer } from './CommissionEditDrawer'
+import { CommissionThumbnail } from './CommissionThumbnailGrid'
 import { KeywordReplacePopover } from './KeywordReplacePopover'
 import { CharacterCardSkeleton, SortableCharacterCard } from './SortableCharacterCard'
 import { SortableDivider } from './SortableDivider'
@@ -544,22 +545,31 @@ export function CommissionManager({
                   aria-label={`${row.characterName} · ${getCommissionAccessibleLabel(row)}`}
                   aria-busy={pendingCommissionId === row.id && loadingCharacterIds.has(row.characterId)}
                   onClick={() => handleSearchResultSelect(row.id, row.characterId)}
-                  className="flex min-h-16 w-full min-w-0 flex-col items-start justify-center gap-1 rounded-xl border border-gray-200 bg-white px-4 py-3 text-left transition hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:border-gray-700 dark:bg-gray-900/40 dark:hover:bg-gray-800"
+                  className="group flex min-h-16 w-full min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white p-2 text-left transition hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:border-gray-700 dark:bg-gray-900/40 dark:hover:bg-gray-800"
                 >
-                  <span className="w-full truncate text-sm font-medium text-gray-800 dark:text-gray-100">
-                    {row.characterName}
-                    {' · '}
-                    {row.commissionDate || 'Undated'}
-                    {' · '}
-                    {row.creatorName?.trim() || 'Anon'}
+                  <span className="w-28 shrink-0 overflow-hidden rounded-md sm:w-40">
+                    <CommissionThumbnail
+                      commissionId={row.id}
+                      alt={`Source image for ${row.characterName} · ${getCommissionAccessibleLabel(row)}`}
+                      isEnabled
+                    />
                   </span>
-                  <span className="w-full truncate text-xs text-gray-500 dark:text-gray-400">
-                    {pendingCommissionId === row.id && loadingCharacterIds.has(row.characterId)
-                      ? 'Loading commission…'
-                      : pendingCommissionId === row.id && loadErrors.has(row.characterId)
-                        ? `Could not load: ${loadErrors.get(row.characterId)} — click to retry`
-                        : row.design?.trim() || `#${formatCommissionPublicId(row.publicId)}`}
-                    {row.partNumber ? ` · Part ${row.partNumber}` : ''}
+                  <span className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="w-full truncate text-sm font-medium text-gray-800 dark:text-gray-100">
+                      {row.characterName}
+                      {' · '}
+                      {row.commissionDate || 'Undated'}
+                      {' · '}
+                      {row.creatorName?.trim() || 'Anon'}
+                    </span>
+                    <span className="w-full truncate text-xs text-gray-500 dark:text-gray-400">
+                      {pendingCommissionId === row.id && loadingCharacterIds.has(row.characterId)
+                        ? 'Loading commission…'
+                        : pendingCommissionId === row.id && loadErrors.has(row.characterId)
+                          ? `Could not load: ${loadErrors.get(row.characterId)} — click to retry`
+                          : `#${formatCommissionPublicId(row.publicId)}`}
+                      {row.partNumber ? ` · Part ${row.partNumber}` : ''}
+                    </span>
                   </span>
                 </button>
               ))}
