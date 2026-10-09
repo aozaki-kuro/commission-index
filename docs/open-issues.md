@@ -7,7 +7,7 @@
 - **搜索聚焦仍预取全部 active 批次**：`commissionSearchController.ts:269-306` 聚焦即 `prefetchHomeCharacterBatches` 到最后一批（`batchRequestQueue.ts` 已限并发 4，但请求总数仍随角色数增长）。收口：只预取首批或固定窗口，先测聚焦到首结果的请求数与耗时。
 - **web 内残留 domain 的分叉副本**：`apps/web/src/lib/search/commissionSearchMetadata.ts`、`apps/web/src/lib/commissions/timeline.ts` 仍被 `homeCharacterBatchPayload.ts`、`buildSitePayload.ts` 等引用；domain 版 DOM key 用 `fileName`，web 版用 `publicId`。收口：先确认公站 DOM 依赖哪个键，再让 web 改用 `@commission-index/domain` 并删副本。
 - **`packages/domain/src/search.ts`（约 25 KB）无测试**：同目录仅别名、文件名、日期、时间线、元数据有测试。收口：补前缀匹配、and/or/否定、缓存淘汰用例。
-- **软导航后客户端岛失效（P1-P3）**：`softNavMount.ts` 尚未被任何文件引用；`CommissionSearchIsland.astro:464`、`AgeGateScript.astro:259`、`CommissionImageNoticeScript.astro:47` 仍是一次性挂载 + `pagehide`。见 `audit-2026-10-05-web-architecture.md` WS1。
+- **软导航后客户端岛失效（P1-P3）**：半成品修法（`softNavMount.ts`）已于 2026-10-09 删除，bug 本身仍在；`CommissionSearchIsland.astro:464`、`AgeGateScript.astro:259`、`CommissionImageNoticeScript.astro:47` 仍是一次性挂载 + `pagehide`。见 `audit-2026-10-05-web-architecture.md` WS1。
 - **图片模糊回退可能挂错图（P4）**：`sourceImageRegistry.ts:139-166` `resolveStemByFallback` 仍在，`resolveSourceImageStem` 仍调用它。见同文档 WS2。
 
 ## Admin
@@ -26,7 +26,7 @@
 
 - **发布管线两份手工副本**：`ci.yml` 的 web job 与 `rebuild.yml` 都实现 导出 → revision → astro check → 部署 → dist 哈希。收口：抽 `workflow_call` 或复合 action，不改互斥与过期候选语义。
 - **CI 不缓存源图片（PERF-06）**：`.github/actions/setup/action.yml` 只缓存 pnpm store，两个 workflow 均无图片缓存，增量复用无法跨运行。收口：仅缓存图片输入、仍按 D1 hash/size 校验；缓存体积大于下载成本则放弃。
-- **发布结果无反馈（P6）**：`websiteRebuild.ts` 收到 204 即 `clearPendingRebuild`；`build-info.json.ts`（未跟踪）无任何消费方。见 WS4。
+- **发布结果无反馈（P6）**：`websiteRebuild.ts` 收到 204 即 `clearPendingRebuild`；半成品 `build-info.json.ts` 已删除，后台侧也未做。见 WS4。
 - **`scripts/devAdminRemote.ts:151`** 仅检查 worker 端口，未检查 4174；失败日志不区分崩溃与启动中。
 
 ## Verification gaps
