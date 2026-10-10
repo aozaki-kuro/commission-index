@@ -1,3 +1,4 @@
+import { SiteMeta } from '@config/siteMeta'
 import { getHomeLocaleMessages } from '@features/home/i18n/homeLocale'
 import { describe, expect, it } from 'vitest'
 
@@ -18,5 +19,21 @@ describe('homeLocale archived summary formatter', () => {
     expect(messages.controls.formatCollapsedArchivedSummary(1, 1)).toBe(
       '1 Archived Character / 1 commission',
     )
+  })
+})
+
+describe('homeLocale document metadata', () => {
+  it.each(['en', 'zh-tw', 'ja'] as const)('defines non-empty %s title and description', (locale) => {
+    const { meta } = getHomeLocaleMessages(locale)
+
+    expect(meta.title.trim()).not.toBe('')
+    expect(meta.description.trim()).not.toBe('')
+  })
+
+  it('keeps english metadata equal to the site defaults', () => {
+    const { meta } = getHomeLocaleMessages('en')
+
+    expect(meta.title).toBe(SiteMeta.site)
+    expect(meta.description).toBe(SiteMeta.description)
   })
 })

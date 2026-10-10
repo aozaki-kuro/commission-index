@@ -136,7 +136,13 @@ const resolvedCanonicalPath
   = canonicalPath ?? (resolvedLocale === 'en' ? '/' : `/${resolvedLocale}/`)
 ---
 
-<BaseLayout priorityImage={await priorityImage} lang={messages.lang} canonicalPath={resolvedCanonicalPath}>
+<BaseLayout
+  fullTitle={messages.meta.title}
+  description={messages.meta.description}
+  priorityImage={await priorityImage}
+  lang={messages.lang}
+  canonicalPath={resolvedCanonicalPath}
+>
   <style is:global slot="head">
     html[data-home-scroll-restoring='true'] [data-home-scroll-restore-shell='true'],
     html[data-home-hash-restoring='true'] [data-home-scroll-restore-shell='true'] {
