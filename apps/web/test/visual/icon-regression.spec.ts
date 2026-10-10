@@ -9,7 +9,15 @@ async function primeStableUiState(page: Page) {
   }, AGE_CONFIRM_KEY)
 }
 
+// The keyword chip row is filled and un-hidden by the search controller after hydration; screenshots taken
+// before that miss the chips.
+async function waitForKeywordChips(page: Page) {
+  await expect(page.locator('#search-popular-keywords')).not.toHaveClass(/invisible/)
+  await expect(page.locator('#search-keyword-list > li').first()).toBeVisible()
+}
+
 async function prepareStablePage(page: Page) {
+  await waitForKeywordChips(page)
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.addStyleTag({
     content: `
