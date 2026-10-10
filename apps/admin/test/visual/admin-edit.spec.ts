@@ -1,9 +1,9 @@
-import type { Buffer } from 'node:buffer'
 import { expect, test } from '@playwright/test'
 import {
   ADMIN_PROJECT_NAME,
   createTestSourceImage,
   getAdminPageContainer,
+  mockAdminApi,
   prepareStablePage,
   rotateCropImage,
   skipUnlessProject,
@@ -11,19 +11,7 @@ import {
 
 test('replacement source image is cropped before upload', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
-  let uploadBody: Buffer | null = null
-  let uploadContentType = ''
-
-  await page.route('**/api/admin/commissions/*/source-image', async (route) => {
-    const request = route.request()
-    uploadBody = request.postDataBuffer()
-    uploadContentType = request.headers()['content-type'] ?? ''
-    await route.fulfill({
-      body: JSON.stringify({ message: 'Test source image replaced.', status: 'success' }),
-      contentType: 'application/json',
-      status: 200,
-    })
-  })
+  const upload = await mockAdminApi(page)
 
   await page.goto('/edit')
   await page.getByRole('heading', { name: 'Existing commissions' }).waitFor()
@@ -52,13 +40,14 @@ test('replacement source image is cropped before upload', async ({ page }, testI
   await page.getByRole('button', { name: 'Use image' }).click()
   await expect(page.getByText('Test source image replaced.')).toBeVisible()
 
-  expect(uploadContentType).toContain('multipart/form-data; boundary=')
-  expect(uploadBody?.toString('latin1')).toContain('filename="replacement.jpg"')
-  expect(uploadBody?.toString('latin1')).toContain('Content-Type: image/jpeg')
+  expect(upload.sourceImageContentType).toContain('multipart/form-data; boundary=')
+  expect(upload.sourceImageBody?.toString('latin1')).toContain('filename="replacement.jpg"')
+  expect(upload.sourceImageBody?.toString('latin1')).toContain('Content-Type: image/jpeg')
 })
 
 test('edit page stays visually stable', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
+  await mockAdminApi(page)
   await page.goto('/edit')
   await page.getByRole('heading', { level: 1, name: 'Edit' }).waitFor()
   await prepareStablePage(page)
@@ -71,6 +60,7 @@ test('edit page stays visually stable', async ({ page }, testInfo) => {
 
 test('edit manager stays visually stable', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
+  await mockAdminApi(page)
   await page.goto('/edit')
   const managerSection = page.getByRole('heading', { name: 'Existing commissions' })
     .locator('..')
