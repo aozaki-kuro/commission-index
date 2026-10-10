@@ -1,5 +1,10 @@
 ---
 import type { ImageMetadata } from 'astro'
+import {
+  COMMISSION_IMAGE_SIZES,
+  COMMISSION_IMAGE_WIDTH,
+  COMMISSION_INLINE_IMAGE_WIDTHS,
+} from '@features/home/server/batchPayloadBuilder'
 import { Image } from 'astro:assets'
 
 interface ProtectedCommissionImageProps {
@@ -10,8 +15,6 @@ interface ProtectedCommissionImageProps {
 
 const { altText, sourceImage, priority = false } = Astro.props as ProtectedCommissionImageProps
 
-const COMMISSION_IMAGE_WIDTH = 1280
-const COMMISSION_IMAGE_SIZES = '(max-width: 768px) 92vw, 640px'
 ---
 
 <div
@@ -27,7 +30,7 @@ const COMMISSION_IMAGE_SIZES = '(max-width: 768px) 92vw, 640px'
   <Image
     src={sourceImage}
     alt={altText}
-    widths={[768, 1280]}
+    widths={COMMISSION_INLINE_IMAGE_WIDTHS}
     width={COMMISSION_IMAGE_WIDTH}
     format="webp"
     sizes={COMMISSION_IMAGE_SIZES}
