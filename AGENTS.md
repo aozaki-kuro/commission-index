@@ -20,35 +20,25 @@ Commission Index — a personal commission listing/indexing site. pnpm monorepo 
 # Dev
 pnpm run dev              # web Astro dev (localhost:4321); alias dev:web
 pnpm run dev:admin        # worker with remote D1/R2 (:8787), then admin Vite (:4174) once the API answers
-pnpm run dev:worker       # admin-worker only
 
-# Build / preview
+# Build
 pnpm run build            # build apps/web (fact-source export, then astro build)
 pnpm run build:all        # build web and admin workspaces
-pnpm run build:admin      # build admin only
-pnpm run preview          # preview built web
 
 # Validate
 pnpm run lint             # ESLint (also lints Markdown), --max-warnings=0
-pnpm run lint:fix
 pnpm run check            # Astro type-check; exports fact-source first (remote D1/R2 read)
 # offline: pnpm -C apps/web exec astro check .  (uses the existing apps/web/generated/)
 pnpm run typecheck        # TS check all workspaces (pnpm -r)
 
 # Test
 pnpm run test             # Vitest unit tests (all workspaces)
-pnpm run test:changed     # changed files only
 pnpm run test:visual      # cross-workspace Playwright visual regression
-pnpm run test:visual:update
 pnpm run test:admin-ui    # Playwright, admin frontend only (API fixtures, no Worker)
 
 # Data (remote, read-only on production metadata)
 pnpm run web:fact-source:export       # D1/R2 -> apps/web/generated/*
 pnpm run web:fact-source:sync-images  # fetch source images missing locally per manifest
-
-# Deploy (manual)
-pnpm run deploy:web
-pnpm run deploy:admin
 ```
 
 Never run pnpm commands that verify/relink dependencies in parallel in the same checkout (install, lint,
@@ -94,12 +84,7 @@ Admin features go in `apps/admin` + `apps/admin-worker`, never `apps/web`.
 ### Tech Stack
 
 - **Runtime:** Node 24 (mise) + pnpm 12 (new scripts use `.ts`, not `.mjs`, and must be type-checked)
-- **Build orchestration:** plain pnpm scripts（无任务运行器；web 构建/检查先导出一次 fact-source 快照）
 - **Public site:** Astro 7 + Tailwind CSS 4 (vanilla TS client behavior, no React on the client)
-- **Admin frontend:** React 19 + Vite 8 + Tailwind CSS + shadcn/ui
-- **Admin backend:** Cloudflare Worker + D1 (SQL) + R2 (images)
-- **Testing:** Vitest + Playwright (visual regression)
-- **Lint:** @antfu/eslint-config — single quotes, no semicolons, trailing commas, width 100
 
 ### Data Flow
 
@@ -112,58 +97,20 @@ Admin features go in `apps/admin` + `apps/admin-worker`, never `apps/web`.
 4. `exportedAt` 在 D1 快照读取之前采样（不参与 `revision`），因此 admin 能拒绝一份早于发布请求读取的快照
 5. `apps/web/wrangler.jsonc` carries read-only D1/R2 bindings for build-time export
 
-### Home Page Architecture (Astro-first)
+### Home Page Architecture
 
-Static markup is Astro templates. All client-side behavior uses Astro script components
-(`HomeClientScript.astro`) and vanilla TS modules.
-
-- **Deferred sections:** active/stale character sections and timeline use an inline manifest + external
-  batch JSON, lazy-loaded by script loaders
-- **Content-hashed batch filenames:** each batch file is named `<index>.<hash>.json`
-  (`/search/home-character-batches/<locale>/<status>/0.k3j9x.json`, timeline alike); the search index is
-  `/search/home-search-entries.<hash>.json`. The hash is djb2 (`lib/utils/hash.ts`) over the **final
-  serialized payload**, so editing one commission — or a localized message, or an alias — changes only the
-  affected bytes' filename. The manifest's `batchVersions` and the batch endpoint's path come from one
-  memoized builder (`features/home/server/homeCharacterBatchArtifacts.ts`, `homeTimelineBatchArtifacts.ts`),
-  and the manifest's `v` is the search-index version (`lib/pipeline/homeSearchEntries.ts`); they cannot
-  disagree. Batches and search entries are served `Cache-Control: immutable`, so unchanged data costs zero
-  requests.
-- **Stale-HTML manifest fallback:** the inline manifest in cached HTML can name a hashed file a deploy
-  deleted. On a hash-navigation miss, or on a batch/search-entries `404`, loaders fetch
-  `/search/home-character-manifest/<locale>.json` or `/search/home-timeline-manifest/<locale>.json`
-  (`Cache-Control: no-cache`) with cache-busting and retry once against the fresh `targetBatchById` /
-  `batchVersions` / `v`. Only fetched on the fallback path.
-- **DOM contracts:** `data-*` attributes drive search/nav/hash navigation — preserve attribute names.
-  `data-stale-visibility` = stale group expanded; `data-stale-loaded` = deferred stale sections mounted.
-- Character/stale section templates must mount with the full entry list intact (no per-section entry lazy
-  mounts above anchor targets)
-- **Soft navigation lifecycle:** `<ClientRouter />` never fires `pagehide` and runs bundled module scripts once.
-  Client islands mount via `bindSoftNavMount` (`@lib/astro/softNavMount`) on `astro:page-load` and dispose on
-  `astro:before-swap`; never mount from top-level module code
-- **Re-hydration on append:** batch DOM appended after first mount must re-hydrate / re-bind interactive
-  controls — a single first-paint hydrate pass is not enough
-- **Hidden DOM + observers:** sections rendered with `display: none` must not be marked "entered viewport"
-  by reveal/lazy observers; toggling visibility must re-scan
-- **Scroll stability:** never lazy-load content above an anchor target on the navigation path — browser
-  scroll restoration and lazy injection fight each other. Verify scroll position after expand/inject, not
-  just visibility
-- **Search index freshness:** the search rebuild snapshot key must include the batch mount count, not just
-  a `visible/loaded` boolean — otherwise newly injected DOM briefly shows unfiltered
-
-Update this section when manifest fields, batch/search hash inputs, the hashed filename builders,
-`_headers` cache policy for the search JSON / HTML, or deferred endpoints change.
+Deferred loading, content-hashed batch files, stale-HTML fallback, DOM contracts and the soft-navigation
+lifecycle are specified in `apps/web/AGENTS.md`; read it before touching the home page or its `/search/*` output.
 
 ### Admin Architecture
 
 - Worker owns all CRUD: character, commission, aliases, suggestions, source images
 - Production auth: Cloudflare Zero Trust (no worker-side auth)
-- Worker answers 503 when D1/R2 bindings are missing (`createMissingBindingResponses`)
 - `.mcp.json` registers the official shadcn MCP against `apps/admin/components.json` (registry lookup only). Admin uses relative imports and has no `@/*` tsconfig alias, so do not run `shadcn add` blindly — generated imports would not resolve
 
 ### Path Aliases (apps/web)
 
-`@layouts/*`, `@features/*`, `@components/*`, `@images/*`, `@data/*`, `@lib/*`, `@styles/*`, `@config/*`
-(defined in `apps/web/tsconfig.json`, mirrored in `config/vitest.config.ts` — keep both in sync)
+Defined in `apps/web/tsconfig.json` and mirrored in `config/vitest.config.ts` — keep both in sync.
 
 ## API Documentation
 
@@ -200,38 +147,14 @@ fails on ignored paths. Anchor ignore rules (e.g. `/.impeccable/` at root; `apps
 
 ### CI（PR 校验；master 发布）
 
-1. PR/master 执行 lint、全 workspace typecheck、单测
-2. 生成无生产凭证的离线 fixture，执行 Astro check 和 admin build
-3. master 部署依赖上述门禁；Web 获得共享环境锁后只导出一次，记录 SHA/revision
-4. Astro check 与 Wrangler custom build 使用相同快照；部署前核对当前 master SHA，过期候选跳过
-5. `ci.yml` web job 与 `rebuild.yml` 的候选校验/导出/校验/Astro check/构建部署序列统一放在
-   `.github/actions/deploy-web-snapshot` 复合动作中，作为 step 运行在调用方 job 内（composite 而非 reusable
-   workflow），因此 job 级 `concurrency` 锁仍覆盖整个 export->deploy 窗口；`rebuild` 无上游 build job，用
-   `validate-code: true` 在锁内自校验，`ci.yml` 留默认 `false`。composite 无 `secrets` 上下文，两个 Cloudflare
-   secret 通过 `with:` 以 input 传入
-
-CI gotchas:
-
-- CI Web 与 rebuild 使用相同 concurrency group `release-web-production`；在锁内导出新数据，避免旧队列项携带
-  旧数据快照覆盖新发布。Admin 使用独立的 `release-admin-production`
-- required checks / 分支保护需要在 GitHub 仓库设置中另行核验，工作流文件本身不代表已启用
-- 内联脚本（`node --input-type=module` / heredoc / `-e`）的裸模块说明符从 cwd 解析；根 `package.json` 不依赖
-  workspace 包，因此导入 `@commission-index/*` 的内联脚本必须把 `working-directory` 设到声明了该依赖的包
-  （如 `apps/admin-worker`）
-- Workflows sharing one `actions/cache` key must not run concurrently from the same push and each save —
-  release workflows use their own cache namespace under the shared concurrency group
-- 源图片缓存（`web-source-images-*`）只放在 `deploy-web-snapshot` 里、只由发布路径存取，namespace 与其它 job 隔离；
-  restore key 是本 run id、以 `web-source-images-` 前缀命中最新 revision，save key 是内容 revision；当 restore 命中的
-  key 已等于该 revision 时跳过 save（否则只会与已有 key 冲突）。复用的本地图片仍逐个按 D1 快照的 size/sha256 校验、
-  不匹配即重下，manifest 之外的旧文件会被删除，绝不信任缓存字节
+Pipeline order, release concurrency locks, the `deploy-web-snapshot` composite action and CI cache rules live in
+`.github/AGENTS.md`; read it before editing anything under `.github/`.
 
 ## Guardrails
 
-### Astro 7
+### Astro 7 / Vite
 
-- Keep `i18n.routing.redirectToDefaultLocale` explicit
-- Keep `apps/web/src/content.config.ts` present even when empty (suppresses dev warning)
-- Do not enable CSP (Shiki inline styles conflict; analytics needs `https://sight.crystallize.cc`)
+- Astro-specific guardrails (i18n routing, `content.config.ts`, CSP) live in `apps/web/AGENTS.md`
 - Astro and admin both use Vite 8/Rolldown; keep production bundler customization under
   `build.rolldownOptions` and verify Tailwind plugins with `astro check` + a real build
 
@@ -270,24 +193,12 @@ CI gotchas:
   后续 export 依赖仅校验两份 revision 和本地图片 hash，不再访问远端
 - 不预先 build:web；Wrangler custom build 是正式构建入口。工作流允许显式导出和 Astro check，二者必须绑定上述
   固定快照
+- The public deployment is static-only: `/admin` and `/api/admin/*` must return 404 in production (post-deploy
+  check in `apps/web/AGENTS.md`)
 
-#### Production `/admin` verification
+### Search matching
 
-The public deployment is static-only. `/admin` and `/api/admin/*` must return 404 via
-`assets.not_found_handling = "404-page"` (`apps/web/public/_redirects` holds only public redirects). After
-deploy, all of these must be `404` (`vite preview` does not reproduce edge status behavior):
-
-```bash
-curl -I https://<your-domain>/admin
-curl -I https://<your-domain>/admin/aliases
-curl -I https://<your-domain>/api/admin/bootstrap
-```
-
-### Search UX
-
-- Search UI must be layout-stable on first paint — no shell-to-content swaps
-- Production search index: `/search/home-search-entries.<v>.json` (not DOM metadata), `v` from the character manifest
-- Search locale labels resolve from `homeSearchControls.ts` (not the full `homeLocale` graph)
+- Home search UX rules live in `apps/web/AGENTS.md`; the matcher itself is `packages/domain/src/search.ts`
 - JS `\b` is ASCII-only: never wrap user search terms in `\b…\b`; strict matching adds a boundary only on
   sides with an ASCII word char, so CJK/kana terms match as substrings.
 
@@ -331,7 +242,3 @@ type(scope): short imperative summary (lowercase, <72 chars)
 ```
 
 Allowed types: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`, `style`, `perf`, `build`, `ci`, `revert`, `data`
-
-## Dev Ports
-
-`apps/web` (Astro) 4321 · `apps/admin` (Vite) 4174 · `apps/admin-worker` (Wrangler) 8787
