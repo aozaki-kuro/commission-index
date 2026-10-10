@@ -23,6 +23,10 @@ export interface HomeLocaleMessages {
   lang: string
   localeLabel: string
   localeSwitcherLabel: string
+  meta: {
+    title: string
+    description: string
+  }
   description: {
     heading: string
     introductionTitle: string
@@ -116,6 +120,10 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
     lang: 'en',
     localeLabel: 'English',
     localeSwitcherLabel: 'Language',
+    meta: {
+      title: 'Commission Index',
+      description: 'The collection of commissioned NSFW illustrations / Do Not Repost',
+    },
     description: {
       heading: 'Commission Index',
       introductionTitle: 'Introduction',
@@ -234,6 +242,10 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
     lang: 'zh-Hant-TW',
     localeLabel: '繁體中文',
     localeSwitcherLabel: '語言',
+    meta: {
+      title: '委託索引',
+      description: '委託繪製的 NSFW 插畫收藏／請勿轉載',
+    },
     description: {
       heading: '委託索引',
       introductionTitle: '介紹',
@@ -347,6 +359,10 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
     lang: 'ja',
     localeLabel: '日本語',
     localeSwitcherLabel: '言語',
+    meta: {
+      title: 'コミッション一覧',
+      description: '依頼して描いていただいた NSFW イラストのコレクション／無断転載禁止',
+    },
     description: {
       heading: 'コミッション一覧',
       introductionTitle: '紹介',
