@@ -37,3 +37,18 @@
 
 /search/home-timeline-manifest/*
   Cache-Control: no-cache
+
+/favicon.ico
+  Cache-Control: public, max-age=86400
+
+/favicon.svg
+  Cache-Control: public, max-age=86400
+
+/favicon-transparent.svg
+  Cache-Control: public, max-age=86400
+
+/favicon/*
+  Cache-Control: public, max-age=86400
+
+/nsfw-cover-s.*
+  Cache-Control: public, max-age=86400
