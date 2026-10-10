@@ -174,6 +174,7 @@ export function ImageCropWorkspace({ imageUrl, onChange, onError, ref }: ImageCr
   const elementsRef = useRef<CropperElements | null>(null)
   const initializedSizeRef = useRef({ height: 0, width: 0 })
   const applyingRef = useRef(false)
+  const userEditedRef = useRef(false)
   const preferredWidthRef = useRef(Number.POSITIVE_INFINITY)
   const onChangeRef = useRef(onChange)
   const onErrorRef = useRef(onError)
@@ -237,6 +238,7 @@ export function ImageCropWorkspace({ imageUrl, onChange, onError, ref }: ImageCr
     if (!elements)
       return
 
+    userEditedRef.current = true
     const selection = getSelection(elements.selection)
     const center = {
       x: selection.x + selection.width / 2,
@@ -268,6 +270,7 @@ export function ImageCropWorkspace({ imageUrl, onChange, onError, ref }: ImageCr
     if (!elements || !Number.isFinite(degrees) || degrees === 0)
       return
 
+    userEditedRef.current = true
     const selection = getSelection(elements.selection)
     const center = {
       x: selection.x + selection.width / 2,
@@ -318,6 +321,7 @@ export function ImageCropWorkspace({ imageUrl, onChange, onError, ref }: ImageCr
     preferredWidthRef.current = Number.POSITIVE_INFINITY
     initializedSizeRef.current = canvasSize
     applyEditorState(selection, matrix)
+    userEditedRef.current = false
   }, [applyEditorState])
 
   const syncEditorSize = useCallback(() => {
@@ -337,6 +341,12 @@ export function ImageCropWorkspace({ imageUrl, onChange, onError, ref }: ImageCr
       Math.abs(nextSize.width - currentSize.width) < 1
       && Math.abs(nextSize.height - currentSize.height) < 1
     ) {
+      return
+    }
+
+    // Nothing to preserve before the first edit: a fresh fit keeps the opening frame independent of intermediate layout sizes.
+    if (!userEditedRef.current) {
+      initializeEditor()
       return
     }
 
@@ -403,6 +413,7 @@ export function ImageCropWorkspace({ imageUrl, onChange, onError, ref }: ImageCr
       if (applyingRef.current)
         return
 
+      userEditedRef.current = true
       const customEvent = event as CustomEvent<CropSelection>
       const current = getSelection(selection)
       const requested = customEvent.detail
@@ -423,6 +434,7 @@ export function ImageCropWorkspace({ imageUrl, onChange, onError, ref }: ImageCr
       if (applyingRef.current)
         return
 
+      userEditedRef.current = true
       const customEvent = event as CustomEvent<{ matrix: number[], oldMatrix: number[] }>
       customEvent.preventDefault()
       const currentSelection = getSelection(selection)

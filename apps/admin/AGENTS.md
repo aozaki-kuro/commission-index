@@ -25,7 +25,7 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 - `imageCrop.ts`, not Cropper.js bounding boxes, decides whether a rotated image covers every crop corner (including the 2px bleed).
 - No scale-based opening animation on the crop Dialog: the workspace measures its container on mount.
 - Close sequence: flip the closed state first, call cancel/confirm only after Radix exit finishes (`onCloseAutoFocus`), otherwise the parent form unmounts and truncates Presence. The overlay exit animation needs a different name from its entry animation or Presence drops the node. Outside-click does not dismiss (drag mis-taps); export blocks dismissal.
-- `ResizeObserver` must migrate the selection and matrix proportionally around the canvas center; never call the editor reset path there, or an in-progress touch transform is lost.
+- `ResizeObserver` re-fits (`initializeEditor`) only until the first user edit (`userEditedRef`); after that it must migrate the selection and matrix proportionally around the canvas center, never reset, or an in-progress touch transform is lost.
 - Object URL revocation must be deferred and cancelled on immediate re-establishment, so StrictMode's effect replay does not reuse a revoked URL; still revoke on real unmount.
 
 ## Commission Forms
