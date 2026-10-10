@@ -15,7 +15,6 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-  TURBO_TELEMETRY_DISABLED: '1'
 
 jobs:
   build:

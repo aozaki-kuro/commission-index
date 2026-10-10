@@ -152,7 +152,7 @@ GitHub API 返回 404 Branch not protected；质量检查已有但未强制合�
 
 未测 live/browser 性能（LCP/INP/构建耗时）；未跑完整本地构建、远端导出、部署；
 未做并发 push/rebuild、R2 故障注入；P2/P3 未做浏览器复现；
-未核实 Workers 旧资源保留策略与控制台 Workers Builds / Access 配置；未审查删除作品的清理路径。
+未核实 Workers 旧资源保留策略与控制台 Access 配置；未审查删除作品的清理路径。
 
 仓库内没有当前线上性能基准；旧的 2026-04-08 dev 模式 React→vanilla 对照（已删除，见 git 历史）**不是**
 当前线上性能或去掉 Astro 的证据。

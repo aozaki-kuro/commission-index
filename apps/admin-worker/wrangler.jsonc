@@ -1,10 +1,8 @@
 {
   // Manual/local deploy entrypoint from this workspace:
   // `pnpm run deploy`
-  // Cloudflare Workers Builds should connect the repo to this worker with:
-  // Root directory = `apps/admin-worker`
-  // Build command = `pnpm run build:assets`
-  // Deploy command = `pnpm run deploy`
+  // Production deploys run only through GitHub Actions CI, which builds the admin assets and
+  // deploys the finished Worker; Cloudflare Workers Builds is not used.
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "commission-index-admin",
   "main": "src/index.ts",

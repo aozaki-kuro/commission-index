@@ -83,7 +83,7 @@
     },
     {
       "description": "Infra and deploy tooling",
-      "matchPackageNames": ["wrangler", "sharp", "turbo"],
+      "matchPackageNames": ["wrangler", "sharp"],
       "groupName": "infra and deploy"
     },
     {
