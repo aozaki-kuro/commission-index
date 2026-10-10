@@ -21,7 +21,9 @@ export function buildRssItem(commission: CommissionWithCharacter): RssItem {
   const formatted = dateObj ? formatDate(dateObj, 'yyyy/MM/dd') : null
   const link = `${SITE_URL}#${encodeURIComponent(kebabCase(commission.character))}-commission-${commission.publicId}`
   const dateText = formatted ? `, published on ${formatted}` : ''
-  const description = `<![CDATA[Illustrator: ${artistName}${dateText}]]>`
+  // Split any `]]>` so creator-supplied text cannot terminate the CDATA section early.
+  const cdataSafe = `Illustrator: ${artistName}${dateText}`.replaceAll(']]>', ']]]]><![CDATA[>')
+  const description = `<![CDATA[${cdataSafe}]]>`
 
   return {
     title: commission.character,
