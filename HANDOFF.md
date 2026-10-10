@@ -26,7 +26,7 @@
   - 3 张基线因数据漂移更新，尺寸不变，新旧图都已核对：`home-character-sidebar`、`mobile-hamburger-open`
     （`L*cia`/`n*yuta` → `Lucia`/`MUS1CA`），`mobile-language-menu-open`（背景卡片日期 `2026/03/21` → `2026/08/04`）。
 
-## 视觉问题（下一轮的主题）
+## 视觉问题
 
 ### admin：已收口（2026-10-11，`fix/visual-baselines`）
 
@@ -44,11 +44,11 @@
 - `VISUAL_OFFLINE=1` 只能用于冒烟：基线是真实数据，fixture 模式下截图必失败，**不能从它更新基线**。
 - 视觉服务起来后如果被中断，会在 4173 / 8787 / 4174 留下孤儿进程；下次 run 会因 `reuseExistingServer` 复用到
   过期的服务。开跑前先 `lsof -nP -iTCP:4173 -sTCP:LISTEN` 等检查并清掉。
-- 上一轮把所有 admin 失败都当成环境问题，没去核实，这正是下一轮要补的。
+- 上一轮把所有 admin 失败都当成环境问题，没去核实。已在 `fix/visual-baselines` 收口：根因是 spec 过期 + 错误的 Playwright 配置，不是环境问题。
 
 ## 当前状态
 
-- 当前分支 `fix/visual-baselines`，基于 master `ceb1292`，本分支 8 个提交（`9a76ac6` … `fe25242`），未推送，无 PR。
+- 当前分支 `fix/visual-baselines`，基于 master `ceb1292`；本分支提交见 `git log --oneline master..fix/visual-baselines`，未推送，未开 PR。
 - 未跟踪：仅 `docs/superpowers/`。
 - 本分支验证：`pnpm run test` 495/495；typecheck、lint 通过；`pnpm run test:visual` 42/42（admin 31 + web 11）；`pnpm run test:admin-ui` 28/28。
 - PR #382 的提交已在 `origin/master`（`1af8293`）上；本地 master = `origin/master` + `ceb1292`（handoff 提交，未推送）。
