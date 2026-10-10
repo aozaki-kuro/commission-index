@@ -213,7 +213,7 @@ Pipeline order, release concurrency locks, the `deploy-web-snapshot` composite a
 - `sourceImageRegistry.ts` resolves a commission's image by integer `id` through the generated manifest only (exact
   match, no filename/stem fallback); a missing image renders as missing. User-visible identity and search never parse
   `fileName`
-- Listing widths: `768/960/1280`, sizes `(max-width: 768px) 92vw, 640px`
+- Listing widths: inline `<img>` and LCP preload `768/1280` (width 1280); deferred batch images `768/960/1280`; sizes `(max-width: 768px) 92vw, 640px`
 
 ### 数据库迁移验证
 
