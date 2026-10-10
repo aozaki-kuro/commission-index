@@ -59,6 +59,15 @@ export async function prepareStablePage(page: Page) {
 export async function rotateCropImage(page: Page, degrees: number) {
   const frame = page.locator('cropper-selection')
   const handle = page.getByRole('button', { name: 'Rotate image freely' })
+  // The workspace lays out asynchronously: the handle is rendered from React state while
+  // <cropper-selection> is still 0x0 until the image is fitted. Wait until both agree on the
+  // same, non-empty selection, otherwise the gesture centre is computed from pre-layout geometry.
+  await expect.poll(async () => {
+    const frameBox = await frame.boundingBox()
+    const handleBox = await handle.boundingBox()
+    return Boolean(frameBox && handleBox && frameBox.width > 0
+      && Math.abs(handleBox.x + handleBox.width / 2 - (frameBox.x + frameBox.width / 2)) < 1)
+  }, { message: 'Crop frame and rotation handle did not agree on a laid-out selection' }).toBe(true)
   const frameBox = await frame.boundingBox()
   const handleBox = await handle.boundingBox()
 
