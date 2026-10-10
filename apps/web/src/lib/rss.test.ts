@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest'
-import { renderRssFeed } from './rss'
+import { renderRssFeed } from './rssFeed'
 import { buildRssItem } from './rssItem'
 
 describe('buildRssItem', () => {
