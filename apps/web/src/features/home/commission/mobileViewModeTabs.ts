@@ -12,7 +12,7 @@ function syncToggleButtonState(button: HTMLButtonElement, active: boolean) {
   button.classList.toggle('text-gray-700', active)
   button.classList.toggle('dark:text-gray-300', active)
   button.classList.toggle('text-gray-500', !active)
-  button.classList.toggle('dark:text-gray-500', !active)
+  button.classList.toggle('dark:text-gray-400', !active)
 
   const indicator = button.querySelector<HTMLElement>('[data-mobile-view-mode-indicator]')
   if (!indicator)

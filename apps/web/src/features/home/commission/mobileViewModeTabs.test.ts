@@ -20,7 +20,7 @@ function renderMobileTabsRoot() {
         data-mobile-view-mode-toggle="true"
         data-view-mode="timeline"
         aria-pressed="false"
-        class="text-gray-500 dark:text-gray-500"
+        class="text-gray-500 dark:text-gray-400"
       >
         <span data-mobile-view-mode-indicator class="w-0 opacity-0"></span>
       </button>
