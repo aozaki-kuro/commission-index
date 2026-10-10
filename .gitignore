@@ -21,7 +21,6 @@ dist/
 
 # production
 /build
-.turbo
 /.local-backups/
 
 # misc

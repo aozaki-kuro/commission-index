@@ -35,8 +35,29 @@ runs:
         else
           echo 'current=true' >> "$GITHUB_OUTPUT"
         fi
-    - name: Validate current code
+    # Fail-safe: any doubt (check run missing / in-progress / failed, or the API call itself failing)
+    # falls through to the full validation below. ci.yml's `Validate & Build` job already linted,
+    # type-checked and tested this exact SHA, so a recorded success lets a data-driven rebuild skip it.
+    - name: Reuse upstream validation if available
+      id: upstream-validation
       if: inputs.validate-code == 'true' && steps.candidate.outputs.current == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        skip=false
+        if gh api --paginate \
+             "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs?per_page=100" \
+             --jq '.check_runs[] | select(.name == "Validate & Build") | .conclusion' \
+             | grep -qx success; then
+          skip=true
+        fi
+        echo "skip=${skip}" >> "$GITHUB_OUTPUT"
+        if [ "$skip" = "true" ]; then
+          echo "跳过验证：${GITHUB_SHA} 的 \`Validate & Build\` 已成功，复用其结果" >> "$GITHUB_STEP_SUMMARY"
+        fi
+    - name: Validate current code
+      if: inputs.validate-code == 'true' && steps.candidate.outputs.current == 'true' && steps.upstream-validation.outputs.skip != 'true'
       shell: bash
       run: |
         pnpm run lint
@@ -66,10 +87,14 @@ runs:
         echo "WEB_BUILD_CACHE_TOKEN=${revision}" >> "$GITHUB_ENV"
         echo 'FACT_SOURCE_USE_EXISTING_SNAPSHOT=1' >> "$GITHUB_ENV"
         echo "code=${GITHUB_SHA} revision=${revision}" >> "$GITHUB_STEP_SUMMARY"
-    # Keyed on the content revision: an unchanged revision means an identical image set already
-    # exists, so the immutable save is skipped and the cache does not grow per run.
+    # Keyed on the content revision: the restore step's key is the run id, so an exact match on
+    # `web-source-images-<revision>` only happens when a previous run already saved this revision.
+    # In that case the identical image set is already cached and saving again would only collide
+    # with the existing key, so skip it.
     - name: Save cached source images
-      if: steps.candidate.outputs.current == 'true'
+      if: >-
+        steps.candidate.outputs.current == 'true' &&
+        steps.restore-images.outputs.cache-matched-key != format('web-source-images-{0}', env.WEB_BUILD_CACHE_TOKEN)
       uses: actions/cache/save@v6
       with:
         path: apps/web/generated/source-images

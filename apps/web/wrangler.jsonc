@@ -1,10 +1,9 @@
 {
   // Manual/local deploy entrypoint from this workspace:
   // `pnpm run deploy`
-  // Cloudflare Workers Builds should connect the repo to this worker with:
-  // Root directory = `apps/web`
-  // Build command = `pnpm run build`
-  // Deploy command = `pnpm run deploy`
+  // Production deploys run only through GitHub Actions CI, which exports one fact-source snapshot,
+  // builds the site via the custom build below, then deploys the finished assets; Cloudflare
+  // Workers Builds is not used.
   "$schema": "../../node_modules/wrangler/config-schema.json",
   "name": "commission-index-web",
   "compatibility_date": "2026-03-17",

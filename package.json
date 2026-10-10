@@ -13,10 +13,10 @@
     "web:fact-source:export": "pnpm -C apps/admin-worker web:fact-source:export",
     "web:fact-source:sync-images": "pnpm -C apps/web fact-source:sync-images",
     "build": "pnpm run build:web",
-    "build:all": "TURBO_TELEMETRY_DISABLED=1 turbo run build",
-    "build:admin": "TURBO_TELEMETRY_DISABLED=1 turbo run build --filter=@commission-index/admin",
-    "build:web": "TURBO_TELEMETRY_DISABLED=1 turbo run build --filter=@commission-index/web",
-    "check": "TURBO_TELEMETRY_DISABLED=1 turbo run check --filter=@commission-index/web",
+    "build:all": "pnpm run build:web && pnpm run build:admin",
+    "build:admin": "pnpm -C apps/admin build",
+    "build:web": "pnpm -C apps/web run fact-source:export && pnpm -C apps/web build",
+    "check": "pnpm -C apps/web run fact-source:export && pnpm -C apps/web run check:astro",
     "clean": "rm -rf node_modules .wrangler apps/web/.astro apps/web/dist coverage playwright-report test-results && pnpm i",
     "deploy": "pnpm run deploy:web",
     "deploy:admin": "pnpm -C apps/admin-worker deploy",
@@ -36,7 +36,7 @@
     "test:visual": "playwright test -c config/playwright.config.ts",
     "test:visual:update": "playwright test -c config/playwright.config.ts --update-snapshots",
     "test:watch": "vitest -c config/vitest.config.ts",
-    "typecheck": "TURBO_TELEMETRY_DISABLED=1 turbo run typecheck"
+    "typecheck": "pnpm -r run typecheck"
   },
   "devDependencies": {
     "@antfu/eslint-config": "^9.5.1",
@@ -54,7 +54,6 @@
     "prettier": "^3.9.9",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
-    "turbo": "^2.11.6",
     "typescript": "^6.0.3",
     "vitest": "^5.0.3",
     "wrangler": "^4.146.0"

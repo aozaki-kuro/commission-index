@@ -23,17 +23,17 @@ pnpm run dev:admin        # worker with remote D1/R2 (:8787), then admin Vite (:
 pnpm run dev:worker       # admin-worker only
 
 # Build / preview
-pnpm run build            # build apps/web (Turbo, filtered)
-pnpm run build:all        # build all workspaces via Turbo
+pnpm run build            # build apps/web (fact-source export, then astro build)
+pnpm run build:all        # build web and admin workspaces
 pnpm run build:admin      # build admin only
 pnpm run preview          # preview built web
 
 # Validate
 pnpm run lint             # ESLint (also lints Markdown), --max-warnings=0
 pnpm run lint:fix
-pnpm run check            # Astro type-check; Turbo runs fact-source:export first (remote D1/R2 read)
+pnpm run check            # Astro type-check; exports fact-source first (remote D1/R2 read)
 # offline: pnpm -C apps/web exec astro check .  (uses the existing apps/web/generated/)
-pnpm run typecheck        # TS check all workspaces via Turbo
+pnpm run typecheck        # TS check all workspaces (pnpm -r)
 
 # Test
 pnpm run test             # Vitest unit tests (all workspaces)
@@ -88,13 +88,13 @@ Admin features go in `apps/admin` + `apps/admin-worker`, never `apps/web`.
   preserve these roots.
 - `.github/renovate.json` is the Renovate entry. Vite, Astro, Wrangler, and app-specific settings stay with
   their workspace; admin design context is `apps/admin/.impeccable.md`.
-- Keep discovery-required package, lockfile, workspace, Turbo, mise, Git, and hook entry files at root.
+- Keep discovery-required package, lockfile, workspace, mise, Git, and hook entry files at root.
 - When moving a config, verify test collection and snapshot paths as well as builds.
 
 ### Tech Stack
 
 - **Runtime:** Node 24 (mise) + pnpm 12 (new scripts use `.ts`, not `.mjs`, and must be type-checked)
-- **Build orchestration:** Turbo（Web 导出和构建暂不缓存；部署位于 Turbo 之外）
+- **Build orchestration:** plain pnpm scripts（无任务运行器；web 构建/检查先导出一次 fact-source 快照）
 - **Public site:** Astro 7 + Tailwind CSS 4 (vanilla TS client behavior, no React on the client)
 - **Admin frontend:** React 19 + Vite 8 + Tailwind CSS + shadcn/ui
 - **Admin backend:** Cloudflare Worker + D1 (SQL) + R2 (images)
@@ -221,8 +221,9 @@ CI gotchas:
 - Workflows sharing one `actions/cache` key must not run concurrently from the same push and each save —
   release workflows use their own cache namespace under the shared concurrency group
 - 源图片缓存（`web-source-images-*`）只放在 `deploy-web-snapshot` 里、只由发布路径存取，namespace 与其它 job 隔离；
-  restore/save 以内容 revision 为键（revision 不变则跳过 save，缓存按不同 revision 增长，靠 LRU 淘汰）。复用的本地
-  图片仍逐个按 D1 快照的 size/sha256 校验、不匹配即重下，manifest 之外的旧文件会被删除，绝不信任缓存字节
+  restore key 是本 run id、以 `web-source-images-` 前缀命中最新 revision，save key 是内容 revision；当 restore 命中的
+  key 已等于该 revision 时跳过 save（否则只会与已有 key 冲突）。复用的本地图片仍逐个按 D1 快照的 size/sha256 校验、
+  不匹配即重下，manifest 之外的旧文件会被删除，绝不信任缓存字节
 
 ## Guardrails
 
@@ -246,21 +247,23 @@ CI gotchas:
 - pnpm 12 records the pinned package manager as a separate first YAML document in `pnpm-lock.yaml`; keep it
   when updating the lockfile and verify with a repeated `pnpm install --frozen-lockfile`
 
-### Turbo
+### Build scripts
 
-- Web export/build 设 `cache: false`，防止 Turbo 恢复旧 generated 或在导出前计算过期输入 hash；恢复缓存前必须
-  验证显式 snapshot 构建契约
-- `/build-info.json` reads `GITHUB_SHA` / `WORKERS_CI_COMMIT_SHA`, so the web build task passes both through
-  in `turbo.json` `passThroughEnv`
-- Turbo does not pass outer environment variables into task processes unless listed: credentials such as
-  `CLOUDFLARE_API_TOKEN` must be in the task's `passThroughEnv`
-- A prerequisite owned by one workspace (e.g. `fact-source:export`) must be wired with a
-  `@commission-index/<pkg>#task` dependency, not a global task rule that spreads to every package
+- Root build/check scripts are plain pnpm (no task runner). The web build and `check` first run apps/web's
+  `fact-source:export`, which points the export at the read-only web bindings via
+  `FACT_SOURCE_WRANGLER_CONFIG=../web/wrangler.jsonc`; that order must be preserved. The pinned release build
+  reuses the snapshot via `FACT_SOURCE_USE_EXISTING_SNAPSHOT=1`. `typecheck` is `pnpm -r run typecheck` (bails
+  on the first workspace failure; parallel is safe because each runs only `tsc`).
+- Because these are plain pnpm scripts, environment variables (`CLOUDFLARE_API_TOKEN`, `FACT_SOURCE_USE_EXISTING_SNAPSHOT`,
+  `GITHUB_SHA`/`WORKERS_CI_COMMIT_SHA`) are inherited by child processes; no pass-through allowlist is needed.
+- A prerequisite owned by one workspace (e.g. apps/web's `fact-source:export`) must stay wired into the script
+  that needs it, not hoisted into a shared recursive task.
 
 ### Cloudflare Deploy
 
-- No repo-root `wrangler.jsonc` — each Worker owns its config. Workers Builds connects this repo to two
-  Workers with root dirs `apps/web` and `apps/admin-worker`
+- No repo-root `wrangler.jsonc` — each Worker owns its config. GitHub Actions CI is the only deploy path;
+  Cloudflare Workers Builds is not used, and Workers receive only the final built artifact (root dirs
+  `apps/web` and `apps/admin-worker` exist for local/Wrangler use, not for a Builds connection)
 - Call the repo-local `node_modules/.bin/wrangler`; extra runner wrappers have broken `d1 execute --command`
   argument parsing in Cloudflare Builds
 - 发布只导出一次，将 `meta.revision` 传入 `WEB_BUILD_CACHE_TOKEN`，并设置 `FACT_SOURCE_USE_EXISTING_SNAPSHOT=1`；

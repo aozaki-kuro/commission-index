@@ -10,12 +10,16 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
-  TURBO_TELEMETRY_DISABLED: '1'
 
 jobs:
   rebuild:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    # `checks: read` lets the composite read this SHA's check runs to reuse the CI `Validate & Build`
+    # result; `contents: read` is needed by the candidate/ref lookups.
+    permissions:
+      contents: read
+      checks: read
     # 与 ci.yml 的 Web 发布共享锁；获得锁之后才读取最新数据。
     concurrency:
       group: release-web-production
