@@ -403,7 +403,7 @@ for (const routeName of ['create', 'edit']) {
           await crop.getByRole('button', { name: action, exact: true }).click()
         await expect(crop).toHaveCount(0)
         await expect(page.locator('[data-dialog-overlay="crop"]')).toHaveCount(0)
-        const events = await page.evaluate(() => (window as Window & { cropExitEvents: string[] }).cropExitEvents)
+        const events = await page.evaluate(() => (window as unknown as { cropExitEvents: string[] }).cropExitEvents)
         expect(events.sort()).toEqual(reducedMotion === 'reduce' ? [] : ['content', 'overlay'])
         if (routeName === 'edit') {
           await expect(page.getByRole('dialog')).toHaveCount(1)
