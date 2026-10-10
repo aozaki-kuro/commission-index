@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildSourceImageLookup,
   listMissingSourceImages,
+  requireSourceImageMetadata,
   resolveSourceImageByCommissionId,
 } from './sourceImageRegistry'
 
@@ -58,5 +59,11 @@ describe('sourceImageRegistry', () => {
     expect(() => buildSourceImageLookup([
       { commissionId: 0, metadata: createMetadata('a') },
     ])).toThrow(/commission ID/)
+  })
+
+  it('throws for a visible entry whose module is absent or has no default export', () => {
+    expect(() => requireSourceImageMetadata('/generated/source-images/a.jpg', undefined)).toThrow(/missing/)
+    expect(() => requireSourceImageMetadata('/generated/source-images/a.jpg', { default: undefined } as never)).toThrow(/missing/)
+    expect(requireSourceImageMetadata('/x.jpg', { default: createMetadata('a') }).src).toBe('/mock/a.jpg')
   })
 })

@@ -1,5 +1,9 @@
 import process from 'node:process'
-import { getGeneratedSourceImageManifest } from '@data/generatedFactSource'
+import {
+  collectHiddenCommissionIds,
+  getGeneratedFactSourceContent,
+  getGeneratedSourceImageManifest,
+} from '@data/generatedFactSource'
 
 interface SourceImageModule {
   default: ImageMetadata
@@ -24,20 +28,27 @@ let cachedSourceImageLookup: SourceImageLookup | null = null
 function buildSourceImageRecords(): SourceImageRecord[] {
   // The manifest links each image to its commission by integer ID. Filenames are
   // never matched against commissions: a missing image must surface as missing.
-  return getGeneratedSourceImageManifest().files.map((file) => {
+  // Hidden commissions are skipped: the assets-pipeline integration keeps their files out of the
+  // build graph (so the originals are never emitted), and nothing public renders them.
+  const hiddenIds = collectHiddenCommissionIds(getGeneratedFactSourceContent())
+  const visibleFiles = getGeneratedSourceImageManifest().files.filter(file => !hiddenIds.has(file.commissionId))
+  return visibleFiles.map((file) => {
     const modulePath = `${generatedImageModulePrefix}${file.relativePath}`
-    const module = SOURCE_IMAGE_MODULES[modulePath]
-    if (!module) {
-      throw new Error(
-        `Generated source image missing from build input: ${modulePath}. Run \`pnpm run web:fact-source:export\` and try again.`,
-      )
-    }
-
     return {
       commissionId: file.commissionId,
-      metadata: module.default,
+      metadata: requireSourceImageMetadata(modulePath, SOURCE_IMAGE_MODULES[modulePath]),
     }
   })
+}
+
+/** A visible commission must never get a silently empty image (e.g. a stale hidden stub in dev). */
+export function requireSourceImageMetadata(modulePath: string, module: SourceImageModule | undefined): ImageMetadata {
+  if (!module?.default) {
+    throw new Error(
+      `Generated source image missing from build input: ${modulePath}. Run \`pnpm run web:fact-source:export\` and try again.`,
+    )
+  }
+  return module.default
 }
 
 function getSourceImageLookup() {
