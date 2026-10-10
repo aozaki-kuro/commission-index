@@ -230,3 +230,12 @@ export function getGeneratedSourceImageManifest(): GeneratedSourceImageManifest 
   getGeneratedFactSourceContent()
   return cachedSourceImageManifest!
 }
+
+/** IDs of commissions flagged `Hidden`; their source images must never enter the build graph. */
+export function collectHiddenCommissionIds(content: GeneratedFactSourceContent): Set<number> {
+  return new Set(
+    content.characters.flatMap(character => character.commissions)
+      .filter(commission => commission.Hidden === true)
+      .map(commission => commission.id),
+  )
+}

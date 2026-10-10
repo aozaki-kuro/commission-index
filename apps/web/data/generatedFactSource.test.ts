@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateGeneratedFactSourceSnapshot } from './generatedFactSource'
+import { collectHiddenCommissionIds, validateGeneratedFactSourceSnapshot } from './generatedFactSource'
 
 const meta = {
   schemaVersion: 3,
@@ -101,5 +101,19 @@ describe('generated fact-source snapshot validation', () => {
     expect(() => validateGeneratedFactSourceSnapshot(invalidPart.content, invalidPart.manifest)).toThrow(/part number/)
     expect(() => validateGeneratedFactSourceSnapshot(incompletePart.content, incompletePart.manifest)).toThrow(/set together/)
     expect(() => validateGeneratedFactSourceSnapshot(invalidGroup.content, invalidGroup.manifest)).toThrow(/work group ID/)
+  })
+})
+
+describe('collectHiddenCommissionIds', () => {
+  it('returns only commissions flagged Hidden across characters', () => {
+    const commission = (id: number, Hidden?: boolean) => ({ id, Hidden })
+    const content = {
+      characters: [
+        { commissions: [commission(1), commission(2, true)] },
+        { commissions: [commission(3, false), commission(4, true)] },
+      ],
+    } as unknown as Parameters<typeof collectHiddenCommissionIds>[0]
+
+    expect([...collectHiddenCommissionIds(content)]).toEqual([2, 4])
   })
 })
