@@ -1,12 +1,21 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { clearHomeCharacterBatchManifestCacheForTests } from '@features/home/commission/batch/homeCharacterBatchManifest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   collapseAliasKeywordVariants,
   createSeededRandom,
+  ensureHomeSearchEntriesPromise,
   getPopularKeywordBatch,
   parseHomeSearchEntries,
   shuffleKeywords,
 } from './commissionSearchDeferred'
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+  clearHomeCharacterBatchManifestCacheForTests(document)
+  document.body.innerHTML = ''
+  window.history.replaceState(null, '', '/')
+})
 
 describe('parseHomeSearchEntries', () => {
   it('uses UUID identity from the public payload and assigns an internal search index', () => {
@@ -21,6 +30,43 @@ describe('parseHomeSearchEntries', () => {
       searchSuggest: undefined,
     }])
     expect(() => parseHomeSearchEntries([{ id: 1, domKey: 'alpha::1', searchText: 'alpha artist' }])).toThrow(/public commission identity/)
+  })
+})
+
+describe('ensureHomeSearchEntriesPromise', () => {
+  it('refreshes the manifest and retries once when the hashed index 404s', async () => {
+    clearHomeCharacterBatchManifestCacheForTests(document)
+    document.body.innerHTML = `
+      <script type="application/json" data-home-character-batch-manifest="true">
+        {"locale":"en","v":"oldv","active":{"initialSectionIds":[],"totalBatches":0,"targetBatchById":{},"batchVersions":[]},"archived":{"initialSectionIds":[],"totalBatches":0,"targetBatchById":{},"batchVersions":[]}}
+      </script>
+    `
+
+    const publicId = '00000000-0000-4000-8000-000000000001'
+    const entries = [{ publicId, domKey: `alpha::${publicId}`, searchText: 'alpha artist' }]
+    const freshManifest = {
+      locale: 'en',
+      v: 'newv',
+      active: { initialSectionIds: [], totalBatches: 0, targetBatchById: {}, batchVersions: [] },
+      archived: { initialSectionIds: [], totalBatches: 0, targetBatchById: {}, batchVersions: [] },
+    }
+
+    const fetchSpy = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url.startsWith('/search/home-character-manifest/en.json'))
+        return new Response(JSON.stringify(freshManifest))
+      if (url.startsWith('/search/home-search-entries.newv.json'))
+        return new Response(JSON.stringify(entries))
+      // The stale hashed index (and anything else) is gone.
+      return new Response(null, { status: 404 })
+    })
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await expect(ensureHomeSearchEntriesPromise()).resolves.toHaveLength(1)
+
+    const requestedUrls = (fetchSpy.mock.calls as unknown as Array<[string]>).map(([url]) => url)
+    expect(requestedUrls).toContain('/search/home-search-entries.oldv.json')
+    expect(requestedUrls).toContain('/search/home-search-entries.newv.json')
   })
 })
 

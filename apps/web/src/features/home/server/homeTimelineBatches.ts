@@ -1,7 +1,6 @@
 import type { TimelineYearGroup } from '@commission-index/domain'
 import type { HomeLocale } from '@features/home/i18n/homeLocale'
 import { getCharacterSectionId } from '@lib/characters/nav'
-import { hashString } from '@lib/utils/hash'
 
 export interface HomeTimelineBatchPlan {
   initialGroups: TimelineYearGroup[]
@@ -12,9 +11,9 @@ export interface HomeTimelineBatchPlan {
 
 export interface HomeTimelineBatchManifest {
   locale: HomeLocale
-  /** Global content hash — covers all timeline commissions. */
+  /** Content-hash digest of every serialized batch payload. */
   v?: string
-  /** Per-batch content hashes for cache-busting. Index matches batch index. */
+  /** Content-hash of each final serialized payload; names the immutable batch file. Index matches batch index. */
   batchVersions?: string[]
   initialSectionIds: string[]
   totalBatches: number
@@ -74,44 +73,6 @@ export function buildHomeTimelineBatchPlan({
   }
 }
 
-function serializeGroupsForHash(groups: TimelineYearGroup[]) {
-  // Include character names so renames also invalidate the cache (they affect entry anchors and search keys).
-  return groups.flatMap(g => g.entries.map(e => [e.character, e.commission]))
-}
-
-function computeTimelinePerBatchVersions(plan: HomeTimelineBatchPlan, contextHash?: string): string[] {
-  const prefix = contextHash ?? ''
-  return plan.batches.map(groups =>
-    hashString(prefix + JSON.stringify(serializeGroupsForHash(groups))),
-  )
-}
-
-function computeTimelineGlobalVersion(plan: HomeTimelineBatchPlan, contextHash?: string): string {
-  return hashString(
-    (contextHash ?? '') + JSON.stringify(serializeGroupsForHash([...plan.initialGroups, ...plan.batches.flat()])),
-  )
-}
-
-export function buildHomeTimelineBatchManifest({
-  contextHash,
-  locale,
-  plan,
-}: {
-  /** Pre-computed hash of non-commission inputs (aliases, labels) that affect batch JSON content. */
-  contextHash?: string
-  locale: HomeLocale
-  plan: HomeTimelineBatchPlan
-}): HomeTimelineBatchManifest {
-  return {
-    locale,
-    v: computeTimelineGlobalVersion(plan, contextHash),
-    batchVersions: computeTimelinePerBatchVersions(plan, contextHash),
-    initialSectionIds: plan.initialGroups.map(group => group.sectionId),
-    totalBatches: plan.totalBatches,
-    targetBatchById: plan.targetBatchById,
-  }
-}
-
 export function buildHomeTimelineBatchUrl({
   batchIndex,
   locale,
@@ -121,6 +82,6 @@ export function buildHomeTimelineBatchUrl({
   locale: HomeLocale
   v?: string
 }) {
-  const base = `/search/home-timeline-batches/${locale}/${batchIndex}.json`
-  return v ? `${base}?v=${v}` : base
+  const base = `/search/home-timeline-batches/${locale}/${batchIndex}`
+  return v ? `${base}.${v}.json` : `${base}.json`
 }

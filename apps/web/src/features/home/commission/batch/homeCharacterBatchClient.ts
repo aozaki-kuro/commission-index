@@ -1,6 +1,6 @@
 import type { HomeCharacterBatchPayload } from '@features/home/commission/batch/homeCharacterBatchPayload'
 import type { HomeCharacterBatchManifest, HomeCharacterBatchStatus } from '@features/home/server/homeCharacterBatches'
-import { readHomeCharacterBatchManifest } from '@features/home/commission/batch/homeCharacterBatchManifest'
+import { fetchFreshHomeCharacterBatchManifest, readHomeCharacterBatchManifest } from '@features/home/commission/batch/homeCharacterBatchManifest'
 import { renderHomeCharacterBatchPayload } from '@features/home/commission/batch/homeCharacterBatchRender'
 import { buildHomeCharacterBatchUrl } from '@features/home/server/homeCharacterBatches'
 import { createBatchRequestQueue } from './batchRequestQueue'
@@ -51,7 +51,7 @@ export function getHomeCharacterBatchTotalCount({
   return manifest?.[status].totalBatches ?? getLegacyBatchTotalCount({ doc, status })
 }
 
-function loadHomeCharacterBatch({
+async function loadHomeCharacterBatch({
   batchIndex,
   status,
   url,
@@ -59,14 +59,54 @@ function loadHomeCharacterBatch({
   batchIndex: number
   status: HomeCharacterBatchStatus
   url: string
-}) {
-  return fetch(url).then(async (response) => {
-    if (!response.ok) {
-      throw new Error(`Failed to load ${status} batch ${batchIndex}: ${response.status}`)
-    }
+}): Promise<HomeCharacterBatchPayload> {
+  const response = await fetch(url)
+  if (!response.ok) {
+    const error = new Error(`Failed to load ${status} batch ${batchIndex}: ${response.status}`) as Error & { httpStatus?: number }
+    error.httpStatus = response.status
+    throw error
+  }
 
-    return (await response.json()) as HomeCharacterBatchPayload
+  return (await response.json()) as HomeCharacterBatchPayload
+}
+
+/**
+ * A page cached across a deploy points at a hashed batch file the deploy deleted. On 404, refresh
+ * the manifest and retry once against the current hash instead of surfacing a broken section.
+ */
+async function retryHomeCharacterBatchWithFreshManifest({
+  batchIndex,
+  doc,
+  error,
+  status,
+  version,
+}: {
+  batchIndex: number
+  doc: Document
+  error: unknown
+  status: HomeCharacterBatchStatus
+  version?: string
+}) {
+  if ((error as { httpStatus?: number } | null)?.httpStatus !== 404)
+    return null
+
+  const freshManifest = await fetchFreshHomeCharacterBatchManifest(doc)
+  const freshVersion = freshManifest?.[status].batchVersions?.[batchIndex]
+  if (!freshManifest || !freshVersion || freshVersion === version)
+    return null
+
+  const freshUrl = buildHomeCharacterBatchUrl({
+    batchIndex,
+    locale: freshManifest.locale,
+    status,
+    v: freshVersion,
   })
+  try {
+    return await loadHomeCharacterBatch({ batchIndex, status, url: freshUrl })
+  }
+  catch {
+    return null
+  }
 }
 
 export async function fetchHomeCharacterBatch({
@@ -84,14 +124,31 @@ export async function fetchHomeCharacterBatch({
   if (!manifest)
     return null
 
+  const version = manifest[status].batchVersions?.[batchIndex]
   const url = buildHomeCharacterBatchUrl({
     batchIndex,
     locale: manifest.locale,
     status,
-    v: manifest[status].batchVersions?.[batchIndex] ?? manifest.v,
+    v: version,
   })
 
-  return batchRequestQueue.fetch(url, () => loadHomeCharacterBatch({ batchIndex, status, url }))
+  return batchRequestQueue.fetch(url, async () => {
+    try {
+      return await loadHomeCharacterBatch({ batchIndex, status, url })
+    }
+    catch (error) {
+      const retried = await retryHomeCharacterBatchWithFreshManifest({
+        batchIndex,
+        doc,
+        error,
+        status,
+        version,
+      })
+      if (retried)
+        return retried
+      throw error
+    }
+  })
 }
 
 export function prefetchHomeCharacterBatches({
@@ -123,7 +180,7 @@ export function prefetchHomeCharacterBatches({
       batchIndex,
       locale: manifest.locale,
       status,
-      v: manifest[status].batchVersions?.[batchIndex] ?? manifest.v,
+      v: manifest[status].batchVersions?.[batchIndex],
     })
     void batchRequestQueue.prefetch(url, () => loadHomeCharacterBatch({ batchIndex, status, url })).catch(() => {
       // Ignore prefetch failures and fall back to on-demand loading later.

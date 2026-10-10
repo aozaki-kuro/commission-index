@@ -2,12 +2,13 @@ import type { APIRoute } from 'astro'
 import { getCharacterAliases } from '@data/characterAliases'
 import { getKeywordAliases } from '@data/keywordAliases'
 import { HOME_LOCALES, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
-import { buildHomeCharacterBatchManifest, buildHomeCharacterBatchPlan } from '@features/home/server/homeCharacterBatches'
+import { buildHomeCharacterBatchManifest } from '@features/home/server/homeCharacterBatchArtifacts'
+import { buildHomeCharacterBatchPlan } from '@features/home/server/homeCharacterBatches'
 import { normalizeCharacterAliasKey } from '@lib/characterAliases'
 import { buildSitePayload } from '@lib/home/buildSitePayload'
 import { normalizeKeywordAliasKey } from '@lib/keywordAliases'
+import { buildHomeSearchEntriesArtifact } from '@lib/pipeline/homeSearchEntries'
 import { buildCommissionDataMap, buildCreatorAliasesMap } from '@lib/sitePayload'
-import { hashString } from '@lib/utils/hash'
 
 export function getStaticPaths() {
   return HOME_LOCALES.map(locale => ({ params: { locale } }))
@@ -42,22 +43,19 @@ export const GET: APIRoute = async ({ params }) => {
   )
   const creatorAliasesMap = buildCreatorAliasesMap(payload.creatorAliases)
 
-  const aliasContextHash = hashString(JSON.stringify([
-    [...characterAliasesMap],
-    [...creatorAliasesMap],
-    [...keywordAliasesMap],
-  ]))
-
   const plan = buildHomeCharacterBatchPlan({
     activeChars: payload.characterStatus.active,
     archivedChars: payload.characterStatus.archived,
     commissionMap,
   })
-  const manifest = buildHomeCharacterBatchManifest({
+  const manifest = await buildHomeCharacterBatchManifest({
+    characterAliasesMap,
     commissionMap,
-    contextHash: aliasContextHash,
+    creatorAliasesMap,
+    keywordAliasesMap,
     locale,
     plan,
+    searchEntriesVersion: buildHomeSearchEntriesArtifact().version,
   })
 
   return new Response(`${JSON.stringify(manifest)}\n`, {

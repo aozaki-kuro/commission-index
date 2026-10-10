@@ -2,8 +2,8 @@ import type { APIRoute } from 'astro'
 import { getCharacterAliases } from '@data/characterAliases'
 import { getKeywordAliases } from '@data/keywordAliases'
 import { HOME_LOCALES, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
+import { buildHomeTimelineBatchArtifacts } from '@features/home/server/homeTimelineBatchArtifacts'
 import { buildHomeTimelineBatchPlan } from '@features/home/server/homeTimelineBatches'
-import { buildHomeTimelineBatchPayload } from '@features/home/server/homeTimelineBatchPayload'
 import { normalizeCharacterAliasKey } from '@lib/characterAliases'
 import { buildSitePayload } from '@lib/home/buildSitePayload'
 import { normalizeKeywordAliasKey } from '@lib/keywordAliases'
@@ -45,17 +45,24 @@ function getBatchPlan() {
   }
 }
 
-export function getStaticPaths() {
-  const { plan } = getBatchPlan()
+export async function getStaticPaths() {
+  const { characterAliasesMap, creatorAliasesMap, keywordAliasesMap, plan } = getBatchPlan()
   const paths: Array<{
     params: { batch: string, locale: string }
   }> = []
 
   for (const locale of HOME_LOCALES) {
-    for (let batchIndex = 0; batchIndex < plan.totalBatches; batchIndex += 1) {
+    const artifacts = await buildHomeTimelineBatchArtifacts({
+      characterAliasesMap,
+      creatorAliasesMap,
+      keywordAliasesMap,
+      locale,
+      plan,
+    })
+    for (const artifact of artifacts) {
       paths.push({
         params: {
-          batch: String(batchIndex),
+          batch: `${artifact.batchIndex}.${artifact.version}`,
           locale,
         },
       })
@@ -67,27 +74,28 @@ export function getStaticPaths() {
 
 export const GET: APIRoute = async ({ params }) => {
   const locale = normalizeHomeLocale(params.locale)
-  const batchIndex = Number(params.batch)
+  const [rawBatchIndex, ...versionParts] = (params.batch ?? '').split('.')
+  const batchIndex = Number(rawBatchIndex)
   if (!Number.isInteger(batchIndex) || batchIndex < 0) {
     return new Response(null, { status: 404 })
   }
 
   const { characterAliasesMap, creatorAliasesMap, keywordAliasesMap, plan } = getBatchPlan()
-  const groups = plan.batches[batchIndex]
-  if (!groups) {
+  const artifacts = await buildHomeTimelineBatchArtifacts({
+    characterAliasesMap,
+    creatorAliasesMap,
+    keywordAliasesMap,
+    locale,
+    plan,
+  })
+  const artifact = artifacts[batchIndex]
+  // A stale HTML page can request a version that no longer exists; answer 404 so the client
+  // refreshes the manifest instead of receiving bytes cached under the wrong name.
+  if (!artifact || (versionParts.length > 0 && versionParts.join('.') !== artifact.version)) {
     return new Response(null, { status: 404 })
   }
 
-  const payload = await buildHomeTimelineBatchPayload({
-    batchIndex,
-    characterAliasesMap,
-    creatorAliasesMap,
-    groups,
-    keywordAliasesMap,
-    locale,
-  })
-
-  return new Response(`${JSON.stringify(payload)}\n`, {
+  return new Response(`${JSON.stringify(artifact.payload)}\n`, {
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
     },

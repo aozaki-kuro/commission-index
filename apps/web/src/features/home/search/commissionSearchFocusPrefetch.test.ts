@@ -88,7 +88,7 @@ function stubBatchFetch() {
     if (url.startsWith('/search/home-search-entries.json'))
       return new Response(JSON.stringify(searchEntriesMock.entries))
 
-    const match = /\/active\/(\d+)\.json/.exec(url)
+    const match = /\/active\/(\d+)(?:\.[^/]*)?\.json/.exec(url)
     if (!match)
       return new Response(null, { status: 404 })
 
@@ -134,7 +134,7 @@ describe('search focus prefetch budget', () => {
     document.getElementById('commission-search-input')!.focus()
     await vi.waitFor(() => {
       expect(batchRequestUrls(fetchSpy)).toEqual([
-        '/search/home-character-batches/en/active/0.json?v=batch-v0',
+        '/search/home-character-batches/en/active/0.batch-v0.json',
       ])
     })
     await flushAsyncWork()
@@ -153,7 +153,7 @@ describe('search focus prefetch budget', () => {
 
     document.getElementById('commission-search-input')!.focus()
     await vi.waitFor(() => {
-      expect(batchRequestUrls(fetchSpy)).toContain('/search/home-character-batches/en/active/0.json?v=batch-v0')
+      expect(batchRequestUrls(fetchSpy)).toContain('/search/home-character-batches/en/active/0.batch-v0.json')
     })
 
     // 'gamma' lives in batch 2, which focus did not warm up; the keyword must pull it in.
@@ -164,7 +164,7 @@ describe('search focus prefetch budget', () => {
       expect(entry).not.toBeNull()
       expect(entry!.closest('.hidden')).toBeNull()
     })
-    expect(batchRequestUrls(fetchSpy)).toContain('/search/home-character-batches/en/active/2.json?v=batch-v2')
+    expect(batchRequestUrls(fetchSpy)).toContain('/search/home-character-batches/en/active/2.batch-v2.json')
 
     loaderCleanup()
     cleanup?.()

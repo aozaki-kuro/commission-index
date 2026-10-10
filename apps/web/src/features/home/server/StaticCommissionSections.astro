@@ -6,13 +6,17 @@ import TimelineView from '@features/home/commission/TimelineView.astro'
 import { getHomeLocaleMessages, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
 import {
   buildHomeCharacterBatchManifest,
+} from '@features/home/server/homeCharacterBatchArtifacts'
+import {
   buildHomeCharacterBatchPlan,
 } from '@features/home/server/homeCharacterBatches'
 import {
   buildHomeTimelineBatchManifest,
+} from '@features/home/server/homeTimelineBatchArtifacts'
+import {
   buildHomeTimelineBatchPlan,
 } from '@features/home/server/homeTimelineBatches'
-import { hashString } from '@lib/utils/hash'
+import { buildHomeSearchEntriesArtifact } from '@lib/pipeline/homeSearchEntries'
 
 type CharacterDisplay = {
   DisplayName: string
@@ -47,18 +51,14 @@ const batchPlan = buildHomeCharacterBatchPlan({
   archivedChars,
   commissionMap,
 })
-// Hash non-commission inputs that affect batch JSON content (aliases, character names).
-// Mixed into every version hash so alias-only changes also bust the cache.
-const aliasContextHash = hashString(JSON.stringify([
-  [...characterAliasesMap],
-  [...creatorAliasesMap],
-  [...keywordAliasesMap],
-]))
-const batchManifest = buildHomeCharacterBatchManifest({
+const batchManifest = await buildHomeCharacterBatchManifest({
+  characterAliasesMap,
   commissionMap,
-  contextHash: aliasContextHash,
+  creatorAliasesMap,
+  keywordAliasesMap,
   locale: resolvedLocale,
   plan: batchPlan,
+  searchEntriesVersion: buildHomeSearchEntriesArtifact().version,
 })
 const initialActiveChars = batchPlan.active.initialCharacters
 const hasDeferredActiveChars = batchPlan.active.totalBatches > 0
@@ -66,10 +66,13 @@ const hasDeferredArchivedChars = batchPlan.archived.totalBatches > 0
 const timelineBatchPlan = buildHomeTimelineBatchPlan({
   groups: timelineGroups,
 })
-const timelineBatchManifest = buildHomeTimelineBatchManifest({
-  contextHash: aliasContextHash,
+const timelineBatchManifest = await buildHomeTimelineBatchManifest({
+  characterAliasesMap,
+  creatorAliasesMap,
+  keywordAliasesMap,
   locale: resolvedLocale,
   plan: timelineBatchPlan,
+  searchEntriesVersion: buildHomeSearchEntriesArtifact().version,
 })
 const initialTimelineGroups = timelineBatchPlan.initialGroups
 const hasDeferredTimelineGroups = timelineBatchPlan.totalBatches > 0

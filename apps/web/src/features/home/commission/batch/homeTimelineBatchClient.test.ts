@@ -55,4 +55,44 @@ describe('fetchHomeTimelineBatch', () => {
 
     expect(fetchSpy).toHaveBeenCalledTimes(2)
   })
+
+  it('refreshes the manifest and retries once when a hashed batch 404s', async () => {
+    document.body.innerHTML = `
+      <script type="application/json" data-home-timeline-batch-manifest="true">
+        {"locale":"en","v":"tv","batchVersions":["old0","old1"],"initialSectionIds":[],"totalBatches":2,"targetBatchById":{}}
+      </script>
+    `
+    clearHomeTimelineBatchManifestCacheForTests(document)
+
+    const freshManifest = {
+      locale: 'en',
+      v: 'tv',
+      batchVersions: ['new0', 'new1'],
+      initialSectionIds: [],
+      totalBatches: 2,
+      targetBatchById: {},
+    }
+    const fetchSpy = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url.startsWith('/search/home-timeline-manifest/en.json'))
+        return new Response(JSON.stringify(freshManifest))
+      if (url.startsWith('/search/home-timeline-batches/en/1.old1.json'))
+        return new Response(null, { status: 404 })
+      if (url.startsWith('/search/home-timeline-batches/en/1.new1.json'))
+        return new Response(JSON.stringify({ sections: [] }))
+      return new Response(null, { status: 404 })
+    })
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await expect(
+      fetchHomeTimelineBatch({
+        batchIndex: 1,
+        doc: document,
+      }),
+    ).resolves.toEqual({ sections: [] })
+
+    const requestedUrls = (fetchSpy.mock.calls as unknown as Array<[string]>).map(([url]) => url)
+    expect(requestedUrls).toContain('/search/home-timeline-batches/en/1.old1.json')
+    expect(requestedUrls).toContain('/search/home-timeline-batches/en/1.new1.json')
+  })
 })

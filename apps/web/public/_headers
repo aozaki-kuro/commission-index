@@ -11,29 +11,29 @@
   Cache-Control: no-cache
   Access-Control-Allow-Origin: https://admin.crystallize.cc
 
-/*.html
-  Cache-Control: public, max-age=300, stale-while-revalidate=86400
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
 
-/
-  Cache-Control: public, max-age=300, stale-while-revalidate=86400
-
-/search/home-search-entries.json
-  Cache-Control: public, max-age=300, stale-while-revalidate=86400
+/search/home-search-entries.*.json
+  Cache-Control: public, max-age=31536000, immutable
 
 /search/home-character-batches/*
-  Cache-Control: public, max-age=300, stale-while-revalidate=86400
+  Cache-Control: public, max-age=31536000, immutable
 
 /search/home-timeline-batches/*
-  Cache-Control: public, max-age=300, stale-while-revalidate=86400
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.html
+  Cache-Control: no-cache
+
+/
+  Cache-Control: no-cache
 
 /rss.xml
-  Cache-Control: public, max-age=300, stale-while-revalidate=86400
+  Cache-Control: no-cache
 
 /search/home-character-manifest/*
   Cache-Control: no-cache
 
 /search/home-timeline-manifest/*
   Cache-Control: no-cache
-
-/_astro/*
-  Cache-Control: public, max-age=31536000, immutable
