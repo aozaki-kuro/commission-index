@@ -58,6 +58,14 @@ async function mockApi(page: Page, firstCharacterCount = 1) {
     archivedCharacter: false,
     secondCharacterName: 'Character 2',
   }
+  // The public site's build-info is read cross-origin after dispatch; exporting "now" confirms the rebuild.
+  await page.route('**/build-info.json', async (route) => {
+    const now = new Date().toISOString()
+    await route.fulfill({
+      headers: { 'Access-Control-Allow-Origin': '*' },
+      json: { dataRevision: 'fixture', dataExportedAt: now, codeSha: null, builtAt: now },
+    })
+  })
   await page.route('**/api/admin/**', async (route) => {
     const request = route.request()
     const pathname = new URL(request.url()).pathname
@@ -88,7 +96,7 @@ async function mockApi(page: Page, firstCharacterCount = 1) {
     if (pathname.endsWith('/rebuild')) {
       control.rebuildRequests++
       await control.rebuildGate
-      await route.fulfill({ json: { status: 'success', message: 'Queued.' } })
+      await route.fulfill({ json: { status: 'success', message: 'Queued.', dispatchedAt: new Date().toISOString() } })
       return
     }
     if (/\/(?:character-|keyword-)?aliases\/batch$/.test(pathname) && request.method() === 'POST') {
@@ -687,12 +695,12 @@ test('overview keeps primary actions stable and queues publishing once', async (
   await rebuild.click()
   await expect(page.getByRole('button', { name: 'Queueing…' })).toBeDisabled()
   await page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link', { name: 'Create', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Dispatching…' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Checking…' })).toBeDisabled()
   await page.getByRole('navigation', { name: 'Admin sections' }).getByRole('link', { name: 'Overview', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Queueing…' })).toBeDisabled()
   expect(control.rebuildRequests).toBe(1)
   publishing.resolve()
-  await expect(page.getByText('Website rebuild queued.', { exact: false })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Publish website' }).getByRole('status')).toHaveText('Website updated and confirmed live.')
   await page.getByRole('button', { name: 'Dismiss notification' }).click()
   await page.screenshot({ path: testInfo.outputPath('overview-mobile.png'), fullPage: true })
   await page.setViewportSize({ width: 1280, height: 1000 })
