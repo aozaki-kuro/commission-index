@@ -6,7 +6,7 @@ const rootDir = resolve(import.meta.dirname, '..')
 
 const reuseExistingServer = !process.env.CI
 
-// Offline: web only, fixture data, no D1/R2 (the admin worker binds remote D1/R2 in wrangler.jsonc).
+// Offline: web only, fixture data, no D1/R2.
 const offlineVisual = process.env.VISUAL_OFFLINE === '1'
 
 const webProject = {
@@ -38,18 +38,11 @@ const webServer = {
   reuseExistingServer,
 }
 
+// Admin visuals are fixture-backed (specs route every /api/admin/** call), so no worker is started.
 const adminServers = [
   {
     cwd: rootDir,
-    command: 'pnpm -C apps/admin-worker run dev -- --ip 127.0.0.1 --port 8787',
-    url: 'http://127.0.0.1:8787/api/admin/health',
-    timeout: 120_000,
-    reuseExistingServer,
-  },
-  {
-    // Admin visuals depend on worker-backed bootstrap data, not the legacy web stub.
-    cwd: rootDir,
-    command: 'ADMIN_API_BASE_URL=http://127.0.0.1:8787 pnpm -C apps/admin run dev',
+    command: 'pnpm -C apps/admin run dev',
     url: 'http://127.0.0.1:4174',
     timeout: 120_000,
     reuseExistingServer,

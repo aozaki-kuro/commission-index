@@ -4,6 +4,7 @@ import {
   ADMIN_PROJECT_NAME,
   createTestSourceImage,
   expectUnionToMatchSnapshot,
+  mockAdminApi,
   prepareStablePage,
   rotateCropImage,
   skipUnlessProject,
@@ -24,23 +25,25 @@ async function openCropDialog(page: Page) {
 
 test('create page stays visually stable', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
+  await mockAdminApi(page)
   await page.goto('/create')
   await page.getByRole('heading', { level: 1, name: 'Create' }).waitFor()
-  await page.getByRole('heading', { name: 'Add Commission Entry' }).waitFor()
+  await page.getByRole('heading', { name: 'Entry details' }).waitFor()
   await prepareStablePage(page)
 
   await expectUnionToMatchSnapshot(page, 'admin-create-page.png', [
     page.getByRole('heading', { level: 1, name: 'Create' }),
     page.getByRole('button', { name: 'New character' }),
-    page.getByRole('heading', { name: 'Add Commission Entry' }),
+    page.getByRole('heading', { name: 'Entry details' }),
     page.getByRole('button', { name: 'Save commission' }),
   ])
 })
 
 test('new character dialog stays visually stable and preserves the commission draft', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
+  await mockAdminApi(page)
   await page.goto('/create')
-  await page.getByRole('heading', { name: 'Add Commission Entry' }).waitFor()
+  await page.getByRole('heading', { name: 'Entry details' }).waitFor()
   await page.getByRole('textbox', { name: 'Creator (optional)' }).fill('Draft creator')
   await page.getByRole('button', { name: 'New character' }).click()
   const dialog = page.getByRole('dialog', { name: 'New character' })
@@ -61,10 +64,11 @@ test('new character dialog stays visually stable and preserves the commission dr
 test('commission metadata fields align and the date picker fits desktop and mobile', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
 
+  await mockAdminApi(page)
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 844 })
     await page.goto('/create')
-    await page.getByRole('heading', { name: 'Add Commission Entry' }).waitFor()
+    await page.getByRole('heading', { name: 'Entry details' }).waitFor()
 
     const fieldPairs = [
       [page.getByText('Character', { exact: true }), page.getByRole('combobox', { name: 'Character' })],
@@ -111,8 +115,9 @@ test('commission metadata fields align and the date picker fits desktop and mobi
 
 test('source image cropper exports the fixed JPEG contract', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
+  await mockAdminApi(page)
   await page.goto('/create')
-  await page.getByRole('heading', { name: 'Add Commission Entry' }).waitFor()
+  await page.getByRole('heading', { name: 'Entry details' }).waitFor()
   const sourceImage = await openCropDialog(page)
 
   await rotateCropImage(page, 37)
@@ -194,8 +199,9 @@ test('source image cropper exports the fixed JPEG contract', async ({ page }, te
 test('source image cropper keeps controls available on a narrow screen', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
   await page.setViewportSize({ width: 390, height: 844 })
+  await mockAdminApi(page)
   await page.goto('/create')
-  await page.getByRole('heading', { name: 'Add Commission Entry' }).waitFor()
+  await page.getByRole('heading', { name: 'Entry details' }).waitFor()
   await openCropDialog(page)
 
   await expect(page.getByRole('dialog')).toHaveScreenshot('admin-image-crop-dialog-mobile.png', {
@@ -217,8 +223,9 @@ test('source image cropper keeps controls available on a narrow screen', async (
 test('source image cropper supports touch transform gestures', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
   await page.setViewportSize({ width: 390, height: 844 })
+  await mockAdminApi(page)
   await page.goto('/create')
-  await page.getByRole('heading', { name: 'Add Commission Entry' }).waitFor()
+  await page.getByRole('heading', { name: 'Entry details' }).waitFor()
   await openCropDialog(page)
 
   const rotation = page.getByLabel('Image rotation')
@@ -269,8 +276,9 @@ test('source image cropper supports touch transform gestures', async ({ page }, 
 
 test('crop dialog uses the site glass and adaptive neutral workspace', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
+  await mockAdminApi(page)
   await page.goto('/create')
-  await page.getByRole('heading', { name: 'Add Commission Entry' }).waitFor()
+  await page.getByRole('heading', { name: 'Entry details' }).waitFor()
   await openCropDialog(page)
 
   const overlay = page.locator('[data-dialog-overlay="crop"]')
@@ -289,8 +297,9 @@ test('crop dialog uses the site glass and adaptive neutral workspace', async ({ 
 
 test('cancelling a portrait recrop preserves the confirmed JPEG', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
+  await mockAdminApi(page)
   await page.goto('/create')
-  await page.getByRole('heading', { name: 'Add Commission Entry' }).waitFor()
+  await page.getByRole('heading', { name: 'Entry details' }).waitFor()
   const sourceImage = await openCropDialog(page)
   await page.getByRole('button', { name: 'Use image' }).click()
   await expect(page.getByRole('heading', { name: 'Crop source image' })).toBeHidden()
@@ -312,8 +321,9 @@ test('cancelling a portrait recrop preserves the confirmed JPEG', async ({ page 
 
 test('admin nav switches sections without a full reload', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
+  await mockAdminApi(page)
   await page.goto('/create')
-  await page.getByRole('heading', { name: 'Add Commission Entry' }).waitFor()
+  await page.getByRole('heading', { name: 'Entry details' }).waitFor()
 
   await page.evaluate(() => {
     sessionStorage.removeItem('__admin-beforeunload')
@@ -332,9 +342,10 @@ test('admin nav switches sections without a full reload', async ({ page }, testI
 
 test('overview quick actions stay inside the client shell', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
+  await mockAdminApi(page)
   await page.goto('/')
   await page.getByRole('heading', { level: 1, name: 'Admin Overview' }).waitFor()
-  await page.getByRole('heading', { name: 'Quick actions' }).waitFor()
+  await page.getByRole('heading', { name: 'Manage content' }).waitFor()
 
   await page.evaluate(() => {
     sessionStorage.removeItem('__admin-beforeunload')
@@ -356,31 +367,7 @@ for (const routeName of ['create', 'edit']) {
   for (const reducedMotion of ['no-preference', 'reduce'] as const) {
     for (const action of ['Cancel', 'Close', 'Escape', 'Use image']) {
       test(`crop lifecycle ${routeName} ${reducedMotion} ${action}`, async ({ page }) => {
-        const commission = {
-          id: 1,
-          characterId: 1,
-          characterName: 'Crop fixture',
-          fileName: '20250302_Test',
-          links: [],
-          hidden: false,
-        }
-        await page.route('**/api/admin/**', async (route) => {
-          const path = new URL(route.request().url()).pathname
-          if (path.includes('/source-image/')) {
-            await route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="525"/>' })
-            return
-          }
-          const body = path.endsWith('/bootstrap')
-            ? {
-                characters: [{ id: 1, name: 'Crop fixture', status: 'active', sortOrder: 0, commissionCount: 1 }],
-                commissionSearchRows: [{ ...commission, links: '' }],
-                creatorAliases: [],
-              }
-            : path.endsWith('/commissions')
-              ? { commissions: [commission] }
-              : { status: 'success', message: 'Crop fixture uploaded.' }
-          await route.fulfill({ json: body })
-        })
+        await mockAdminApi(page)
         await page.emulateMedia({ reducedMotion })
         await page.goto(`/${routeName}`)
         if (routeName === 'edit') {
@@ -421,7 +408,7 @@ for (const routeName of ['create', 'edit']) {
         if (routeName === 'edit') {
           await expect(page.getByRole('dialog')).toHaveCount(1)
           if (action === 'Use image')
-            await expect(page.getByText('Crop fixture uploaded.')).toBeVisible()
+            await expect(page.getByText('Test source image replaced.')).toBeVisible()
         }
         else if (action === 'Use image') {
           const file = await input.evaluate((element: HTMLInputElement) => element.files?.[0]?.type)
