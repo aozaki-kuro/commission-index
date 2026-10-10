@@ -17,6 +17,11 @@ import MobileHamburgerMenu from '@features/home/nav/hamburger/MobileHamburgerMen
 import MobileLanguageMenu from '@features/home/nav/hamburger/MobileLanguageMenu.astro'
 import CommissionSearchIsland from '@features/home/search/CommissionSearchIsland.astro'
 import StaticCommissionSections from '@features/home/server/StaticCommissionSections.astro'
+import {
+  AGE_CONFIRM_DURATION,
+  CONFIRMED_AGE_KEY,
+  LIGHTHOUSE_USER_AGENT_TOKEN,
+} from '@features/home/warning/ageGate'
 import AgeGateScript from '@features/home/warning/AgeGateScript.astro'
 import BaseLayout from '@layouts/BaseLayout.astro'
 import { normalizeCharacterAliasKey } from '@lib/characterAliases'
@@ -134,6 +139,26 @@ const resolvedCanonicalPath
       pointer-events: none;
     }
   </style>
+  <script
+    is:inline
+    slot="head"
+    define:vars={{ confirmedKey: CONFIRMED_AGE_KEY, confirmDuration: AGE_CONFIRM_DURATION, lighthouseToken: LIGHTHOUSE_USER_AGENT_TOKEN }}
+  >
+    // Mirrors hasValidAgeConfirmation() in warning/ageGate.ts: show the gate in the first frame
+    // instead of waiting for the module script. On storage errors stay closed, as the module does.
+    try {
+      if (!navigator.userAgent.toLowerCase().includes(lighthouseToken)) {
+        const confirmedAt = Number(localStorage.getItem(confirmedKey))
+        if (!(confirmedAt && Date.now() - confirmedAt < confirmDuration)) {
+          document.documentElement.dataset.ageGateInitial = 'open'
+          document.documentElement.dataset.ageGateOpen = 'true'
+        }
+      }
+    }
+    catch {
+      // Storage unavailable: leave the gate to the module script.
+    }
+  </script>
   <script is:inline slot="head">
     try {
       const rawState = window.sessionStorage.getItem('home:scroll-state')

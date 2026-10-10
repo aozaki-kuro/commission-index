@@ -119,14 +119,28 @@ const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
   </section>
 </div>
 
+<style is:global>
+  /* Pre-paint state: the inline script in HomePage.astro sets the attribute before first paint so
+     the gate is already opaque in the first frame. Unlayered rules beat the Tailwind utilities. */
+  html[data-age-gate-initial='open'] [data-age-gate-root] {
+    display: flex;
+  }
+
+  html[data-age-gate-initial='open'] [data-age-gate-overlay],
+  html[data-age-gate-initial='open'] [data-age-gate-panel] {
+    opacity: 1;
+    scale: 1;
+    animation: none;
+  }
+</style>
+
 <script>
 import { bindSoftNavMount } from '@lib/astro/softNavMount'
+import { CONFIRMED_AGE_KEY, hasValidAgeConfirmation } from './ageGate'
 
-const CONFIRMED_AGE_KEY = 'hasConfirmedAge'
-const AGE_CONFIRM_DURATION = 30 * 24 * 60 * 60 * 1000
 const AGE_CONFIRM_EVENT = 'age-confirm-changed'
 const AGE_GATE_STATE_EVENT = 'age-gate-state-change'
-const LIGHTHOUSE_USER_AGENT_TOKEN = 'lighthouse'
+const INITIAL_ATTRIBUTE = 'ageGateInitial'
 
 // Elements are queried per mount: after a soft navigation the old nodes are gone.
 function mountAgeGate(): (() => void) | null {
@@ -146,16 +160,36 @@ function mountAgeGate(): (() => void) | null {
   const originalHtmlOverflow = document.documentElement.style.overflow
   const originalBodyOverflow = document.body.style.overflow
 
-  const isLighthouseUserAgent = () =>
-    navigator.userAgent.toLowerCase().includes(LIGHTHOUSE_USER_AGENT_TOKEN)
-  const hasValidAgeConfirmation = () => {
-    if (isLighthouseUserAgent())
-      return true
-    const timestamp = Number(localStorage.getItem(CONFIRMED_AGE_KEY))
-    return Boolean(timestamp && Date.now() - timestamp < AGE_CONFIRM_DURATION)
+  const isConfirmed = () =>
+    hasValidAgeConfirmation({
+      userAgent: navigator.userAgent,
+      storedValue: localStorage.getItem(CONFIRMED_AGE_KEY),
+      now: Date.now(),
+    })
+
+  // The pre-paint script may already show the gate. Adopt that frame as-is: the entrance animation
+  // would restart from opacity 0 once the opt-in attribute (which forces animation: none) is removed,
+  // so keep it suppressed inline until the next state change.
+  let entranceSuppressed = false
+  const releaseEntranceSuppression = () => {
+    if (!entranceSuppressed)
+      return
+    overlay.style.removeProperty('animation')
+    panel.style.removeProperty('animation')
+    entranceSuppressed = false
   }
 
   const updateState = (open: boolean) => {
+    const adoptingInitial = document.documentElement.dataset[INITIAL_ATTRIBUTE] === 'open'
+    if (adoptingInitial && open && !isOpen) {
+      overlay.style.animation = 'none'
+      panel.style.animation = 'none'
+      entranceSuppressed = true
+    }
+    else {
+      releaseEntranceSuppression()
+    }
+    delete document.documentElement.dataset[INITIAL_ATTRIBUTE]
     isOpen = open
     if (open)
       hasOpened = true
@@ -190,7 +224,7 @@ function mountAgeGate(): (() => void) | null {
   }
 
   const syncOpenState = () => {
-    updateState(!hasValidAgeConfirmation())
+    updateState(!isConfirmed())
   }
 
   const onConfirmAge = () => {
@@ -267,6 +301,8 @@ function mountAgeGate(): (() => void) | null {
     window.removeEventListener(AGE_CONFIRM_EVENT, syncOpenState)
     document.removeEventListener('keydown', onKeyDown)
     delete document.documentElement.dataset.ageGateOpen
+    delete document.documentElement.dataset[INITIAL_ATTRIBUTE]
+    releaseEntranceSuppression()
     document.documentElement.style.overflow = originalHtmlOverflow
     document.body.style.overflow = originalBodyOverflow
   }
