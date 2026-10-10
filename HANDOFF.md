@@ -1,7 +1,7 @@
 # HANDOFF（2026-10-11）
 
 主题：web SEO / 性能修复已在 PR [#382](https://github.com/aozaki-kuro/commission-index/pull/382)（分支
-`perf/web-seo-perf`，auto-fix 已开）。**下一轮单开：admin 视觉回归 31 个失败。**
+`perf/web-seo-perf`，auto-fix 已开）。admin 视觉回归 31 个失败已在 `fix/visual-baselines` 收口（见「视觉问题」）。
 计划文件 `docs/superpowers/plans/2026-10-10-web-seo-perf.md`（未跟踪，含全部 Ruling）。
 
 ## 进展
@@ -28,31 +28,15 @@
 
 ## 视觉问题（下一轮的主题）
 
-### admin：31 个失败，未查根因，基线未动
+### admin：已收口（2026-10-11，`fix/visual-baselines`）
 
-本轮没有改 admin 代码，所以失败与 PR #382 无关；但「环境问题」只是推测，**没有在干净 checkout 上对照过**。
-
-失败分布（来自 `test-results/playwright` 目录名，可能混有旧 run，用前重跑核对）：
-
-- `ui-stability.spec.ts`：约 19 个，包括 character grid、cold character / create、HiDPI 2560x1440 / 1280x720、
-  mobile workspace、reload restore、alias tabs、edit aligns 等。
-- `admin-create.spec.ts`：约 15 个，包括 crop lifecycle（reduce / no-preference × Use image / Escape / Close / Cancel）、
-  crop dialog、source image、new character、overview、nav switch、create page visual。
-- `admin-edit.spec.ts`：3 个（replacement crop、edit page / manager visual）。
-- `aliases-ui.spec.ts`：alias sections；`admin-aliases.spec.ts`：dashboard visual；`admin-suggestion.spec.ts`：featured。
-
-症状分类：
-
-1. 30 s `waitFor` / `click` 超时（占大多数）。
-2. 4 个 `toBeCloseTo` 数值断言失败（布局对齐类）。
-3. 3 个截图不一致。
-4. **`Admin route failed to render ... undefined.replaceAll`**：admin 页面在远端数据下渲染崩溃。这条最可疑，像真 bug
-   而不是环境问题，很可能是一批超时的上游原因（页面没渲染出来，后续 `waitFor` 自然超时）。
+- 根因：spec 过期，不是环境问题。specs 落后于 `2939c7e`、`d734944` / `10fd8ad`、`89797f2`，且跑在错误的 Playwright 配置下。
+- 修复：`be84ee5` / `c7f12a9` fixture 化（`mockAdminApi`），`0aea395` 旋转竞态，`7a1f2af` 数据就绪等待，`f9189db` 刷新 7 张基线，`0493590` 裁剪器 resize 重适配（产品修复）。
+- 结果：`pnpm run test:visual` 42/42，`pnpm run test:admin-ui` 28/28。`undefined.replaceAll` 崩溃在通过后不再复现，但未单独定位其字段来源。
 
 ### web：已绿，但有两处结构性风险
 
-- 基线是真实远端数据截图，**每次数据变化都会漂移**（这次 10-05 → 10-09 漂了 3 张）。可考虑让 web 视觉用固定
-  fixture，或者把易变文本区域 mask 掉。
+- 基线是真实远端数据截图，**每次数据变化都会漂移**（这次 10-05 → 10-09 漂了 3 张）。已决定延后到固定 fixture 方案（见 open-issues「Verification gaps」R3；mask 不可行）。
 - 没有视觉用例覆盖：暗色模式（如移动端 tab 的 gray-400）、年龄门首帧（所有视觉 spec 都预先确认了年龄）。
 
 ## 试过什么
@@ -64,7 +48,7 @@
 
 ## 当前状态
 
-- 当前分支 `perf/web-seo-perf` = `origin/perf/web-seo-perf`（HEAD `67890d8`）。PR CI 在跑，前一轮 `Validate & Build`
+- 当前分支 `fix/visual-baselines`（admin 视觉收口所在；PR #382 的分支仍是 `perf/web-seo-perf`，HEAD `67890d8`）。PR CI 在跑，前一轮 `Validate & Build`
   的失败已由 `ba63af0` 修掉。
 - 本地 lint / typecheck / test 全绿（495/495）；`build:web`（已有快照）通过。
 - 未提交：仅本文件和未跟踪的 `docs/superpowers/`。
@@ -74,13 +58,11 @@
 
 ## 下一步（按优先级）
 
-1. **admin `undefined.replaceAll` 崩溃**：在 `apps/admin/src` 找 `.replaceAll(` 调用，看哪个字段在远端数据里可能是
-   `undefined`（可选字段、新列、bootstrap 结构变化），再用 `pnpm run dev:admin` 复现。先修它，再看超时剩多少。
-2. 在干净 checkout（`git worktree add` 到 `origin/master`）跑一次 admin 视觉，确认这 31 个失败在 master 上是否本来就有。
-3. 剩下的超时逐个定性：worker bootstrap 是不是太慢（远端 D1）？还是 spec 在等一个不再存在的元素？
-   `toBeCloseTo` 失败对照最近的 admin UI 改动（如 `1e92e26` 编辑搜索缩略图）。
-4. 人眼确认 admin 3 处截图差异，桌面和移动都看过，再决定是否更新基线。
-5. web 视觉的数据漂移：决定用 fixture 还是 mask；可顺手补暗色和年龄门首帧的用例。
+1. ~~admin `undefined.replaceAll` 崩溃~~：已收口。未单独定位字段来源；视觉套件通过后不再复现。
+2. ~~干净 checkout 对照 master~~：已由根因定位替代（spec 过期，非环境问题）。
+3. ~~剩余超时逐个定性~~：已收口，均随 spec 与基线修复通过（含 `toBeCloseTo`）。
+4. ~~人眼确认 admin 截图差异~~：已收口，`f9189db` 刷新 7 张 admin 基线（壳层布局变化）。
+5. web 视觉数据漂移：已决定延后，记录于 `docs/open-issues.md`「Verification gaps」（R3）。暗色模式与年龄门首帧仍是未做的 wishlist，不属于本轮。
 6. PR #382 合并后：重跑 Lighthouse mobile（未确认访客）看 LCP；`curl -sI` 一个 favicon，确认只有一条 `Cache-Control`。
 
 ## 本轮学到的坑
