@@ -32,7 +32,7 @@
 
 - 根因：spec 过期，不是环境问题。specs 落后于 `2939c7e`、`d734944` / `10fd8ad`、`89797f2`，且跑在错误的 Playwright 配置下。
 - 修复：`be84ee5` / `c7f12a9` fixture 化（`mockAdminApi`），`0aea395` 旋转竞态，`7a1f2af` 数据就绪等待，`f9189db` 刷新 7 张基线，`0493590` 裁剪器 resize 重适配（产品修复）。
-- 结果：`pnpm run test:visual` 42/42，`pnpm run test:admin-ui` 28/28。`undefined.replaceAll` 崩溃在通过后不再复现，但未单独定位其字段来源。
+- 结果：`pnpm run test:visual` 42/42，`pnpm run test:admin-ui` 28/28。`undefined.replaceAll` 崩溃已定位：`formatCommissionPublicId`（`apps/admin/src/lib/commissionPresentation.ts`）← `getCommissionAccessibleLabel` ← `ThumbnailCard`（`CommissionThumbnailGrid.tsx`）。原因是 `crop lifecycle edit *` 测试内联 mock fixture 缺 `publicId`（fixture 早于 `2939c7e`），非产品 bug；由 `be84ee5` 共享类型化 fixture 与 `c7f12a9` 类型检查测试文件修复。
 
 ### web：已绿，但有两处结构性风险
 
@@ -48,18 +48,16 @@
 
 ## 当前状态
 
-- 当前分支 `fix/visual-baselines`（admin 视觉收口所在；PR #382 的分支仍是 `perf/web-seo-perf`，HEAD `67890d8`）。PR CI 在跑，前一轮 `Validate & Build`
-  的失败已由 `ba63af0` 修掉。
-- 本地 lint / typecheck / test 全绿（495/495）；`build:web`（已有快照）通过。
-- 未提交：仅本文件和未跟踪的 `docs/superpowers/`。
-- 本地 `master` 比 `origin/master` 多 PR 里的 10 个提交；PR 合并后要同步回 `origin/master`（如果 squash 合并，同步时会
-  丢掉这些本地提交，届时先确认）。
+- 当前分支 `fix/visual-baselines`，基于 master `ceb1292`，本分支 8 个提交（`9a76ac6` … `fe25242`），未推送，无 PR。
+- 未跟踪：仅 `docs/superpowers/`。
+- 本分支验证：`pnpm run test` 495/495；typecheck、lint 通过；`pnpm run test:visual` 42/42（admin 31 + web 11）；`pnpm run test:admin-ui` 28/28。
+- PR #382 的提交已在 `origin/master`（`1af8293`）上；本地 master = `origin/master` + `ceb1292`（handoff 提交，未推送）。
 - tmux 会话 `dev`（10-10 创建）一直开着，不是本轮的。
 
 ## 下一步（按优先级）
 
-1. ~~admin `undefined.replaceAll` 崩溃~~：已收口。未单独定位字段来源；视觉套件通过后不再复现。
-2. ~~干净 checkout 对照 master~~：已由根因定位替代（spec 过期，非环境问题）。
+1. ~~admin `undefined.replaceAll` 崩溃~~：已收口。定位见上（测试 fixture 缺 `publicId`，非产品 bug）。
+2. ~~干净 checkout 对照 master~~：以 `git log -S` 定位到每个失败选择器/标签的改动提交代替（均已在 master 上）。
 3. ~~剩余超时逐个定性~~：已收口，均随 spec 与基线修复通过（含 `toBeCloseTo`）。
 4. ~~人眼确认 admin 截图差异~~：已收口，`f9189db` 刷新 7 张 admin 基线（壳层布局变化）。
 5. web 视觉数据漂移：已决定延后，记录于 `docs/open-issues.md`「Verification gaps」（R3）。暗色模式与年龄门首帧仍是未做的 wishlist，不属于本轮。
