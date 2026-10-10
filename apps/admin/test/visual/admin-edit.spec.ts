@@ -50,6 +50,8 @@ test('edit page stays visually stable', async ({ page }, testInfo) => {
   await mockAdminApi(page)
   await page.goto('/edit')
   await page.getByRole('heading', { level: 1, name: 'Edit' }).waitFor()
+  // Fixture data renders after the heading; capture only once a character row is present.
+  await expect(page.locator('[data-character-section]').filter({ hasText: 'Aster' })).toBeVisible()
   await prepareStablePage(page)
 
   await expect(getAdminPageContainer(page)).toHaveScreenshot('admin-edit-page.png', {
@@ -67,6 +69,7 @@ test('edit manager stays visually stable', async ({ page }, testInfo) => {
     .locator('..')
 
   await page.getByRole('heading', { name: 'Existing commissions' }).waitFor()
+  await expect(page.locator('[data-character-section]').filter({ hasText: 'Aster' })).toBeVisible()
   await prepareStablePage(page)
 
   await expect(managerSection).toHaveScreenshot('admin-edit-manager.png', {

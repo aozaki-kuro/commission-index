@@ -23,6 +23,28 @@ async function openCropDialog(page: Page) {
   return sourceImage
 }
 
+/**
+ * The editor initialises on the first non-empty canvas measurement. On a narrow viewport the canvas
+ * height is briefly 12px taller (588 vs 576) while the dialog lays out, so the initial fit is later
+ * rescaled by the resize handler and the image ends ~2% smaller in roughly half of the runs. Wait for
+ * the canvas size to stop changing, then use Reset (re-initialise at the current size) so the
+ * screenshot always captures the same, deterministic state.
+ */
+async function resetCropAtSettledSize(page: Page) {
+  const canvas = page.locator('cropper-canvas')
+  let previous = ''
+  let stableReads = 0
+  await expect.poll(async () => {
+    const size = await canvas.evaluate(element => `${element.clientWidth}x${element.clientHeight}`)
+    stableReads = size === previous ? stableReads + 1 : 0
+    previous = size
+    return stableReads
+  }, { message: 'Crop canvas size did not settle' }).toBeGreaterThanOrEqual(3)
+  // DOM click: a real click would leave hover/focus styling on Reset and move focus off the dialog's initial target.
+  await page.getByRole('button', { name: 'Reset' }).evaluate(button => (button as HTMLButtonElement).click())
+  await expect.poll(async () => (await page.locator('cropper-selection').boundingBox())?.width ?? 0).toBeGreaterThan(0)
+}
+
 test('create page stays visually stable', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
   await mockAdminApi(page)
@@ -203,6 +225,7 @@ test('source image cropper keeps controls available on a narrow screen', async (
   await page.goto('/create')
   await page.getByRole('heading', { name: 'Entry details' }).waitFor()
   await openCropDialog(page)
+  await resetCropAtSettledSize(page)
 
   await expect(page.getByRole('dialog')).toHaveScreenshot('admin-image-crop-dialog-mobile.png', {
     animations: 'disabled',
