@@ -69,7 +69,8 @@ Admin features go in `apps/admin` + `apps/admin-worker`, never `apps/web`.
   Root scripts pass explicit config paths; workspace `tsconfig.json` files extend the shared base.
   VS Code ESLint uses `config/eslint.config.ts`; other integrations must pass the same explicit path.
 - `apps/admin/playwright.ui.config.ts` owns frontend-only API-fixture tests and matches `*.spec.ts` while
-  excluding the `admin-*.spec.ts` screenshot specs owned by cross-workspace Playwright.
+  excluding the `admin-*.spec.ts` screenshot specs owned by cross-workspace Playwright. The cross-workspace admin
+  project matches only `admin-*.spec.ts`, so each spec file has exactly one owning config.
 - `VISUAL_OFFLINE=1 pnpm run test:visual` writes an empty generated fact-source fixture and runs only web visual
   specs, without D1/R2 access. It is a server-start/smoke mode only: committed baselines are real-data screenshots,
   so fixture runs fail screenshot assertions; never update baselines from it. The default cross-workspace visual run

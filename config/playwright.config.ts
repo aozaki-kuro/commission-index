@@ -21,6 +21,7 @@ const webProject = {
 const adminProject = {
   name: 'admin',
   testDir: resolve(rootDir, 'apps/admin/test/visual'),
+  testMatch: 'admin-*.spec.ts',
   snapshotPathTemplate: resolve(rootDir, 'test/visual/apps/admin/{testFilePath}-snapshots/{arg}-{platform}{ext}'),
   use: {
     baseURL: 'http://127.0.0.1:4174',
