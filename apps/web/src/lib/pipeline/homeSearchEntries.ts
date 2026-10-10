@@ -8,12 +8,19 @@ import { getCharacterRecords } from '../../../data/commissionRecords'
 import { getCreatorAliasesMap } from '../../../data/creatorAliases'
 import { getKeywordAliasesMap } from '../../../data/keywordAliases'
 import { getCharacterSectionId } from '../characters/nav'
+import { contentHash } from '../utils/contentHash'
 
-interface SearchEntry {
+export interface SearchEntry {
   publicId: string
   domKey: string
   searchText: string
   searchSuggest: string
+}
+
+export interface HomeSearchEntriesArtifact {
+  entries: SearchEntry[]
+  /** Truncated SHA-256 of the serialized entries — names `/search/home-search-entries.<v>.json`. */
+  version: string
 }
 
 export function buildHomeSearchEntries(): SearchEntry[] {
@@ -57,4 +64,26 @@ export function buildHomeSearchEntries(): SearchEntry[] {
   }
 
   return entries
+}
+
+let cachedArtifact: HomeSearchEntriesArtifact | null = null
+
+export function clearHomeSearchEntriesArtifactCacheForTests() {
+  cachedArtifact = null
+}
+
+/**
+ * Entries plus their content hash. The manifest and the search-entries endpoint both read this so
+ * the advertised filename and the served file cannot disagree.
+ */
+export function buildHomeSearchEntriesArtifact(): HomeSearchEntriesArtifact {
+  if (cachedArtifact)
+    return cachedArtifact
+
+  const entries = buildHomeSearchEntries()
+  cachedArtifact = {
+    entries,
+    version: contentHash(JSON.stringify(entries)),
+  }
+  return cachedArtifact
 }

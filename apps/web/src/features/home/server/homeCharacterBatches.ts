@@ -1,7 +1,6 @@
 import type { CharacterCommissions } from '@data/types'
 import type { HomeLocale } from '@features/home/i18n/homeLocale'
 import { getCharacterSectionId, getCharacterTitleId } from '@lib/characters/nav'
-import { hashString } from '@lib/utils/hash'
 
 export type HomeCharacterBatchStatus = 'active' | 'archived'
 
@@ -25,13 +24,13 @@ export interface HomeCharacterBatchManifestGroup {
   initialSectionIds: string[]
   totalBatches: number
   targetBatchById: Record<string, number>
-  /** Per-batch content hashes for cache-busting. Index matches batch index. */
+  /** Content-hash of each final serialized payload; names the immutable batch file. Index matches batch index. */
   batchVersions?: string[]
 }
 
 export interface HomeCharacterBatchManifest {
   locale: HomeLocale
-  /** Global content hash — covers all commissions. Used by search entries URL. */
+  /** Content-hash of the serialized search index — names `/search/home-search-entries.<v>.json`. */
   v?: string
   active: HomeCharacterBatchManifestGroup
   archived: HomeCharacterBatchManifestGroup
@@ -144,68 +143,6 @@ export function buildHomeCharacterBatchPlan({
   }
 }
 
-function serializeCommissionsForHash(
-  characters: string[],
-  commissionMap: Map<string, CharacterCommissions>,
-) {
-  // Include character names so renames also invalidate the cache (they affect sectionId, titleId, anchors).
-  return characters.map(name => [name, commissionMap.get(name)?.Commissions ?? []])
-}
-
-function computePerBatchVersions(
-  batches: string[][],
-  commissionMap: Map<string, CharacterCommissions>,
-  contextHash?: string,
-): string[] {
-  const prefix = contextHash ?? ''
-  return batches.map(characters =>
-    hashString(prefix + JSON.stringify(serializeCommissionsForHash(characters, commissionMap))),
-  )
-}
-
-function computeGlobalVersion(
-  plan: HomeCharacterBatchPlan,
-  commissionMap: Map<string, CharacterCommissions>,
-  contextHash?: string,
-): string {
-  const allCharacters = [
-    ...plan.active.initialCharacters,
-    ...plan.active.batches.flat(),
-    ...plan.archived.batches.flat(),
-  ]
-  return hashString((contextHash ?? '') + JSON.stringify(serializeCommissionsForHash(allCharacters, commissionMap)))
-}
-
-export function buildHomeCharacterBatchManifest({
-  commissionMap,
-  contextHash,
-  locale,
-  plan,
-}: {
-  commissionMap: Map<string, CharacterCommissions>
-  /** Pre-computed hash of non-commission inputs (aliases, labels) that affect batch JSON content. */
-  contextHash?: string
-  locale: HomeLocale
-  plan: HomeCharacterBatchPlan
-}): HomeCharacterBatchManifest {
-  return {
-    locale,
-    v: computeGlobalVersion(plan, commissionMap, contextHash),
-    active: {
-      initialSectionIds: plan.active.initialCharacters.map(getCharacterSectionId),
-      totalBatches: plan.active.totalBatches,
-      targetBatchById: plan.active.targetBatchById,
-      batchVersions: computePerBatchVersions(plan.active.batches, commissionMap, contextHash),
-    },
-    archived: {
-      initialSectionIds: [],
-      totalBatches: plan.archived.totalBatches,
-      targetBatchById: plan.archived.targetBatchById,
-      batchVersions: computePerBatchVersions(plan.archived.batches, commissionMap, contextHash),
-    },
-  }
-}
-
 export function buildHomeCharacterBatchUrl({
   batchIndex,
   locale,
@@ -217,6 +154,6 @@ export function buildHomeCharacterBatchUrl({
   status: HomeCharacterBatchStatus
   v?: string
 }) {
-  const base = `/search/home-character-batches/${locale}/${status}/${batchIndex}.json`
-  return v ? `${base}?v=${v}` : base
+  const base = `/search/home-character-batches/${locale}/${status}/${batchIndex}`
+  return v ? `${base}.${v}.json` : `${base}.json`
 }

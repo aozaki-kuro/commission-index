@@ -2,12 +2,13 @@ import type { APIRoute } from 'astro'
 import { getCharacterAliases } from '@data/characterAliases'
 import { getKeywordAliases } from '@data/keywordAliases'
 import { HOME_LOCALES, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
-import { buildHomeTimelineBatchManifest, buildHomeTimelineBatchPlan } from '@features/home/server/homeTimelineBatches'
+import { buildHomeTimelineBatchManifest } from '@features/home/server/homeTimelineBatchArtifacts'
+import { buildHomeTimelineBatchPlan } from '@features/home/server/homeTimelineBatches'
 import { normalizeCharacterAliasKey } from '@lib/characterAliases'
 import { buildSitePayload } from '@lib/home/buildSitePayload'
 import { normalizeKeywordAliasKey } from '@lib/keywordAliases'
+import { buildHomeSearchEntriesArtifact } from '@lib/pipeline/homeSearchEntries'
 import { buildCreatorAliasesMap } from '@lib/sitePayload'
-import { hashString } from '@lib/utils/hash'
 
 export function getStaticPaths() {
   return HOME_LOCALES.map(locale => ({ params: { locale } }))
@@ -41,17 +42,14 @@ export const GET: APIRoute = async ({ params }) => {
   )
   const creatorAliasesMap = buildCreatorAliasesMap(payload.creatorAliases)
 
-  const aliasContextHash = hashString(JSON.stringify([
-    [...characterAliasesMap],
-    [...creatorAliasesMap],
-    [...keywordAliasesMap],
-  ]))
-
   const plan = buildHomeTimelineBatchPlan({ groups: payload.timelineGroups })
-  const manifest = buildHomeTimelineBatchManifest({
-    contextHash: aliasContextHash,
+  const manifest = await buildHomeTimelineBatchManifest({
+    characterAliasesMap,
+    creatorAliasesMap,
+    keywordAliasesMap,
     locale,
     plan,
+    searchEntriesVersion: buildHomeSearchEntriesArtifact().version,
   })
 
   return new Response(`${JSON.stringify(manifest)}\n`, {

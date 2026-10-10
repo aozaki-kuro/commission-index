@@ -1,10 +1,15 @@
 import type { CharacterCommissions } from '@data/types'
 import { getCharacterSectionId, getCharacterTitleId } from '@lib/characters/nav'
-import { describe, expect, it } from 'vitest'
-import {
-  buildHomeCharacterBatchManifest,
-  buildHomeCharacterBatchPlan,
-} from './homeCharacterBatches'
+import { describe, expect, it, vi } from 'vitest'
+import { buildHomeCharacterBatchManifest } from './homeCharacterBatchArtifacts'
+import { buildHomeCharacterBatchPlan } from './homeCharacterBatches'
+
+vi.mock('./batchPayloadBuilder', () => ({
+  COMMISSION_IMAGE_SIZES: '(max-width: 768px) 92vw, 640px',
+  COMMISSION_LINK_TEXT_CLASS: 'link',
+  buildImagePayload: async () => null,
+  buildInterestPayload: () => null,
+}))
 
 function buildCharacterCommissions(character: string, date: string): CharacterCommissions {
   return {
@@ -132,31 +137,29 @@ describe('buildHomeCharacterBatchPlan', () => {
 })
 
 describe('buildHomeCharacterBatchManifest', () => {
-  it('preserves the first active section as the only eagerly rendered section', () => {
+  const commissionMap = new Map(
+    [
+      buildCharacterCommissions('Alpha', '20240101'),
+      buildCharacterCommissions('Beta', '20240102'),
+      buildCharacterCommissions('Archived One', '20240201'),
+    ].map(entry => [entry.Character, entry] satisfies [string, CharacterCommissions]),
+  )
+
+  it('preserves the first active section as the only eagerly rendered section', async () => {
     const plan = buildHomeCharacterBatchPlan({
       activeChars: [{ DisplayName: 'Alpha' }, { DisplayName: 'Beta' }],
       archivedChars: [{ DisplayName: 'Archived One' }],
-      commissionMap: new Map(
-        [
-          buildCharacterCommissions('Alpha', '20240101'),
-          buildCharacterCommissions('Beta', '20240102'),
-          buildCharacterCommissions('Archived One', '20240201'),
-        ].map(entry => [entry.Character, entry] satisfies [string, CharacterCommissions]),
-      ),
+      commissionMap,
     })
 
-    const commissionMap = new Map(
-      [
-        buildCharacterCommissions('Alpha', '20240101'),
-        buildCharacterCommissions('Beta', '20240102'),
-        buildCharacterCommissions('Archived One', '20240201'),
-      ].map(entry => [entry.Character, entry] satisfies [string, CharacterCommissions]),
-    )
-
-    const manifest = buildHomeCharacterBatchManifest({
+    const manifest = await buildHomeCharacterBatchManifest({
+      characterAliasesMap: null,
       commissionMap,
+      creatorAliasesMap: null,
+      keywordAliasesMap: null,
       locale: 'en',
       plan,
+      searchEntriesVersion: 'search-v',
     })
 
     expect(manifest.active.initialSectionIds).toEqual([getCharacterSectionId('Alpha')])

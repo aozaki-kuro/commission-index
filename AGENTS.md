@@ -119,15 +119,20 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
 
 - **Deferred sections:** active/stale character sections and timeline use an inline manifest + external
   batch JSON, lazy-loaded by script loaders
-- **Batch URL versioning:** each batch URL carries its own `?v=<hash>` (djb2, `lib/utils/hash.ts`) over the
-  full serialized content of that batch, so editing one commission only invalidates its batch. Manifests
-  also carry a global `v` (hash of all commissions) used for `/search/home-search-entries.json`. Key files:
-  `features/home/server/homeCharacterBatches.ts`, `homeTimelineBatches.ts`,
-  `features/home/search/commissionSearchController.ts`.
-- **Stale-HTML manifest fallback:** when hash navigation misses because the inline manifest in cached HTML
-  lacks the target, loaders fetch `/search/home-character-manifest/<locale>.json` or
-  `/search/home-timeline-manifest/<locale>.json` (`Cache-Control: no-cache`) with cache-busting, and thread its
-  `targetBatchById` / `batchVersions` into the batch fetch. Only fetched on the fallback path.
+- **Content-hashed batch filenames:** each batch file is named `<index>.<hash>.json`
+  (`/search/home-character-batches/<locale>/<status>/0.k3j9x.json`, timeline alike); the search index is
+  `/search/home-search-entries.<hash>.json`. The hash is djb2 (`lib/utils/hash.ts`) over the **final
+  serialized payload**, so editing one commission — or a localized message, or an alias — changes only the
+  affected bytes' filename. The manifest's `batchVersions` and the batch endpoint's path come from one
+  memoized builder (`features/home/server/homeCharacterBatchArtifacts.ts`, `homeTimelineBatchArtifacts.ts`),
+  and the manifest's `v` is the search-index version (`lib/pipeline/homeSearchEntries.ts`); they cannot
+  disagree. Batches and search entries are served `Cache-Control: immutable`, so unchanged data costs zero
+  requests.
+- **Stale-HTML manifest fallback:** the inline manifest in cached HTML can name a hashed file a deploy
+  deleted. On a hash-navigation miss, or on a batch/search-entries `404`, loaders fetch
+  `/search/home-character-manifest/<locale>.json` or `/search/home-timeline-manifest/<locale>.json`
+  (`Cache-Control: no-cache`) with cache-busting and retry once against the fresh `targetBatchById` /
+  `batchVersions` / `v`. Only fetched on the fallback path.
 - **DOM contracts:** `data-*` attributes drive search/nav/hash navigation — preserve attribute names.
   `data-stale-visibility` = stale group expanded; `data-stale-loaded` = deferred stale sections mounted.
 - Character/stale section templates must mount with the full entry list intact (no per-section entry lazy
@@ -145,8 +150,8 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
 - **Search index freshness:** the search rebuild snapshot key must include the batch mount count, not just
   a `visible/loaded` boolean — otherwise newly injected DOM briefly shows unfiltered
 
-Update this section when manifest fields, `v` hash inputs, `?v=` URL builders, `_headers` cache policy for
-the search JSON / HTML, or deferred endpoints change.
+Update this section when manifest fields, batch/search hash inputs, the hashed filename builders,
+`_headers` cache policy for the search JSON / HTML, or deferred endpoints change.
 
 ### Admin Architecture
 
@@ -278,7 +283,7 @@ curl -I https://<your-domain>/api/admin/bootstrap
 ### Search UX
 
 - Search UI must be layout-stable on first paint — no shell-to-content swaps
-- Production search index: `/search/home-search-entries.json` (not DOM metadata)
+- Production search index: `/search/home-search-entries.<v>.json` (not DOM metadata), `v` from the character manifest
 - Search locale labels resolve from `homeSearchControls.ts` (not the full `homeLocale` graph)
 - JS `\b` is ASCII-only: never wrap user search terms in `\b…\b`; strict matching adds a boundary only on
   sides with an ASCII word char, so CJK/kana terms match as substrings.

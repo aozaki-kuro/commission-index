@@ -1,5 +1,6 @@
 import type { CommissionSearchEntrySource, SearchSuggestionAliasGroup } from '@features/home/search/commissionSearchIndex'
 import {
+  fetchFreshHomeCharacterBatchManifest,
   readHomeCharacterBatchManifest,
 } from '@features/home/commission/batch/homeCharacterBatchManifest'
 import {
@@ -31,7 +32,7 @@ export function buildHomeSearchIndexUrl() {
   )
   const v = manifest?.v
   // Falls back to unversioned URL in SSR/test environments or when the manifest has no v field.
-  return v ? `/search/home-search-entries.json?v=${v}` : '/search/home-search-entries.json'
+  return v ? `/search/home-search-entries.${v}.json` : '/search/home-search-entries.json'
 }
 
 let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
@@ -81,19 +82,41 @@ export function getCachedHomeSearchEntries() {
   return cachedHomeSearchEntries
 }
 
+/**
+ * Stale HTML names a hashed search-index file that a deploy replaced. On 404, refresh the manifest
+ * and retry once against the current hash rather than failing the search index permanently.
+ */
+async function loadHomeSearchEntries(): Promise<CommissionSearchEntrySource[]> {
+  const response = await fetch(buildHomeSearchIndexUrl())
+  if (response.ok) {
+    return parseHomeSearchEntries(await response.json())
+  }
+  if (response.status !== 404) {
+    throw new Error(`Failed to load search index: ${response.status}`)
+  }
+
+  const freshManifest = await fetchFreshHomeCharacterBatchManifest(
+    typeof document !== 'undefined' ? document : undefined,
+  )
+  const freshVersion = freshManifest?.v
+  if (!freshVersion) {
+    throw new Error(`Failed to load search index: ${response.status}`)
+  }
+
+  const retryResponse = await fetch(`/search/home-search-entries.${freshVersion}.json`)
+  if (!retryResponse.ok) {
+    throw new Error(`Failed to load search index: ${retryResponse.status}`)
+  }
+  return parseHomeSearchEntries(await retryResponse.json())
+}
+
 export function ensureHomeSearchEntriesPromise() {
   if (cachedHomeSearchEntries) {
     return Promise.resolve(cachedHomeSearchEntries)
   }
 
   if (!homeSearchEntriesPromise) {
-    homeSearchEntriesPromise = fetch(buildHomeSearchIndexUrl())
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error(`Failed to load search index: ${response.status}`)
-        }
-        return parseHomeSearchEntries(await response.json())
-      })
+    homeSearchEntriesPromise = loadHomeSearchEntries()
       .then((entries) => {
         cachedHomeSearchEntries = entries
         return entries
