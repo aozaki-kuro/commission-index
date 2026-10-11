@@ -4,7 +4,7 @@ CI and release workflows. Workspace, build-script and Cloudflare deploy rules li
 
 ## CI（PR 校验；master 发布）
 
-1. PR/master 执行 lint、全 workspace typecheck、单测
+1. PR/master 执行 lint、全 workspace typecheck、单测，以及 admin UI Playwright（`test:admin-ui`，API fixture，无生产数据或凭证）
 2. 生成无生产凭证的离线 fixture，执行 Astro check 和 admin build
 3. master 部署依赖上述门禁；Web 获得共享环境锁后只导出一次，记录 SHA/revision
 4. Astro check 与 Wrangler custom build 使用相同快照；部署前核对当前 master SHA，过期候选跳过

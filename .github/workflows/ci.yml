@@ -33,6 +33,11 @@ jobs:
         run: pnpm run typecheck
       - name: Unit tests
         run: pnpm run test
+      # Admin UI 测试全部拦截 /api/admin/**，不需要生产数据或凭证；CI 下 Playwright 总是自启 Vite。
+      - name: Install Playwright Chromium
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Admin UI tests (API fixtures)
+        run: pnpm run test:admin-ui
       # pnpm 不会把 workspace 包链接到根 node_modules，必须在声明了 domain 依赖的包内执行。
       - name: Prepare offline Astro fixture
         working-directory: apps/admin-worker
