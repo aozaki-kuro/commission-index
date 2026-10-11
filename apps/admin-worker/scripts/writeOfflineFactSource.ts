@@ -2,7 +2,7 @@
  * Writes the offline fact-source fixture used by the visual web server without D1/R2 access.
  * Content comes from webVisualFixture.ts. With `FACT_SOURCE_DIR` set (absolute, or relative to `apps/web`) the
  * snapshot goes to `<dir>/fact-source`; unset, it goes to `apps/web/generated/fact-source` behind the real-export guard.
- * Both paths get the same fixture. .github/workflows/ci.yml still inlines an empty variant; Task 2 of the fixture plan replaces it.
+ * Both paths get the same fixture. CI runs this script (cwd apps/admin-worker, for bare workspace specifiers).
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'

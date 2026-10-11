@@ -39,22 +39,15 @@ jobs:
       - name: Admin UI tests (API fixtures)
         run: pnpm run test:admin-ui
       # pnpm 不会把 workspace 包链接到根 node_modules，必须在声明了 domain 依赖的包内执行。
+      # 写入与视觉测试相同的 fixture；check 通过同一个 FACT_SOURCE_DIR 读取，不碰 apps/web/generated。
       - name: Prepare offline Astro fixture
         working-directory: apps/admin-worker
-        run: |
-          node --import tsx --input-type=module <<'JS'
-          import { mkdirSync, writeFileSync } from 'node:fs'
-          import { GENERATED_FACT_SOURCE_SCHEMA_VERSION } from '@commission-index/domain'
-          import { createSnapshot } from './scripts/exportWebFactSource.ts'
-          const directory = '../web/generated/fact-source'
-          mkdirSync(directory, { recursive: true })
-          const meta = { schemaVersion: GENERATED_FACT_SOURCE_SCHEMA_VERSION, source: 'remote-admin-fact-source', exportedAt: '2000-01-01T00:00:00.000Z', databaseBinding: 'fixture', imagesBucket: 'fixture' }
-          const content = { meta, characters: [], creatorAliases: [], characterAliases: [], keywordAliases: [], featuredSearchKeywords: [] }
-          const snapshot = createSnapshot(content, { meta, files: [], missing: [] })
-          writeFileSync(`${directory}/content.json`, JSON.stringify(snapshot.content))
-          writeFileSync(`${directory}/source-images-manifest.json`, JSON.stringify(snapshot.manifest))
-          JS
+        env:
+          FACT_SOURCE_DIR: generated-fixture
+        run: node --import tsx scripts/writeOfflineFactSource.ts
       - name: Astro check with offline fixture
+        env:
+          FACT_SOURCE_DIR: generated-fixture
         run: pnpm -C apps/web run check:astro
       - name: Build admin
         run: pnpm run build:admin
