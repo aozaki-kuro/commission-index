@@ -48,6 +48,8 @@ interface CommissionManagerProps {
   isInitialError?: boolean
   onOpenGroupsLoaded?: () => void
   onRefresh?: () => void
+  // Characters to refetch when new bootstrap rows land; null/undefined refetches every loaded group.
+  refreshScope?: ReadonlySet<number> | null
 }
 
 export function CommissionManager({
@@ -58,6 +60,7 @@ export function CommissionManager({
   isInitialError = false,
   onOpenGroupsLoaded,
   onRefresh,
+  refreshScope,
 }: CommissionManagerProps) {
   const [loadedCommissions, setLoadedCommissions] = useState<CommissionRow[]>([])
   const [loadingCharacterIds, setLoadingCharacterIds] = useState<Set<number>>(() => new Set())
@@ -245,21 +248,25 @@ export function CommissionManager({
     return request
   }, [])
 
-  const refreshLoadedGroups = useCallback(() => {
+  const refreshLoadedGroups = useCallback((scope?: ReadonlySet<number> | null) => {
     const currentCharacterIds = new Set(characters.map(character => character.id))
-    const currentIds = [...loadedCharacterIdsRef.current].filter(id => currentCharacterIds.has(id))
+    const currentIds = [...loadedCharacterIdsRef.current].filter(id => currentCharacterIds.has(id) && (!scope || scope.has(id)))
     void Promise.all(currentIds.map(characterId => loadCharacterCommissions(characterId, true))).then((results) => {
-      if (results.every(Boolean)) {
+      // A scoped pass says nothing about the groups it skipped, so it must not clear their refresh error.
+      if (!scope && results.every(Boolean)) {
         setRefreshError(null)
       }
     })
   }, [characters, loadCharacterCommissions])
 
+  const refreshScopeRef = useRef(refreshScope)
+  refreshScopeRef.current = refreshScope
+
   useEffect(() => {
     commissionSearchRowsRef.current = commissionSearchRows
     if (previousSearchRowsRef.current !== commissionSearchRows) {
       previousSearchRowsRef.current = commissionSearchRows
-      refreshLoadedGroups()
+      refreshLoadedGroups(refreshScopeRef.current)
     }
   }, [commissionSearchRows, refreshLoadedGroups])
 
@@ -436,7 +443,7 @@ export function CommissionManager({
         <FloatingNotice tone="error" onDismiss={() => setRefreshError(null)}>
           <p>Could not refresh commissions. Showing saved data.</p>
           <p className="mt-1 text-xs">{refreshError}</p>
-          <button type="button" onClick={refreshLoadedGroups} className="mt-2 font-medium underline underline-offset-2">Try again</button>
+          <button type="button" onClick={() => refreshLoadedGroups()} className="mt-2 font-medium underline underline-offset-2">Try again</button>
         </FloatingNotice>
       )}
 

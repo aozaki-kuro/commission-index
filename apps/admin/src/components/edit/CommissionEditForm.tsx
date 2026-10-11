@@ -127,6 +127,8 @@ export function CommissionEditForm({
     const savedGroupId = requestedGroupId === 'new' ? crypto.randomUUID() : requestedGroupId
     payload.set('workGroupId', savedGroupId)
     const characterId = Number(field('characterId'))
+    // A move changes both groups; capture the origin before awaiting because the prop may update meanwhile.
+    const affectedCharacterIds = [commission.characterId, characterId]
     const updated: CommissionRow = {
       ...commission,
       characterId,
@@ -150,7 +152,7 @@ export function CommissionEditForm({
     }
     if (result.status === 'success') {
       setWorkGroupId(current => current === requestedGroupId ? savedGroupId : current)
-      notifyDataUpdate()
+      notifyDataUpdate({ characterIds: affectedCharacterIds })
       markPendingRebuild()
       onSaveSuccess?.(updated)
     }
@@ -175,11 +177,12 @@ export function CommissionEditForm({
       return
     }
 
+    const characterIds = [commission.characterId]
     startDelete(() => {
       return deleteCommissionAction(commission.id)
         .then((result) => {
           if (result.status === 'success') {
-            notifyDataUpdate()
+            notifyDataUpdate({ characterIds })
             markPendingRebuild()
             setDeleteStatus({ text: 'Entry deleted.', type: 'success' })
             setIsDeleteArmed(false)
@@ -224,13 +227,14 @@ export function CommissionEditForm({
     const payload = new FormData()
     payload.set('id', String(commission.id))
     payload.set('sourceImage', file)
+    const characterIds = [commission.characterId]
 
     startUpload(() => {
       return replaceCommissionSourceImageAction(payload)
         .then((result) => {
           if (result.status === 'success') {
             const nextVersion = Date.now()
-            notifyDataUpdate()
+            notifyDataUpdate({ characterIds })
             markPendingRebuild()
             setUploadStatus({
               text: result.message ?? `Source image for commission #${commission.id} replaced.`,

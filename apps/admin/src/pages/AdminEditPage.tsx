@@ -1,4 +1,5 @@
 import type { AdminBootstrapData } from '@commission-index/domain'
+import type { DataUpdateScope } from '../lib/dataUpdateSignal'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { AdminBootstrapStatus } from '../components/AdminBootstrapStatus'
 import { AdminEditDashboard } from '../components/AdminEditDashboard'
@@ -16,7 +17,13 @@ interface EditState {
   errorMessage: string | null
   isLoading: boolean
   payload: AdminBootstrapData | null
+  // Characters whose loaded groups must be refetched for this payload; null means every loaded group.
+  refreshScope: ReadonlySet<number> | null
 }
+
+// Scope requested since the last applied payload. A request can be superseded or fail, so it is consumed
+// only when a payload lands, and any unscoped request widens it to everything.
+interface PendingRefresh { all: boolean, ids: Set<number> }
 
 interface StoredScrollState {
   timestamp: number
@@ -26,7 +33,7 @@ interface StoredScrollState {
 
 type EditAction
   = { type: 'loading' }
-    | { payload: AdminBootstrapData, type: 'loaded' }
+    | { payload: AdminBootstrapData, refreshScope: ReadonlySet<number> | null, type: 'loaded' }
     | { message: string, type: 'failed' }
 
 function createInitialEditState(): EditState {
@@ -36,6 +43,7 @@ function createInitialEditState(): EditState {
     errorMessage: null,
     isLoading: payload === null,
     payload,
+    refreshScope: null,
   }
 }
 
@@ -130,6 +138,7 @@ function editReducer(state: EditState, action: EditAction): EditState {
         errorMessage: null,
         isLoading: false,
         payload: action.payload,
+        refreshScope: action.refreshScope,
       }
     case 'failed':
       return {
@@ -148,7 +157,20 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
   const cancelledScrollRestoreRef = useRef(false)
   const [areOpenGroupsLoaded, setAreOpenGroupsLoaded] = useState(false)
   const markOpenGroupsLoaded = useCallback(() => setAreOpenGroupsLoaded(true), [])
-  const refreshData = useCallback(() => setReloadToken(token => token + 1), [])
+  const pendingRefreshRef = useRef<PendingRefresh>({ all: false, ids: new Set() })
+  const refreshData = useCallback(() => {
+    pendingRefreshRef.current.all = true
+    setReloadToken(token => token + 1)
+  }, [])
+  const handleDataUpdate = useCallback((scope?: DataUpdateScope) => {
+    if (scope) {
+      scope.characterIds.forEach(id => pendingRefreshRef.current.ids.add(id))
+    }
+    else {
+      pendingRefreshRef.current.all = true
+    }
+    setReloadToken(token => token + 1)
+  }, [])
   const [storageQuotaNotice, setStorageQuotaNotice] = useState(false)
   const handleStorageQuotaExceeded = useCallback(() => setStorageQuotaNotice(true), [])
 
@@ -178,7 +200,7 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
     }
   }, [hasRestoredScroll, pendingScrollState])
 
-  useEffect(() => subscribeToDataUpdates(refreshData), [refreshData])
+  useEffect(() => subscribeToDataUpdates(handleDataUpdate), [handleDataUpdate])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -194,8 +216,12 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
           return
         }
 
+        const pending = pendingRefreshRef.current
+        const refreshScope = pending.all ? null : new Set(pending.ids)
+        pendingRefreshRef.current = { all: false, ids: new Set() }
         dispatch({
           payload,
+          refreshScope,
           type: 'loaded',
         })
       })
@@ -343,6 +369,7 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
         isInitialError={!state.payload && Boolean(state.errorMessage)}
         onOpenGroupsLoaded={markOpenGroupsLoaded}
         onRefresh={refreshData}
+        refreshScope={state.refreshScope}
       />
     </>
   )

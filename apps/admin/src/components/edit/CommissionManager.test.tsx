@@ -61,9 +61,9 @@ describe('commission manager search and disclosure lifecycle', () => {
     await act(async () => root.unmount())
     container.remove()
   })
-  const render = (searchRows = rows) => act(async () => root.render(
+  const render = (searchRows = rows, refreshScope?: ReadonlySet<number> | null) => act(async () => root.render(
     <FloatingNoticeProvider>
-      <CommissionManager characters={characters} commissionSearchRows={searchRows} creatorAliases={[]} onRefresh={api.refresh} />
+      <CommissionManager characters={characters} commissionSearchRows={searchRows} creatorAliases={[]} onRefresh={api.refresh} refreshScope={refreshScope} />
     </FloatingNoticeProvider>,
   ))
   const search = (value: string) => act(async () => {
@@ -232,6 +232,37 @@ describe('commission manager search and disclosure lifecycle', () => {
     expect(container.querySelector('#admin-character-1 button[aria-expanded]')?.getAttribute('aria-expanded')).toBe('true')
     await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Try again')!.click())
     expect(container.textContent).not.toContain('Refresh offline')
+  })
+
+  it('refetches only scoped loaded groups when new bootstrap rows land', async () => {
+    window.localStorage.setItem('admin-existing-open', JSON.stringify({ ids: [1, 2], timestamp: Date.now() }))
+    await render()
+    await vi.waitFor(() => expect(api.load).toHaveBeenCalledTimes(2))
+    api.load.mockClear()
+    await render([...rows], new Set([2]))
+    await vi.waitFor(() => expect(api.load).toHaveBeenCalledWith(2))
+    expect(api.load).toHaveBeenCalledTimes(1)
+    api.load.mockClear()
+    await render([...rows], null)
+    await vi.waitFor(() => expect(api.load).toHaveBeenCalledTimes(2))
+  })
+
+  it('keeps a refresh error from an unscoped group when a scoped refetch succeeds', async () => {
+    window.localStorage.setItem('admin-existing-open', JSON.stringify({ ids: [1, 2], timestamp: Date.now() }))
+    await render()
+    await vi.waitFor(() => expect(api.load).toHaveBeenCalledTimes(2))
+    api.load.mockImplementation(async (id: number) => {
+      if (id === 1)
+        throw new Error('Group one offline')
+      return commissions.filter(row => row.characterId === id)
+    })
+    await render([...rows])
+    await vi.waitFor(() => expect(container.textContent).toContain('Group one offline'))
+    api.load.mockClear()
+    await render([...rows], new Set([2]))
+    await vi.waitFor(() => expect(api.load).toHaveBeenCalledWith(2))
+    expect(api.load).not.toHaveBeenCalledWith(1)
+    expect(container.textContent).toContain('Group one offline')
   })
 
   it('requests bootstrap refresh after keyword replacement while retaining the query', async () => {

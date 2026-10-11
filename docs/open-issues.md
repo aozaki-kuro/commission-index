@@ -20,7 +20,7 @@
 - **`dev:admin` 只检查 worker 端口**：`2596bfe` `scripts/devAdminRemote.ts` 现在检查 4174，并区分崩溃与启动中。
 - **`packages/domain/src/commissionFileName.ts` 死代码**：`f93db2a` 删除。
 - **未来日期可写入**：`2909399` 一律拒绝未来日期（owner 决定）。
-- **LOGIC-02 半关闭**：`7074abb` 修掉“刷新后晚到的保存结果被丢弃”（`CommissionManager.tsx`）；跨标签刷新仍过度拉取（见下）。
+- **LOGIC-02 过度拉取**：`7074abb` 修掉“刷新后晚到的保存结果被丢弃”；跨标签广播现可携带 `characterIds`（`dataUpdateSignal.ts`），Edit 页只重取受影响的已加载角色；无 scope 的广播（别名、角色增删改排序、关键词批量、storage 回退、旧标签）保持全量重取。
 - **locale 列表分散（P8）**：`5810884` 收敛到 `apps/web/src/config/locales.ts`。
 - **CI 两份手工副本 + 源图片不缓存（PERF-06）**：`2d0a753` 抽 `deploy-web-snapshot` 复合动作 + 源图片缓存（仅能真实 Actions 运行验证，见下）。
 - **P7 AGENTS.md manifest 路径**：`0843d1c` 修正。
@@ -28,10 +28,6 @@
 - **换图/在途导出竞争（P5 / WS3）**：R2 删除 commit（`chore/handoff-closeout`）让导出器遇 R2 `not_found` 时重读一次 D1 再重试，关闭「换图已提交 D1、旧对象刚删」的窗口；hash/size 不匹配仍立即失败。
 - **角色级联删除不清 R2（WS3）**：同一 commit 让 `DELETE /characters/:id` 在 D1 批提交后，按 `commission_id` / `commission_file_name` 选出该角色的 object_key，只删无存活行引用的 key（1000 个一批，无 `IMAGES` binding 返回 503，R2 失败仅 `console.warn` 仍返回 200）；漏删的孤儿由 `r2:list-orphans` 脚本按 D1 差集回收。
 - **R2 孤儿只留警告**：新增离线 `apps/admin-worker/scripts/listR2Orphans.ts` + 脚本 `r2:list-orphans`（默认 dry-run，`--delete` 才删，走 Cloudflare REST API）；尚未对生产运行。
-
-## Web
-
-- **未验证（LOGIC-02 残留）**：跨标签刷新会重拉“每个已加载角色”，而非只失效相关角色（`CommissionManager.tsx`）。收口：只失效受影响角色后重取。
 
 ## Worker + Data
 
