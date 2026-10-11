@@ -14,7 +14,30 @@ const factSourceDirectoryName = 'fact-source'
 let cachedFactSourceContent: GeneratedFactSourceContent | null = null
 let cachedSourceImageManifest: GeneratedSourceImageManifest | null = null
 
-function resolveGeneratedFactSourcePath(fileName: string) {
+/**
+ * `FACT_SOURCE_DIR` (visual fixture mode) is absolute, or relative to `apps/web`. The web dev server runs with
+ * cwd `apps/web` while repo-root scripts run with the repo root, so a relative value is anchored to `apps/web`
+ * either way. When set it is the only source: no fallback to `generated/`, so a real export can never leak in.
+ */
+function resolveFactSourceDirOverride(): string | null {
+  const configured = process.env.FACT_SOURCE_DIR?.trim()
+  if (!configured) {
+    return null
+  }
+  if (path.isAbsolute(configured)) {
+    return configured
+  }
+  const cwd = process.cwd()
+  const webRoot = fs.existsSync(path.join(cwd, 'astro.config.ts')) ? cwd : path.join(cwd, 'apps', 'web')
+  return path.resolve(webRoot, configured)
+}
+
+export function resolveGeneratedFactSourcePath(fileName: string) {
+  const overrideDir = resolveFactSourceDirOverride()
+  if (overrideDir) {
+    return path.join(overrideDir, factSourceDirectoryName, fileName)
+  }
+
   const cwdPath = path.join(process.cwd(), generatedDirectoryName, factSourceDirectoryName, fileName)
   if (fs.existsSync(cwdPath)) {
     return cwdPath
