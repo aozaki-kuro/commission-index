@@ -139,6 +139,10 @@ Read both before calling or modifying any `/api/admin/*` endpoint (in `apps/admi
 - Visual baselines live under `test/visual/`; never replace them with `playwright-report/` or `test-results/`
   output. Confirm visual deltas on both desktop and mobile before updating snapshots.
 
+- A change under `apps/admin/src/**` or `apps/admin/test/**` must pass `pnpm run test:admin-ui` (CI-enforced) and
+  `pnpm exec playwright test -c config/playwright.config.ts --project admin` (local only; darwin baselines)
+  before merge.
+
 ### Local Hooks (prek)
 
 - **Pre-commit:** `pnpm install --frozen-lockfile`, then `lint-staged` (ESLint fix on staged files)
