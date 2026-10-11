@@ -155,7 +155,8 @@ fails on ignored paths. Anchor ignore rules (e.g. `/.impeccable/` at root; `apps
 
 ### CI（PR 校验；master 发布）
 
-Pipeline order, release concurrency locks, the `deploy-web-snapshot` composite action and CI cache rules live in
+Pipeline order, release concurrency locks, the `deploy-web-snapshot` composite action, CI cache rules and the
+`protect-master` ruleset (PR-only, required check `Validate & Build`; direct push to master is rejected) live in
 `.github/AGENTS.md`; read it before editing anything under `.github/`.
 
 ## Guardrails
