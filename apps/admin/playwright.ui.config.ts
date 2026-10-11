@@ -4,7 +4,7 @@ import { defineConfig } from '@playwright/test'
 // 仅启动前端；测试必须拦截全部 Admin API，避免访问 D1/R2。
 export default defineConfig({
   testDir: './test/visual',
-  // admin-*.spec.ts are screenshot specs owned by config/playwright.config.ts (worker-backed, baselines under test/visual).
+  // admin-*.spec.ts are screenshot specs owned by config/playwright.config.ts (fixture-backed via mockAdminApi, baselines under test/visual).
   testMatch: '*.spec.ts',
   testIgnore: 'admin-*.spec.ts',
   outputDir: '../../test-results/admin-ui',

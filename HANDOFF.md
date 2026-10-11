@@ -35,14 +35,14 @@
 - 修复：`be84ee5` / `c7f12a9` fixture 化（`mockAdminApi`），`0aea395` 旋转竞态，`7a1f2af` 数据就绪等待，`f9189db` 刷新 7 张基线，`0493590` 裁剪器 resize 重适配（产品修复）。
 - 结果：`pnpm run test:visual` 42/42，`pnpm run test:admin-ui` 28/28。`undefined.replaceAll` 崩溃已定位：`formatCommissionPublicId`（`apps/admin/src/lib/commissionPresentation.ts`）← `getCommissionAccessibleLabel` ← `ThumbnailCard`（`CommissionThumbnailGrid.tsx`）。原因是 `crop lifecycle edit *` 测试内联 mock fixture 缺 `publicId`（fixture 早于 `2939c7e`），非产品 bug；由 `be84ee5` 共享类型化 fixture 与 `c7f12a9` 类型检查测试文件修复。
 
-### web：已绿，但有两处结构性风险
+### web：已绿，数据漂移已收口
 
-- 基线是真实远端数据截图，**每次数据变化都会漂移**（这次 10-05 → 10-09 漂了 3 张）。已决定延后到固定 fixture 方案（见 open-issues「Verification gaps」R3；mask 不可行）。
+- 基线改为固定 fixture 截图（R3 已收口，2026-10-11），不再随远端数据漂移。剩余风险见 open-issues R3b（仅有 darwin 基线，CI 未跑 `test:visual`）。
 - 没有视觉用例覆盖：暗色模式（如移动端 tab 的 gray-400）、年龄门首帧（所有视觉 spec 都预先确认了年龄）。
 
 ## 试过什么
 
-- `VISUAL_OFFLINE=1` 只能用于冒烟：基线是真实数据，fixture 模式下截图必失败，**不能从它更新基线**。
+- web 视觉服务现在固定跑 `apps/web/generated-fixture/`（`FACT_SOURCE_DIR`），基线是 fixture 截图，**不能从真实数据更新基线**；`VISUAL_OFFLINE=1` 只表示跳过 admin。
 - 视觉服务起来后如果被中断，会在 4173 / 8787 / 4174 留下孤儿进程；下次 run 会因 `reuseExistingServer` 复用到
   过期的服务。开跑前先 `lsof -nP -iTCP:4173 -sTCP:LISTEN` 等检查并清掉。
 - 上一轮把所有 admin 失败都当成环境问题，没去核实。已在 `fix/visual-baselines` 收口：根因是 spec 过期 + 错误的 Playwright 配置，不是环境问题。

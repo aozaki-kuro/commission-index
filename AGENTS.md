@@ -71,11 +71,13 @@ Admin features go in `apps/admin` + `apps/admin-worker`, never `apps/web`.
 - `apps/admin/playwright.ui.config.ts` owns frontend-only API-fixture tests and matches `*.spec.ts` while
   excluding the `admin-*.spec.ts` screenshot specs owned by cross-workspace Playwright. The cross-workspace admin
   project matches only `admin-*.spec.ts`, so each spec file has exactly one owning config.
-- `VISUAL_OFFLINE=1 pnpm run test:visual` writes an empty generated fact-source fixture and runs only web visual
-  specs, without D1/R2 access. It is a server-start/smoke mode only: committed baselines are real-data screenshots,
-  so fixture runs fail screenshot assertions; never update baselines from it.
+- The web visual server always runs against the committed fixture (`apps/web/generated-fixture/`, selected via
+  `FACT_SOURCE_DIR`); it never reads D1/R2 or `apps/web/generated/`. Web baselines are fixture screenshots: never
+  refresh them from live data. Web visual specs must call `expectFixtureData`
+  (`apps/web/test/visual/fixtureGuard.ts`) before layout checks or screenshots, so an orphan real-data server fails
+  loudly. `VISUAL_OFFLINE=1` only skips the admin project (it needs the admin Vite server).
   Admin visual specs are fixture-backed (`mockAdminApi` in `apps/admin/test/visual/helpers.ts` answers every
-  `/api/admin/**` request; no worker starts); only the web server reads remote data.
+  `/api/admin/**` request; no worker starts).
   Cross-workspace Playwright uses repository-root paths for servers, snapshots, and output; moving a config must
   preserve these roots.
 - `.github/renovate.json` is the Renovate entry. Vite, Astro, Wrangler, and app-specific settings stay with

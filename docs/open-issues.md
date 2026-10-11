@@ -7,6 +7,7 @@
 - **LOGIC-02 跨标签过度拉取**：广播可携带 `characterIds`（`dataUpdateSignal.ts`），Edit 页只重取受影响的已加载角色；无 scope（别名、角色增删改排序、关键词批量、storage 回退、旧标签、无排队请求的首次载入）保持全量重取。过期标签的 scope 可能漏掉他处移入的角色组，该组在下次全量刷新时更新。
 - **web 内残留别名逻辑副本**：已删除 `apps/web/src/lib/{characterAliases,creatorAliases,keywordAliases}.ts`（与 domain 同名文件仅注释语言不同），web 现统一从 `@commission-index/domain` 导入。
 - **admin 视觉回归 31 个失败（根因：spec 过期，非环境问题）**：specs 落后于 `2939c7e`（publicId）、`d734944` / `10fd8ad`（标题与壳宽）、`89797f2`（重建确认），且跑在错误的 Playwright 配置下。修复：`be84ee5` / `c7f12a9` 改为 `mockAdminApi` fixture 驱动，cross-workspace 仅匹配 `admin-*.spec.ts`；`0aea395` 修旋转时读到 0x0 选区的竞态；`7a1f2af` 截图前等数据就绪；`f9189db` 刷新 7 张 admin 基线；`0493590` 裁剪器在容器 resize 时重适配，直到用户首次编辑。结果：`pnpm run test:visual` 42/42（admin 31 + web 11），`pnpm run test:admin-ui` 28/28。
+- **web 视觉基线随远端数据漂移（R3）**：web 视觉服务现固定读取已提交的 fixture（`apps/web/generated-fixture/`，`FACT_SOURCE_DIR`），基线为 fixture 截图，不再随远端数据漂移；spec 以 `expectFixtureData` 防止复用到真实数据的孤儿服务。`VISUAL_OFFLINE=1` 现仅表示跳过 admin。
 
 ## 已于 2026-10-09 收口
 
@@ -41,10 +42,10 @@
 
 ## Verification gaps
 
-- **Playwright 仍单视口**：`config/playwright.config.ts` 单视口 1440×1600、无 `deviceScaleFactor`，未加移动端 project（P10 仅加了 `VISUAL_OFFLINE=1` 离线 web 冒烟模式，真实数据基线在该模式下会失败，不能据此更新基线；admin `playwright.ui.config.ts` 的 `testMatch` 已改为 `*.spec.ts` + `testIgnore: 'admin-*.spec.ts'`）。
+- **Playwright 仍单视口**：`config/playwright.config.ts` 单视口 1440×1600、无 `deviceScaleFactor`，未加移动端 project（admin `playwright.ui.config.ts` 的 `testMatch` 已改为 `*.spec.ts` + `testIgnore: 'admin-*.spec.ts'`）。
 - 未验证：读屏、320/390/768/1440 视口、200% 文字缩放、reduced motion 的完整验收；首屏体积、搜索响应等性能基线。原因：需人工或浏览器实测，仓库内无记录。
 - 未验证：真实 GitHub push/rebuild 并发下的最终 Worker revision。原因：需线上运行。
-- **web 视觉基线随远端数据漂移（R3，已决定延后）**：基线截的是真实远端数据，`home-character-sidebar` 本身就是数据，mask 不可行。每次数据变化都会漂移（10-05 → 10-09 漂了 3 张）。根治需要确定性 web fixture：fixture 图片 + manifest 的 hash/size。完成后 `VISUAL_OFFLINE` 会从冒烟模式变为基线模式，这是 AGENTS 规则变更，需单开处理。在此之前更新 web 基线必须对照新旧图人工核对。
+- **R3b：Linux 基线与 CI 视觉回归**：目前只有 `-darwin` 基线，CI 不跑 `test:visual`。补 `-linux` 基线并在 CI 运行 `test:visual` 需要 Playwright docker 镜像（保证字体与渲染一致）。
 
 ## 仍需 owner 决定 / 操作
 
