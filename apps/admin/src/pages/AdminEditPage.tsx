@@ -217,7 +217,8 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
         }
 
         const pending = pendingRefreshRef.current
-        const refreshScope = pending.all ? null : new Set(pending.ids)
+        // Nothing queued (first landing, cached revalidation) must stay a full refresh, never an empty scope.
+        const refreshScope = pending.all || pending.ids.size === 0 ? null : new Set(pending.ids)
         pendingRefreshRef.current = { all: false, ids: new Set() }
         dispatch({
           payload,

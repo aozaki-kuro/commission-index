@@ -128,6 +128,7 @@ export function CommissionEditForm({
     payload.set('workGroupId', savedGroupId)
     const characterId = Number(field('characterId'))
     // A move changes both groups; capture the origin before awaiting because the prop may update meanwhile.
+    // Limit: a stale tab's origin can miss the group another tab moved the work into; that group refreshes on the next unscoped refresh.
     const affectedCharacterIds = [commission.characterId, characterId]
     const updated: CommissionRow = {
       ...commission,
