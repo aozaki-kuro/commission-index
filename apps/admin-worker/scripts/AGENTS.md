@@ -28,5 +28,5 @@ Reads the manifest only (no D1). Downloads by `objectKey`, validates and writes 
 Writes the committed fictional fixture (`webVisualFixture.ts`, no image files; every commission is listed under the
 manifest's `missing`) as a `databaseBinding: fixture` snapshot for the web visual server. `FACT_SOURCE_DIR` (absolute,
 or relative to `apps/web`) picks the target, `<dir>/fact-source`; the web loader reads the same variable. Unset, it
-writes `apps/web/generated/fact-source` and refuses to overwrite a non-fixture snapshot. The CI inline copy in
-`.github/workflows/ci.yml` is still the empty variant.
+writes `apps/web/generated/fact-source` and refuses to overwrite a non-fixture snapshot. CI runs it with
+`working-directory: apps/admin-worker` and `FACT_SOURCE_DIR=generated-fixture`, then `check:astro` reads the same dir.
