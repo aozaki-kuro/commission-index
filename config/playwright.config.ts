@@ -6,7 +6,10 @@ const rootDir = resolve(import.meta.dirname, '..')
 
 const reuseExistingServer = !process.env.CI
 
-// Offline: web only, fixture data, no D1/R2.
+// The web project always renders the committed fixture (apps/admin-worker/scripts/webVisualFixture.ts), written to a
+// git-ignored directory so a real export in apps/web/generated/ is never read or touched. FACT_SOURCE_DIR is relative
+// to apps/web. VISUAL_OFFLINE=1 only skips the admin project (it needs the admin Vite server).
+const fixtureEnv = 'FACT_SOURCE_DIR=generated-fixture'
 const offlineVisual = process.env.VISUAL_OFFLINE === '1'
 
 const webProject = {
@@ -30,9 +33,7 @@ const adminProject = {
 
 const webServer = {
   cwd: rootDir,
-  command: offlineVisual
-    ? 'node --import tsx apps/admin-worker/scripts/writeOfflineFactSource.ts && ASTRO_DEV_BACKGROUND=0 pnpm -C apps/web run dev:offline --host 127.0.0.1 --port 4173 --ignore-lock'
-    : 'ASTRO_DEV_BACKGROUND=0 NODE_ENV=development pnpm -C apps/web run dev --host 127.0.0.1 --port 4173 --ignore-lock',
+  command: `${fixtureEnv} node --import tsx apps/admin-worker/scripts/writeOfflineFactSource.ts && ${fixtureEnv} ASTRO_DEV_BACKGROUND=0 pnpm -C apps/web run dev:offline --host 127.0.0.1 --port 4173 --ignore-lock`,
   url: 'http://127.0.0.1:4173',
   timeout: 120_000,
   reuseExistingServer,
