@@ -4,6 +4,7 @@
 
 ## 已于 2026-10-11 收口
 
+- **LOGIC-02 跨标签过度拉取**：广播可携带 `characterIds`（`dataUpdateSignal.ts`），Edit 页只重取受影响的已加载角色；无 scope（别名、角色增删改排序、关键词批量、storage 回退、旧标签、无排队请求的首次载入）保持全量重取。过期标签的 scope 可能漏掉他处移入的角色组，该组在下次全量刷新时更新。
 - **web 内残留别名逻辑副本**：已删除 `apps/web/src/lib/{characterAliases,creatorAliases,keywordAliases}.ts`（与 domain 同名文件仅注释语言不同），web 现统一从 `@commission-index/domain` 导入。
 - **admin 视觉回归 31 个失败（根因：spec 过期，非环境问题）**：specs 落后于 `2939c7e`（publicId）、`d734944` / `10fd8ad`（标题与壳宽）、`89797f2`（重建确认），且跑在错误的 Playwright 配置下。修复：`be84ee5` / `c7f12a9` 改为 `mockAdminApi` fixture 驱动，cross-workspace 仅匹配 `admin-*.spec.ts`；`0aea395` 修旋转时读到 0x0 选区的竞态；`7a1f2af` 截图前等数据就绪；`f9189db` 刷新 7 张 admin 基线；`0493590` 裁剪器在容器 resize 时重适配，直到用户首次编辑。结果：`pnpm run test:visual` 42/42（admin 31 + web 11），`pnpm run test:admin-ui` 28/28。
 
@@ -20,7 +21,7 @@
 - **`dev:admin` 只检查 worker 端口**：`2596bfe` `scripts/devAdminRemote.ts` 现在检查 4174，并区分崩溃与启动中。
 - **`packages/domain/src/commissionFileName.ts` 死代码**：`f93db2a` 删除。
 - **未来日期可写入**：`2909399` 一律拒绝未来日期（owner 决定）。
-- **LOGIC-02 过度拉取**：`7074abb` 修掉“刷新后晚到的保存结果被丢弃”；跨标签广播现可携带 `characterIds`（`dataUpdateSignal.ts`），Edit 页只重取受影响的已加载角色；无 scope 的广播（别名、角色增删改排序、关键词批量、storage 回退、旧标签）保持全量重取。
+- **LOGIC-02 半关闭**：`7074abb` 修掉“刷新后晚到的保存结果被丢弃”（`CommissionManager.tsx`）；跨标签过度拉取已于 2026-10-11 收口。
 - **locale 列表分散（P8）**：`5810884` 收敛到 `apps/web/src/config/locales.ts`。
 - **CI 两份手工副本 + 源图片不缓存（PERF-06）**：`2d0a753` 抽 `deploy-web-snapshot` 复合动作 + 源图片缓存（仅能真实 Actions 运行验证，见下）。
 - **P7 AGENTS.md manifest 路径**：`0843d1c` 修正。

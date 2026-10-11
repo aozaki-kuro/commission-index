@@ -88,6 +88,11 @@ describe('admin edit page cached refresh recovery', () => {
     api.fetchAdminJsonWithRetry.mockImplementation(async () => ({ ...cachedPayload }))
     await act(async () => root.render(<FloatingNoticeProvider><AdminEditPage /></FloatingNoticeProvider>))
     await vi.waitFor(() => expect(api.fetchAdminJsonWithRetry).toHaveBeenCalledTimes(1))
+    // Nothing queued on the first landing: null means every loaded group refetches.
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(api.scopes.every(scope => scope === null)).toBe(true)
 
     await act(async () => {
       api.dataUpdate!({ characterIds: [3, 1] })

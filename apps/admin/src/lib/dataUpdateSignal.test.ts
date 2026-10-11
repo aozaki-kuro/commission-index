@@ -30,6 +30,10 @@ describe('data update signal', () => {
     broadcastFromOtherTab({ characterIds: ['x', -1] })
     await vi.waitFor(() => expect(listener).toHaveBeenCalledTimes(3))
     expect(listener).toHaveBeenLastCalledWith(undefined)
+
+    broadcastFromOtherTab({ characterIds: [] })
+    await vi.waitFor(() => expect(listener).toHaveBeenCalledTimes(4))
+    expect(listener).toHaveBeenLastCalledWith(undefined)
   })
 
   it('ignores its own scoped and unscoped broadcasts but delivers them to other listeners', async () => {

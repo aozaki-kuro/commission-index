@@ -27,7 +27,7 @@ export interface DataUpdateScope { characterIds: number[] }
 function readScope(data: unknown): DataUpdateScope | undefined {
   const ids = (data as { characterIds?: unknown } | null)?.characterIds
   // A malformed scope must widen to a full refresh, never narrow to nothing.
-  return Array.isArray(ids) && ids.every(id => Number.isInteger(id) && id > 0)
+  return Array.isArray(ids) && ids.length > 0 && ids.every(id => Number.isInteger(id) && id > 0)
     ? { characterIds: ids as number[] }
     : undefined
 }
