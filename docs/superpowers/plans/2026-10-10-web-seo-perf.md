@@ -102,6 +102,10 @@ meaningful localized `alt` text. Three locales share one English `<title>` and o
   only marks the gate open when it must be; no-JS visitors keep never seeing the gate without a `<noscript>` patch.
 - **Ruling: WP-2 aligns the preload to the inline `<img>`** (`widths [768,1280]`, `width 1280`); deferred batch JSON
   keeps `768/960/1280`. The preload must describe exactly the image it preloads.
+- **Ruling: accept the missing modulepreload.** No documented setting restores it and post-build injection is
+  brittle. Cost if wrong: one extra round trip before the search UI becomes interactive.
+- **Ruling: kept `72b4749` (`_headers`) out of task order** instead of rewriting local history (independent
+  change). Cost if wrong: cosmetic commit order.
 
 ## Tasks
 
