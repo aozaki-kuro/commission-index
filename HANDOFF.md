@@ -2,7 +2,7 @@
 
 主题：web SEO / 性能修复已在 PR [#382](https://github.com/aozaki-kuro/commission-index/pull/382)（分支
 `perf/web-seo-perf`，auto-fix 已开）。admin 视觉回归 31 个失败已在 `fix/visual-baselines` 收口（见「视觉问题」）。
-计划文件（未跟踪，含全部 Ruling）：本轮 `docs/superpowers/plans/2026-10-11-visual-baselines.md`；上轮
+计划文件（已提交，含全部 Ruling）：本轮 `docs/superpowers/plans/2026-10-11-visual-baselines.md`；上轮
 `docs/superpowers/plans/2026-10-10-web-seo-perf.md`。
 
 ## 进展
@@ -49,8 +49,7 @@
 
 ## 当前状态
 
-- 当前分支 `fix/visual-baselines`，基于 master `ceb1292`；本分支提交见 `git log --oneline master..fix/visual-baselines`，未推送，未开 PR。
-- 未跟踪：仅 `docs/superpowers/`。
+- `fix/visual-baselines`（基于 master `ceb1292`）经 PR 合入 master；计划文件 `docs/superpowers/plans/` 随该 PR 提交。
 - 本分支验证：`pnpm run test` 495/495；typecheck、lint 通过；`pnpm run test:visual` 42/42（admin 31 + web 11）；`pnpm run test:admin-ui` 28/28。
 - PR #382 的提交已在 `origin/master`（`1af8293`）上；本地 master = `origin/master` + `ceb1292`（handoff 提交，未推送）。
 - tmux 会话 `dev`（10-10 创建）一直开着，不是本轮的。

@@ -237,6 +237,8 @@ commit, not instructions.
 - `open-issues.md` — verified open backlog and "verified not a defect" list; re-verify before acting
 - `audit-2026-10-05-web-architecture.md` — web architecture decision (keep static Astro, no SSR) and the
   WS1–WS5 work packages; fold into `open-issues.md` once they land
+- `superpowers/plans/` — dated execution plans with their rulings (evidence of why a change was made, not
+  instructions)
 
 ## Commit Convention
 
