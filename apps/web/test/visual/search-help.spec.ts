@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { expectFixtureData } from './fixtureGuard'
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -17,6 +18,7 @@ for (const scenario of scenarios) {
   test(`help stays anchored and usable on ${scenario.name}`, async ({ page }) => {
     await page.setViewportSize({ width: scenario.width, height: scenario.height })
     await page.goto(scenario.path)
+    await expectFixtureData(page)
     const trigger = page.locator('#search-help-trigger')
     const popover = page.locator('#search-help-popover')
     await trigger.scrollIntoViewIfNeeded()
@@ -59,6 +61,7 @@ for (const scenario of scenarios) {
 test('help animates both opening and closing in the top layer', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await page.goto('/')
+  await expectFixtureData(page)
   await page.locator('#search-help-trigger').scrollIntoViewIfNeeded()
 
   const opening = await page.evaluate(async () => {
@@ -94,6 +97,7 @@ test('help animates both opening and closing in the top layer', async ({ page })
 test('help remains usable with reduced motion', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.goto('/')
+  await expectFixtureData(page)
   const trigger = page.locator('#search-help-trigger')
   const popover = page.locator('#search-help-popover')
   await trigger.click()

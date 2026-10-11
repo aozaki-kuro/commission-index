@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
+import { expectFixtureData } from './fixtureGuard'
 
 const AGE_CONFIRM_KEY = 'hasConfirmedAge'
 
@@ -17,6 +18,7 @@ async function waitForKeywordChips(page: Page) {
 }
 
 async function prepareStablePage(page: Page) {
+  await expectFixtureData(page)
   await waitForKeywordChips(page)
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.addStyleTag({
