@@ -9,13 +9,21 @@ const api = vi.hoisted(() => ({
   fetchAdminJsonWithRetry: vi.fn(),
   readCachedAdminJson: vi.fn(),
   groupsLoaded: null as null | (() => void),
+  dataUpdate: null as null | ((scope?: { characterIds: number[] }) => void),
+  scopes: [] as (number[] | null)[],
 }))
 
 vi.mock('../lib/adminApi', () => api)
-vi.mock('../lib/dataUpdateSignal', () => ({ subscribeToDataUpdates: () => () => {} }))
+vi.mock('../lib/dataUpdateSignal', () => ({
+  subscribeToDataUpdates: (listener: typeof api.dataUpdate) => {
+    api.dataUpdate = listener
+    return () => {}
+  },
+}))
 vi.mock('../components/AdminEditDashboard', () => ({
-  AdminEditDashboard: ({ onOpenGroupsLoaded }: { onOpenGroupsLoaded: () => void }) => {
+  AdminEditDashboard: ({ onOpenGroupsLoaded, refreshScope }: { onOpenGroupsLoaded: () => void, refreshScope: ReadonlySet<number> | null }) => {
     api.groupsLoaded = onOpenGroupsLoaded
+    api.scopes.push(refreshScope && [...refreshScope].toSorted())
     return createElement('h2', null, 'Cached dashboard')
   },
 }))
@@ -68,6 +76,33 @@ describe('admin edit page cached refresh recovery', () => {
     expect(api.fetchAdminJsonWithRetry).toHaveBeenCalledTimes(2)
     expect(container.textContent).toContain('Cached dashboard')
     expect(container.textContent).not.toContain('Refresh failed')
+  })
+
+  it('hands scoped updates to the dashboard, widening on unscoped requests and resetting after each payload', async () => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+    api.scopes.length = 0
+    api.readCachedAdminJson.mockReturnValue(cachedPayload)
+    api.fetchAdminJsonWithRetry.mockImplementation(async () => ({ ...cachedPayload }))
+    await act(async () => root.render(<FloatingNoticeProvider><AdminEditPage /></FloatingNoticeProvider>))
+    await vi.waitFor(() => expect(api.fetchAdminJsonWithRetry).toHaveBeenCalledTimes(1))
+
+    await act(async () => {
+      api.dataUpdate!({ characterIds: [3, 1] })
+      api.dataUpdate!({ characterIds: [2] })
+    })
+    await vi.waitFor(() => expect(api.scopes.at(-1)).toEqual([1, 2, 3]))
+
+    await act(async () => {
+      api.dataUpdate!({ characterIds: [5] })
+      api.dataUpdate!()
+    })
+    await vi.waitFor(() => expect(api.scopes.at(-1)).toBeNull())
+
+    await act(async () => api.dataUpdate!({ characterIds: [4] }))
+    await vi.waitFor(() => expect(api.scopes.at(-1)).toEqual([4]))
   })
 
   it.each([false, true])('waits for groups before restoring once; user cancellation=%s', async (cancel) => {

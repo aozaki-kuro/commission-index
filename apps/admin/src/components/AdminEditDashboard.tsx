@@ -13,6 +13,7 @@ interface AdminEditDashboardProps {
   isInitialError: boolean
   onOpenGroupsLoaded: () => void
   onRefresh: () => void
+  refreshScope?: ReadonlySet<number> | null
 }
 
 export function AdminEditDashboard({
@@ -23,6 +24,7 @@ export function AdminEditDashboard({
   isInitialError,
   onOpenGroupsLoaded,
   onRefresh,
+  refreshScope,
 }: AdminEditDashboardProps) {
   return (
     <section className="space-y-4">
@@ -34,6 +36,7 @@ export function AdminEditDashboard({
         isInitialError={isInitialError}
         onOpenGroupsLoaded={onOpenGroupsLoaded}
         onRefresh={onRefresh}
+        refreshScope={refreshScope}
       />
     </section>
   )

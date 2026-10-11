@@ -18,11 +18,30 @@ function sendStoragePing() {
   }
 }
 
-export function notifyDataUpdate() {
+/**
+ * Subscribers refetch only these characters. Omit the scope whenever the caller cannot name every affected
+ * character: absent means "everything may have changed", which is also all the storage-ping fallback can say.
+ */
+export interface DataUpdateScope { characterIds: number[] }
+
+function readScope(data: unknown): DataUpdateScope | undefined {
+  const ids = (data as { characterIds?: unknown } | null)?.characterIds
+  // A malformed scope must widen to a full refresh, never narrow to nothing.
+  return Array.isArray(ids) && ids.every(id => Number.isInteger(id) && id > 0)
+    ? { characterIds: ids as number[] }
+    : undefined
+}
+
+export function notifyDataUpdate(scope?: DataUpdateScope) {
   try {
     if (typeof BroadcastChannel !== 'undefined') {
       const channel = new BroadcastChannel(channelName)
-      channel.postMessage({ at: Date.now(), sessionId: tabSessionId, type: 'updated' })
+      channel.postMessage({
+        at: Date.now(),
+        ...(scope && { characterIds: [...new Set(scope.characterIds)] }),
+        sessionId: tabSessionId,
+        type: 'updated',
+      })
       channel.close()
       return
     }
@@ -34,7 +53,7 @@ export function notifyDataUpdate() {
   sendStoragePing()
 }
 
-export function subscribeToDataUpdates(onUpdate: () => void) {
+export function subscribeToDataUpdates(onUpdate: (scope?: DataUpdateScope) => void) {
   let channel: BroadcastChannel | null = null
 
   try {
@@ -43,7 +62,7 @@ export function subscribeToDataUpdates(onUpdate: () => void) {
       channel.onmessage = (event) => {
         // Ignore our own broadcasts — local state is updated in-place instead.
         if (event.data?.sessionId !== tabSessionId) {
-          onUpdate()
+          onUpdate(readScope(event.data))
         }
       }
     }
