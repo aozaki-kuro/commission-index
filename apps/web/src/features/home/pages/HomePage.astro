@@ -1,4 +1,5 @@
 ---
+import { normalizeCharacterAliasKey, normalizeKeywordAliasKey } from '@commission-index/domain'
 import { getCharacterAliases } from '@data/characterAliases'
 import { getHomeFeaturedSearchKeywords } from '@data/homeFeaturedSearchKeywords'
 import { getKeywordAliases } from '@data/keywordAliases'
@@ -29,11 +30,9 @@ import {
 } from '@features/home/warning/ageGate'
 import AgeGateScript from '@features/home/warning/AgeGateScript.astro'
 import BaseLayout from '@layouts/BaseLayout.astro'
-import { normalizeCharacterAliasKey } from '@lib/characterAliases'
 import { buildSitePayload } from '@lib/home/buildSitePayload'
 import { buildHomeUpdateSummary } from '@lib/home/updateSummary'
 import { listMissingSourceImages, resolveSourceImageByCommissionId } from '@lib/images/sourceImageRegistry'
-import { normalizeKeywordAliasKey } from '@lib/keywordAliases'
 import { buildCommissionDataMap, buildCreatorAliasesMap } from '@lib/sitePayload'
 import { getImage } from 'astro:assets'
 import { getRelativeLocaleUrl } from 'astro:i18n'

@@ -4,6 +4,7 @@
 
 ## 已于 2026-10-11 收口
 
+- **web 内残留别名逻辑副本**：已删除 `apps/web/src/lib/{characterAliases,creatorAliases,keywordAliases}.ts`（与 domain 同名文件仅注释语言不同），web 现统一从 `@commission-index/domain` 导入。
 - **admin 视觉回归 31 个失败（根因：spec 过期，非环境问题）**：specs 落后于 `2939c7e`（publicId）、`d734944` / `10fd8ad`（标题与壳宽）、`89797f2`（重建确认），且跑在错误的 Playwright 配置下。修复：`be84ee5` / `c7f12a9` 改为 `mockAdminApi` fixture 驱动，cross-workspace 仅匹配 `admin-*.spec.ts`；`0aea395` 修旋转时读到 0x0 选区的竞态；`7a1f2af` 截图前等数据就绪；`f9189db` 刷新 7 张 admin 基线；`0493590` 裁剪器在容器 resize 时重适配，直到用户首次编辑。结果：`pnpm run test:visual` 42/42（admin 31 + web 11），`pnpm run test:admin-ui` 28/28。
 
 ## 已于 2026-10-09 收口
@@ -31,10 +32,6 @@
 ## Web
 
 - **未验证（LOGIC-02 残留）**：跨标签刷新会重拉“每个已加载角色”，而非只失效相关角色（`CommissionManager.tsx`）。收口：只失效受影响角色后重取。
-
-## Domain / 结构
-
-- **web 内残留别名逻辑副本**：`apps/web/src/lib/{characterAliases,creatorAliases,keywordAliases}.ts` 与 `packages/domain/src/` 同名文件逻辑一致（当前仅注释语言不同：web 为英文，domain 为中文）。收口：web 改用 `@commission-index/domain` 并删副本，或明确二者为不同契约。
 
 ## Worker + Data
 

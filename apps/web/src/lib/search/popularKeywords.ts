@@ -1,4 +1,4 @@
-import { normalizeCreatorName } from '@lib/creatorAliases'
+import { normalizeCreatorName } from '@commission-index/domain'
 import { parseSuggestionRows } from '@lib/search/index'
 
 export const DEFAULT_MAX_POPULAR_KEYWORDS = 36

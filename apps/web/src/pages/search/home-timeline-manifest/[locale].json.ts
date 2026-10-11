@@ -1,12 +1,11 @@
 import type { APIRoute } from 'astro'
+import { normalizeCharacterAliasKey, normalizeKeywordAliasKey } from '@commission-index/domain'
 import { getCharacterAliases } from '@data/characterAliases'
 import { getKeywordAliases } from '@data/keywordAliases'
 import { HOME_LOCALES, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
 import { buildHomeTimelineBatchManifest } from '@features/home/server/homeTimelineBatchArtifacts'
 import { buildHomeTimelineBatchPlan } from '@features/home/server/homeTimelineBatches'
-import { normalizeCharacterAliasKey } from '@lib/characterAliases'
 import { buildSitePayload } from '@lib/home/buildSitePayload'
-import { normalizeKeywordAliasKey } from '@lib/keywordAliases'
 import { buildHomeSearchEntriesArtifact } from '@lib/pipeline/homeSearchEntries'
 import { buildCreatorAliasesMap } from '@lib/sitePayload'
 
