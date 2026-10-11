@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest'
-import { collectHiddenCommissionIds, validateGeneratedFactSourceSnapshot } from './generatedFactSource'
+import path from 'node:path'
+import process from 'node:process'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { collectHiddenCommissionIds, resolveGeneratedFactSourcePath, validateGeneratedFactSourceSnapshot } from './generatedFactSource'
 
 const meta = {
   schemaVersion: 3,
@@ -115,5 +117,36 @@ describe('collectHiddenCommissionIds', () => {
     } as unknown as Parameters<typeof collectHiddenCommissionIds>[0]
 
     expect([...collectHiddenCommissionIds(content)]).toEqual([2, 4])
+  })
+})
+
+describe('resolveGeneratedFactSourcePath', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  })
+
+  it('reads only from FACT_SOURCE_DIR when set, anchoring relative values to apps/web from either cwd', () => {
+    vi.stubEnv('FACT_SOURCE_DIR', 'generated-fixture')
+    const webRoot = path.resolve(import.meta.dirname, '..')
+    const expected = path.join(webRoot, 'generated-fixture', 'fact-source', 'content.json')
+
+    vi.spyOn(process, 'cwd').mockReturnValue(webRoot)
+    expect(resolveGeneratedFactSourcePath('content.json')).toBe(expected)
+
+    vi.spyOn(process, 'cwd').mockReturnValue(path.resolve(webRoot, '../..'))
+    expect(resolveGeneratedFactSourcePath('content.json')).toBe(expected)
+
+    const absolute = path.resolve('/tmp/fixture-dir')
+    vi.stubEnv('FACT_SOURCE_DIR', absolute)
+    expect(resolveGeneratedFactSourcePath('content.json')).toBe(path.join(absolute, 'fact-source', 'content.json'))
+  })
+
+  it('keeps the generated/ lookup when FACT_SOURCE_DIR is unset', () => {
+    vi.stubEnv('FACT_SOURCE_DIR', '')
+    vi.spyOn(process, 'cwd').mockReturnValue(path.resolve(import.meta.dirname, '..'))
+
+    expect(resolveGeneratedFactSourcePath('content.json'))
+      .toBe(path.join(path.resolve(import.meta.dirname, '..'), 'generated', 'fact-source', 'content.json'))
   })
 })
