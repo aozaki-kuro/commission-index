@@ -1,9 +1,18 @@
 # HANDOFF（2026-10-11）
 
-主题：web SEO / 性能修复已在 PR [#382](https://github.com/aozaki-kuro/commission-index/pull/382)（分支
-`perf/web-seo-perf`，auto-fix 已开）。admin 视觉回归 31 个失败已在 `fix/visual-baselines` 收口（见「视觉问题」）。
-计划文件（已提交，含全部 Ruling）：本轮 `docs/superpowers/plans/2026-10-11-visual-baselines.md`；上轮
-`docs/superpowers/plans/2026-10-10-web-seo-perf.md`。
+主题：视觉回归收口及后续。本日 PR 全部已 rebase 合入 master 并部署：
+
+- PR #384：admin 视觉 31 个失败，以及裁剪器 resize 重适配。
+- PR #385：CI 跑 `test:admin-ui`。
+- PR #386：web 别名副本改用 domain。
+- PR #387：LOGIC-02 跨标签按角色刷新。
+- PR #388：web 视觉基线改为 fixture（R3a）。
+
+计划文件（已提交，含全部 Ruling）在 `docs/superpowers/plans/`：
+
+- `2026-10-11-visual-baselines.md`
+- `2026-10-11-visual-followups.md`
+- `2026-10-11-web-visual-fixture.md`
 
 ## 进展
 
@@ -49,9 +58,18 @@
 
 ## 当前状态
 
-- `fix/visual-baselines`（基于 master `ceb1292`）经 PR 合入 master；计划文件 `docs/superpowers/plans/` 随该 PR 提交。
-- 本分支验证：`pnpm run test` 495/495；typecheck、lint 通过；`pnpm run test:visual` 42/42（admin 31 + web 11）；`pnpm run test:admin-ui` 28/28。
-- PR #382 的提交已在 `origin/master`（`1af8293`）上；本地 master = `origin/master` + `ceb1292`（handoff 提交，未推送）。
+- master 已包含 #384–#388，本地 master 与 `origin/master` 一致。
+- 验证：
+  - `pnpm run test` 506；
+  - `pnpm run test:visual` 连跑 3 次，均为 42/42（web 11 走 fixture，admin 31）；
+  - `pnpm run test:admin-ui` 28/28，CI ubuntu 上也通过。
+- 生产只读抽查（2026-10-11）：
+  - favicon 只有一条 `cache-control: public, max-age=86400`。
+  - `/admin`、`/api/admin/health` 返回 404。
+  - 移动端冷启动 LCP 2.19 s（4x CPU + Slow 4G，未确认访客），CLS 0。trace 提示图片可省约 305 kB（ImageDelivery），未处理。
+  - CJK 搜索：`七市` 21 条，`七市 Studio` 1 条，`七市 !Studio` 20 条，结果一致。
+- `perf/admin-worker-drop-schema-probes` 的分支引用曾丢失（提交还在），已重建，指向 `e410e3d`，仅本地。
+- `.claude/worktrees/agent-a9f0bf29c700a7946`（WP-D spike）有未提交改动，原样保留。
 - tmux 会话 `dev`（10-10 创建）一直开着，不是本轮的。
 
 ## 下一步（按优先级）
@@ -60,8 +78,8 @@
 2. ~~干净 checkout 对照 master~~：以 `git log -S` 定位到每个失败选择器/标签的改动提交代替（均已在 master 上）。
 3. ~~剩余超时逐个定性~~：已收口，均随 spec 与基线修复通过（含 `toBeCloseTo`）。
 4. ~~人眼确认 admin 截图差异~~：已收口，`f9189db` 刷新 7 张 admin 基线（壳层布局变化）。
-5. web 视觉数据漂移：已决定延后，记录于 `docs/open-issues.md`「Verification gaps」（R3）。暗色模式与年龄门首帧仍是未做的 wishlist，不属于本轮。
-6. PR #382 合并后：重跑 Lighthouse mobile（未确认访客）看 LCP；`curl -sI` 一个 favicon，确认只有一条 `Cache-Control`。
+5. ~~web 视觉数据漂移~~：已收口（#388，R3a）。R3b（`-linux` 基线 + CI 跑 `test:visual`）记在 open-issues。暗色模式与年龄门首帧仍是 wishlist。
+6. ~~Lighthouse / favicon 复核~~：已完成，见「当前状态」。
 
 ## 本轮学到的坑
 
@@ -80,4 +98,3 @@
 - PERF-02 生产只读核验前不得合并分支 `perf/admin-worker-drop-schema-probes`（`e410e3d`）。
 - master branch protection（P11）需在 GitHub 设置里确认。
 - `apps/admin-worker/scripts/listR2Orphans.ts` 首次运行必须由 owner 手动 dry-run，agent 不得运行。
-- 搜索 CJK 修复上线后的抽查（中日文词单独搜、`!` 排除、与英文 AND）。
