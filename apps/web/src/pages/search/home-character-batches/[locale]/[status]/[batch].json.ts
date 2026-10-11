@@ -1,5 +1,6 @@
 import type { HomeCharacterBatchStatus } from '@features/home/server/homeCharacterBatches'
 import type { APIRoute } from 'astro'
+import { normalizeCharacterAliasKey, normalizeKeywordAliasKey } from '@commission-index/domain'
 import { getCharacterAliases } from '@data/characterAliases'
 import { getKeywordAliases } from '@data/keywordAliases'
 import { HOME_LOCALES, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
@@ -8,9 +9,7 @@ import {
   buildHomeCharacterBatchPlan,
 
 } from '@features/home/server/homeCharacterBatches'
-import { normalizeCharacterAliasKey } from '@lib/characterAliases'
 import { buildSitePayload } from '@lib/home/buildSitePayload'
-import { normalizeKeywordAliasKey } from '@lib/keywordAliases'
 import { buildCommissionDataMap, buildCreatorAliasesMap } from '@lib/sitePayload'
 
 function getBatchPlan() {
