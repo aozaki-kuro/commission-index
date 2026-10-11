@@ -50,6 +50,7 @@ yarn-error.log*
 **/.wrangler/
 
 apps/web/generated/
+apps/web/generated-fixture/
 
 # AI tool artifacts
 .claude/
