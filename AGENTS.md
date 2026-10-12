@@ -173,6 +173,9 @@ Pipeline order, release concurrency locks, the `deploy-web-snapshot` composite a
   upgrade in stages and pin back only packages with a real peer conflict or failing gate
 - Keep TypeScript on 6.x until both `@astrojs/check` and `typescript-eslint` publish TypeScript 7-compatible
   peer ranges; never bypass the mismatch with peer overrides
+- Do not adopt Vite+ (`vite-plus`) or replace ESLint/prettier with oxlint/oxfmt: the 2026-10-11 evaluation found
+  `vp dev/build` unusable with Astro, ~0 gain for admin build/tests, and lint/format losing `.astro`, pnpm-policy
+  and markdown rules; owner ruled not to switch
 - Keep pnpm workspace policy lint-clean: retain `minimumReleaseAgeExcludePrune: true` and the canonical key
   order/blank lines; target workspaces with `pnpm -C <dir> run <script>`, not
   `pnpm run --cwd <dir> <script>` (pnpm 11+ incompatible)
