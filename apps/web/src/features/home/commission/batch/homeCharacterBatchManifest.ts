@@ -7,7 +7,9 @@ import { normalizeBatchTargetId } from './batchManifest'
 const MANIFEST_SELECTOR = 'script[data-home-character-batch-manifest="true"]'
 const CHARACTER_PANEL_SELECTOR = '[data-commission-view-panel="character"]'
 
-let manifestCache = new WeakMap<Document, HomeCharacterBatchManifest | null>()
+// Keyed by the script element, not the Document: ClientRouter swaps the body on soft navigation
+// (e.g. a locale switch), which replaces the element and must invalidate the cache.
+let manifestCache = new WeakMap<HTMLScriptElement, HomeCharacterBatchManifest | null>()
 
 export function hasConnectedCharacterPanelTargetId(doc: Document, targetId: string) {
   const element = doc.getElementById(targetId)
@@ -21,34 +23,39 @@ export function readHomeCharacterBatchManifest(doc?: Document): HomeCharacterBat
   if (!resolvedDocument)
     return null
 
-  if (manifestCache.has(resolvedDocument)) {
-    return manifestCache.get(resolvedDocument) ?? null
+  const script = resolvedDocument.querySelector<HTMLScriptElement>(MANIFEST_SELECTOR)
+  if (!script)
+    return null
+
+  if (manifestCache.has(script)) {
+    return manifestCache.get(script) ?? null
   }
 
-  const script = resolvedDocument.querySelector<HTMLScriptElement>(MANIFEST_SELECTOR)
-  if (!script?.textContent) {
-    manifestCache.set(resolvedDocument, null)
+  if (!script.textContent) {
+    manifestCache.set(script, null)
     return null
   }
 
   try {
     const manifest = JSON.parse(script.textContent) as HomeCharacterBatchManifest
-    manifestCache.set(resolvedDocument, manifest)
+    manifestCache.set(script, manifest)
     return manifest
   }
   catch {
-    manifestCache.set(resolvedDocument, null)
+    manifestCache.set(script, null)
     return null
   }
 }
 
 export function clearHomeCharacterBatchManifestCacheForTests(doc?: Document) {
   if (doc) {
-    manifestCache.delete(doc)
+    const script = doc.querySelector<HTMLScriptElement>(MANIFEST_SELECTOR)
+    if (script)
+      manifestCache.delete(script)
     return
   }
 
-  manifestCache = new WeakMap<Document, HomeCharacterBatchManifest | null>()
+  manifestCache = new WeakMap<HTMLScriptElement, HomeCharacterBatchManifest | null>()
 }
 
 export function hasDeferredHomeCharacterTarget({
