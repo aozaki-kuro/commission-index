@@ -82,6 +82,8 @@ export function mountActiveCharactersLoader({
   let intersectionObserver: IntersectionObserver | null = null
   let queue = Promise.resolve(false)
   let cancelIdlePrefetch: (() => void) | null = null
+  // A rejected load from an old page can settle after soft navigation; it must not signal listeners on the shared window.
+  let disposed = false
 
   // Direct panel reads avoid repeated querySelector in exported helpers
   const readLocalBatchCount = () => {
@@ -258,7 +260,7 @@ export function mountActiveCharactersLoader({
             : loadedBatchCount
 
       const didChange = await loadBatchesThrough(targetBatchIndex, options.manifestOverride)
-      if (didChange) {
+      if (didChange && !disposed) {
         win.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOADED_EVENT))
       }
       syncAutoLoad()
@@ -267,7 +269,8 @@ export function mountActiveCharactersLoader({
 
     queue = queue.then(run).catch((error) => {
       console.error(error)
-      win.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT))
+      if (!disposed)
+        win.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT))
       return false
     })
 
@@ -352,6 +355,7 @@ export function mountActiveCharactersLoader({
   syncAutoLoad()
 
   return () => {
+    disposed = true
     stopAutoLoad()
     stopIdlePrefetch()
     win.removeEventListener(ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT, onLoadRequest)

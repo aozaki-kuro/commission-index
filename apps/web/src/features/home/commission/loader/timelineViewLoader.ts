@@ -79,6 +79,8 @@ export function mountTimelineViewLoader({
   const totalBatchCount = getHomeTimelineBatchTotalCount(doc)
   let intersectionObserver: IntersectionObserver | null = null
   let queue = Promise.resolve(false)
+  // A rejected load from an old page can settle after soft navigation; it must not signal listeners on the shared window.
+  let disposed = false
   let hasSyncedMode = false
 
   // Direct panel reads avoid repeated querySelector in exported helpers
@@ -183,7 +185,8 @@ export function mountTimelineViewLoader({
       // Intentionally also fires after a partial failure: the batches that did mount changed the DOM, and consumers re-read DOM/dataset state.
       if (didChange) {
         deps.dispatchSidebarSync()
-        win.dispatchEvent(new Event(TIMELINE_VIEW_LOADED_EVENT))
+        if (!disposed)
+          win.dispatchEvent(new Event(TIMELINE_VIEW_LOADED_EVENT))
       }
     }
     return didChange
@@ -355,6 +358,7 @@ export function mountTimelineViewLoader({
   syncHashTarget()
 
   return () => {
+    disposed = true
     stopAutoLoad()
     win.removeEventListener(TIMELINE_VIEW_LOAD_REQUEST_EVENT, onLoadRequest)
     win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, syncByMode)
