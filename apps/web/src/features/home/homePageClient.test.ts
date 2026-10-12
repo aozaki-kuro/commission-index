@@ -163,58 +163,27 @@ describe('mountHomePageClient', () => {
     ])
   })
 
-  it('rolls back all mounted features when a deferred mount throws', () => {
+  it('isolates a throwing deferred mount', () => {
     const trace: Trace = []
     const { deps, getDeferredTask } = createDeps(trace)
     const deferredError = new Error('deferred mount failed')
+    const secondCleanup = vi.fn()
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    deps.mountMobileLanguageMenu = vi.fn(() => {
-      trace.push('mount:language-menu')
+    deps.mountSidebarNavEnhancer = vi.fn(() => {
       throw deferredError
     })
+    deps.mountMobileHamburgerMenu = vi.fn(() => secondCleanup)
 
     const cleanup = mountHomePageClient({ deps })
 
-    expect(() => getDeferredTask()?.()).toThrow(deferredError)
-    expect(trace).toEqual([
-      'mount:view-sync',
-      'mount:active-loader',
-      'mount:archived-loader',
-      'mount:timeline-loader',
-      'mount:scroll-restore',
-      'mount:update-links',
-      'mount:sidebar-nav',
-      'mount:hamburger-menu',
-      'mount:language-menu',
-      'cleanup:hamburger-menu',
-      'cleanup:sidebar-nav',
-      'cleanup:update-links',
-      'cleanup:scroll-restore',
-      'cleanup:timeline-loader',
-      'cleanup:archived-loader',
-      'cleanup:active-loader',
-      'cleanup:view-sync',
-    ])
+    expect(() => getDeferredTask()?.()).not.toThrow()
+    expect(deps.mountMobileHamburgerMenu).toHaveBeenCalledTimes(1)
+    expect(consoleError).toHaveBeenCalledWith(expect.any(String), deferredError)
+    expect(trace.filter(entry => entry.startsWith('cleanup:'))).toEqual([])
 
     cleanup()
-    expect(trace).toEqual([
-      'mount:view-sync',
-      'mount:active-loader',
-      'mount:archived-loader',
-      'mount:timeline-loader',
-      'mount:scroll-restore',
-      'mount:update-links',
-      'mount:sidebar-nav',
-      'mount:hamburger-menu',
-      'mount:language-menu',
-      'cleanup:hamburger-menu',
-      'cleanup:sidebar-nav',
-      'cleanup:update-links',
-      'cleanup:scroll-restore',
-      'cleanup:timeline-loader',
-      'cleanup:archived-loader',
-      'cleanup:active-loader',
-      'cleanup:view-sync',
-    ])
+    expect(secondCleanup).toHaveBeenCalledTimes(1)
+    consoleError.mockRestore()
   })
 })

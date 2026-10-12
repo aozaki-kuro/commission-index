@@ -119,14 +119,14 @@ export function mountHomePageClient({ deps: depsOverrides }: MountHomePageClient
       cancelDeferredMount = null
       if (disposed)
         return
-      try {
-        for (const mount of deferredMounts) {
+      // Deferred features are independent; one failing must not tear down the critical mounts.
+      for (const mount of deferredMounts) {
+        try {
           cleanups.push(mount())
         }
-      }
-      catch (error) {
-        cleanupAll()
-        throw error
+        catch (error) {
+          console.error('[home] deferred mount failed', error)
+        }
       }
     })
   }

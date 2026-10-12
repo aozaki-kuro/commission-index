@@ -136,7 +136,7 @@ const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
 
 <script>
 import { bindSoftNavMount } from '@lib/astro/softNavMount'
-import { CONFIRMED_AGE_KEY, hasValidAgeConfirmation } from './ageGate'
+import { CONFIRMED_AGE_KEY, hasValidAgeConfirmation, readStoredAgeConfirmation, writeStoredAgeConfirmation } from './ageGate'
 
 const AGE_CONFIRM_EVENT = 'age-confirm-changed'
 const AGE_GATE_STATE_EVENT = 'age-gate-state-change'
@@ -160,12 +160,23 @@ function mountAgeGate(): (() => void) | null {
   const originalHtmlOverflow = document.documentElement.style.overflow
   const originalBodyOverflow = document.body.style.overflow
 
-  const isConfirmed = () =>
-    hasValidAgeConfirmation({
+  // Set when the user confirms: a blocked or full storage cannot persist it, but the gate must still
+  // close for this page view instead of reopening on the next sync.
+  let confirmedThisView = false
+
+  // Unreadable storage keeps the gate closed (matches the pre-paint script); only an empty read opens it.
+  const isConfirmed = () => {
+    if (confirmedThisView)
+      return true
+    const storedValue = readStoredAgeConfirmation(() => localStorage)
+    if (storedValue === undefined)
+      return true
+    return hasValidAgeConfirmation({
       userAgent: navigator.userAgent,
-      storedValue: localStorage.getItem(CONFIRMED_AGE_KEY),
+      storedValue,
       now: Date.now(),
     })
+  }
 
   // The pre-paint script may already show the gate. Adopt that frame as-is: the entrance animation
   // would restart from opacity 0 once the opt-in attribute (which forces animation: none) is removed,
@@ -228,7 +239,8 @@ function mountAgeGate(): (() => void) | null {
   }
 
   const onConfirmAge = () => {
-    localStorage.setItem(CONFIRMED_AGE_KEY, String(Date.now()))
+    confirmedThisView = true
+    writeStoredAgeConfirmation(() => localStorage, String(Date.now()))
     window.dispatchEvent(new Event(AGE_CONFIRM_EVENT))
   }
 
