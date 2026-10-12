@@ -299,7 +299,7 @@ describe('mountActiveCharactersLoader', () => {
       })
       await vi.waitFor(() => expect(document.getElementById('section-gamma-20240101')).toBeTruthy())
 
-      expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/search/home-character-manifest/'))
+      expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/search/home-character-manifest/'), expect.objectContaining({ signal: expect.any(AbortSignal) }))
       expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/search/home-character-batches/'), expect.anything())
 
       const panel = document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')

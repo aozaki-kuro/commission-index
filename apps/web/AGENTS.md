@@ -55,6 +55,7 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   Client islands mount via `bindSoftNavMount` (`@lib/astro/softNavMount`) on `astro:page-load` and dispose on
   `astro:before-swap`; never mount from top-level module code
 - **Age gate first frame:** an inline head script in `HomePage.astro` sets `html[data-age-gate-initial=open]` (and `data-age-gate-open`) before paint when `warning/ageGate.ts` says the gate must show; CSS in `AgeGateScript.astro` renders it opaque with no animation. `mountAgeGate` removes the attribute and suppresses the entrance animation inline until the next state change. ClientRouter's `swapRootAttributes` resets `<html>` attributes from the server HTML on every swap, so the attribute cannot go stale
+- **Age gate persistence is best-effort:** when `localStorage` reads throw, the gate stays closed (matching the inline head script); when only writes fail, the confirmation lasts for the current page view, so the gate reappears after a soft navigation
 - **Re-hydration on append:** batch DOM appended after first mount must re-hydrate / re-bind interactive
   controls — a single first-paint hydrate pass is not enough
 - **Hidden DOM + observers:** sections rendered with `display: none` must not be marked "entered viewport"

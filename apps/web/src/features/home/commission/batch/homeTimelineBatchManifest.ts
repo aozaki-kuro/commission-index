@@ -1,5 +1,6 @@
 import type { HomeTimelineBatchManifest } from '@features/home/server/homeTimelineBatches'
 import { normalizeBatchTargetId } from './batchManifest'
+import { batchFetchInit } from './batchRequestQueue'
 
 const MANIFEST_SELECTOR = 'script[data-home-timeline-batch-manifest="true"]'
 const TIMELINE_PANEL_SELECTOR = '[data-commission-view-panel="timeline"]'
@@ -96,7 +97,7 @@ export function resolveHomeTimelineTargetBatch({
 export async function fetchFreshHomeTimelineBatchManifest(doc?: Document): Promise<HomeTimelineBatchManifest | null> {
   try {
     const locale = readHomeTimelineBatchManifest(doc)?.locale ?? 'en'
-    const response = await fetch(`/search/home-timeline-manifest/${locale}.json?_t=${Date.now()}`)
+    const response = await fetch(`/search/home-timeline-manifest/${locale}.json?_t=${Date.now()}`, batchFetchInit())
     if (!response.ok)
       return null
     return (await response.json()) as HomeTimelineBatchManifest

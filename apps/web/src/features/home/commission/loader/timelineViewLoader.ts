@@ -180,6 +180,7 @@ export function mountTimelineViewLoader({
     finally {
       // Persist the count even when a later batch rejects, otherwise a retry re-mounts the batches already in the DOM.
       updateLoadedState(loadedBatchCount, effectiveTotalBatchCount)
+      // Intentionally also fires after a partial failure: the batches that did mount changed the DOM, and consumers re-read DOM/dataset state.
       if (didChange) {
         deps.dispatchSidebarSync()
         win.dispatchEvent(new Event(TIMELINE_VIEW_LOADED_EVENT))

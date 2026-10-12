@@ -4,7 +4,7 @@ import {
   clearHomeTimelineBatchRequestCacheForTests,
   fetchHomeTimelineBatch,
 } from './homeTimelineBatchClient'
-import { clearHomeTimelineBatchManifestCacheForTests, readHomeTimelineBatchManifest } from './homeTimelineBatchManifest'
+import { clearHomeTimelineBatchManifestCacheForTests, fetchFreshHomeTimelineBatchManifest, readHomeTimelineBatchManifest } from './homeTimelineBatchManifest'
 
 function renderManifest() {
   document.body.innerHTML = `
@@ -29,6 +29,16 @@ describe('fetchHomeTimelineBatch', () => {
     vi.stubGlobal('fetch', fetchSpy)
 
     await fetchHomeTimelineBatch({ batchIndex: 0, doc: document })
+
+    expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ signal: expect.any(AbortSignal) }))
+  })
+
+  it('passes a timeout signal to the fresh manifest refetch', async () => {
+    renderManifest()
+    const fetchSpy = vi.fn(async () => new Response(JSON.stringify({}), { status: 200 }))
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await fetchFreshHomeTimelineBatchManifest(document)
 
     expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ signal: expect.any(AbortSignal) }))
   })
