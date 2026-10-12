@@ -1,4 +1,6 @@
 ---
+import { formatBuildLabel } from '@commission-index/domain'
+import { getGeneratedFactSourceContent } from '@data/generatedFactSource'
 import { getHomeLocaleMessages, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
 
 interface Props {
@@ -7,6 +9,7 @@ interface Props {
 
 const { locale } = Astro.props as Props
 const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
+const buildLabel = formatBuildLabel(getGeneratedFactSourceContent().meta)
 const currentYear = new Date().getFullYear()
 ---
 
@@ -30,6 +33,7 @@ const currentYear = new Date().getFullYear()
   "
   >
     <time class="tracking-tight">2022 - {currentYear}</time> © Crystallize
+    <span class="ml-2 text-gray-500 dark:text-gray-400" data-build-label>{buildLabel}</span>
     <div class="float-right">
       <a
         href="mailto:dmca@crystallize.cc"
