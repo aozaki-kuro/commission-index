@@ -242,6 +242,8 @@ commit, not instructions.
 
 - `api-reference.md`, `ai-agent-guide.md` — admin API contract and integration pitfalls
 - `open-issues.md` — verified open backlog and "verified not a defect" list; re-verify before acting
+- `audit-2026-10-12-full-repo.md` — full-repo audit findings (IDs PRIV/WEB/BLD/ADM/WRK/CI) and the plan order;
+  re-verify line numbers before acting
 - `audit-2026-10-05-web-architecture.md` — web architecture decision (keep static Astro, no SSR) and the
   WS1–WS5 work packages; fold into `open-issues.md` once they land
 - `superpowers/plans/` — dated execution plans with their rulings (evidence of why a change was made, not
