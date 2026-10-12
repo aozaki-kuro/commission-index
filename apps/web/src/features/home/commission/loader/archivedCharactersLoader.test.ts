@@ -453,12 +453,11 @@ describe('mountArchivedCharactersLoader partial failure', () => {
     )
 
     requestThroughBatch1()
-    await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled())
+    await vi.waitFor(() => expect(errorSpy).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('batch 1: 500') })))
     expect(panel.dataset.archivedBatchesLoadedCount).toBe('1')
     expect(panel.dataset.archivedLoaded).toBe('false')
 
     failSecondBatch = false
-    clearHomeCharacterBatchRequestCacheForTests()
     requestThroughBatch1()
     await vi.waitFor(() => expect(panel.dataset.archivedBatchesLoadedCount).toBe('2'))
 
@@ -572,7 +571,7 @@ describe('mountArchivedCharactersLoader collapse during an in-flight load', () =
 
     await collapseWhileBatch1IsPending(panel)
     releaseBatch1()
-    await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled())
+    await vi.waitFor(() => expect(errorSpy).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('batch 1: 500') })))
     await flushAsyncWork()
 
     expect(panel.dataset.archivedVisibility).toBe('hidden')
@@ -580,7 +579,6 @@ describe('mountArchivedCharactersLoader collapse during an in-flight load', () =
     expect(document.querySelector('[data-archived-sections-container="true"]')?.children).toHaveLength(0)
 
     state.batch1Status = 200
-    clearHomeCharacterBatchRequestCacheForTests()
     await expectReExpandRestoresBothBatches(panel)
 
     cleanup()

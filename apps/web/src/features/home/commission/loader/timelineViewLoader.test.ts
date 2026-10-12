@@ -484,12 +484,11 @@ describe('mountTimelineViewLoader partial failure', () => {
     const panel = document.querySelector<HTMLElement>('[data-commission-view-panel="timeline"]')!
 
     requestTimelineViewLoad(window, { targetBatchCount: 2 })
-    await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled())
+    await vi.waitFor(() => expect(errorSpy).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('timeline batch 1: 500') })))
     expect(panel.dataset.timelineBatchesLoadedCount).toBe('1')
     expect(panel.dataset.timelineLoaded).toBe('false')
 
     failSecondBatch = false
-    clearHomeTimelineBatchRequestCacheForTests()
     requestTimelineViewLoad(window, { targetBatchCount: 2 })
     await vi.waitFor(() => expect(panel.dataset.timelineBatchesLoadedCount).toBe('2'))
 
