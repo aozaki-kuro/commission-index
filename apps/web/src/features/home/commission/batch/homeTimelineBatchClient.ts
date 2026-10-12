@@ -3,13 +3,14 @@ import type { HomeTimelineBatchManifest } from '@features/home/server/homeTimeli
 import { fetchFreshHomeTimelineBatchManifest, readHomeTimelineBatchManifest } from '@features/home/commission/batch/homeTimelineBatchManifest'
 import { renderHomeTimelineBatchPayload } from '@features/home/commission/batch/homeTimelineBatchRender'
 import { buildHomeTimelineBatchUrl } from '@features/home/server/homeTimelineBatches'
+import { batchFetchInit } from './batchRequestQueue'
 
 const batchRequestCache = new Map<string, Promise<HomeTimelineBatchPayload>>()
 const LEGACY_TIMELINE_TEMPLATE_SELECTOR = 'template'
 const LEGACY_TIMELINE_ROOT_TEMPLATE_SELECTOR = 'template[data-timeline-sections-template="true"]'
 
 async function loadHomeTimelineBatch({ batchIndex, url }: { batchIndex: number, url: string }) {
-  const response = await fetch(url)
+  const response = await fetch(url, batchFetchInit())
   if (!response.ok) {
     const error = new Error(`Failed to load timeline batch ${batchIndex}: ${response.status}`) as Error & { httpStatus?: number }
     error.httpStatus = response.status

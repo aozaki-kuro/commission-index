@@ -1,4 +1,13 @@
 export const BATCH_PREFETCH_CONCURRENCY = 4
+// A hung fetch would hold a queue slot (and the serial active loader) forever.
+export const BATCH_FETCH_TIMEOUT_MS = 15_000
+
+// Safari < 16 lacks AbortSignal.timeout; those browsers just fetch without a deadline.
+export function batchFetchInit(): RequestInit | undefined {
+  return typeof AbortSignal.timeout === 'function'
+    ? { signal: AbortSignal.timeout(BATCH_FETCH_TIMEOUT_MS) }
+    : undefined
+}
 
 interface CreateBatchRequestQueueOptions {
   concurrency?: number

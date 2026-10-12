@@ -408,7 +408,7 @@ describe('mountTimelineViewLoader', () => {
       window.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
       await vi.waitFor(() => expect(document.getElementById('character-alpha-20230101')).toBeTruthy())
 
-      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/search/home-timeline-batches/'))
+      expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/search/home-timeline-batches/'), expect.anything())
       expect(panel.dataset.timelineBatchesLoadedCount).toBe('3')
       expect(panel.dataset.timelineLoaded).toBe('true')
 
