@@ -187,10 +187,10 @@ export function mountActiveCharactersLoader({
     const queueBatchFetch = (batchIndex: number) => {
       if (batchIndex > finalBatchIndex || payloadRequests.has(batchIndex))
         return
-      payloadRequests.set(
-        batchIndex,
-        fetchHomeCharacterBatch({ batchIndex, doc, status: 'active', manifestOverride }),
-      )
+      const request = fetchHomeCharacterBatch({ batchIndex, doc, status: 'active', manifestOverride })
+      // The abandoned look-ahead rejection must not surface as unhandled; the awaited loop still sees it.
+      request.catch(() => {})
+      payloadRequests.set(batchIndex, request)
     }
 
     for (
@@ -202,23 +202,27 @@ export function mountActiveCharactersLoader({
       queueBatchFetch(batchIndex)
     }
 
-    for (let batchIndex = loadedBatchCount; batchIndex <= finalBatchIndex; batchIndex += 1) {
-      queueBatchFetch(batchIndex + ACTIVE_BATCH_FETCH_CONCURRENCY - 1)
-      const payload = await payloadRequests.get(batchIndex)
-      if (payload) {
-        mountHomeCharacterBatch({ container, payload })
-      }
-      else if (!mountLegacyHomeCharacterBatch({ batchIndex, container, doc, status: 'active' })) {
-        break
-      }
+    try {
+      for (let batchIndex = loadedBatchCount; batchIndex <= finalBatchIndex; batchIndex += 1) {
+        queueBatchFetch(batchIndex + ACTIVE_BATCH_FETCH_CONCURRENCY - 1)
+        const payload = await payloadRequests.get(batchIndex)
+        if (payload) {
+          mountHomeCharacterBatch({ container, payload })
+        }
+        else if (!mountLegacyHomeCharacterBatch({ batchIndex, container, doc, status: 'active' })) {
+          break
+        }
 
-      loadedBatchCount = batchIndex + 1
-      didChange = true
+        loadedBatchCount = batchIndex + 1
+        didChange = true
+      }
     }
-
-    updateLoadedState(loadedBatchCount, effectiveTotalBatchCount)
-    if (didChange) {
-      deps.dispatchSidebarSync()
+    finally {
+      // Persist the count even when a later batch rejects, otherwise a retry re-mounts the batches already in the DOM.
+      updateLoadedState(loadedBatchCount, effectiveTotalBatchCount)
+      if (didChange) {
+        deps.dispatchSidebarSync()
+      }
     }
 
     return didChange

@@ -472,3 +472,71 @@ describe('mountActiveCharactersLoader', () => {
     vi.unstubAllGlobals()
   })
 })
+
+describe('mountActiveCharactersLoader partial failure', () => {
+  it('keeps mounted batches counted when a later batch fails', async () => {
+    window.history.replaceState(null, '', '/')
+    clearHomeCharacterBatchRequestCacheForTests()
+    clearHomeCharacterBatchManifestCacheForTests()
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-active-sections-loaded="false" data-active-batches-loaded-count="0">
+        <section id="section-alpha"></section>
+        <div data-active-sections-container="true"></div>
+        <div data-active-sections-sentinel="true"></div>
+      </div>
+      <script type="application/json" data-home-character-batch-manifest="true">
+        {"locale":"en","v":"partial-v","active":{"initialSectionIds":["section-alpha"],"totalBatches":2,"targetBatchById":{},"batchVersions":["bv0","bv1"]},"archived":{"initialSectionIds":[],"totalBatches":0,"targetBatchById":{},"batchVersions":[]}}
+      </script>
+    `
+    clearHomeCharacterBatchManifestCacheForTests()
+    document.querySelector<HTMLElement>('[data-active-sections-sentinel="true"]')!
+      .getBoundingClientRect = () => ({ top: 99999 } as DOMRect)
+
+    let failSecondBatch = true
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const batchIndex = Number(/(\d+)\.json/.exec(url)?.[1])
+      if (batchIndex === 1 && failSecondBatch)
+        return new Response(null, { status: 500 })
+      return new Response(JSON.stringify(createCharacterBatchPayload({
+        status: 'active',
+        batchIndex,
+        sectionId: `section-batch-${batchIndex}`,
+        displayName: `Batch${batchIndex}`,
+        entryId: `entry-batch-${batchIndex}`,
+      })))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const onFailed = vi.fn()
+    window.addEventListener(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT, onFailed)
+
+    const cleanup = mountActiveCharactersLoader()
+    const panel = document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')!
+    const requestThroughBatch1 = () => window.dispatchEvent(
+      new CustomEvent(ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT, { detail: { targetBatchCount: 2 } }),
+    )
+
+    requestThroughBatch1()
+    await vi.waitFor(() => expect(onFailed).toHaveBeenCalledTimes(1))
+    expect(panel.dataset.activeBatchesLoadedCount).toBe('1')
+    expect(panel.dataset.activeSectionsLoaded).toBe('false')
+
+    failSecondBatch = false
+    clearHomeCharacterBatchRequestCacheForTests()
+    requestThroughBatch1()
+    await vi.waitFor(() => expect(panel.dataset.activeBatchesLoadedCount).toBe('2'))
+
+    const ids = Array.from(document.querySelectorAll('[id]'), element => element.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(document.getElementById('section-batch-0')).toBeTruthy()
+    expect(document.getElementById('section-batch-1')).toBeTruthy()
+
+    cleanup()
+    window.removeEventListener(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT, onFailed)
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    clearHomeCharacterBatchManifestCacheForTests()
+    clearHomeCharacterBatchRequestCacheForTests()
+  })
+})
