@@ -17,3 +17,21 @@ export function hasValidAgeConfirmation({ userAgent, storedValue, now }: AgeGate
   const timestamp = Number(storedValue)
   return Boolean(timestamp && now - timestamp < AGE_CONFIRM_DURATION)
 }
+
+// Reading `window.localStorage` itself throws when storage is blocked, hence the accessor.
+/** `undefined` = storage unreadable (gate must stay closed); `null` = nothing stored (gate opens). */
+export function readStoredAgeConfirmation(storage: () => Storage): string | null | undefined {
+  try {
+    return storage().getItem(CONFIRMED_AGE_KEY)
+  }
+  catch {
+    return undefined
+  }
+}
+
+export function writeStoredAgeConfirmation(storage: () => Storage, value: string): void {
+  try {
+    storage().setItem(CONFIRMED_AGE_KEY, value)
+  }
+  catch {}
+}

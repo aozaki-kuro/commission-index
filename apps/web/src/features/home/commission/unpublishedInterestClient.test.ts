@@ -45,6 +45,25 @@ describe('unpublishedInterestClient', () => {
     document.body.innerHTML = ''
   })
 
+  it('mounts when localStorage access throws', () => {
+    document.body.innerHTML = buildButtonMarkup()
+    const blockedWindow = Object.create(window, {
+      localStorage: {
+        get() {
+          throw new DOMException('denied', 'SecurityError')
+        },
+      },
+    }) as Window
+
+    let cleanup: (() => void) | undefined
+    expect(() => {
+      cleanup = mountUnpublishedInterestButtons({ win: blockedWindow })
+    }).not.toThrow()
+    const button = document.querySelector<HTMLButtonElement>('[data-commission-interest-key]')
+    expectInterestIconState(button, { defaultHidden: false, recordedHidden: true })
+    cleanup?.()
+  })
+
   it('records interest once, persists state, and disables the button', () => {
     const trackEvent = vi.fn()
     document.body.innerHTML = buildButtonMarkup()

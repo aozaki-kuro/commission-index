@@ -16,7 +16,7 @@ interface MountUnpublishedInterestButtonsOptions {
 
 const getStorageKey = (commissionKey: string) => `${STORAGE_KEY_PREFIX}${commissionKey}`
 
-function readRecordedState(commissionKey: string, storage: Storage | undefined) {
+function readRecordedState(commissionKey: string, storage: Pick<Storage, 'getItem' | 'setItem'> | undefined) {
   try {
     return storage?.getItem(getStorageKey(commissionKey)) === '1'
   }
@@ -25,7 +25,7 @@ function readRecordedState(commissionKey: string, storage: Storage | undefined) 
   }
 }
 
-function writeRecordedState(commissionKey: string, storage: Storage | undefined) {
+function writeRecordedState(commissionKey: string, storage: Pick<Storage, 'getItem' | 'setItem'> | undefined) {
   try {
     storage?.setItem(getStorageKey(commissionKey), '1')
   }
@@ -107,13 +107,28 @@ function collectInterestButtons(node: Node) {
   return []
 }
 
+// Accessing `win.localStorage` throws SecurityError when storage is blocked; fall back to a
+// per-page-view memory store so the buttons still work.
+function resolveStorage(win: Window): Pick<Storage, 'getItem' | 'setItem'> {
+  try {
+    return win.localStorage
+  }
+  catch {
+    const memory = new Map<string, string>()
+    return {
+      getItem: key => memory.get(key) ?? null,
+      setItem: (key, value) => void memory.set(key, value),
+    }
+  }
+}
+
 export function mountUnpublishedInterestButtons({
   win = window,
   doc = document,
   trackEvent,
 }: MountUnpublishedInterestButtonsOptions = {}) {
   const buttons = [...doc.querySelectorAll<HTMLButtonElement>(BUTTON_SELECTOR)]
-  const storage = win.localStorage
+  const storage = resolveStorage(win)
   const hydratedButtons = new WeakSet<HTMLButtonElement>()
 
   const hydrateButton = (button: HTMLButtonElement) => {
