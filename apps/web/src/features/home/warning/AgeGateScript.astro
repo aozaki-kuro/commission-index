@@ -136,11 +136,13 @@ const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
 
 <script>
 import { bindSoftNavMount } from '@lib/astro/softNavMount'
-import { CONFIRMED_AGE_KEY, hasValidAgeConfirmation, readStoredAgeConfirmation, writeStoredAgeConfirmation } from './ageGate'
+import { CONFIRMED_AGE_KEY, CONFIRMED_IN_MEMORY_FLAG, hasValidAgeConfirmation, readStoredAgeConfirmation, writeStoredAgeConfirmation } from './ageGate'
 
 const AGE_CONFIRM_EVENT = 'age-confirm-changed'
 const AGE_GATE_STATE_EVENT = 'age-gate-state-change'
 const INITIAL_ATTRIBUTE = 'ageGateInitial'
+
+const memoryFlags = window as unknown as Record<string, unknown>
 
 // Elements are queried per mount: after a soft navigation the old nodes are gone.
 function mountAgeGate(): (() => void) | null {
@@ -160,23 +162,14 @@ function mountAgeGate(): (() => void) | null {
   const originalHtmlOverflow = document.documentElement.style.overflow
   const originalBodyOverflow = document.body.style.overflow
 
-  // Set when the user confirms: a blocked or full storage cannot persist it, but the gate must still
-  // close for this page view instead of reopening on the next sync.
-  let confirmedThisView = false
-
-  // Unreadable storage keeps the gate closed (matches the pre-paint script); only an empty read opens it.
-  const isConfirmed = () => {
-    if (confirmedThisView)
-      return true
-    const storedValue = readStoredAgeConfirmation(() => localStorage)
-    if (storedValue === undefined)
-      return true
-    return hasValidAgeConfirmation({
-      userAgent: navigator.userAgent,
-      storedValue,
-      now: Date.now(),
-    })
-  }
+  // Unreadable storage opens the gate (matches the pre-paint script); a confirmation that storage could
+  // not persist lives in a window flag so it also survives soft navigations, which remount this island.
+  const isConfirmed = () => hasValidAgeConfirmation({
+    userAgent: navigator.userAgent,
+    storedValue: readStoredAgeConfirmation(() => localStorage),
+    now: Date.now(),
+    confirmedInMemory: memoryFlags[CONFIRMED_IN_MEMORY_FLAG] === true,
+  })
 
   // The pre-paint script may already show the gate. Adopt that frame as-is: the entrance animation
   // would restart from opacity 0 once the opt-in attribute (which forces animation: none) is removed,
@@ -239,8 +232,8 @@ function mountAgeGate(): (() => void) | null {
   }
 
   const onConfirmAge = () => {
-    confirmedThisView = true
-    writeStoredAgeConfirmation(() => localStorage, String(Date.now()))
+    if (!writeStoredAgeConfirmation(() => localStorage, String(Date.now())))
+      memoryFlags[CONFIRMED_IN_MEMORY_FLAG] = true
     window.dispatchEvent(new Event(AGE_CONFIRM_EVENT))
   }
 
