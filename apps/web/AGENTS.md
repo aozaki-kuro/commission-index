@@ -14,6 +14,7 @@ product context is `PRODUCT.md`.
 - Imports use the `@layouts/*`, `@features/*`, `@lib/*` aliases from `tsconfig.json`. Do not add `#` aliases.
 - Search metadata and timeline grouping have one implementation in `@commission-index/domain`; do not re-fork them into web. `buildCommissionSearchMetadata` takes `fileName` only from admin (legacy-key search term); the public site omits it so its search text stays identity-free.
 - Locale list lives in `src/config/locales.ts` (`WEB_LOCALES`); to add a language, extend it and add `src/pages/<locale>/index.astro` (astro i18n and both home locale tables derive from it).
+- Public output must not carry commit SHAs, repo URLs or the GitHub owner name. The repo is public, and GitHub commit search resolves a SHA or prefix to it. `/build-info.json` therefore always has `codeSha: null` (`createPublicBuildInfo`).
 
 ## Astro 7
 
