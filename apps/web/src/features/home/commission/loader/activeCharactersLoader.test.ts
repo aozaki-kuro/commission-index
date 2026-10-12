@@ -138,7 +138,7 @@ describe('mountActiveCharactersLoader', () => {
     clearHomeCharacterBatchManifestCacheForTests()
     const sentinel = document.querySelector<HTMLElement>('[data-active-sections-sentinel="true"]')!
     sentinel.getBoundingClientRect = () => ({ top: 99999 } as DOMRect)
-    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new DOMException('timeout', 'TimeoutError'))
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new DOMException('timeout', 'TimeoutError'))
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const onFailed = vi.fn()
     window.addEventListener(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT, onFailed)
@@ -146,6 +146,7 @@ describe('mountActiveCharactersLoader', () => {
     const cleanup = mountActiveCharactersLoader()
     window.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT))
     await vi.waitFor(() => expect(onFailed).toHaveBeenCalledTimes(1))
+    expect(fetchMock).toHaveBeenCalledTimes(1)
 
     cleanup()
     window.removeEventListener(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT, onFailed)
@@ -593,7 +594,6 @@ describe('mountActiveCharactersLoader partial failure', () => {
     expect(panel.dataset.activeSectionsLoaded).toBe('false')
 
     failSecondBatch = false
-    clearHomeCharacterBatchRequestCacheForTests()
     requestThroughBatch1()
     await vi.waitFor(() => expect(panel.dataset.activeBatchesLoadedCount).toBe('2'))
 

@@ -245,7 +245,7 @@ describe('prefetchHomeCharacterBatches', () => {
       expect(requested(fetchSpy).filter(url => url === oldUrl)).toHaveLength(1)
     })
 
-    it('settled stale prefetch still resolves through the fresh manifest', async () => {
+    it('retries a settled stale prefetch with the fresh manifest', async () => {
       const fetchSpy = setup('new0')
 
       prefetchHomeCharacterBatches({ doc: document, startBatchIndex: 0, status: 'active', targetBatchIndex: 0 })
