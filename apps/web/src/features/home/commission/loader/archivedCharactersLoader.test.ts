@@ -408,3 +408,68 @@ describe('mountArchivedCharactersLoader', () => {
     window.removeEventListener(ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, onStateChanged)
   })
 })
+
+describe('mountArchivedCharactersLoader partial failure', () => {
+  it('keeps mounted batches counted when a later batch fails', async () => {
+    window.sessionStorage.clear()
+    window.history.replaceState(null, '', '/')
+    setScrollEnvironment({})
+    clearHomeCharacterBatchRequestCacheForTests()
+    clearHomeCharacterBatchManifestCacheForTests()
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-archived-loaded="false" data-archived-visibility="hidden" data-archived-batches-loaded-count="0">
+        <div data-archived-sections-placeholder="true"></div>
+        <button type="button" data-load-archived-characters="true">Load</button>
+        <div data-archived-sections-container="true"></div>
+      </div>
+      <script type="application/json" data-home-character-batch-manifest="true">
+        {"locale":"en","v":"partial-v","active":{"initialSectionIds":[],"totalBatches":0,"targetBatchById":{},"batchVersions":[]},"archived":{"initialSectionIds":[],"totalBatches":2,"targetBatchById":{},"batchVersions":["bv0","bv1"]}}
+      </script>
+    `
+    clearHomeCharacterBatchManifestCacheForTests()
+
+    let failSecondBatch = true
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      const batchIndex = Number(/(\d+)\.json/.exec(url)?.[1])
+      if (batchIndex === 1 && failSecondBatch)
+        return new Response(null, { status: 500 })
+      return new Response(JSON.stringify(createCharacterBatchPayload({
+        status: 'archived',
+        batchIndex,
+        sectionId: `section-batch-${batchIndex}`,
+        displayName: `Batch${batchIndex}`,
+        entryId: `entry-batch-${batchIndex}`,
+      })))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const cleanup = mountArchivedCharactersLoader()
+    const panel = document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')!
+    const requestThroughBatch1 = () => window.dispatchEvent(
+      new CustomEvent(ARCHIVED_CHARACTERS_LOAD_REQUEST_EVENT, { detail: { targetBatchCount: 2 } }),
+    )
+
+    requestThroughBatch1()
+    await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled())
+    expect(panel.dataset.archivedBatchesLoadedCount).toBe('1')
+    expect(panel.dataset.archivedLoaded).toBe('false')
+
+    failSecondBatch = false
+    clearHomeCharacterBatchRequestCacheForTests()
+    requestThroughBatch1()
+    await vi.waitFor(() => expect(panel.dataset.archivedBatchesLoadedCount).toBe('2'))
+
+    const ids = Array.from(document.querySelectorAll('[id]'), element => element.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(document.getElementById('section-batch-0')).toBeTruthy()
+    expect(document.getElementById('section-batch-1')).toBeTruthy()
+
+    cleanup()
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+    clearHomeCharacterBatchManifestCacheForTests()
+    clearHomeCharacterBatchRequestCacheForTests()
+  })
+})

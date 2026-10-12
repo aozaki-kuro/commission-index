@@ -144,7 +144,10 @@ export function mountTimelineViewLoader({
     const queueBatchFetch = (batchIndex: number) => {
       if (batchIndex > finalBatchIndex || payloadRequests.has(batchIndex))
         return
-      payloadRequests.set(batchIndex, fetchHomeTimelineBatch({ batchIndex, doc, manifestOverride }))
+      const request = fetchHomeTimelineBatch({ batchIndex, doc, manifestOverride })
+      // The abandoned look-ahead rejection must not surface as unhandled; the awaited loop still sees it.
+      request.catch(() => {})
+      payloadRequests.set(batchIndex, request)
     }
 
     for (
@@ -158,25 +161,29 @@ export function mountTimelineViewLoader({
 
     let didChange = false
 
-    for (let batchIndex = loadedBatchCount; batchIndex <= finalBatchIndex; batchIndex += 1) {
-      queueBatchFetch(batchIndex + TIMELINE_BATCH_FETCH_CONCURRENCY - 1)
+    try {
+      for (let batchIndex = loadedBatchCount; batchIndex <= finalBatchIndex; batchIndex += 1) {
+        queueBatchFetch(batchIndex + TIMELINE_BATCH_FETCH_CONCURRENCY - 1)
 
-      const payload = await payloadRequests.get(batchIndex)
-      if (payload) {
-        mountHomeTimelineBatch({ container, payload })
-      }
-      else if (!mountLegacyHomeTimelineBatch({ batchIndex, container, panel: timelinePanel })) {
-        break
-      }
+        const payload = await payloadRequests.get(batchIndex)
+        if (payload) {
+          mountHomeTimelineBatch({ container, payload })
+        }
+        else if (!mountLegacyHomeTimelineBatch({ batchIndex, container, panel: timelinePanel })) {
+          break
+        }
 
-      loadedBatchCount = batchIndex + 1
-      didChange = true
+        loadedBatchCount = batchIndex + 1
+        didChange = true
+      }
     }
-
-    updateLoadedState(loadedBatchCount, effectiveTotalBatchCount)
-    if (didChange) {
-      deps.dispatchSidebarSync()
-      win.dispatchEvent(new Event(TIMELINE_VIEW_LOADED_EVENT))
+    finally {
+      // Persist the count even when a later batch rejects, otherwise a retry re-mounts the batches already in the DOM.
+      updateLoadedState(loadedBatchCount, effectiveTotalBatchCount)
+      if (didChange) {
+        deps.dispatchSidebarSync()
+        win.dispatchEvent(new Event(TIMELINE_VIEW_LOADED_EVENT))
+      }
     }
     return didChange
   }

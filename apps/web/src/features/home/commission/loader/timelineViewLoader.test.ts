@@ -459,3 +459,46 @@ describe('mountTimelineViewLoader', () => {
     cleanup()
   })
 })
+
+describe('mountTimelineViewLoader partial failure', () => {
+  it('keeps mounted batches counted when a later batch fails', async () => {
+    renderFixture()
+    // Drop the legacy templates so the loader must use the fetched batch payloads.
+    document.querySelectorAll('template[data-timeline-batch-index]').forEach(template => template.remove())
+
+    let failSecondBatch = true
+    const fetchMock = vi.fn((input: string | URL | Request) => {
+      const url = typeof input === 'string' ? input : input.toString()
+      if (url.endsWith('/search/home-timeline-batches/en/1.json') && failSecondBatch)
+        return Promise.resolve(new Response(null, { status: 500 }))
+      const batchIndex = url.endsWith('/en/0.json') ? 0 : 1
+      return Promise.resolve(new Response(
+        `${JSON.stringify(createTimelineBatchPayload(batchIndex, batchIndex === 0 ? '2025' : '2024'))}\n`,
+        { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8' } },
+      ))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const cleanup = mountTimelineViewLoader()
+    const panel = document.querySelector<HTMLElement>('[data-commission-view-panel="timeline"]')!
+
+    requestTimelineViewLoad(window, { targetBatchCount: 2 })
+    await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled())
+    expect(panel.dataset.timelineBatchesLoadedCount).toBe('1')
+    expect(panel.dataset.timelineLoaded).toBe('false')
+
+    failSecondBatch = false
+    clearHomeTimelineBatchRequestCacheForTests()
+    requestTimelineViewLoad(window, { targetBatchCount: 2 })
+    await vi.waitFor(() => expect(panel.dataset.timelineBatchesLoadedCount).toBe('2'))
+
+    const ids = Array.from(document.querySelectorAll('[id]'), element => element.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(document.getElementById('timeline-year-2025')).toBeTruthy()
+    expect(document.getElementById('timeline-year-2024')).toBeTruthy()
+
+    cleanup()
+    errorSpy.mockRestore()
+  })
+})

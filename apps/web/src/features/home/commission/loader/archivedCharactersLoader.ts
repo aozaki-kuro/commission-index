@@ -251,7 +251,10 @@ export function mountArchivedCharactersLoader({
     const queueBatchFetch = (batchIndex: number) => {
       if (batchIndex > finalBatchIndex || payloadRequests.has(batchIndex))
         return
-      payloadRequests.set(batchIndex, fetchHomeCharacterBatch({ batchIndex, doc, status: 'archived', manifestOverride }))
+      const request = fetchHomeCharacterBatch({ batchIndex, doc, status: 'archived', manifestOverride })
+      // The abandoned look-ahead rejection must not surface as unhandled; the awaited loop still sees it.
+      request.catch(() => {})
+      payloadRequests.set(batchIndex, request)
     }
 
     for (
@@ -262,23 +265,27 @@ export function mountArchivedCharactersLoader({
       queueBatchFetch(batchIndex)
     }
 
-    for (let batchIndex = loadedBatchCount; batchIndex <= finalBatchIndex; batchIndex += 1) {
-      queueBatchFetch(batchIndex + ARCHIVED_BATCH_FETCH_CONCURRENCY - 1)
-      const payload = await payloadRequests.get(batchIndex)
-      if (payload) {
-        mountHomeCharacterBatch({ container, payload })
-      }
-      else if (!mountLegacyHomeCharacterBatch({ batchIndex, container, doc, status: 'archived' })) {
-        break
-      }
+    try {
+      for (let batchIndex = loadedBatchCount; batchIndex <= finalBatchIndex; batchIndex += 1) {
+        queueBatchFetch(batchIndex + ARCHIVED_BATCH_FETCH_CONCURRENCY - 1)
+        const payload = await payloadRequests.get(batchIndex)
+        if (payload) {
+          mountHomeCharacterBatch({ container, payload })
+        }
+        else if (!mountLegacyHomeCharacterBatch({ batchIndex, container, doc, status: 'archived' })) {
+          break
+        }
 
-      loadedBatchCount = batchIndex + 1
-      didChange = true
+        loadedBatchCount = batchIndex + 1
+        didChange = true
+      }
     }
-
-    updateLoadedState({ loadedBatchCount, visibility: 'visible' })
-    if (didChange) {
-      dispatchSidebarSearchState()
+    finally {
+      // Persist the count even when a later batch rejects, otherwise a retry re-mounts the batches already in the DOM.
+      updateLoadedState({ loadedBatchCount, visibility: 'visible' })
+      if (didChange) {
+        dispatchSidebarSearchState()
+      }
     }
 
     return didChange
