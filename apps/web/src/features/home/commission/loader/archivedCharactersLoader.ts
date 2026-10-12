@@ -114,6 +114,8 @@ export function mountArchivedCharactersLoader({
   let intersectionObserver: IntersectionObserver | null = null
   let queue = Promise.resolve(false)
   let cancelIdlePrefetch: (() => void) | null = null
+  // Collapse bypasses the serial queue, so a load that started before it must notice and stand down.
+  let collapseGeneration = 0
 
   // Direct panel reads avoid repeated querySelector in exported helpers
   const readLocalBatchCount = () => {
@@ -239,6 +241,7 @@ export function mountArchivedCharactersLoader({
 
   const loadBatchesThrough = async (targetBatchIndex: number, manifestOverride?: HomeCharacterBatchManifest | null) => {
     let didChange = false
+    const generation = collapseGeneration
     let loadedBatchCount = readLocalBatchCount()
     const effectiveTotalBatchCount = manifestOverride?.archived.totalBatches ?? archivedTotalBatchCount
     if (loadedBatchCount >= effectiveTotalBatchCount) {
@@ -269,6 +272,8 @@ export function mountArchivedCharactersLoader({
       for (let batchIndex = loadedBatchCount; batchIndex <= finalBatchIndex; batchIndex += 1) {
         queueBatchFetch(batchIndex + ARCHIVED_BATCH_FETCH_CONCURRENCY - 1)
         const payload = await payloadRequests.get(batchIndex)
+        if (generation !== collapseGeneration)
+          break
         if (payload) {
           mountHomeCharacterBatch({ container, payload })
         }
@@ -282,13 +287,16 @@ export function mountArchivedCharactersLoader({
     }
     finally {
       // Persist the count even when a later batch rejects, otherwise a retry re-mounts the batches already in the DOM.
-      updateLoadedState({ loadedBatchCount, visibility: 'visible' })
-      if (didChange) {
-        dispatchSidebarSearchState()
+      // A collapse during the load already reset the container and state; writing here would resurrect a stale count.
+      if (generation === collapseGeneration) {
+        updateLoadedState({ loadedBatchCount, visibility: 'visible' })
+        if (didChange) {
+          dispatchSidebarSearchState()
+        }
       }
     }
 
-    return didChange
+    return generation === collapseGeneration && didChange
   }
 
   const queueLoad = (options: RequestArchivedCharactersLoadOptions = {}) => {
@@ -345,6 +353,7 @@ export function mountArchivedCharactersLoader({
     if (state.visibility !== 'visible')
       return false
 
+    collapseGeneration += 1
     container.replaceChildren()
     const nextState = updateLoadedState({
       loadedBatchCount: 0,
