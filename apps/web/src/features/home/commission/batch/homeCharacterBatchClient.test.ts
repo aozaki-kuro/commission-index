@@ -164,6 +164,58 @@ describe('prefetchHomeCharacterBatches', () => {
     expect(requestedUrls).toContain('/search/home-character-batches/en/active/0.old0.json')
     expect(requestedUrls).toContain('/search/home-character-batches/en/active/0.new0.json')
   })
+
+  describe('stale prefetch', () => {
+    function setup(freshVersion: string) {
+      clearHomeCharacterBatchManifestCacheForTests(document)
+      document.body.innerHTML = `
+        <script type="application/json" data-home-character-batch-manifest="true">
+          {"locale":"en","v":"sv","active":{"initialSectionIds":[],"totalBatches":1,"targetBatchById":{},"batchVersions":["old0"]},"archived":{"initialSectionIds":[],"totalBatches":0,"targetBatchById":{},"batchVersions":[]}}
+        </script>
+      `
+      const freshManifest = {
+        locale: 'en',
+        v: 'sv',
+        active: { initialSectionIds: [], totalBatches: 1, targetBatchById: {}, batchVersions: [freshVersion] },
+        archived: { initialSectionIds: [], totalBatches: 0, targetBatchById: {}, batchVersions: [] },
+      }
+      const fetchSpy = vi.fn(async (input: string | URL | Request) => {
+        const url = typeof input === 'string' ? input : input.toString()
+        if (url.startsWith('/search/home-character-manifest/en.json'))
+          return new Response(JSON.stringify(freshManifest))
+        if (url.startsWith('/search/home-character-batches/en/active/0.new0.json'))
+          return new Response(JSON.stringify({ sections: [] }))
+        return new Response(null, { status: 404 })
+      })
+      vi.stubGlobal('fetch', fetchSpy)
+      return fetchSpy
+    }
+    const requested = (spy: ReturnType<typeof setup>) =>
+      (spy.mock.calls as unknown as Array<[string]>).map(([url]) => url)
+    const oldUrl = '/search/home-character-batches/en/active/0.old0.json'
+
+    it('prefetched stale batch falls back to the fresh manifest', async () => {
+      const fetchSpy = setup('new0')
+
+      prefetchHomeCharacterBatches({ doc: document, startBatchIndex: 0, status: 'active', targetBatchIndex: 0 })
+      await vi.waitFor(() => expect(requested(fetchSpy)).toContain(oldUrl))
+
+      await expect(
+        fetchHomeCharacterBatch({ batchIndex: 0, doc: document, status: 'active' }),
+      ).resolves.toEqual({ sections: [] })
+      expect(requested(fetchSpy).filter(url => url === oldUrl)).toHaveLength(1)
+    })
+
+    it('prefetched 404 with unchanged fresh version still rejects', async () => {
+      setup('old0')
+
+      prefetchHomeCharacterBatches({ doc: document, startBatchIndex: 0, status: 'active', targetBatchIndex: 0 })
+
+      await expect(
+        fetchHomeCharacterBatch({ batchIndex: 0, doc: document, status: 'active' }),
+      ).rejects.toBeDefined()
+    })
+  })
 })
 
 describe('readHomeCharacterBatchManifest', () => {

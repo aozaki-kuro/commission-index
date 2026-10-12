@@ -109,6 +109,38 @@ async function retryHomeCharacterBatchWithFreshManifest({
   }
 }
 
+// Shared by fetch and prefetch: the queue hands a prefetched promise to the real fetch, so a prefetch
+// without the stale-manifest retry would pin the 404 for that URL.
+async function loadHomeCharacterBatchWithFreshManifestRetry({
+  batchIndex,
+  doc,
+  status,
+  url,
+  version,
+}: {
+  batchIndex: number
+  doc: Document
+  status: HomeCharacterBatchStatus
+  url: string
+  version: string | undefined
+}) {
+  try {
+    return await loadHomeCharacterBatch({ batchIndex, status, url })
+  }
+  catch (error) {
+    const retried = await retryHomeCharacterBatchWithFreshManifest({
+      batchIndex,
+      doc,
+      error,
+      status,
+      version,
+    })
+    if (retried)
+      return retried
+    throw error
+  }
+}
+
 export async function fetchHomeCharacterBatch({
   batchIndex,
   doc,
@@ -132,23 +164,8 @@ export async function fetchHomeCharacterBatch({
     v: version,
   })
 
-  return batchRequestQueue.fetch(url, async () => {
-    try {
-      return await loadHomeCharacterBatch({ batchIndex, status, url })
-    }
-    catch (error) {
-      const retried = await retryHomeCharacterBatchWithFreshManifest({
-        batchIndex,
-        doc,
-        error,
-        status,
-        version,
-      })
-      if (retried)
-        return retried
-      throw error
-    }
-  })
+  return batchRequestQueue.fetch(url, () =>
+    loadHomeCharacterBatchWithFreshManifestRetry({ batchIndex, doc, status, url, version }))
 }
 
 export function prefetchHomeCharacterBatches({
@@ -176,13 +193,15 @@ export function prefetchHomeCharacterBatches({
     return
 
   for (let batchIndex = firstBatchIndex; batchIndex <= finalBatchIndex; batchIndex += 1) {
+    const version = manifest[status].batchVersions?.[batchIndex]
     const url = buildHomeCharacterBatchUrl({
       batchIndex,
       locale: manifest.locale,
       status,
-      v: manifest[status].batchVersions?.[batchIndex],
+      v: version,
     })
-    void batchRequestQueue.prefetch(url, () => loadHomeCharacterBatch({ batchIndex, status, url })).catch(() => {
+    void batchRequestQueue.prefetch(url, () =>
+      loadHomeCharacterBatchWithFreshManifestRetry({ batchIndex, doc, status, url, version })).catch(() => {
       // Ignore prefetch failures and fall back to on-demand loading later.
     })
   }
