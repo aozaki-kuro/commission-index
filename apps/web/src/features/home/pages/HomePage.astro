@@ -26,6 +26,7 @@ import StaticCommissionSections from '@features/home/server/StaticCommissionSect
 import {
   AGE_CONFIRM_DURATION,
   CONFIRMED_AGE_KEY,
+  CONFIRMED_IN_MEMORY_FLAG,
   LIGHTHOUSE_USER_AGENT_TOKEN,
 } from '@features/home/warning/ageGate'
 import AgeGateScript from '@features/home/warning/AgeGateScript.astro'
@@ -152,21 +153,27 @@ const resolvedCanonicalPath
   <script
     is:inline
     slot="head"
-    define:vars={{ confirmedKey: CONFIRMED_AGE_KEY, confirmDuration: AGE_CONFIRM_DURATION, lighthouseToken: LIGHTHOUSE_USER_AGENT_TOKEN }}
+    define:vars={{ confirmedKey: CONFIRMED_AGE_KEY, memoryFlag: CONFIRMED_IN_MEMORY_FLAG, confirmDuration: AGE_CONFIRM_DURATION, lighthouseToken: LIGHTHOUSE_USER_AGENT_TOKEN }}
   >
     // Mirrors hasValidAgeConfirmation() in warning/ageGate.ts: show the gate in the first frame
-    // instead of waiting for the module script. On storage errors stay closed, as the module does.
-    try {
-      if (!navigator.userAgent.toLowerCase().includes(lighthouseToken)) {
-        const confirmedAt = Number(localStorage.getItem(confirmedKey))
-        if (!(confirmedAt && Date.now() - confirmedAt < confirmDuration)) {
-          document.documentElement.dataset.ageGateInitial = 'open'
-          document.documentElement.dataset.ageGateOpen = 'true'
+    // instead of waiting for the module script. Unreadable storage opens the gate too, unless the user
+    // already confirmed in memory (soft navigation); ClientRouter skips re-running identical head
+    // scripts, but the flag keeps this safe if it ever does.
+    {
+      const open = () => {
+        document.documentElement.dataset.ageGateInitial = 'open'
+        document.documentElement.dataset.ageGateOpen = 'true'
+      }
+      if (window[memoryFlag] !== true && !navigator.userAgent.toLowerCase().includes(lighthouseToken)) {
+        try {
+          const confirmedAt = Number(localStorage.getItem(confirmedKey))
+          if (!(confirmedAt && Date.now() - confirmedAt < confirmDuration))
+            open()
+        }
+        catch {
+          open()
         }
       }
-    }
-    catch {
-      // Storage unavailable: leave the gate to the module script.
     }
   </script>
   <script is:inline slot="head">
