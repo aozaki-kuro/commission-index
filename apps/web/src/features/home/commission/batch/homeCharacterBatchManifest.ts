@@ -3,6 +3,7 @@ import type {
   HomeCharacterBatchStatus,
 } from '@features/home/server/homeCharacterBatches'
 import { normalizeBatchTargetId } from './batchManifest'
+import { batchFetchInit } from './batchRequestQueue'
 
 const MANIFEST_SELECTOR = 'script[data-home-character-batch-manifest="true"]'
 const CHARACTER_PANEL_SELECTOR = '[data-commission-view-panel="character"]'
@@ -103,7 +104,7 @@ export function resolveHomeCharacterTargetBatch({
 export async function fetchFreshHomeCharacterBatchManifest(doc?: Document): Promise<HomeCharacterBatchManifest | null> {
   try {
     const locale = readHomeCharacterBatchManifest(doc)?.locale ?? 'en'
-    const response = await fetch(`/search/home-character-manifest/${locale}.json?_t=${Date.now()}`)
+    const response = await fetch(`/search/home-character-manifest/${locale}.json?_t=${Date.now()}`, batchFetchInit())
     if (!response.ok)
       return null
     return (await response.json()) as HomeCharacterBatchManifest

@@ -7,6 +7,7 @@ import {
 } from './homeCharacterBatchClient'
 import {
   clearHomeCharacterBatchManifestCacheForTests,
+  fetchFreshHomeCharacterBatchManifest,
   readHomeCharacterBatchManifest,
 } from './homeCharacterBatchManifest'
 
@@ -97,6 +98,16 @@ describe('prefetchHomeCharacterBatches', () => {
     vi.stubGlobal('fetch', fetchSpy)
 
     await fetchHomeCharacterBatch({ batchIndex: 0, doc: document, status: 'active' })
+
+    expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ signal: expect.any(AbortSignal) }))
+  })
+
+  it('passes a timeout signal to the fresh manifest refetch', async () => {
+    renderManifest()
+    const fetchSpy = vi.fn(async () => new Response(JSON.stringify({}), { status: 200 }))
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await fetchFreshHomeCharacterBatchManifest(document)
 
     expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ signal: expect.any(AbortSignal) }))
   })
