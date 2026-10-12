@@ -189,8 +189,7 @@ Pipeline order, release concurrency locks, the `deploy-web-snapshot` composite a
   `FACT_SOURCE_WRANGLER_CONFIG=../web/wrangler.jsonc`; that order must be preserved. The pinned release build
   reuses the snapshot via `FACT_SOURCE_USE_EXISTING_SNAPSHOT=1`. `typecheck` is `pnpm -r run typecheck` (bails
   on the first workspace failure; parallel is safe because each runs only `tsc`).
-- Because these are plain pnpm scripts, environment variables (`CLOUDFLARE_API_TOKEN`, `FACT_SOURCE_USE_EXISTING_SNAPSHOT`,
-  `GITHUB_SHA`/`WORKERS_CI_COMMIT_SHA`) are inherited by child processes; no pass-through allowlist is needed.
+- Because these are plain pnpm scripts, environment variables (`CLOUDFLARE_API_TOKEN`, `FACT_SOURCE_USE_EXISTING_SNAPSHOT`) are inherited by child processes; no pass-through allowlist is needed.
 - A prerequisite owned by one workspace (e.g. apps/web's `fact-source:export`) must stay wired into the script
   that needs it, not hoisted into a shared recursive task.
 
