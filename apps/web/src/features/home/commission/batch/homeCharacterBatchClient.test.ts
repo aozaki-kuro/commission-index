@@ -197,13 +197,23 @@ describe('prefetchHomeCharacterBatches', () => {
     it('prefetched stale batch falls back to the fresh manifest', async () => {
       const fetchSpy = setup('new0')
 
+      // No await in between: fetch must receive the still-pending shared prefetch promise.
+      prefetchHomeCharacterBatches({ doc: document, startBatchIndex: 0, status: 'active', targetBatchIndex: 0 })
+      const pending = fetchHomeCharacterBatch({ batchIndex: 0, doc: document, status: 'active' })
+
+      await expect(pending).resolves.toEqual({ sections: [] })
+      expect(requested(fetchSpy).filter(url => url === oldUrl)).toHaveLength(1)
+    })
+
+    it('settled stale prefetch still resolves through the fresh manifest', async () => {
+      const fetchSpy = setup('new0')
+
       prefetchHomeCharacterBatches({ doc: document, startBatchIndex: 0, status: 'active', targetBatchIndex: 0 })
       await vi.waitFor(() => expect(requested(fetchSpy)).toContain(oldUrl))
 
       await expect(
         fetchHomeCharacterBatch({ batchIndex: 0, doc: document, status: 'active' }),
       ).resolves.toEqual({ sections: [] })
-      expect(requested(fetchSpy).filter(url => url === oldUrl)).toHaveLength(1)
     })
 
     it('prefetched 404 with unchanged fresh version still rejects', async () => {
@@ -213,7 +223,7 @@ describe('prefetchHomeCharacterBatches', () => {
 
       await expect(
         fetchHomeCharacterBatch({ batchIndex: 0, doc: document, status: 'active' }),
-      ).rejects.toBeDefined()
+      ).rejects.toThrow(/: 404/)
     })
   })
 })
