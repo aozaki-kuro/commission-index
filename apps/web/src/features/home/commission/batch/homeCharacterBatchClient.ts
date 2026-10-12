@@ -3,7 +3,7 @@ import type { HomeCharacterBatchManifest, HomeCharacterBatchStatus } from '@feat
 import { fetchFreshHomeCharacterBatchManifest, readHomeCharacterBatchManifest } from '@features/home/commission/batch/homeCharacterBatchManifest'
 import { renderHomeCharacterBatchPayload } from '@features/home/commission/batch/homeCharacterBatchRender'
 import { buildHomeCharacterBatchUrl } from '@features/home/server/homeCharacterBatches'
-import { createBatchRequestQueue } from './batchRequestQueue'
+import { batchFetchInit, createBatchRequestQueue } from './batchRequestQueue'
 
 const batchRequestQueue = createBatchRequestQueue<HomeCharacterBatchPayload>()
 const ACTIVE_TEMPLATE_SELECTOR = 'template[data-active-sections-template="true"]'
@@ -60,7 +60,7 @@ async function loadHomeCharacterBatch({
   status: HomeCharacterBatchStatus
   url: string
 }): Promise<HomeCharacterBatchPayload> {
-  const response = await fetch(url)
+  const response = await fetch(url, batchFetchInit())
   if (!response.ok) {
     const error = new Error(`Failed to load ${status} batch ${batchIndex}: ${response.status}`) as Error & { httpStatus?: number }
     error.httpStatus = response.status

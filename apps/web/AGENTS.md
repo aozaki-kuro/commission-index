@@ -43,6 +43,8 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   `/search/home-character-manifest/<locale>.json` or `/search/home-timeline-manifest/<locale>.json`
   (`Cache-Control: no-cache`) with cache-busting and retry once against the fresh `targetBatchById` /
   `batchVersions` / `v`. Only fetched on the fallback path.
+  Prefetch and fetch share the same retry. Batch fetches time out after `BATCH_FETCH_TIMEOUT_MS`
+  (`batchRequestQueue.ts`) when the browser supports `AbortSignal.timeout`.
 - **Manifest cache key:** inline manifests are cached per `<script>` element; ClientRouter swaps replace the element,
   so never cache per `Document`.
 - **DOM contracts:** `data-*` attributes drive search/nav/hash navigation — preserve attribute names.

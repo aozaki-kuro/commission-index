@@ -122,6 +122,38 @@ describe('mountActiveCharactersLoader', () => {
     clearHomeCharacterBatchRequestCacheForTests()
   })
 
+  it('dispatches the load-failed event when a batch fetch aborts', async () => {
+    clearHomeCharacterBatchRequestCacheForTests()
+    clearHomeCharacterBatchManifestCacheForTests()
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-active-sections-loaded="false" data-active-batches-loaded-count="0">
+        <section id="section-alpha"></section>
+        <div data-active-sections-container="true"></div>
+        <div data-active-sections-sentinel="true"></div>
+      </div>
+      <script type="application/json" data-home-character-batch-manifest="true">
+        {"locale":"en","v":"abort-test","active":{"initialSectionIds":["section-alpha"],"totalBatches":1,"targetBatchById":{},"batchVersions":["bv0"]},"archived":{"initialSectionIds":[],"totalBatches":0,"targetBatchById":{},"batchVersions":[]}}
+      </script>
+    `
+    clearHomeCharacterBatchManifestCacheForTests()
+    const sentinel = document.querySelector<HTMLElement>('[data-active-sections-sentinel="true"]')!
+    sentinel.getBoundingClientRect = () => ({ top: 99999 } as DOMRect)
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new DOMException('timeout', 'TimeoutError'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const onFailed = vi.fn()
+    window.addEventListener(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT, onFailed)
+
+    const cleanup = mountActiveCharactersLoader()
+    window.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT))
+    await vi.waitFor(() => expect(onFailed).toHaveBeenCalledTimes(1))
+
+    cleanup()
+    window.removeEventListener(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT, onFailed)
+    vi.restoreAllMocks()
+    clearHomeCharacterBatchManifestCacheForTests()
+    clearHomeCharacterBatchRequestCacheForTests()
+  })
+
   it('loads deferred active sections for an initial hash target and scrolls after mount', async () => {
     renderFixture()
     document.querySelector('template[data-active-sections-template="true"]')!.innerHTML = `
@@ -268,7 +300,7 @@ describe('mountActiveCharactersLoader', () => {
       await vi.waitFor(() => expect(document.getElementById('section-gamma-20240101')).toBeTruthy())
 
       expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/search/home-character-manifest/'))
-      expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/search/home-character-batches/'))
+      expect(fetchSpy).toHaveBeenCalledWith(expect.stringContaining('/search/home-character-batches/'), expect.anything())
 
       const panel = document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')
       expect(panel?.dataset.activeBatchesLoadedCount).toBe('2')

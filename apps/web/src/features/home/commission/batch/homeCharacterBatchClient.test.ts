@@ -91,6 +91,35 @@ describe('prefetchHomeCharacterBatches', () => {
     resolvers.slice(1).forEach(resolve => resolve(new Response(JSON.stringify({ sections: [] }), { status: 200 })))
   })
 
+  it('passes a timeout signal to batch fetches', async () => {
+    renderManifest()
+    const fetchSpy = vi.fn(async () => new Response(JSON.stringify({ sections: [] }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchSpy)
+
+    await fetchHomeCharacterBatch({ batchIndex: 0, doc: document, status: 'active' })
+
+    expect(fetchSpy).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ signal: expect.any(AbortSignal) }))
+  })
+
+  it('fetches without a signal when AbortSignal.timeout is missing', async () => {
+    renderManifest()
+    const fetchSpy = vi.fn(async () => new Response(JSON.stringify({ sections: [] }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchSpy)
+    const originalTimeout = Object.getOwnPropertyDescriptor(AbortSignal, 'timeout')
+    Object.defineProperty(AbortSignal, 'timeout', { configurable: true, value: undefined })
+
+    try {
+      await fetchHomeCharacterBatch({ batchIndex: 0, doc: document, status: 'active' })
+    }
+    finally {
+      if (originalTimeout)
+        Object.defineProperty(AbortSignal, 'timeout', originalTimeout)
+    }
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+    expect(fetchSpy.mock.calls[0]).toEqual([expect.any(String), undefined])
+  })
+
   it('drops failed batch requests from cache so a later retry can refetch', async () => {
     renderManifest()
 
