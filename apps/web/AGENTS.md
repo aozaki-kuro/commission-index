@@ -45,6 +45,8 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   `batchVersions` / `v`. Only fetched on the fallback path.
   Prefetch and fetch share the same retry. Batch fetches time out after `BATCH_FETCH_TIMEOUT_MS`
   (`batchRequestQueue.ts`) when the browser supports `AbortSignal.timeout`.
+- **Archived collapse vs in-flight load:** `collapseArchivedSections` bypasses the serial load queue, so it bumps a
+  generation counter; a load that started earlier stops mounting and skips its state writes once the generation changes.
 - **Manifest cache key:** inline manifests are cached per `<script>` element; ClientRouter swaps replace the element,
   so never cache per `Document`.
 - **DOM contracts:** `data-*` attributes drive search/nav/hash navigation — preserve attribute names.

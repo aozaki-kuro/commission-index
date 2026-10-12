@@ -17,6 +17,7 @@ import {
   createCharacterBatchPayload,
   createFreshCharacterManifest,
   createUrlDispatchFetchHandler,
+  flushAsyncWork,
 } from './loaderTestFixtures'
 
 function setScrollEnvironment({
@@ -471,5 +472,119 @@ describe('mountArchivedCharactersLoader partial failure', () => {
     vi.restoreAllMocks()
     clearHomeCharacterBatchManifestCacheForTests()
     clearHomeCharacterBatchRequestCacheForTests()
+  })
+})
+
+describe('mountArchivedCharactersLoader collapse during an in-flight load', () => {
+  function renderTwoBatchFixture() {
+    window.sessionStorage.clear()
+    window.history.replaceState(null, '', '/')
+    setScrollEnvironment({})
+    clearHomeCharacterBatchRequestCacheForTests()
+    clearHomeCharacterBatchManifestCacheForTests()
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-archived-loaded="false" data-archived-visibility="hidden" data-archived-batches-loaded-count="0">
+        <div data-archived-sections-placeholder="true"></div>
+        <div data-archived-divider="true"></div>
+        <div data-archived-sections-container="true"></div>
+      </div>
+      <script type="application/json" data-home-character-batch-manifest="true">
+        {"locale":"en","v":"collapse-v","active":{"initialSectionIds":[],"totalBatches":0,"targetBatchById":{},"batchVersions":[]},"archived":{"initialSectionIds":[],"totalBatches":2,"targetBatchById":{},"batchVersions":["bv0","bv1"]}}
+      </script>
+    `
+    clearHomeCharacterBatchManifestCacheForTests()
+    return document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')!
+  }
+
+  // Batch 1 stays pending until `releaseBatch1`, then resolves with `batch1Status`.
+  function stubGatedFetch() {
+    let releaseBatch1!: () => void
+    const gate = new Promise<void>((resolve) => {
+      releaseBatch1 = resolve
+    })
+    const state = { batch1Status: 200 }
+    vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+      const batchIndex = Number(/(\d+)\.bv\d\.json/.exec(String(input))?.[1])
+      if (batchIndex === 1) {
+        await gate
+        if (state.batch1Status !== 200)
+          return new Response(null, { status: state.batch1Status })
+      }
+      return new Response(JSON.stringify(createCharacterBatchPayload({
+        status: 'archived',
+        batchIndex,
+        sectionId: `section-batch-${batchIndex}`,
+        displayName: `Batch${batchIndex}`,
+        entryId: `entry-batch-${batchIndex}`,
+      })))
+    }))
+    return { releaseBatch1, state }
+  }
+
+  async function collapseWhileBatch1IsPending(panel: HTMLElement) {
+    window.dispatchEvent(new CustomEvent(ARCHIVED_CHARACTERS_LOAD_REQUEST_EVENT, { detail: { targetBatchCount: 2 } }))
+    await vi.waitFor(() => expect(document.getElementById('section-batch-0')).toBeTruthy())
+    window.dispatchEvent(new Event(ARCHIVED_CHARACTERS_COLLAPSE_REQUEST_EVENT))
+    expect(panel.dataset.archivedVisibility).toBe('hidden')
+  }
+
+  async function expectReExpandRestoresBothBatches(panel: HTMLElement) {
+    window.dispatchEvent(new CustomEvent(ARCHIVED_CHARACTERS_LOAD_REQUEST_EVENT, { detail: { targetBatchCount: 2 } }))
+    await vi.waitFor(() => expect(panel.dataset.archivedBatchesLoadedCount).toBe('2'))
+    const ids = Array.from(document.querySelectorAll('[id]'), element => element.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(document.getElementById('section-batch-0')).toBeTruthy()
+    expect(document.getElementById('section-batch-1')).toBeTruthy()
+    expect(panel.dataset.archivedVisibility).toBe('visible')
+    expect(panel.dataset.archivedLoaded).toBe('true')
+  }
+
+  it('drops a batch that resolves after a collapse instead of mounting it into the collapsed container', async () => {
+    const panel = renderTwoBatchFixture()
+    const { releaseBatch1 } = stubGatedFetch()
+    const onLoaded = vi.fn()
+    window.addEventListener(ARCHIVED_CHARACTERS_LOADED_EVENT, onLoaded)
+    const cleanup = mountArchivedCharactersLoader()
+
+    await collapseWhileBatch1IsPending(panel)
+    releaseBatch1()
+    await flushAsyncWork()
+
+    expect(document.getElementById('section-batch-1')).toBeNull()
+    expect(document.querySelector('[data-archived-sections-container="true"]')?.children).toHaveLength(0)
+    expect(panel.dataset.archivedVisibility).toBe('hidden')
+    expect(panel.dataset.archivedBatchesLoadedCount).toBe('0')
+    expect(onLoaded).not.toHaveBeenCalled()
+
+    await expectReExpandRestoresBothBatches(panel)
+
+    cleanup()
+    window.removeEventListener(ARCHIVED_CHARACTERS_LOADED_EVENT, onLoaded)
+    vi.unstubAllGlobals()
+  })
+
+  it('does not write a stale count over a collapsed container when the in-flight batch fails', async () => {
+    const panel = renderTwoBatchFixture()
+    const { releaseBatch1, state } = stubGatedFetch()
+    state.batch1Status = 500
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const cleanup = mountArchivedCharactersLoader()
+
+    await collapseWhileBatch1IsPending(panel)
+    releaseBatch1()
+    await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled())
+    await flushAsyncWork()
+
+    expect(panel.dataset.archivedVisibility).toBe('hidden')
+    expect(panel.dataset.archivedBatchesLoadedCount).toBe('0')
+    expect(document.querySelector('[data-archived-sections-container="true"]')?.children).toHaveLength(0)
+
+    state.batch1Status = 200
+    clearHomeCharacterBatchRequestCacheForTests()
+    await expectReExpandRestoresBothBatches(panel)
+
+    cleanup()
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
   })
 })
