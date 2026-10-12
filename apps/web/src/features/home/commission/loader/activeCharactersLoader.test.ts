@@ -154,6 +154,44 @@ describe('mountActiveCharactersLoader', () => {
     clearHomeCharacterBatchRequestCacheForTests()
   })
 
+  it('does not dispatch the load-failed event after the loader was disposed', async () => {
+    clearHomeCharacterBatchRequestCacheForTests()
+    clearHomeCharacterBatchManifestCacheForTests()
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-active-sections-loaded="false" data-active-batches-loaded-count="0">
+        <section id="section-alpha"></section>
+        <div data-active-sections-container="true"></div>
+        <div data-active-sections-sentinel="true"></div>
+      </div>
+      <script type="application/json" data-home-character-batch-manifest="true">
+        {"locale":"en","v":"disposed-test","active":{"initialSectionIds":["section-alpha"],"totalBatches":1,"targetBatchById":{},"batchVersions":["bv0"]},"archived":{"initialSectionIds":[],"totalBatches":0,"targetBatchById":{},"batchVersions":[]}}
+      </script>
+    `
+    clearHomeCharacterBatchManifestCacheForTests()
+    let rejectFetch!: (reason: unknown) => void
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise((_resolve, reject) => {
+      rejectFetch = reject
+    }))
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const onFailed = vi.fn()
+    window.addEventListener(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT, onFailed)
+
+    const cleanup = mountActiveCharactersLoader()
+    window.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOAD_REQUEST_EVENT))
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    cleanup()
+    rejectFetch(new DOMException('timeout', 'TimeoutError'))
+    await vi.waitFor(() => expect(errorSpy).toHaveBeenCalled())
+    await flushAsyncWork()
+
+    expect(onFailed).not.toHaveBeenCalled()
+
+    window.removeEventListener(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT, onFailed)
+    vi.restoreAllMocks()
+    clearHomeCharacterBatchManifestCacheForTests()
+    clearHomeCharacterBatchRequestCacheForTests()
+  })
+
   it('loads deferred active sections for an initial hash target and scrolls after mount', async () => {
     renderFixture()
     document.querySelector('template[data-active-sections-template="true"]')!.innerHTML = `

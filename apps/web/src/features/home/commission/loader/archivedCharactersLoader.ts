@@ -116,6 +116,8 @@ export function mountArchivedCharactersLoader({
   let cancelIdlePrefetch: (() => void) | null = null
   // Collapse bypasses the serial queue, so a load that started before it must notice and stand down.
   let collapseGeneration = 0
+  // A rejected load from an old page can settle after soft navigation; it must not signal listeners on the shared window.
+  let disposed = false
 
   // Direct panel reads avoid repeated querySelector in exported helpers
   const readLocalBatchCount = () => {
@@ -333,7 +335,7 @@ export function mountArchivedCharactersLoader({
         scheduleScrollRestore({ deps, position: scrollPosition, win })
       }
 
-      if (didChange) {
+      if (didChange && !disposed) {
         win.dispatchEvent(new Event(ARCHIVED_CHARACTERS_LOADED_EVENT))
       }
       syncAutoLoad()
@@ -490,6 +492,7 @@ export function mountArchivedCharactersLoader({
   syncAutoLoad()
 
   return () => {
+    disposed = true
     stopAutoLoad()
     stopIdlePrefetch()
     panel.removeEventListener('click', onPanelClick)
