@@ -43,6 +43,8 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   `/search/home-character-manifest/<locale>.json` or `/search/home-timeline-manifest/<locale>.json`
   (`Cache-Control: no-cache`) with cache-busting and retry once against the fresh `targetBatchById` /
   `batchVersions` / `v`. Only fetched on the fallback path.
+- **Manifest cache key:** inline manifests are cached per `<script>` element; ClientRouter swaps replace the element,
+  so never cache per `Document`.
 - **DOM contracts:** `data-*` attributes drive search/nav/hash navigation — preserve attribute names.
   `data-stale-visibility` = stale group expanded; `data-stale-loaded` = deferred stale sections mounted.
 - Character/stale section templates must mount with the full entry list intact (no per-section entry lazy

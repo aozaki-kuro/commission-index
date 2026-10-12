@@ -7,6 +7,7 @@ import {
 } from './homeCharacterBatchClient'
 import {
   clearHomeCharacterBatchManifestCacheForTests,
+  readHomeCharacterBatchManifest,
 } from './homeCharacterBatchManifest'
 
 function renderManifest() {
@@ -162,5 +163,29 @@ describe('prefetchHomeCharacterBatches', () => {
     const requestedUrls = (fetchSpy.mock.calls as unknown as Array<[string]>).map(([url]) => url)
     expect(requestedUrls).toContain('/search/home-character-batches/en/active/0.old0.json')
     expect(requestedUrls).toContain('/search/home-character-batches/en/active/0.new0.json')
+  })
+})
+
+describe('readHomeCharacterBatchManifest', () => {
+  afterEach(() => {
+    clearHomeCharacterBatchManifestCacheForTests()
+    document.body.innerHTML = ''
+  })
+
+  it('re-reads the manifest after the manifest script is swapped', () => {
+    const render = (locale: string) => {
+      document.body.innerHTML = `
+        <script type="application/json" data-home-character-batch-manifest="true">
+          {"locale":"${locale}","active":{"initialSectionIds":[],"totalBatches":1,"targetBatchById":{}},"archived":{"initialSectionIds":[],"totalBatches":0,"targetBatchById":{}}}
+        </script>
+      `
+    }
+
+    render('en')
+    expect(readHomeCharacterBatchManifest(document)?.locale).toBe('en')
+    render('ja')
+    expect(readHomeCharacterBatchManifest(document)?.locale).toBe('ja')
+    render('en')
+    expect(readHomeCharacterBatchManifest(document)?.locale).toBe('en')
   })
 })

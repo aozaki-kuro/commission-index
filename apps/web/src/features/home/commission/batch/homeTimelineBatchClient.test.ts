@@ -4,7 +4,7 @@ import {
   clearHomeTimelineBatchRequestCacheForTests,
   fetchHomeTimelineBatch,
 } from './homeTimelineBatchClient'
-import { clearHomeTimelineBatchManifestCacheForTests } from './homeTimelineBatchManifest'
+import { clearHomeTimelineBatchManifestCacheForTests, readHomeTimelineBatchManifest } from './homeTimelineBatchManifest'
 
 function renderManifest() {
   document.body.innerHTML = `
@@ -94,5 +94,29 @@ describe('fetchHomeTimelineBatch', () => {
     const requestedUrls = (fetchSpy.mock.calls as unknown as Array<[string]>).map(([url]) => url)
     expect(requestedUrls).toContain('/search/home-timeline-batches/en/1.old1.json')
     expect(requestedUrls).toContain('/search/home-timeline-batches/en/1.new1.json')
+  })
+})
+
+describe('readHomeTimelineBatchManifest', () => {
+  afterEach(() => {
+    clearHomeTimelineBatchManifestCacheForTests()
+    document.body.innerHTML = ''
+  })
+
+  it('re-reads the manifest after the manifest script is swapped', () => {
+    const render = (locale: string) => {
+      document.body.innerHTML = `
+        <script type="application/json" data-home-timeline-batch-manifest="true">
+          {"locale":"${locale}","initialSectionIds":[],"totalBatches":1,"targetBatchById":{}}
+        </script>
+      `
+    }
+
+    render('en')
+    expect(readHomeTimelineBatchManifest(document)?.locale).toBe('en')
+    render('ja')
+    expect(readHomeTimelineBatchManifest(document)?.locale).toBe('ja')
+    render('en')
+    expect(readHomeTimelineBatchManifest(document)?.locale).toBe('en')
   })
 })
