@@ -144,7 +144,7 @@ describe('commission manager search and disclosure lifecycle', () => {
     await render()
     await search('Second')
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Search results"] button')!.click())
-    expect(container.textContent).toContain('Offline — click to retry')
+    expect(container.textContent).toContain('Offline — select to retry')
     expect(container.querySelector('[role="dialog"]')).toBeNull()
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Search results"] button')!.click())
     expect(api.load).toHaveBeenCalledTimes(2)

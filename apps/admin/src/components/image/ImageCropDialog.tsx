@@ -206,7 +206,7 @@ export function ImageCropDialog({
             <output
               aria-label="Image rotation"
               aria-live="polite"
-              className="ml-1 rounded-md bg-black/5 px-2 py-1 font-mono text-xs tabular-nums text-gray-500 dark:bg-white/8 dark:text-gray-400"
+              className="ml-1 rounded-md bg-black/5 px-2 py-1 text-xs tabular-nums text-gray-500 dark:bg-white/8 dark:text-gray-400"
             >
               {`${Math.round(snapshot?.rotation ?? 0)}°`}
             </output>

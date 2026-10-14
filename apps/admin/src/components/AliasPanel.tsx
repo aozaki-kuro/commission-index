@@ -99,7 +99,7 @@ export function AliasPanel({
         </label>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <input id={`${id}-filter`} type="search" value={query} onChange={event => setQuery(event.target.value)} disabled={isLoading || isUnavailable} placeholder={`Search ${columnHeader.toLowerCase()} or alias`} className={`${formControlStyles} min-w-0 md:max-w-md`} />
-          <span className="pl-1 font-mono text-xs text-gray-500 dark:text-gray-400" aria-live="polite">{isLoading || isUnavailable ? '— entries' : `${visibleRows.length} of ${rows.length} entries`}</span>
+          <span className="pl-1 tabular-nums text-xs text-gray-500 dark:text-gray-400" aria-live="polite">{isLoading || isUnavailable ? '— entries' : `${visibleRows.length} of ${rows.length} entries`}</span>
         </div>
         <p className="pl-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Separate aliases with commas. Clear a field to remove its aliases.</p>
       </div>

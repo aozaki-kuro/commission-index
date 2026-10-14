@@ -425,7 +425,7 @@ export function CommissionManager({
         >
           <span className="hidden sm:inline">Drag to reprioritize characters and edit their commissions in place. </span>
           <span className="sm:hidden">Tap the sort button to reorder characters. </span>
-          Click to expand.
+          Select a character to expand.
         </p>
       </header>
 
@@ -577,7 +577,7 @@ export function CommissionManager({
                       {pendingCommissionId === row.id && loadingCharacterIds.has(row.characterId)
                         ? 'Loading commission…'
                         : pendingCommissionId === row.id && loadErrors.has(row.characterId)
-                          ? `Could not load: ${loadErrors.get(row.characterId)} — click to retry`
+                          ? `Could not load: ${loadErrors.get(row.characterId)} — select to retry`
                           : `#${formatCommissionPublicId(row.publicId)}`}
                       {row.partNumber ? ` · Part ${row.partNumber}` : ''}
                     </span>

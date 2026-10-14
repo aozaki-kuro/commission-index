@@ -16,7 +16,7 @@ function DuplicateDetails({ hints }: DuplicateCommissionNoticeProps) {
         >
           <div className="flex min-w-0 items-center justify-between gap-3">
             <span
-              className="min-w-0 truncate font-mono text-xs text-gray-800 dark:text-gray-100"
+              className="min-w-0 truncate text-xs tabular-nums text-gray-800 dark:text-gray-100"
               title={`Public ID: ${hint.publicId}`}
               aria-label={`${hint.displayLabel} · Public ID ${hint.publicId}`}
             >

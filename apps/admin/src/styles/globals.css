@@ -124,15 +124,18 @@
   }
 }
 
-@font-face {
-  font-family: 'Berkeley Mono';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('/fonts/BerkeleyMono-Regular.woff2') format('woff2');
-}
-
 @layer base {
+  /* Zero-specificity default so outline-* utilities without a colour stay visible on dark fills. */
+  :where(:focus-visible) {
+    outline-color: var(--color-gray-500);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :where(:focus-visible) {
+      outline-color: var(--color-gray-400);
+    }
+  }
+
   button,
   select,
   summary,
@@ -147,9 +150,7 @@
   :root {
     --font-ibm-plex-sans: 'IBM Plex Sans';
     --font-sans: var(--font-ibm-plex-sans), sans-serif;
-    --font-mono:
-      'Berkeley Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-      monospace;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
     --crop-frame: rgb(255 255 255 / 0.96);
     --crop-frame-shadow: rgb(0 0 0 / 0.28);
     --crop-grid: rgb(255 255 255 / 0.52);

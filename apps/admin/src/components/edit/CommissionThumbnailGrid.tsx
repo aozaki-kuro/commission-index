@@ -184,10 +184,7 @@ function ThumbnailCard({
             dark:border-blue-400 dark:ring-blue-400
           `
       : `
-            border-gray-200
-            hover:border-gray-300
-            dark:border-gray-700
-            dark:hover:border-gray-600
+            border-transparent
           `}
       `}
     >
@@ -205,8 +202,10 @@ function ThumbnailCard({
             dark:bg-blue-950/30
           `
       : `
-            bg-white
-            dark:bg-gray-900/40
+            bg-gray-100/70
+            group-hover:bg-gray-200/70
+            dark:bg-gray-800/60
+            dark:group-hover:bg-gray-700/60
           `}
       `}
       >
@@ -235,7 +234,10 @@ function ThumbnailCard({
             {' '}
             {commission.links.length === 1 ? 'link' : 'links'}
           </span>
-          <span className="font-mono">{formatCommissionPublicId(commission.publicId)}</span>
+          <span className="tabular-nums">
+            #
+            {formatCommissionPublicId(commission.publicId)}
+          </span>
         </p>
       </div>
     </button>

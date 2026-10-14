@@ -99,7 +99,7 @@ function TabButton({ activeTab, count, label, onSelect, tab }: TabButtonProps) {
         focus-visible:rounded-sm
         dark:focus-visible:ring-offset-neutral-900
         ${isActive
-      ? `bg-white text-gray-900 shadow-sm dark:bg-gray-800 dark:text-gray-100`
+      ? `bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100`
       : `text-gray-500 hover:text-gray-700
          dark:text-gray-400 dark:hover:text-gray-200`}
       `}
@@ -107,7 +107,7 @@ function TabButton({ activeTab, count, label, onSelect, tab }: TabButtonProps) {
       {label}
       <span className={`
         inline-flex min-w-5 items-center justify-center
-        font-mono text-[11px] leading-none
+        tabular-nums text-[11px] leading-none
         ${isActive
       ? `text-gray-600 dark:text-gray-300`
       : `text-gray-500 dark:text-gray-400`}

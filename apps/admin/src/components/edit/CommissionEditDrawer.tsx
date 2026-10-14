@@ -72,7 +72,7 @@ export function CommissionEditDrawer({
                   data-commission-public-id={displayCommission.publicId}
                   title={`Public UUID ${displayCommission.publicId}`}
                   aria-label={`Public UUID ${displayCommission.publicId}`}
-                  className="shrink-0 font-mono text-xs"
+                  className="shrink-0 text-xs tabular-nums"
                 >
                   #
                   {formatCommissionPublicId(displayCommission.publicId)}

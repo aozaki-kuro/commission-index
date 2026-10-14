@@ -79,7 +79,7 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
         <h2 id="overview-actions" className="text-base font-semibold text-gray-900 dark:text-gray-100">Manage content</h2>
         <div className="grid min-w-0 gap-3 @min-[35rem]/workspace:grid-cols-2">
           <AdminInternalLink href="/create" onNavigate={onNavigate} className="inline-flex min-h-12 items-center justify-between gap-3 rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white no-underline transition hover:bg-gray-700 focus-visible:outline-2 focus-visible:outline-offset-4 dark:bg-gray-100 dark:text-gray-950 dark:hover:bg-white">
-            Create entries
+            Create commissions
             {' '}
             <span aria-hidden="true">→</span>
           </AdminInternalLink>
@@ -122,7 +122,7 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
                 </div>
                 <div className="flex flex-wrap gap-x-2">
                   <dt>API origin:</dt>
-                  <dd className="min-w-0 break-all font-mono">{getAdminApiBaseUrl() || 'same-origin'}</dd>
+                  <dd className="min-w-0 break-all tabular-nums">{getAdminApiBaseUrl() || 'same-origin'}</dd>
                 </div>
                 {payload?.health.message && (
                   <div>
@@ -148,7 +148,7 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
             {metrics.map(metric => (
               <div key={metric.label} className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] gap-x-3 py-3">
                 <dt className="text-sm text-gray-600 dark:text-gray-300">{metric.label}</dt>
-                <dd className="font-mono text-sm font-medium tabular-nums text-gray-900 dark:text-gray-100">{metric.value}</dd>
+                <dd className="text-sm font-medium tabular-nums text-gray-900 dark:text-gray-100">{metric.value}</dd>
                 <dd className="col-span-2 mt-1 text-xs leading-4 text-gray-500 dark:text-gray-400">{metric.detail}</dd>
               </div>
             ))}
@@ -158,7 +158,7 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
 
       <section aria-labelledby="overview-latest" className="min-w-0 space-y-3 @min-[50rem]/workspace:col-start-1 @min-[50rem]/workspace:row-start-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="overview-latest" className="text-base font-semibold text-gray-900 dark:text-gray-100">Latest entries</h2>
+          <h2 id="overview-latest" className="text-base font-semibold text-gray-900 dark:text-gray-100">Latest commissions</h2>
           <AdminInternalLink href="/edit" onNavigate={onNavigate} className={secondaryLinkStyles}>Open edit view</AdminInternalLink>
         </div>
         {latest.length > 0
@@ -178,7 +178,7 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
                       <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-100" title={getCommissionTitle(item)}>{getCommissionTitle(item)}</p>
                       <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
                         <span className="min-w-0 truncate">{item.characterName}</span>
-                        <span className="shrink-0 font-mono" title={item.publicId}>
+                        <span className="shrink-0 tabular-nums" title={item.publicId}>
                           #
                           {formatCommissionPublicId(item.publicId)}
                         </span>
@@ -188,7 +188,7 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
                 ))}
               </ol>
             )
-          : <p className="rounded-lg border border-dashed border-gray-300 px-4 py-8 text-sm leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400">{payload ? 'No commissions yet. Create your first entry above.' : state.isLoading ? 'Loading entries…' : 'Entries are unavailable. Retry loading the overview.'}</p>}
+          : <p className="rounded-lg border border-dashed border-gray-300 px-4 py-8 text-sm leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400">{payload ? 'No commissions yet. Create your first commission above.' : state.isLoading ? 'Loading commissions…' : 'Commissions are unavailable. Retry loading the overview.'}</p>}
       </section>
     </div>
   )

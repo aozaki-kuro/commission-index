@@ -20,7 +20,7 @@ import {
   replaceCommissionSourceImageAction,
   updateCommissionAction,
 } from '../../lib/adminActions'
-import { getCommissionAccessibleLabel } from '../../lib/commissionPresentation'
+import { formatCommissionPublicId, getCommissionAccessibleLabel } from '../../lib/commissionPresentation'
 import { notifyDataUpdate } from '../../lib/dataUpdateSignal'
 import { findDuplicateCommissionHints } from '../../lib/duplicateCommissionHints'
 import { INITIAL_FORM_STATE } from '../../lib/formState'
@@ -238,7 +238,7 @@ export function CommissionEditForm({
             notifyDataUpdate({ characterIds })
             markPendingRebuild()
             setUploadStatus({
-              text: result.message ?? `Source image for commission #${commission.id} replaced.`,
+              text: result.message ?? `Source image for commission #${formatCommissionPublicId(commission.publicId)} replaced.`,
               type: 'success',
             })
             setErrorSrc(null)
@@ -441,19 +441,28 @@ export function CommissionEditForm({
             type="button"
             onClick={handleDelete}
             disabled={isDeleting || isUploading || isSaving}
-            className="
-              inline-flex h-9 items-center justify-center rounded-md border
-              border-red-200/70 px-3 text-sm font-medium text-red-600 transition
-              hover:bg-red-50
+            className={`
+              inline-flex h-9 items-center justify-center rounded-md border px-3
+              text-sm font-medium transition
               focus-visible:ring-2 focus-visible:ring-red-400
               focus-visible:ring-offset-2 focus-visible:ring-offset-white
               focus-visible:outline-none
               disabled:cursor-not-allowed disabled:opacity-60
               sm:h-10 sm:px-4
-              dark:border-red-500/40 dark:text-red-300
-              dark:hover:bg-red-500/10
               dark:focus-visible:ring-offset-gray-900
-            "
+              ${isDeleteArmed
+      ? `
+                border-red-600 bg-red-600 text-white
+                hover:bg-red-700
+                dark:border-red-500 dark:bg-red-600 dark:hover:bg-red-500
+              `
+      : `
+                border-red-200/70 text-red-600
+                hover:bg-red-50
+                dark:border-red-500/40 dark:text-red-300
+                dark:hover:bg-red-500/10
+              `}
+            `}
           >
             {isDeleting ? 'Deleting…' : isDeleteArmed ? 'Confirm delete' : 'Delete'}
           </button>

@@ -1,7 +1,7 @@
 import type { AdminCommissionSearchRow } from '@commission-index/domain'
 import { IconReplace } from '@tabler/icons-react'
 import { useCallback, useMemo, useState, useTransition } from 'react'
-import { formControlStyles } from '../../app/ui'
+import { fieldLabelStyles, formControlStyles } from '../../app/ui'
 import { getAdminApiUrl } from '../../lib/adminApi'
 import {
   getCommissionAccessibleLabel,
@@ -192,7 +192,7 @@ export function KeywordReplacePopover({
         <button
           type="button"
           aria-label="Replace keywords"
-          className="inline-flex min-h-11 max-w-full min-w-0 shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white/80 px-3 text-sm font-medium text-gray-600 shadow-sm transition hover:border-gray-300 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-gray-100"
+          className="inline-flex min-h-11 max-w-full min-w-0 shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white/80 px-3 text-sm font-medium text-gray-600 transition hover:border-gray-300 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-gray-100"
         >
           <IconReplace className="size-4 shrink-0" stroke={1.8} aria-hidden="true" />
           <span className="min-w-0 text-left break-words">Replace keywords</span>
@@ -210,7 +210,7 @@ export function KeywordReplacePopover({
             </DialogDescription>
             <div className="mt-5 grid min-w-0 gap-4 sm:grid-cols-2">
               <div className="min-w-0 space-y-2">
-                <label htmlFor="keyword-replace-find" className="block pl-1 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">Find</label>
+                <label htmlFor="keyword-replace-find" className={fieldLabelStyles}>Find</label>
                 <input
                   id="keyword-replace-find"
                   type="text"
@@ -226,7 +226,7 @@ export function KeywordReplacePopover({
                 />
               </div>
               <div className="min-w-0 space-y-2">
-                <label htmlFor="keyword-replace-with" className="block pl-1 text-xs font-semibold tracking-wide text-gray-500 uppercase dark:text-gray-400">Replace with</label>
+                <label htmlFor="keyword-replace-with" className={fieldLabelStyles}>Replace with</label>
                 <input
                   id="keyword-replace-with"
                   type="text"

@@ -177,9 +177,11 @@ export function SortableCharacterCard({
                     onClick={onToggle}
                     className="
               flex min-h-11 w-full min-w-0 flex-1 items-center gap-2 rounded-lg text-left
+              hover:bg-gray-50
               focus-visible:ring-2 focus-visible:ring-gray-400
               focus-visible:ring-offset-2
               focus-visible:ring-offset-white focus-visible:outline-none
+              dark:hover:bg-gray-800/50
               dark:focus-visible:ring-offset-gray-900
             "
                   >
@@ -214,7 +216,7 @@ export function SortableCharacterCard({
           </div>
 
           <span className="
-            shrink-0 text-right font-mono text-xs font-normal text-gray-500
+            shrink-0 text-right text-xs tabular-nums font-normal text-gray-500
             dark:text-gray-300
           "
           >
@@ -225,7 +227,7 @@ export function SortableCharacterCard({
             "
             >
               {' '}
-              entries
+              {totalCommissions === 1 ? 'entry' : 'entries'}
             </span>
           </span>
 
@@ -340,7 +342,7 @@ export function SortableCharacterCard({
                 border-t border-gray-100 px-3
                 sm:px-5
                 dark:border-gray-800
-                motion-safe:transition-all motion-safe:duration-200 motion-safe:ease-out
+                motion-safe:transition-[translate,opacity] motion-safe:duration-200 motion-safe:ease-out
                 ${isOpen ? 'translate-y-0 opacity-100' : 'motion-safe:-translate-y-1 opacity-0'}
               `}
             >
@@ -350,6 +352,7 @@ export function SortableCharacterCard({
                     <div role="alert" className="flex min-h-24 flex-wrap items-center justify-between gap-3 py-4 text-sm text-red-600 dark:text-red-400">
                       <span className="min-w-0 break-words">
                         Could not load commissions:
+                        {' '}
                         {commissionLoadError}
                       </span>
                       <button type="button" onClick={onRetryLoad} className="shrink-0 font-medium underline underline-offset-2">Try again</button>

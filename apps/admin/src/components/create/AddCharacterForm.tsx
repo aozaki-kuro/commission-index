@@ -1,5 +1,5 @@
 import { useActionState, useEffect, useState } from 'react'
-import { formControlStyles } from '../../app/ui'
+import { fieldLabelStyles, formControlStyles } from '../../app/ui'
 import { addCharacterAction } from '../../lib/adminActions'
 import { notifyDataUpdate } from '../../lib/dataUpdateSignal'
 import { INITIAL_FORM_STATE } from '../../lib/formState'
@@ -56,10 +56,7 @@ export function AddCharacterForm({ onSaved, onPendingChange }: { onSaved: () => 
         <div className="space-y-1">
           <label
             htmlFor="add-character-name"
-            className="
-              block pl-1 text-xs font-semibold tracking-wide text-gray-500 uppercase
-              dark:text-gray-300
-            "
+            className={fieldLabelStyles}
           >
             Name
           </label>
@@ -76,10 +73,7 @@ export function AddCharacterForm({ onSaved, onPendingChange }: { onSaved: () => 
         <div className="space-y-1">
           <label
             htmlFor="add-character-status"
-            className="
-              block pl-1 text-xs font-semibold tracking-wide text-gray-500 uppercase
-              dark:text-gray-300
-            "
+            className={fieldLabelStyles}
           >
             Status
           </label>
