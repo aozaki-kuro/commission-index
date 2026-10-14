@@ -27,9 +27,11 @@ export function SubmitButton({
         focus-visible:ring-offset-2 focus-visible:ring-offset-white
         focus-visible:outline-none
         active:scale-[0.97]
-        disabled:pointer-events-none disabled:opacity-50
+        disabled:bg-gray-200 disabled:text-gray-500 disabled:opacity-100
+        disabled:pointer-events-none
         dark:bg-gray-100 dark:text-gray-900
         dark:hover:bg-gray-200
+        dark:disabled:bg-gray-800 dark:disabled:text-gray-500
         dark:focus-visible:ring-offset-gray-900
       "
     >

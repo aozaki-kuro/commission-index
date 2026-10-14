@@ -21,7 +21,7 @@ function SelectTrigger({
       className={cn(
         `
           flex w-full items-center justify-between rounded-lg border
-          border-gray-200 bg-white/80 px-3 py-2.5 text-sm text-gray-900 shadow-sm
+          border-gray-200 bg-white/80 px-3 py-2.5 text-sm text-gray-900
           transition placeholder:text-gray-400
           focus:outline-none
           focus-visible:ring-2 focus-visible:ring-gray-500

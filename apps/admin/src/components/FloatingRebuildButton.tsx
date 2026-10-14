@@ -1,3 +1,4 @@
+import { IconCheck } from '@tabler/icons-react'
 import { useSyncExternalStore } from 'react'
 import { isPendingRebuild, subscribeToPendingRebuild } from '../lib/pendingRebuildSignal'
 import { getServerWebsiteRebuildState, getWebsiteRebuildState, queueWebsiteRebuild, subscribeToWebsiteRebuild } from '../lib/websiteRebuild'
@@ -13,7 +14,7 @@ export function FloatingRebuildButton() {
   const label = status === 'pending'
     ? 'Checking…'
     : status === 'success'
-      ? 'Updated ✓'
+      ? 'Updated'
       : status === 'error' || status === 'unconfirmed'
         ? 'Retry'
         : 'Rebuild'
@@ -43,6 +44,7 @@ export function FloatingRebuildButton() {
         ${toneStyles}
       `}
         >
+          {status === 'success' && <IconCheck className="mr-1 inline size-3.5 align-text-bottom" stroke={1.8} aria-hidden="true" />}
           {label}
         </button>
       </div>

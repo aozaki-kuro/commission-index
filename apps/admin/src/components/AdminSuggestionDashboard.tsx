@@ -36,7 +36,6 @@ interface KeywordItemProps {
 function KeywordItem({ dragHandleProps, isDragging, keyword, index, count, onRemove, onReorder }: KeywordItemProps) {
   return (
     <div className={`flex min-w-0 items-center gap-1 py-1 ${isDragging ? 'opacity-55' : ''}`}>
-      <span aria-hidden="true" className="w-6 shrink-0 font-mono text-xs text-gray-500 dark:text-gray-400">{String(index + 1).padStart(2, '0')}</span>
       <button type="button" className={`${iconButtonStyles} cursor-grab active:cursor-grabbing max-sm:hidden`} aria-label={`Drag ${keyword}`} {...dragHandleProps}>
         <IconGripHorizontal className="size-4" aria-hidden="true" />
       </button>
@@ -119,7 +118,7 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
       <input type="hidden" name="keywordsJson" value={JSON.stringify(selectedKeywords)} />
       <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-200/80 pb-5 dark:border-gray-700/80">
         <p className="max-w-xl text-sm text-gray-600 dark:text-gray-300">Choose up to six keywords to help visitors explore the home page.</p>
-        <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{isReady ? `${selectedKeywords.length} / ${MAX_FEATURED_KEYWORDS} selected` : '— / 6 selected'}</span>
+        <span className="tabular-nums text-xs text-gray-500 dark:text-gray-400">{isReady ? `${selectedKeywords.length} / ${MAX_FEATURED_KEYWORDS} selected` : '— / 6 selected'}</span>
       </header>
       <fieldset disabled={disabled} aria-busy={!isReady && isLoading} className="min-w-0 space-y-6">
         <div className="grid min-w-0 gap-8 @min-[48rem]/workspace:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
@@ -145,7 +144,10 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
                       </div>
                     )}
             </div>
-            <p className="pl-1 text-xs text-gray-500 dark:text-gray-400">Drag to reorder, or use the arrow buttons.</p>
+            <p className="pl-1 text-xs text-gray-500 dark:text-gray-400">
+              <span className="hidden sm:inline">Drag to reorder, or use the arrow buttons.</span>
+              <span className="sm:hidden">Use the arrow buttons to reorder.</span>
+            </p>
           </section>
           <section className="min-w-0 space-y-3 @min-[48rem]/workspace:border-l @min-[48rem]/workspace:border-gray-200/80 @min-[48rem]/workspace:pl-8 @min-[48rem]/workspace:dark:border-gray-700/80" aria-labelledby="suggestion-pool-title">
             <h3 id="suggestion-pool-title" className={labelStyles}>Keyword pool</h3>

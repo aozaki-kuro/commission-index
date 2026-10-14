@@ -4,7 +4,7 @@ import { isFutureCommissionDate } from '@commission-index/domain'
 import * as Popover from '@radix-ui/react-popover'
 import { IconCalendar, IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 import { useRef, useState } from 'react'
-import { formControlStyles } from '../../app/ui'
+import { fieldLabelStyles, formControlStyles } from '../../app/ui'
 import { getDefaultPartNumber } from '../../lib/commissionWorkGroups'
 import {
   Select,
@@ -14,8 +14,6 @@ import {
   SelectValue,
 } from '../ui/select'
 
-const fieldLabelStyles
-  = 'block pl-1 text-sm font-medium text-gray-700 dark:text-gray-300'
 const fieldDescriptionStyles = 'pl-1 text-xs leading-4 text-gray-500 dark:text-gray-400'
 const alignedFieldStyles = 'min-w-0 space-y-2'
 const metadataControlStyles = `${formControlStyles} min-h-11 px-4`
@@ -339,7 +337,7 @@ function CommissionDatePicker({ value, onSelect }: CommissionDatePickerProps) {
           className="
             inline-flex min-h-11 shrink-0 items-center justify-center
             rounded-r-lg border border-gray-200 bg-white/80 px-3
-            text-gray-500 shadow-sm transition hover:bg-gray-100
+            text-gray-500 transition hover:bg-gray-100
             focus-visible:z-10 focus-visible:outline-none
             focus-visible:ring-2 focus-visible:ring-gray-500
             focus-visible:ring-offset-2 focus-visible:ring-offset-white
