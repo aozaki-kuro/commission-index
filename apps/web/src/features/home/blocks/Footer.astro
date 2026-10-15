@@ -1,6 +1,4 @@
 ---
-import { formatBuildLabel } from '@commission-index/domain'
-import { getGeneratedFactSourceContent } from '@data/generatedFactSource'
 import { getHomeLocaleMessages, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
 
 interface Props {
@@ -9,20 +7,19 @@ interface Props {
 
 const { locale } = Astro.props as Props
 const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
-const buildLabel = formatBuildLabel(getGeneratedFactSourceContent().meta)
 const currentYear = new Date().getFullYear()
 ---
 
 <!-- Below lg the floating menu buttons stay shown at page bottom (124px tall column); pb-36 keeps DMCA clear of them. -->
 <footer class="
-  mt-12 border-t border-gray-300/80 pt-6 pb-36 text-xs
-  md:mt-16 md:pt-8
+  mt-12 border-t border-gray-300/80 pt-8 pb-36 text-xs
+  md:mt-16 md:pt-10
   lg:pb-10
   dark:border-neutral-800
 "
 >
   <div class="
-    max-w-prose space-y-1 text-gray-500
+    space-y-2 text-center leading-relaxed text-gray-500
     dark:text-gray-400
   "
   >
@@ -32,7 +29,7 @@ const currentYear = new Date().getFullYear()
   </div>
 
   <div class="
-    mt-6 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1
+    mt-12 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1
     text-gray-800
     dark:text-gray-300
   "
@@ -40,14 +37,4 @@ const currentYear = new Date().getFullYear()
     <p>© <time>2022–{currentYear}</time> Crystallize</p>
     <a href="mailto:dmca@crystallize.cc" class="dark:text-gray-300">DMCA</a>
   </div>
-
-  <p
-    data-build-label
-    class="
-      mt-1 font-mono text-[11px] text-gray-400
-      dark:text-gray-500
-    "
-  >
-    {buildLabel}
-  </p>
 </footer>
