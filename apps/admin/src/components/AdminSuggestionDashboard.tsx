@@ -199,7 +199,7 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
                   className={`${formControlStyles} min-w-0 flex-1`}
                   placeholder="Enter a keyword"
                 />
-                <button type="button" onClick={addManual} disabled={!canAddManual} className="h-11 shrink-0 rounded-lg border border-gray-300 px-4 text-sm font-medium transition hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 active:scale-[0.97] disabled:opacity-40 dark:border-gray-700 dark:hover:bg-gray-800">Add</button>
+                <button type="button" onClick={addManual} disabled={!canAddManual} className="h-11 shrink-0 rounded-lg border border-gray-300 px-4 text-sm font-medium transition hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 motion-safe:enabled:active:scale-[0.98] disabled:opacity-40 dark:border-gray-700 dark:hover:bg-gray-800">Add</button>
               </div>
             </div>
           </section>

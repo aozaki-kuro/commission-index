@@ -174,10 +174,7 @@ function ThumbnailCard({
       title={`Public ID: ${commission.publicId}`}
       className={`
         group min-w-0 overflow-hidden rounded-lg border text-left transition
-        focus-visible:ring-2 focus-visible:ring-blue-500
-        focus-visible:ring-offset-2 focus-visible:ring-offset-white
-        focus-visible:outline-none
-        dark:focus-visible:ring-offset-gray-900
+        focus-visible:outline-2 focus-visible:outline-offset-2
         ${isSelected
       ? `
             border-blue-500 ring-2 ring-blue-500

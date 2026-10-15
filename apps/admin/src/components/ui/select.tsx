@@ -23,11 +23,13 @@ function SelectTrigger({
           flex w-full items-center justify-between rounded-lg border
           border-gray-200 bg-white/80 px-3 py-2.5 text-sm text-gray-900
           transition placeholder:text-gray-400
+          enabled:hover:border-gray-300 enabled:hover:bg-white
           focus:outline-none
           focus-visible:ring-2 focus-visible:ring-gray-500
           focus-visible:ring-offset-2 focus-visible:ring-offset-white
           disabled:cursor-not-allowed disabled:opacity-70
           dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-100
+          dark:enabled:hover:border-gray-600 dark:enabled:hover:bg-gray-900
           dark:focus-visible:ring-offset-gray-900
           data-placeholder:text-gray-400 dark:data-placeholder:text-gray-500
         `,

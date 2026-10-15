@@ -34,7 +34,7 @@ function overviewReducer(state: OverviewState, action: OverviewAction): Overview
 }
 
 const secondaryLinkStyles = 'rounded-md py-1 text-sm text-gray-600 underline underline-offset-4 transition hover:text-gray-950 focus-visible:outline-2 focus-visible:outline-offset-4 dark:text-gray-300 dark:hover:text-white'
-const utilityButtonStyles = 'inline-flex h-10 shrink-0 items-center justify-center rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-700 transition hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800'
+const utilityButtonStyles = 'inline-flex h-10 pointer-coarse:h-11 shrink-0 items-center justify-center rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-700 transition motion-safe:enabled:active:scale-[0.98] hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800'
 
 export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) => void }) {
   const [state, dispatch] = useReducer(overviewReducer, undefined, createInitialOverviewState)

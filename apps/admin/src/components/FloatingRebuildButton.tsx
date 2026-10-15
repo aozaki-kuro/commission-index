@@ -34,10 +34,10 @@ export function FloatingRebuildButton() {
           onClick={() => void queueWebsiteRebuild()}
           disabled={status === 'pending'}
           className={`
-        shrink-0 rounded-lg border bg-white/90 px-3 py-1.5
+        shrink-0 rounded-lg border bg-white/90 px-3 py-1.5 pointer-coarse:min-h-11
         text-xs font-medium shadow-sm backdrop-blur-sm
         transition
-        active:scale-[0.97]
+        motion-safe:enabled:active:scale-[0.98]
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2
         disabled:cursor-not-allowed disabled:opacity-50
         dark:bg-gray-900/80

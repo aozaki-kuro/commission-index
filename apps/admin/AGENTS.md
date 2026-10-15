@@ -35,6 +35,7 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 - Unknown creators display as `Anon`; create sends an empty `creatorName` for unknown, while the edit PATCH sends `null` (`adminActions.ts`).
 - Date picker: opening focuses the selected date (today if empty/invalid) without changing the value; recompute local today on each open/select so it survives midnight.
 - Mutations are single-attempt unless the API adds an idempotency contract.
+- Create and edit forms register a `beforeunload` prompt (`useUnsavedChangesGuard`) only while dirty. Dirty is measured against the last saved values, not the initial ones: create's controlled fields survive a successful reset, and its uncontrolled links/design/description are read from the form on `input`. No in-app route blocker.
 - Create form auto-reset applies only on business success; failures keep file and field drafts, and an invalid file never replaces a previously confirmed image.
 - New character uses a secondary Dialog with the commission form kept mounted. After saving, refresh bootstrap explicitly: `notifyDataUpdate` ignores the current tab. The create API returns no new ID, so do not guess-select the character by name.
 
@@ -46,6 +47,7 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 - Skeletons share layout contracts (`gridStyles`, `thumbnails` container breakpoints, character header) with real content so load is geometry-neutral; breakpoints use rem so enlarged text drops columns. Columns use named container queries, not viewport width.
 - Use a single window scroll container; a second main scroll container breaks Edit anchor restoration.
 - All pages share one shell width and the same title/divider/surface edges; adjust field columns inside, not the shell per page.
+- `DialogTitle` renders `<h2>`: give it phrasing content only (`span.block`/`span.flex`), never `p`/`div`. Dialog max-heights use `dvh`, not `vh`. Controls under 44px get `pointer-coarse:` sizing; fine-pointer layout must not change. Pair the grown size with a matching negative margin only for icon buttons inside a padded container (e.g. FloatingNotice dismiss).
 - Acceptance: density checks use CSS logical viewport (DPR 2 does not double usable width); text-zoom checks wait for route content and inspect clipping inside controls — `scrollWidth === innerWidth` does not prove usability. Size buttons by min-width, not fixed width.
 - Hints that judge data (e.g. duplicate warnings) favour precision over recall; a fuzzy match must not get a definitive label.
 

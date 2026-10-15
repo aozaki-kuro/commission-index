@@ -58,14 +58,14 @@ export function CommissionEditDrawer({
             aria-label={displayCommission ? getCommissionAccessibleLabel(displayCommission) : undefined}
             title={displayCommission?.publicId}
           >
-            <p className="
-              truncate text-base font-semibold text-gray-900
+            <span className="
+              block truncate text-base font-semibold text-gray-900
               dark:text-gray-100
             "
             >
               {displayCommission ? getCommissionTitle(displayCommission) : ''}
-            </p>
-            <div className="mt-1 flex min-w-0 items-baseline justify-between gap-3 text-sm font-normal text-gray-500 dark:text-gray-400">
+            </span>
+            <span className="mt-1 flex min-w-0 items-baseline justify-between gap-3 text-sm font-normal text-gray-500 dark:text-gray-400">
               <span className="truncate">{displayCommission?.characterName ?? ''}</span>
               {displayCommission && (
                 <span
@@ -78,7 +78,7 @@ export function CommissionEditDrawer({
                   {formatCommissionPublicId(displayCommission.publicId)}
                 </span>
               )}
-            </div>
+            </span>
           </DialogTitle>
           <DialogCloseButton />
         </DialogHeader>

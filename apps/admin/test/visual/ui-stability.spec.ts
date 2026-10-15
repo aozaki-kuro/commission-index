@@ -314,7 +314,7 @@ test('edit aligns field edges, preserves grouped values and floats persistent er
   const dialog = await openEdit(page)
   await page.evaluate(() => document.fonts.ready)
   const title = dialog.getByRole('heading').first()
-  await expect(title.locator('p').first()).not.toContainText('#0000000')
+  await expect(title.locator(':scope > span').first()).not.toContainText('#0000000')
   await expect(title).toHaveAttribute('title', commissions[0].publicId)
   const identity = dialog.locator('[data-commission-public-id]')
   await expect(identity).toHaveCount(1)
