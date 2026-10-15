@@ -72,7 +72,7 @@ const controls = resolveHomeSearchControls(locale)
             class="
               peer m-0 flex h-10 w-[calc(100%/0.875)] origin-left
               scale-[0.875] appearance-none rounded-md bg-transparent p-0
-              pr-24 font-mono text-base/5 tracking-[0.01em] outline-none
+              pr-24 text-base/5 outline-none
               placeholder:text-gray-400
             "
           />
@@ -82,7 +82,7 @@ const controls = resolveHomeSearchControls(locale)
             id="search-suggestion-list"
             role="listbox"
             class="
-              absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 max-h-[min(70vh,28rem)]
+              absolute inset-x-0 top-[calc(100%+0.5rem)] z-20 max-h-[min(70dvh,28rem)]
               overflow-y-auto overscroll-contain rounded-xl border border-white/20
               bg-white/80 py-1 text-sm shadow-[0_8px_30px_rgb(0,0,0,0.12)]
               backdrop-blur-md
@@ -146,7 +146,7 @@ const controls = resolveHomeSearchControls(locale)
             </p>
 
             <div class="
-              max-h-[min(50vh,22rem)] overflow-auto rounded-lg border
+              max-h-[min(50dvh,22rem)] overflow-auto rounded-lg border
               border-gray-200/90
               dark:border-gray-700/90
             "

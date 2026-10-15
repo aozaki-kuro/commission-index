@@ -28,7 +28,7 @@ export function renderHelpContent(
   // Table container
   const tableWrap = el(
     'div',
-    'max-h-[min(50vh,22rem)] overflow-auto rounded-lg border border-gray-200/90 dark:border-gray-700/90',
+    'max-h-[min(50dvh,22rem)] overflow-auto rounded-lg border border-gray-200/90 dark:border-gray-700/90',
   )
 
   const table = el(

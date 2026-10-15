@@ -27,10 +27,10 @@ const sidebarLeadSlotClass = 'flex h-5 w-4 shrink-0 items-center justify-center'
 const sidebarIconClass = 'h-3.5 w-3.5'
 const sidebarLeadOffsetStyle = '--sidebar-lead-offset:1.125rem;'
 const sidebarLabelClass
-  = 'font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200'
-const localeLabelClass = 'font-mono text-sm leading-5 font-bold no-underline transition-colors duration-200'
+  = 'text-sm leading-5 font-bold no-underline transition-colors duration-200'
+const localeLabelClass = 'text-sm leading-5 font-bold no-underline transition-colors duration-200'
 const sidebarNavLinkClass
-  = 'flex items-center gap-2 font-mono text-sm no-underline transition-colors duration-200 mb-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 rounded-sm'
+  = 'flex items-center gap-2 text-sm no-underline transition-colors duration-200 mb-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 rounded-sm'
 const localeLinkClass
   = 'flex items-center gap-2 text-sm no-underline transition-colors duration-200 mb-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 rounded-sm'
 ---
@@ -55,7 +55,7 @@ const localeLinkClass
       "
       >
         <span class={sidebarLeadSlotClass} aria-hidden="true">
-          <Icon name="tabler:search" class={`${sidebarIconClass} text-gray-400 transition-all duration-300`} aria-hidden="true" />
+          <Icon name="tabler:search" class={`${sidebarIconClass} text-gray-400 transition-colors duration-300`} aria-hidden="true" />
         </span>
         <a
           href="#commission-search"
@@ -107,9 +107,9 @@ const localeLinkClass
                   >
                     <span class={sidebarLeadSlotClass} aria-hidden="true">
                       <span class={`
-                        size-1.5 rounded-full bg-gray-500/80 transition-all duration-300
+                        size-1.5 rounded-full bg-gray-500/80 transition-[opacity,scale] duration-300
                         dark:bg-gray-300/80
-                        ${isActive ? 'scale-100 opacity-100' : 'scale-0 opacity-0'}
+                        ${isActive ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
                       `}
                       />
                     </span>
@@ -139,7 +139,7 @@ const localeLinkClass
           "
         >
           <span class={sidebarLeadSlotClass} aria-hidden="true">
-            <Icon data-sidebar-view-mode-indicator name="tabler:arrow-badge-right-filled" class="size-4 scale-100 text-gray-400 opacity-100 transition-all duration-300" aria-hidden="true" />
+            <Icon data-sidebar-view-mode-indicator name="tabler:arrow-badge-right-filled" class="size-4 scale-100 text-gray-400 opacity-100 transition-[opacity,scale] duration-300" aria-hidden="true" />
           </span>
           <span class={sidebarLabelClass}>
             {controls.byCharacter}
@@ -162,7 +162,7 @@ const localeLinkClass
           "
         >
           <span class={sidebarLeadSlotClass} aria-hidden="true">
-            <Icon data-sidebar-view-mode-indicator name="tabler:arrow-badge-right-filled" class="size-4 scale-0 text-gray-400 opacity-0 transition-all duration-300" aria-hidden="true" />
+            <Icon data-sidebar-view-mode-indicator name="tabler:arrow-badge-right-filled" class="size-4 scale-95 text-gray-400 opacity-0 transition-[opacity,scale] duration-300" aria-hidden="true" />
           </span>
           <span class={sidebarLabelClass}>
             {controls.byDate}
@@ -200,7 +200,7 @@ const localeLinkClass
                 <span class={sidebarLeadSlotClass} aria-hidden="true">
                   <Icon name="tabler:flare" class={`${sidebarIconClass} text-gray-400`} aria-hidden="true" />
                 </span>
-                <span class="font-mono text-sm/5 font-bold">{controls.activeCharacters}</span>
+                <span class="text-sm/5 font-bold">{controls.activeCharacters}</span>
               </div>
             </li>
           )
@@ -227,8 +227,8 @@ const localeLinkClass
                   <span
                     data-sidebar-dot-for={titleId}
                     class="
-                      size-1.5 scale-0 rounded-full bg-gray-400 opacity-0
-                      transition-all duration-300
+                      size-1.5 scale-95 rounded-full bg-gray-400 opacity-0
+                      transition-[opacity,scale] duration-300
                     "
                   />
                 </span>
@@ -255,7 +255,7 @@ const localeLinkClass
                   <span class={sidebarLeadSlotClass} aria-hidden="true">
                     <Icon name="tabler:chevron-right" class={`${sidebarIconClass} text-gray-400 transition-transform duration-200 group-open:rotate-90`} aria-hidden="true" />
                   </span>
-                  <span class="font-mono text-sm/5 font-bold">{controls.archivedCharacters}</span>
+                  <span class="text-sm/5 font-bold">{controls.archivedCharacters}</span>
                 </summary>
 
                 <ul class="mt-4 space-y-2">
@@ -280,8 +280,8 @@ const localeLinkClass
                             <span
                               data-sidebar-dot-for={titleId}
                               class="
-                                size-1.5 scale-0 rounded-full bg-gray-400
-                                opacity-0 transition-all duration-300
+                                size-1.5 scale-95 rounded-full bg-gray-400
+                                opacity-0 transition-[opacity,scale] duration-300
                               "
                             />
                           </span>
@@ -308,7 +308,7 @@ const localeLinkClass
             <span class={sidebarLeadSlotClass} aria-hidden="true">
               <Icon name="tabler:timeline" class="size-4 text-gray-400" aria-hidden="true" />
             </span>
-            <span class="font-mono text-sm/5 font-bold">{controls.timelineTitle}</span>
+            <span class="text-sm/5 font-bold">{controls.timelineTitle}</span>
           </div>
         </li>
         {
@@ -332,8 +332,8 @@ const localeLinkClass
                   <span
                     data-sidebar-dot-for={titleId}
                     class="
-                      size-1.5 scale-0 rounded-full bg-gray-400 opacity-0
-                      transition-all duration-300
+                      size-1.5 scale-95 rounded-full bg-gray-400 opacity-0
+                      transition-[opacity,scale] duration-300
                     "
                   />
                 </span>

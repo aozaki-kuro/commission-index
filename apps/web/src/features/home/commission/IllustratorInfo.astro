@@ -33,7 +33,7 @@ const hasBoth = hasDescription
 
 const displayLinks = selectDisplayLinks({ links, designLink })
 const hasPublishedLinks = displayLinks.mainLinks.length > 0
-const rootClass = `flex w-full flex-wrap items-center gap-y-2 font-mono text-xs text-gray-800 md:text-sm dark:text-gray-300 ${className}`.trim()
+const rootClass = `flex w-full flex-wrap items-center gap-y-2 text-xs text-gray-800 md:text-sm dark:text-gray-300 ${className}`.trim()
 ---
 
 <div class={rootClass}>
@@ -46,7 +46,7 @@ const rootClass = `flex w-full flex-wrap items-center gap-y-2 font-mono text-xs 
         dark:text-gray-300!
       "
     >
-      <time>{formattedDate}</time>
+      <time class="font-mono">{formattedDate}</time>
     </a>
 
     <span>{creatorName}</span>

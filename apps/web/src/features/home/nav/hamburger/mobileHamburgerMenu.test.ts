@@ -34,7 +34,7 @@ function renderMenu() {
           <span data-mobile-hamburger-view-mode-indicator="true" class="scale-100 opacity-100"></span>
         </button>
         <button data-mobile-hamburger-view-mode-toggle="true" data-view-mode="timeline" aria-pressed="false">
-          <span data-mobile-hamburger-view-mode-indicator="true" class="scale-0 opacity-0"></span>
+          <span data-mobile-hamburger-view-mode-indicator="true" class="scale-95 opacity-0"></span>
         </button>
         <div data-mobile-nav-root="true">
           <section data-mobile-character-section="active">

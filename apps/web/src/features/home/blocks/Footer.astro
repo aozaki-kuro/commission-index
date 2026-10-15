@@ -26,15 +26,14 @@ const currentYear = new Date().getFullYear()
     <p class="pt-2">{messages.footer.noIndexing}</p>
   </div>
 
-  <small class="
-    block pt-16 pb-10 font-mono text-xs text-gray-800
+  <div class="
+    pt-16 pb-10 text-gray-800
     md:pb-0
     dark:text-gray-300
   "
   >
-    <time class="tracking-tight">2022 - {currentYear}</time> © Crystallize
-    <span class="ml-2 text-gray-500 dark:text-gray-400" data-build-label>{buildLabel}</span>
-    <div class="float-right">
+    <div class="flex items-baseline justify-between gap-4 text-xs">
+      <small class="text-xs">© <time class="tabular-nums">2022–{currentYear}</time> Crystallize</small>
       <a
         href="mailto:dmca@crystallize.cc"
         class="
@@ -45,5 +44,6 @@ const currentYear = new Date().getFullYear()
         DMCA
       </a>
     </div>
-  </small>
+    <div class="mt-1 font-mono text-[11px] text-gray-500 dark:text-gray-400" data-build-label>{buildLabel}</div>
+  </div>
 </div>

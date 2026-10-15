@@ -107,7 +107,7 @@ function renderPopularKeywords(
     btn.type = 'button'
     btn.className = [
       'rounded-full border border-gray-300/80 bg-white/75 px-2.5 py-1',
-      'font-mono text-[11px] tracking-[0.01em] text-gray-700',
+      'text-[11px] text-gray-700',
       'transition-colors',
       'hover:border-gray-400 hover:text-gray-900',
       'focus-visible:outline-2 focus-visible:outline-offset-2',

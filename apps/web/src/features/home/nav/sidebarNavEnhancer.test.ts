@@ -15,30 +15,30 @@ function renderSidebarRoot() {
         <span data-sidebar-view-mode-indicator class="scale-100 opacity-100"></span>
       </button>
       <button data-sidebar-view-mode-toggle="true" data-view-mode="timeline" aria-pressed="false">
-        <span data-sidebar-view-mode-indicator class="scale-0 opacity-0"></span>
+        <span data-sidebar-view-mode-indicator class="scale-95 opacity-0"></span>
       </button>
       <a href="#commission-search" data-sidebar-search-link="true">Search</a>
 
       <ul data-sidebar-nav-panel="character">
         <li>
-          <span data-sidebar-dot-for="title-alpha" class="scale-0 opacity-0"></span>
+          <span data-sidebar-dot-for="title-alpha" class="scale-95 opacity-0"></span>
           <a href="#section-alpha" data-sidebar-character-link="true" data-sidebar-character-status="active" data-sidebar-title-id="title-alpha">Alpha</a>
         </li>
         <li>
-          <span data-sidebar-dot-for="title-empty" class="scale-0 opacity-0"></span>
+          <span data-sidebar-dot-for="title-empty" class="scale-95 opacity-0"></span>
           <a href="#section-empty" data-sidebar-character-link="true" data-sidebar-character-status="active" data-sidebar-title-id="title-empty">Empty</a>
         </li>
         <li>
           <details data-sidebar-archived-details="true">
             <summary data-load-archived-characters="true">Archived Characters</summary>
-            <span data-sidebar-dot-for="title-archived" class="scale-0 opacity-0"></span>
+            <span data-sidebar-dot-for="title-archived" class="scale-95 opacity-0"></span>
             <a href="#section-archived" data-sidebar-character-link="true" data-sidebar-character-status="archived" data-sidebar-title-id="title-archived">Archived</a>
           </details>
         </li>
       </ul>
       <ul data-sidebar-nav-panel="timeline" class="hidden">
         <li>
-          <span data-sidebar-dot-for="timeline-title-2026" class="scale-0 opacity-0"></span>
+          <span data-sidebar-dot-for="timeline-title-2026" class="scale-95 opacity-0"></span>
           <a href="#timeline-year-2026" data-sidebar-character-link="true" data-sidebar-character-status="active" data-sidebar-title-id="timeline-title-2026">2026</a>
         </li>
       </ul>
