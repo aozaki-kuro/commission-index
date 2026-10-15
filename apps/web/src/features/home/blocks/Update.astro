@@ -23,13 +23,13 @@ const resolvedSummary = summary ?? buildHomeUpdateSummary(commissionData, active
 {
   resolvedSummary.entries.length === 0
 ? (
-    <p class="text-sm">{messages.update.noActiveUpdatesFound}</p>
+    <p class="font-mono text-sm">{messages.update.noActiveUpdatesFound}</p>
   )
 : (
     <div
       data-home-update-links="true"
       class="
-        mt-8 mb-6 flex flex-col text-xs
+        mt-8 mb-6 flex flex-col font-mono text-xs
         sm:text-sm
         md:mt-10
       "
@@ -44,7 +44,7 @@ const resolvedSummary = summary ?? buildHomeUpdateSummary(commissionData, active
         <div class="flex flex-col space-y-2">
           {
             resolvedSummary.entries.map(entry => (
-              <p class="mr-2 font-mono">
+              <p class="mr-2">
                 {entry.dateLabel} [ <a href={entry.href} data-home-update-link="true" class="underline-offset-2">{entry.character}</a> ]
               </p>
             ))

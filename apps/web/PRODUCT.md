@@ -96,7 +96,8 @@ an implied distribution service.
 - `src/layouts/BaseLayout.astro` and `public/robots.txt` contain indexing directives.
 - `public/favicon*`, `public/nsfw-cover-s.*`, and `src/assets/fonts/` contain existing identity assets.
 - Typography: monospace (Berkeley Mono) for whole metadata lines — commission info rows (date, creator,
-  part, source links), update-list entries, the build label and literal search syntax. Prose, headings,
+  part, source links), the whole update block (count, "Last update" label and entries), the build label
+  and literal search syntax. Prose, headings,
   navigation, the search input, keyword chips and buttons use IBM Plex Sans. Never mix the two families
   within one line.
 - `generated/` contains local, gitignored build snapshots and source images when exported. These are
