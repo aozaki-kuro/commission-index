@@ -11,7 +11,7 @@ export const IMAGE_NODE_CLASS = 'pointer-events-none relative z-10 block w-full 
 export const IMAGE_FALLBACK_CLASS
   = 'aspect-1280/525 flex items-center justify-center bg-gray-100 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-300'
 export const INFO_ROOT_CLASS
-  = 'flex w-full flex-wrap items-center gap-y-2 text-xs text-gray-800 md:text-sm dark:text-gray-300 mt-6 mb-2 md:mt-8 md:mb-4'
+  = 'flex w-full flex-wrap items-center gap-y-2 font-mono text-xs text-gray-800 md:text-sm dark:text-gray-300 mt-6 mb-2 md:mt-8 md:mb-4'
 export const INFO_TIME_LINK_CLASS
   = 'mr-6 select-none text-gray-800 no-underline dark:text-gray-300! md:mr-10'
 export const INFO_SEPARATOR_CLASS = 'mx-2 select-none md:mx-4'
@@ -104,7 +104,6 @@ export function renderEntryInfo(entry: BatchEntryPayload) {
   anchor.href = `#${entry.id}`
   anchor.className = INFO_TIME_LINK_CLASS
   const time = document.createElement('time')
-  time.className = 'font-mono'
   time.textContent = entry.timeLabel
   anchor.append(time)
   lead.append(anchor)

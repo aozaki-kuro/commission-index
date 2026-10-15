@@ -39,17 +39,13 @@ const resolvedSummary = summary ?? buildHomeUpdateSummary(commissionData, active
         {isMilestoneCommissionCount(resolvedSummary.totalCommissions) ? ' 🎉' : ''}
       </p>
 
-      <div class="flex items-start">
+      <div class="flex items-baseline">
         <p class="mr-2">{messages.update.lastUpdate}</p>
         <div class="flex flex-col space-y-2">
           {
             resolvedSummary.entries.map(entry => (
-              <p class="mr-2">
-                <span class="font-mono">{entry.dateLabel}</span> [ <a
-                  href={entry.href}
-                  data-home-update-link="true"
-                  class="underline-offset-2"
-                                                                   >{entry.character}</a> ]
+              <p class="mr-2 font-mono">
+                {entry.dateLabel} [ <a href={entry.href} data-home-update-link="true" class="underline-offset-2">{entry.character}</a> ]
               </p>
             ))
           }

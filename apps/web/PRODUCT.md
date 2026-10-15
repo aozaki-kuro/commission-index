@@ -95,8 +95,10 @@ an implied distribution service.
   `src/features/home/search/` implement the public workflows.
 - `src/layouts/BaseLayout.astro` and `public/robots.txt` contain indexing directives.
 - `public/favicon*`, `public/nsfw-cover-s.*`, and `src/assets/fonts/` contain existing identity assets.
-- Typography: monospace (Berkeley Mono) only for dates, IDs/build label, and literal search syntax;
-  everything else uses IBM Plex Sans.
+- Typography: monospace (Berkeley Mono) for whole metadata lines — commission info rows (date, creator,
+  part, source links), update-list entries, the build label and literal search syntax. Prose, headings,
+  navigation, the search input, keyword chips and buttons use IBM Plex Sans. Never mix the two families
+  within one line.
 - `generated/` contains local, gitignored build snapshots and source images when exported. These are
   real collection inputs, not a license to invent entries or substitute generated artwork.
 - Repository-level `test/visual/apps/web/` contains committed browser screenshot baselines; the

@@ -13,37 +13,41 @@ const buildLabel = formatBuildLabel(getGeneratedFactSourceContent().meta)
 const currentYear = new Date().getFullYear()
 ---
 
-<div id="--------Footer--------">
-  <hr class="
-    my-8
-    md:mt-12
+<!-- Below lg the floating menu buttons stay shown at page bottom (124px tall column); pb-36 keeps DMCA clear of them. -->
+<footer class="
+  mt-12 border-t border-gray-300/80 pt-6 pb-36 text-xs
+  md:mt-16 md:pt-8
+  lg:pb-10
+  dark:border-neutral-800
+"
+>
+  <div class="
+    max-w-prose space-y-1 text-gray-500
+    dark:text-gray-400
   "
-  />
-
-  <div class="pb-8 text-center text-xs">
-    {messages.footer.rightsLines.map(line => <p class="pt-2">{line}</p>)}
-    <p class="pt-2">{messages.footer.obscuredNames}</p>
-    <p class="pt-2">{messages.footer.noIndexing}</p>
+  >
+    {messages.footer.rightsLines.map(line => <p>{line}</p>)}
+    <p>{messages.footer.obscuredNames}</p>
+    <p>{messages.footer.noIndexing}</p>
   </div>
 
   <div class="
-    pt-16 pb-10 text-gray-800
-    md:pb-0
+    mt-6 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1
+    text-gray-800
     dark:text-gray-300
   "
   >
-    <div class="flex items-baseline justify-between gap-4 text-xs">
-      <small class="text-xs">© <time class="tabular-nums">2022–{currentYear}</time> Crystallize</small>
-      <a
-        href="mailto:dmca@crystallize.cc"
-        class="
-          decoration-inherit decoration-dotted underline-offset-2
-          dark:text-gray-300
-        "
-      >
-        DMCA
-      </a>
-    </div>
-    <div class="mt-1 font-mono text-[11px] text-gray-500 dark:text-gray-400" data-build-label>{buildLabel}</div>
+    <p>© <time>2022–{currentYear}</time> Crystallize</p>
+    <a href="mailto:dmca@crystallize.cc" class="dark:text-gray-300">DMCA</a>
   </div>
-</div>
+
+  <p
+    data-build-label
+    class="
+      mt-1 font-mono text-[11px] text-gray-400
+      dark:text-gray-500
+    "
+  >
+    {buildLabel}
+  </p>
+</footer>
