@@ -4,7 +4,9 @@ CI and release workflows. Workspace, build-script and Cloudflare deploy rules li
 
 ## CI（PR 校验；master 发布）
 
-1. PR/master 执行 lint、全 workspace typecheck、单测，以及 admin UI Playwright（`test:admin-ui`，API fixture，无生产数据或凭证）
+1. PR/master 执行 lint、全 workspace typecheck、单测；admin UI Playwright（`test:admin-ui`，API fixture，无生产数据或凭证）
+   只在 PR 上跑——ruleset 不强制分支基于最新 master，master push 的 build 是合并结果的唯一校验，保留便宜的
+   lint/typecheck/单测即可，Playwright 已在 PR 上验证过同一份 admin 前端
 2. 用 `writeOfflineFactSource.ts` 把与视觉测试相同的离线 fixture 写入 `FACT_SOURCE_DIR=generated-fixture`（无生产凭证），
    Astro check 通过同一变量读取，再执行 admin build
 3. master 部署依赖上述门禁；Web 获得共享环境锁后只导出一次，记录 SHA/revision
