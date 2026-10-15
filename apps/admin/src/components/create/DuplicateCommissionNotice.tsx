@@ -8,7 +8,7 @@ interface DuplicateCommissionNoticeProps {
 
 function DuplicateDetails({ hints }: DuplicateCommissionNoticeProps) {
   return (
-    <ol className="max-h-[min(50vh,24rem)] space-y-2 overflow-y-auto p-3">
+    <ol className="max-h-[min(50dvh,24rem)] space-y-2 overflow-y-auto p-3">
       {hints.map(hint => (
         <li
           key={hint.commissionId}

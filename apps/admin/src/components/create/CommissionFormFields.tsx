@@ -306,7 +306,7 @@ interface CommissionDatePickerProps {
 }
 
 const monthNavigationButtonStyles
-  = 'inline-flex size-9 items-center justify-center rounded-lg text-gray-600 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 dark:text-gray-300 dark:hover:bg-gray-800'
+  = 'inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg text-gray-600 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 dark:text-gray-300 dark:hover:bg-gray-800'
 
 function CommissionDatePicker({ value, onSelect }: CommissionDatePickerProps) {
   const selectedDate = parseIsoDate(value)
@@ -336,7 +336,7 @@ function CommissionDatePicker({ value, onSelect }: CommissionDatePickerProps) {
           aria-haspopup="dialog"
           className="
             inline-flex min-h-11 shrink-0 items-center justify-center
-            rounded-r-lg border border-gray-200 bg-white/80 px-3
+            pointer-coarse:min-w-11 rounded-r-lg border border-gray-200 bg-white/80 px-3
             text-gray-500 transition hover:bg-gray-100
             focus-visible:z-10 focus-visible:outline-none
             focus-visible:ring-2 focus-visible:ring-gray-500
@@ -418,7 +418,7 @@ function CommissionDatePicker({ value, onSelect }: CommissionDatePickerProps) {
                 onSelect(getLocalIsoDate())
                 setIsOpen(false)
               }}
-              className="min-h-9 rounded-lg px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 dark:text-gray-200 dark:hover:bg-gray-800"
+              className="min-h-9 pointer-coarse:min-h-11 rounded-lg px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 dark:text-gray-200 dark:hover:bg-gray-800"
             >
               Today
             </button>
@@ -578,7 +578,7 @@ export function CommissionWorkGroupField({
     <div className="min-w-0">
       <input type="hidden" name="workGroupId" value={value} />
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
-        <label className="flex min-h-9 items-center gap-3 pl-1 text-sm font-medium text-gray-700 dark:text-gray-200">
+        <label className="flex min-h-9 pointer-coarse:min-h-11 items-center gap-3 pl-1 text-sm font-medium text-gray-700 dark:text-gray-200">
           <input
             type="checkbox"
             checked={isGrouped}
@@ -787,7 +787,7 @@ export function CommissionHiddenSwitch({
   onChange,
 }: CommissionHiddenSwitchProps) {
   return (
-    <label className="flex min-h-9 items-center gap-3 pl-1 text-sm font-medium text-gray-700 dark:text-gray-200">
+    <label className="flex min-h-9 pointer-coarse:min-h-11 items-center gap-3 pl-1 text-sm font-medium text-gray-700 dark:text-gray-200">
       <input
         id="commission-hidden"
         type="checkbox"

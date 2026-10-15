@@ -26,7 +26,7 @@ export function SubmitButton({
         focus-visible:ring-2 focus-visible:ring-gray-400
         focus-visible:ring-offset-2 focus-visible:ring-offset-white
         focus-visible:outline-none
-        active:scale-[0.97]
+        motion-safe:enabled:active:scale-[0.98]
         disabled:bg-gray-200 disabled:text-gray-500 disabled:opacity-100
         disabled:pointer-events-none
         dark:bg-gray-100 dark:text-gray-900

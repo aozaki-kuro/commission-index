@@ -2,7 +2,7 @@ export const adminSurfaceStyles
   = 'admin-surface space-y-6 rounded-xl border border-gray-200 p-4 text-sm sm:p-6 dark:border-gray-800'
 
 export const adminActionLinkStyles
-  = 'admin-surface inline-flex min-h-11 items-center justify-between gap-4 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-800 no-underline transition hover:border-gray-400 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 dark:border-gray-700 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:text-gray-100'
+  = 'admin-surface inline-flex min-h-11 items-center justify-between gap-4 rounded-lg border border-gray-300 px-4 py-3 text-sm font-medium text-gray-800 no-underline transition motion-safe:active:scale-[0.98] hover:border-gray-400 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 dark:border-gray-700 dark:text-gray-200 dark:hover:border-gray-600 dark:hover:text-gray-100'
 
 export const fieldLabelStyles
   = 'block pl-1 text-sm font-medium text-gray-700 dark:text-gray-300'

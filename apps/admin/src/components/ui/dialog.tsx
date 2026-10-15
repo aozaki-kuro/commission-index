@@ -59,7 +59,7 @@ const dialogContentBase = {
     bg-white/[0.96] backdrop-blur-xl dark:border-white/12 dark:bg-[#1c1c1e]/[0.96]
     motion-safe:data-[state=open]:animate-[dialog-crop-content-in_200ms_ease-out]
     motion-safe:data-[state=closed]:animate-[dialog-crop-content-out_150ms_ease-in]
-    sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-[min(90vh,52rem)]
+    sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-[min(90dvh,52rem)]
     sm:w-[min(92vw,64rem)] sm:-translate-x-1/2 sm:-translate-y-1/2
     sm:rounded-2xl sm:border sm:shadow-[0_24px_80px_rgb(0_0_0_/_0.22)]
     sm:ring-1 sm:ring-black/8 dark:sm:shadow-[0_28px_90px_rgb(0_0_0_/_0.52)]
@@ -67,7 +67,7 @@ const dialogContentBase = {
   `,
   // 默认：始终居中浮层
   default: `
-    fixed top-1/2 left-1/2 z-70 flex max-h-[85vh] w-full max-w-2xl
+    fixed top-1/2 left-1/2 z-70 flex max-h-[85dvh] w-full max-w-2xl
     -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden
     rounded-2xl bg-white shadow-2xl ring-1 ring-black/10
     dark:bg-gray-950 dark:ring-white/10
@@ -81,7 +81,7 @@ const dialogContentBase = {
     dark:bg-gray-950
     motion-safe:data-[state=open]:animate-[dialog-content-in_200ms_ease-out]
     motion-safe:data-[state=closed]:animate-[dialog-content-out_150ms_ease-in]
-    sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[85vh] sm:w-full sm:max-w-3xl
+    sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[85dvh] sm:w-full sm:max-w-3xl
     sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl
     sm:bg-gray-50 sm:shadow-[0_24px_64px_-12px_rgb(0_0_0_/_0.35)]
     dark:sm:bg-gray-900

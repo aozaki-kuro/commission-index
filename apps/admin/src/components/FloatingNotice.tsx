@@ -67,7 +67,7 @@ export function FloatingNotice({
           type="button"
           onClick={onDismiss}
           aria-label="Dismiss notification"
-          className="-m-1 inline-flex size-8 shrink-0 items-center justify-center rounded-md hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:hover:bg-white/10"
+          className="-m-1 inline-flex size-8 pointer-coarse:-m-2.5 pointer-coarse:size-11 shrink-0 items-center justify-center rounded-md hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current dark:hover:bg-white/10"
         >
           <IconX className="size-4" aria-hidden="true" />
         </button>
