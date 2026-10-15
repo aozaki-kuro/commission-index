@@ -41,7 +41,7 @@ function resolveOperatorBadge(
 
 const BADGE_CLASS = [
   'shrink-0 rounded-sm border border-gray-300/90',
-  'bg-gray-100/85 px-1 py-0.5 text-[10px] leading-none',
+  'bg-gray-100/85 px-1 py-0.5 font-mono text-[10px] leading-none',
   'tracking-[0.06em] text-gray-600',
   'dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300',
 ].join(' ')
@@ -54,7 +54,7 @@ const SUGGESTION_ITEM_CLASS = [
   'data-[disabled=true]:pointer-events-none',
   'data-[disabled=true]:opacity-50',
   // suggestion-specific overrides
-  'px-3 py-1.5 font-mono text-gray-700',
+  'px-3 py-1.5 text-gray-700',
   'data-[selected=true]:bg-gray-900/6',
   'data-[selected=true]:text-gray-900',
   'dark:text-gray-300',
@@ -69,7 +69,7 @@ const ARCHIVED_ITEM_CLASS = [
   'data-[disabled=true]:pointer-events-none',
   'data-[disabled=true]:opacity-50',
   // archived-specific overrides
-  'items-start gap-3 px-3 py-2 font-mono text-gray-700',
+  'items-start gap-3 px-3 py-2 text-gray-700',
   'data-[selected=true]:bg-gray-900/6',
   'data-[selected=true]:text-gray-900',
   'dark:text-gray-300',

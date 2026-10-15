@@ -26,7 +26,7 @@ const backdropStyle = {
 
 const utilityActionButtonClassName
   = 'flex w-full items-center justify-between rounded-lg px-4 py-1 text-gray-700 transition-colors duration-150 hover:bg-white/70 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-white/10 dark:hover:text-white'
-const utilityActionTextClassName = 'font-mono text-base leading-6 font-bold no-underline transition-colors duration-200'
+const utilityActionTextClassName = 'text-base leading-6 font-bold no-underline transition-colors duration-200'
 ---
 
 <div
@@ -40,6 +40,10 @@ const utilityActionTextClassName = 'font-mono text-base leading-6 font-bold no-u
   data-mobile-hamburger-close-label={controls.closeNavigationMenu}
   class="
     fixed right-8 bottom-8 z-90
+    transition-[opacity,translate] duration-200
+    data-[floating-hidden]:translate-y-[calc(100%+2rem)] data-[floating-hidden]:opacity-0
+    data-[floating-hidden]:pointer-events-none data-[floating-hidden]:*:pointer-events-none
+    motion-reduce:data-[floating-hidden]:translate-y-0
     lg:hidden
   "
 >
@@ -84,8 +88,8 @@ const utilityActionTextClassName = 'font-mono text-base leading-6 font-bold no-u
     style={backdropStyle}
     class="
       pointer-events-none absolute right-4 bottom-full z-80 mb-4 hidden
-      max-h-[calc(100vh-8rem)] w-64 origin-bottom-right overflow-y-auto
-      rounded-xl border border-white/20 bg-white/80 font-mono opacity-0
+      max-h-[calc(100dvh-8rem)] w-64 origin-bottom-right overflow-y-auto
+      rounded-xl border border-white/20 bg-white/80 opacity-0
       shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-lg
       transition-[opacity,transform] duration-220 ease-out
       focus:outline-hidden
@@ -93,11 +97,7 @@ const utilityActionTextClassName = 'font-mono text-base leading-6 font-bold no-u
     "
   >
     <div class="space-y-0">
-      <div class="
-        space-y-2 border-b border-gray-300/50 px-2 py-3
-        dark:border-white/10
-      "
-      >
+      <div class="space-y-2 px-2 pt-3 pb-5">
         <ul class="space-y-2">
           <li class="relative">
             <button
@@ -120,7 +120,7 @@ const utilityActionTextClassName = 'font-mono text-base leading-6 font-bold no-u
               class={`${utilityActionButtonClassName} appearance-none border-0 bg-transparent p-0 text-left text-gray-900 dark:text-white`.trim()}
             >
               <span class={utilityActionTextClassName}>{controls.byCharacter}</span>
-              <Icon data-mobile-hamburger-view-mode-indicator="true" name="tabler:arrow-badge-left-filled" class="size-4 scale-100 text-gray-400 opacity-100 transition-all duration-300" aria-hidden="true" />
+              <Icon data-mobile-hamburger-view-mode-indicator="true" name="tabler:arrow-badge-left-filled" class="size-4 scale-100 text-gray-400 opacity-100 transition-[opacity,scale] duration-300" aria-hidden="true" />
             </button>
           </li>
 
@@ -133,7 +133,7 @@ const utilityActionTextClassName = 'font-mono text-base leading-6 font-bold no-u
               class={`${utilityActionButtonClassName} appearance-none border-0 bg-transparent p-0 text-left`.trim()}
             >
               <span class={utilityActionTextClassName}>{controls.byDate}</span>
-              <Icon data-mobile-hamburger-view-mode-indicator="true" name="tabler:arrow-badge-left-filled" class="size-4 scale-0 text-gray-400 opacity-0 transition-all duration-300" aria-hidden="true" />
+              <Icon data-mobile-hamburger-view-mode-indicator="true" name="tabler:arrow-badge-left-filled" class="size-4 scale-95 text-gray-400 opacity-0 transition-[opacity,scale] duration-300" aria-hidden="true" />
             </button>
           </li>
         </ul>
@@ -157,7 +157,7 @@ const utilityActionTextClassName = 'font-mono text-base leading-6 font-bold no-u
               aria-controls="mobile-active-characters"
               class="
                 flex w-full items-center justify-between
-                rounded-lg px-4 py-2 text-left font-mono transition-colors
+                rounded-lg px-4 py-2 text-left transition-colors
                 duration-150
                 hover:bg-white/70
                 dark:hover:bg-white/10
@@ -198,7 +198,7 @@ const utilityActionTextClassName = 'font-mono text-base leading-6 font-bold no-u
                 )
 : (
                   <p class="
-                    px-4 py-2 font-mono text-sm text-gray-500
+                    px-4 py-2 text-sm text-gray-500
                     dark:text-gray-400
                   "
                   >
@@ -224,7 +224,7 @@ const utilityActionTextClassName = 'font-mono text-base leading-6 font-bold no-u
               aria-controls="mobile-archived-characters"
               class="
                 flex w-full items-center justify-between
-                rounded-lg px-4 py-2 text-left font-mono transition-colors
+                rounded-lg px-4 py-2 text-left transition-colors
                 duration-150
                 hover:bg-white/70
                 dark:hover:bg-white/10
@@ -266,7 +266,7 @@ const utilityActionTextClassName = 'font-mono text-base leading-6 font-bold no-u
                 )
 : (
                   <p class="
-                    px-4 py-2 font-mono text-sm text-gray-500
+                    px-4 py-2 text-sm text-gray-500
                     dark:text-gray-400
                   "
                   >

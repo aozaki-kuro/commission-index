@@ -7,6 +7,7 @@ import { mountMobileViewModeTabs } from '@features/home/commission/mobileViewMod
 import { mountScrollReveal } from '@features/home/commission/scrollReveal'
 import { mountUnpublishedInterestButtons } from '@features/home/commission/unpublishedInterestClient'
 import { mountHomeScrollRestore } from '@features/home/homeScrollRestore'
+import { mountFloatingButtonsAutoHide } from '@features/home/nav/hamburger/floatingButtonsAutoHide'
 import { mountMobileHamburgerMenu } from '@features/home/nav/hamburger/mobileHamburgerMenu'
 import { mountMobileLanguageMenu } from '@features/home/nav/hamburger/mobileLanguageMenu'
 import { mountSidebarNavEnhancer } from '@features/home/nav/sidebarNavEnhancer'
@@ -34,6 +35,7 @@ interface HomePageClientDeps {
   mountSidebarNavEnhancer: Mount
   mountMobileHamburgerMenu: Mount
   mountMobileLanguageMenu: Mount
+  mountFloatingButtonsAutoHide: Mount
   mountMobileViewModeTabs: Mount
   mountScrollReveal: Mount
   mountUnpublishedInterestButtons: Mount
@@ -54,6 +56,7 @@ const defaultDeps: HomePageClientDeps = {
   mountSidebarNavEnhancer: () => mountSidebarNavEnhancer(),
   mountMobileHamburgerMenu: () => mountMobileHamburgerMenu(),
   mountMobileLanguageMenu: () => mountMobileLanguageMenu(),
+  mountFloatingButtonsAutoHide: () => mountFloatingButtonsAutoHide(),
   mountMobileViewModeTabs: () => mountMobileViewModeTabs(),
   mountScrollReveal: () => mountScrollReveal(),
   mountUnpublishedInterestButtons: () =>
@@ -99,6 +102,7 @@ export function mountHomePageClient({ deps: depsOverrides }: MountHomePageClient
     deps.mountMobileViewModeTabs,
     deps.mountUnpublishedInterestButtons,
     deps.mountScrollReveal,
+    deps.mountFloatingButtonsAutoHide,
   ]
   const cleanups: Cleanup[] = []
   let cancelDeferredMount: Cleanup | null = null

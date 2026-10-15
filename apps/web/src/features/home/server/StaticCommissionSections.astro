@@ -126,10 +126,7 @@ const archivedCommissionCount = archivedChars.reduce(
 ? (
         <>
           <div data-archived-sections-placeholder="true" class="pb-8">
-            <div class="pb-6">
-              <hr />
-            </div>
-            <div class="mx-auto max-w-lg pt-4 text-center">
+            <div class="mx-auto max-w-lg pt-12 text-center">
               <p class="
                 text-[11px] tracking-[0.08em] text-stone-500
                 dark:text-stone-400
@@ -190,9 +187,7 @@ const archivedCommissionCount = archivedChars.reduce(
               </button>
             </div>
           </div>
-          <div data-archived-divider="true" class="hidden pb-8">
-            <hr />
-          </div>
+          <div data-archived-divider="true" class="hidden pb-12"></div>
           <div data-archived-sections-container="true" />
           <div
             data-archived-deferred-sections-sentinel="true"
@@ -400,7 +395,7 @@ if (initialMode === 'timeline') {
     activeTextClasses: ['text-gray-900', 'dark:text-white'],
     inactiveTextClasses: ['text-gray-700', 'dark:text-gray-200'],
     activeIndicatorClasses: ['scale-100', 'opacity-100'],
-    inactiveIndicatorClasses: ['scale-0', 'opacity-0'],
+    inactiveIndicatorClasses: ['scale-95', 'opacity-0'],
   })
   syncToggleGroupState({
     toggleSelector: '[data-mobile-view-mode-toggle="true"]',
@@ -416,7 +411,7 @@ if (initialMode === 'timeline') {
     activeTextClasses: ['text-gray-900', 'dark:text-white'],
     inactiveTextClasses: ['text-gray-700', 'dark:text-gray-200'],
     activeIndicatorClasses: ['scale-100', 'opacity-100'],
-    inactiveIndicatorClasses: ['scale-0', 'opacity-0'],
+    inactiveIndicatorClasses: ['scale-95', 'opacity-0'],
   })
 }
 </script>

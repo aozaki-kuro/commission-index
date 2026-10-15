@@ -69,7 +69,7 @@ const ARCHIVED_LOAD_TRIGGER_SELECTOR = '[data-load-archived-characters="true"]'
 const BACK_TO_TOP_BUTTON_SELECTOR = '[data-sidebar-back-to-top-button="true"]'
 
 const ACTIVE_DOT_CLASSES = ['scale-100', 'opacity-100'] as const
-const HIDDEN_DOT_CLASSES = ['scale-0', 'opacity-0'] as const
+const HIDDEN_DOT_CLASSES = ['scale-95', 'opacity-0'] as const
 const SIDEBAR_DOT_SELECTOR = '[data-sidebar-dot-for]'
 const HASH_PREFIX_PATTERN = /^#/
 const BACK_TO_TOP_VISIBILITY_SCROLL_THRESHOLD = 360

@@ -169,7 +169,7 @@ function syncViewModeIndicatorState(button: HTMLButtonElement, active: boolean) 
 
   indicator.classList.toggle('scale-100', active)
   indicator.classList.toggle('opacity-100', active)
-  indicator.classList.toggle('scale-0', !active)
+  indicator.classList.toggle('scale-95', !active)
   indicator.classList.toggle('opacity-0', !active)
 }
 
