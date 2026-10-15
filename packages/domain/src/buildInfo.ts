@@ -25,8 +25,3 @@ export function createPublicBuildInfo(meta: BuildMeta, builtAt: string): BuildIn
     builtAt,
   }
 }
-
-/** Short data-revision prefix plus export date (UTC day of an ISO timestamp). */
-export function formatBuildLabel(meta: BuildMeta): string {
-  return `${meta.revision.slice(0, 7)} · ${meta.exportedAt.slice(0, 10)}`
-}
