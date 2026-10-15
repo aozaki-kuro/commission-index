@@ -4,6 +4,7 @@ import type {
 } from '@commission-index/domain'
 import type { ChangeEvent } from 'react'
 import { useActionState, useEffect, useMemo, useRef, useState } from 'react'
+import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { addCommissionAction } from '../../lib/adminActions'
 import { extractCommissionDetails } from '../../lib/commissionFileDetails'
 import { notifyDataUpdate } from '../../lib/dataUpdateSignal'
@@ -34,6 +35,10 @@ interface AddCommissionFormProps {
 }
 
 type SourceImageHintTone = 'default' | 'success' | 'error'
+
+// links/design/description are uncontrolled, so they are read from the form instead of state.
+const UNCONTROLLED_DRAFT_FIELDS = ['links', 'design', 'description']
+const EMPTY_DRAFT = JSON.stringify([null, false, '', '', '', '', ''])
 
 function SourceImagePreview({ file }: { file: File | null }) {
   const imageRef = useRef<HTMLImageElement>(null)
@@ -73,6 +78,11 @@ export function AddCommissionForm({
   const [croppedImage, setCroppedImage] = useState<File | null>(null)
   const [pendingCropFile, setPendingCropFile] = useState<File | null>(null)
   const sourceImageInputRef = useRef<HTMLInputElement | null>(null)
+  const [hasTextDraft, setHasTextDraft] = useState(false)
+  const [savedDraft, setSavedDraft] = useState(EMPTY_DRAFT)
+  // Controlled fields survive a successful reset, so dirty is measured against the last saved values.
+  const controlledDraft = JSON.stringify([characterId, isHidden, commissionDate, creatorName, workGroupId, partNumber, keywordValue])
+  useUnsavedChangesGuard(controlledDraft !== savedDraft || hasTextDraft || croppedImage !== null || pendingCropFile !== null)
 
   useEffect(() => {
     if (state.status === 'success') {
@@ -178,12 +188,20 @@ export function AddCommissionForm({
   return (
     <form
       action={formAction}
+      onInput={(event) => {
+        const data = new FormData(event.currentTarget)
+        setHasTextDraft(UNCONTROLLED_DRAFT_FIELDS.some(name => String(data.get(name) ?? '').trim() !== ''))
+      }}
       onReset={(event) => {
         // React action 正常返回也会重置；业务失败必须保留草稿和已确认图片。
-        if (state.status !== 'success')
+        if (state.status !== 'success') {
           event.preventDefault()
-        else
+        }
+        else {
           setCroppedImage(null)
+          setHasTextDraft(false)
+          setSavedDraft(controlledDraft)
+        }
       }}
       className="
         admin-surface flex min-w-0 flex-1 flex-col gap-6 rounded-xl border

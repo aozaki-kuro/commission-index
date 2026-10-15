@@ -42,6 +42,9 @@ vi.mock('../create/CommissionSharedFields', () => ({
       >
         New part group
       </button>
+      <button type="button" onClick={() => props.onPartNumberChange('01')}>
+        Set padded part
+      </button>
     </div>
   ),
 }))
@@ -108,6 +111,47 @@ describe('edit form mutation lifecycle', () => {
     await submit()
     expect(api.saved).toHaveBeenCalledTimes(2)
     expect(api.saved).toHaveBeenLastCalledWith(expect.objectContaining({ creatorName: 'Unsaved draft' }))
+  })
+
+  it('warns before unload only while the draft differs from the last saved values', async () => {
+    const unloadPrevented = () => {
+      const event = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(event)
+      return event.defaultPrevented
+    }
+    expect(unloadPrevented()).toBe(false)
+    await typeCreator('Changed')
+    expect(unloadPrevented()).toBe(true)
+    await typeCreator('Original')
+    expect(unloadPrevented()).toBe(false)
+    await typeCreator('Changed')
+    await submit()
+    expect(unloadPrevented()).toBe(false)
+  })
+
+  it('stays clean after saving a non-canonical part number', async () => {
+    const unloadPrevented = () => {
+      const event = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(event)
+      return event.defaultPrevented
+    }
+    await act(async () => button('Set padded part').click())
+    expect(unloadPrevented()).toBe(true)
+    await submit()
+    expect(api.saved).toHaveBeenLastCalledWith(expect.objectContaining({ partNumber: 1 }))
+    expect(unloadPrevented()).toBe(false)
+  })
+
+  it('warns before unload while a picked image is still being cropped', async () => {
+    const unloadPrevented = () => {
+      const event = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(event)
+      return event.defaultPrevented
+    }
+    const input = container.querySelector('input[type="file"]')!
+    Object.defineProperty(input, 'files', { value: [new File(['image'], 'art.png', { type: 'image/png' })] })
+    await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })))
+    expect(unloadPrevented()).toBe(true)
   })
 
   it('creates a real group identity once and reuses it on subsequent saves', async () => {
