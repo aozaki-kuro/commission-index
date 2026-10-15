@@ -15,6 +15,7 @@ import {
   useTransition,
 } from 'react'
 import { useCommissionEditState } from '../../hooks/useCommissionEditState'
+import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import {
   deleteCommissionAction,
   replaceCommissionSourceImageAction,
@@ -45,6 +46,35 @@ interface CommissionEditFormProps {
 interface OperationStatus {
   text: string
   type: 'success' | 'error'
+}
+
+// Normalised like saveCommission's payload so a saved draft compares equal to its baseline.
+function buildDraftSnapshot(draft: {
+  characterId: number
+  hidden: boolean
+  commissionDate: string
+  creatorName: string
+  workGroupId: string
+  partNumber: string
+  links: string
+  design: string
+  description: string
+  keyword: string
+}) {
+  const trim = (value: string) => value.trim()
+  return JSON.stringify([
+    draft.characterId,
+    draft.hidden,
+    trim(draft.commissionDate),
+    trim(draft.creatorName),
+    trim(draft.workGroupId),
+    // Number input keeps "01"/"1.0" as typed; normalise so it matches the saved numeric baseline.
+    trim(draft.partNumber) === '' ? '' : String(Number(draft.partNumber)),
+    draft.links.split('\n').map(trim).filter(Boolean),
+    trim(draft.design),
+    trim(draft.description),
+    trim(draft.keyword),
+  ])
 }
 
 function buildPreviewVersionStorageKey(commissionId: number) {
@@ -104,6 +134,20 @@ export function CommissionEditForm({
     characters,
     commission,
   })
+  const draftSnapshot = buildDraftSnapshot({
+    characterId: selectedCharacterId,
+    hidden: isHidden,
+    commissionDate,
+    creatorName,
+    workGroupId,
+    partNumber,
+    links: linksValue,
+    design: designValue,
+    description: descriptionValue,
+    keyword: keywordValue,
+  })
+  const [savedSnapshot, setSavedSnapshot] = useState(draftSnapshot)
+  useUnsavedChangesGuard(draftSnapshot !== savedSnapshot || pendingCropFile !== null)
   const previewImageSrc = imageVersion > 0 ? `${imageSrc}?v=${imageVersion}` : imageSrc
   const accessibleLabel = getCommissionAccessibleLabel(commission)
   const duplicateHints = useMemo(
@@ -155,6 +199,18 @@ export function CommissionEditForm({
       setWorkGroupId(current => current === requestedGroupId ? savedGroupId : current)
       notifyDataUpdate({ characterIds: affectedCharacterIds })
       markPendingRebuild()
+      setSavedSnapshot(buildDraftSnapshot({
+        characterId: updated.characterId,
+        hidden: updated.hidden,
+        commissionDate: updated.commissionDate ?? '',
+        creatorName: updated.creatorName ?? '',
+        workGroupId: updated.workGroupId ?? '',
+        partNumber: updated.partNumber?.toString() ?? '',
+        links: updated.links.join('\n'),
+        design: updated.design ?? '',
+        description: updated.description ?? '',
+        keyword: updated.keyword ?? '',
+      }))
       onSaveSuccess?.(updated)
     }
     return result
@@ -420,6 +476,7 @@ export function CommissionEditForm({
                   onClick={() => setIsDeleteArmed(false)}
                   className="
                     inline-flex h-9 items-center justify-center rounded-md
+                    pointer-coarse:h-11 motion-safe:active:scale-[0.98]
                     border border-gray-300/80 px-3 text-sm font-medium
                     text-gray-600 transition
                     hover:bg-gray-50
@@ -443,6 +500,7 @@ export function CommissionEditForm({
             disabled={isDeleting || isUploading || isSaving}
             className={`
               inline-flex h-9 items-center justify-center rounded-md border px-3
+              pointer-coarse:h-11 motion-safe:enabled:active:scale-[0.98]
               text-sm font-medium transition
               focus-visible:ring-2 focus-visible:ring-red-400
               focus-visible:ring-offset-2 focus-visible:ring-offset-white
