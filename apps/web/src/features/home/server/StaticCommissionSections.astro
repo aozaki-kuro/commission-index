@@ -76,6 +76,11 @@ const timelineBatchManifest = await buildHomeTimelineBatchManifest({
 })
 const initialTimelineGroups = timelineBatchPlan.initialGroups
 const hasDeferredTimelineGroups = timelineBatchPlan.totalBatches > 0
+const activeCommissionCount = activeChars.reduce(
+  (count, chara) => count + (commissionMap.get(chara.DisplayName)?.Commissions.length ?? 0),
+  0,
+)
+const timelineCommissionCount = timelineGroups.reduce((count, group) => count + group.entries.length, 0)
 const archivedCharacterCount = archivedChars.length
 const archivedCommissionCount = archivedChars.reduce(
   (count, chara) => count + (commissionMap.get(chara.DisplayName)?.Commissions.length ?? 0),
@@ -87,6 +92,7 @@ const archivedCommissionCount = archivedChars.reduce(
   <div
     data-commission-view-panel="character"
     data-commission-view-active="true"
+    data-total-entries={activeCommissionCount}
     data-active-sections-loaded={hasDeferredActiveChars ? 'false' : 'true'}
     data-active-batches-loaded-count="0"
     data-archived-loaded="false"
@@ -206,6 +212,7 @@ const archivedCommissionCount = archivedChars.reduce(
   <div
     data-commission-view-panel="timeline"
     data-commission-view-active="false"
+    data-total-entries={timelineCommissionCount}
     data-timeline-loaded={hasDeferredTimelineGroups ? 'false' : 'true'}
     data-timeline-batches-loaded-count="0"
     class="hidden"
