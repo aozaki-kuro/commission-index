@@ -4,6 +4,7 @@ import { mountActiveCharactersLoader } from '@features/home/commission/loader/ac
 import { mountArchivedCharactersLoader } from '@features/home/commission/loader/archivedCharactersLoader'
 import { mountTimelineViewLoader } from '@features/home/commission/loader/timelineViewLoader'
 import { mountMobileViewModeTabs } from '@features/home/commission/mobileViewModeTabs'
+import { mountScrollDepthTracker } from '@features/home/commission/scrollDepthTracker'
 import { mountScrollReveal } from '@features/home/commission/scrollReveal'
 import { mountUnpublishedInterestButtons } from '@features/home/commission/unpublishedInterestClient'
 import { mountHomeScrollRestore } from '@features/home/homeScrollRestore'
@@ -38,6 +39,7 @@ interface HomePageClientDeps {
   mountFloatingButtonsAutoHide: Mount
   mountMobileViewModeTabs: Mount
   mountScrollReveal: Mount
+  mountScrollDepthTracker: Mount
   mountUnpublishedInterestButtons: Mount
   scheduleDeferredMount: (task: () => void) => Cleanup
 }
@@ -59,6 +61,12 @@ const defaultDeps: HomePageClientDeps = {
   mountFloatingButtonsAutoHide: () => mountFloatingButtonsAutoHide(),
   mountMobileViewModeTabs: () => mountMobileViewModeTabs(),
   mountScrollReveal: () => mountScrollReveal(),
+  mountScrollDepthTracker: () =>
+    mountScrollDepthTracker({
+      trackEvent: (properties) => {
+        trackRybbitEvent(ANALYTICS_EVENTS.scrollDepthReached, { ...properties })
+      },
+    }),
   mountUnpublishedInterestButtons: () =>
     mountUnpublishedInterestButtons({
       trackEvent: (properties) => {
@@ -103,6 +111,7 @@ export function mountHomePageClient({ deps: depsOverrides }: MountHomePageClient
     deps.mountUnpublishedInterestButtons,
     deps.mountScrollReveal,
     deps.mountFloatingButtonsAutoHide,
+    deps.mountScrollDepthTracker,
   ]
   const cleanups: Cleanup[] = []
   let cancelDeferredMount: Cleanup | null = null
