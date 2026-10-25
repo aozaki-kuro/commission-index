@@ -17,6 +17,9 @@
 /search/home-search-entries.*.json
   Cache-Control: public, max-age=31536000, immutable
 
+/search/home-search-version.json
+  Cache-Control: no-cache
+
 /search/home-character-batches/*
   Cache-Control: public, max-age=31536000, immutable
 
