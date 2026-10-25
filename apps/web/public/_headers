@@ -20,12 +20,6 @@
 /search/home-search-version.json
   Cache-Control: no-cache
 
-/search/home-character-batches/*
-  Cache-Control: public, max-age=31536000, immutable
-
-/search/home-timeline-batches/*
-  Cache-Control: public, max-age=31536000, immutable
-
 /*.html
   Cache-Control: no-cache
 
@@ -33,12 +27,6 @@
   Cache-Control: no-cache
 
 /rss.xml
-  Cache-Control: no-cache
-
-/search/home-character-manifest/*
-  Cache-Control: no-cache
-
-/search/home-timeline-manifest/*
   Cache-Control: no-cache
 
 /favicon.ico
