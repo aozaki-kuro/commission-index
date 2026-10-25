@@ -35,7 +35,15 @@ existing open-source library"). Evidence and rulings below stand in for a separa
 ## Rulings
 
 - **Ruling: delete the deferral rather than swap in a library.**
-  - _TanStack Virtual / virtua:_ these break native anchors and Ctrl+F, and fight variable-height images.
+  - _TanStack Virtual / virtua:_ all source images share one aspect, 1280:525. This was verified 2026-10-25: 140 are
+    1280×525 and one is 2048×840. So height estimation is not the obstacle; the rest is.
+    - Entries outside the window are not in the DOM. That breaks permalinks, Ctrl+F and no-JS crawling.
+    - DOM-based search filtering, scroll restore, scroll depth, scroll reveal and sidebar tracking would all need
+      rewriting against a data model.
+    - Rows would have to be rendered from JSON, which keeps the dual renderer (P9).
+    - virtua has no official vanilla binding.
+    - At about 2k visible elements there is nothing to virtualize.
+    - Revisit only at thousands of visible entries.
   - _Astro Server Islands:_ these need SSR, and the site is static-only.
   - _htmx (`hx-trigger="revealed"` plus Astro-emitted HTML fragments):_ this is the only real fit. It would also end
     the dual renderer. But it replaces only fetch+render, about a third of the code. Hash-to-unloaded-target, stale
