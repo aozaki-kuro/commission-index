@@ -136,6 +136,8 @@ Read both before calling or modifying any `/api/admin/*` endpoint (in `apps/admi
   不要用 SQL 字符串匹配再实现一套数据库。
 - 异步 DOM 测试使用 `vi.waitFor` 等待可观察结果，不以固定次数的 Promise/timer 循环猜测完成时间；真实布局、
   滚动和动画交给 Playwright。
+- 根配置在每个测试前自动还原 `vi.spyOn` 间谍、`vi.stubGlobal` 与 `vi.stubEnv`，测试里不要手写这些还原；跨用例共享的
+  间谍在 `beforeEach` 中创建，不放在模块顶层或 `beforeAll`。
 - Tests depending on `apps/web/generated/*` must guard behind an existence check and lazy import — CI may
   collect tests before export.
 - Visual baselines live under `test/visual/`; never replace them with `playwright-report/` or `test-results/`

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { fetchLiveBuildInfo, isBuildConfirmed, parseBuildInfo } from './liveBuildInfo'
 
 const validInfo = {
@@ -7,10 +7,6 @@ const validInfo = {
   codeSha: null,
   builtAt: '2026-10-09T10:03:00.000Z',
 }
-
-afterEach(() => {
-  vi.unstubAllGlobals()
-})
 
 describe('isBuildConfirmed', () => {
   const dispatchedAt = '2026-10-09T10:00:00.000Z'

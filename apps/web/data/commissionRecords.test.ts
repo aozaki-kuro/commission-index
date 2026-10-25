@@ -8,7 +8,6 @@ describe('commissionRecords', () => {
 
   afterEach(() => {
     vi.doUnmock('./generatedFactSource')
-    vi.unstubAllEnvs()
     vi.resetModules()
   })
 
