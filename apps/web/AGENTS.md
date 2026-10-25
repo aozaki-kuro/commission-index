@@ -27,39 +27,26 @@ product context is `PRODUCT.md`.
 Static markup is Astro templates. All client-side behavior uses Astro script components
 (`HomeClientScript.astro`) and vanilla TS modules.
 
-- **Deferred sections:** active character sections and timeline use an inline manifest + external
-  batch JSON, lazy-loaded by script loaders. Archived sections are server-rendered inside
-  `[data-archived-sections-container]` (`hidden` until shown) and are never fetched
-- **Content-hashed batch filenames:** each batch file is named `<index>.<hash>.json`
-  (`/search/home-character-batches/<locale>/<status>/0.k3j9x.json`, timeline alike); the search index is
-  `/search/home-search-entries.<hash>.json`. The hash is djb2 (`lib/utils/hash.ts`) over the **final
-  serialized payload**, so editing one commission — or a localized message, or an alias — changes only the
-  affected bytes' filename. The manifest's `batchVersions` and the batch endpoint's path come from one
-  memoized builder (`features/home/server/homeCharacterBatchArtifacts.ts`, `homeTimelineBatchArtifacts.ts`),
-  and the search-index version `v` (also on the root `data-search-index-version`) (`lib/pipeline/homeSearchEntries.ts`); they cannot
-  disagree. Batches and search entries are served `Cache-Control: immutable`, so unchanged data costs zero
-  requests.
-- **Stale-HTML manifest fallback:** the inline manifest in cached HTML can name a hashed file a deploy
-  deleted. On a hash-navigation miss, or on a batch/search-entries `404`, loaders fetch
-  `/search/home-character-manifest/<locale>.json` or `/search/home-timeline-manifest/<locale>.json`
-  (`Cache-Control: no-cache`) with cache-busting and retry once against the fresh `targetBatchById` /
-  `batchVersions` / `v`. Only fetched on the fallback path.
-  Prefetch and fetch share the same retry. Batch fetches time out after `BATCH_FETCH_TIMEOUT_MS`
-  (`batchRequestQueue.ts`) when the browser supports `AbortSignal.timeout`.
-- **Archived toggle:** `commission/archivedCharactersToggle.ts` owns show/collapse (class `hidden` on the container,
-  divider and placeholder, `data-archived-visibility` on the character panel, the state-change event and the session
-  persistence pair) and answers show requests synchronously, so callers subscribe before requesting and can scroll
-  in the same frame. It reads the panel attribute on mount: the inline script in `StaticCommissionSections.astro`
-  already expanded archived before paint when the hash (character view) targets an archived entry.
-  `homeHashTarget.ts` resolves the hash via `getHashTarget` (active-panel copy of shared ids), expands archived when
-  needed and scrolls. Search treats entries inside the collapsed container as hidden matches (the "load archived"
-  notice), not visible ones.
-- **Manifest cache key:** inline manifests are cached per `<script>` element; ClientRouter swaps replace the element,
-  so never cache per `Document`.
+- **Static listing:** every character and timeline section is server-rendered; there is no deferred batch, manifest
+  or section fetch. Archived sections sit in `[data-archived-sections-container]` (`hidden` until shown).
+  `commission/archivedCharactersToggle.ts` owns show/collapse (class `hidden` on the container, divider and
+  placeholder, `data-archived-visibility` on the character panel, the state-change event and the session
+  persistence pair; state and events in `commission/archivedCharactersState.ts`) and answers show requests
+  synchronously, so callers subscribe before requesting and can scroll in the same frame. It reads the panel
+  attribute on mount: the inline script in `StaticCommissionSections.astro` already expanded archived before paint
+  when the hash (character view) targets an archived entry. `homeHashTarget.ts` is the single owner of hash
+  navigation: it resolves the hash via `getHashTarget`, expands archived when needed and scrolls. Entry ids are
+  `<sectionId>-commission-<publicId>` and the same id appears in both the character and timeline panels;
+  `getHashTarget` (`lib/navigation/hashAnchor.ts`) picks the copy in the active panel, so never resolve with a
+  bare `getElementById`. Search treats entries inside the collapsed container as hidden matches (the "load
+  archived" notice), not visible ones.
+- **Search index file:** `/search/home-search-entries.<hash>.json` is the only hashed artifact. The hash is djb2
+  (`lib/utils/hash.ts`) over the final serialized payload, so editing one commission, a localized message or an
+  alias changes only the affected filename. Its version `v` is built once by `lib/pipeline/homeSearchEntries.ts`,
+  rendered onto the root `data-search-index-version` and served at `/search/home-search-version.json`
+  (`Cache-Control: no-cache`); they cannot disagree. The entries file is served `Cache-Control: immutable`.
 - **DOM contracts:** `data-*` attributes drive search/nav/hash navigation — preserve attribute names.
-  `data-stale-visibility` = stale group expanded; `data-stale-loaded` = deferred stale sections mounted.
-- Character/stale section templates must mount with the full entry list intact (no per-section entry lazy
-  mounts above anchor targets)
+  `data-archived-visibility` (on the character panel) = archived group expanded.
 - **Soft navigation lifecycle:** `<ClientRouter />` never fires `pagehide` and runs bundled module scripts once.
   Client islands mount via `bindSoftNavMount` (`@lib/astro/softNavMount`) on `astro:page-load` and dispose on
   `astro:before-swap`; never mount from top-level module code
@@ -68,21 +55,19 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
 - **Scroll depth analytics:** `scroll_depth_reached` (25/50/75/100, `commission/scrollDepthTracker.ts`) measures
   reached entries against each view panel's server-rendered `data-total-entries` — active characters only for the
   character view (archived stays out), every entry for the timeline. Keep that count equal to what the panel
-  renders after all batches mount. Silent while `?q=` filters the list; sidebar jumps count as reached depth.
+  renders statically. Silent while `?q=` filters the list; sidebar jumps count as reached depth.
 - **Age gate first frame:** an inline head script in `HomePage.astro` sets `html[data-age-gate-initial=open]` (and `data-age-gate-open`) before paint when `warning/ageGate.ts` says the gate must show; CSS in `AgeGateScript.astro` renders it opaque with no animation. `mountAgeGate` removes the attribute and suppresses the entrance animation inline until the next state change. ClientRouter's `swapRootAttributes` resets `<html>` attributes from the server HTML on every swap, so the attribute cannot go stale
 - **Age gate persistence is best-effort:** unreadable or unwritable `localStorage` shows the gate on every full load (the inline head script and the module agree). A confirmation that cannot be persisted is remembered in memory via the `window[CONFIRMED_IN_MEMORY_FLAG]` flag (`warning/ageGate.ts`), which survives ClientRouter soft navigations (language switches) and resets on a full load. ClientRouter does not re-run an identical inline head script on swap, and the flag keeps the first frame closed even if it did
-- **Re-hydration on append:** batch DOM appended after first mount must re-hydrate / re-bind interactive
-  controls — a single first-paint hydrate pass is not enough
 - **Hidden DOM + observers:** sections rendered with `display: none` must not be marked "entered viewport"
   by reveal/lazy observers; toggling visibility must re-scan
 - **Scroll stability:** never lazy-load content above an anchor target on the navigation path — browser
   scroll restoration and lazy injection fight each other. Verify scroll position after expand/inject, not
   just visibility
-- **Search index freshness:** the search rebuild snapshot key must include the batch mount count, not just
-  a `visible/loaded` boolean — otherwise newly injected DOM briefly shows unfiltered
+- **Search index freshness:** the search rebuild snapshot key must include the search mode and the archived
+  visibility, so toggling archived never leaves a stale index or briefly shows unfiltered entries
 
-Update this section when manifest fields, batch/search hash inputs, the hashed filename builders,
-`_headers` cache policy for the search JSON / HTML, or deferred endpoints change.
+Update this section when search hash inputs, the hashed filename builder, `_headers` cache policy for the search
+JSON / HTML, or the archived toggle / hash navigation contract change.
 
 ## Search UX
 

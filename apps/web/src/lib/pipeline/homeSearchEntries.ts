@@ -73,8 +73,8 @@ export function clearHomeSearchEntriesArtifactCacheForTests() {
 }
 
 /**
- * Entries plus their content hash. The manifest and the search-entries endpoint both read this so
- * the advertised filename and the served file cannot disagree.
+ * Entries plus their content hash. The page's data-search-index-version and the search-entries endpoint
+ * both read this so the advertised version and the served file cannot disagree.
  */
 export function buildHomeSearchEntriesArtifact(): HomeSearchEntriesArtifact {
   if (cachedArtifact)

@@ -4,18 +4,6 @@ import type { CharacterCommissions } from '@data/types'
 import Listing from '@features/home/commission/Listing.astro'
 import TimelineView from '@features/home/commission/TimelineView.astro'
 import { getHomeLocaleMessages, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
-import {
-  buildHomeCharacterBatchManifest,
-} from '@features/home/server/homeCharacterBatchArtifacts'
-import {
-  buildHomeCharacterBatchPlan,
-} from '@features/home/server/homeCharacterBatches'
-import {
-  buildHomeTimelineBatchManifest,
-} from '@features/home/server/homeTimelineBatchArtifacts'
-import {
-  buildHomeTimelineBatchPlan,
-} from '@features/home/server/homeTimelineBatches'
 import { buildHomeSearchEntriesArtifact } from '@lib/pipeline/homeSearchEntries'
 
 type CharacterDisplay = {
@@ -45,32 +33,6 @@ const {
 }
   = Astro.props as StaticCommissionSectionsProps
 const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
-const resolvedLocale = normalizeHomeLocale(locale)
-const batchPlan = buildHomeCharacterBatchPlan({
-  activeChars,
-  archivedChars,
-  commissionMap,
-})
-const batchManifest = await buildHomeCharacterBatchManifest({
-  characterAliasesMap,
-  commissionMap,
-  creatorAliasesMap,
-  keywordAliasesMap,
-  locale: resolvedLocale,
-  plan: batchPlan,
-  searchEntriesVersion: buildHomeSearchEntriesArtifact().version,
-})
-const timelineBatchPlan = buildHomeTimelineBatchPlan({
-  groups: timelineGroups,
-})
-const timelineBatchManifest = await buildHomeTimelineBatchManifest({
-  characterAliasesMap,
-  creatorAliasesMap,
-  keywordAliasesMap,
-  locale: resolvedLocale,
-  plan: timelineBatchPlan,
-  searchEntriesVersion: buildHomeSearchEntriesArtifact().version,
-})
 const activeCommissionCount = activeChars.reduce(
   (count, chara) => count + (commissionMap.get(chara.DisplayName)?.Commissions.length ?? 0),
   0,
@@ -205,18 +167,6 @@ const archivedCommissionCount = archivedChars.reduce(
       keywordAliasesMap={keywordAliasesMap}
     />
   </div>
-  <script
-    is:inline
-    type="application/json"
-    data-home-character-batch-manifest="true"
-    set:html={JSON.stringify(batchManifest)}
-  />
-  <script
-    is:inline
-    type="application/json"
-    data-home-timeline-batch-manifest="true"
-    set:html={JSON.stringify(timelineBatchManifest)}
-  />
 </div>
 
 <script is:inline>
