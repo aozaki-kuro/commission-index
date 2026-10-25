@@ -309,6 +309,8 @@ export function initSearchController(root: HTMLElement) {
   const RECOMPUTE_DEBOUNCE_MS = 100
   const ADDRESS_SYNC_DEBOUNCE_MS = 300
 
+  // Last `?q=` the address held; lets the popstate handler tell a hash-only popstate from a real q change.
+  let lastAddressQuery = initialUrlQuery
   let addressSyncTimerId = 0
   function cancelAddressSync() {
     if (addressSyncTimerId)
@@ -325,6 +327,7 @@ export function initSearchController(root: HTMLElement) {
     addressSyncTimerId = window.setTimeout(() => {
       addressSyncTimerId = 0
       writeSearchQueryToAddress(appliedQuery)
+      lastAddressQuery = getUrlQuerySnapshot()
     }, ADDRESS_SYNC_DEBOUNCE_MS)
   }
 
@@ -732,9 +735,14 @@ export function initSearchController(root: HTMLElement) {
 
   const unsubUrlQuery = subscribeToUrlQuerySnapshot(() => {
     // Back/forward landed on a different ?q=: the address wins over what was typed.
-    if (getUrlQuerySnapshot() !== query) {
-      inputQuery = null
-      cancelAddressSync()
+    // A hash-only popstate (fragment navigation) leaves typed text and the pending write alone.
+    const addressQuery = getUrlQuerySnapshot()
+    if (addressQuery !== lastAddressQuery) {
+      lastAddressQuery = addressQuery
+      if (addressQuery !== query) {
+        inputQuery = null
+        cancelAddressSync()
+      }
     }
     scheduleRecompute({ immediate: true })
   })

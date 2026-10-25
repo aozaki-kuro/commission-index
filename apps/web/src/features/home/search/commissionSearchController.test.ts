@@ -172,6 +172,25 @@ describe('initSearchController', () => {
       cleanup?.()
     })
 
+    it('keeps typed text and the pending write across a hash-only popstate', async () => {
+      window.history.replaceState({ index: 1 }, '', '/?q=foo')
+      const cleanup = initSearchController(mountSearchRoot())
+      await vi.advanceTimersByTimeAsync(50)
+
+      typeQuery('bar')
+      await vi.advanceTimersByTimeAsync(120)
+      window.history.replaceState(window.history.state, '', '/?q=foo#section-alpha')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+      await vi.advanceTimersByTimeAsync(100)
+      expect(document.querySelector<HTMLInputElement>('#commission-search-input')!.value).toBe('bar')
+
+      await vi.advanceTimersByTimeAsync(400)
+      expect(window.location.search).toBe('?q=bar')
+      expect(window.location.hash).toBe('#section-alpha')
+
+      cleanup?.()
+    })
+
     it('follows popstate to a different q even after typing', async () => {
       window.history.replaceState(null, '', '/?q=foo')
       const cleanup = initSearchController(mountSearchRoot())
