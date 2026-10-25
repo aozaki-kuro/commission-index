@@ -1,13 +1,12 @@
 import type { Commission } from '@data/types'
 import type { HomeLocale } from '@features/home/i18n/homeLocale'
+import { COMMISSION_IMAGE_SIZES, COMMISSION_IMAGE_WIDTH } from '@features/home/commission/commissionImageConstants'
 import { getHomeLocaleMessages } from '@features/home/i18n/homeLocale'
 import { resolveSourceImageByCommissionId } from '@lib/images/sourceImageRegistry'
 import { getImage } from 'astro:assets'
 
-export const COMMISSION_IMAGE_WIDTH = 1280
-export const COMMISSION_IMAGE_SIZES = '(max-width: 768px) 92vw, 640px'
-// Shared by the inline <img> and the LCP preload so the preload describes exactly the image it hints.
-export const COMMISSION_INLINE_IMAGE_WIDTHS = [768, 1280]
+// Batch payload files still import the sizes constant from here until the batch modules are removed.
+export { COMMISSION_IMAGE_SIZES }
 
 export function buildInterestPayload({
   interestKey,

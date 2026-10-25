@@ -5,6 +5,11 @@ import { getHomeFeaturedSearchKeywords } from '@data/homeFeaturedSearchKeywords'
 import { getKeywordAliases } from '@data/keywordAliases'
 import CommissionDescription from '@features/home/blocks/Description.astro'
 import Footer from '@features/home/blocks/Footer.astro'
+import {
+  COMMISSION_IMAGE_SIZES,
+  COMMISSION_IMAGE_WIDTH,
+  COMMISSION_INLINE_IMAGE_WIDTHS,
+} from '@features/home/commission/commissionImageConstants'
 import CommissionImageNoticeScript from '@features/home/commission/CommissionImageNoticeScript.astro'
 import MobileViewModeTabs from '@features/home/commission/MobileViewModeTabs.astro'
 import HomeClientScript from '@features/home/HomeClientScript.astro'
@@ -17,11 +22,6 @@ import DesktopSidebarNav from '@features/home/nav/DesktopSidebarNav.astro'
 import MobileHamburgerMenu from '@features/home/nav/hamburger/MobileHamburgerMenu.astro'
 import MobileLanguageMenu from '@features/home/nav/hamburger/MobileLanguageMenu.astro'
 import CommissionSearchIsland from '@features/home/search/CommissionSearchIsland.astro'
-import {
-  COMMISSION_IMAGE_SIZES,
-  COMMISSION_IMAGE_WIDTH,
-  COMMISSION_INLINE_IMAGE_WIDTHS,
-} from '@features/home/server/batchPayloadBuilder'
 import StaticCommissionSections from '@features/home/server/StaticCommissionSections.astro'
 import {
   AGE_CONFIRM_DURATION,

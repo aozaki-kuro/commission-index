@@ -35,7 +35,7 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   serialized payload**, so editing one commission — or a localized message, or an alias — changes only the
   affected bytes' filename. The manifest's `batchVersions` and the batch endpoint's path come from one
   memoized builder (`features/home/server/homeCharacterBatchArtifacts.ts`, `homeTimelineBatchArtifacts.ts`),
-  and the manifest's `v` is the search-index version (`lib/pipeline/homeSearchEntries.ts`); they cannot
+  and the search-index version `v` (also on the root `data-search-index-version`) (`lib/pipeline/homeSearchEntries.ts`); they cannot
   disagree. Batches and search entries are served `Cache-Control: immutable`, so unchanged data costs zero
   requests.
 - **Stale-HTML manifest fallback:** the inline manifest in cached HTML can name a hashed file a deploy
@@ -79,7 +79,7 @@ Update this section when manifest fields, batch/search hash inputs, the hashed f
 ## Search UX
 
 - Search UI must be layout-stable on first paint — no shell-to-content swaps
-- Production search index: `/search/home-search-entries.<v>.json` (not DOM metadata), `v` from the character manifest
+- Production search index: `/search/home-search-entries.<v>.json` (not DOM metadata), `v` from the root `data-search-index-version` attribute (`#--------Commissions--------`); a 404 retries once with `v` from `/search/home-search-version.json` (`no-cache`); no unversioned index route exists
 - Search locale labels resolve from `homeSearchControls.ts` (not the full `homeLocale` graph)
 - Matcher rules (CJK/kana vs JS `\b`) live in the root `AGENTS.md`
 
