@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 for (const width of [320, 390, 1280]) {
-  test(`alias sections preserve drafts and stable controls at ${width}px`, async ({ page }, testInfo) => {
+  test(`alias sections preserve drafts and stable controls at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 })
     await page.emulateMedia({ colorScheme: width === 390 ? 'dark' : 'light' })
     let failSave = true
@@ -59,7 +59,6 @@ for (const width of [320, 390, 1280]) {
     await expect(field).toHaveValue('Changed alias')
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.getByRole('button', { name: 'Dismiss notification' }).click()
-    await page.screenshot({ path: testInfo.outputPath(`aliases-${width}.png`), fullPage: true })
     failSave = false
     await save.click()
     await expect(save).toBeDisabled()
