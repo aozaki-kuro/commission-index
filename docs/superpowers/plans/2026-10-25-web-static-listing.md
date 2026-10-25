@@ -11,6 +11,8 @@ making every commission crawlable without JS.
 `hidden` container) and every timeline year at build time. Client JS shrinks to three jobs: show/hide archived
 (`archivedCharactersToggle.ts`), resolve a hash to the active panel and expand archived if needed
 (`homeHashTarget.ts`), and the existing search / nav / scroll features minus every "load batch first" branch.
+Native lazy images, the existing scroll reveal, and a new on-load image fade (`imageFadeIn.ts`) give the
+one-by-one feel.
 
 **Tech Stack:** Astro 7 static output, vanilla TS client modules, Vitest (jsdom per file), Playwright (web fixture).
 
@@ -376,7 +378,81 @@ Pin today's user-visible behavior so every later task proves it unchanged. No pr
   2. `pnpm exec playwright test -c config/playwright.config.ts --project web`.
 - [ ] **Step 3: Commit.** `refactor(web): remove deferred batch pipeline`
 
-### Task 6: Final gate and measurement
+### Task 6: Fade images in when they finish loading
+
+The owner wants entries to appear one by one, smoothly. Two existing pieces give most of that:
+
+- `scrollReveal.ts`: a 500 ms reveal-up with an 80 ms stagger;
+- the pulsing skeleton on `[data-commission-image]`.
+
+The one rough edge is on slow networks. An entry slides in over its skeleton, and then the image paints over it in
+one frame. This task fades the `<img>` in on `load`.
+
+**Files:**
+
+- Create: `apps/web/src/features/home/commission/imageFadeIn.ts` (+ `imageFadeIn.test.ts`)
+- Modify:
+  - `apps/web/src/styles/globals.css`: add the rules next to the `reveal-up` block.
+  - `apps/web/src/features/home/commission/ProtectedCommissionImage.astro`: add `data-loaded` on the wrapper when
+    `priority`.
+  - `apps/web/src/features/home/homePageClient.ts` (+ test): add to `criticalMounts` next to `mountScrollReveal`.
+  - `apps/web/AGENTS.md`: add an "Image fade-in" bullet to Home Page Architecture with the four rules below.
+
+**Interfaces:**
+
+- Produces: `mountImageFadeIn({ win?, doc? }?): () => void`. On mount it:
+  1. sets `data-loaded` on every `[data-commission-image]` whose `img` is already `complete`;
+  2. then sets `document.documentElement.dataset.imageFade = 'on'`;
+  3. listens to `load` and `error` in the **capture** phase on `doc`, because neither event bubbles, and marks the
+     target's closest `[data-commission-image]`.
+
+  Dispose removes the listeners. It does not remove the attribute; ClientRouter's `swapRootAttributes` resets
+  `<html>` attributes on every swap, and the next mount sets it again.
+
+- CSS (exact):
+
+  ```css
+  html[data-image-fade='on'] [data-commission-image] > img {
+    transition: opacity 400ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  html[data-image-fade='on'] [data-commission-image]:not([data-loaded]) > img {
+    opacity: 0;
+  }
+  ```
+
+  The existing global `prefers-reduced-motion` block already shortens the transition to 0.01 ms, so add no
+  reduced-motion rule.
+
+- Rules:
+  - **Fail open.** Hiding applies only after JS has run and set `data-image-fade`. If JS is missing or broken, images
+    show as they do today.
+  - **Never fade the LCP image.** It renders with `data-loaded` from the server. Chrome does not count `opacity: 0`
+    paints toward LCP, so a fade would delay LCP.
+  - **No animation for cached images.** An image that is `complete` before mount is marked first, so a reload does
+    not make the whole page flash.
+  - **`error` counts as loaded.** A broken image must not stay invisible. Its alt text and the skeleton remain.
+
+- [ ] **Step 1: Failing tests** (`imageFadeIn.test.ts`, jsdom). Fake `complete` with `Object.defineProperty`.
+  - `marks already-complete images before enabling the fade`: after mount, `data-loaded` is on the wrapper and
+    `html[data-image-fade="on"]`.
+  - `marks the wrapper on a load event`: dispatch `new Event('load')` on the `img`; the wrapper gets `data-loaded`.
+  - `marks the wrapper on an error event`.
+  - `ignores load events from images outside a commission wrapper`.
+  - `dispose stops marking`: after dispose, a `load` event leaves the wrapper without `data-loaded`.
+- [ ] **Step 2: Run, expect FAIL.** `pnpm exec vitest run -c config/vitest.config.ts imageFadeIn`
+- [ ] **Step 3: Implement** the module, the CSS, the `priority` attribute and the mount.
+- [ ] **Step 4: Run, expect PASS.** Then lint, then typecheck, then test.
+- [ ] **Step 5: Manual check with real images.** The web fixture has no image files, so Playwright cannot cover
+      this.
+  1. Run `pnpm run dev` with real `generated/`.
+  2. Throttle to "Slow 4G" in the built-in browser.
+  3. Scroll: the skeleton pulses, then the image fades in over about 400 ms, with no hard pop.
+  4. Reload while scrolled: cached images show at once.
+  5. The first image is never transparent.
+  6. Record the result in the commit body.
+- [ ] **Step 6: Commit.** `feat(web): fade commission images in on load`
+
+### Task 7: Final gate and measurement
 
 - [ ] **Step 1: Rebuild.** `FACT_SOURCE_USE_EXISTING_SNAPSHOT=1 pnpm run build:web`. Then record raw / gzip / brotli
       sizes, `data-commission-entry` count and element count of `dist/index.html` next to the Evidence table. Expected:
