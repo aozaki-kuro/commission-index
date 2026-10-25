@@ -126,7 +126,9 @@ Pin today's user-visible behavior so every later task proves it unchanged. No pr
     1. Expand archived and scroll the 301 entry to the top.
     2. `page.reload()`.
     3. Expect visibility `visible` and `|scrollY − before| ≤ 40`.
-  - Run all at 390×844 too (`for` loop over two viewports, same as `search-help.spec.ts`).
+  - Run the three deep-link tests and the reload test at 390×844 too (`for` loop over two viewports, same as
+    `search-help.spec.ts`). The sidebar and `<details>` tests are desktop-only: below `lg` the sidebar is replaced by
+    the hamburger menu.
 - [ ] **Step 2: Run against today's code.**
       Run: `pnpm exec playwright test -c config/playwright.config.ts --project web home-navigation`
       Expected: all PASS. A failure means today's behavior differs from the assumption. Fix the assertion to match
@@ -238,6 +240,16 @@ Pin today's user-visible behavior so every later task proves it unchanged. No pr
 - [ ] **Step 3: Implement the toggle and state module.** In `StaticCommissionSections.astro`, render
       `archivedChars.map(Listing status="archived")` inside `<div data-archived-sections-container="true" class="hidden">`.
       Drop the archived sentinel and the archived counts/loaded attributes.
+      Add a pre-paint branch to the existing `is:inline` script at the end of `StaticCommissionSections.astro`. It
+      runs for every view, not only `?view=timeline`. When `location.hash` (decoded) names an element inside
+      `[data-archived-sections-container]`: 1. remove `hidden` from the container and the divider; 2. add `hidden` to the placeholder; 3. set `data-archived-visibility="visible"` on the character panel.
+
+      Native fragment scrolling then lands without a top-of-page flash. Today the head script hides the shell for
+      out-of-DOM hashes, and that guard stops firing once archived ids are always in the DOM. `mountArchivedCharactersToggle`
+      reads the panel attribute on mount instead of assuming `hidden`.
+      Extend the Task 1 archived deep-link test: right after `page.goto(url, { waitUntil: 'domcontentloaded' })`,
+      before any module script effect, assert `data-archived-visibility="visible"` and `window.scrollY > 0`.
+
 - [ ] **Step 4: Update consumers.**
   - **Search:**
     - The archived state becomes `archivedVisible` only.
@@ -247,6 +259,11 @@ Pin today's user-visible behavior so every later task proves it unchanged. No pr
     - Add a test: `archived-only match while collapsed shows hidden-matches notice` (Review Focus 4).
   - **Nav:** an archived target that is not visible goes to `revealArchivedHomeNavTarget`; everything else uses the
     native jump. Delete the `prefetchArchivedTarget` paths.
+    - Because the toggle now answers synchronously, `revealArchivedHomeNavTarget` must keep subscribing to
+      `ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT` _before_ it calls `requestArchivedVisibility` (it does today, at
+      `homeNavTargetClient.ts:152-157`).
+    - Pin the order with a test in `homeNavTargetClient.test.ts`:
+      `calls onVisible when the show request is answered synchronously`.
   - **Scroll restore:** drop `requestArchivedLoad` / `archivedTotalBatchCount`.
   - **`scrollReveal`:** extend the class-mutation rescan to `[data-archived-sections-container]` so entries inside a
     `hidden` container are not marked entered (AGENTS rule "Hidden DOM + observers"). Add a test:
@@ -271,8 +288,10 @@ Pin today's user-visible behavior so every later task proves it unchanged. No pr
   - `StaticCommissionSections.astro`: all `activeChars`, all `timelineGroups`; drop the active/timeline sentinels and
     containers. Delete `readTimelineBatchManifest`, `normalizeTargetId` and `preloadTimelineSections` from the inline
     `?view=timeline` script, and keep its panel/toggle sync.
-  - `HomePage.astro:146-152,211-225`: delete the `data-home-hash-restoring` CSS and the head branch that hides the
-    shell for out-of-DOM hashes.
+  - `HomePage.astro`:
+    - lines 146–152 are one rule with two selectors. Drop only the `html[data-home-hash-restoring='true']` selector.
+      The `data-home-scroll-restoring` selector stays, because reload restore still uses it.
+    - Delete the head branch (lines 211–225) that sets `data-home-hash-restoring` for out-of-DOM hashes.
   - `homeScrollRestore.ts`: delete the batch loop, the loaded-event listeners, `RESTORE_BATCH_WINDOW` and
     `revealHashRestoreShell`. `tryRestore` becomes `completeRestore({ schedule: true })`.
   - `blocks/updateLinks.ts`: delete the deferred branch.
