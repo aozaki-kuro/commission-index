@@ -808,6 +808,36 @@ describe('admin worker CRUD contract routing', () => {
     expect(deleteObject).not.toHaveBeenCalled()
   })
 
+  it('clears a grouped part when PATCH sends null work group and part number', async () => {
+    const { database, db } = createSQLiteD1()
+    const workGroupId = 'a1b2c3d4-e5f6-4789-a012-3456789abcde'
+    insertCharacter(database, 1, 'Alice')
+    database.prepare('INSERT INTO commission_groups (id) VALUES (?)').run(workGroupId)
+    insertCommission(database, { id: 19, characterId: 1, fileName: '20250301_sample-piece', workGroupId, partNumber: 1 })
+
+    // The admin edit form sends null (not '') for an ungrouped commission.
+    const response = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/commissions/19`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          characterId: 1,
+          commissionDate: '2025-03-01',
+          creatorName: 'sample-piece',
+          workGroupId: null,
+          partNumber: null,
+          links: '',
+          hidden: false,
+        }),
+      }),
+      { DB: db },
+    )
+
+    expect(response.status).toBe(200)
+    expect(database.prepare('SELECT work_group_id, part_number FROM commissions WHERE id = 19').get())
+      .toEqual({ work_group_id: null, part_number: null })
+  })
+
   it('handles delete-commission natively when DB binding exists', async () => {
     const { database, db } = createSQLiteD1()
     insertCharacter(database, 1, 'Alice')
@@ -882,6 +912,11 @@ describe('admin worker CRUD contract routing', () => {
     const selectSourceImages = database.prepare(
       'SELECT commission_file_name, commission_id, object_key, mime_type, byte_size, sha256 FROM source_images',
     )
+    const storedKeysAtR2Delete: unknown[] = []
+    deleteObject.mockImplementation(async () => {
+      storedKeysAtR2Delete.push(selectSourceImages.all().map(row => row.object_key))
+      return {}
+    })
     const storedRows = []
     for (let index = 0; index < 2; index += 1) {
       const formData = new FormData()
@@ -915,6 +950,8 @@ describe('admin worker CRUD contract routing', () => {
     // The replaced object is released once the new metadata row is committed.
     expect(deleteObject).toHaveBeenCalledTimes(1)
     expect(deleteObject).toHaveBeenCalledWith(keys[0])
+    // Deleting first would lose the live image if the D1 write then failed.
+    expect(storedKeysAtR2Delete).toEqual([[keys[1]]])
   })
 
   it('loads bootstrap data natively when DB binding exists', async () => {
