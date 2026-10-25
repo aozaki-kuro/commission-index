@@ -115,6 +115,10 @@ for (const viewport of viewports) {
       const entry = page.locator(hash)
       await entry.evaluate(el => el.scrollIntoView({ block: 'start' }))
       await expectNearTop(entry)
+      // The deferred active batch mounts above archived once its sentinel is crossed; let it land and let
+      // scroll anchoring settle before reading the baseline the reload must restore.
+      await expect(page.locator('h2').filter({ hasText: '枫霜 Kaede' }).first()).toBeAttached()
+      await expectNearTop(entry)
       const before = await page.evaluate(() => window.scrollY)
       expect(before).toBeGreaterThan(0)
 
@@ -122,6 +126,7 @@ for (const viewport of viewports) {
       await expectFixtureData(page)
       await expect(characterPanel(page)).toHaveAttribute('data-archived-visibility', 'visible')
       await expect.poll(async () => Math.abs((await page.evaluate(() => window.scrollY)) - before)).toBeLessThanOrEqual(40)
+      await expectNearTop(entry)
     })
   })
 }
