@@ -56,14 +56,12 @@
 
 ## 10-05 web 审计
 
-P1-P11 与 WS1-WS5 的状态见 `audit-2026-10-05-web-architecture.md`。WS1-WS5 均已落地（WS4 `b3e8f5d`；WS3 见 R2 删除 commit `chore/handoff-closeout`），剩余开放项已并入本文件。
+P1-P11 与 WS1-WS5 的状态见 `audit-2026-10-05-web-architecture.md`。WS1-WS5 均已落地（WS4 `b3e8f5d`；WS3 见 R2 删除 commit `chore/handoff-closeout`），剩余开放项已并入本文件。P9（双渲染器重复）已由 `superpowers/plans/2026-10-25-web-static-listing.md` 解决：batch 渲染器已删除。
 
 ## 已核实不是缺陷
 
 - D1 `batch()` 是事务，失败整体回滚；`adminPersistence.ts` 的 `runStatementsAtomically` 正确，不要按“非事务”改写入路径。
 - 全局 vitest `setupFiles` 不存在；`apps/web/test/setup.tsx` 已删除。
-- `mountLegacyHome*Batch` 是 manifest 缺失时的生产回退，且有测试，保留。
-- `clearHome*BatchRequestCacheForTests` 是测试专用导出，保留。
 - `fuse.js` 按需加载（`vendor-search` 分块）是有意设计，不要改静态导入。
 - `/admin`、`/api/admin/*` 的 404 仅由 `assets.not_found_handling = "404-page"` 保证，`_redirects` 无 admin 条目，文档已一致。
 - 作者别名大小写敏感是有意契约，`aliasNormalization.test.ts` 已断言。

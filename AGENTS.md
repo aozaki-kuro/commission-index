@@ -103,8 +103,8 @@ Admin features go in `apps/admin` + `apps/admin-worker`, never `apps/web`.
 
 ### Home Page Architecture
 
-Deferred loading, content-hashed batch files, stale-HTML fallback, DOM contracts and the soft-navigation
-lifecycle are specified in `apps/web/AGENTS.md`; read it before touching the home page or its `/search/*` output.
+Static listing, archived toggle, DOM contracts and the soft-navigation lifecycle are specified in
+`apps/web/AGENTS.md`; read it before touching the home page or its `/search/*` output.
 
 ### Admin Architecture
 
@@ -224,7 +224,7 @@ Pipeline order, release concurrency locks, the `deploy-web-snapshot` composite a
 - `sourceImageRegistry.ts` resolves a commission's image by integer `id` through the generated manifest only (exact
   match, no filename/stem fallback); a missing image renders as missing. User-visible identity and search never parse
   `fileName`
-- Listing widths: inline `<img>` and LCP preload `768/1280` (width 1280); deferred batch images `768/960/1280`; sizes `(max-width: 768px) 92vw, 640px`
+- Listing widths: inline `<img>` and LCP preload `768/1280` (width 1280); sizes `(max-width: 768px) 92vw, 640px`
 - The registry resolves images only for visible commissions: `Hidden: true` originals are kept out of the module graph by the `hidden-source-image-stub` Vite plugin in `apps/web/server/assetsPipelineAstro.ts`. Astro emits every image that enters the graph and deletes originals only after `getImage`, so an eager glob would otherwise ship hidden originals in `dist/_astro/`.
 
 ### 数据库迁移验证
