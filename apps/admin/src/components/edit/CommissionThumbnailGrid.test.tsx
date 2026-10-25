@@ -63,7 +63,6 @@ describe('commission thumbnail grid image loading', () => {
   afterEach(async () => {
     await act(async () => root.unmount())
     container.remove()
-    vi.unstubAllGlobals()
     MockIntersectionObserver.instances = []
   })
 

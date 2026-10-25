@@ -1,6 +1,6 @@
 import path from 'node:path'
 import process from 'node:process'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { collectHiddenCommissionIds, resolveGeneratedFactSourcePath, validateGeneratedFactSourceSnapshot } from './generatedFactSource'
 
 const meta = {
@@ -121,11 +121,6 @@ describe('collectHiddenCommissionIds', () => {
 })
 
 describe('resolveGeneratedFactSourcePath', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
-    vi.restoreAllMocks()
-  })
-
   it('reads only from FACT_SOURCE_DIR when set, anchoring relative values to apps/web from either cwd', () => {
     vi.stubEnv('FACT_SOURCE_DIR', 'generated-fixture')
     const webRoot = path.resolve(import.meta.dirname, '..')

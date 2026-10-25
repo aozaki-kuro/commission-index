@@ -42,7 +42,6 @@ describe('admin edit page cached refresh recovery', () => {
     await act(async () => root?.unmount())
     container?.remove()
     vi.clearAllMocks()
-    vi.restoreAllMocks()
     window.sessionStorage.clear()
   })
 

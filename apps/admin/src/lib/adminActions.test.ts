@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   addCharacterAction,
   addCommissionAction,
@@ -7,10 +7,6 @@ import {
   saveKeywordAliasesBatchAction,
   updateCommissionAction,
 } from './adminActions'
-
-afterEach(() => {
-  vi.unstubAllGlobals()
-})
 
 function successfulResponse() {
   return new Response(JSON.stringify({ status: 'success', message: 'Saved.' }), {

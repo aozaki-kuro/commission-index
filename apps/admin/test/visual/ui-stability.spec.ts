@@ -1,6 +1,5 @@
 import type { Locator, Page } from '@playwright/test'
 import { Buffer } from 'node:buffer'
-import { writeFile } from 'node:fs/promises'
 import { expect, test } from '@playwright/test'
 import { createTestSourceImage, rotateCropImage } from './helpers'
 
@@ -202,7 +201,7 @@ for (const { viewport, colorScheme } of [
 ]) {
   test.describe(`HiDPI ${viewport.width}x${viewport.height} DPR2 ${colorScheme}`, () => {
     test.use({ viewport, deviceScaleFactor: 2, colorScheme })
-    test('continuous SPA navigation keeps shared workspace boundaries', async ({ page }, testInfo) => {
+    test('continuous SPA navigation keeps shared workspace boundaries', async ({ page }) => {
       await mockApi(page, 18)
       let unloadCount = 0
       await page.exposeFunction('recordWorkspaceUnload', () => {
@@ -252,12 +251,8 @@ for (const { viewport, colorScheme } of [
           const cards = await page.locator('[data-commission-id]').evaluateAll(elements => elements.map(element => element.getBoundingClientRect().top))
           expect(cards.filter(top => Math.abs(top - cards[0]) < 1)).toHaveLength(5)
         }
-        await page.screenshot({ path: testInfo.outputPath(`workspace-navigation-${index}-${route.label.toLowerCase()}.png`), scale: 'device' })
       }
       await documentHandle.dispose()
-      const metricsPath = testInfo.outputPath('workspace-navigation-boundaries.json')
-      await writeFile(metricsPath, `${JSON.stringify({ viewport, deviceScaleFactor: 2, colorScheme, unloadCount, measurements }, null, 2)}\n`)
-      await testInfo.attach('连续导航工作区边界', { path: metricsPath, contentType: 'application/json' })
     })
   })
 }
@@ -282,7 +277,7 @@ test('cold create keeps one form and a neutral character placeholder while data 
   await expect(page.getByText('Refreshing', { exact: false })).toHaveCount(0)
 })
 
-test('create feedback and duplicate review never move fields or save; 320px fits', async ({ page }, testInfo) => {
+test('create feedback and duplicate review never move fields or save; 320px fits', async ({ page }) => {
   await mockApi(page)
   await page.setViewportSize({ width: 320, height: 844 })
   await page.goto('/create')
@@ -305,10 +300,9 @@ test('create feedback and duplicate review never move fields or save; 320px fits
   await page.locator('[data-notice-viewport] summary').filter({ hasText: 'possible duplicate' }).click()
   expect(await relativeBox(save)).toEqual(saveBefore)
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320)
-  await page.screenshot({ path: testInfo.outputPath('create-320.png'), fullPage: true })
 })
 
-test('edit aligns field edges, preserves grouped values and floats persistent errors', async ({ page }, testInfo) => {
+test('edit aligns field edges, preserves grouped values and floats persistent errors', async ({ page }) => {
   await mockApi(page)
   await page.emulateMedia({ colorScheme: 'dark' })
   const dialog = await openEdit(page)
@@ -348,12 +342,9 @@ test('edit aligns field edges, preserves grouped values and floats persistent er
   await dialog.getByText('Unable to update commission.').click()
   expect(await relativeBox(character)).toEqual(before)
   expect(await relativeBox(save)).toEqual(saveBefore)
-  await page.screenshot({ path: testInfo.outputPath('edit-desktop.png'), fullPage: true })
   await dialog.getByRole('button', { name: 'Dismiss notification' }).click()
-  await page.screenshot({ path: testInfo.outputPath('edit-clean-desktop.png'), fullPage: true })
   await page.setViewportSize({ width: 390, height: 844 })
   expect(await dialog.evaluate(element => element.scrollWidth)).toBeLessThanOrEqual(390)
-  await page.screenshot({ path: testInfo.outputPath('edit-mobile.png'), fullPage: true })
 })
 
 test('one-card loading stays the same height, warm refresh is silent and search is lazy', async ({ page }) => {
@@ -487,7 +478,7 @@ test('mobile image crop retains rotation, preview and retry until a successful s
   expect(await source.evaluate((input: HTMLInputElement) => input.files?.length)).toBe(0)
 })
 
-test('mobile workspace keeps all pages and navigation usable', async ({ page }, testInfo) => {
+test('mobile workspace keeps all pages and navigation usable', async ({ page }) => {
   const width = 320
   const colorScheme = 'dark'
   await mockApi(page, 6)
@@ -514,7 +505,6 @@ test('mobile workspace keeps all pages and navigation usable', async ({ page }, 
       await expect(page.getByRole('button', { name: 'Enter reorder mode' })).toBeVisible()
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width)
-    await page.screenshot({ path: testInfo.outputPath(`${path.slice(1) || 'overview'}-${width}-${colorScheme}.png`), fullPage: true })
   }
 })
 
@@ -531,7 +521,7 @@ test('short desktop navigation and keyboard skip link keep every destination rea
   await expect(publicLink).toBeInViewport()
 })
 
-test('all maintenance pages remain usable with doubled text size', async ({ page }, testInfo) => {
+test('all maintenance pages remain usable with doubled text size', async ({ page }) => {
   await mockApi(page)
   await page.setViewportSize({ width: 1280, height: 1000 })
   for (const path of ['/', '/create', '/edit', '/aliases', '/suggestion']) {
@@ -550,7 +540,6 @@ test('all maintenance pages remain usable with doubled text size', async ({ page
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(1280)
     const clippedActions = await page.locator('main button, main a').evaluateAll(elements => elements.filter(element => element instanceof HTMLElement && element.offsetWidth > 0 && element.scrollWidth > element.clientWidth + 1).map(element => element.textContent?.trim()))
     expect(clippedActions).toEqual([])
-    await page.screenshot({ path: testInfo.outputPath(`${path.slice(1) || 'overview'}-text-200.png`), fullPage: true })
   }
 })
 
@@ -610,7 +599,7 @@ test('character cancellation and archive roundtrip keep visible status', async (
   await expect(page.locator('[data-stale-divider]')).toHaveText('Archived (0)')
 })
 
-test('archived status icon stays visible with long names and doubled mobile text', async ({ page }, testInfo) => {
+test('archived status icon stays visible with long names and doubled mobile text', async ({ page }) => {
   const colorScheme = 'dark'
   const control = await mockApi(page)
   control.archivedCharacter = true
@@ -650,7 +639,6 @@ test('archived status icon stays visible with long names and doubled mobile text
     const overflow = [...document.querySelectorAll('body *')].filter(node => node instanceof HTMLElement && node.checkVisibility() && node.getBoundingClientRect().right > innerWidth + 1).map(node => ({ tag: node.tagName, text: node.textContent?.trim().slice(0, 50), className: node.className, right: node.getBoundingClientRect().right }))
     return { documentWidth: document.documentElement.scrollWidth, overflow, bounds: { left: bounds.left, right: bounds.right }, status: { left: statusBounds.left, right: statusBounds.right, clipped: statusElement.scrollWidth > statusElement.clientWidth + 1 }, actions, clippedAncestors }
   })
-  await testInfo.attach('停更状态与操作控件几何', { body: Buffer.from(JSON.stringify(geometry, null, 2)), contentType: 'application/json' })
   expect(geometry.documentWidth, JSON.stringify(geometry.overflow)).toBe(320)
   expect(geometry.status.left).toBeGreaterThanOrEqual(geometry.bounds.left)
   expect(geometry.status.right).toBeLessThanOrEqual(geometry.bounds.right)
@@ -664,7 +652,6 @@ test('archived status icon stays visible with long names and doubled mobile text
     expect(action.right, action.label!).toBeLessThanOrEqual(geometry.bounds.right)
     expect(action.clipped, action.label!).toBe(false)
   }
-  await page.screenshot({ path: testInfo.outputPath(`archived-status-320-text-200-${colorScheme}.png`), fullPage: true })
 })
 
 test('desktop pointer drag still changes featured keyword order', async ({ page }) => {
@@ -675,7 +662,7 @@ test('desktop pointer drag still changes featured keyword order', async ({ page 
   await expect(list.getByRole('listitem').first()).toContainText('Winter')
 })
 
-test('overview keeps primary actions stable and queues publishing once', async ({ page }, testInfo) => {
+test('overview keeps primary actions stable and queues publishing once', async ({ page }) => {
   const control = await mockApi(page)
   const gate = deferred()
   control.bootstrapGate = gate.promise
@@ -702,12 +689,10 @@ test('overview keeps primary actions stable and queues publishing once', async (
   publishing.resolve()
   await expect(page.getByRole('region', { name: 'Publish website' }).getByRole('status')).toHaveText('Website updated and confirmed live.')
   await page.getByRole('button', { name: 'Dismiss notification' }).click()
-  await page.screenshot({ path: testInfo.outputPath('overview-mobile.png'), fullPage: true })
   await page.setViewportSize({ width: 1280, height: 1000 })
-  await page.screenshot({ path: testInfo.outputPath('overview-desktop.png'), fullPage: true })
 })
 
-test('suggestion preserves editor geometry, ordering and manual additions', async ({ page }, testInfo) => {
+test('suggestion preserves editor geometry, ordering and manual additions', async ({ page }) => {
   const control = await mockApi(page)
   const gate = deferred()
   control.suggestionGate = gate.promise
@@ -738,12 +723,10 @@ test('suggestion preserves editor geometry, ordering and manual additions', asyn
     return { top: box.top, bottom: box.bottom }
   }))
   expect(noticeBoxes[1].top - noticeBoxes[0].bottom).toBeGreaterThanOrEqual(7)
-  await page.screenshot({ path: testInfo.outputPath('suggestion-mobile.png'), fullPage: true })
   await page.setViewportSize({ width: 1280, height: 1000 })
-  await page.screenshot({ path: testInfo.outputPath('suggestion-desktop.png'), fullPage: true })
 })
 
-test('alias tabs retain drafts, all creator aliases and explicit clearing', async ({ page }, testInfo) => {
+test('alias tabs retain drafts, all creator aliases and explicit clearing', async ({ page }) => {
   const control = await mockApi(page)
   const gate = deferred()
   control.aliasesGate = gate.promise
@@ -769,12 +752,10 @@ test('alias tabs retain drafts, all creator aliases and explicit clearing', asyn
   await expect.poll(() => control.mutations.length).toBe(1)
   expect(control.mutations[0].body).toEqual({ rows: [{ baseKeyword: 'studio', aliases: '' }] })
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320)
-  await page.screenshot({ path: testInfo.outputPath('aliases-mobile.png'), fullPage: true })
   await page.setViewportSize({ width: 1280, height: 1000 })
-  await page.screenshot({ path: testInfo.outputPath('aliases-desktop.png'), fullPage: true })
 })
 
-test('keyword workspace keeps input and action anchors stable as preview and errors change', async ({ page }, testInfo) => {
+test('keyword workspace keeps input and action anchors stable as preview and errors change', async ({ page }) => {
   await mockApi(page)
   await page.setViewportSize({ width: 320, height: 844 })
   await page.goto('/edit')
@@ -794,13 +775,11 @@ test('keyword workspace keeps input and action anchors stable as preview and err
   expect(await Promise.all([find, save].map(locator => locator.boundingBox()))).toEqual(before)
   expect(await dialog.evaluate(element => element.scrollWidth)).toBeLessThanOrEqual(320)
   await dialog.getByRole('button', { name: 'Dismiss notification' }).click()
-  await page.screenshot({ path: testInfo.outputPath('keyword-mobile.png'), fullPage: true })
   await page.setViewportSize({ width: 1280, height: 1000 })
-  await page.screenshot({ path: testInfo.outputPath('keyword-desktop.png'), fullPage: true })
 })
 
 for (const scenario of [{ width: 1280, textScale: 100 }, { width: 320, textScale: 200 }]) {
-  test(`cold character headers preserve geometry at ${scenario.width}px with ${scenario.textScale}% text`, async ({ page }, testInfo) => {
+  test(`cold character headers preserve geometry at ${scenario.width}px with ${scenario.textScale}% text`, async ({ page }) => {
     const control = await mockApi(page)
     const gate = deferred()
     control.bootstrapGate = gate.promise
@@ -817,7 +796,6 @@ for (const scenario of [{ width: 1280, textScale: 100 }, { width: 320, textScale
     })
     const before = await skeleton.boundingBox()
     expect(before).not.toBeNull()
-    await page.screenshot({ path: testInfo.outputPath('character-header-loading.png'), fullPage: true })
     gate.resolve()
     await waitForMaintenanceReady(page, '/edit')
     const character = page.locator('[data-character-id="1"]')
@@ -828,9 +806,6 @@ for (const scenario of [{ width: 1280, textScale: 100 }, { width: 320, textScale
     expect(Math.abs(after!.height - before!.height), '冷加载角色占位与折叠角色头部须等高').toBeLessThanOrEqual(1)
     expect(Math.abs(after!.width - before!.width), '冷加载角色占位与角色卡片须等宽').toBeLessThanOrEqual(1)
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(scenario.width)
-    await writeFile(testInfo.outputPath('character-header-geometry.json'), `${JSON.stringify({ scenario, before, after }, null, 2)}\n`)
-    await testInfo.attach('角色头冷加载前后几何', { body: Buffer.from(JSON.stringify({ scenario, before, after }, null, 2)), contentType: 'application/json' })
-    await page.screenshot({ path: testInfo.outputPath('character-header-ready.png'), fullPage: true })
   })
 }
 
