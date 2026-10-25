@@ -22,6 +22,7 @@ import {
   normalizeKeywordAliases,
   normalizeKeywordAliasKey,
   normalizeKeywordBaseTerm,
+  normalizeSuggestionTerm,
   parseAliasesJson,
   parseCharacterAliasesJson,
   parseKeywordAliasesJson,
@@ -125,7 +126,6 @@ export interface R2BucketLike {
 
 const CHARACTER_COMMISSIONS_PATH_PATTERN = /^\/api\/admin\/characters\/\d+\/commissions$/
 const CHARACTER_COMMISSIONS_ID_PATTERN = /^\/api\/admin\/characters\/(\d+)\/commissions$/
-const SOURCE_IMAGE_SUFFIX_PATTERN = /\s*\((preview|part).*?\)$/i
 const NORMALIZE_SPACES_PATTERN = /\s+/g
 const MAX_FEATURED_SEARCH_KEYWORDS = 6
 const MAX_POPULAR_KEYWORDS = 240
@@ -229,10 +229,6 @@ function normalizeSuggestionSource(rawSource: string): SuggestionSource {
   }
 
   return 'Keyword'
-}
-
-function normalizeSuggestionTerm(term: string) {
-  return term.replace(SOURCE_IMAGE_SUFFIX_PATTERN, '').trim()
 }
 
 function parseSuggestionRows(suggestText: string): SuggestionRows {

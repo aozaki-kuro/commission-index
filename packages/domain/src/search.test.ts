@@ -225,6 +225,9 @@ describe('suggestion rows and text helpers', () => {
   it('strips preview/part suffixes and normalizes quoted token boundaries', () => {
     expect(normalizeSuggestionTerm('Maid (preview)')).toBe('Maid')
     expect(normalizeSuggestionTerm('Maid (part 2)')).toBe('Maid')
+    expect(normalizeSuggestionTerm('Maid (PART 12)')).toBe('Maid')
+    expect(normalizeSuggestionTerm('Maid (Party dress)')).toBe('Maid (Party dress)')
+    expect(normalizeSuggestionTerm('Maid (Partial)')).toBe('Maid (Partial)')
     expect(normalizeSuggestionTerm('Maid')).toBe('Maid')
     expect(normalizeQuotedTokenBoundary('"red dragon"wolf')).toBe('"red dragon" wolf')
   })

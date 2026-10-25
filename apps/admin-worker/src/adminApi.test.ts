@@ -23,6 +23,16 @@ function createJsonResponse(payload: unknown, status = 200) {
   })
 }
 
+// Uploads are validated by magic bytes, so fixtures need real JPEG/PNG headers.
+function imageBytes(kind: 'jpg' | 'png' | 'webp', tail = 'body') {
+  const header = {
+    jpg: [0xFF, 0xD8, 0xFF, 0xE0],
+    png: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A],
+    webp: [0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50],
+  }[kind]
+  return new Uint8Array([...header, ...new TextEncoder().encode(tail)])
+}
+
 function createR2SourceImageObject(
   body: ArrayBuffer,
   options: { contentType?: string, httpEtag?: string, size?: number } = {},
@@ -72,7 +82,7 @@ function buildCommissionMutationRequest(options: {
     formData.set('workGroupId', options.workGroupId ?? '')
     formData.set('partNumber', options.partNumber == null ? '' : String(options.partNumber))
     formData.set('links', '')
-    formData.set('sourceImage', new File(['png'], 'test.png', { type: 'image/png' }))
+    formData.set('sourceImage', new File([imageBytes('png')], 'test.png', { type: 'image/png' }))
 
     return new Request(`${baseUrl}/api/admin/commissions`, { method: 'POST', body: formData })
   }
@@ -638,7 +648,7 @@ describe('admin worker CRUD contract routing', () => {
     formData.set('description', '  desc  ')
     formData.set('keyword', '  tag  ')
     formData.set('hidden', 'on')
-    formData.set('sourceImage', new File(['png'], 'sample.png', { type: 'image/png' }))
+    formData.set('sourceImage', new File([imageBytes('png')], 'sample.png', { type: 'image/png' }))
 
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/commissions`, {
@@ -693,7 +703,7 @@ describe('admin worker CRUD contract routing', () => {
         commission_id: commissions[0]!.id,
         object_key: objectKey,
         mime_type: 'image/png',
-        byte_size: 3,
+        byte_size: 12,
       }])
   })
 
@@ -715,7 +725,7 @@ describe('admin worker CRUD contract routing', () => {
     formData.set('creatorName', 'sample-piece')
     formData.set('workGroupId', workGroupId)
     formData.set('partNumber', '1')
-    formData.set('sourceImage', new File(['png'], 'sample.png', { type: 'image/png' }))
+    formData.set('sourceImage', new File([imageBytes('png')], 'sample.png', { type: 'image/png' }))
 
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/commissions`, {
@@ -771,7 +781,7 @@ describe('admin worker CRUD contract routing', () => {
           creatorName: '  updated-piece  ',
           workGroupId: '',
           partNumber: '',
-          links: ' one \n two ',
+          links: ' https://one.example \n https://two.example ',
           design: '  new design  ',
           description: '',
           keyword: '  glow  ',
@@ -797,7 +807,7 @@ describe('admin worker CRUD contract routing', () => {
       work_group_id: null,
       part_number: null,
       file_name: '20250301_sample-piece',
-      links: '["one","two"]',
+      links: '["https://one.example","https://two.example"]',
       design: 'new design',
       description: null,
       keyword: 'glow',
@@ -871,7 +881,7 @@ describe('admin worker CRUD contract routing', () => {
 
     const formData = new FormData()
     formData.set('commissionFileName', 'stale-client-name')
-    formData.set('sourceImage', new File(['jpg'], 'sample.jpg', { type: 'image/jpeg' }))
+    formData.set('sourceImage', new File([imageBytes('jpg')], 'sample.jpg', { type: 'image/jpeg' }))
 
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/commissions/19/source-image`, {
@@ -900,7 +910,7 @@ describe('admin worker CRUD contract routing', () => {
         commission_id: 19,
         object_key: put.mock.calls[0]?.[0],
         mime_type: 'image/jpeg',
-        byte_size: 3,
+        byte_size: 8,
       }])
   })
 
@@ -921,7 +931,7 @@ describe('admin worker CRUD contract routing', () => {
     for (let index = 0; index < 2; index += 1) {
       const formData = new FormData()
       formData.set('commissionFileName', 'stale-client-name')
-      formData.set('sourceImage', new File(['same bytes'], 'sample.png', { type: 'image/png' }))
+      formData.set('sourceImage', new File([imageBytes('png', 'same bytes')], 'sample.png', { type: 'image/png' }))
       const response = await handleAdminApiRequest(
         new Request(`${baseUrl}/api/admin/commissions/19/source-image`, { method: 'POST', body: formData }),
         { DB: db, IMAGES: bucket },
@@ -943,7 +953,7 @@ describe('admin worker CRUD contract routing', () => {
         commission_file_name: '20250301_alice-maker',
         commission_id: 19,
         mime_type: 'image/png',
-        byte_size: 10,
+        byte_size: 18,
         sha256: storedRows[0]![0]!.sha256,
       })
     }
@@ -1357,7 +1367,7 @@ describe('admin worker CRUD contract routing', () => {
       request: () => {
         const formData = new FormData()
         formData.set('commissionFileName', '20250301_sample-piece')
-        formData.set('sourceImage', new File(['png'], 'sample.png', { type: 'image/png' }))
+        formData.set('sourceImage', new File([imageBytes('png')], 'sample.png', { type: 'image/png' }))
         return new Request(`${baseUrl}/api/admin/commissions/19/source-image`, {
           method: 'POST',
           body: formData,
@@ -1395,5 +1405,119 @@ describe('admin worker CRUD contract routing', () => {
     )
 
     expect(response.status).toBe(404)
+  })
+
+  describe('upload and link validation', () => {
+    function createRequest(file: File, links = '') {
+      const formData = new FormData()
+      formData.set('characterId', '7')
+      formData.set('commissionDate', '2025-03-01')
+      formData.set('links', links)
+      formData.set('sourceImage', file)
+      return new Request(`${baseUrl}/api/admin/commissions`, { method: 'POST', body: formData })
+    }
+
+    it('rejects a WebP renamed to .jpg without writing to R2', async () => {
+      const { database, db } = createSQLiteD1()
+      insertCharacter(database, 7, 'Alice')
+      const { bucket, put } = createImagesBucketRecorder()
+
+      const response = await handleAdminApiRequest(
+        createRequest(new File([imageBytes('webp')], 'a.jpg', { type: 'image/jpeg' })),
+        { DB: db, IMAGES: bucket },
+      )
+
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({ status: 'error', message: 'Only JPG and PNG uploads are supported.' })
+      expect(put).not.toHaveBeenCalled()
+    })
+
+    it('stores PNG bytes named .jpg under a .png key', async () => {
+      const { database, db } = createSQLiteD1()
+      insertCharacter(database, 7, 'Alice')
+      const { bucket, put } = createImagesBucketRecorder()
+
+      const response = await handleAdminApiRequest(
+        createRequest(new File([imageBytes('png')], 'a.jpg', { type: 'image/jpeg' })),
+        { DB: db, IMAGES: bucket },
+      )
+
+      expect(response.status).toBe(200)
+      expect(put.mock.calls[0]?.[0]).toMatch(flatPngKeyPattern)
+      expect(put.mock.calls[0]?.[2]).toEqual({ httpMetadata: { contentType: 'image/png' } })
+    })
+
+    it('rejects an oversized upload before any R2 put', async () => {
+      const { database, db } = createSQLiteD1()
+      insertCharacter(database, 7, 'Alice')
+      const { bucket, put } = createImagesBucketRecorder()
+      // A real oversized body: a size override on File would not survive the FormData round trip.
+      const oversized = new File([imageBytes('jpg'), new Uint8Array(10 * 1024 * 1024)], 'a.jpg', { type: 'image/jpeg' })
+
+      const response = await handleAdminApiRequest(createRequest(oversized), { DB: db, IMAGES: bucket })
+
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({ status: 'error', message: expect.stringContaining('10 MiB') })
+      expect(put).not.toHaveBeenCalled()
+    })
+
+    it('rejects a bad image type on source-image replacement with 400', async () => {
+      const { database, db } = createSQLiteD1()
+      insertCharacter(database, 1, 'Alice')
+      insertCommission(database, { id: 19, characterId: 1, fileName: '20250301_alice-maker' })
+      const { bucket, put } = createImagesBucketRecorder()
+      const formData = new FormData()
+      formData.set('sourceImage', new File([imageBytes('webp')], 'a.png', { type: 'image/png' }))
+
+      const response = await handleAdminApiRequest(
+        new Request(`${baseUrl}/api/admin/commissions/19/source-image`, { method: 'POST', body: formData }),
+        { DB: db, IMAGES: bucket },
+      )
+
+      expect(response.status).toBe(400)
+      expect(put).not.toHaveBeenCalled()
+    })
+
+    it.each(['javascript:alert(1)', 'example.com', 'https://ok.example\nftp://x.example'])(
+      'rejects link %s on create and update',
+      async (links) => {
+        const { database, db } = createSQLiteD1()
+        insertCharacter(database, 7, 'Alice')
+        insertCommission(database, { id: 19, characterId: 7, fileName: 'existing' })
+        const { bucket, put } = createImagesBucketRecorder()
+        const rawLinks = links.replaceAll('\\n', '\n')
+
+        const created = await handleAdminApiRequest(
+          createRequest(new File([imageBytes('jpg')], 'a.jpg', { type: 'image/jpeg' }), rawLinks),
+          { DB: db, IMAGES: bucket },
+        )
+        const updated = await handleAdminApiRequest(
+          new Request(`${baseUrl}/api/admin/commissions/19`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ characterId: 7, commissionDate: '2025-03-01', links: rawLinks, hidden: false }),
+          }),
+          { DB: db, IMAGES: bucket },
+        )
+
+        expect(created.status).toBe(400)
+        expect(await created.json()).toEqual({ status: 'error', message: expect.stringMatching(/^Link ".+" must be an http\(s\) URL\.$/) })
+        expect(updated.status).toBe(400)
+        expect(put).not.toHaveBeenCalled()
+      },
+    )
+
+    it('accepts http and https links and an empty links field', async () => {
+      for (const links of ['http://a.example/x\nhttps://b.example', '']) {
+        const { database, db } = createSQLiteD1()
+        insertCharacter(database, 7, 'Alice')
+        const { bucket } = createImagesBucketRecorder()
+        const response = await handleAdminApiRequest(
+          createRequest(new File([imageBytes('jpg')], 'a.jpg', { type: 'image/jpeg' }), links),
+          { DB: db, IMAGES: bucket },
+        )
+        expect(response.status).toBe(200)
+      }
+    })
   })
 })

@@ -18,6 +18,11 @@ Standalone admin Cloudflare Worker: API router, D1/R2 CRUD, asset serving. Produ
 - Missing `DB` / `IMAGES` bindings return 503 via `createMissingBindingResponses` in `adminApi.ts`.
 - CORS: same-origin, or an `Origin` host of `localhost`, `*.localhost`, or `127.0.0.1` (see `isLocalHostname` in `src/index.ts`).
 - Create/PATCH take `commissionDate` + `creatorName`; `workGroupId` and `partNumber` are given together or both `null`, and `workGroupId: "new"` creates a group.
+- Commission `links` must be absolute `http(s)` URLs (`validateCommissionFields`); they render into public `href`s.
+- Source-image uploads are typed by magic bytes only (JPEG/PNG; MIME and file name ignored) and capped at 10 MiB
+  (`MAX_SOURCE_IMAGE_BYTES` in `adminSourceImages.ts`).
+- Renaming a character re-homes its `character_aliases` row in the same atomic batch (the table is keyed by the exact
+  name); an existing row under the new name is merged, not replaced.
 - Editing date/creator only updates D1; it never renames, copies, moves, or deletes R2 objects. Replacing an image is a separate explicit operation.
 - `commissionDate` may not be later than today in UTC+14 (`isFutureCommissionDate` in `packages/domain/src/commissionDate.ts`, checked in `adminApi.ts` and `adminPersistence.ts`). The UTC+14 zone is an owner-approved assumption; tighten it in that one helper if needed.
 - Source-image GET (`/api/admin/commissions/:id/source-image`) resolves the key from `source_images` (by `commission_id`, falling back to `commission_file_name = c.file_name` for legacy rows). No row means 404; never probe the bucket by filename.

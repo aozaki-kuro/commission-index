@@ -48,22 +48,17 @@ function getSourceImageContentType(extension: '.jpg' | '.png') {
   return 'image/jpeg'
 }
 
-function resolveUploadExtension(file: File): '.jpg' | '.png' | null {
-  const mimeType = file.type.toLowerCase()
-  if (mimeType === 'image/jpeg') {
+// The crop output is 1280x525; the largest live image is under 1 MB and a worst-case PNG is ~2.7 MB.
+export const MAX_SOURCE_IMAGE_BYTES = 10 * 1024 * 1024
+
+// Magic bytes decide the type: a renamed WebP/HEIC would otherwise be stored and break the publish build.
+function sniffImageExtension(bytes: Uint8Array): '.jpg' | '.png' | null {
+  if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
     return '.jpg'
   }
 
-  if (mimeType === 'image/png') {
-    return '.png'
-  }
-
-  const fileName = file.name.toLowerCase()
-  if (fileName.endsWith('.jpg') || fileName.endsWith('.jpeg')) {
-    return '.jpg'
-  }
-
-  if (fileName.endsWith('.png')) {
+  const pngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+  if (pngSignature.every((byte, index) => bytes[index] === byte)) {
     return '.png'
   }
 
@@ -139,13 +134,17 @@ export async function saveSourceImageToBucket(
     throw new Error('Uploaded image is empty.')
   }
 
-  const extension = resolveUploadExtension(input.file)
-  if (!extension) {
-    throw new Error('Only JPG and PNG uploads are supported.')
+  // Checked before arrayBuffer() so an oversized upload is never read into memory.
+  if (input.file.size > MAX_SOURCE_IMAGE_BYTES) {
+    throw new Error(`Uploaded image must be ${MAX_SOURCE_IMAGE_BYTES / 1024 / 1024} MiB or smaller.`)
   }
 
   const fileName = normalizeCommissionFileName(input.commissionFileName)
   const imageBuffer = await input.file.arrayBuffer()
+  const extension = sniffImageExtension(new Uint8Array(imageBuffer, 0, Math.min(imageBuffer.byteLength, 8)))
+  if (!extension) {
+    throw new Error('Only JPG and PNG uploads are supported.')
+  }
   const sha256 = await hashArrayBuffer(imageBuffer)
   const targetKey = buildVersionedSourceImageKey(sha256, extension)
   const mimeType = getSourceImageContentType(extension)

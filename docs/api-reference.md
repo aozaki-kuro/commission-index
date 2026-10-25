@@ -334,7 +334,7 @@ curl -X DELETE https://admin.crystallize.cc/api/admin/characters/3
 | `creatorName`           | Form: send empty string when unknown. JSON (`PATCH`): required, string or `null`. Trimmed; empty stores `null`; control characters (<= 0x1F) rejected |
 | `workGroupId`           | `null`/empty for standalone works, else a lowercase UUID v4 (input is trimmed and lowercased), or the sentinel `new`                                  |
 | `partNumber`            | Positive integer; must be set if and only if `workGroupId` is set                                                                                     |
-| `links`                 | Newline-separated string; trimmed, blank lines dropped, stored as a JSON array                                                                        |
+| `links`                 | Newline-separated string; trimmed, blank lines dropped, stored as a JSON array; each entry must be an absolute `http(s)` URL                          |
 | `design`, `description` | Trimmed; empty stores `null`                                                                                                                          |
 | `keyword`               | Normalized on write (see [Keyword](#keyword)); empty stores `null`                                                                                    |
 | `hidden`                | Boolean (see [Hidden](#hidden))                                                                                                                       |
@@ -346,7 +346,7 @@ group only expresses grouping and order. `fileName` is never accepted from calle
 Validation errors (`400`): `Character selection is required.`, `Commission date must use
 YYYY-MM-DD format.`, `Commission date must be a real calendar date.`, `Creator name must be a
 string or null.`, `Work group and part number must be set together.`, `Work group must be a
-lowercase UUID v4.`, `Part number must be a positive integer.`, `Commission date cannot be in the future.`
+lowercase UUID v4.`, `Part number must be a positive integer.`, `Commission date cannot be in the future.`, `Link "<value>" must be an http(s) URL.`
 
 **Future dates.** `commissionDate` is rejected when it is later than the current calendar date in
 UTC+14 (`packages/domain/src/commissionDate.ts`). This is an owner-approved assumption: the UTC+14
@@ -383,7 +383,7 @@ D1 insert. The worker assigns the internal asset key `commission-<uuid>`; the R2
 
 - `400` — any field validation error above; `Source image is required for new commission entries.`
   (missing, unnamed, or empty file); `Only JPG and PNG uploads are supported.`; `Uploaded image is
-empty.`
+empty.`; `Uploaded image must be 10 MiB or smaller.`
 - `400 Selected character does not exist.` — raised after upload, so the R2 object is orphaned
 - `400` — any D1 failure after upload (uniqueness conflict, `D1 write operation failed.`); the
   uploaded object is kept
@@ -476,7 +476,8 @@ previous object on a best-effort basis.
 **Errors:**
 
 - `400 Invalid commission identifier.` (ID `0`); `400 Source image is required.`; `400 Commission
-not found.`; `400 Only JPG and PNG uploads are supported.`
+not found.`; `400 Only JPG and PNG uploads are supported.`; `400 Uploaded image must be 10 MiB or
+smaller.`
 - `400` — D1 update failed: the previous image stays active and the newly uploaded object is orphaned
 - `503` — missing `DB` or `IMAGES`
 
@@ -618,10 +619,11 @@ split it on `,`.
 ### Source image formats
 
 Accepted by `POST /commissions` and `POST /commissions/:id/source-image`: the file must be
-non-empty and have a non-empty name. The type is `image/jpeg` -> `.jpg` or `image/png` -> `.png`
-by `Content-Type`; only when `Content-Type` is neither, the file extension (`.jpg`/`.jpeg`/`.png`)
-decides. Anything else (including WebP) is rejected with `Only JPG and PNG uploads are
-supported.` The stored content type is derived from the resolved extension.
+non-empty, have a non-empty name, and be at most 10 MiB (checked before the body is read). The type
+is decided by the file's magic bytes only: JPEG (`FF D8 FF`) -> `.jpg`, PNG (`89 50 4E 47 0D 0A 1A
+0A`) -> `.png`. `Content-Type` and the file name are ignored, so a PNG named `x.jpg` is stored as
+`.png`. Anything else (including WebP/HEIC renamed to `.jpg`) is rejected with `Only JPG and PNG
+uploads are supported.` The stored content type follows the sniffed type.
 
 ### Source image storage
 

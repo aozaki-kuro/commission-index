@@ -77,7 +77,7 @@ const NORMALIZE_MULTI_SPACE_PATTERN = /\s+/g
 const QUOTED_TOKEN_BOUNDARY_PATTERN = /("[^"]*")(?=[^\s|!])/g
 const HAS_DIGIT_PATTERN = /\d/
 const LIKELY_DATE_QUERY_PATTERN = /^[\d./-]+$/
-const PREVIEW_PART_SUFFIX_PATTERN = /\s*\((preview|part).*?\)$/i
+const PREVIEW_PART_SUFFIX_PATTERN = /\s*\((?:preview|part\s*\d+)\)$/i
 const escapeRegExp = (s: string) => s.replace(ESCAPE_REGEXP_PATTERN, '\\$&')
 const normalizeSuggestionMatchToken = (term: string) => normalize(term).replace(SUGGESTION_MATCH_TOKEN_PATTERN, '')
 const indexedTermPattern = /^[a-z0-9_]+$/

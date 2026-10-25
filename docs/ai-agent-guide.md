@@ -52,7 +52,9 @@ Any non-ok response, 4xx included, throws and is retried.
 stores a JSON array. Do not send an array to `PATCH`: the worker applies `String()`, so
 `["a","b"]` becomes the single link `"a,b"`. Reads differ by endpoint: `GET /bootstrap` returns the
 **raw stored JSON string** in `commissionSearchRows[].links` (you must `JSON.parse` it), while
-`GET /characters/:id/commissions` returns a parsed `string[]`.
+`GET /characters/:id/commissions` returns a parsed `string[]`. Every link must be an absolute
+`http://` or `https://` URL (`400` otherwise, e.g. `javascript:` or a bare `example.com`); links are
+never auto-prefixed.
 
 **`hidden`.** `PATCH` coerces with `Boolean()`, so the string `"false"` or `"0"` becomes `true`.
 Send a real boolean. FormData hides only on the exact value `"on"`.
@@ -124,6 +126,11 @@ format and image rules: AR "Source image storage".)
 | `POST .../source-image`, D1 step fails | unchanged, old image still live                                      | new object is an orphan; response is `400`                   |
 | `DELETE /commissions/:id`              | commission + image row removed                                       | object orphaned                                              |
 | `DELETE /characters/:id`               | **character, all its commissions, and all their image rows removed** | **all their objects deleted after the commit (best effort)** |
+
+**Footgun: image bytes decide.** Uploads must really be JPEG or PNG: the worker sniffs the magic
+bytes and ignores `Content-Type` and the file name, so renaming a WebP/HEIC to `.jpg` is a `400`, and a
+PNG named `.jpg` is stored under a `.png` key. Files over 10 MiB are rejected with `400` before any R2
+write.
 
 **Footgun: `DELETE /characters/:id` cascades** to every commission and `source_images` row of that
 character in one atomic batch. There is no confirmation and no undo. After the batch commits, the
