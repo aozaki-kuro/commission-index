@@ -3,13 +3,13 @@ import {
   ARCHIVED_CHARACTERS_COLLAPSE_REQUEST_EVENT,
   ARCHIVED_CHARACTERS_COLLAPSED_EVENT,
   ARCHIVED_CHARACTERS_SHOW_REQUEST_EVENT,
+  ARCHIVED_CONTAINER_SELECTOR,
+  CHARACTER_PANEL_SELECTOR,
   dispatchArchivedCharactersStateChange,
   persistReloadArchivedCharactersVisibility,
   readSavedArchivedCharactersVisibility,
 } from '@features/home/commission/archivedCharactersState'
 
-const CHARACTER_PANEL_SELECTOR = '[data-commission-view-panel="character"]'
-const ARCHIVED_CONTAINER_SELECTOR = '[data-archived-sections-container="true"]'
 const ARCHIVED_DIVIDER_SELECTOR = '[data-archived-divider="true"]'
 const ARCHIVED_PLACEHOLDER_SELECTOR = '[data-archived-sections-placeholder="true"]'
 const ARCHIVED_LOAD_TRIGGER_SELECTOR = '[data-load-archived-characters="true"]'

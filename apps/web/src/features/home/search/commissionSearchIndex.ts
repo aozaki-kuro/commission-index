@@ -1,4 +1,5 @@
 import type { SearchEntryLike, SearchIndexLike, Suggestion, SuggestionEntryLike } from '@lib/search/index'
+import { ARCHIVED_CONTAINER_SELECTOR } from '@features/home/commission/archivedCharactersState'
 import {
   collectSuggestions,
   createSearchIndex,
@@ -128,8 +129,6 @@ export function createEmptySearchIndex(): SearchIndex {
     visibleEntryIds: new Set<number>(),
   }
 }
-
-const ARCHIVED_CONTAINER_SELECTOR = '[data-archived-sections-container="true"]'
 
 function collectVisibilityMetrics(entries: Entry[], collapsedArchivedContainer: HTMLElement | null) {
   const visibleEntryIds = new Set<number>()

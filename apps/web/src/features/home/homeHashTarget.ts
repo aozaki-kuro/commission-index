@@ -1,10 +1,9 @@
 import {
+  ARCHIVED_CONTAINER_SELECTOR,
   isArchivedCharactersVisible,
   requestArchivedCharactersVisibility,
 } from '@features/home/commission/archivedCharactersState'
 import { getHashTarget, scrollToHashTargetFromHrefWithoutHash } from '@lib/navigation/hashAnchor'
-
-const ARCHIVED_CONTAINER_SELECTOR = '[data-archived-sections-container="true"]'
 
 interface HomeHashTargetDeps {
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash

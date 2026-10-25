@@ -5,8 +5,8 @@ export const ARCHIVED_CHARACTERS_COLLAPSE_REQUEST_EVENT = 'home:archived-collaps
 export const ARCHIVED_CHARACTERS_COLLAPSED_EVENT = 'home:archived-collapsed'
 export const ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT = 'home:archived-state-change'
 
-const CHARACTER_PANEL_SELECTOR = '[data-commission-view-panel="character"]'
-const ARCHIVED_CONTAINER_SELECTOR = '[data-archived-sections-container="true"]'
+export const CHARACTER_PANEL_SELECTOR = '[data-commission-view-panel="character"]'
+export const ARCHIVED_CONTAINER_SELECTOR = '[data-archived-sections-container="true"]'
 const FIRST_ARCHIVED_SECTION_SELECTOR
   = '[data-character-section="true"][data-character-status="archived"]'
 const ARCHIVED_VISIBILITY_STORAGE_KEY = 'home:archived-visibility'

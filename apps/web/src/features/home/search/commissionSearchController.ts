@@ -12,6 +12,7 @@ import {
   requestActiveCharactersLoad,
 } from '@features/home/commission/loader/activeCharactersEvent'
 import {
+  ARCHIVED_CONTAINER_SELECTOR,
   isArchivedCharactersVisible,
   requestArchivedCharactersVisibility,
 } from '@features/home/commission/loader/archivedCharactersEvent'
@@ -750,7 +751,8 @@ export function initSearchController(root: HTMLElement) {
       )
       if (element) {
         // Collapsed archived entries are in the DOM but display: none, so they must be shown to scroll.
-        if (element.closest('[data-archived-sections-container="true"]') && !isArchivedCharactersVisible(document)) {
+        // Only character view owns the archived toggle; timeline view must never expand the hidden panel's archive.
+        if (mode === 'character' && element.closest(ARCHIVED_CONTAINER_SELECTOR) && !isArchivedCharactersVisible(document)) {
           requestArchivedCharactersVisibility(window, 'visible')
         }
         scrollAndAnimateEntry(element)
