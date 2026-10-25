@@ -65,7 +65,7 @@ metadata, illustrator attribution, search vocabulary, and original-platform link
 - Numbered parts are explicit relationships. Each part remains a separate work; do not silently
   group or merge records based on a shared character, illustrator, date, or source link.
 - Collapsed content (archived) must preserve search completeness, shareable navigation, and scroll
-  context.
+  context. Search index loading, load failure, and genuinely empty results must stay distinguishable.
 - Existing DOM contracts, snapshot validation, and asset handling remain governed by the repository
   and `apps/web/AGENTS.md`; this product record does not replace technical contracts.
 
