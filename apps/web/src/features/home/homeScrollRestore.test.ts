@@ -1,5 +1,4 @@
 import { ACTIVE_CHARACTERS_LOADED_EVENT } from '@features/home/commission/loader/activeCharactersEvent'
-import { ARCHIVED_CHARACTERS_LOADED_EVENT } from '@features/home/commission/loader/archivedCharactersEvent'
 import { TIMELINE_VIEW_LOADED_EVENT } from '@features/home/commission/loader/timelineViewLoader'
 import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '@features/home/events'
 // @vitest-environment jsdom
@@ -65,7 +64,7 @@ describe('mountHomeScrollRestore', () => {
   it('requests deferred active sections and restores the saved scroll on reload', () => {
     document.documentElement.setAttribute('data-home-scroll-restoring', 'true')
     document.body.innerHTML = `
-      <div data-commission-view-panel="character" data-active-sections-loaded="false" data-archived-loaded="false" data-archived-visibility="hidden">
+      <div data-commission-view-panel="character" data-active-sections-loaded="false" data-archived-visibility="hidden">
         <div data-active-sections-container="true"></div>
         <template data-active-sections-template="true"><section id="section-beta"></section></template>
       </div>
@@ -118,10 +117,10 @@ describe('mountHomeScrollRestore', () => {
     requestAnimationFrameSpy.mockRestore()
   })
 
-  it('requests archived sections when the saved scroll exceeds the active content height', () => {
+  it('restores without waiting for archived content once active sections are loaded', () => {
     document.body.innerHTML = `
-      <div data-commission-view-panel="character" data-active-sections-loaded="true" data-archived-loaded="false" data-archived-visibility="hidden">
-        <template data-archived-sections-template="true"><section id="section-archived"></section></template>
+      <div data-commission-view-panel="character" data-active-sections-loaded="true" data-archived-visibility="visible">
+        <div data-archived-sections-container="true"><section id="section-archived"></section></div>
       </div>
     `
     setScrollEnvironment({ scrollHeight: 3600 })
@@ -135,7 +134,7 @@ describe('mountHomeScrollRestore', () => {
       }),
     )
 
-    const requestArchivedLoad = vi.fn()
+    const requestActiveLoad = vi.fn()
     const restoreScrollPosition = vi.fn()
     const requestAnimationFrameSpy = vi
       .spyOn(window, 'requestAnimationFrame')
@@ -147,26 +146,12 @@ describe('mountHomeScrollRestore', () => {
     const cleanup = mountHomeScrollRestore({
       deps: {
         readNavigationType: () => 'reload',
-        requestArchivedLoad,
+        requestActiveLoad,
         restoreScrollPosition,
       },
     })
 
-    expect(requestArchivedLoad).toHaveBeenCalledWith(window, {
-      preserveScroll: false,
-      targetBatchCount: 4,
-    })
-    expect(restoreScrollPosition).not.toHaveBeenCalled()
-
-    document
-      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
-      ?.setAttribute('data-archived-loaded', 'true')
-    document
-      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
-      ?.setAttribute('data-archived-visibility', 'visible')
-    setScrollEnvironment({ scrollHeight: 8600 })
-    window.dispatchEvent(new Event(ARCHIVED_CHARACTERS_LOADED_EVENT))
-
+    expect(requestActiveLoad).not.toHaveBeenCalled()
     expect(restoreScrollPosition).toHaveBeenCalledWith(window, { x: 0, y: 6000 })
     expect(window.sessionStorage.getItem(HOME_SCROLL_STATE_STORAGE_KEY)).toBeNull()
 
@@ -293,8 +278,8 @@ describe('mountHomeScrollRestore', () => {
   it('abandons pending restore once user navigation cancels it', () => {
     document.documentElement.setAttribute('data-home-scroll-restoring', 'true')
     document.body.innerHTML = `
-      <div data-commission-view-panel="character" data-active-sections-loaded="true" data-archived-loaded="false" data-archived-visibility="hidden">
-        <template data-archived-sections-template="true"><section id="section-archived"></section></template>
+      <div data-commission-view-panel="character" data-active-sections-loaded="false" data-archived-visibility="hidden">
+        <div data-active-sections-container="true"></div>
       </div>
     `
     setScrollEnvironment({ scrollHeight: 3600 })
@@ -308,30 +293,26 @@ describe('mountHomeScrollRestore', () => {
       }),
     )
 
-    const requestArchivedLoad = vi.fn()
+    const requestActiveLoad = vi.fn()
     const restoreScrollPosition = vi.fn()
 
     const cleanup = mountHomeScrollRestore({
       deps: {
         readNavigationType: () => 'reload',
-        requestArchivedLoad,
+        requestActiveLoad,
         restoreScrollPosition,
       },
     })
 
-    expect(requestArchivedLoad).toHaveBeenCalledWith(window, {
-      preserveScroll: false,
+    expect(requestActiveLoad).toHaveBeenCalledWith(window, {
       targetBatchCount: 4,
     })
     window.dispatchEvent(new Event(HOME_SCROLL_RESTORE_ABORT_EVENT))
 
     document
       .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
-      ?.setAttribute('data-archived-loaded', 'true')
-    document
-      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
-      ?.setAttribute('data-archived-visibility', 'visible')
-    window.dispatchEvent(new Event(ARCHIVED_CHARACTERS_LOADED_EVENT))
+      ?.setAttribute('data-active-sections-loaded', 'true')
+    window.dispatchEvent(new Event(ACTIVE_CHARACTERS_LOADED_EVENT))
 
     expect(restoreScrollPosition).not.toHaveBeenCalled()
     expect(window.sessionStorage.getItem(HOME_SCROLL_STATE_STORAGE_KEY)).toBeNull()
@@ -342,8 +323,8 @@ describe('mountHomeScrollRestore', () => {
 
   it('temporarily switches history scroll restoration to manual during restore', () => {
     document.body.innerHTML = `
-      <div data-commission-view-panel="character" data-active-sections-loaded="true" data-archived-loaded="false" data-archived-visibility="hidden">
-        <template data-archived-sections-template="true"><section id="section-archived"></section></template>
+      <div data-commission-view-panel="character" data-active-sections-loaded="false" data-archived-visibility="hidden">
+        <div data-active-sections-container="true"></div>
       </div>
     `
     setScrollEnvironment({ scrollHeight: 3600 })
@@ -359,11 +340,11 @@ describe('mountHomeScrollRestore', () => {
     ;(window.history as History & { scrollRestoration?: ScrollRestoration }).scrollRestoration
       = 'auto'
 
-    const requestArchivedLoad = vi.fn()
+    const requestActiveLoad = vi.fn()
     const cleanup = mountHomeScrollRestore({
       deps: {
         readNavigationType: () => 'reload',
-        requestArchivedLoad,
+        requestActiveLoad,
       },
     })
 

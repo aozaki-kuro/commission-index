@@ -25,7 +25,8 @@ function createDeps(trace: Trace) {
     deps: {
       mountCommissionViewModeDomSync: createMount(trace, 'view-sync'),
       mountActiveCharactersLoader: createMount(trace, 'active-loader'),
-      mountArchivedCharactersLoader: createMount(trace, 'archived-loader'),
+      mountArchivedCharactersToggle: createMount(trace, 'archived-toggle'),
+      mountHomeHashTarget: createMount(trace, 'hash-target'),
       mountTimelineViewLoader: createMount(trace, 'timeline-loader'),
       mountHomeScrollRestore: createMount(trace, 'scroll-restore'),
       mountHomeUpdateLinks: createMount(trace, 'update-links'),
@@ -53,7 +54,8 @@ describe('mountHomePageClient', () => {
     expect(trace).toEqual([
       'mount:view-sync',
       'mount:active-loader',
-      'mount:archived-loader',
+      'mount:archived-toggle',
+      'mount:hash-target',
       'mount:timeline-loader',
       'mount:scroll-restore',
       'mount:update-links',
@@ -65,7 +67,8 @@ describe('mountHomePageClient', () => {
     expect(trace).toEqual([
       'mount:view-sync',
       'mount:active-loader',
-      'mount:archived-loader',
+      'mount:archived-toggle',
+      'mount:hash-target',
       'mount:timeline-loader',
       'mount:scroll-restore',
       'mount:update-links',
@@ -82,7 +85,8 @@ describe('mountHomePageClient', () => {
     expect(trace).toEqual([
       'mount:view-sync',
       'mount:active-loader',
-      'mount:archived-loader',
+      'mount:archived-toggle',
+      'mount:hash-target',
       'mount:timeline-loader',
       'mount:scroll-restore',
       'mount:update-links',
@@ -101,7 +105,8 @@ describe('mountHomePageClient', () => {
       'cleanup:update-links',
       'cleanup:scroll-restore',
       'cleanup:timeline-loader',
-      'cleanup:archived-loader',
+      'cleanup:hash-target',
+      'cleanup:archived-toggle',
       'cleanup:active-loader',
       'cleanup:view-sync',
     ])
@@ -118,7 +123,8 @@ describe('mountHomePageClient', () => {
     expect(trace).toEqual([
       'mount:view-sync',
       'mount:active-loader',
-      'mount:archived-loader',
+      'mount:archived-toggle',
+      'mount:hash-target',
       'mount:timeline-loader',
       'mount:scroll-restore',
       'mount:update-links',
@@ -127,7 +133,8 @@ describe('mountHomePageClient', () => {
       'cleanup:update-links',
       'cleanup:scroll-restore',
       'cleanup:timeline-loader',
-      'cleanup:archived-loader',
+      'cleanup:hash-target',
+      'cleanup:archived-toggle',
       'cleanup:active-loader',
       'cleanup:view-sync',
     ])
@@ -136,7 +143,8 @@ describe('mountHomePageClient', () => {
     expect(trace).toEqual([
       'mount:view-sync',
       'mount:active-loader',
-      'mount:archived-loader',
+      'mount:archived-toggle',
+      'mount:hash-target',
       'mount:timeline-loader',
       'mount:scroll-restore',
       'mount:update-links',
@@ -145,7 +153,8 @@ describe('mountHomePageClient', () => {
       'cleanup:update-links',
       'cleanup:scroll-restore',
       'cleanup:timeline-loader',
-      'cleanup:archived-loader',
+      'cleanup:hash-target',
+      'cleanup:archived-toggle',
       'cleanup:active-loader',
       'cleanup:view-sync',
     ])
@@ -156,8 +165,8 @@ describe('mountHomePageClient', () => {
     const { deps, scheduleDeferredMount } = createDeps(trace)
     const criticalError = new Error('critical mount failed')
 
-    deps.mountArchivedCharactersLoader = vi.fn(() => {
-      trace.push('mount:archived-loader')
+    deps.mountArchivedCharactersToggle = vi.fn(() => {
+      trace.push('mount:archived-toggle')
       throw criticalError
     })
 
@@ -166,7 +175,7 @@ describe('mountHomePageClient', () => {
     expect(trace).toEqual([
       'mount:view-sync',
       'mount:active-loader',
-      'mount:archived-loader',
+      'mount:archived-toggle',
       'cleanup:active-loader',
       'cleanup:view-sync',
     ])

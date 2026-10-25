@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT } from '@features/home/commission/loader/archivedCharactersEvent'
+import { mountArchivedCharactersToggle } from '@features/home/commission/archivedCharactersToggle'
+import { ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, requestArchivedCharactersVisibility } from '@features/home/commission/loader/archivedCharactersEvent'
 import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '@features/home/events'
 import { describe, expect, it, vi } from 'vitest'
 import {
@@ -9,9 +10,8 @@ import {
 } from './homeNavTargetClient'
 
 describe('homeNavTargetClient', () => {
-  it('prefetches active and archived targets, and requests timeline batches for timeline links', () => {
+  it('prefetches active targets and requests timeline batches for timeline links', () => {
     const prefetchActiveTarget = vi.fn()
-    const prefetchArchivedTarget = vi.fn()
     const requestTimelineLoad = vi.fn()
 
     prefetchHomeNavTarget({
@@ -19,7 +19,6 @@ describe('homeNavTargetClient', () => {
       href: '#active-alpha',
       isTimelineTarget: false,
       prefetchActiveTarget,
-      prefetchArchivedTarget,
       requestTimelineLoad,
       status: 'active',
       win: window,
@@ -29,7 +28,6 @@ describe('homeNavTargetClient', () => {
       href: '#archived-beta',
       isTimelineTarget: false,
       prefetchActiveTarget,
-      prefetchArchivedTarget,
       requestTimelineLoad,
       status: 'archived',
       win: window,
@@ -39,14 +37,13 @@ describe('homeNavTargetClient', () => {
       href: '#timeline-2026',
       isTimelineTarget: true,
       prefetchActiveTarget,
-      prefetchArchivedTarget,
       requestTimelineLoad,
       status: 'active',
       win: window,
     })
 
+    expect(prefetchActiveTarget).toHaveBeenCalledTimes(1)
     expect(prefetchActiveTarget).toHaveBeenCalledWith(document, '#active-alpha')
-    expect(prefetchArchivedTarget).toHaveBeenCalledWith(document, '#archived-beta')
     expect(requestTimelineLoad).toHaveBeenCalledWith(window, {
       strategy: 'target',
       targetId: '#timeline-2026',
@@ -100,7 +97,7 @@ describe('homeNavTargetClient', () => {
     const requestArchivedVisibility = vi.fn((win: Window) => {
       win.dispatchEvent(
         new CustomEvent(ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, {
-          detail: { visibility: 'visible', loaded: false },
+          detail: { visibility: 'visible' },
         }),
       )
     })
@@ -124,12 +121,12 @@ describe('homeNavTargetClient', () => {
     const requestArchivedVisibility = vi.fn((win: Window) => {
       win.dispatchEvent(
         new CustomEvent(ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, {
-          detail: { visibility: 'hidden', loaded: false },
+          detail: { visibility: 'hidden' },
         }),
       )
       win.dispatchEvent(
         new CustomEvent(ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, {
-          detail: { visibility: 'visible', loaded: false },
+          detail: { visibility: 'visible' },
         }),
       )
     })
@@ -141,5 +138,29 @@ describe('homeNavTargetClient', () => {
     })
 
     expect(onVisible).toHaveBeenCalledTimes(1)
+  })
+
+  it('calls onVisible when the show request is answered synchronously', () => {
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-archived-visibility="hidden">
+        <div data-archived-sections-placeholder="true"></div>
+        <div data-archived-divider="true" class="hidden"></div>
+        <div data-archived-sections-container="true" class="hidden">
+          <section id="section-archived" data-character-section="true" data-character-status="archived"></section>
+        </div>
+      </div>
+    `
+    const disposeToggle = mountArchivedCharactersToggle()
+    const onVisible = vi.fn()
+
+    revealArchivedHomeNavTarget({
+      onVisible,
+      requestArchivedVisibility: requestArchivedCharactersVisibility,
+      win: window,
+    })
+
+    expect(onVisible).toHaveBeenCalledTimes(1)
+    disposeToggle()
+    document.body.innerHTML = ''
   })
 })

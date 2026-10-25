@@ -5,10 +5,6 @@ import {
   requestActiveCharactersLoad,
 } from '@features/home/commission/loader/activeCharactersEvent'
 import {
-  ARCHIVED_CHARACTERS_LOADED_EVENT,
-  requestArchivedCharactersLoad,
-} from '@features/home/commission/loader/archivedCharactersEvent'
-import {
   buildPopularKeywordPoolFromSuggestTexts,
   dedupeKeywords,
 } from '@lib/search/popularKeywords'
@@ -368,14 +364,11 @@ export function loadDeferredEntryBatch(sectionId: string): Promise<void> {
   if (!manifest)
     return Promise.reject(new Error('No batch manifest'))
 
-  const isActive = sectionId in manifest.active.targetBatchById
-  const isArchived = !isActive && sectionId in manifest.archived.targetBatchById
-  if (!isActive && !isArchived)
+  // Archived sections are always in the DOM, so only active sections can still be deferred.
+  if (!(sectionId in manifest.active.targetBatchById))
     return Promise.reject(new Error('Section not found in manifest'))
 
-  const loadedEvent = isActive
-    ? ACTIVE_CHARACTERS_LOADED_EVENT
-    : ARCHIVED_CHARACTERS_LOADED_EVENT
+  const loadedEvent = ACTIVE_CHARACTERS_LOADED_EVENT
 
   return new Promise<void>((resolve, reject) => {
     let settled = false
@@ -400,18 +393,10 @@ export function loadDeferredEntryBatch(sectionId: string): Promise<void> {
 
     window.addEventListener(loadedEvent, onLoaded)
 
-    if (isActive) {
-      requestActiveCharactersLoad(window, {
-        strategy: 'target',
-        targetId: sectionId,
-      })
-    }
-    else {
-      requestArchivedCharactersLoad(window, {
-        strategy: 'target',
-        targetId: sectionId,
-      })
-    }
+    requestActiveCharactersLoad(window, {
+      strategy: 'target',
+      targetId: sectionId,
+    })
   })
 }
 

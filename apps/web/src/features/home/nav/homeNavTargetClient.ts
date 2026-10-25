@@ -13,7 +13,6 @@ interface PrefetchHomeNavTargetOptions {
   href: string | null
   isTimelineTarget: boolean
   prefetchActiveTarget: (doc: Document, targetId: string | null | undefined) => void
-  prefetchArchivedTarget: (doc: Document, targetId: string | null | undefined) => void
   requestTimelineLoad: (win: Window, options?: RequestTimelineViewLoadOptions) => void
   status: CharacterStatus | null
   targetId?: string | null
@@ -46,7 +45,6 @@ export function prefetchHomeNavTarget({
   href,
   isTimelineTarget,
   prefetchActiveTarget,
-  prefetchArchivedTarget,
   requestTimelineLoad,
   status,
   targetId,
@@ -62,13 +60,9 @@ export function prefetchHomeNavTarget({
     return
   }
 
+  // Archived sections are always in the DOM, so only active targets can still need a batch.
   if (status === 'active') {
     prefetchActiveTarget(doc, resolvedTargetId)
-    return
-  }
-
-  if (status === 'archived') {
-    prefetchArchivedTarget(doc, resolvedTargetId)
   }
 }
 

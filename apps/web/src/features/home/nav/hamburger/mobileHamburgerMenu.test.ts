@@ -224,7 +224,7 @@ describe('mobileHamburgerMenu', () => {
     cleanup()
   })
 
-  it('loads archived characters and jumps when a archived link is selected before load', () => {
+  it('reveals archived characters and jumps when an archived link is selected while collapsed', () => {
     const trackEvent = vi.fn()
     const scrollToHashWithoutWrite = vi.fn()
     const onRestoreAbort = vi.fn()
@@ -232,16 +232,12 @@ describe('mobileHamburgerMenu', () => {
       const archivedSection = document.createElement('section')
       archivedSection.id = 'archived-item'
       document.body.append(archivedSection)
-
-      document
-        .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
-        ?.setAttribute('data-archived-loaded', 'false')
       document
         .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
         ?.setAttribute('data-archived-visibility', 'visible')
       window.dispatchEvent(
         new CustomEvent(ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, {
-          detail: { visibility: 'visible', loaded: false },
+          detail: { visibility: 'visible' },
         }),
       )
     })

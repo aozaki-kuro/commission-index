@@ -65,7 +65,17 @@ for (const viewport of viewports) {
       await page.goto('/')
       await expectFixtureData(page)
       const hash = await entryHash(page, 'Orion Vale', 302)
-      await page.goto(`/${hash}`)
+      await page.goto(`/${hash}`, { waitUntil: 'domcontentloaded' })
+      // Read before any client module can react: the pre-paint inline script must already have
+      // expanded archived so native fragment scrolling lands on the entry.
+      const prePaint = await page.evaluate(() => ({
+        visibility: document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')
+          ?.dataset
+          .archivedVisibility,
+        scrollY: window.scrollY,
+      }))
+      expect(prePaint.visibility).toBe('visible')
+      expect(prePaint.scrollY).toBeGreaterThan(0)
       await expectFixtureData(page)
       await expect(characterPanel(page)).toHaveAttribute('data-archived-visibility', 'visible')
       await expectNearTop(page.locator(hash))

@@ -146,7 +146,6 @@ function syncSectionVisibility({
 function syncArchivedDividerVisibility({
   archivedDivider,
   hasDeferredQuery,
-  archivedBatchCount,
   archivedVisible,
   visibleActiveSections,
   visibleArchivedSections,
@@ -154,7 +153,6 @@ function syncArchivedDividerVisibility({
 }: {
   archivedDivider: HTMLElement | null
   hasDeferredQuery: boolean
-  archivedBatchCount: number
   archivedVisible: boolean
   visibleActiveSections: number
   visibleArchivedSections: number
@@ -166,11 +164,7 @@ function syncArchivedDividerVisibility({
 
   const shouldShowDivider
     = archivedVisible
-      && (
-        hasDeferredQuery
-          ? visibleActiveSections > 0 && visibleArchivedSections > 0
-          : archivedBatchCount > 0
-      )
+      && (!hasDeferredQuery || (visibleActiveSections > 0 && visibleArchivedSections > 0))
 
   if (shouldShowDivider === previousVisible) {
     return { didLayoutChange: false, nextVisible: previousVisible }
@@ -186,7 +180,6 @@ export interface DomSyncState {
   hiddenArchivedMatchedCount: number
   matchedIds: Set<number>
   resolvedIndex: SearchIndex
-  archivedBatchCount: number
   archivedVisible: boolean
   statusMessage: string
   visibleEntriesCount: number
@@ -217,7 +210,6 @@ export function syncDom(state: DomSyncState, refs: DomSyncRefs) {
     hiddenArchivedMatchedCount,
     matchedIds,
     resolvedIndex,
-    archivedBatchCount,
     archivedVisible,
     statusMessage,
     visibleEntriesCount,
@@ -290,7 +282,6 @@ export function syncDom(state: DomSyncState, refs: DomSyncRefs) {
   const dividerSyncResult = syncArchivedDividerVisibility({
     archivedDivider,
     hasDeferredQuery,
-    archivedBatchCount,
     archivedVisible,
     visibleActiveSections: sectionSyncResult.visibleActiveSections,
     visibleArchivedSections: sectionSyncResult.visibleArchivedSections,

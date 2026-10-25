@@ -8,7 +8,6 @@ import type { PanelLoadedState } from '@features/home/search/commissionSearchPan
 import type { CommissionViewMode } from '@features/home/search/commissionViewMode'
 import type { SuggestionTokenOperator } from '@lib/search/index'
 import { requestActiveCharactersLoad } from '@features/home/commission/loader/activeCharactersEvent'
-import { requestArchivedCharactersLoad } from '@features/home/commission/loader/archivedCharactersEvent'
 import { requestTimelineViewLoad } from '@features/home/commission/loader/timelineViewEvent'
 import { LOAD_ARCHIVED_COMMAND_VALUE } from '@features/home/search/commissionSearchConstants'
 import {
@@ -63,23 +62,19 @@ export function getDomSnapshotKeyForMode({
   activeBatchCount,
   activeLoaded,
   mode,
-  archivedBatchCount,
-  archivedLoaded,
   archivedVisible,
   timelineLoaded,
 }: {
   activeBatchCount: number
   activeLoaded: boolean
   mode: 'character' | 'timeline'
-  archivedBatchCount: number
-  archivedLoaded: boolean
   archivedVisible: boolean
   timelineLoaded: boolean
 }) {
   return mode === 'character'
     ? `character:active-${activeLoaded ? 'loaded' : 'pending'}-${activeBatchCount}:archived-${
-      archivedLoaded ? 'loaded' : archivedVisible ? 'visible' : 'hidden'
-    }-${archivedBatchCount}`
+      archivedVisible ? 'visible' : 'hidden'
+    }`
     : `timeline:${timelineLoaded ? 'timeline-loaded' : 'timeline-pending'}`
 }
 
@@ -121,7 +116,6 @@ let cachedHydratedIndex: SearchIndex | null = null
 let pendingHydration: { index: SearchIndex, promise: Promise<SearchIndex> } | null = null
 
 let didRequestActiveAll = false
-let didRequestArchivedAll = false
 let didRequestTimelineAll = false
 let didAutoShowArchived = false
 let hasTrackedSearchUsage = false
@@ -154,7 +148,6 @@ export function resetModelState() {
   cachedHydratedIndex = null
   pendingHydration = null
   didRequestActiveAll = false
-  didRequestArchivedAll = false
   didRequestTimelineAll = false
   didAutoShowArchived = false
   hasTrackedSearchUsage = false
@@ -242,9 +235,7 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   const {
     activeLoaded,
     activeBatchCount,
-    archivedLoaded,
     archivedVisible,
-    archivedBatchCount,
     timelineLoaded,
   } = panelState
 
@@ -254,7 +245,7 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   // cachedHydratedIndex !== null is included so the memoized result is invalidated once
   // Fuse.js finishes loading — otherwise a keyword-click recompute (which runs before Fuse is
   // ready) would be permanently cached and a subsequent retry would return the stale empty result.
-  const outputKey = `${query}\0${mode}\0${isIndexReady}\0${shouldWarmFuse}\0${isSuggestionPanelDismissed}\0${activeCommandValue}\0${activeLoaded}\0${activeBatchCount}\0${archivedLoaded}\0${archivedVisible}\0${archivedBatchCount}\0${timelineLoaded}\0${externalEntries?.length ?? -1}\0${disableDomFiltering}\0${suppressInitialSuggestionPanelAnimation}\0${initialQuery === undefined ? 'unset' : `set:${initialQuery}`}\0${cachedHydratedIndex !== null}`
+  const outputKey = `${query}\0${mode}\0${isIndexReady}\0${shouldWarmFuse}\0${isSuggestionPanelDismissed}\0${activeCommandValue}\0${activeLoaded}\0${activeBatchCount}\0${archivedVisible}\0${timelineLoaded}\0${externalEntries?.length ?? -1}\0${disableDomFiltering}\0${suppressInitialSuggestionPanelAnimation}\0${initialQuery === undefined ? 'unset' : `set:${initialQuery}`}\0${cachedHydratedIndex !== null}`
   if (
     cachedOutput
     && cachedOutputKey === outputKey
@@ -292,8 +283,6 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
     activeBatchCount,
     activeLoaded,
     mode,
-    archivedBatchCount,
-    archivedLoaded,
     archivedVisible,
     timelineLoaded,
   })
@@ -362,16 +351,6 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
     !disableDomFiltering && mode === 'character' && hasDeferredQuery && !activeLoaded,
   )
 
-  didRequestArchivedAll = syncDeferredAllLoadRequest(
-    didRequestArchivedAll,
-    () => requestArchivedCharactersLoad(window, { preserveScroll: true, strategy: 'all' }),
-    !disableDomFiltering
-    && mode === 'character'
-    && hasDeferredQuery
-    && archivedVisible
-    && !archivedLoaded,
-  )
-
   didRequestTimelineAll = syncDeferredAllLoadRequest(
     didRequestTimelineAll,
     () => requestTimelineViewLoad(window, { strategy: 'all' }),
@@ -389,7 +368,7 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
       disableDomFiltering,
       hasDeferredQuery,
       mode,
-      archivedLoaded,
+      archivedVisible,
     })
 
   // ---- Auto-show archived (deferred to caller — not triggered here) ----

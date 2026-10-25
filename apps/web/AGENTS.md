@@ -27,8 +27,9 @@ product context is `PRODUCT.md`.
 Static markup is Astro templates. All client-side behavior uses Astro script components
 (`HomeClientScript.astro`) and vanilla TS modules.
 
-- **Deferred sections:** active/stale character sections and timeline use an inline manifest + external
-  batch JSON, lazy-loaded by script loaders
+- **Deferred sections:** active character sections and timeline use an inline manifest + external
+  batch JSON, lazy-loaded by script loaders. Archived sections are server-rendered inside
+  `[data-archived-sections-container]` (`hidden` until shown) and are never fetched
 - **Content-hashed batch filenames:** each batch file is named `<index>.<hash>.json`
   (`/search/home-character-batches/<locale>/<status>/0.k3j9x.json`, timeline alike); the search index is
   `/search/home-search-entries.<hash>.json`. The hash is djb2 (`lib/utils/hash.ts`) over the **final
@@ -45,8 +46,14 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   `batchVersions` / `v`. Only fetched on the fallback path.
   Prefetch and fetch share the same retry. Batch fetches time out after `BATCH_FETCH_TIMEOUT_MS`
   (`batchRequestQueue.ts`) when the browser supports `AbortSignal.timeout`.
-- **Archived collapse vs in-flight load:** `collapseArchivedSections` bypasses the serial load queue, so it bumps a
-  generation counter; a load that started earlier stops mounting and skips its state writes once the generation changes.
+- **Archived toggle:** `commission/archivedCharactersToggle.ts` owns show/collapse (class `hidden` on the container,
+  divider and placeholder, `data-archived-visibility` on the character panel, the state-change event and the session
+  persistence pair) and answers show requests synchronously, so callers subscribe before requesting and can scroll
+  in the same frame. It reads the panel attribute on mount: the inline script in `StaticCommissionSections.astro`
+  already expanded archived before paint when the hash (character view) targets an archived entry.
+  `homeHashTarget.ts` resolves the hash via `getHashTarget` (active-panel copy of shared ids), expands archived when
+  needed and scrolls. Search treats entries inside the collapsed container as hidden matches (the "load archived"
+  notice), not visible ones.
 - **Manifest cache key:** inline manifests are cached per `<script>` element; ClientRouter swaps replace the element,
   so never cache per `Document`.
 - **DOM contracts:** `data-*` attributes drive search/nav/hash navigation — preserve attribute names.

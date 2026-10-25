@@ -56,7 +56,7 @@ function renderSidebarRoot() {
     <section id="section-empty" data-total-commissions="0"></section>
     <h2 id="timeline-title-2026"></h2>
     <section id="timeline-year-2026"></section>
-    <div data-commission-view-panel="character" data-archived-loaded="false" data-archived-visibility="hidden"></div>
+    <div data-commission-view-panel="character" data-archived-visibility="hidden"></div>
   `
 }
 
@@ -217,7 +217,7 @@ describe('sidebarNavEnhancer', () => {
     window.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
   })
 
-  it('requests archived loading then scrolls when archived link is clicked', () => {
+  it('reveals archived then scrolls when archived link is clicked', () => {
     const scrollToHashWithoutWrite = vi.fn()
     const onRestoreAbort = vi.fn()
     const requestArchivedVisibility = vi.fn((win, visibility: 'visible' | 'hidden') => {
@@ -228,12 +228,9 @@ describe('sidebarNavEnhancer', () => {
       document
         .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
         ?.setAttribute('data-archived-visibility', 'visible')
-      document
-        .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
-        ?.setAttribute('data-archived-loaded', 'false')
       win.dispatchEvent(
         new CustomEvent(ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, {
-          detail: { visibility: 'visible', loaded: false },
+          detail: { visibility: 'visible' },
         }),
       )
     })
@@ -257,10 +254,7 @@ describe('sidebarNavEnhancer', () => {
     window.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
   })
 
-  it('collapses archived sections when archived details close after content is loaded', () => {
-    document
-      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
-      ?.setAttribute('data-archived-loaded', 'true')
+  it('collapses archived sections when archived details close', () => {
     document
       .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
       ?.setAttribute('data-archived-visibility', 'visible')
@@ -294,12 +288,9 @@ describe('sidebarNavEnhancer', () => {
     document
       .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
       ?.setAttribute('data-archived-visibility', 'hidden')
-    document
-      .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
-      ?.setAttribute('data-archived-loaded', 'false')
     window.dispatchEvent(
       new CustomEvent(ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, {
-        detail: { visibility: 'hidden', loaded: false },
+        detail: { visibility: 'hidden' },
       }),
     )
 

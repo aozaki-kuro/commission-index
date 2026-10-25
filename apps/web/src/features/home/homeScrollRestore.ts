@@ -1,7 +1,5 @@
 import type { RequestActiveCharactersLoadOptions } from '@features/home/commission/loader/activeCharactersEvent'
-import type { RequestArchivedCharactersLoadOptions } from '@features/home/commission/loader/archivedCharactersEvent'
 import type { RequestTimelineViewLoadOptions } from '@features/home/commission/loader/timelineViewEvent'
-import { getHomeCharacterBatchTotalCount } from '@features/home/commission/batch/homeCharacterBatchClient'
 import {
   ACTIVE_CHARACTERS_LOADED_EVENT,
   readActiveCharactersLoadedBatchCount,
@@ -9,13 +7,6 @@ import {
   requestActiveCharactersLoad,
 
 } from '@features/home/commission/loader/activeCharactersEvent'
-import {
-  ARCHIVED_CHARACTERS_LOADED_EVENT,
-  readArchivedCharactersLoadedBatchCount,
-  readArchivedCharactersState,
-
-  requestArchivedCharactersLoad,
-} from '@features/home/commission/loader/archivedCharactersEvent'
 import {
   getHomeTimelineBatchTotalCount,
   readTimelineLoadedBatchCount,
@@ -44,7 +35,6 @@ interface SavedHomeScrollState {
 interface HomeScrollRestoreDeps {
   readNavigationType: (win: Window) => string
   requestActiveLoad: (win: Window, options?: RequestActiveCharactersLoadOptions) => void
-  requestArchivedLoad: (win: Window, options?: RequestArchivedCharactersLoadOptions) => void
   requestTimelineLoad: (win: Window, options?: RequestTimelineViewLoadOptions) => void
   restoreScrollPosition: (win: Window, position: { x: number, y: number }) => void
 }
@@ -61,7 +51,6 @@ const defaultDeps: HomeScrollRestoreDeps = {
     return navigationEntry && 'type' in navigationEntry ? String(navigationEntry.type) : ''
   },
   requestActiveLoad: requestActiveCharactersLoad,
-  requestArchivedLoad: requestArchivedCharactersLoad,
   requestTimelineLoad: requestTimelineViewLoad,
   restoreScrollPosition: restoreWindowScrollPosition,
 }
@@ -234,7 +223,6 @@ export function mountHomeScrollRestore({
 
   let disposed = false
   let restored = false
-  const archivedTotalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'archived' })
   const revealFallbackTimer = win.setTimeout(() => {
     revealRestoringShell(win)
   }, 3000)
@@ -299,24 +287,12 @@ export function mountHomeScrollRestore({
         })
         return
       }
-
-      if (
-        !readArchivedCharactersState(doc).loaded
-        && readArchivedCharactersLoadedBatchCount(doc) < archivedTotalBatchCount
-      ) {
-        deps.requestArchivedLoad(win, {
-          preserveScroll: false,
-          targetBatchCount: readArchivedCharactersLoadedBatchCount(doc) + RESTORE_BATCH_WINDOW,
-        })
-        return
-      }
     }
 
     completeRestore({ schedule: true })
   }
 
   win.addEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, tryRestore)
-  win.addEventListener(ARCHIVED_CHARACTERS_LOADED_EVENT, tryRestore)
   win.addEventListener(TIMELINE_VIEW_LOADED_EVENT, tryRestore)
   win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, tryRestore)
   win.addEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, abortRestore)
@@ -331,7 +307,6 @@ export function mountHomeScrollRestore({
     win.removeEventListener('pagehide', persistNow)
     win.removeEventListener('beforeunload', persistNow)
     win.removeEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, tryRestore)
-    win.removeEventListener(ARCHIVED_CHARACTERS_LOADED_EVENT, tryRestore)
     win.removeEventListener(TIMELINE_VIEW_LOADED_EVENT, tryRestore)
     win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, tryRestore)
     win.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, abortRestore)

@@ -1,11 +1,8 @@
 import type { CommissionViewMode } from '@features/home/commission/CommissionViewModeSearch'
 import type { RequestActiveCharactersLoadOptions } from '@features/home/commission/loader/activeCharactersEvent'
-import type { ArchivedCharactersState, ArchivedCharactersVisibility, RequestArchivedCharactersLoadOptions } from '@features/home/commission/loader/archivedCharactersEvent'
+import type { ArchivedCharactersState, ArchivedCharactersVisibility } from '@features/home/commission/loader/archivedCharactersEvent'
 import type { RequestTimelineViewLoadOptions } from '@features/home/commission/loader/timelineViewEvent'
-import {
-  prefetchDeferredActiveCharacterTarget,
-  prefetchDeferredArchivedCharacterTarget,
-} from '@features/home/commission/batch/deferredCharacterBatchPrefetch'
+import { prefetchDeferredActiveCharacterTarget } from '@features/home/commission/batch/deferredCharacterBatchPrefetch'
 import { normalizeHomeCharacterTargetId } from '@features/home/commission/batch/homeCharacterBatchManifest'
 import {
   ACTIVE_CHARACTERS_LOADED_EVENT,
@@ -14,15 +11,10 @@ import {
 
 } from '@features/home/commission/loader/activeCharactersEvent'
 import {
-  ARCHIVED_CHARACTERS_LOADED_EVENT,
   ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT,
   hasArchivedCharacterTarget,
-  hasDeferredArchivedCharacterTarget,
-
   isArchivedCharactersVisible,
-  requestArchivedCharactersLoad,
   requestArchivedCharactersVisibility,
-
 } from '@features/home/commission/loader/archivedCharactersEvent'
 import {
   hasDeferredTimelineTarget,
@@ -81,9 +73,7 @@ interface SidebarNavEnhancerDeps {
   clearHashNow: typeof clearLocationHash
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
   prefetchActiveTarget: (doc: Document, targetId: string | null | undefined) => void
-  prefetchArchivedTarget: (doc: Document, targetId: string | null | undefined) => void
   requestActiveLoad: (win: Window, options?: RequestActiveCharactersLoadOptions) => void
-  requestArchivedLoad: (win: Window, options?: RequestArchivedCharactersLoadOptions) => void
   requestTimelineLoad: (win: Window, options?: RequestTimelineViewLoadOptions) => void
   requestArchivedVisibility: (win: Window, visibility: ArchivedCharactersVisibility) => void
 }
@@ -108,9 +98,7 @@ const defaultDeps: SidebarNavEnhancerDeps = {
   clearHashNow: clearLocationHash,
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
   prefetchActiveTarget: prefetchDeferredActiveCharacterTarget,
-  prefetchArchivedTarget: prefetchDeferredArchivedCharacterTarget,
   requestActiveLoad: requestActiveCharactersLoad,
-  requestArchivedLoad: requestArchivedCharactersLoad,
   requestTimelineLoad: requestTimelineViewLoad,
   requestArchivedVisibility: requestArchivedCharactersVisibility,
 }
@@ -523,7 +511,6 @@ export function mountSidebarNavEnhancer({
         link.closest<HTMLElement>(`${NAV_PANEL_SELECTOR}[data-sidebar-nav-panel="timeline"]`),
       ),
       prefetchActiveTarget: deps.prefetchActiveTarget,
-      prefetchArchivedTarget: deps.prefetchArchivedTarget,
       requestTimelineLoad: deps.requestTimelineLoad,
       status:
         link.dataset.sidebarCharacterStatus === 'active'
@@ -673,24 +660,6 @@ export function mountSidebarNavEnhancer({
     }
 
     const isArchivedLink = characterLink.dataset.sidebarCharacterStatus === 'archived'
-    const isDeferredArchivedLink = isArchivedLink && hasDeferredArchivedCharacterTarget(doc, href)
-    if (isDeferredArchivedLink) {
-      event.preventDefault()
-      handleDeferredCharacterLinkLoad({
-        href,
-        link: characterLink,
-        loadedEvent: ARCHIVED_CHARACTERS_LOADED_EVENT,
-        requestLoad: () => {
-          deps.requestArchivedLoad(win, {
-            preserveScroll: false,
-            strategy: 'target',
-            targetId: href ?? undefined,
-          })
-        },
-      })
-      return
-    }
-
     if (isArchivedLink && !isArchivedCharactersVisible(doc)) {
       event.preventDefault()
       revealArchivedHomeNavTarget({

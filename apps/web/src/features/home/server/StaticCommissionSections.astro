@@ -62,7 +62,6 @@ const batchManifest = await buildHomeCharacterBatchManifest({
 })
 const initialActiveChars = batchPlan.active.initialCharacters
 const hasDeferredActiveChars = batchPlan.active.totalBatches > 0
-const hasDeferredArchivedChars = batchPlan.archived.totalBatches > 0
 const timelineBatchPlan = buildHomeTimelineBatchPlan({
   groups: timelineGroups,
 })
@@ -95,9 +94,7 @@ const archivedCommissionCount = archivedChars.reduce(
     data-total-entries={activeCommissionCount}
     data-active-sections-loaded={hasDeferredActiveChars ? 'false' : 'true'}
     data-active-batches-loaded-count="0"
-    data-archived-loaded="false"
     data-archived-visibility="hidden"
-    data-archived-batches-loaded-count="0"
   >
     {
       initialActiveChars.map((characterName, charIndex) => (
@@ -194,15 +191,21 @@ const archivedCommissionCount = archivedChars.reduce(
             </div>
           </div>
           <div data-archived-divider="true" class="hidden pb-12"></div>
-          <div data-archived-sections-container="true" />
-          <div
-            data-archived-deferred-sections-sentinel="true"
-            aria-hidden="true"
-            class:list={[
-              'pointer-events-none h-px overflow-hidden opacity-0',
-              !hasDeferredArchivedChars && 'hidden',
-            ]}
-          />
+          <div data-archived-sections-container="true" class="hidden">
+            {
+              archivedChars.map(chara => (
+                <Listing
+                  locale={locale}
+                  Character={chara.DisplayName}
+                  status="archived"
+                  commissionMap={commissionMap}
+                  characterAliasesMap={characterAliasesMap}
+                  creatorAliasesMap={creatorAliasesMap}
+                  keywordAliasesMap={keywordAliasesMap}
+                />
+              ))
+            }
+          </div>
         </>
       )
 : null
@@ -420,5 +423,28 @@ if (initialMode === 'timeline') {
     activeIndicatorClasses: ['scale-100', 'opacity-100'],
     inactiveIndicatorClasses: ['scale-95', 'opacity-0'],
   })
+}
+
+// Show archived before first paint when the hash targets an entry inside it, so native fragment
+// scrolling lands on it instead of on a display: none element. Timeline view resolves shared ids to
+// its own copy, so archived stays collapsed there.
+if (initialMode === 'character' && window.location.hash) {
+  let archivedHashId = ''
+  try {
+    archivedHashId = decodeURIComponent(window.location.hash.slice(1))
+  }
+  catch {
+    archivedHashId = ''
+  }
+
+  const archivedTarget = archivedHashId ? document.getElementById(archivedHashId) : null
+  const archivedContainer = archivedTarget?.closest('[data-archived-sections-container="true"]')
+  const characterPanel = document.querySelector('[data-commission-view-panel="character"]')
+  if (archivedContainer instanceof HTMLElement && characterPanel instanceof HTMLElement) {
+    archivedContainer.classList.remove('hidden')
+    characterPanel.querySelector('[data-archived-divider="true"]')?.classList.remove('hidden')
+    characterPanel.querySelector('[data-archived-sections-placeholder="true"]')?.classList.add('hidden')
+    characterPanel.dataset.archivedVisibility = 'visible'
+  }
 }
 </script>

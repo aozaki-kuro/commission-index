@@ -113,9 +113,14 @@ export function mountScrollReveal(): () => void {
         const target = mutation.target
         if (!(target instanceof HTMLElement))
           continue
-        // Only rescan on class changes for view-panel elements (hidden → visible)
-        if (mutation.attributeName === 'class' && !target.hasAttribute('data-commission-view-panel'))
+        // Only rescan on class changes for containers that toggle `hidden` (view panels, archived sections)
+        if (
+          mutation.attributeName === 'class'
+          && !target.hasAttribute('data-commission-view-panel')
+          && !target.hasAttribute('data-archived-sections-container')
+        ) {
           continue
+        }
         observeAll(target)
         continue
       }

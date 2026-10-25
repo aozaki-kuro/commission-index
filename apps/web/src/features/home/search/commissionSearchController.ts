@@ -12,8 +12,7 @@ import {
   requestActiveCharactersLoad,
 } from '@features/home/commission/loader/activeCharactersEvent'
 import {
-  readArchivedCharactersLoadedBatchCount,
-  requestArchivedCharactersLoad,
+  isArchivedCharactersVisible,
   requestArchivedCharactersVisibility,
 } from '@features/home/commission/loader/archivedCharactersEvent'
 import { resolveHomeSearchControls } from '@features/home/i18n/homeSearchControls'
@@ -181,7 +180,6 @@ export function initSearchController(root: HTMLElement) {
   let lastShuffledId: number | null = null
   let didAutoJump = false
   let prefetchedActive = false
-  let prefetchedArchived = false
   let requestedActiveForSearch = false
   let requestedArchivedForSearch = false
   let activeLoadFailed = false
@@ -266,28 +264,18 @@ export function initSearchController(root: HTMLElement) {
 
   // ==================== Prefetch helpers ====================
 
-  function prefetchDeferredBatches(status: 'active' | 'archived', maxBatchCount = Number.POSITIVE_INFINITY) {
-    if (mode !== 'character')
+  // Archived sections are static, so only active batches are ever prefetched.
+  function prefetchDeferredActiveBatches(maxBatchCount = Number.POSITIVE_INFINITY) {
+    if (mode !== 'character' || prefetchedActive)
       return
 
-    if (status === 'active' && prefetchedActive)
-      return
-    if (status === 'archived' && prefetchedArchived)
-      return
-
-    const totalBatchCount = getHomeCharacterBatchTotalCount({ doc: document, status })
+    const totalBatchCount = getHomeCharacterBatchTotalCount({ doc: document, status: 'active' })
     if (totalBatchCount <= 0)
       return
 
-    const startBatchIndex = status === 'active'
-      ? readActiveCharactersLoadedBatchCount(document)
-      : readArchivedCharactersLoadedBatchCount(document)
+    const startBatchIndex = readActiveCharactersLoadedBatchCount(document)
     const targetBatchIndex = Math.min(totalBatchCount - 1, startBatchIndex + maxBatchCount - 1)
-
-    if (status === 'active')
-      prefetchedActive = true
-    else
-      prefetchedArchived = true
+    prefetchedActive = true
 
     if (targetBatchIndex < startBatchIndex)
       return
@@ -295,7 +283,7 @@ export function initSearchController(root: HTMLElement) {
     prefetchHomeCharacterBatches({
       doc: document,
       startBatchIndex,
-      status,
+      status: 'active',
       targetBatchIndex,
     })
   }
@@ -308,7 +296,7 @@ export function initSearchController(root: HTMLElement) {
   function prepareSearchInteraction() {
     isIndexReady = true
     shouldWarmFuse = true
-    prefetchDeferredBatches('active', SEARCH_INTERACTION_PREFETCH_BATCH_COUNT)
+    prefetchDeferredActiveBatches(SEARCH_INTERACTION_PREFETCH_BATCH_COUNT)
   }
 
   function shouldSuspendDomFilteringForActiveLoad() {
@@ -353,7 +341,9 @@ export function initSearchController(root: HTMLElement) {
     scheduleRecompute({ immediate: true })
   }
 
-  function shouldSuspendDomFilteringForArchivedLoad(model: {
+  // An archived-only match reveals archived instead of filtering the viewport down to nothing; this pass
+  // still sees the collapsed index, so filtering waits for the recompute the visibility change triggers.
+  function shouldSuspendDomFilteringForArchivedReveal(model: {
     hiddenArchivedMatchedCount: number
     visibleMatchedCount: number
   }) {
@@ -361,14 +351,14 @@ export function initSearchController(root: HTMLElement) {
       && Boolean(normalizeQuery(query))
       && model.visibleMatchedCount === 0
       && model.hiddenArchivedMatchedCount > 0
-      && (!panelState.archivedVisible || !panelState.archivedLoaded)
+      && !panelState.archivedVisible
   }
 
-  function requestArchivedLoadBeforeFiltering() {
+  function revealArchivedBeforeFiltering() {
     if (requestedArchivedForSearch)
       return
     requestedArchivedForSearch = true
-    requestArchivedCharactersLoad(window, { strategy: 'all', preserveScroll: true })
+    requestArchivedCharactersVisibility(window, 'visible')
   }
 
   // ==================== Listbox controller ====================
@@ -386,7 +376,7 @@ export function initSearchController(root: HTMLElement) {
       if (!value)
         return
       if (value === LOAD_ARCHIVED_COMMAND_VALUE) {
-        requestArchivedCharactersLoad(window, { strategy: 'all', preserveScroll: true })
+        requestArchivedCharactersVisibility(window, 'visible')
       }
       else {
         applySuggestion(value)
@@ -472,13 +462,13 @@ export function initSearchController(root: HTMLElement) {
     // Update matched IDs
     matchedIds = model.matchedIds
 
-    const shouldSuspendArchivedFiltering = shouldSuspendDomFilteringForArchivedLoad(model)
+    const shouldSuspendArchivedFiltering = shouldSuspendDomFilteringForArchivedReveal(model)
     if (model.shouldAutoShowArchived) {
       markAutoShowArchivedDone()
       requestArchivedCharactersVisibility(window, 'visible')
     }
     if (shouldSuspendArchivedFiltering) {
-      requestArchivedLoadBeforeFiltering()
+      revealArchivedBeforeFiltering()
     }
 
     const shouldSuspendDomFiltering = shouldSuspendActiveFiltering || shouldSuspendArchivedFiltering
@@ -490,7 +480,6 @@ export function initSearchController(root: HTMLElement) {
       hiddenArchivedMatchedCount: model.hiddenArchivedMatchedCount,
       matchedIds: model.matchedIds,
       resolvedIndex: model.resolvedIndex,
-      archivedBatchCount: panelState.archivedBatchCount,
       archivedVisible: panelState.archivedVisible,
       statusMessage: model.visibleStatusMessage,
       visibleEntriesCount: model.visibleEntriesCount,
@@ -524,7 +513,7 @@ export function initSearchController(root: HTMLElement) {
           loadArchivedCharactersLabel: controls.loadArchivedCharacters,
           onSelectSuggestion: applySuggestion,
           onLoadArchivedCharacters: () => {
-            requestArchivedCharactersLoad(window, { strategy: 'all', preserveScroll: true })
+            requestArchivedCharactersVisibility(window, 'visible')
           },
         })
         // Animate open: remove collapsed state, enable pointer events
@@ -551,11 +540,6 @@ export function initSearchController(root: HTMLElement) {
           }
         }, 200)
       }
-    }
-
-    // Prefetch archived batches when notice shows
-    if (model.shouldShowHiddenArchivedNotice) {
-      prefetchDeferredBatches('archived')
     }
 
     // Render popular keywords (skip if unchanged)
@@ -765,6 +749,10 @@ export function initSearchController(root: HTMLElement) {
         `[data-commission-search-key="${CSS.escape(randomEntry.domKey)}"]`,
       )
       if (element) {
+        // Collapsed archived entries are in the DOM but display: none, so they must be shown to scroll.
+        if (element.closest('[data-archived-sections-container="true"]') && !isArchivedCharactersVisible(document)) {
+          requestArchivedCharactersVisibility(window, 'visible')
+        }
         scrollAndAnimateEntry(element)
         return
       }
@@ -822,9 +810,8 @@ export function initSearchController(root: HTMLElement) {
   const unsubViewMode = subscribeViewMode((nextMode) => {
     mode = nextMode
     prefetchedActive = false
-    prefetchedArchived = false
     requestedActiveForSearch = panelState.activeLoaded
-    requestedArchivedForSearch = panelState.archivedLoaded
+    requestedArchivedForSearch = panelState.archivedVisible
     scheduleRecompute({ immediate: true })
   })
 
@@ -834,7 +821,7 @@ export function initSearchController(root: HTMLElement) {
       requestedActiveForSearch = true
       activeLoadFailed = false
     }
-    if (nextState.archivedLoaded) {
+    if (nextState.archivedVisible) {
       requestedArchivedForSearch = true
     }
     syncActiveLoadFeedback()

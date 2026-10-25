@@ -8,8 +8,7 @@ const activeCharactersMock = vi.hoisted(() => ({
 }))
 
 const archivedCharactersMock = vi.hoisted(() => ({
-  readArchivedCharactersLoadedBatchCount: vi.fn(() => 0),
-  requestArchivedCharactersLoad: vi.fn(),
+  isArchivedCharactersVisible: vi.fn(() => false),
   requestArchivedCharactersVisibility: vi.fn(),
 }))
 
@@ -21,9 +20,7 @@ const panelStateMock = vi.hoisted(() => ({
   state: {
     activeLoaded: true,
     activeBatchCount: 0,
-    archivedLoaded: true,
     archivedVisible: false,
-    archivedBatchCount: 0,
     timelineLoaded: true,
   },
 }))
@@ -41,8 +38,7 @@ vi.mock('@features/home/commission/loader/activeCharactersEvent', () => ({
 }))
 
 vi.mock('@features/home/commission/loader/archivedCharactersEvent', () => ({
-  readArchivedCharactersLoadedBatchCount: archivedCharactersMock.readArchivedCharactersLoadedBatchCount,
-  requestArchivedCharactersLoad: archivedCharactersMock.requestArchivedCharactersLoad,
+  isArchivedCharactersVisible: archivedCharactersMock.isArchivedCharactersVisible,
   requestArchivedCharactersVisibility: archivedCharactersMock.requestArchivedCharactersVisibility,
 }))
 
@@ -102,16 +98,12 @@ describe('initSearchController', () => {
     panelStateMock.state = {
       activeLoaded: true,
       activeBatchCount: 0,
-      archivedLoaded: true,
       archivedVisible: false,
-      archivedBatchCount: 0,
       timelineLoaded: true,
     }
     activeCharactersMock.requestActiveCharactersLoad.mockClear()
     activeCharactersMock.readActiveCharactersLoadedBatchCount.mockClear()
-    archivedCharactersMock.requestArchivedCharactersLoad.mockClear()
     archivedCharactersMock.requestArchivedCharactersVisibility.mockClear()
-    archivedCharactersMock.readArchivedCharactersLoadedBatchCount.mockClear()
     searchEntriesMock.entries = []
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
       return window.setTimeout(() => callback(performance.now()), 0)
@@ -227,9 +219,7 @@ describe('initSearchController', () => {
     panelStateMock.state = {
       activeLoaded: true,
       activeBatchCount: 1,
-      archivedLoaded: false,
       archivedVisible: false,
-      archivedBatchCount: 0,
       timelineLoaded: false,
     }
     searchEntriesMock.entries = [
@@ -290,10 +280,6 @@ describe('initSearchController', () => {
     expect(archivedCharactersMock.requestArchivedCharactersVisibility).toHaveBeenCalledWith(
       window,
       'visible',
-    )
-    expect(archivedCharactersMock.requestArchivedCharactersLoad).toHaveBeenCalledWith(
-      window,
-      { strategy: 'all', preserveScroll: true },
     )
     expect(document.getElementById('character-alpha')?.classList.contains('hidden')).toBe(false)
 

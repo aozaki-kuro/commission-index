@@ -1,20 +1,25 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest'
+import type { CommissionSearchEntrySource } from './commissionSearchIndex'
+import type { SearchControls } from './commissionSearchModel'
+import type { PanelLoadedState } from './commissionSearchPanelState'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  computeSearchModel,
   dispatchSearchQueryLocationChange,
   getDomSnapshotKeyForMode,
+  resetModelState,
   resolveEffectiveDomSnapshotKey,
   subscribeToUrlQuerySnapshot,
 } from './commissionSearchModel'
 
+vi.mock('@lib/analytics/track', () => ({ trackRybbitEvent: vi.fn() }))
+
 describe('getDomSnapshotKeyForMode', () => {
-  it('changes character snapshot key when activeLoaded or archivedLoaded changes', () => {
+  it('changes character snapshot key when active load state or archived visibility changes', () => {
     const before = getDomSnapshotKeyForMode({
       activeBatchCount: 0,
       activeLoaded: false,
       mode: 'character',
-      archivedBatchCount: 0,
-      archivedLoaded: false,
       archivedVisible: false,
       timelineLoaded: false,
     })
@@ -22,8 +27,6 @@ describe('getDomSnapshotKeyForMode', () => {
       activeBatchCount: 0,
       activeLoaded: false,
       mode: 'character',
-      archivedBatchCount: 0,
-      archivedLoaded: false,
       archivedVisible: false,
       timelineLoaded: true,
     })
@@ -31,8 +34,6 @@ describe('getDomSnapshotKeyForMode', () => {
       activeBatchCount: 1,
       activeLoaded: false,
       mode: 'character',
-      archivedBatchCount: 0,
-      archivedLoaded: false,
       archivedVisible: false,
       timelineLoaded: true,
     })
@@ -40,8 +41,6 @@ describe('getDomSnapshotKeyForMode', () => {
       activeBatchCount: 1,
       activeLoaded: true,
       mode: 'character',
-      archivedBatchCount: 0,
-      archivedLoaded: false,
       archivedVisible: false,
       timelineLoaded: true,
     })
@@ -49,26 +48,6 @@ describe('getDomSnapshotKeyForMode', () => {
       activeBatchCount: 1,
       activeLoaded: true,
       mode: 'character',
-      archivedBatchCount: 0,
-      archivedLoaded: false,
-      archivedVisible: true,
-      timelineLoaded: true,
-    })
-    const archivedBatchChange = getDomSnapshotKeyForMode({
-      activeBatchCount: 1,
-      activeLoaded: true,
-      mode: 'character',
-      archivedBatchCount: 1,
-      archivedLoaded: false,
-      archivedVisible: true,
-      timelineLoaded: true,
-    })
-    const archivedChange = getDomSnapshotKeyForMode({
-      activeBatchCount: 1,
-      activeLoaded: true,
-      mode: 'character',
-      archivedBatchCount: 2,
-      archivedLoaded: true,
       archivedVisible: true,
       timelineLoaded: true,
     })
@@ -77,8 +56,6 @@ describe('getDomSnapshotKeyForMode', () => {
     expect(activeBatchChange).not.toBe(before)
     expect(activeChange).not.toBe(activeBatchChange)
     expect(archivedVisibleChange).not.toBe(activeChange)
-    expect(archivedBatchChange).not.toBe(archivedVisibleChange)
-    expect(archivedChange).not.toBe(archivedBatchChange)
   })
 
   it('changes timeline snapshot key only when timelineLoaded changes', () => {
@@ -86,8 +63,6 @@ describe('getDomSnapshotKeyForMode', () => {
       activeBatchCount: 0,
       activeLoaded: false,
       mode: 'timeline',
-      archivedBatchCount: 0,
-      archivedLoaded: false,
       archivedVisible: false,
       timelineLoaded: false,
     })
@@ -95,8 +70,6 @@ describe('getDomSnapshotKeyForMode', () => {
       activeBatchCount: 2,
       activeLoaded: true,
       mode: 'timeline',
-      archivedBatchCount: 3,
-      archivedLoaded: true,
       archivedVisible: true,
       timelineLoaded: false,
     })
@@ -104,8 +77,6 @@ describe('getDomSnapshotKeyForMode', () => {
       activeBatchCount: 2,
       activeLoaded: true,
       mode: 'timeline',
-      archivedBatchCount: 3,
-      archivedLoaded: true,
       archivedVisible: true,
       timelineLoaded: true,
     })
@@ -140,5 +111,87 @@ describe('subscribeToUrlQuerySnapshot', () => {
 
     expect(onStoreChange).toHaveBeenCalledTimes(1)
     unsubscribe()
+  })
+})
+
+describe('computeSearchModel archived matches', () => {
+  const controls: SearchControls = {
+    sourceCharacter: 'Character',
+    sourceCreator: 'Creator',
+    sourceKeyword: 'Keyword',
+    sourceDate: 'Date',
+    formatMatchCount: count => `${count}`,
+    formatSearchResultsStatus: (matched, total) => `${matched}/${total}`,
+    formatSearchClearedStatus: total => `${total}`,
+    formatHiddenArchivedResultsNotice: count => `${count} hidden`,
+  }
+  const externalEntries: CommissionSearchEntrySource[] = [
+    { id: 0, domKey: 'section-alpha::alpha', searchText: 'alpha', searchSuggest: 'Keyword\talpha' },
+    { id: 1, domKey: 'section-orion::orion', searchText: 'orion', searchSuggest: 'Keyword\torion' },
+  ]
+
+  function renderCharacterPanel(archivedVisible: boolean) {
+    document.body.innerHTML = `
+      <div data-commission-view-panel="character" data-commission-view-active="true" data-archived-visibility="${archivedVisible ? 'visible' : 'hidden'}">
+        <section id="section-alpha" data-character-section="true" data-character-status="active">
+          <article data-commission-entry="true" data-character-section-id="section-alpha" data-commission-search-key="section-alpha::alpha"></article>
+        </section>
+        <div data-archived-sections-container="true" class="${archivedVisible ? '' : 'hidden'}">
+          <section id="section-orion" data-character-section="true" data-character-status="archived">
+            <article data-commission-entry="true" data-character-section-id="section-orion" data-commission-search-key="section-orion::orion"></article>
+          </section>
+        </div>
+      </div>
+    `
+  }
+
+  function compute(archivedVisible: boolean) {
+    const panelState: PanelLoadedState = {
+      activeLoaded: true,
+      activeBatchCount: 0,
+      archivedVisible,
+      timelineLoaded: true,
+    }
+    return computeSearchModel({
+      query: 'orion',
+      mode: 'character',
+      panelState,
+      externalEntries,
+      isIndexReady: true,
+      shouldWarmFuse: false,
+      isSuggestionPanelDismissed: false,
+      activeCommandValue: '',
+      controls,
+      suggestionAliasGroups: [],
+      disableDomFiltering: false,
+      suppressInitialSuggestionPanelAnimation: false,
+    })
+  }
+
+  beforeEach(() => {
+    resetModelState()
+  })
+
+  it('archived-only match while collapsed shows hidden-matches notice', () => {
+    renderCharacterPanel(false)
+
+    const model = compute(false)
+
+    expect(model.visibleMatchedCount).toBe(0)
+    expect(model.visibleEntriesCount).toBe(1)
+    expect(model.hiddenArchivedMatchedCount).toBe(1)
+    expect(model.shouldShowHiddenArchivedNotice).toBe(true)
+    expect(model.shouldShowSuggestionPanel).toBe(true)
+  })
+
+  it('counts archived matches as visible once archived is expanded', () => {
+    renderCharacterPanel(true)
+
+    const model = compute(true)
+
+    expect(model.visibleMatchedCount).toBe(1)
+    expect(model.visibleEntriesCount).toBe(2)
+    expect(model.hiddenArchivedMatchedCount).toBe(0)
+    expect(model.shouldShowHiddenArchivedNotice).toBe(false)
   })
 })
