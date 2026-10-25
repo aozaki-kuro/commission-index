@@ -129,24 +129,3 @@ export function persistReloadArchivedCharactersVisibility({
 }) {
   persistArchivedCharactersVisibility(win, resolveReloadArchivedCharactersVisibility({ doc, win }))
 }
-
-function normalizeTargetId(rawValue: string | null | undefined) {
-  if (!rawValue)
-    return ''
-  const value = rawValue.startsWith('#') ? rawValue.slice(1) : rawValue
-  try {
-    return decodeURIComponent(value)
-  }
-  catch {
-    return ''
-  }
-}
-
-export function hasArchivedCharacterTarget(doc: Document, rawSectionId: string | null | undefined) {
-  const sectionId = normalizeTargetId(rawSectionId)
-  if (!sectionId)
-    return false
-
-  // The character panel precedes the timeline panel, so the first id match is the archived copy when one exists.
-  return Boolean(doc.getElementById(sectionId)?.closest(ARCHIVED_CONTAINER_SELECTOR))
-}

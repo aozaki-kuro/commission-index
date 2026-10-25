@@ -16,74 +16,20 @@ import {
 vi.mock('@lib/analytics/track', () => ({ trackRybbitEvent: vi.fn() }))
 
 describe('getDomSnapshotKeyForMode', () => {
-  it('changes character snapshot key when active load state or archived visibility changes', () => {
-    const before = getDomSnapshotKeyForMode({
-      activeBatchCount: 0,
-      activeLoaded: false,
-      mode: 'character',
-      archivedVisible: false,
-      timelineLoaded: false,
-    })
-    const unrelatedTimelineChange = getDomSnapshotKeyForMode({
-      activeBatchCount: 0,
-      activeLoaded: false,
-      mode: 'character',
-      archivedVisible: false,
-      timelineLoaded: true,
-    })
-    const activeBatchChange = getDomSnapshotKeyForMode({
-      activeBatchCount: 1,
-      activeLoaded: false,
-      mode: 'character',
-      archivedVisible: false,
-      timelineLoaded: true,
-    })
-    const activeChange = getDomSnapshotKeyForMode({
-      activeBatchCount: 1,
-      activeLoaded: true,
-      mode: 'character',
-      archivedVisible: false,
-      timelineLoaded: true,
-    })
-    const archivedVisibleChange = getDomSnapshotKeyForMode({
-      activeBatchCount: 1,
-      activeLoaded: true,
-      mode: 'character',
-      archivedVisible: true,
-      timelineLoaded: true,
-    })
+  it('keys the character snapshot by archived visibility only', () => {
+    const hidden = getDomSnapshotKeyForMode({ mode: 'character', archivedVisible: false })
+    const visible = getDomSnapshotKeyForMode({ mode: 'character', archivedVisible: true })
 
-    expect(before).toBe(unrelatedTimelineChange)
-    expect(activeBatchChange).not.toBe(before)
-    expect(activeChange).not.toBe(activeBatchChange)
-    expect(archivedVisibleChange).not.toBe(activeChange)
+    expect(visible).not.toBe(hidden)
   })
 
-  it('changes timeline snapshot key only when timelineLoaded changes', () => {
-    const before = getDomSnapshotKeyForMode({
-      activeBatchCount: 0,
-      activeLoaded: false,
-      mode: 'timeline',
-      archivedVisible: false,
-      timelineLoaded: false,
-    })
-    const unrelatedArchivedChange = getDomSnapshotKeyForMode({
-      activeBatchCount: 2,
-      activeLoaded: true,
-      mode: 'timeline',
-      archivedVisible: true,
-      timelineLoaded: false,
-    })
-    const timelineChange = getDomSnapshotKeyForMode({
-      activeBatchCount: 2,
-      activeLoaded: true,
-      mode: 'timeline',
-      archivedVisible: true,
-      timelineLoaded: true,
-    })
-
-    expect(before).toBe(unrelatedArchivedChange)
-    expect(timelineChange).not.toBe(before)
+  it('keeps one timeline snapshot key regardless of archived visibility', () => {
+    expect(getDomSnapshotKeyForMode({ mode: 'timeline', archivedVisible: false })).toBe(
+      getDomSnapshotKeyForMode({ mode: 'timeline', archivedVisible: true }),
+    )
+    expect(getDomSnapshotKeyForMode({ mode: 'timeline', archivedVisible: false })).not.toBe(
+      getDomSnapshotKeyForMode({ mode: 'character', archivedVisible: false }),
+    )
   })
 })
 
@@ -147,12 +93,7 @@ describe('computeSearchModel archived matches', () => {
   }
 
   function compute(archivedVisible: boolean) {
-    const panelState: PanelLoadedState = {
-      activeLoaded: true,
-      activeBatchCount: 0,
-      archivedVisible,
-      timelineLoaded: true,
-    }
+    const panelState: PanelLoadedState = { archivedVisible }
     return computeSearchModel({
       query: 'orion',
       mode: 'character',

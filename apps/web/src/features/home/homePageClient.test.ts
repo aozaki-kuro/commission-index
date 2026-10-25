@@ -24,12 +24,9 @@ function createDeps(trace: Trace) {
   return {
     deps: {
       mountCommissionViewModeDomSync: createMount(trace, 'view-sync'),
-      mountActiveCharactersLoader: createMount(trace, 'active-loader'),
       mountArchivedCharactersToggle: createMount(trace, 'archived-toggle'),
       mountHomeHashTarget: createMount(trace, 'hash-target'),
-      mountTimelineViewLoader: createMount(trace, 'timeline-loader'),
       mountHomeScrollRestore: createMount(trace, 'scroll-restore'),
-      mountHomeUpdateLinks: createMount(trace, 'update-links'),
       mountImageFadeIn: createMount(trace, 'image-fade'),
       mountSidebarNavEnhancer: createMount(trace, 'sidebar-nav'),
       mountMobileHamburgerMenu: createMount(trace, 'hamburger-menu'),
@@ -53,12 +50,9 @@ describe('mountHomePageClient', () => {
 
     expect(trace).toEqual([
       'mount:view-sync',
-      'mount:active-loader',
       'mount:archived-toggle',
       'mount:hash-target',
-      'mount:timeline-loader',
       'mount:scroll-restore',
-      'mount:update-links',
       'mount:image-fade',
     ])
 
@@ -66,12 +60,9 @@ describe('mountHomePageClient', () => {
 
     expect(trace).toEqual([
       'mount:view-sync',
-      'mount:active-loader',
       'mount:archived-toggle',
       'mount:hash-target',
-      'mount:timeline-loader',
       'mount:scroll-restore',
-      'mount:update-links',
       'mount:image-fade',
       'mount:sidebar-nav',
       'mount:hamburger-menu',
@@ -84,12 +75,9 @@ describe('mountHomePageClient', () => {
 
     expect(trace).toEqual([
       'mount:view-sync',
-      'mount:active-loader',
       'mount:archived-toggle',
       'mount:hash-target',
-      'mount:timeline-loader',
       'mount:scroll-restore',
-      'mount:update-links',
       'mount:image-fade',
       'mount:sidebar-nav',
       'mount:hamburger-menu',
@@ -102,12 +90,9 @@ describe('mountHomePageClient', () => {
       'cleanup:hamburger-menu',
       'cleanup:sidebar-nav',
       'cleanup:image-fade',
-      'cleanup:update-links',
       'cleanup:scroll-restore',
-      'cleanup:timeline-loader',
       'cleanup:hash-target',
       'cleanup:archived-toggle',
-      'cleanup:active-loader',
       'cleanup:view-sync',
     ])
   })
@@ -122,40 +107,28 @@ describe('mountHomePageClient', () => {
     expect(cancelDeferredMount).toHaveBeenCalledTimes(1)
     expect(trace).toEqual([
       'mount:view-sync',
-      'mount:active-loader',
       'mount:archived-toggle',
       'mount:hash-target',
-      'mount:timeline-loader',
       'mount:scroll-restore',
-      'mount:update-links',
       'mount:image-fade',
       'cleanup:image-fade',
-      'cleanup:update-links',
       'cleanup:scroll-restore',
-      'cleanup:timeline-loader',
       'cleanup:hash-target',
       'cleanup:archived-toggle',
-      'cleanup:active-loader',
       'cleanup:view-sync',
     ])
 
     getDeferredTask()?.()
     expect(trace).toEqual([
       'mount:view-sync',
-      'mount:active-loader',
       'mount:archived-toggle',
       'mount:hash-target',
-      'mount:timeline-loader',
       'mount:scroll-restore',
-      'mount:update-links',
       'mount:image-fade',
       'cleanup:image-fade',
-      'cleanup:update-links',
       'cleanup:scroll-restore',
-      'cleanup:timeline-loader',
       'cleanup:hash-target',
       'cleanup:archived-toggle',
-      'cleanup:active-loader',
       'cleanup:view-sync',
     ])
   })
@@ -174,9 +147,7 @@ describe('mountHomePageClient', () => {
     expect(scheduleDeferredMount).not.toHaveBeenCalled()
     expect(trace).toEqual([
       'mount:view-sync',
-      'mount:active-loader',
       'mount:archived-toggle',
-      'cleanup:active-loader',
       'cleanup:view-sync',
     ])
   })

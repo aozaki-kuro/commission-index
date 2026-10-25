@@ -144,8 +144,7 @@ const resolvedCanonicalPath
   canonicalPath={resolvedCanonicalPath}
 >
   <style is:global slot="head">
-    html[data-home-scroll-restoring='true'] [data-home-scroll-restore-shell='true'],
-    html[data-home-hash-restoring='true'] [data-home-scroll-restore-shell='true'] {
+    html[data-home-scroll-restoring='true'] [data-home-scroll-restore-shell='true'] {
       opacity: 0;
       pointer-events: none;
     }
@@ -207,20 +206,6 @@ const resolvedCanonicalPath
     }
     catch {
       // Ignore malformed session state and allow the page to render normally.
-    }
-    // Hide shell when hash targets deferred content not yet in DOM.
-    // Loaders reveal after loading the batch and scrolling; 3 s fallback.
-    try {
-      const hashId = window.location.hash ? window.location.hash.slice(1) : ''
-      if (hashId && !document.getElementById(hashId)) {
-        document.documentElement.dataset.homeHashRestoring = 'true'
-        window.__homeHashRestoreTimer = setTimeout(() => {
-          delete document.documentElement.dataset.homeHashRestoring
-        }, 3000)
-      }
-    }
-    catch {
-      // Ignore hash detection failure and allow normal render.
     }
   </script>
   <AgeGateScript locale={resolvedLocale} />

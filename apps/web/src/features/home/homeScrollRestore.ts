@@ -1,27 +1,8 @@
-import type { RequestActiveCharactersLoadOptions } from '@features/home/commission/loader/activeCharactersEvent'
-import type { RequestTimelineViewLoadOptions } from '@features/home/commission/loader/timelineViewEvent'
-import {
-  ACTIVE_CHARACTERS_LOADED_EVENT,
-  readActiveCharactersLoadedBatchCount,
-  readActiveCharactersLoadedState,
-  requestActiveCharactersLoad,
-
-} from '@features/home/commission/loader/activeCharactersEvent'
-import {
-  getHomeTimelineBatchTotalCount,
-  readTimelineLoadedBatchCount,
-  readTimelineLoadedState,
-  requestTimelineViewLoad,
-} from '@features/home/commission/loader/timelineViewEvent'
-import { TIMELINE_VIEW_LOADED_EVENT } from '@features/home/commission/loader/timelineViewLoader'
-import { readCommissionViewMode } from '@features/home/commission/viewModeState'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT, HOME_SCROLL_RESTORE_ABORT_EVENT } from '@features/home/events'
+import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '@features/home/events'
 import { restoreScrollPosition as restoreWindowScrollPosition } from '@lib/navigation/restoreScrollPosition'
 
 const HOME_SCROLL_STATE_STORAGE_KEY = 'home:scroll-state'
 const HOME_SCROLL_RESTORING_ATTRIBUTE = 'data-home-scroll-restoring'
-const HOME_HASH_RESTORING_ATTRIBUTE = 'data-home-hash-restoring'
-const RESTORE_BATCH_WINDOW = 4
 
 type Cleanup = () => void
 
@@ -34,14 +15,11 @@ interface SavedHomeScrollState {
 
 interface HomeScrollRestoreDeps {
   readNavigationType: (win: Window) => string
-  requestActiveLoad: (win: Window, options?: RequestActiveCharactersLoadOptions) => void
-  requestTimelineLoad: (win: Window, options?: RequestTimelineViewLoadOptions) => void
   restoreScrollPosition: (win: Window, position: { x: number, y: number }) => void
 }
 
 interface MountHomeScrollRestoreOptions {
   deps?: Partial<HomeScrollRestoreDeps>
-  doc?: Document
   win?: Window
 }
 
@@ -50,8 +28,6 @@ const defaultDeps: HomeScrollRestoreDeps = {
     const navigationEntry = win.performance.getEntriesByType('navigation')[0]
     return navigationEntry && 'type' in navigationEntry ? String(navigationEntry.type) : ''
   },
-  requestActiveLoad: requestActiveCharactersLoad,
-  requestTimelineLoad: requestTimelineViewLoad,
   restoreScrollPosition: restoreWindowScrollPosition,
 }
 
@@ -91,17 +67,6 @@ function revealRestoringShell(win: Window) {
   win.document.documentElement.removeAttribute(HOME_SCROLL_RESTORING_ATTRIBUTE)
 }
 
-type WindowWithHashRestoreTimer = Window & { __homeHashRestoreTimer?: number }
-
-export function revealHashRestoreShell(win: Window) {
-  win.document.documentElement.removeAttribute(HOME_HASH_RESTORING_ATTRIBUTE)
-  const w = win as WindowWithHashRestoreTimer
-  if (w.__homeHashRestoreTimer != null) {
-    win.clearTimeout(w.__homeHashRestoreTimer)
-    delete w.__homeHashRestoreTimer
-  }
-}
-
 function persistScrollState(win: Window) {
   if (win.location.hash) {
     clearSavedState(win)
@@ -134,26 +99,6 @@ function shouldRestoreSavedState({
     return false
 
   return savedState.pathname === win.location.pathname && savedState.search === win.location.search
-}
-
-function getMaxScrollableY(win: Window) {
-  const scrollingElement = win.document.scrollingElement
-  if (!scrollingElement)
-    return 0
-
-  return Math.max(0, scrollingElement.scrollHeight - win.innerHeight)
-}
-
-function needsMoreContentForRestore(win: Window, savedState: SavedHomeScrollState) {
-  return savedState.y > getMaxScrollableY(win) + 1
-}
-
-function isTimelineLoaded(doc: Document) {
-  return readTimelineLoadedState(doc)
-}
-
-function hasPendingTimelineSections(doc: Document) {
-  return readTimelineLoadedBatchCount(doc) < getHomeTimelineBatchTotalCount(doc)
 }
 
 function readScrollRestoration(win: Window): ScrollRestoration | null {
@@ -195,7 +140,6 @@ function scheduleRestore({
 
 export function mountHomeScrollRestore({
   win = window,
-  doc = document,
   deps: depsOverrides,
 }: MountHomeScrollRestoreOptions = {}): Cleanup {
   const deps = { ...defaultDeps, ...depsOverrides }
@@ -262,42 +206,10 @@ export function mountHomeScrollRestore({
     completeRestore({ schedule: false })
   }
 
-  const tryRestore = () => {
-    if (disposed || restored)
-      return
-
-    if (readCommissionViewMode(win) === 'timeline') {
-      if (needsMoreContentForRestore(win, savedState)) {
-        if (!isTimelineLoaded(doc) && hasPendingTimelineSections(doc)) {
-          deps.requestTimelineLoad(win, {
-            targetBatchCount: readTimelineLoadedBatchCount(doc) + RESTORE_BATCH_WINDOW,
-          })
-          return
-        }
-      }
-
-      completeRestore({ schedule: true })
-      return
-    }
-
-    if (needsMoreContentForRestore(win, savedState)) {
-      if (!readActiveCharactersLoadedState(doc)) {
-        deps.requestActiveLoad(win, {
-          targetBatchCount: readActiveCharactersLoadedBatchCount(doc) + RESTORE_BATCH_WINDOW,
-        })
-        return
-      }
-    }
-
-    completeRestore({ schedule: true })
-  }
-
-  win.addEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, tryRestore)
-  win.addEventListener(TIMELINE_VIEW_LOADED_EVENT, tryRestore)
-  win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, tryRestore)
   win.addEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, abortRestore)
 
-  tryRestore()
+  // Every section is in the static HTML, so the saved offset is reachable on mount.
+  completeRestore({ schedule: true })
 
   return () => {
     disposed = true
@@ -306,9 +218,6 @@ export function mountHomeScrollRestore({
     restoreBrowserScrollRestoration()
     win.removeEventListener('pagehide', persistNow)
     win.removeEventListener('beforeunload', persistNow)
-    win.removeEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, tryRestore)
-    win.removeEventListener(TIMELINE_VIEW_LOADED_EVENT, tryRestore)
-    win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, tryRestore)
     win.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, abortRestore)
   }
 }

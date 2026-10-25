@@ -1,6 +1,6 @@
 import {
   ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT,
-} from '@features/home/commission/loader/archivedCharactersEvent'
+} from '@features/home/commission/archivedCharactersState'
 import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, HOME_SCROLL_RESTORE_ABORT_EVENT } from '@features/home/events'
 import { ANALYTICS_EVENTS } from '@lib/analytics/events'
 // @vitest-environment jsdom

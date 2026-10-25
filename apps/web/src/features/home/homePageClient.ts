@@ -1,9 +1,6 @@
-import { mountHomeUpdateLinks } from '@features/home/blocks/updateLinks'
 import { mountArchivedCharactersToggle } from '@features/home/commission/archivedCharactersToggle'
 import { mountCommissionViewModeDomSync } from '@features/home/commission/commissionViewModeDomSync'
 import { mountImageFadeIn } from '@features/home/commission/imageFadeIn'
-import { mountActiveCharactersLoader } from '@features/home/commission/loader/activeCharactersLoader'
-import { mountTimelineViewLoader } from '@features/home/commission/loader/timelineViewLoader'
 import { mountMobileViewModeTabs } from '@features/home/commission/mobileViewModeTabs'
 import { mountScrollDepthTracker } from '@features/home/commission/scrollDepthTracker'
 import { mountScrollReveal } from '@features/home/commission/scrollReveal'
@@ -30,12 +27,9 @@ const HOME_DEFERRED_MOUNT_FALLBACK_DELAY_MS = 180
 
 interface HomePageClientDeps {
   mountCommissionViewModeDomSync: Mount
-  mountActiveCharactersLoader: Mount
   mountArchivedCharactersToggle: Mount
   mountHomeHashTarget: Mount
-  mountTimelineViewLoader: Mount
   mountHomeScrollRestore: Mount
-  mountHomeUpdateLinks: Mount
   mountSidebarNavEnhancer: Mount
   mountMobileHamburgerMenu: Mount
   mountMobileLanguageMenu: Mount
@@ -54,12 +48,9 @@ interface MountHomePageClientOptions {
 
 const defaultDeps: HomePageClientDeps = {
   mountCommissionViewModeDomSync: () => mountCommissionViewModeDomSync(),
-  mountActiveCharactersLoader: () => mountActiveCharactersLoader(),
   mountArchivedCharactersToggle: () => mountArchivedCharactersToggle(),
   mountHomeHashTarget: () => mountHomeHashTarget(),
-  mountTimelineViewLoader: () => mountTimelineViewLoader(),
   mountHomeScrollRestore: () => mountHomeScrollRestore(),
-  mountHomeUpdateLinks: () => mountHomeUpdateLinks(),
   mountSidebarNavEnhancer: () => mountSidebarNavEnhancer(),
   mountMobileHamburgerMenu: () => mountMobileHamburgerMenu(),
   mountMobileLanguageMenu: () => mountMobileLanguageMenu(),
@@ -103,13 +94,10 @@ export function mountHomePageClient({ deps: depsOverrides }: MountHomePageClient
   const deps = { ...defaultDeps, ...depsOverrides }
   const criticalMounts: Mount[] = [
     deps.mountCommissionViewModeDomSync,
-    deps.mountActiveCharactersLoader,
     // The toggle restores saved visibility before the hash target and scroll restore read the layout.
     deps.mountArchivedCharactersToggle,
     deps.mountHomeHashTarget,
-    deps.mountTimelineViewLoader,
     deps.mountHomeScrollRestore,
-    deps.mountHomeUpdateLinks,
     deps.mountImageFadeIn,
   ]
   const deferredMounts: Mount[] = [

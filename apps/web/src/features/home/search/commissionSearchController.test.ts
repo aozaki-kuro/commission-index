@@ -2,11 +2,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { initSearchController } from './commissionSearchController'
 
-const activeCharactersMock = vi.hoisted(() => ({
-  readActiveCharactersLoadedBatchCount: vi.fn(() => 0),
-  requestActiveCharactersLoad: vi.fn(),
-}))
-
 const archivedCharactersMock = vi.hoisted(() => ({
   isArchivedCharactersVisible: vi.fn(() => false),
   requestArchivedCharactersVisibility: vi.fn(),
@@ -18,33 +13,18 @@ const searchEntriesMock = vi.hoisted(() => ({
 
 const panelStateMock = vi.hoisted(() => ({
   state: {
-    activeLoaded: true,
-    activeBatchCount: 0,
     archivedVisible: false,
-    timelineLoaded: true,
   },
 }))
 
-vi.mock('@features/home/commission/batch/homeCharacterBatchClient', () => ({
-  getHomeCharacterBatchTotalCount: () => 0,
-  prefetchHomeCharacterBatches: vi.fn(),
-}))
-
-vi.mock('@features/home/commission/loader/activeCharactersEvent', () => ({
-  ACTIVE_CHARACTERS_LOAD_FAILED_EVENT: 'home:active-characters-load-failed',
-  ACTIVE_CHARACTERS_LOADED_EVENT: 'home:active-characters-loaded',
-  readActiveCharactersLoadedBatchCount: activeCharactersMock.readActiveCharactersLoadedBatchCount,
-  requestActiveCharactersLoad: activeCharactersMock.requestActiveCharactersLoad,
-}))
-
-vi.mock('@features/home/commission/loader/archivedCharactersEvent', () => ({
-  isArchivedCharactersVisible: archivedCharactersMock.isArchivedCharactersVisible,
-  requestArchivedCharactersVisibility: archivedCharactersMock.requestArchivedCharactersVisibility,
-}))
-
-vi.mock('@features/home/commission/loader/timelineViewEvent', () => ({
-  requestTimelineViewLoad: vi.fn(),
-}))
+vi.mock('@features/home/commission/archivedCharactersState', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@features/home/commission/archivedCharactersState')>()
+  return {
+    ...actual,
+    isArchivedCharactersVisible: archivedCharactersMock.isArchivedCharactersVisible,
+    requestArchivedCharactersVisibility: archivedCharactersMock.requestArchivedCharactersVisibility,
+  }
+})
 
 vi.mock('@features/home/search/commissionSearchDeferred', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./commissionSearchDeferred')>()
@@ -83,10 +63,6 @@ function mountSearchRoot({
       <div id="search-popular-keywords"></div>
       <ul id="search-keyword-list"></ul>
       <p id="search-live-region"></p>
-      <div id="search-active-load-feedback" role="status" hidden>
-        <p id="search-active-load-feedback-text"></p>
-        <button id="search-active-load-retry" type="button">Retry loading</button>
-      </div>
     </section>
   `
 
@@ -96,13 +72,8 @@ function mountSearchRoot({
 describe('initSearchController', () => {
   beforeEach(() => {
     panelStateMock.state = {
-      activeLoaded: true,
-      activeBatchCount: 0,
       archivedVisible: false,
-      timelineLoaded: true,
     }
-    activeCharactersMock.requestActiveCharactersLoad.mockClear()
-    activeCharactersMock.readActiveCharactersLoadedBatchCount.mockClear()
     archivedCharactersMock.requestArchivedCharactersVisibility.mockClear()
     searchEntriesMock.entries = []
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
@@ -133,16 +104,29 @@ describe('initSearchController', () => {
     cleanup?.()
   })
 
-  it('does not filter visible sections before deferred active batches load on first keyword click', async () => {
-    panelStateMock.state = {
-      ...panelStateMock.state,
-      activeLoaded: false,
-    }
+  it('search filters without requesting loads', async () => {
+    const fetchSpy = vi.fn(() => Promise.reject(new Error('unexpected fetch')))
+    vi.stubGlobal('fetch', fetchSpy)
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
+    searchEntriesMock.entries = [
+      {
+        id: 0,
+        domKey: 'character-alpha::alpha',
+        searchText: 'alpha',
+        searchSuggest: 'Keyword\talpha',
+      },
+      {
+        id: 1,
+        domKey: 'character-beta::beta',
+        searchText: 'beta',
+        searchSuggest: 'Keyword\tbeta',
+      },
+    ]
     document.body.innerHTML = `
       <main>
         <section
           id="commission-search"
-          data-featured-keywords='["deferred-only"]'
+          data-featured-keywords='["alpha"]'
           data-suggestion-alias-groups="[]"
         >
           <div role="combobox">
@@ -156,17 +140,18 @@ describe('initSearchController', () => {
           <ul id="search-keyword-list"></ul>
           <p id="search-live-region"></p>
         </section>
-        <section
-          id="character-alpha"
-          data-character-section="true"
-          data-character-status="active"
-        >
+        <section id="character-alpha" data-character-section="true" data-character-status="active">
           <article
             data-commission-entry="true"
             data-character-section-id="character-alpha"
             data-commission-search-key="character-alpha::alpha"
-            data-search-text="alpha"
-            data-search-suggest="Keyword\talpha"
+          ></article>
+        </section>
+        <section id="character-beta" data-character-section="true" data-character-status="active">
+          <article
+            data-commission-entry="true"
+            data-character-section-id="character-beta"
+            data-commission-search-key="character-beta::beta"
           ></article>
         </section>
       </main>
@@ -176,51 +161,22 @@ describe('initSearchController', () => {
     await new Promise(resolve => setTimeout(resolve, 0))
 
     document.querySelector<HTMLButtonElement>('#search-keyword-list button')?.click()
-    await new Promise(resolve => setTimeout(resolve, 0))
 
-    expect(activeCharactersMock.requestActiveCharactersLoad).toHaveBeenCalledWith(
-      window,
-      { strategy: 'all' },
-    )
+    await vi.waitFor(() => {
+      expect(document.getElementById('character-beta')?.classList.contains('hidden')).toBe(true)
+    })
     expect(document.getElementById('character-alpha')?.classList.contains('hidden')).toBe(false)
-
-    cleanup?.()
-  })
-
-  it('shows an active batch load failure and retries only after an explicit click', async () => {
-    panelStateMock.state = {
-      ...panelStateMock.state,
-      activeLoaded: false,
-    }
-    const root = mountSearchRoot({ featuredKeywords: ['deferred-only'] })
-    const cleanup = initSearchController(root)
-    await new Promise(resolve => setTimeout(resolve, 0))
-
-    document.querySelector<HTMLButtonElement>('#search-keyword-list button')?.click()
-    await new Promise(resolve => setTimeout(resolve, 0))
-    expect(activeCharactersMock.requestActiveCharactersLoad).toHaveBeenCalledTimes(1)
-
-    window.dispatchEvent(new Event('home:active-characters-load-failed'))
-    await new Promise(resolve => setTimeout(resolve, 0))
-
-    const feedback = document.getElementById('search-active-load-feedback')!
-    expect(feedback.hidden).toBe(false)
-    expect(feedback.textContent).toContain('Could not load all commissions')
-    expect(activeCharactersMock.requestActiveCharactersLoad).toHaveBeenCalledTimes(1)
-
-    document.querySelector<HTMLButtonElement>('#search-active-load-retry')?.click()
-    expect(activeCharactersMock.requestActiveCharactersLoad).toHaveBeenCalledTimes(2)
-    expect(feedback.hidden).toBe(true)
+    expect(fetchSpy).not.toHaveBeenCalled()
+    expect(archivedCharactersMock.requestArchivedCharactersVisibility).not.toHaveBeenCalled()
+    const dispatchedTypes = dispatchSpy.mock.calls.map(([event]) => event.type)
+    expect(dispatchedTypes.filter(type => /load/i.test(type))).toEqual([])
 
     cleanup?.()
   })
 
   it('expands archived-only keyword matches before filtering the current viewport', async () => {
     panelStateMock.state = {
-      activeLoaded: true,
-      activeBatchCount: 1,
       archivedVisible: false,
-      timelineLoaded: false,
     }
     searchEntriesMock.entries = [
       {

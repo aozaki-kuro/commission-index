@@ -1,6 +1,6 @@
 import {
   ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT,
-} from '@features/home/commission/loader/archivedCharactersEvent'
+} from '@features/home/commission/archivedCharactersState'
 import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '@features/home/events'
 import { ANALYTICS_EVENTS } from '@lib/analytics/events'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '@lib/navigation/sidebarSearchState'
@@ -214,6 +214,30 @@ describe('sidebarNavEnhancer', () => {
 
     cleanup()
     scrollToSpy.mockRestore()
+    window.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
+  })
+
+  it('sidebar click on an active section uses native jump', () => {
+    const scrollToHashWithoutWrite = vi.fn(() => true)
+    const clearHashNow = vi.fn()
+    const requestArchivedVisibility = vi.fn()
+    const onRestoreAbort = vi.fn()
+    window.addEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
+    const cleanup = mountSidebarNavEnhancer({
+      deps: { clearHashNow, requestArchivedVisibility, scrollToHashWithoutWrite, trackEvent: vi.fn() },
+    })
+
+    const link = document.querySelector<HTMLAnchorElement>('a[href="#section-alpha"]')!
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true })
+    link.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(false)
+    expect(scrollToHashWithoutWrite).not.toHaveBeenCalled()
+    expect(requestArchivedVisibility).not.toHaveBeenCalled()
+    expect(onRestoreAbort).toHaveBeenCalledTimes(1)
+    expect(clearHashNow).toHaveBeenCalledTimes(1)
+
+    cleanup()
     window.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
   })
 

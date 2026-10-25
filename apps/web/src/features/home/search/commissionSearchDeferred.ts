@@ -1,9 +1,4 @@
 import type { CommissionSearchEntrySource, SearchSuggestionAliasGroup } from '@features/home/search/commissionSearchIndex'
-import { readHomeCharacterBatchManifest } from '@features/home/commission/batch/homeCharacterBatchManifest'
-import {
-  ACTIVE_CHARACTERS_LOADED_EVENT,
-  requestActiveCharactersLoad,
-} from '@features/home/commission/loader/activeCharactersEvent'
 import {
   buildPopularKeywordPoolFromSuggestTexts,
   dedupeKeywords,
@@ -14,7 +9,6 @@ export { dedupeKeywords }
 export const MAX_FEATURED_KEYWORDS = 6
 export const MAX_VISIBLE_POPULAR_KEYWORDS = 6
 export const COMMISSION_ENTRY_SELECTOR = '[data-commission-entry="true"]'
-export const SHUFFLE_DEFERRED_LOAD_TIMEOUT_MS = 8000
 
 // Probability of picking from the active pool when both pools are non-empty
 export const ACTIVE_WEIGHT = 0.75
@@ -357,47 +351,6 @@ export function pickWeightedEntry<T extends CommissionSearchEntrySource>(
   const pickActive = cryptoRandomIndex(100) < ACTIVE_WEIGHT * 100
   const chosen = pickActive ? active : rest
   return chosen[cryptoRandomIndex(chosen.length)]
-}
-
-export function loadDeferredEntryBatch(sectionId: string): Promise<void> {
-  const manifest = readHomeCharacterBatchManifest(document)
-  if (!manifest)
-    return Promise.reject(new Error('No batch manifest'))
-
-  // Archived sections are always in the DOM, so only active sections can still be deferred.
-  if (!(sectionId in manifest.active.targetBatchById))
-    return Promise.reject(new Error('Section not found in manifest'))
-
-  const loadedEvent = ACTIVE_CHARACTERS_LOADED_EVENT
-
-  return new Promise<void>((resolve, reject) => {
-    let settled = false
-    let timeoutId: number
-
-    const onLoaded = () => {
-      if (settled)
-        return
-      settled = true
-      window.clearTimeout(timeoutId)
-      window.removeEventListener(loadedEvent, onLoaded)
-      resolve()
-    }
-
-    timeoutId = window.setTimeout(() => {
-      if (settled)
-        return
-      settled = true
-      window.removeEventListener(loadedEvent, onLoaded)
-      reject(new Error('Deferred load timeout'))
-    }, SHUFFLE_DEFERRED_LOAD_TIMEOUT_MS)
-
-    window.addEventListener(loadedEvent, onLoaded)
-
-    requestActiveCharactersLoad(window, {
-      strategy: 'target',
-      targetId: sectionId,
-    })
-  })
 }
 
 export function scrollAndAnimateEntry(element: HTMLElement) {

@@ -43,6 +43,7 @@ async function gotoFreshDocument(page: Page, url: string) {
   expect(response, `fresh document load for ${url}`).not.toBeNull()
 }
 
+// The timeline panel carries a copy of every entry under the same id, so character-view locators are scoped.
 const characterPanel = (page: Page) => page.locator('[data-commission-view-panel="character"]')
 
 async function expandArchived(page: Page) {
@@ -67,7 +68,7 @@ for (const viewport of viewports) {
       const hash = await entryHash(page, '枫霜 Kaede', 202)
       await gotoFreshDocument(page, `/${hash}`)
       await expectFixtureData(page)
-      await expectNearTop(page.locator(hash))
+      await expectNearTop(characterPanel(page).locator(hash))
     })
 
     test('deep link to an archived entry expands archived and lands on it', async ({ page }) => {
@@ -89,22 +90,34 @@ for (const viewport of viewports) {
       expect(inlineOnly.visibility).toBe('visible')
       // Native fragment scrolling can only land on the entry because the container is no longer display: none.
       expect(inlineOnly.scrollY).toBeGreaterThan(0)
-      await expectNearTop(page.locator(hash))
+      await expectNearTop(characterPanel(page).locator(hash))
       await page.unrouteAll()
 
       await gotoFreshDocument(page, `/${hash}`)
       await expectFixtureData(page)
       await expect(characterPanel(page)).toHaveAttribute('data-archived-visibility', 'visible')
-      await expectNearTop(page.locator(hash))
+      await expectNearTop(characterPanel(page).locator(hash))
     })
 
     test('timeline deep link lands on the timeline copy', async ({ page }) => {
       await page.goto('/')
       await expectFixtureData(page)
       const hash = await entryHash(page, 'Lumi Verde', 101)
-      await page.goto(`/?view=timeline${hash}`)
+      const timelineCopy = page.locator('[data-commission-view-panel="timeline"]').locator(hash)
+
+      // Native fragment scrolling targets the hidden character-panel copy of the shared id; with scripts
+      // blocked, only the inline view-swap script can move the page to the timeline copy before paint.
+      await page.route('**/*', route => route.request().resourceType() === 'script' ? route.abort() : route.continue())
+      await page.goto('about:blank')
+      await page.goto(`/?view=timeline${hash}`, { waitUntil: 'domcontentloaded' })
+      expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
       await expectFixtureData(page)
-      await expectNearTop(page.locator('[data-commission-view-panel="timeline"]').locator(hash))
+      await expectNearTop(timelineCopy)
+      await page.unrouteAll()
+
+      await gotoFreshDocument(page, `/?view=timeline${hash}`)
+      await expectFixtureData(page)
+      await expectNearTop(timelineCopy)
     })
 
     test('reload restores expanded archived position', async ({ page }) => {
@@ -112,12 +125,8 @@ for (const viewport of viewports) {
       await expectFixtureData(page)
       const hash = await entryHash(page, 'Orion Vale', 301)
       await expandArchived(page)
-      const entry = page.locator(hash)
+      const entry = characterPanel(page).locator(hash)
       await entry.evaluate(el => el.scrollIntoView({ block: 'start' }))
-      await expectNearTop(entry)
-      // The deferred active batch mounts above archived once its sentinel is crossed; let it land and let
-      // scroll anchoring settle before reading the baseline the reload must restore.
-      await expect(page.locator('h2').filter({ hasText: '枫霜 Kaede' }).first()).toBeAttached()
       await expectNearTop(entry)
       const before = await page.evaluate(() => window.scrollY)
       expect(before).toBeGreaterThan(0)

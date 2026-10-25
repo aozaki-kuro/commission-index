@@ -1,25 +1,10 @@
+import type { ArchivedCharactersVisibility } from '@features/home/commission/archivedCharactersState'
 import type { CommissionViewMode } from '@features/home/commission/CommissionViewModeSearch'
-import type { RequestActiveCharactersLoadOptions } from '@features/home/commission/loader/activeCharactersEvent'
-import type { ArchivedCharactersVisibility } from '@features/home/commission/loader/archivedCharactersEvent'
-import type { RequestTimelineViewLoadOptions } from '@features/home/commission/loader/timelineViewEvent'
-import { prefetchDeferredActiveCharacterTarget } from '@features/home/commission/batch/deferredCharacterBatchPrefetch'
-import {
-  ACTIVE_CHARACTERS_LOADED_EVENT,
-  hasDeferredActiveCharacterTarget,
-  requestActiveCharactersLoad,
-
-} from '@features/home/commission/loader/activeCharactersEvent'
 import {
   ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT,
-  hasArchivedCharacterTarget,
   isArchivedCharactersVisible,
   requestArchivedCharactersVisibility,
-} from '@features/home/commission/loader/archivedCharactersEvent'
-import {
-  hasDeferredTimelineTarget,
-  requestTimelineViewLoad,
-} from '@features/home/commission/loader/timelineViewEvent'
-import { TIMELINE_VIEW_LOADED_EVENT } from '@features/home/commission/loader/timelineViewLoader'
+} from '@features/home/commission/archivedCharactersState'
 import {
   readCommissionViewMode,
   replaceCommissionViewModeInAddress,
@@ -28,19 +13,11 @@ import {
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT, dispatchHomeScrollRestoreAbort, HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from '@features/home/events'
 import { ANALYTICS_EVENTS } from '@lib/analytics/events'
 import { trackRybbitEvent } from '@lib/analytics/track'
-import {
-  getHashFromHref,
-  getHashTarget,
-  scrollToHashTargetFromHrefWithoutHash,
-} from '@lib/navigation/hashAnchor'
+import { scrollToHashTargetFromHrefWithoutHash } from '@lib/navigation/hashAnchor'
 import { jumpToCommissionSearch } from '@lib/navigation/jumpToCommissionSearch'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '@lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '@lib/navigation/syncHiddenSectionLinkAvailability'
-import {
-  loadDeferredHomeNavTarget,
-  prefetchHomeNavTarget,
-  revealArchivedHomeNavTarget,
-} from '../homeNavTargetClient'
+import { revealArchivedHomeNavTarget } from '../homeNavTargetClient'
 import { MENU_TRANSITION_MS } from './constants'
 
 const ROOT_SELECTOR = '[data-mobile-hamburger="true"]'
@@ -66,9 +43,6 @@ interface MobileHamburgerMenuDeps {
   jumpToSearch: typeof jumpToCommissionSearch
   syncLinkAvailability: typeof syncHiddenSectionLinkAvailability
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
-  prefetchActiveTarget: (doc: Document, targetId: string | null | undefined) => void
-  requestActiveLoad: (win: Window, options?: RequestActiveCharactersLoadOptions) => void
-  requestTimelineLoad: (win: Window, options?: RequestTimelineViewLoadOptions) => void
   requestArchivedVisibility: (win: Window, visibility: ArchivedCharactersVisibility) => void
 }
 
@@ -91,9 +65,6 @@ const defaultDeps: MobileHamburgerMenuDeps = {
   jumpToSearch: jumpToCommissionSearch,
   syncLinkAvailability: syncHiddenSectionLinkAvailability,
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
-  prefetchActiveTarget: prefetchDeferredActiveCharacterTarget,
-  requestActiveLoad: requestActiveCharactersLoad,
-  requestTimelineLoad: requestTimelineViewLoad,
   requestArchivedVisibility: requestArchivedCharactersVisibility,
 }
 
@@ -132,10 +103,6 @@ function readAgeGateOpen(doc: Document) {
   if (doc.documentElement.dataset.ageGateOpen === 'true')
     return true
   return doc.querySelector<HTMLElement>(AGE_GATE_ROOT_SELECTOR)?.dataset.state === 'open'
-}
-
-function resolveNavLinkTargetId(link: HTMLAnchorElement) {
-  return link.dataset.mobileNavSectionId ?? link.getAttribute('href')
 }
 
 function setHtmlScrollLocked(doc: Document, locked: boolean) {
@@ -367,23 +334,10 @@ export function mountMobileHamburgerMenu({
   }
 
   const syncLinkAvailability = () => {
-    const mode = readCommissionViewMode(win)
     deps.syncLinkAvailability({
       root: resolveLinkAvailabilityRoot(),
       linkSelector: NAV_LINK_SELECTOR,
       getSectionId: link => link.dataset.mobileNavSectionId ?? null,
-      isDeferredTarget: (sectionId, link) => {
-        if (mode === 'timeline') {
-          return hasDeferredTimelineTarget(doc, sectionId)
-        }
-
-        return (
-          (link.dataset.mobileNavCharacterStatus === 'active'
-            && hasDeferredActiveCharacterTarget(doc, sectionId))
-          || (link.dataset.mobileNavCharacterStatus === 'archived'
-            && hasArchivedCharacterTarget(doc, sectionId))
-        )
-      },
     })
   }
 
@@ -391,27 +345,6 @@ export function mountMobileHamburgerMenu({
     syncViewModeState()
     syncCharacterSectionState()
     syncLinkAvailability()
-  }
-
-  const prefetchNavLinkTarget = (link: HTMLAnchorElement) => {
-    const targetId = resolveNavLinkTargetId(link)
-    prefetchHomeNavTarget({
-      doc,
-      href: link.getAttribute('href'),
-      isTimelineTarget: Boolean(
-        link.closest<HTMLElement>(`${NAV_PANEL_SELECTOR}[data-mobile-hamburger-nav-panel="timeline"]`),
-      ),
-      prefetchActiveTarget: deps.prefetchActiveTarget,
-      requestTimelineLoad: deps.requestTimelineLoad,
-      status:
-        link.dataset.mobileNavCharacterStatus === 'active'
-          ? 'active'
-          : link.dataset.mobileNavCharacterStatus === 'archived'
-            ? 'archived'
-            : null,
-      targetId,
-      win,
-    })
   }
 
   const getVisibleItemCount = (mode: CommissionViewMode) =>
@@ -427,34 +360,6 @@ export function mountMobileHamburgerMenu({
       character_name: navLink.textContent?.trim() || 'unknown',
       section_id: navLink.dataset.mobileNavSectionId ?? 'unknown',
     })
-  }
-
-  const handleDeferredNavLinkLoad = ({
-    event,
-    href,
-    loadedEvent,
-    navLink,
-    requestLoad,
-  }: {
-    event: MouseEvent
-    href: string | null
-    loadedEvent: string
-    navLink: HTMLAnchorElement
-    requestLoad: () => void
-  }) => {
-    event.preventDefault()
-    loadDeferredHomeNavTarget({
-      isReady: () => Boolean(getHashTarget(getHashFromHref(href))),
-      loadedEvent,
-      onLoaded: () => {
-        deps.scrollToHashWithoutWrite(href)
-        syncLinkAvailability()
-      },
-      requestLoad,
-      win,
-    })
-    trackCharacterNavClick(navLink)
-    closeMenu()
   }
 
   const runSearchAction = () => {
@@ -486,18 +391,6 @@ export function mountMobileHamburgerMenu({
     event.preventDefault()
     didHandleSearchPointerDown = true
     runSearchAction()
-  }
-
-  const onNavPreview = (event: Event) => {
-    const target = event.target
-    if (!(target instanceof Element))
-      return
-
-    const navLink = target.closest<HTMLAnchorElement>(NAV_LINK_SELECTOR)
-    if (!navLink)
-      return
-
-    prefetchNavLinkTarget(navLink)
   }
 
   const onRootClick = (event: MouseEvent) => {
@@ -563,46 +456,7 @@ export function mountMobileHamburgerMenu({
       return
 
     const mode = readCommissionViewMode(win)
-    const navTargetId = resolveNavLinkTargetId(navLink)
     const href = navLink.getAttribute('href')
-    const isDeferredTimelineLink
-      = mode === 'timeline'
-        && hasDeferredTimelineTarget(doc, href ?? navTargetId)
-    if (isDeferredTimelineLink) {
-      handleDeferredNavLinkLoad({
-        event,
-        href,
-        loadedEvent: TIMELINE_VIEW_LOADED_EVENT,
-        navLink,
-        requestLoad: () => {
-          deps.requestTimelineLoad(win, {
-            strategy: 'target',
-            targetId: href ?? navTargetId ?? undefined,
-          })
-        },
-      })
-      return
-    }
-
-    const isDeferredActiveLink
-      = navLink.dataset.mobileNavCharacterStatus === 'active'
-        && hasDeferredActiveCharacterTarget(doc, navTargetId)
-    if (isDeferredActiveLink) {
-      handleDeferredNavLinkLoad({
-        event,
-        href,
-        loadedEvent: ACTIVE_CHARACTERS_LOADED_EVENT,
-        navLink,
-        requestLoad: () => {
-          deps.requestActiveLoad(win, {
-            strategy: 'target',
-            targetId: href ?? navTargetId ?? undefined,
-          })
-        },
-      })
-      return
-    }
-
     const isArchivedLink = navLink.dataset.mobileNavCharacterStatus === 'archived'
     if (isArchivedLink && !isArchivedCharactersVisible(doc)) {
       event.preventDefault()
@@ -680,8 +534,6 @@ export function mountMobileHamburgerMenu({
 
   root.addEventListener('pointerdown', onRootPointerDown)
   root.addEventListener('click', onRootClick)
-  navRoot.addEventListener('pointerdown', onNavPreview)
-  navRoot.addEventListener('focusin', onNavPreview)
   backdrop.addEventListener('click', onBackdropClick)
   doc.addEventListener('keydown', onDocumentKeyDown)
   win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onViewModeChanged)
@@ -708,8 +560,6 @@ export function mountMobileHamburgerMenu({
 
     root.removeEventListener('pointerdown', onRootPointerDown)
     root.removeEventListener('click', onRootClick)
-    navRoot.removeEventListener('pointerdown', onNavPreview)
-    navRoot.removeEventListener('focusin', onNavPreview)
     backdrop.removeEventListener('click', onBackdropClick)
     doc.removeEventListener('keydown', onDocumentKeyDown)
     win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onViewModeChanged)
