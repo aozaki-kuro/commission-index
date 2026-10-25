@@ -174,6 +174,54 @@ describe('initSearchController', () => {
     cleanup?.()
   })
 
+  it('shuffle in timeline view scrolls the timeline copy, not the character copy', async () => {
+    window.history.replaceState(null, '', '/?view=timeline')
+    searchEntriesMock.entries = [
+      { id: 0, domKey: 'character-alpha::alpha', searchText: 'alpha' },
+    ]
+    document.body.innerHTML = `
+      <main>
+        <section id="commission-search" data-featured-keywords="[]" data-suggestion-alias-groups="[]">
+          <div role="combobox">
+            <input id="commission-search-input" value="" />
+            <ul id="search-suggestion-list"></ul>
+          </div>
+          <button id="search-shuffle" type="button"></button>
+          <ul id="search-keyword-list"></ul>
+          <p id="search-live-region"></p>
+        </section>
+        <div data-commission-view-panel="character" data-commission-view-active="false" class="hidden">
+          <section id="character-alpha" data-character-section="true" data-character-status="active">
+            <article data-commission-entry="true" data-commission-search-key="character-alpha::alpha"></article>
+          </section>
+        </div>
+        <div data-commission-view-panel="timeline" data-commission-view-active="true">
+          <section id="timeline-year-2026" data-character-section="true">
+            <article data-commission-entry="true" data-commission-search-key="character-alpha::alpha"></article>
+          </section>
+        </div>
+      </main>
+    `
+    const [characterCopy, timelineCopy] = [
+      ...document.querySelectorAll<HTMLElement>('[data-commission-search-key="character-alpha::alpha"]'),
+    ]
+    for (const copy of [characterCopy, timelineCopy]) {
+      copy.scrollIntoView = vi.fn()
+      copy.animate = vi.fn() as unknown as HTMLElement['animate']
+    }
+    const root = document.getElementById('commission-search')!
+    const cleanup = initSearchController(root)
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    document.querySelector<HTMLButtonElement>('#search-shuffle')?.click()
+
+    expect(timelineCopy.scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(characterCopy.scrollIntoView).not.toHaveBeenCalled()
+    expect(archivedCharactersMock.requestArchivedCharactersVisibility).not.toHaveBeenCalled()
+
+    cleanup?.()
+  })
+
   it('expands archived-only keyword matches before filtering the current viewport', async () => {
     panelStateMock.state = {
       archivedVisible: false,

@@ -1,4 +1,3 @@
-import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '@features/home/events'
 import { restoreScrollPosition as restoreWindowScrollPosition } from '@lib/navigation/restoreScrollPosition'
 
 const HOME_SCROLL_STATE_STORAGE_KEY = 'home:scroll-state'
@@ -101,24 +100,6 @@ function shouldRestoreSavedState({
   return savedState.pathname === win.location.pathname && savedState.search === win.location.search
 }
 
-function readScrollRestoration(win: Window): ScrollRestoration | null {
-  const history = win.history as History & { scrollRestoration?: ScrollRestoration }
-  if (history.scrollRestoration === 'auto' || history.scrollRestoration === 'manual') {
-    return history.scrollRestoration
-  }
-
-  return null
-}
-
-function writeScrollRestoration(win: Window, mode: ScrollRestoration) {
-  try {
-    ;(win.history as History & { scrollRestoration?: ScrollRestoration }).scrollRestoration = mode
-  }
-  catch {
-    // Ignore unsupported browsers and keep restore flow running.
-  }
-}
-
 function scheduleRestore({
   deps,
   savedState,
@@ -165,59 +146,13 @@ export function mountHomeScrollRestore({
     }
   }
 
-  let disposed = false
-  let restored = false
-  const revealFallbackTimer = win.setTimeout(() => {
-    revealRestoringShell(win)
-  }, 3000)
-  const originalScrollRestoration = readScrollRestoration(win)
-  if (originalScrollRestoration && originalScrollRestoration !== 'manual') {
-    writeScrollRestoration(win, 'manual')
-  }
-
-  let restoredScrollRestoration = false
-  const restoreBrowserScrollRestoration = () => {
-    if (restoredScrollRestoration)
-      return
-    restoredScrollRestoration = true
-    if (!originalScrollRestoration)
-      return
-    writeScrollRestoration(win, originalScrollRestoration)
-  }
-
-  const completeRestore = ({ schedule }: { schedule: boolean }) => {
-    if (restored)
-      return
-    restored = true
-    clearSavedState(win)
-    restoreBrowserScrollRestoration()
-    win.clearTimeout(revealFallbackTimer)
-    if (schedule) {
-      scheduleRestore({ deps, savedState, win })
-      return
-    }
-
-    revealRestoringShell(win)
-  }
-
-  const abortRestore = () => {
-    if (disposed)
-      return
-    completeRestore({ schedule: false })
-  }
-
-  win.addEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, abortRestore)
-
+  clearSavedState(win)
   // Every section is in the static HTML, so the saved offset is reachable on mount.
-  completeRestore({ schedule: true })
+  scheduleRestore({ deps, savedState, win })
 
   return () => {
-    disposed = true
-    win.clearTimeout(revealFallbackTimer)
     revealRestoringShell(win)
-    restoreBrowserScrollRestoration()
     win.removeEventListener('pagehide', persistNow)
     win.removeEventListener('beforeunload', persistNow)
-    win.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, abortRestore)
   }
 }

@@ -103,7 +103,77 @@ describe('mountHomeHashTarget', () => {
     cleanup()
   })
 
-  it('dispose removes the hashchange listener', () => {
+  function appendLink(href: string) {
+    const link = document.createElement('a')
+    link.href = href
+    link.textContent = 'link'
+    document.body.append(link)
+    return link
+  }
+
+  // Returns whether the document handler prevented the click. window sees the event after document, so it can
+  // record the result and then block jsdom's unimplemented link navigation.
+  function click(link: HTMLElement, init: MouseEventInit = {}) {
+    let defaultPrevented = false
+    const record = (event: Event) => {
+      defaultPrevented = event.defaultPrevented
+      event.preventDefault()
+    }
+    window.addEventListener('click', record, { once: true })
+    link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, ...init }))
+    return { defaultPrevented }
+  }
+
+  it('same-hash click in timeline view scrolls the timeline copy', () => {
+    renderPanels({ activeView: 'timeline' })
+    window.history.replaceState(null, '', '/?view=timeline#shared-entry')
+    const [characterCopy, timelineCopy] = [...document.querySelectorAll<HTMLElement>('[id="shared-entry"]')]
+    characterCopy.scrollIntoView = vi.fn()
+    timelineCopy.scrollIntoView = vi.fn()
+    const cleanup = mountHomeHashTarget({
+      deps: { scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash },
+    })
+    vi.mocked(timelineCopy.scrollIntoView).mockClear()
+
+    const event = click(appendLink('#shared-entry'))
+
+    expect(event.defaultPrevented).toBe(true)
+    expect(timelineCopy.scrollIntoView).toHaveBeenCalledTimes(1)
+    expect(characterCopy.scrollIntoView).not.toHaveBeenCalled()
+    cleanup()
+  })
+
+  it('leaves a click to a different hash to the native jump', () => {
+    renderPanels({ activeView: 'timeline' })
+    window.history.replaceState(null, '', '/?view=timeline#shared-entry')
+    const scrollToHashWithoutWrite = vi.fn(() => true)
+    const cleanup = mountHomeHashTarget({ deps: { scrollToHashWithoutWrite } })
+    scrollToHashWithoutWrite.mockClear()
+
+    const event = click(appendLink('#section-active'))
+
+    expect(event.defaultPrevented).toBe(false)
+    expect(scrollToHashWithoutWrite).not.toHaveBeenCalled()
+    cleanup()
+  })
+
+  it('leaves modified same-hash clicks alone', () => {
+    renderPanels({ activeView: 'timeline' })
+    window.history.replaceState(null, '', '/?view=timeline#shared-entry')
+    const scrollToHashWithoutWrite = vi.fn(() => true)
+    const cleanup = mountHomeHashTarget({ deps: { scrollToHashWithoutWrite } })
+    scrollToHashWithoutWrite.mockClear()
+    const link = appendLink('#shared-entry')
+
+    for (const init of [{ metaKey: true }, { ctrlKey: true }, { shiftKey: true }, { button: 1 }]) {
+      const event = click(link, init)
+      expect(event.defaultPrevented, JSON.stringify(init)).toBe(false)
+    }
+    expect(scrollToHashWithoutWrite).not.toHaveBeenCalled()
+    cleanup()
+  })
+
+  it('dispose removes the hashchange and click listeners', () => {
     renderPanels()
     const scrollToHashWithoutWrite = vi.fn(() => true)
     const cleanup = mountHomeHashTarget({ deps: { scrollToHashWithoutWrite } })
@@ -111,7 +181,9 @@ describe('mountHomeHashTarget', () => {
 
     window.history.replaceState(null, '', '/#section-active')
     window.dispatchEvent(new HashChangeEvent('hashchange'))
+    const event = click(appendLink('#section-active'))
 
+    expect(event.defaultPrevented).toBe(false)
     expect(scrollToHashWithoutWrite).not.toHaveBeenCalled()
   })
 })

@@ -10,7 +10,7 @@ import {
   replaceCommissionViewModeInAddress,
   resolveCommissionViewModeFromElement,
 } from '@features/home/commission/viewModeState'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT, dispatchHomeScrollRestoreAbort } from '@features/home/events'
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '@features/home/events'
 import { ANALYTICS_EVENTS } from '@lib/analytics/events'
 import { trackRybbitEvent } from '@lib/analytics/track'
 import {
@@ -564,8 +564,6 @@ export function mountSidebarNavEnhancer({
       return
     }
 
-    dispatchHomeScrollRestoreAbort(win)
-
     if (mode === 'timeline') {
       event.preventDefault()
       const timelineHref = characterLink.getAttribute('href')
@@ -592,7 +590,6 @@ export function mountSidebarNavEnhancer({
 
   const onBackToTopClick = (event: MouseEvent) => {
     event.preventDefault()
-    dispatchHomeScrollRestoreAbort(win)
     win.scrollTo({
       top: 0,
       behavior: 'smooth',

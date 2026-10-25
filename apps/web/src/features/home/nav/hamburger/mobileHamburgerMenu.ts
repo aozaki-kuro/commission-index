@@ -10,7 +10,7 @@ import {
   replaceCommissionViewModeInAddress,
   resolveCommissionViewModeFromElement,
 } from '@features/home/commission/viewModeState'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT, dispatchHomeScrollRestoreAbort, HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from '@features/home/events'
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT, HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from '@features/home/events'
 import { ANALYTICS_EVENTS } from '@lib/analytics/events'
 import { trackRybbitEvent } from '@lib/analytics/track'
 import { scrollToHashTargetFromHrefWithoutHash } from '@lib/navigation/hashAnchor'
@@ -476,8 +476,6 @@ export function mountMobileHamburgerMenu({
       event.preventDefault()
       return
     }
-
-    dispatchHomeScrollRestoreAbort(win)
 
     if (mode === 'timeline') {
       event.preventDefault()

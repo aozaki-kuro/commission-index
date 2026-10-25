@@ -1,13 +1,11 @@
 import { ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, requestArchivedCharactersVisibility } from '@features/home/commission/archivedCharactersState'
 // @vitest-environment jsdom
 import { mountArchivedCharactersToggle } from '@features/home/commission/archivedCharactersToggle'
-import { HOME_SCROLL_RESTORE_ABORT_EVENT } from '@features/home/events'
 import { describe, expect, it, vi } from 'vitest'
 import { revealArchivedHomeNavTarget } from './homeNavTargetClient'
 
 describe('homeNavTargetClient', () => {
-  it('aborts pending restore and waits for archived visibility before continuing', () => {
-    const onRestoreAbort = vi.fn()
+  it('waits for archived visibility before continuing', () => {
     const onVisible = vi.fn()
     const requestArchivedVisibility = vi.fn((win: Window) => {
       win.dispatchEvent(
@@ -16,7 +14,6 @@ describe('homeNavTargetClient', () => {
         }),
       )
     })
-    window.addEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
 
     revealArchivedHomeNavTarget({
       onVisible,
@@ -24,11 +21,8 @@ describe('homeNavTargetClient', () => {
       win: window,
     })
 
-    expect(onRestoreAbort).toHaveBeenCalledTimes(1)
     expect(requestArchivedVisibility).toHaveBeenCalledWith(window, 'visible')
     expect(onVisible).toHaveBeenCalledTimes(1)
-
-    window.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
   })
 
   it('ignores unrelated archived state changes until visibility is actually visible', () => {

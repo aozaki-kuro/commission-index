@@ -7,6 +7,9 @@ import { expectFixtureData } from './fixtureGuard'
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
+    // Init scripts also run on about:blank, whose opaque origin denies localStorage.
+    if (location.origin === 'null')
+      return
     localStorage.setItem('hasConfirmedAge', String(Date.now()))
   })
 })

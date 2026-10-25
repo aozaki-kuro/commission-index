@@ -1,6 +1,5 @@
 import type { ArchivedCharactersVisibility } from '@features/home/commission/archivedCharactersState'
 import { ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT } from '@features/home/commission/archivedCharactersState'
-import { dispatchHomeScrollRestoreAbort } from '@features/home/events'
 
 const HOME_NAV_TARGET_WAIT_TIMEOUT_MS = 10000
 
@@ -19,8 +18,6 @@ export function revealArchivedHomeNavTarget({
   timeoutMs = HOME_NAV_TARGET_WAIT_TIMEOUT_MS,
   win,
 }: RevealArchivedHomeNavTargetOptions) {
-  dispatchHomeScrollRestoreAbort(win)
-
   let timeoutHandle: number | null = null
 
   function cleanup() {

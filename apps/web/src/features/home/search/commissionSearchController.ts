@@ -641,9 +641,10 @@ export function initSearchController(root: HTMLElement) {
       if (!randomEntry.domKey)
         return
 
-      // Try to find the element in DOM (already loaded)
+      // Both panels render every entry under the same search key; the first document match is the
+      // character copy, which is display: none in timeline view, so resolve inside the current view's panel.
       const element = document.querySelector<HTMLElement>(
-        `[data-commission-search-key="${CSS.escape(randomEntry.domKey)}"]`,
+        `[data-commission-view-panel="${mode}"] [data-commission-search-key="${CSS.escape(randomEntry.domKey)}"]`,
       )
       if (element) {
         // Collapsed archived entries are in the DOM but display: none, so they must be shown to scroll.
