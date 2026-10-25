@@ -1,40 +1,16 @@
+import type { ArchivedCharactersState, ArchivedCharactersVisibility } from '@features/home/commission/archivedCharactersState'
 import type { CommissionViewMode } from '@features/home/commission/CommissionViewModeSearch'
-import type { RequestActiveCharactersLoadOptions } from '@features/home/commission/loader/activeCharactersEvent'
-import type { ArchivedCharactersState, ArchivedCharactersVisibility, RequestArchivedCharactersLoadOptions } from '@features/home/commission/loader/archivedCharactersEvent'
-import type { RequestTimelineViewLoadOptions } from '@features/home/commission/loader/timelineViewEvent'
 import {
-  prefetchDeferredActiveCharacterTarget,
-  prefetchDeferredArchivedCharacterTarget,
-} from '@features/home/commission/batch/deferredCharacterBatchPrefetch'
-import { normalizeHomeCharacterTargetId } from '@features/home/commission/batch/homeCharacterBatchManifest'
-import {
-  ACTIVE_CHARACTERS_LOADED_EVENT,
-  hasDeferredActiveCharacterTarget,
-  requestActiveCharactersLoad,
-
-} from '@features/home/commission/loader/activeCharactersEvent'
-import {
-  ARCHIVED_CHARACTERS_LOADED_EVENT,
   ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT,
-  hasArchivedCharacterTarget,
-  hasDeferredArchivedCharacterTarget,
-
   isArchivedCharactersVisible,
-  requestArchivedCharactersLoad,
   requestArchivedCharactersVisibility,
-
-} from '@features/home/commission/loader/archivedCharactersEvent'
-import {
-  hasDeferredTimelineTarget,
-  requestTimelineViewLoad,
-} from '@features/home/commission/loader/timelineViewEvent'
-import { TIMELINE_VIEW_LOADED_EVENT } from '@features/home/commission/loader/timelineViewLoader'
+} from '@features/home/commission/archivedCharactersState'
 import {
   readCommissionViewMode,
   replaceCommissionViewModeInAddress,
   resolveCommissionViewModeFromElement,
 } from '@features/home/commission/viewModeState'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT, dispatchHomeScrollRestoreAbort } from '@features/home/events'
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '@features/home/events'
 import { ANALYTICS_EVENTS } from '@lib/analytics/events'
 import { trackRybbitEvent } from '@lib/analytics/track'
 import {
@@ -45,18 +21,12 @@ import {
 import {
   clearHashIfTargetOffscreen,
   clearLocationHash,
-  getHashFromHref,
-  getHashTarget,
   scrollToHashTargetFromHrefWithoutHash,
 } from '@lib/navigation/hashAnchor'
 import { jumpToCommissionSearch } from '@lib/navigation/jumpToCommissionSearch'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '@lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '@lib/navigation/syncHiddenSectionLinkAvailability'
-import {
-  loadDeferredHomeNavTarget,
-  prefetchHomeNavTarget,
-  revealArchivedHomeNavTarget,
-} from './homeNavTargetClient'
+import { revealArchivedHomeNavTarget } from './homeNavTargetClient'
 
 const SIDEBAR_ROOT_ID = 'Character List'
 const SIDEBAR_CONTROLS_ROOT_ID = 'Home Controls'
@@ -80,11 +50,6 @@ interface SidebarNavEnhancerDeps {
   clearHash: typeof clearHashIfTargetOffscreen
   clearHashNow: typeof clearLocationHash
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
-  prefetchActiveTarget: (doc: Document, targetId: string | null | undefined) => void
-  prefetchArchivedTarget: (doc: Document, targetId: string | null | undefined) => void
-  requestActiveLoad: (win: Window, options?: RequestActiveCharactersLoadOptions) => void
-  requestArchivedLoad: (win: Window, options?: RequestArchivedCharactersLoadOptions) => void
-  requestTimelineLoad: (win: Window, options?: RequestTimelineViewLoadOptions) => void
   requestArchivedVisibility: (win: Window, visibility: ArchivedCharactersVisibility) => void
 }
 
@@ -107,11 +72,6 @@ const defaultDeps: SidebarNavEnhancerDeps = {
   clearHash: clearHashIfTargetOffscreen,
   clearHashNow: clearLocationHash,
   scrollToHashWithoutWrite: scrollToHashTargetFromHrefWithoutHash,
-  prefetchActiveTarget: prefetchDeferredActiveCharacterTarget,
-  prefetchArchivedTarget: prefetchDeferredArchivedCharacterTarget,
-  requestActiveLoad: requestActiveCharactersLoad,
-  requestArchivedLoad: requestArchivedCharactersLoad,
-  requestTimelineLoad: requestTimelineViewLoad,
   requestArchivedVisibility: requestArchivedCharactersVisibility,
 }
 
@@ -182,7 +142,19 @@ function resolveActiveTitleId(titleElements: HTMLElement[]) {
 }
 
 function resolveSectionIdFromHref(rawHref: string | null) {
-  return normalizeHomeCharacterTargetId(rawHref) || null
+  if (!rawHref)
+    return null
+
+  const value = rawHref.startsWith('#') ? rawHref.slice(1) : rawHref
+  if (!value)
+    return null
+
+  try {
+    return decodeURIComponent(value) || null
+  }
+  catch {
+    return null
+  }
 }
 
 export function mountSidebarNavEnhancer({
@@ -334,8 +306,7 @@ export function mountSidebarNavEnhancer({
   }
 
   const syncCharacterLinkAvailability = () => {
-    const mode = getCurrentMode(win)
-    const panel = getVisibleNavPanel(navRoot, mode)
+    const panel = getVisibleNavPanel(navRoot, getCurrentMode(win))
     if (!panel)
       return
 
@@ -344,18 +315,6 @@ export function mountSidebarNavEnhancer({
       linkSelector: CHARACTER_LINK_SELECTOR,
       getSectionId: (link) => {
         return resolveSectionIdFromHref(link.getAttribute('href'))
-      },
-      isDeferredTarget: (sectionId, link) => {
-        if (mode === 'timeline') {
-          return hasDeferredTimelineTarget(doc, sectionId)
-        }
-
-        return (
-          (link.dataset.sidebarCharacterStatus === 'active'
-            && hasDeferredActiveCharacterTarget(doc, sectionId))
-          || (link.dataset.sidebarCharacterStatus === 'archived'
-            && hasArchivedCharacterTarget(doc, sectionId))
-        )
       },
     })
   }
@@ -514,39 +473,6 @@ export function mountSidebarNavEnhancer({
     scheduleSyncActiveDots()
   }
 
-  const prefetchCharacterTarget = (link: HTMLAnchorElement) => {
-    const href = link.getAttribute('href')
-    prefetchHomeNavTarget({
-      doc,
-      href,
-      isTimelineTarget: Boolean(
-        link.closest<HTMLElement>(`${NAV_PANEL_SELECTOR}[data-sidebar-nav-panel="timeline"]`),
-      ),
-      prefetchActiveTarget: deps.prefetchActiveTarget,
-      prefetchArchivedTarget: deps.prefetchArchivedTarget,
-      requestTimelineLoad: deps.requestTimelineLoad,
-      status:
-        link.dataset.sidebarCharacterStatus === 'active'
-          ? 'active'
-          : link.dataset.sidebarCharacterStatus === 'archived'
-            ? 'archived'
-            : null,
-      win,
-    })
-  }
-
-  const onSidebarPreview = (event: Event) => {
-    const target = event.target
-    if (!(target instanceof Element))
-      return
-
-    const characterLink = target.closest<HTMLAnchorElement>(CHARACTER_LINK_SELECTOR)
-    if (!characterLink)
-      return
-
-    prefetchCharacterTarget(characterLink)
-  }
-
   const trackSidebarCharacterClick = (link: HTMLAnchorElement) => {
     deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
       source: 'character_link',
@@ -555,31 +481,6 @@ export function mountSidebarNavEnhancer({
       character_name: link.textContent?.trim() || 'unknown',
       section_id: link.getAttribute('href')?.replace(HASH_PREFIX_PATTERN, '') || 'unknown',
     })
-  }
-
-  const handleDeferredCharacterLinkLoad = ({
-    href,
-    link,
-    loadedEvent,
-    requestLoad,
-  }: {
-    href: string | null
-    link: HTMLAnchorElement
-    loadedEvent: string
-    requestLoad: () => void
-  }) => {
-    loadDeferredHomeNavTarget({
-      isReady: () => Boolean(getHashTarget(getHashFromHref(href))),
-      loadedEvent,
-      onLoaded: () => {
-        deps.scrollToHashWithoutWrite(href)
-        scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })
-        scheduleSyncActiveDots()
-      },
-      requestLoad,
-      win,
-    })
-    trackSidebarCharacterClick(link)
   }
 
   const onSidebarClick = (event: MouseEvent) => {
@@ -642,55 +543,7 @@ export function mountSidebarNavEnhancer({
 
     const mode = getCurrentMode(win)
     const href = characterLink.getAttribute('href')
-    const isDeferredTimelineLink = mode === 'timeline' && hasDeferredTimelineTarget(doc, href)
-    if (isDeferredTimelineLink) {
-      event.preventDefault()
-      handleDeferredCharacterLinkLoad({
-        href,
-        link: characterLink,
-        loadedEvent: TIMELINE_VIEW_LOADED_EVENT,
-        requestLoad: () => {
-          deps.requestTimelineLoad(win, { strategy: 'target', targetId: href ?? undefined })
-        },
-      })
-      return
-    }
-
-    const isDeferredActiveLink
-      = characterLink.dataset.sidebarCharacterStatus === 'active'
-        && hasDeferredActiveCharacterTarget(doc, href)
-    if (isDeferredActiveLink) {
-      event.preventDefault()
-      handleDeferredCharacterLinkLoad({
-        href,
-        link: characterLink,
-        loadedEvent: ACTIVE_CHARACTERS_LOADED_EVENT,
-        requestLoad: () => {
-          deps.requestActiveLoad(win, { strategy: 'target', targetId: href ?? undefined })
-        },
-      })
-      return
-    }
-
     const isArchivedLink = characterLink.dataset.sidebarCharacterStatus === 'archived'
-    const isDeferredArchivedLink = isArchivedLink && hasDeferredArchivedCharacterTarget(doc, href)
-    if (isDeferredArchivedLink) {
-      event.preventDefault()
-      handleDeferredCharacterLinkLoad({
-        href,
-        link: characterLink,
-        loadedEvent: ARCHIVED_CHARACTERS_LOADED_EVENT,
-        requestLoad: () => {
-          deps.requestArchivedLoad(win, {
-            preserveScroll: false,
-            strategy: 'target',
-            targetId: href ?? undefined,
-          })
-        },
-      })
-      return
-    }
-
     if (isArchivedLink && !isArchivedCharactersVisible(doc)) {
       event.preventDefault()
       revealArchivedHomeNavTarget({
@@ -710,8 +563,6 @@ export function mountSidebarNavEnhancer({
       event.preventDefault()
       return
     }
-
-    dispatchHomeScrollRestoreAbort(win)
 
     if (mode === 'timeline') {
       event.preventDefault()
@@ -739,7 +590,6 @@ export function mountSidebarNavEnhancer({
 
   const onBackToTopClick = (event: MouseEvent) => {
     event.preventDefault()
-    dispatchHomeScrollRestoreAbort(win)
     win.scrollTo({
       top: 0,
       behavior: 'smooth',
@@ -750,8 +600,6 @@ export function mountSidebarNavEnhancer({
   if (controlsRoot !== navRoot) {
     navRoot.addEventListener('click', onSidebarClick)
   }
-  navRoot.addEventListener('pointerover', onSidebarPreview)
-  navRoot.addEventListener('focusin', onSidebarPreview)
   archivedDetails?.addEventListener('toggle', onArchivedDetailsToggle)
   win.addEventListener('scroll', scheduleSyncActiveDots, { passive: true })
   win.addEventListener('resize', scheduleSyncActiveDots)
@@ -779,8 +627,6 @@ export function mountSidebarNavEnhancer({
     if (controlsRoot !== navRoot) {
       navRoot.removeEventListener('click', onSidebarClick)
     }
-    navRoot.removeEventListener('pointerover', onSidebarPreview)
-    navRoot.removeEventListener('focusin', onSidebarPreview)
     archivedDetails?.removeEventListener('toggle', onArchivedDetailsToggle)
     win.removeEventListener('scroll', scheduleSyncActiveDots)
     win.removeEventListener('resize', scheduleSyncActiveDots)

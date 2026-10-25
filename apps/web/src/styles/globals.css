@@ -225,6 +225,13 @@
     animation: reveal-up 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
+  html[data-image-fade='on'] [data-commission-image] > img {
+    transition: opacity 400ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  html[data-image-fade='on'] [data-commission-image]:not([data-loaded]) > img {
+    opacity: 0;
+  }
+
   @keyframes fade-in {
     from {
       opacity: 0;

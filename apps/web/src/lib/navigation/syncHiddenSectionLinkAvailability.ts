@@ -10,7 +10,6 @@ interface SyncHiddenSectionLinkAvailabilityOptions {
   root: ParentNode
   linkSelector: string
   getSectionId: (link: HTMLAnchorElement) => string | null
-  isDeferredTarget?: (sectionId: string, link: HTMLAnchorElement) => boolean
 }
 
 function sectionHasNoAvailableCommission(section: HTMLElement) {
@@ -43,7 +42,6 @@ export function syncHiddenSectionLinkAvailability({
   root,
   linkSelector,
   getSectionId,
-  isDeferredTarget,
 }: SyncHiddenSectionLinkAvailabilityOptions) {
   const links = root.querySelectorAll<HTMLAnchorElement>(linkSelector)
   const sectionById = new Map<string, HTMLElement | null>()
@@ -60,9 +58,7 @@ export function syncHiddenSectionLinkAvailability({
             return resolved
           })())
     const isDisabled
-      = !section && sectionId
-        ? !isDeferredTarget?.(sectionId, link)
-        : !section || section.classList.contains('hidden') || sectionHasNoAvailableCommission(section)
+      = !section || section.classList.contains('hidden') || sectionHasNoAvailableCommission(section)
     setLinkDisabledState(link, isDisabled)
   }
 }

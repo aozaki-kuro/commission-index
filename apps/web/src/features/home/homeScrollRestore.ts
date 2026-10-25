@@ -1,36 +1,7 @@
-import type { RequestActiveCharactersLoadOptions } from '@features/home/commission/loader/activeCharactersEvent'
-import type { RequestArchivedCharactersLoadOptions } from '@features/home/commission/loader/archivedCharactersEvent'
-import type { RequestTimelineViewLoadOptions } from '@features/home/commission/loader/timelineViewEvent'
-import { getHomeCharacterBatchTotalCount } from '@features/home/commission/batch/homeCharacterBatchClient'
-import {
-  ACTIVE_CHARACTERS_LOADED_EVENT,
-  readActiveCharactersLoadedBatchCount,
-  readActiveCharactersLoadedState,
-  requestActiveCharactersLoad,
-
-} from '@features/home/commission/loader/activeCharactersEvent'
-import {
-  ARCHIVED_CHARACTERS_LOADED_EVENT,
-  readArchivedCharactersLoadedBatchCount,
-  readArchivedCharactersState,
-
-  requestArchivedCharactersLoad,
-} from '@features/home/commission/loader/archivedCharactersEvent'
-import {
-  getHomeTimelineBatchTotalCount,
-  readTimelineLoadedBatchCount,
-  readTimelineLoadedState,
-  requestTimelineViewLoad,
-} from '@features/home/commission/loader/timelineViewEvent'
-import { TIMELINE_VIEW_LOADED_EVENT } from '@features/home/commission/loader/timelineViewLoader'
-import { readCommissionViewMode } from '@features/home/commission/viewModeState'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT, HOME_SCROLL_RESTORE_ABORT_EVENT } from '@features/home/events'
 import { restoreScrollPosition as restoreWindowScrollPosition } from '@lib/navigation/restoreScrollPosition'
 
 const HOME_SCROLL_STATE_STORAGE_KEY = 'home:scroll-state'
 const HOME_SCROLL_RESTORING_ATTRIBUTE = 'data-home-scroll-restoring'
-const HOME_HASH_RESTORING_ATTRIBUTE = 'data-home-hash-restoring'
-const RESTORE_BATCH_WINDOW = 4
 
 type Cleanup = () => void
 
@@ -43,15 +14,11 @@ interface SavedHomeScrollState {
 
 interface HomeScrollRestoreDeps {
   readNavigationType: (win: Window) => string
-  requestActiveLoad: (win: Window, options?: RequestActiveCharactersLoadOptions) => void
-  requestArchivedLoad: (win: Window, options?: RequestArchivedCharactersLoadOptions) => void
-  requestTimelineLoad: (win: Window, options?: RequestTimelineViewLoadOptions) => void
   restoreScrollPosition: (win: Window, position: { x: number, y: number }) => void
 }
 
 interface MountHomeScrollRestoreOptions {
   deps?: Partial<HomeScrollRestoreDeps>
-  doc?: Document
   win?: Window
 }
 
@@ -60,9 +27,6 @@ const defaultDeps: HomeScrollRestoreDeps = {
     const navigationEntry = win.performance.getEntriesByType('navigation')[0]
     return navigationEntry && 'type' in navigationEntry ? String(navigationEntry.type) : ''
   },
-  requestActiveLoad: requestActiveCharactersLoad,
-  requestArchivedLoad: requestArchivedCharactersLoad,
-  requestTimelineLoad: requestTimelineViewLoad,
   restoreScrollPosition: restoreWindowScrollPosition,
 }
 
@@ -102,17 +66,6 @@ function revealRestoringShell(win: Window) {
   win.document.documentElement.removeAttribute(HOME_SCROLL_RESTORING_ATTRIBUTE)
 }
 
-type WindowWithHashRestoreTimer = Window & { __homeHashRestoreTimer?: number }
-
-export function revealHashRestoreShell(win: Window) {
-  win.document.documentElement.removeAttribute(HOME_HASH_RESTORING_ATTRIBUTE)
-  const w = win as WindowWithHashRestoreTimer
-  if (w.__homeHashRestoreTimer != null) {
-    win.clearTimeout(w.__homeHashRestoreTimer)
-    delete w.__homeHashRestoreTimer
-  }
-}
-
 function persistScrollState(win: Window) {
   if (win.location.hash) {
     clearSavedState(win)
@@ -147,44 +100,6 @@ function shouldRestoreSavedState({
   return savedState.pathname === win.location.pathname && savedState.search === win.location.search
 }
 
-function getMaxScrollableY(win: Window) {
-  const scrollingElement = win.document.scrollingElement
-  if (!scrollingElement)
-    return 0
-
-  return Math.max(0, scrollingElement.scrollHeight - win.innerHeight)
-}
-
-function needsMoreContentForRestore(win: Window, savedState: SavedHomeScrollState) {
-  return savedState.y > getMaxScrollableY(win) + 1
-}
-
-function isTimelineLoaded(doc: Document) {
-  return readTimelineLoadedState(doc)
-}
-
-function hasPendingTimelineSections(doc: Document) {
-  return readTimelineLoadedBatchCount(doc) < getHomeTimelineBatchTotalCount(doc)
-}
-
-function readScrollRestoration(win: Window): ScrollRestoration | null {
-  const history = win.history as History & { scrollRestoration?: ScrollRestoration }
-  if (history.scrollRestoration === 'auto' || history.scrollRestoration === 'manual') {
-    return history.scrollRestoration
-  }
-
-  return null
-}
-
-function writeScrollRestoration(win: Window, mode: ScrollRestoration) {
-  try {
-    ;(win.history as History & { scrollRestoration?: ScrollRestoration }).scrollRestoration = mode
-  }
-  catch {
-    // Ignore unsupported browsers and keep restore flow running.
-  }
-}
-
 function scheduleRestore({
   deps,
   savedState,
@@ -206,7 +121,6 @@ function scheduleRestore({
 
 export function mountHomeScrollRestore({
   win = window,
-  doc = document,
   deps: depsOverrides,
 }: MountHomeScrollRestoreOptions = {}): Cleanup {
   const deps = { ...defaultDeps, ...depsOverrides }
@@ -232,108 +146,13 @@ export function mountHomeScrollRestore({
     }
   }
 
-  let disposed = false
-  let restored = false
-  const archivedTotalBatchCount = getHomeCharacterBatchTotalCount({ doc, status: 'archived' })
-  const revealFallbackTimer = win.setTimeout(() => {
-    revealRestoringShell(win)
-  }, 3000)
-  const originalScrollRestoration = readScrollRestoration(win)
-  if (originalScrollRestoration && originalScrollRestoration !== 'manual') {
-    writeScrollRestoration(win, 'manual')
-  }
-
-  let restoredScrollRestoration = false
-  const restoreBrowserScrollRestoration = () => {
-    if (restoredScrollRestoration)
-      return
-    restoredScrollRestoration = true
-    if (!originalScrollRestoration)
-      return
-    writeScrollRestoration(win, originalScrollRestoration)
-  }
-
-  const completeRestore = ({ schedule }: { schedule: boolean }) => {
-    if (restored)
-      return
-    restored = true
-    clearSavedState(win)
-    restoreBrowserScrollRestoration()
-    win.clearTimeout(revealFallbackTimer)
-    if (schedule) {
-      scheduleRestore({ deps, savedState, win })
-      return
-    }
-
-    revealRestoringShell(win)
-  }
-
-  const abortRestore = () => {
-    if (disposed)
-      return
-    completeRestore({ schedule: false })
-  }
-
-  const tryRestore = () => {
-    if (disposed || restored)
-      return
-
-    if (readCommissionViewMode(win) === 'timeline') {
-      if (needsMoreContentForRestore(win, savedState)) {
-        if (!isTimelineLoaded(doc) && hasPendingTimelineSections(doc)) {
-          deps.requestTimelineLoad(win, {
-            targetBatchCount: readTimelineLoadedBatchCount(doc) + RESTORE_BATCH_WINDOW,
-          })
-          return
-        }
-      }
-
-      completeRestore({ schedule: true })
-      return
-    }
-
-    if (needsMoreContentForRestore(win, savedState)) {
-      if (!readActiveCharactersLoadedState(doc)) {
-        deps.requestActiveLoad(win, {
-          targetBatchCount: readActiveCharactersLoadedBatchCount(doc) + RESTORE_BATCH_WINDOW,
-        })
-        return
-      }
-
-      if (
-        !readArchivedCharactersState(doc).loaded
-        && readArchivedCharactersLoadedBatchCount(doc) < archivedTotalBatchCount
-      ) {
-        deps.requestArchivedLoad(win, {
-          preserveScroll: false,
-          targetBatchCount: readArchivedCharactersLoadedBatchCount(doc) + RESTORE_BATCH_WINDOW,
-        })
-        return
-      }
-    }
-
-    completeRestore({ schedule: true })
-  }
-
-  win.addEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, tryRestore)
-  win.addEventListener(ARCHIVED_CHARACTERS_LOADED_EVENT, tryRestore)
-  win.addEventListener(TIMELINE_VIEW_LOADED_EVENT, tryRestore)
-  win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, tryRestore)
-  win.addEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, abortRestore)
-
-  tryRestore()
+  clearSavedState(win)
+  // Every section is in the static HTML, so the saved offset is reachable on mount.
+  scheduleRestore({ deps, savedState, win })
 
   return () => {
-    disposed = true
-    win.clearTimeout(revealFallbackTimer)
     revealRestoringShell(win)
-    restoreBrowserScrollRestoration()
     win.removeEventListener('pagehide', persistNow)
     win.removeEventListener('beforeunload', persistNow)
-    win.removeEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, tryRestore)
-    win.removeEventListener(ARCHIVED_CHARACTERS_LOADED_EVENT, tryRestore)
-    win.removeEventListener(TIMELINE_VIEW_LOADED_EVENT, tryRestore)
-    win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, tryRestore)
-    win.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, abortRestore)
   }
 }

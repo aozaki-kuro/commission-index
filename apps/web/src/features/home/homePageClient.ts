@@ -1,12 +1,11 @@
-import { mountHomeUpdateLinks } from '@features/home/blocks/updateLinks'
+import { mountArchivedCharactersToggle } from '@features/home/commission/archivedCharactersToggle'
 import { mountCommissionViewModeDomSync } from '@features/home/commission/commissionViewModeDomSync'
-import { mountActiveCharactersLoader } from '@features/home/commission/loader/activeCharactersLoader'
-import { mountArchivedCharactersLoader } from '@features/home/commission/loader/archivedCharactersLoader'
-import { mountTimelineViewLoader } from '@features/home/commission/loader/timelineViewLoader'
+import { mountImageFadeIn } from '@features/home/commission/imageFadeIn'
 import { mountMobileViewModeTabs } from '@features/home/commission/mobileViewModeTabs'
 import { mountScrollDepthTracker } from '@features/home/commission/scrollDepthTracker'
 import { mountScrollReveal } from '@features/home/commission/scrollReveal'
 import { mountUnpublishedInterestButtons } from '@features/home/commission/unpublishedInterestClient'
+import { mountHomeHashTarget } from '@features/home/homeHashTarget'
 import { mountHomeScrollRestore } from '@features/home/homeScrollRestore'
 import { mountFloatingButtonsAutoHide } from '@features/home/nav/hamburger/floatingButtonsAutoHide'
 import { mountMobileHamburgerMenu } from '@features/home/nav/hamburger/mobileHamburgerMenu'
@@ -28,16 +27,15 @@ const HOME_DEFERRED_MOUNT_FALLBACK_DELAY_MS = 180
 
 interface HomePageClientDeps {
   mountCommissionViewModeDomSync: Mount
-  mountActiveCharactersLoader: Mount
-  mountArchivedCharactersLoader: Mount
-  mountTimelineViewLoader: Mount
+  mountArchivedCharactersToggle: Mount
+  mountHomeHashTarget: Mount
   mountHomeScrollRestore: Mount
-  mountHomeUpdateLinks: Mount
   mountSidebarNavEnhancer: Mount
   mountMobileHamburgerMenu: Mount
   mountMobileLanguageMenu: Mount
   mountFloatingButtonsAutoHide: Mount
   mountMobileViewModeTabs: Mount
+  mountImageFadeIn: Mount
   mountScrollReveal: Mount
   mountScrollDepthTracker: Mount
   mountUnpublishedInterestButtons: Mount
@@ -50,16 +48,15 @@ interface MountHomePageClientOptions {
 
 const defaultDeps: HomePageClientDeps = {
   mountCommissionViewModeDomSync: () => mountCommissionViewModeDomSync(),
-  mountActiveCharactersLoader: () => mountActiveCharactersLoader(),
-  mountArchivedCharactersLoader: () => mountArchivedCharactersLoader(),
-  mountTimelineViewLoader: () => mountTimelineViewLoader(),
+  mountArchivedCharactersToggle: () => mountArchivedCharactersToggle(),
+  mountHomeHashTarget: () => mountHomeHashTarget(),
   mountHomeScrollRestore: () => mountHomeScrollRestore(),
-  mountHomeUpdateLinks: () => mountHomeUpdateLinks(),
   mountSidebarNavEnhancer: () => mountSidebarNavEnhancer(),
   mountMobileHamburgerMenu: () => mountMobileHamburgerMenu(),
   mountMobileLanguageMenu: () => mountMobileLanguageMenu(),
   mountFloatingButtonsAutoHide: () => mountFloatingButtonsAutoHide(),
   mountMobileViewModeTabs: () => mountMobileViewModeTabs(),
+  mountImageFadeIn: () => mountImageFadeIn(),
   mountScrollReveal: () => mountScrollReveal(),
   mountScrollDepthTracker: () =>
     mountScrollDepthTracker({
@@ -97,11 +94,11 @@ export function mountHomePageClient({ deps: depsOverrides }: MountHomePageClient
   const deps = { ...defaultDeps, ...depsOverrides }
   const criticalMounts: Mount[] = [
     deps.mountCommissionViewModeDomSync,
-    deps.mountActiveCharactersLoader,
-    deps.mountArchivedCharactersLoader,
-    deps.mountTimelineViewLoader,
+    // The toggle restores saved visibility before the hash target and scroll restore read the layout.
+    deps.mountArchivedCharactersToggle,
+    deps.mountHomeHashTarget,
     deps.mountHomeScrollRestore,
-    deps.mountHomeUpdateLinks,
+    deps.mountImageFadeIn,
   ]
   const deferredMounts: Mount[] = [
     deps.mountSidebarNavEnhancer,

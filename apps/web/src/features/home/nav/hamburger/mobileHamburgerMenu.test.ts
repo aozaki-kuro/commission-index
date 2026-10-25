@@ -1,7 +1,7 @@
 import {
   ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT,
-} from '@features/home/commission/loader/archivedCharactersEvent'
-import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, HOME_SCROLL_RESTORE_ABORT_EVENT } from '@features/home/events'
+} from '@features/home/commission/archivedCharactersState'
+import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from '@features/home/events'
 import { ANALYTICS_EVENTS } from '@lib/analytics/events'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -224,28 +224,22 @@ describe('mobileHamburgerMenu', () => {
     cleanup()
   })
 
-  it('loads archived characters and jumps when a archived link is selected before load', () => {
+  it('reveals archived characters and jumps when an archived link is selected while collapsed', () => {
     const trackEvent = vi.fn()
     const scrollToHashWithoutWrite = vi.fn()
-    const onRestoreAbort = vi.fn()
     const requestArchivedVisibility = vi.fn(() => {
       const archivedSection = document.createElement('section')
       archivedSection.id = 'archived-item'
       document.body.append(archivedSection)
-
-      document
-        .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
-        ?.setAttribute('data-archived-loaded', 'false')
       document
         .querySelector<HTMLElement>('[data-commission-view-panel="character"]')
         ?.setAttribute('data-archived-visibility', 'visible')
       window.dispatchEvent(
         new CustomEvent(ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, {
-          detail: { visibility: 'visible', loaded: false },
+          detail: { visibility: 'visible' },
         }),
       )
     })
-    window.addEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
 
     const cleanup = mountMobileHamburgerMenu({
       deps: { requestArchivedVisibility, scrollToHashWithoutWrite, trackEvent },
@@ -255,7 +249,6 @@ describe('mobileHamburgerMenu', () => {
     getArchivedLink()!.click()
 
     expect(requestArchivedVisibility).toHaveBeenCalledWith(window, 'visible')
-    expect(onRestoreAbort).toHaveBeenCalledTimes(1)
     expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#archived-item')
     expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.sidebarNavUsed, {
       source: 'character_link',
@@ -269,7 +262,6 @@ describe('mobileHamburgerMenu', () => {
 
     vi.advanceTimersByTime(MENU_TRANSITION_MS)
     cleanup()
-    window.removeEventListener(HOME_SCROLL_RESTORE_ABORT_EVENT, onRestoreAbort)
   })
 
   it('hides and disables the hamburger menu while age gate is open', () => {

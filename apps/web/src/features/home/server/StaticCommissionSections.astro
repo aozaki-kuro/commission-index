@@ -4,18 +4,6 @@ import type { CharacterCommissions } from '@data/types'
 import Listing from '@features/home/commission/Listing.astro'
 import TimelineView from '@features/home/commission/TimelineView.astro'
 import { getHomeLocaleMessages, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
-import {
-  buildHomeCharacterBatchManifest,
-} from '@features/home/server/homeCharacterBatchArtifacts'
-import {
-  buildHomeCharacterBatchPlan,
-} from '@features/home/server/homeCharacterBatches'
-import {
-  buildHomeTimelineBatchManifest,
-} from '@features/home/server/homeTimelineBatchArtifacts'
-import {
-  buildHomeTimelineBatchPlan,
-} from '@features/home/server/homeTimelineBatches'
 import { buildHomeSearchEntriesArtifact } from '@lib/pipeline/homeSearchEntries'
 
 type CharacterDisplay = {
@@ -45,37 +33,6 @@ const {
 }
   = Astro.props as StaticCommissionSectionsProps
 const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
-const resolvedLocale = normalizeHomeLocale(locale)
-const batchPlan = buildHomeCharacterBatchPlan({
-  activeChars,
-  archivedChars,
-  commissionMap,
-})
-const batchManifest = await buildHomeCharacterBatchManifest({
-  characterAliasesMap,
-  commissionMap,
-  creatorAliasesMap,
-  keywordAliasesMap,
-  locale: resolvedLocale,
-  plan: batchPlan,
-  searchEntriesVersion: buildHomeSearchEntriesArtifact().version,
-})
-const initialActiveChars = batchPlan.active.initialCharacters
-const hasDeferredActiveChars = batchPlan.active.totalBatches > 0
-const hasDeferredArchivedChars = batchPlan.archived.totalBatches > 0
-const timelineBatchPlan = buildHomeTimelineBatchPlan({
-  groups: timelineGroups,
-})
-const timelineBatchManifest = await buildHomeTimelineBatchManifest({
-  characterAliasesMap,
-  creatorAliasesMap,
-  keywordAliasesMap,
-  locale: resolvedLocale,
-  plan: timelineBatchPlan,
-  searchEntriesVersion: buildHomeSearchEntriesArtifact().version,
-})
-const initialTimelineGroups = timelineBatchPlan.initialGroups
-const hasDeferredTimelineGroups = timelineBatchPlan.totalBatches > 0
 const activeCommissionCount = activeChars.reduce(
   (count, chara) => count + (commissionMap.get(chara.DisplayName)?.Commissions.length ?? 0),
   0,
@@ -88,22 +45,18 @@ const archivedCommissionCount = archivedChars.reduce(
 )
 ---
 
-<div id="--------Commissions--------">
+<div id="--------Commissions--------" data-search-index-version={buildHomeSearchEntriesArtifact().version}>
   <div
     data-commission-view-panel="character"
     data-commission-view-active="true"
     data-total-entries={activeCommissionCount}
-    data-active-sections-loaded={hasDeferredActiveChars ? 'false' : 'true'}
-    data-active-batches-loaded-count="0"
-    data-archived-loaded="false"
     data-archived-visibility="hidden"
-    data-archived-batches-loaded-count="0"
   >
     {
-      initialActiveChars.map((characterName, charIndex) => (
+      activeChars.map((chara, charIndex) => (
         <Listing
           locale={locale}
-          Character={characterName}
+          Character={chara.DisplayName}
           status="active"
           commissionMap={commissionMap}
           characterAliasesMap={characterAliasesMap}
@@ -112,20 +65,6 @@ const archivedCommissionCount = archivedChars.reduce(
           priorityFirstImage={charIndex === 0}
         />
       ))
-    }
-    {
-      hasDeferredActiveChars
-? (
-        <>
-          <div data-active-sections-container="true" />
-          <div
-            data-active-sections-sentinel="true"
-            aria-hidden="true"
-            class="pointer-events-none h-px overflow-hidden opacity-0"
-          />
-        </>
-      )
-: null
     }
     {
       archivedChars.length > 0
@@ -194,15 +133,21 @@ const archivedCommissionCount = archivedChars.reduce(
             </div>
           </div>
           <div data-archived-divider="true" class="hidden pb-12"></div>
-          <div data-archived-sections-container="true" />
-          <div
-            data-archived-deferred-sections-sentinel="true"
-            aria-hidden="true"
-            class:list={[
-              'pointer-events-none h-px overflow-hidden opacity-0',
-              !hasDeferredArchivedChars && 'hidden',
-            ]}
-          />
+          <div data-archived-sections-container="true" class="hidden">
+            {
+              archivedChars.map(chara => (
+                <Listing
+                  locale={locale}
+                  Character={chara.DisplayName}
+                  status="archived"
+                  commissionMap={commissionMap}
+                  characterAliasesMap={characterAliasesMap}
+                  creatorAliasesMap={creatorAliasesMap}
+                  keywordAliasesMap={keywordAliasesMap}
+                />
+              ))
+            }
+          </div>
         </>
       )
 : null
@@ -213,44 +158,15 @@ const archivedCommissionCount = archivedChars.reduce(
     data-commission-view-panel="timeline"
     data-commission-view-active="false"
     data-total-entries={timelineCommissionCount}
-    data-timeline-loaded={hasDeferredTimelineGroups ? 'false' : 'true'}
-    data-timeline-batches-loaded-count="0"
     class="hidden"
   >
-    <div data-timeline-sections-container="true">
-      <TimelineView
-        groups={initialTimelineGroups}
-        characterAliasesMap={characterAliasesMap}
-        creatorAliasesMap={creatorAliasesMap}
-        keywordAliasesMap={keywordAliasesMap}
-      />
-    </div>
-    {
-      hasDeferredTimelineGroups
-? (
-        <>
-          <div
-            data-timeline-sections-sentinel="true"
-            aria-hidden="true"
-            class="pointer-events-none h-px overflow-hidden opacity-0"
-          />
-        </>
-      )
-: null
-    }
+    <TimelineView
+      groups={timelineGroups}
+      characterAliasesMap={characterAliasesMap}
+      creatorAliasesMap={creatorAliasesMap}
+      keywordAliasesMap={keywordAliasesMap}
+    />
   </div>
-  <script
-    is:inline
-    type="application/json"
-    data-home-character-batch-manifest="true"
-    set:html={JSON.stringify(batchManifest)}
-  />
-  <script
-    is:inline
-    type="application/json"
-    data-home-timeline-batch-manifest="true"
-    set:html={JSON.stringify(timelineBatchManifest)}
-  />
 </div>
 
 <script is:inline>
@@ -258,6 +174,14 @@ const initialMode
   = new URLSearchParams(window.location.search).get('view') === 'timeline'
     ? 'timeline'
     : 'character'
+
+let initialHashId = ''
+try {
+  initialHashId = decodeURIComponent(window.location.hash.slice(1))
+}
+catch {
+  initialHashId = ''
+}
 
 if (initialMode === 'timeline') {
   const setCommissionPanelState = (panelName, active) => {
@@ -267,77 +191,6 @@ if (initialMode === 'timeline') {
 
     panel.dataset.commissionViewActive = active ? 'true' : 'false'
     panel.classList.toggle('hidden', !active)
-  }
-
-  const readTimelineBatchManifest = () => {
-    const script = document.querySelector('script[data-home-timeline-batch-manifest="true"]')
-    if (!(script instanceof HTMLScriptElement) || !script.textContent)
-      return null
-
-    try {
-      return JSON.parse(script.textContent)
-    }
-    catch {
-      return null
-    }
-  }
-
-  const normalizeTargetId = (rawValue) => {
-    if (!rawValue)
-      return ''
-    const value = rawValue.startsWith('#') ? rawValue.slice(1) : rawValue
-    if (!value)
-      return ''
-
-    try {
-      return decodeURIComponent(value)
-    }
-    catch {
-      return ''
-    }
-  }
-
-  const preloadTimelineSections = () => {
-    const panel = document.querySelector('[data-commission-view-panel="timeline"]')
-    if (!(panel instanceof HTMLElement))
-      return
-
-    const container = panel.querySelector('[data-timeline-sections-container="true"]')
-    if (!(container instanceof HTMLElement))
-      return
-
-    const manifest = readTimelineBatchManifest()
-    const totalBatchCount = Number.isInteger(manifest?.totalBatches)
-      ? Number(manifest.totalBatches)
-      : 0
-    const loadedBatchCount = Number(panel.dataset.timelineBatchesLoadedCount ?? '0')
-    const resolvedLoadedBatchCount
-      = Number.isFinite(loadedBatchCount) && loadedBatchCount > 0 ? Math.floor(loadedBatchCount) : 0
-
-    const targetId = normalizeTargetId(window.location.hash)
-    const targetBatchIndex
-      = targetId
-        && !document.getElementById(targetId)
-        && Number.isInteger(manifest?.targetBatchById?.[targetId])
-        ? Number(manifest.targetBatchById[targetId])
-        : null
-
-    let nextLoadedBatchCount = resolvedLoadedBatchCount
-    const finalBatchIndex
-      = targetBatchIndex === null
-        ? resolvedLoadedBatchCount - 1
-        : Math.min(Math.floor(targetBatchIndex), totalBatchCount - 1)
-
-    for (let batchIndex = resolvedLoadedBatchCount; batchIndex <= finalBatchIndex; batchIndex += 1) {
-      const template = panel.querySelector(`template[data-timeline-batch-index="${batchIndex}"]`)
-      if (!(template instanceof HTMLTemplateElement))
-        break
-      container.append(template.content.cloneNode(true))
-      nextLoadedBatchCount = batchIndex + 1
-    }
-
-    panel.dataset.timelineBatchesLoadedCount = String(nextLoadedBatchCount)
-    panel.dataset.timelineLoaded = nextLoadedBatchCount >= totalBatchCount ? 'true' : 'false'
   }
 
   const syncPanelGroupVisibility = ({ panelSelector, dataKey }) => {
@@ -384,7 +237,6 @@ if (initialMode === 'timeline') {
   }
 
   setCommissionPanelState('character', false)
-  preloadTimelineSections()
   setCommissionPanelState('timeline', true)
 
   syncPanelGroupVisibility({
@@ -420,5 +272,32 @@ if (initialMode === 'timeline') {
     activeIndicatorClasses: ['scale-100', 'opacity-100'],
     inactiveIndicatorClasses: ['scale-95', 'opacity-0'],
   })
+
+  // Native fragment scroll targets the first matching id, which is the hidden character-panel copy of a
+  // shared entry id, so jump to the timeline copy before first paint. homeHashTarget owns it after mount.
+  if (initialHashId) {
+    const escapedHashId = initialHashId.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+    const timelineTarget = document
+      .querySelector('[data-commission-view-panel="timeline"]')
+      ?.querySelector(`[id="${escapedHashId}"]`)
+    if (timelineTarget instanceof HTMLElement) {
+      timelineTarget.scrollIntoView()
+    }
+  }
+}
+
+// Show archived before first paint when the hash targets an entry inside it, so native fragment
+// scrolling lands on it instead of on a display: none element. Timeline view resolves shared ids to
+// its own copy, so archived stays collapsed there.
+if (initialMode === 'character' && initialHashId) {
+  const archivedTarget = document.getElementById(initialHashId)
+  const archivedContainer = archivedTarget?.closest('[data-archived-sections-container="true"]')
+  const characterPanel = document.querySelector('[data-commission-view-panel="character"]')
+  if (archivedContainer instanceof HTMLElement && characterPanel instanceof HTMLElement) {
+    archivedContainer.classList.remove('hidden')
+    characterPanel.querySelector('[data-archived-divider="true"]')?.classList.remove('hidden')
+    characterPanel.querySelector('[data-archived-sections-placeholder="true"]')?.classList.add('hidden')
+    characterPanel.dataset.archivedVisibility = 'visible'
+  }
 }
 </script>

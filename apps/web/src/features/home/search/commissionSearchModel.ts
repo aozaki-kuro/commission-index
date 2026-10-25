@@ -7,9 +7,6 @@ import type {
 import type { PanelLoadedState } from '@features/home/search/commissionSearchPanelState'
 import type { CommissionViewMode } from '@features/home/search/commissionViewMode'
 import type { SuggestionTokenOperator } from '@lib/search/index'
-import { requestActiveCharactersLoad } from '@features/home/commission/loader/activeCharactersEvent'
-import { requestArchivedCharactersLoad } from '@features/home/commission/loader/archivedCharactersEvent'
-import { requestTimelineViewLoad } from '@features/home/commission/loader/timelineViewEvent'
 import { LOAD_ARCHIVED_COMMAND_VALUE } from '@features/home/search/commissionSearchConstants'
 import {
   buildRelatedSuggestionTermsMap,
@@ -60,27 +57,15 @@ export function subscribeToUrlQuerySnapshot(onStoreChange: () => void) {
 // ==================== DOM snapshot key helpers (re-exported for tests) ====================
 
 export function getDomSnapshotKeyForMode({
-  activeBatchCount,
-  activeLoaded,
   mode,
-  archivedBatchCount,
-  archivedLoaded,
   archivedVisible,
-  timelineLoaded,
 }: {
-  activeBatchCount: number
-  activeLoaded: boolean
   mode: 'character' | 'timeline'
-  archivedBatchCount: number
-  archivedLoaded: boolean
   archivedVisible: boolean
-  timelineLoaded: boolean
 }) {
   return mode === 'character'
-    ? `character:active-${activeLoaded ? 'loaded' : 'pending'}-${activeBatchCount}:archived-${
-      archivedLoaded ? 'loaded' : archivedVisible ? 'visible' : 'hidden'
-    }-${archivedBatchCount}`
-    : `timeline:${timelineLoaded ? 'timeline-loaded' : 'timeline-pending'}`
+    ? `character:archived-${archivedVisible ? 'visible' : 'hidden'}`
+    : 'timeline'
 }
 
 export function resolveEffectiveDomSnapshotKey({
@@ -91,22 +76,6 @@ export function resolveEffectiveDomSnapshotKey({
   skipDomContext: boolean
 }) {
   return skipDomContext ? 'skip-dom-context' : domSnapshotKey
-}
-
-// ==================== Deferred load request dedup ====================
-
-function syncDeferredAllLoadRequest(
-  didRequest: boolean,
-  request: () => void,
-  shouldRequest: boolean,
-): boolean {
-  if (!shouldRequest)
-    return false
-
-  if (didRequest)
-    return true
-  request()
-  return true
 }
 
 // ==================== Module-level mutable state ====================
@@ -120,9 +89,6 @@ let cachedIndexExternalEntries: CommissionSearchEntrySource[] | undefined
 let cachedHydratedIndex: SearchIndex | null = null
 let pendingHydration: { index: SearchIndex, promise: Promise<SearchIndex> } | null = null
 
-let didRequestActiveAll = false
-let didRequestArchivedAll = false
-let didRequestTimelineAll = false
 let didAutoShowArchived = false
 let hasTrackedSearchUsage = false
 
@@ -153,9 +119,6 @@ export function resetModelState() {
   cachedIndexExternalEntries = undefined
   cachedHydratedIndex = null
   pendingHydration = null
-  didRequestActiveAll = false
-  didRequestArchivedAll = false
-  didRequestTimelineAll = false
   didAutoShowArchived = false
   hasTrackedSearchUsage = false
   cachedOutputKey = ''
@@ -219,7 +182,7 @@ export interface SearchModelOutput {
 
 /**
  * Pure-ish computation that replaces the React hook body.
- * Side effects: deferred load requests, analytics, archived auto-expand.
+ * Side effects: analytics, archived auto-expand.
  * In vanilla mode `useDeferredValue` is unnecessary — the caller batches via rAF.
  */
 export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
@@ -239,14 +202,7 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
     initialQuery,
   } = input
 
-  const {
-    activeLoaded,
-    activeBatchCount,
-    archivedLoaded,
-    archivedVisible,
-    archivedBatchCount,
-    timelineLoaded,
-  } = panelState
+  const { archivedVisible } = panelState
 
   // Fast-path: if all inputs that affect output are unchanged, return cached result.
   // This avoids re-running index build, Fuse matching, suggestion filtering, and view model
@@ -254,7 +210,7 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   // cachedHydratedIndex !== null is included so the memoized result is invalidated once
   // Fuse.js finishes loading — otherwise a keyword-click recompute (which runs before Fuse is
   // ready) would be permanently cached and a subsequent retry would return the stale empty result.
-  const outputKey = `${query}\0${mode}\0${isIndexReady}\0${shouldWarmFuse}\0${isSuggestionPanelDismissed}\0${activeCommandValue}\0${activeLoaded}\0${activeBatchCount}\0${archivedLoaded}\0${archivedVisible}\0${archivedBatchCount}\0${timelineLoaded}\0${externalEntries?.length ?? -1}\0${disableDomFiltering}\0${suppressInitialSuggestionPanelAnimation}\0${initialQuery === undefined ? 'unset' : `set:${initialQuery}`}\0${cachedHydratedIndex !== null}`
+  const outputKey = `${query}\0${mode}\0${isIndexReady}\0${shouldWarmFuse}\0${isSuggestionPanelDismissed}\0${activeCommandValue}\0${archivedVisible}\0${externalEntries?.length ?? -1}\0${disableDomFiltering}\0${suppressInitialSuggestionPanelAnimation}\0${initialQuery === undefined ? 'unset' : `set:${initialQuery}`}\0${cachedHydratedIndex !== null}`
   if (
     cachedOutput
     && cachedOutputKey === outputKey
@@ -288,15 +244,7 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
 
   // ---- Index building with memoization ----
   const shouldSkipDomContext = disableDomFiltering && Boolean(externalEntries)
-  const domSnapshotKey = getDomSnapshotKeyForMode({
-    activeBatchCount,
-    activeLoaded,
-    mode,
-    archivedBatchCount,
-    archivedLoaded,
-    archivedVisible,
-    timelineLoaded,
-  })
+  const domSnapshotKey = getDomSnapshotKeyForMode({ mode, archivedVisible })
   const effectiveDomSnapshotKey = resolveEffectiveDomSnapshotKey({
     domSnapshotKey,
     skipDomContext: shouldSkipDomContext,
@@ -355,29 +303,6 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
     }
   }
 
-  // ---- Deferred load requests (side effects) ----
-  didRequestActiveAll = syncDeferredAllLoadRequest(
-    didRequestActiveAll,
-    () => requestActiveCharactersLoad(window, { strategy: 'all' }),
-    !disableDomFiltering && mode === 'character' && hasDeferredQuery && !activeLoaded,
-  )
-
-  didRequestArchivedAll = syncDeferredAllLoadRequest(
-    didRequestArchivedAll,
-    () => requestArchivedCharactersLoad(window, { preserveScroll: true, strategy: 'all' }),
-    !disableDomFiltering
-    && mode === 'character'
-    && hasDeferredQuery
-    && archivedVisible
-    && !archivedLoaded,
-  )
-
-  didRequestTimelineAll = syncDeferredAllLoadRequest(
-    didRequestTimelineAll,
-    () => requestTimelineViewLoad(window, { strategy: 'all' }),
-    !disableDomFiltering && mode === 'timeline' && hasDeferredQuery && !timelineLoaded,
-  )
-
   // ---- Matched IDs ----
   const matchedIds = getMatchedEntryIds(deferredQuery, resolvedIndex)
 
@@ -389,7 +314,7 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
       disableDomFiltering,
       hasDeferredQuery,
       mode,
-      archivedLoaded,
+      archivedVisible,
     })
 
   // ---- Auto-show archived (deferred to caller — not triggered here) ----
@@ -429,7 +354,6 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
     = !didAutoShowArchived
       && !disableDomFiltering
       && mode === 'character'
-      && activeLoaded
       && !archivedVisible
       && hasDeferredQuery
       && visibleMatchedCount === 0

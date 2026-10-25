@@ -1,18 +1,17 @@
 // @vitest-environment jsdom
-import { clearHomeCharacterBatchManifestCacheForTests } from '@features/home/commission/batch/homeCharacterBatchManifest'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
+  buildHomeSearchIndexUrl,
   collapseAliasKeywordVariants,
   createSeededRandom,
-  ensureHomeSearchEntriesPromise,
   getPopularKeywordBatch,
   parseHomeSearchEntries,
+  pickWeightedEntry,
   shuffleKeywords,
 } from './commissionSearchDeferred'
 
 afterEach(() => {
   vi.unstubAllGlobals()
-  clearHomeCharacterBatchManifestCacheForTests(document)
   document.body.innerHTML = ''
   window.history.replaceState(null, '', '/')
 })
@@ -33,40 +32,92 @@ describe('parseHomeSearchEntries', () => {
   })
 })
 
-describe('ensureHomeSearchEntriesPromise', () => {
-  it('refreshes the manifest and retries once when the hashed index 404s', async () => {
-    clearHomeCharacterBatchManifestCacheForTests(document)
-    document.body.innerHTML = `
-      <script type="application/json" data-home-character-batch-manifest="true">
-        {"locale":"en","v":"oldv","active":{"initialSectionIds":[],"totalBatches":0,"targetBatchById":{},"batchVersions":[]},"archived":{"initialSectionIds":[],"totalBatches":0,"targetBatchById":{},"batchVersions":[]}}
-      </script>
-    `
+const PUBLIC_ID = '00000000-0000-4000-8000-000000000001'
+const ENTRIES_PAYLOAD = [
+  { publicId: PUBLIC_ID, domKey: `alpha::${PUBLIC_ID}`, searchText: 'alpha artist' },
+  { publicId: '00000000-0000-4000-8000-000000000002', domKey: 'beta::2', searchText: 'beta artist' },
+]
 
-    const publicId = '00000000-0000-4000-8000-000000000001'
-    const entries = [{ publicId, domKey: `alpha::${publicId}`, searchText: 'alpha artist' }]
-    const freshManifest = {
-      locale: 'en',
-      v: 'newv',
-      active: { initialSectionIds: [], totalBatches: 0, targetBatchById: {}, batchVersions: [] },
-      archived: { initialSectionIds: [], totalBatches: 0, targetBatchById: {}, batchVersions: [] },
-    }
+function mountRoot(version: string) {
+  document.body.innerHTML = `<div id="--------Commissions--------" data-search-index-version="${version}"></div>`
+}
 
-    const fetchSpy = vi.fn(async (input: string | URL | Request) => {
-      const url = typeof input === 'string' ? input : input.toString()
-      if (url.startsWith('/search/home-character-manifest/en.json'))
-        return new Response(JSON.stringify(freshManifest))
-      if (url.startsWith('/search/home-search-entries.newv.json'))
-        return new Response(JSON.stringify(entries))
-      // The stale hashed index (and anything else) is gone.
+function stubSearchFetch(secondEntriesStatus: number) {
+  const fetchSpy = vi.fn(async (input: string | URL | Request) => {
+    const url = typeof input === 'string' ? input : input.toString()
+    if (url === '/search/home-search-entries.abc.json')
       return new Response(null, { status: 404 })
+    if (url.startsWith('/search/home-search-version.json'))
+      return new Response(JSON.stringify({ v: 'def' }))
+    if (url === '/search/home-search-entries.def.json') {
+      return secondEntriesStatus === 200
+        ? new Response(JSON.stringify(ENTRIES_PAYLOAD))
+        : new Response(null, { status: secondEntriesStatus })
+    }
+    return new Response(null, { status: 500 })
+  })
+  vi.stubGlobal('fetch', fetchSpy)
+  return fetchSpy
+}
+
+describe('buildHomeSearchIndexUrl', () => {
+  it('builds the index URL from the root data attribute', () => {
+    mountRoot('abc')
+    expect(buildHomeSearchIndexUrl()).toBe('/search/home-search-entries.abc.json')
+  })
+
+  it('throws when the page carries no version', () => {
+    expect(() => buildHomeSearchIndexUrl()).toThrow(/version/)
+  })
+})
+
+describe('ensureHomeSearchEntriesPromise', () => {
+  // The module caches loaded entries, so each case needs a fresh instance.
+  async function loadEnsure() {
+    vi.resetModules()
+    return (await import('./commissionSearchDeferred')).ensureHomeSearchEntriesPromise
+  }
+
+  it('retries once with the fresh version after a 404', async () => {
+    mountRoot('abc')
+    const fetchSpy = stubSearchFetch(200)
+
+    await expect((await loadEnsure())()).resolves.toHaveLength(2)
+    expect(fetchSpy).toHaveBeenCalledTimes(3)
+  })
+
+  it('gives up after one retry', async () => {
+    mountRoot('abc')
+    const fetchSpy = stubSearchFetch(404)
+
+    await expect((await loadEnsure())()).rejects.toThrow()
+    expect(fetchSpy).toHaveBeenCalledTimes(3)
+  })
+
+  it('rejects instead of throwing synchronously when the page has no version', async () => {
+    vi.stubGlobal('fetch', vi.fn())
+    await expect((await loadEnsure())()).rejects.toThrow(/version/)
+  })
+})
+
+describe('pickWeightedEntry', () => {
+  it('weights active entries using data-character-status', () => {
+    document.body.innerHTML = `
+      <div id="act" data-character-status="active"></div>
+      <div id="arc" data-character-status="archived"></div>
+    `
+    const pool = [
+      { id: 0, publicId: 'a', domKey: 'act::1', searchText: 'a' },
+      { id: 1, publicId: 'b', domKey: 'arc::2', searchText: 'b' },
+    ]
+    // cryptoRandomIndex(100) = 50 < 75 picks the active pool.
+    const getRandomValues = vi.spyOn(crypto, 'getRandomValues').mockImplementation((buf) => {
+      ;(buf as Uint32Array)[0] = 50
+      return buf
     })
-    vi.stubGlobal('fetch', fetchSpy)
 
-    await expect(ensureHomeSearchEntriesPromise()).resolves.toHaveLength(1)
-
-    const requestedUrls = (fetchSpy.mock.calls as unknown as Array<[string]>).map(([url]) => url)
-    expect(requestedUrls).toContain('/search/home-search-entries.oldv.json')
-    expect(requestedUrls).toContain('/search/home-search-entries.newv.json')
+    expect(pickWeightedEntry(pool).domKey).toBe('act::1')
+    getRandomValues.mockRestore()
   })
 })
 

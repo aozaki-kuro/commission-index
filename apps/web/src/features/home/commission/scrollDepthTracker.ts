@@ -26,7 +26,7 @@ function hasSearchQuery(win: Window) {
 }
 
 // Entries are in reading order, so the reached count is the run of entries whose top has entered
-// the viewport. Deferred batches mount in order too, so unmounted ones always sit past this run.
+// the viewport.
 function countReachedEntries(win: Window, entries: NodeListOf<HTMLElement>) {
   let reached = 0
   for (const entry of entries) {

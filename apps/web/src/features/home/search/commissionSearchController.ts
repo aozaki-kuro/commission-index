@@ -2,20 +2,10 @@ import type { SearchSuggestionAliasGroup } from '@features/home/search/commissio
 import type { PanelLoadedState } from '@features/home/search/commissionSearchPanelState'
 import type { CommissionViewMode } from '@features/home/search/commissionViewMode'
 import {
-  getHomeCharacterBatchTotalCount,
-  prefetchHomeCharacterBatches,
-} from '@features/home/commission/batch/homeCharacterBatchClient'
-import {
-  ACTIVE_CHARACTERS_LOAD_FAILED_EVENT,
-  ACTIVE_CHARACTERS_LOADED_EVENT,
-  readActiveCharactersLoadedBatchCount,
-  requestActiveCharactersLoad,
-} from '@features/home/commission/loader/activeCharactersEvent'
-import {
-  readArchivedCharactersLoadedBatchCount,
-  requestArchivedCharactersLoad,
+  ARCHIVED_CONTAINER_SELECTOR,
+  isArchivedCharactersVisible,
   requestArchivedCharactersVisibility,
-} from '@features/home/commission/loader/archivedCharactersEvent'
+} from '@features/home/commission/archivedCharactersState'
 import { resolveHomeSearchControls } from '@features/home/i18n/homeSearchControls'
 import { LOAD_ARCHIVED_COMMAND_VALUE } from '@features/home/search/commissionSearchConstants'
 import {
@@ -25,7 +15,6 @@ import {
   ensureHomeSearchEntriesPromise,
   getCachedHomeSearchEntries,
   getPopularKeywordBatch,
-  loadDeferredEntryBatch,
   MAX_FEATURED_KEYWORDS,
   MAX_VISIBLE_POPULAR_KEYWORDS,
   pickWeightedEntry,
@@ -78,12 +67,6 @@ function clearSearchQueryParamInAddress() {
   url.searchParams.delete('q')
   window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
   dispatchSearchQueryLocationChange()
-}
-
-// 从 domKey 中提取 sectionId（与 commissionSearchDeferred 中同逻辑，但该函数未导出）
-function extractSectionIdFromDomKey(domKey: string) {
-  const separatorIndex = domKey.indexOf('::')
-  return separatorIndex > 0 ? domKey.slice(0, separatorIndex) : ''
 }
 
 const REFRESH_ICON_SPIN_DURATION_MS = 650
@@ -146,9 +129,6 @@ export function initSearchController(root: HTMLElement) {
   const shuffleBtn = root.querySelector<HTMLElement>('#search-shuffle')
   const rotateBtn = root.querySelector<HTMLElement>('#search-rotate')
   const rotateIconEl = root.querySelector<HTMLElement>('#search-rotate-icon')
-  const activeLoadFeedbackEl = root.querySelector<HTMLElement>('#search-active-load-feedback')
-  const activeLoadFeedbackTextEl = root.querySelector<HTMLElement>('#search-active-load-feedback-text')
-  const retryActiveLoadBtn = root.querySelector<HTMLButtonElement>('#search-active-load-retry')
   const comboboxEl = inputEl?.closest<HTMLElement>('[role="combobox"]') ?? null
 
   if (!inputEl || !suggestionListEl || !liveEl)
@@ -180,11 +160,7 @@ export function initSearchController(root: HTMLElement) {
   let panelState: PanelLoadedState = readPanelLoadedState()
   let lastShuffledId: number | null = null
   let didAutoJump = false
-  let prefetchedActive = false
-  let prefetchedArchived = false
-  let requestedActiveForSearch = false
   let requestedArchivedForSearch = false
-  let activeLoadFailed = false
 
   if (initialUrlQuery) {
     input.value = initialUrlQuery
@@ -264,96 +240,14 @@ export function initSearchController(root: HTMLElement) {
     query = value
   }
 
-  // ==================== Prefetch helpers ====================
-
-  function prefetchDeferredBatches(status: 'active' | 'archived', maxBatchCount = Number.POSITIVE_INFINITY) {
-    if (mode !== 'character')
-      return
-
-    if (status === 'active' && prefetchedActive)
-      return
-    if (status === 'archived' && prefetchedArchived)
-      return
-
-    const totalBatchCount = getHomeCharacterBatchTotalCount({ doc: document, status })
-    if (totalBatchCount <= 0)
-      return
-
-    const startBatchIndex = status === 'active'
-      ? readActiveCharactersLoadedBatchCount(document)
-      : readArchivedCharactersLoadedBatchCount(document)
-    const targetBatchIndex = Math.min(totalBatchCount - 1, startBatchIndex + maxBatchCount - 1)
-
-    if (status === 'active')
-      prefetchedActive = true
-    else
-      prefetchedArchived = true
-
-    if (targetBatchIndex < startBatchIndex)
-      return
-
-    prefetchHomeCharacterBatches({
-      doc: document,
-      startBatchIndex,
-      status,
-      targetBatchIndex,
-    })
-  }
-
-  // Interaction only warms the next batch. Deeper batches are not needed up front: a query
-  // requests the full active load itself, and sidebar/hash/shuffle targets load their own batch.
-  // Warming every batch made focus cost grow with the character count.
-  const SEARCH_INTERACTION_PREFETCH_BATCH_COUNT = 1
-
   function prepareSearchInteraction() {
     isIndexReady = true
     shouldWarmFuse = true
-    prefetchDeferredBatches('active', SEARCH_INTERACTION_PREFETCH_BATCH_COUNT)
   }
 
-  function shouldSuspendDomFilteringForActiveLoad() {
-    return mode === 'character' && Boolean(normalizeQuery(query)) && !panelState.activeLoaded
-  }
-
-  function syncActiveLoadFeedback() {
-    if (!activeLoadFeedbackEl || !activeLoadFeedbackTextEl)
-      return
-
-    const shouldShow = activeLoadFailed && !panelState.activeLoaded
-    activeLoadFeedbackEl.hidden = !shouldShow
-    activeLoadFeedbackTextEl.textContent = shouldShow ? controls.activeCharactersLoadFailed : ''
-  }
-
-  function requestActiveLoadBeforeFiltering() {
-    if (requestedActiveForSearch || activeLoadFailed)
-      return
-    requestedActiveForSearch = true
-    requestActiveCharactersLoad(window, { strategy: 'all' })
-  }
-
-  function retryActiveLoad() {
-    activeLoadFailed = false
-    requestedActiveForSearch = false
-    syncActiveLoadFeedback()
-    requestActiveLoadBeforeFiltering()
-    scheduleRecompute({ immediate: true })
-  }
-
-  const handleActiveLoadFailed = () => {
-    activeLoadFailed = true
-    requestedActiveForSearch = false
-    syncActiveLoadFeedback()
-    scheduleRecompute({ immediate: true })
-  }
-
-  const handleActiveLoadSucceeded = () => {
-    activeLoadFailed = false
-    requestedActiveForSearch = true
-    syncActiveLoadFeedback()
-    scheduleRecompute({ immediate: true })
-  }
-
-  function shouldSuspendDomFilteringForArchivedLoad(model: {
+  // An archived-only match reveals archived instead of filtering the viewport down to nothing; this pass
+  // still sees the collapsed index, so filtering waits for the recompute the visibility change triggers.
+  function shouldSuspendDomFilteringForArchivedReveal(model: {
     hiddenArchivedMatchedCount: number
     visibleMatchedCount: number
   }) {
@@ -361,14 +255,14 @@ export function initSearchController(root: HTMLElement) {
       && Boolean(normalizeQuery(query))
       && model.visibleMatchedCount === 0
       && model.hiddenArchivedMatchedCount > 0
-      && (!panelState.archivedVisible || !panelState.archivedLoaded)
+      && !panelState.archivedVisible
   }
 
-  function requestArchivedLoadBeforeFiltering() {
+  function revealArchivedBeforeFiltering() {
     if (requestedArchivedForSearch)
       return
     requestedArchivedForSearch = true
-    requestArchivedCharactersLoad(window, { strategy: 'all', preserveScroll: true })
+    requestArchivedCharactersVisibility(window, 'visible')
   }
 
   // ==================== Listbox controller ====================
@@ -386,7 +280,7 @@ export function initSearchController(root: HTMLElement) {
       if (!value)
         return
       if (value === LOAD_ARCHIVED_COMMAND_VALUE) {
-        requestArchivedCharactersLoad(window, { strategy: 'all', preserveScroll: true })
+        requestArchivedCharactersVisibility(window, 'visible')
       }
       else {
         applySuggestion(value)
@@ -448,11 +342,6 @@ export function initSearchController(root: HTMLElement) {
     // Compute popular keywords
     const popularKeywords = computePopularKeywords()
 
-    const shouldSuspendActiveFiltering = shouldSuspendDomFilteringForActiveLoad()
-    if (shouldSuspendActiveFiltering) {
-      requestActiveLoadBeforeFiltering()
-    }
-
     // Compute search model
     const model = computeSearchModel({
       query,
@@ -465,32 +354,29 @@ export function initSearchController(root: HTMLElement) {
       activeCommandValue,
       controls,
       suggestionAliasGroups,
-      disableDomFiltering: shouldSuspendActiveFiltering,
+      disableDomFiltering: false,
       suppressInitialSuggestionPanelAnimation: false,
     })
 
     // Update matched IDs
     matchedIds = model.matchedIds
 
-    const shouldSuspendArchivedFiltering = shouldSuspendDomFilteringForArchivedLoad(model)
+    const shouldSuspendArchivedFiltering = shouldSuspendDomFilteringForArchivedReveal(model)
     if (model.shouldAutoShowArchived) {
       markAutoShowArchivedDone()
       requestArchivedCharactersVisibility(window, 'visible')
     }
     if (shouldSuspendArchivedFiltering) {
-      requestArchivedLoadBeforeFiltering()
+      revealArchivedBeforeFiltering()
     }
-
-    const shouldSuspendDomFiltering = shouldSuspendActiveFiltering || shouldSuspendArchivedFiltering
 
     // Sync DOM filtering
     syncDom({
-      disableDomFiltering: shouldSuspendDomFiltering,
+      disableDomFiltering: shouldSuspendArchivedFiltering,
       hasDeferredQuery: model.hasDeferredQuery,
       hiddenArchivedMatchedCount: model.hiddenArchivedMatchedCount,
       matchedIds: model.matchedIds,
       resolvedIndex: model.resolvedIndex,
-      archivedBatchCount: panelState.archivedBatchCount,
       archivedVisible: panelState.archivedVisible,
       statusMessage: model.visibleStatusMessage,
       visibleEntriesCount: model.visibleEntriesCount,
@@ -524,7 +410,7 @@ export function initSearchController(root: HTMLElement) {
           loadArchivedCharactersLabel: controls.loadArchivedCharacters,
           onSelectSuggestion: applySuggestion,
           onLoadArchivedCharacters: () => {
-            requestArchivedCharactersLoad(window, { strategy: 'all', preserveScroll: true })
+            requestArchivedCharactersVisibility(window, 'visible')
           },
         })
         // Animate open: remove collapsed state, enable pointer events
@@ -551,11 +437,6 @@ export function initSearchController(root: HTMLElement) {
           }
         }, 200)
       }
-    }
-
-    // Prefetch archived batches when notice shows
-    if (model.shouldShowHiddenArchivedNotice) {
-      prefetchDeferredBatches('archived')
     }
 
     // Render popular keywords (skip if unchanged)
@@ -760,34 +641,19 @@ export function initSearchController(root: HTMLElement) {
       if (!randomEntry.domKey)
         return
 
-      // Try to find the element in DOM (already loaded)
+      // Both panels render every entry under the same search key; the first document match is the
+      // character copy, which is display: none in timeline view, so resolve inside the current view's panel.
       const element = document.querySelector<HTMLElement>(
-        `[data-commission-search-key="${CSS.escape(randomEntry.domKey)}"]`,
+        `[data-commission-view-panel="${mode}"] [data-commission-search-key="${CSS.escape(randomEntry.domKey)}"]`,
       )
       if (element) {
+        // Collapsed archived entries are in the DOM but display: none, so they must be shown to scroll.
+        // Only character view owns the archived toggle; timeline view must never expand the hidden panel's archive.
+        if (mode === 'character' && element.closest(ARCHIVED_CONTAINER_SELECTOR) && !isArchivedCharactersVisible(document)) {
+          requestArchivedCharactersVisibility(window, 'visible')
+        }
         scrollAndAnimateEntry(element)
-        return
       }
-
-      // Entry is in a deferred batch — trigger load, then scroll
-      const sectionId = extractSectionIdFromDomKey(randomEntry.domKey)
-      if (!sectionId)
-        return
-
-      void loadDeferredEntryBatch(sectionId)
-        .then(() => {
-          requestAnimationFrame(() => {
-            const loadedElement = document.querySelector<HTMLElement>(
-              `[data-commission-search-key="${CSS.escape(randomEntry.domKey)}"]`,
-            )
-            if (loadedElement) {
-              scrollAndAnimateEntry(loadedElement)
-            }
-          })
-        })
-        .catch(() => {
-          // Deferred load failed or timed out — silently ignore
-        })
     })
   }
 
@@ -821,29 +687,17 @@ export function initSearchController(root: HTMLElement) {
   // 7. External subscriptions
   const unsubViewMode = subscribeViewMode((nextMode) => {
     mode = nextMode
-    prefetchedActive = false
-    prefetchedArchived = false
-    requestedActiveForSearch = panelState.activeLoaded
-    requestedArchivedForSearch = panelState.archivedLoaded
+    requestedArchivedForSearch = panelState.archivedVisible
     scheduleRecompute({ immediate: true })
   })
 
   const unsubPanelState = subscribePanelState((nextState) => {
     panelState = nextState
-    if (nextState.activeLoaded) {
-      requestedActiveForSearch = true
-      activeLoadFailed = false
-    }
-    if (nextState.archivedLoaded) {
+    if (nextState.archivedVisible) {
       requestedArchivedForSearch = true
     }
-    syncActiveLoadFeedback()
     scheduleRecompute({ immediate: true })
   })
-
-  window.addEventListener(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT, handleActiveLoadFailed)
-  window.addEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, handleActiveLoadSucceeded)
-  retryActiveLoadBtn?.addEventListener('click', retryActiveLoad)
 
   const unsubUrlQuery = subscribeToUrlQuerySnapshot(() => {
     scheduleRecompute({ immediate: true })
@@ -879,9 +733,6 @@ export function initSearchController(root: HTMLElement) {
     unsubViewMode()
     unsubPanelState()
     unsubUrlQuery()
-    window.removeEventListener(ACTIVE_CHARACTERS_LOAD_FAILED_EVENT, handleActiveLoadFailed)
-    window.removeEventListener(ACTIVE_CHARACTERS_LOADED_EVENT, handleActiveLoadSucceeded)
-    retryActiveLoadBtn?.removeEventListener('click', retryActiveLoad)
     listboxCtrl.unbind()
     suggestionCtrl.unbindOutsideListeners()
     if (recomputeRafId)

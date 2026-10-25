@@ -3,8 +3,8 @@
  *
  * Only animates entries that enter the viewport by scrolling — entries already
  * visible on initial load (or scroll-restored) are left alone to avoid flicker.
- * A MutationObserver watches for dynamically batch-loaded entries and panel
- * visibility changes.
+ * A MutationObserver watches for view-panel and archived-container visibility
+ * changes.
  */
 
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '@features/home/events'
@@ -113,9 +113,14 @@ export function mountScrollReveal(): () => void {
         const target = mutation.target
         if (!(target instanceof HTMLElement))
           continue
-        // Only rescan on class changes for view-panel elements (hidden → visible)
-        if (mutation.attributeName === 'class' && !target.hasAttribute('data-commission-view-panel'))
+        // Only rescan on class changes for containers that toggle `hidden` (view panels, archived sections)
+        if (
+          mutation.attributeName === 'class'
+          && !target.hasAttribute('data-commission-view-panel')
+          && !target.hasAttribute('data-archived-sections-container')
+        ) {
           continue
+        }
         observeAll(target)
         continue
       }

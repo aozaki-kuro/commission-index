@@ -1,17 +1,5 @@
 import type { CommissionSearchEntrySource, SearchSuggestionAliasGroup } from '@features/home/search/commissionSearchIndex'
 import {
-  fetchFreshHomeCharacterBatchManifest,
-  readHomeCharacterBatchManifest,
-} from '@features/home/commission/batch/homeCharacterBatchManifest'
-import {
-  ACTIVE_CHARACTERS_LOADED_EVENT,
-  requestActiveCharactersLoad,
-} from '@features/home/commission/loader/activeCharactersEvent'
-import {
-  ARCHIVED_CHARACTERS_LOADED_EVENT,
-  requestArchivedCharactersLoad,
-} from '@features/home/commission/loader/archivedCharactersEvent'
-import {
   buildPopularKeywordPoolFromSuggestTexts,
   dedupeKeywords,
 } from '@lib/search/popularKeywords'
@@ -21,18 +9,36 @@ export { dedupeKeywords }
 export const MAX_FEATURED_KEYWORDS = 6
 export const MAX_VISIBLE_POPULAR_KEYWORDS = 6
 export const COMMISSION_ENTRY_SELECTOR = '[data-commission-entry="true"]'
-export const SHUFFLE_DEFERRED_LOAD_TIMEOUT_MS = 8000
 
 // Probability of picking from the active pool when both pools are non-empty
 export const ACTIVE_WEIGHT = 0.75
 
-export function buildHomeSearchIndexUrl() {
-  const manifest = readHomeCharacterBatchManifest(
-    typeof document !== 'undefined' ? document : undefined,
-  )
-  const v = manifest?.v
-  // Falls back to unversioned URL in SSR/test environments or when the manifest has no v field.
-  return v ? `/search/home-search-entries.${v}.json` : '/search/home-search-entries.json'
+const HOME_ROOT_ID = '--------Commissions--------'
+const HOME_SEARCH_VERSION_URL = '/search/home-search-version.json'
+
+export function readHomeSearchIndexVersion(doc?: Document): string | null {
+  const resolvedDocument = doc ?? (typeof document !== 'undefined' ? document : null)
+  return resolvedDocument?.getElementById(HOME_ROOT_ID)?.dataset.searchIndexVersion || null
+}
+
+export async function fetchFreshHomeSearchIndexVersion(): Promise<string | null> {
+  try {
+    const response = await fetch(HOME_SEARCH_VERSION_URL, { cache: 'no-store' })
+    if (!response.ok)
+      return null
+    const payload = await response.json() as { v?: unknown }
+    return typeof payload.v === 'string' && payload.v ? payload.v : null
+  }
+  catch {
+    return null
+  }
+}
+
+export function buildHomeSearchIndexUrl(version: string | null = readHomeSearchIndexVersion()) {
+  // No unversioned route exists, so a missing version must fail loudly rather than 404 later.
+  if (!version)
+    throw new Error('Search index version is unavailable.')
+  return `/search/home-search-entries.${version}.json`
 }
 
 let cachedHomeSearchEntries: CommissionSearchEntrySource[] | null = null
@@ -83,8 +89,8 @@ export function getCachedHomeSearchEntries() {
 }
 
 /**
- * Stale HTML names a hashed search-index file that a deploy replaced. On 404, refresh the manifest
- * and retry once against the current hash rather than failing the search index permanently.
+ * Stale HTML names a hashed search-index file that a deploy replaced. On 404, fetch the current
+ * version and retry once rather than failing the search index permanently.
  */
 async function loadHomeSearchEntries(): Promise<CommissionSearchEntrySource[]> {
   const response = await fetch(buildHomeSearchIndexUrl())
@@ -95,15 +101,12 @@ async function loadHomeSearchEntries(): Promise<CommissionSearchEntrySource[]> {
     throw new Error(`Failed to load search index: ${response.status}`)
   }
 
-  const freshManifest = await fetchFreshHomeCharacterBatchManifest(
-    typeof document !== 'undefined' ? document : undefined,
-  )
-  const freshVersion = freshManifest?.v
+  const freshVersion = await fetchFreshHomeSearchIndexVersion()
   if (!freshVersion) {
     throw new Error(`Failed to load search index: ${response.status}`)
   }
 
-  const retryResponse = await fetch(`/search/home-search-entries.${freshVersion}.json`)
+  const retryResponse = await fetch(buildHomeSearchIndexUrl(freshVersion))
   if (!retryResponse.ok) {
     throw new Error(`Failed to load search index: ${retryResponse.status}`)
   }
@@ -326,18 +329,15 @@ function extractSectionIdFromDomKey(domKey: string) {
 export function pickWeightedEntry<T extends CommissionSearchEntrySource>(
   pool: T[],
 ): T {
-  const manifest = readHomeCharacterBatchManifest(document)
-  if (!manifest || pool.length <= 1)
+  if (pool.length <= 1)
     return pool[cryptoRandomIndex(pool.length)]
 
-  const activeInitial = new Set(manifest.active.initialSectionIds)
-  const activeDeferred = manifest.active.targetBatchById
   const active: T[] = []
   const rest: T[] = []
 
   for (const entry of pool) {
     const sectionId = extractSectionIdFromDomKey(entry.domKey)
-    if (sectionId && (activeInitial.has(sectionId) || sectionId in activeDeferred))
+    if (sectionId && document.getElementById(sectionId)?.dataset.characterStatus === 'active')
       active.push(entry)
     else
       rest.push(entry)
@@ -351,58 +351,6 @@ export function pickWeightedEntry<T extends CommissionSearchEntrySource>(
   const pickActive = cryptoRandomIndex(100) < ACTIVE_WEIGHT * 100
   const chosen = pickActive ? active : rest
   return chosen[cryptoRandomIndex(chosen.length)]
-}
-
-export function loadDeferredEntryBatch(sectionId: string): Promise<void> {
-  const manifest = readHomeCharacterBatchManifest(document)
-  if (!manifest)
-    return Promise.reject(new Error('No batch manifest'))
-
-  const isActive = sectionId in manifest.active.targetBatchById
-  const isArchived = !isActive && sectionId in manifest.archived.targetBatchById
-  if (!isActive && !isArchived)
-    return Promise.reject(new Error('Section not found in manifest'))
-
-  const loadedEvent = isActive
-    ? ACTIVE_CHARACTERS_LOADED_EVENT
-    : ARCHIVED_CHARACTERS_LOADED_EVENT
-
-  return new Promise<void>((resolve, reject) => {
-    let settled = false
-    let timeoutId: number
-
-    const onLoaded = () => {
-      if (settled)
-        return
-      settled = true
-      window.clearTimeout(timeoutId)
-      window.removeEventListener(loadedEvent, onLoaded)
-      resolve()
-    }
-
-    timeoutId = window.setTimeout(() => {
-      if (settled)
-        return
-      settled = true
-      window.removeEventListener(loadedEvent, onLoaded)
-      reject(new Error('Deferred load timeout'))
-    }, SHUFFLE_DEFERRED_LOAD_TIMEOUT_MS)
-
-    window.addEventListener(loadedEvent, onLoaded)
-
-    if (isActive) {
-      requestActiveCharactersLoad(window, {
-        strategy: 'target',
-        targetId: sectionId,
-      })
-    }
-    else {
-      requestArchivedCharactersLoad(window, {
-        strategy: 'target',
-        targetId: sectionId,
-      })
-    }
-  })
 }
 
 export function scrollAndAnimateEntry(element: HTMLElement) {

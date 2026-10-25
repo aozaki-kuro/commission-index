@@ -20,8 +20,6 @@ export interface HomeSearchControls {
   searchUrlCopied: string
   searchUrlCopyFailed: string
   loadArchivedCharacters: string
-  activeCharactersLoadFailed: string
-  retryActiveCharactersLoad: string
   sourceCharacter: string
   sourceCreator: string
   sourceKeyword: string
@@ -61,8 +59,6 @@ const HOME_SEARCH_CONTROLS: Record<HomeSearchLocale, HomeSearchControls> = {
     searchUrlCopied: 'Search URL copied',
     searchUrlCopyFailed: 'Failed to copy search URL.',
     loadArchivedCharacters: 'Load',
-    activeCharactersLoadFailed: 'Could not load all commissions. Search results may be incomplete.',
-    retryActiveCharactersLoad: 'Retry loading',
     sourceCharacter: 'character',
     sourceCreator: 'creator',
     sourceKeyword: 'keyword',
@@ -117,8 +113,6 @@ const HOME_SEARCH_CONTROLS: Record<HomeSearchLocale, HomeSearchControls> = {
     searchUrlCopied: '已複製搜尋網址',
     searchUrlCopyFailed: '複製搜尋網址失敗。',
     loadArchivedCharacters: '載入',
-    activeCharactersLoadFailed: '無法載入全部委託，搜尋結果可能不完整。',
-    retryActiveCharactersLoad: '重試載入',
     sourceCharacter: '角色',
     sourceCreator: '繪師',
     sourceKeyword: '關鍵字',
@@ -170,8 +164,6 @@ const HOME_SEARCH_CONTROLS: Record<HomeSearchLocale, HomeSearchControls> = {
     searchUrlCopied: '検索URLをコピーしました',
     searchUrlCopyFailed: '検索URLのコピーに失敗しました。',
     loadArchivedCharacters: '読み込む',
-    activeCharactersLoadFailed: 'すべてのコミッションを読み込めませんでした。検索結果が不完全な可能性があります。',
-    retryActiveCharactersLoad: '再読み込み',
     sourceCharacter: 'キャラクター',
     sourceCreator: '作者',
     sourceKeyword: 'キーワード',

@@ -24,11 +24,10 @@ function createDeps(trace: Trace) {
   return {
     deps: {
       mountCommissionViewModeDomSync: createMount(trace, 'view-sync'),
-      mountActiveCharactersLoader: createMount(trace, 'active-loader'),
-      mountArchivedCharactersLoader: createMount(trace, 'archived-loader'),
-      mountTimelineViewLoader: createMount(trace, 'timeline-loader'),
+      mountArchivedCharactersToggle: createMount(trace, 'archived-toggle'),
+      mountHomeHashTarget: createMount(trace, 'hash-target'),
       mountHomeScrollRestore: createMount(trace, 'scroll-restore'),
-      mountHomeUpdateLinks: createMount(trace, 'update-links'),
+      mountImageFadeIn: createMount(trace, 'image-fade'),
       mountSidebarNavEnhancer: createMount(trace, 'sidebar-nav'),
       mountMobileHamburgerMenu: createMount(trace, 'hamburger-menu'),
       mountMobileLanguageMenu: createMount(trace, 'language-menu'),
@@ -51,22 +50,20 @@ describe('mountHomePageClient', () => {
 
     expect(trace).toEqual([
       'mount:view-sync',
-      'mount:active-loader',
-      'mount:archived-loader',
-      'mount:timeline-loader',
+      'mount:archived-toggle',
+      'mount:hash-target',
       'mount:scroll-restore',
-      'mount:update-links',
+      'mount:image-fade',
     ])
 
     getDeferredTask()?.()
 
     expect(trace).toEqual([
       'mount:view-sync',
-      'mount:active-loader',
-      'mount:archived-loader',
-      'mount:timeline-loader',
+      'mount:archived-toggle',
+      'mount:hash-target',
       'mount:scroll-restore',
-      'mount:update-links',
+      'mount:image-fade',
       'mount:sidebar-nav',
       'mount:hamburger-menu',
       'mount:language-menu',
@@ -78,11 +75,10 @@ describe('mountHomePageClient', () => {
 
     expect(trace).toEqual([
       'mount:view-sync',
-      'mount:active-loader',
-      'mount:archived-loader',
-      'mount:timeline-loader',
+      'mount:archived-toggle',
+      'mount:hash-target',
       'mount:scroll-restore',
-      'mount:update-links',
+      'mount:image-fade',
       'mount:sidebar-nav',
       'mount:hamburger-menu',
       'mount:language-menu',
@@ -93,11 +89,10 @@ describe('mountHomePageClient', () => {
       'cleanup:language-menu',
       'cleanup:hamburger-menu',
       'cleanup:sidebar-nav',
-      'cleanup:update-links',
+      'cleanup:image-fade',
       'cleanup:scroll-restore',
-      'cleanup:timeline-loader',
-      'cleanup:archived-loader',
-      'cleanup:active-loader',
+      'cleanup:hash-target',
+      'cleanup:archived-toggle',
       'cleanup:view-sync',
     ])
   })
@@ -112,32 +107,28 @@ describe('mountHomePageClient', () => {
     expect(cancelDeferredMount).toHaveBeenCalledTimes(1)
     expect(trace).toEqual([
       'mount:view-sync',
-      'mount:active-loader',
-      'mount:archived-loader',
-      'mount:timeline-loader',
+      'mount:archived-toggle',
+      'mount:hash-target',
       'mount:scroll-restore',
-      'mount:update-links',
-      'cleanup:update-links',
+      'mount:image-fade',
+      'cleanup:image-fade',
       'cleanup:scroll-restore',
-      'cleanup:timeline-loader',
-      'cleanup:archived-loader',
-      'cleanup:active-loader',
+      'cleanup:hash-target',
+      'cleanup:archived-toggle',
       'cleanup:view-sync',
     ])
 
     getDeferredTask()?.()
     expect(trace).toEqual([
       'mount:view-sync',
-      'mount:active-loader',
-      'mount:archived-loader',
-      'mount:timeline-loader',
+      'mount:archived-toggle',
+      'mount:hash-target',
       'mount:scroll-restore',
-      'mount:update-links',
-      'cleanup:update-links',
+      'mount:image-fade',
+      'cleanup:image-fade',
       'cleanup:scroll-restore',
-      'cleanup:timeline-loader',
-      'cleanup:archived-loader',
-      'cleanup:active-loader',
+      'cleanup:hash-target',
+      'cleanup:archived-toggle',
       'cleanup:view-sync',
     ])
   })
@@ -147,8 +138,8 @@ describe('mountHomePageClient', () => {
     const { deps, scheduleDeferredMount } = createDeps(trace)
     const criticalError = new Error('critical mount failed')
 
-    deps.mountArchivedCharactersLoader = vi.fn(() => {
-      trace.push('mount:archived-loader')
+    deps.mountArchivedCharactersToggle = vi.fn(() => {
+      trace.push('mount:archived-toggle')
       throw criticalError
     })
 
@@ -156,9 +147,7 @@ describe('mountHomePageClient', () => {
     expect(scheduleDeferredMount).not.toHaveBeenCalled()
     expect(trace).toEqual([
       'mount:view-sync',
-      'mount:active-loader',
-      'mount:archived-loader',
-      'cleanup:active-loader',
+      'mount:archived-toggle',
       'cleanup:view-sync',
     ])
   })

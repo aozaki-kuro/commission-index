@@ -64,9 +64,8 @@ metadata, illustrator attribution, search vocabulary, and original-platform link
   Asset filenames and internal numeric IDs do not define public identity or metadata.
 - Numbered parts are explicit relationships. Each part remains a separate work; do not silently
   group or merge records based on a shared character, illustrator, date, or source link.
-- Deferred loading must preserve search completeness, shareable navigation, and scroll context.
-  Loading, load failure, and genuinely empty results must stay distinguishable. Cached HTML must
-  still be able to reach newer entries through the existing manifest fallback.
+- Collapsed content (archived) must preserve search completeness, shareable navigation, and scroll
+  context. Search index loading, load failure, and genuinely empty results must stay distinguishable.
 - Existing DOM contracts, snapshot validation, and asset handling remain governed by the repository
   and `apps/web/AGENTS.md`; this product record does not replace technical contracts.
 

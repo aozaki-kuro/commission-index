@@ -1,4 +1,5 @@
 import type { SearchEntryLike, SearchIndexLike, Suggestion, SuggestionEntryLike } from '@lib/search/index'
+import { ARCHIVED_CONTAINER_SELECTOR } from '@features/home/commission/archivedCharactersState'
 import {
   collectSuggestions,
   createSearchIndex,
@@ -129,13 +130,15 @@ export function createEmptySearchIndex(): SearchIndex {
   }
 }
 
-function collectVisibilityMetrics(entries: Entry[]) {
+function collectVisibilityMetrics(entries: Entry[], collapsedArchivedContainer: HTMLElement | null) {
   const visibleEntryIds = new Set<number>()
   const hiddenEntryIds = new Set<number>()
   let visibleEntriesCount = 0
 
   for (const entry of entries) {
-    if (entry.element) {
+    // Collapsed archived entries stay in the DOM so search can keep filtering them, but they are not
+    // on screen: they count as hidden matches for the "load archived" notice.
+    if (entry.element && !collapsedArchivedContainer?.contains(entry.element)) {
       visibleEntryIds.add(entry.id)
       visibleEntriesCount += 1
       continue
@@ -151,16 +154,18 @@ function finalizeSearchIndex(entries: Entry[], {
   sections = [],
   archivedDivider = null,
   archivedPlaceholder = null,
+  collapsedArchivedContainer = null,
 }: {
   sections?: Section[]
   archivedDivider?: HTMLElement | null
   archivedPlaceholder?: HTMLElement | null
+  collapsedArchivedContainer?: HTMLElement | null
 } = {}): SearchIndex {
   const { entryById, suggestions } = getStableEntryDerivedState(entries)
 
   return {
     ...createSearchIndex(entries),
-    ...collectVisibilityMetrics(entries),
+    ...collectVisibilityMetrics(entries, collapsedArchivedContainer),
     entryById,
     sections,
     archivedDivider,
@@ -175,14 +180,14 @@ export function getDisplayMetrics({
   disableDomFiltering,
   hasDeferredQuery,
   mode,
-  archivedLoaded,
+  archivedVisible,
 }: {
   searchIndex: SearchIndex
   matchedIds: Set<number>
   disableDomFiltering: boolean
   hasDeferredQuery: boolean
   mode: 'character' | 'timeline'
-  archivedLoaded: boolean
+  archivedVisible: boolean
 }) {
   if (disableDomFiltering) {
     const visibleEntriesCount = searchIndex.entries.length
@@ -204,7 +209,7 @@ export function getDisplayMetrics({
 
   let visibleMatchedCount = 0
   let hiddenArchivedMatchedCount = 0
-  const canHaveHiddenArchivedMatches = mode === 'character' && !archivedLoaded
+  const canHaveHiddenArchivedMatches = mode === 'character' && !archivedVisible
 
   for (const id of matchedIds) {
     if (visibleEntryIds.has(id)) {
@@ -244,6 +249,7 @@ function getDomSearchContext(viewMode: 'character' | 'timeline') {
       domEntries: [] as Array<{ element: HTMLElement, sectionId?: string, domKey?: string }>,
       sections: [] as Section[],
       archivedDivider: null as HTMLElement | null,
+      collapsedArchivedContainer: null as HTMLElement | null,
     }
   }
 
@@ -262,8 +268,10 @@ function getDomSearchContext(viewMode: 'character' | 'timeline') {
 
   const archivedDivider = root.querySelector<HTMLElement>('[data-archived-divider="true"]')
   const archivedPlaceholder = root.querySelector<HTMLElement>('[data-archived-sections-placeholder="true"]')
+  const archivedContainer = root.querySelector<HTMLElement>(ARCHIVED_CONTAINER_SELECTOR)
+  const collapsedArchivedContainer = archivedContainer?.classList.contains('hidden') ? archivedContainer : null
 
-  return { domEntries, sections, archivedDivider, archivedPlaceholder }
+  return { domEntries, sections, archivedDivider, archivedPlaceholder, collapsedArchivedContainer }
 }
 
 export function buildSearchIndex(viewMode: 'character' | 'timeline', externalEntries?: CommissionSearchEntrySource[], options?: {
@@ -281,9 +289,10 @@ export function buildSearchIndex(viewMode: 'character' | 'timeline', externalEnt
         sections: [] as Section[],
         archivedDivider: null as HTMLElement | null,
         archivedPlaceholder: null as HTMLElement | null,
+        collapsedArchivedContainer: null as HTMLElement | null,
       }
     : getDomSearchContext(viewMode)
-  const { domEntries, sections, archivedDivider, archivedPlaceholder } = domContext
+  const { domEntries, sections, archivedDivider, archivedPlaceholder, collapsedArchivedContainer } = domContext
 
   if (externalEntries) {
     const domEntryByKey = new Map(
@@ -299,7 +308,7 @@ export function buildSearchIndex(viewMode: 'character' | 'timeline', externalEnt
       entry.sectionId = domEntry?.sectionId
     }
 
-    return finalizeSearchIndex(entries, { sections, archivedDivider, archivedPlaceholder })
+    return finalizeSearchIndex(entries, { sections, archivedDivider, archivedPlaceholder, collapsedArchivedContainer })
   }
 
   const entries = domEntries.map(({ element, sectionId, domKey }, id) => {
@@ -315,7 +324,7 @@ export function buildSearchIndex(viewMode: 'character' | 'timeline', externalEnt
     }
   })
 
-  return finalizeSearchIndex(entries, { sections, archivedDivider, archivedPlaceholder })
+  return finalizeSearchIndex(entries, { sections, archivedDivider, archivedPlaceholder, collapsedArchivedContainer })
 }
 
 function addRelatedTerms(related: Map<string, Set<string>>, terms: string[]) {
