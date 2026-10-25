@@ -46,7 +46,7 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   rendered onto the root `data-search-index-version` and served at `/search/home-search-version.json`
   (`Cache-Control: no-cache`); they cannot disagree. The entries file is served `Cache-Control: immutable`.
 - **DOM contracts:** `data-*` attributes drive search/nav/hash navigation — preserve attribute names.
-  `data-stale-visibility` = stale group expanded.
+  `data-archived-visibility` (on the character panel) = archived group expanded.
 - **Soft navigation lifecycle:** `<ClientRouter />` never fires `pagehide` and runs bundled module scripts once.
   Client islands mount via `bindSoftNavMount` (`@lib/astro/softNavMount`) on `astro:page-load` and dispose on
   `astro:before-swap`; never mount from top-level module code

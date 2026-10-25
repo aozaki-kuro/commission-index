@@ -103,7 +103,8 @@ Admin features go in `apps/admin` + `apps/admin-worker`, never `apps/web`.
 
 ### Home Page Architecture
 
-Static listing, archived toggle, DOM contracts and the soft-navigation lifecycle are specified in `apps/web/AGENTS.md`; read it before touching the home page or its `/search/*` output.
+Static listing, archived toggle, DOM contracts and the soft-navigation lifecycle are specified in
+`apps/web/AGENTS.md`; read it before touching the home page or its `/search/*` output.
 
 ### Admin Architecture
 
