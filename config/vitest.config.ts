@@ -19,6 +19,9 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
+    restoreMocks: true,
+    unstubGlobals: true,
+    unstubEnvs: true,
     include: [
       'apps/*/{src,data,server,test}/**/*.test.{ts,tsx}',
       'packages/*/{src,test}/**/*.test.{ts,tsx}',

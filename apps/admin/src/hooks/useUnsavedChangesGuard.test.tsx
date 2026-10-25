@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { useUnsavedChangesGuard } from './useUnsavedChangesGuard'
 
 function Probe({ dirty }: { dirty: boolean }) {
@@ -27,10 +27,6 @@ function fireBeforeUnload() {
 }
 
 describe('useUnsavedChangesGuard', () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
-
   it('prompts only while dirty and stops after the draft becomes clean', () => {
     const view = mount(false)
     expect(fireBeforeUnload()).not.toHaveBeenCalled()

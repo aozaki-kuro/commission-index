@@ -35,7 +35,6 @@ describe('route load boundary', () => {
   afterEach(async () => {
     await act(async () => root?.unmount())
     container?.remove()
-    vi.restoreAllMocks()
   })
 
   it('keeps an in-app recovery action when a route module fails', async () => {

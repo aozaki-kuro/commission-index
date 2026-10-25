@@ -47,7 +47,6 @@ describe('keyword replacement metadata contract', () => {
   afterEach(async () => {
     await act(async () => root.unmount())
     container.remove()
-    vi.unstubAllGlobals()
   })
   const replace = () => act(async () => buttons().find(button => button.textContent?.trim() === 'Replace all')!.click())
 

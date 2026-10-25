@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { resetQuotaNoticeForTests, safeStorageSet } from './storageHelper'
 
 // 所有写入抛 QuotaExceededError 的 Storage 桩，供配额相关用例复用
@@ -22,10 +22,6 @@ describe('safeStorageSet', () => {
   beforeEach(() => {
     resetQuotaNoticeForTests()
     vi.clearAllMocks()
-  })
-
-  afterEach(() => {
-    vi.restoreAllMocks()
   })
 
   it('returns true and stores value on successful write', () => {
