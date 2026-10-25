@@ -3,8 +3,8 @@
  *
  * Only animates entries that enter the viewport by scrolling — entries already
  * visible on initial load (or scroll-restored) are left alone to avoid flicker.
- * A MutationObserver watches for view-panel and archived-container visibility
- * changes.
+ * A MutationObserver watches the view panels and the archived container for
+ * visibility changes; entries are never inserted after mount.
  */
 
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '@features/home/events'
@@ -107,49 +107,24 @@ export function mountScrollReveal(): () => void {
 
   observeAll()
 
+  // The listing is fully server-rendered, so only visibility toggles on the panels and the archived
+  // container can bring new entries into layout; no entry is inserted after mount.
   const mo = new MutationObserver((mutations) => {
     for (const mutation of mutations) {
-      if (mutation.type === 'attributes') {
-        const target = mutation.target
-        if (!(target instanceof HTMLElement))
-          continue
-        // Only rescan on class changes for containers that toggle `hidden` (view panels, archived sections)
-        if (
-          mutation.attributeName === 'class'
-          && !target.hasAttribute('data-commission-view-panel')
-          && !target.hasAttribute('data-archived-sections-container')
-        ) {
-          continue
-        }
-        observeAll(target)
-        continue
-      }
-
-      for (const node of mutation.addedNodes) {
-        if (!(node instanceof HTMLElement))
-          continue
-        if (node.hasAttribute(REVEAL_ATTR)) {
-          if (!isRenderable(node))
-            continue
-          if (isInOrAboveViewport(node)) {
-            node.setAttribute(REVEALED_ATTR, '')
-          }
-          else {
-            prepareEntry(node)
-            io.observe(node)
-          }
-        }
-        observeAll(node)
-      }
+      if (mutation.target instanceof HTMLElement)
+        observeAll(mutation.target)
     }
   })
 
-  mo.observe(document.body, {
-    childList: true,
-    subtree: true,
-    attributes: true,
-    attributeFilter: ['data-commission-view-active', 'class'],
-  })
+  const toggleContainers = document.querySelectorAll<HTMLElement>(
+    '[data-commission-view-panel], [data-archived-sections-container]',
+  )
+  for (const container of toggleContainers) {
+    mo.observe(container, {
+      attributes: true,
+      attributeFilter: ['data-commission-view-active', 'class'],
+    })
+  }
 
   const rescan = () => {
     requestAnimationFrame(() => {
