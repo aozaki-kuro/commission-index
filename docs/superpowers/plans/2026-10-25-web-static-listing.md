@@ -25,6 +25,7 @@ existing open-source library"). Evidence and rulings below stand in for a separa
 | ------------------------------------------------------ | ---------------- | ------ | ------ | ------- | -------- | ----------------- |
 | Today (1 active section + 1 year)                      | 194,904          | 28,135 | 21,532 | 46      | 1,066    | 61                |
 | Active + timeline all inline (archived still deferred) | 501,764          | 48,236 | 29,099 | 228     | 3,310    | 31                |
+| Shipped: fully static (`91c3fd7`)                      | 586,568          | 53,699 | 28,504 | 278     | 3,921    | 2                 |
 
 - Data: 13 characters, 141 commissions (2 hidden). Archived batches for `en` are 7.2 KB br more, so fully static
   lands at about **36 KB br** and about 4k elements. The inactive view panel and the collapsed archived container are
@@ -33,6 +34,12 @@ existing open-source library"). Evidence and rulings below stand in for a separa
   HTML page carries 20.6 KB of inline manifests.
 - About 5.7k lines (code plus tests) live in `commission/batch/`, `commission/loader/` and `server/home*Batch*`. That
   code also coordinates search, nav, the hash shell and scroll restore around batch arrival.
+- Shipped result: 28.5 KB br, under the 36 KB estimate because the inline manifests went too. The two remaining
+  search JSON files are the hashed entries file and `home-search-version.json`. The branch nets about −7.4k lines.
+- Lighthouse 13.5.0, mobile, median of 3 interleaved runs per build, served brotli q11 locally (`python http.server`
+  serves HTML uncompressed and inflates FCP by about 1.8 s, so it is not representative). Before → after: perf
+  0.97 → 0.97, FCP 1577 → 1576 ms, LCP 2478 → 2403 ms, TBT 0 → 0 ms, CLS 0 → 0, document 21.7 → 28.7 KB, DOM
+  1,028 → 3,883. Task 7's gate (TBT +50 ms / LCP +200 ms) was not tripped.
 
 ## Rulings
 
