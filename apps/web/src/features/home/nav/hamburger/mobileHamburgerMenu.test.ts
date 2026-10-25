@@ -264,6 +264,31 @@ describe('mobileHamburgerMenu', () => {
     cleanup()
   })
 
+  it('leaves modified clicks on menu links to the browser', () => {
+    const trackEvent = vi.fn()
+    const scrollToHashWithoutWrite = vi.fn()
+    const requestArchivedVisibility = vi.fn()
+    const cleanup = mountMobileHamburgerMenu({
+      deps: { requestArchivedVisibility, scrollToHashWithoutWrite, trackEvent },
+    })
+
+    getToggle()!.click()
+    trackEvent.mockClear()
+    const link = getArchivedLink()!
+    for (const init of [{ ctrlKey: true }, { metaKey: true }, { shiftKey: true }, { button: 1 }]) {
+      const event = new MouseEvent('click', { bubbles: true, cancelable: true, ...init })
+      link.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(false)
+    }
+    expect(requestArchivedVisibility).not.toHaveBeenCalled()
+    expect(scrollToHashWithoutWrite).not.toHaveBeenCalled()
+    expect(trackEvent).not.toHaveBeenCalled()
+    expect(getRoot()?.dataset.mobileHamburgerOpen).toBe('true')
+
+    vi.advanceTimersByTime(MENU_TRANSITION_MS)
+    cleanup()
+  })
+
   it('hides and disables the hamburger menu while age gate is open', () => {
     const cleanup = mountMobileHamburgerMenu()
     const toggle = getToggle()

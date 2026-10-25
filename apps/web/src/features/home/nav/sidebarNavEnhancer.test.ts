@@ -232,6 +232,47 @@ describe('sidebarNavEnhancer', () => {
     cleanup()
   })
 
+  it('leaves modified clicks on sidebar links to the browser and keeps plain clicks intercepted', () => {
+    window.history.replaceState(null, '', '/?view=timeline')
+    const scrollToHashWithoutWrite = vi.fn(() => true)
+    const clearHashNow = vi.fn()
+    const requestArchivedVisibility = vi.fn()
+    const jumpToSearch = vi.fn()
+    const trackEvent = vi.fn()
+    const cleanup = mountSidebarNavEnhancer({
+      deps: { clearHashNow, jumpToSearch, requestArchivedVisibility, scrollToHashWithoutWrite, trackEvent },
+    })
+    trackEvent.mockClear()
+
+    const searchLink = document.querySelector<HTMLAnchorElement>('[data-sidebar-search-link="true"]')!
+    const timelineLink = document.querySelector<HTMLAnchorElement>('a[href="#timeline-year-2026"]')!
+    const archivedLink = document.querySelector<HTMLAnchorElement>('a[href="#section-archived"]')!
+    for (const init of [{ ctrlKey: true }, { metaKey: true }, { shiftKey: true }, { altKey: true }, { button: 1 }]) {
+      for (const link of [searchLink, timelineLink, archivedLink]) {
+        const event = new MouseEvent('click', { bubbles: true, cancelable: true, ...init })
+        link.dispatchEvent(event)
+        expect(event.defaultPrevented).toBe(false)
+      }
+    }
+    expect(jumpToSearch).not.toHaveBeenCalled()
+    expect(scrollToHashWithoutWrite).not.toHaveBeenCalled()
+    expect(requestArchivedVisibility).not.toHaveBeenCalled()
+    expect(clearHashNow).not.toHaveBeenCalled()
+    expect(trackEvent).not.toHaveBeenCalled()
+
+    const plainSearch = new MouseEvent('click', { bubbles: true, cancelable: true })
+    searchLink.dispatchEvent(plainSearch)
+    expect(plainSearch.defaultPrevented).toBe(true)
+    expect(jumpToSearch).toHaveBeenCalledTimes(1)
+
+    const plainTimeline = new MouseEvent('click', { bubbles: true, cancelable: true })
+    timelineLink.dispatchEvent(plainTimeline)
+    expect(plainTimeline.defaultPrevented).toBe(true)
+    expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#timeline-year-2026')
+
+    cleanup()
+  })
+
   it('reveals archived then scrolls when archived link is clicked', () => {
     const scrollToHashWithoutWrite = vi.fn()
     const requestArchivedVisibility = vi.fn((win, visibility: 'visible' | 'hidden') => {

@@ -104,6 +104,111 @@ describe('initSearchController', () => {
     cleanup?.()
   })
 
+  describe('address sync', () => {
+    function typeQuery(value: string) {
+      const input = document.querySelector<HTMLInputElement>('#commission-search-input')!
+      input.value = value
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('writes the applied query with replaceState after the debounce, keeping state and hash', async () => {
+      window.history.replaceState({ index: 3, scrollX: 0, scrollY: 40 }, '', '/?q=foo&view=timeline#top')
+      const replaceSpy = vi.spyOn(window.history, 'replaceState')
+      const pushSpy = vi.spyOn(window.history, 'pushState')
+      const cleanup = initSearchController(mountSearchRoot())
+      await vi.advanceTimersByTimeAsync(50)
+      replaceSpy.mockClear()
+
+      typeQuery('bar')
+      await vi.advanceTimersByTimeAsync(200)
+      expect(window.location.search).toBe('?q=foo&view=timeline')
+
+      await vi.advanceTimersByTimeAsync(300)
+      expect(window.location.search).toBe('?q=bar&view=timeline')
+      expect(window.location.hash).toBe('#top')
+      expect(replaceSpy).toHaveBeenCalledTimes(1)
+      expect(window.history.state).toEqual({ index: 3, scrollX: 0, scrollY: 40 })
+      expect(pushSpy).not.toHaveBeenCalled()
+      expect(document.querySelector<HTMLInputElement>('#commission-search-input')!.value).toBe('bar')
+
+      cleanup?.()
+    })
+
+    it('clears q immediately and drops a pending write', async () => {
+      window.history.replaceState({ index: 1 }, '', '/?q=foo#top')
+      const cleanup = initSearchController(mountSearchRoot())
+      await vi.advanceTimersByTimeAsync(50)
+
+      typeQuery('bar')
+      await vi.advanceTimersByTimeAsync(120)
+      document.querySelector<HTMLButtonElement>('#search-clear')!.click()
+      expect(window.location.search).toBe('')
+      expect(window.location.hash).toBe('#top')
+      expect(window.history.state).toEqual({ index: 1 })
+
+      await vi.advanceTimersByTimeAsync(600)
+      expect(window.location.search).toBe('')
+
+      cleanup?.()
+    })
+
+    it('removes q when the typed query normalizes to empty', async () => {
+      window.history.replaceState(null, '', '/?q=foo')
+      const cleanup = initSearchController(mountSearchRoot())
+      await vi.advanceTimersByTimeAsync(50)
+
+      typeQuery('   ')
+      await vi.advanceTimersByTimeAsync(500)
+      expect(window.location.search).toBe('')
+
+      cleanup?.()
+    })
+
+    it('keeps typed text and the pending write across a hash-only popstate', async () => {
+      window.history.replaceState({ index: 1 }, '', '/?q=foo')
+      const cleanup = initSearchController(mountSearchRoot())
+      await vi.advanceTimersByTimeAsync(50)
+
+      typeQuery('bar')
+      await vi.advanceTimersByTimeAsync(120)
+      window.history.replaceState(window.history.state, '', '/?q=foo#section-alpha')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+      await vi.advanceTimersByTimeAsync(100)
+      expect(document.querySelector<HTMLInputElement>('#commission-search-input')!.value).toBe('bar')
+
+      await vi.advanceTimersByTimeAsync(400)
+      expect(window.location.search).toBe('?q=bar')
+      expect(window.location.hash).toBe('#section-alpha')
+
+      cleanup?.()
+    })
+
+    it('follows popstate to a different q even after typing', async () => {
+      window.history.replaceState(null, '', '/?q=foo')
+      const cleanup = initSearchController(mountSearchRoot())
+      await vi.advanceTimersByTimeAsync(50)
+      typeQuery('bar')
+      await vi.advanceTimersByTimeAsync(500)
+
+      window.history.replaceState(window.history.state, '', '/?q=baz')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+      await vi.advanceTimersByTimeAsync(100)
+
+      expect(document.querySelector<HTMLInputElement>('#commission-search-input')!.value).toBe('baz')
+      expect(window.location.search).toBe('?q=baz')
+
+      cleanup?.()
+    })
+  })
+
   it('search filters without requesting loads', async () => {
     const fetchSpy = vi.fn(() => Promise.reject(new Error('unexpected fetch')))
     vi.stubGlobal('fetch', fetchSpy)
