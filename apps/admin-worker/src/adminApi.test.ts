@@ -1,16 +1,16 @@
+import type { DatabaseSync } from 'node:sqlite'
 import type {
   AdminCrudBackend,
-  CharacterOrderPayload,
   CreateCharacterInput,
   CreateCommissionInput,
-  UpdateCharacterInput,
   UpdateCommissionInput,
 } from './adminApi'
 import { describe, expect, it, vi } from 'vitest'
+import { seedAdminReadFixture } from '../test/adminReadSeed'
+import { createSQLiteD1 } from '../test/sqliteD1'
 import {
   handleAdminApiRequest,
 } from './adminApi'
-import { createAdminReadD1Database } from './test/adminReadD1Fixture'
 
 const baseUrl = 'http://127.0.0.1:8787'
 
@@ -145,54 +145,6 @@ const invalidPartNumberCases = [
   { label: 'non-integer partNumber on create-commission', partNumber: '1.5' },
 ]
 
-interface StatementExecution {
-  query: string
-  values: unknown[]
-}
-
-function createD1Recorder(options: {
-  queryResults?: (query: string, values: unknown[]) => unknown[]
-  runBehavior?: (query: string, values: unknown[]) => { success?: boolean } | void
-} = {}) {
-  const executions: StatementExecution[] = []
-
-  function createStatement(query: string, values: unknown[] = []) {
-    return {
-      bind(...nextValues: unknown[]) {
-        return createStatement(query, nextValues)
-      },
-      async all() {
-        executions.push({ query, values })
-        return { results: options.queryResults?.(query, values) ?? [] }
-      },
-      async run() {
-        executions.push({ query, values })
-        return options.runBehavior?.(query, values) ?? { success: true }
-      },
-    }
-  }
-
-  return {
-    db: {
-      async batch(statements: Array<{ run: () => Promise<{ success?: boolean }> }>) {
-        const results = []
-        for (const statement of statements) {
-          const result = await statement.run()
-          if (result.success === false) {
-            throw new Error('D1 batch failed.')
-          }
-          results.push(result)
-        }
-        return results
-      },
-      prepare(query: string) {
-        return createStatement(query)
-      },
-    },
-    executions,
-  }
-}
-
 function createImagesBucketRecorder(options: {
   existingKeys?: string[]
   existingObjects?: Record<string, { body?: ArrayBuffer, contentType?: string }>
@@ -235,6 +187,76 @@ function createImagesBucketRecorder(options: {
   }
 }
 
+const uuidV4Pattern = /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/
+const flatPngKeyPattern = /^source-images\/[a-f0-9]{64}-[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}\.png$/
+const flatJpgKeyPattern = /^source-images\/[a-f0-9]{64}-[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}\.jpg$/
+
+function insertCharacter(database: DatabaseSync, id: number, name: string, status = 'active', sortOrder = id) {
+  database.prepare('INSERT INTO characters (id, name, status, sort_order) VALUES (?, ?, ?, ?)')
+    .run(id, name, status, sortOrder)
+}
+
+function insertCommission(database: DatabaseSync, row: {
+  id: number
+  characterId: number
+  fileName: string
+  commissionDate?: string
+  creatorName?: string
+  workGroupId?: string | null
+  partNumber?: number | null
+  links?: string
+  design?: string | null
+  description?: string | null
+  keyword?: string | null
+  hidden?: number
+}) {
+  database.prepare(`
+    INSERT INTO commissions (
+      id, character_id, file_name, commission_date, creator_name, work_group_id, part_number,
+      links, design, description, keyword, hidden
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    row.id,
+    row.characterId,
+    row.fileName,
+    row.commissionDate ?? '2025-03-01',
+    row.creatorName ?? 'sample-piece',
+    row.workGroupId ?? null,
+    row.partNumber ?? null,
+    row.links ?? '[]',
+    row.design ?? null,
+    row.description ?? null,
+    row.keyword ?? null,
+    row.hidden ?? 0,
+  )
+}
+
+function insertSourceImage(database: DatabaseSync, commissionFileName: string, commissionId: number | null, objectKey: string) {
+  database.prepare(`
+    INSERT INTO source_images (commission_file_name, commission_id, object_key, mime_type, byte_size, sha256)
+    VALUES (?, ?, ?, 'image/jpeg', 3, 'hash')
+  `).run(commissionFileName, commissionId, objectKey)
+}
+
+// Character 7 owns one commission + source image per key; character 8 is a bystander that must survive.
+function seedDeletableCharacter(database: DatabaseSync, objectKeys: string[]) {
+  database.exec('BEGIN')
+  insertCharacter(database, 7, 'Alice')
+  objectKeys.forEach((objectKey, index) => {
+    const id = 1000 + index
+    insertCommission(database, { id, characterId: 7, fileName: `alice-${index}` })
+    insertSourceImage(database, `alice-${index}`, id, objectKey)
+  })
+  insertCharacter(database, 8, 'Bystander')
+  insertCommission(database, { id: 800, characterId: 8, fileName: 'bystander' })
+  insertSourceImage(database, 'bystander', 800, 'source-images/bystander.jpg')
+  database.exec('COMMIT')
+}
+
+function countRows(database: DatabaseSync, table: string) {
+  return (database.prepare(`SELECT COUNT(*) as count FROM ${table}`).get() as { count: number }).count
+}
+
 describe('admin worker CRUD contract routing', () => {
   it('returns the rebuild dispatch timestamp and includes it in the GitHub event', async () => {
     const originalFetch = globalThis.fetch
@@ -255,35 +277,6 @@ describe('admin worker CRUD contract routing', () => {
     finally {
       globalThis.fetch = originalFetch
     }
-  })
-
-  it('normalizes create-character payload before delegating to backend', async () => {
-    const createCharacter = vi.fn(async (_input: CreateCharacterInput) =>
-      createJsonResponse({ status: 'success', message: 'Character "Alice" created.' }))
-    const backend = createCrudBackend({ createCharacter })
-
-    const request = new Request(`${baseUrl}/api/admin/characters`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name: '  Alice  ',
-        status: 'archived',
-      }),
-    })
-
-    const response = await handleAdminApiRequest(request, {}, backend)
-
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({
-      status: 'success',
-      message: 'Character "Alice" created.',
-    })
-    expect(createCharacter).toHaveBeenCalledWith({
-      name: 'Alice',
-      status: 'archived',
-    })
   })
 
   it('rejects empty character names before hitting backend', async () => {
@@ -309,80 +302,6 @@ describe('admin worker CRUD contract routing', () => {
       message: 'Character name is required.',
     })
     expect(createCharacter).not.toHaveBeenCalled()
-  })
-
-  it('passes normalized character ordering arrays to backend', async () => {
-    const updateCharacterOrder = vi.fn(async (_payload: CharacterOrderPayload) =>
-      createJsonResponse({ status: 'success', message: 'Character order updated.' }))
-    const backend = createCrudBackend({ updateCharacterOrder })
-
-    const request = new Request(`${baseUrl}/api/admin/characters/order`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        active: ['1', 2],
-        archived: ['3'],
-      }),
-    })
-
-    const response = await handleAdminApiRequest(request, {}, backend)
-
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({
-      status: 'success',
-      message: 'Character order updated.',
-    })
-    expect(updateCharacterOrder).toHaveBeenCalledWith({
-      active: [1, 2],
-      archived: [3],
-    })
-  })
-
-  it('normalizes create-commission form data before delegating to backend', async () => {
-    const createCommission = vi.fn(async (_input: CreateCommissionInput) =>
-      createJsonResponse({ status: 'success', message: 'Commission saved.' }))
-    const backend = createCrudBackend({ createCommission })
-
-    const formData = new FormData()
-    formData.set('characterId', '7')
-    formData.set('commissionDate', '  2025-03-01  ')
-    formData.set('creatorName', '  sample-piece  ')
-    formData.set('links', ' https://a.example \n\nhttps://b.example ')
-    formData.set('design', '  outfit  ')
-    formData.set('description', '  desc  ')
-    formData.set('keyword', '  tag  ')
-    formData.set('hidden', 'on')
-    formData.set('sourceImage', new File(['png'], 'sample.png', { type: 'image/png' }))
-
-    const request = new Request(`${baseUrl}/api/admin/commissions`, {
-      method: 'POST',
-      body: formData,
-    })
-
-    const response = await handleAdminApiRequest(request, {}, backend)
-
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({
-      status: 'success',
-      message: 'Commission saved.',
-    })
-
-    expect(createCommission).toHaveBeenCalledTimes(1)
-    const [payload] = createCommission.mock.calls[0] as [CreateCommissionInput]
-    expect(payload).toMatchObject({
-      characterId: 7,
-      commissionDate: '2025-03-01',
-      creatorName: 'sample-piece',
-      links: ['https://a.example', 'https://b.example'],
-      design: 'outfit',
-      description: 'desc',
-      keyword: 'tag',
-      hidden: true,
-    })
-    expect(payload.sourceImage).toBeInstanceOf(File)
-    expect(payload.sourceImage.name).toBe('sample.png')
   })
 
   it('rejects missing source image for create-commission before delegating to backend', async () => {
@@ -428,37 +347,6 @@ describe('admin worker CRUD contract routing', () => {
       message: 'Commission date must be a real calendar date.',
     })
     expect(updateCommission).not.toHaveBeenCalled()
-  })
-
-  it('normalizes empty string workGroupId and partNumber to null for create-commission', async () => {
-    const createCommission = vi.fn(async (input: CreateCommissionInput) => {
-      void input
-      return createJsonResponse({ status: 'success', message: 'Commission created.' })
-    })
-    const backend = createCrudBackend({ createCommission })
-
-    const formData = new FormData()
-    formData.set('characterId', '7')
-    formData.set('commissionDate', '2025-03-01')
-    formData.set('creatorName', 'test-creator')
-    formData.set('workGroupId', '')
-    formData.set('partNumber', '')
-    formData.set('links', '')
-    formData.set('hidden', 'off')
-    formData.set('sourceImage', new File(['png'], 'test.png', { type: 'image/png' }))
-
-    const request = new Request(`${baseUrl}/api/admin/commissions`, {
-      method: 'POST',
-      body: formData,
-    })
-
-    const response = await handleAdminApiRequest(request, {}, backend)
-
-    expect(response.status).toBe(200)
-    expect(createCommission).toHaveBeenCalledOnce()
-    const callArg = createCommission.mock.calls[0]?.[0]
-    expect(callArg?.workGroupId).toBe(null)
-    expect(callArg?.partNumber).toBe(null)
   })
 
   it.each(invalidCommissionFieldCases)(
@@ -509,82 +397,6 @@ describe('admin worker CRUD contract routing', () => {
     expect(createCommission).not.toHaveBeenCalled()
   })
 
-  it('normalizes empty string workGroupId and partNumber to null for PATCH', async () => {
-    const updateCommission = vi.fn(async (input: UpdateCommissionInput) => {
-      void input
-      return createJsonResponse({ status: 'success', message: 'Commission updated.' })
-    })
-    const backend = createCrudBackend({ updateCommission })
-
-    const request = new Request(`${baseUrl}/api/admin/commissions/19`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        characterId: 3,
-        commissionDate: '2025-03-01',
-        creatorName: 'test-creator',
-        workGroupId: '',
-        partNumber: '',
-        links: '',
-        hidden: false,
-      }),
-    })
-
-    const response = await handleAdminApiRequest(request, {}, backend)
-
-    expect(response.status).toBe(200)
-    expect(updateCommission).toHaveBeenCalledOnce()
-    const callArg = updateCommission.mock.calls[0]?.[0]
-    expect(callArg?.workGroupId).toBe(null)
-    expect(callArg?.partNumber).toBe(null)
-  })
-
-  it('normalizes update-commission payload before delegating to backend', async () => {
-    const updateCommission = vi.fn(async (_input: UpdateCommissionInput) =>
-      createJsonResponse({ status: 'success', message: 'Commission updated.' }))
-    const backend = createCrudBackend({ updateCommission })
-
-    const request = new Request(`${baseUrl}/api/admin/commissions/19`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        characterId: '3',
-        commissionDate: '  2025-03-01  ',
-        creatorName: '  updated-piece  ',
-        workGroupId: null,
-        partNumber: null,
-        links: ' one \n two ',
-        design: '  new design  ',
-        description: '',
-        keyword: '  glow  ',
-        hidden: true,
-      }),
-    })
-
-    const response = await handleAdminApiRequest(request, {}, backend)
-
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({
-      status: 'success',
-      message: 'Commission updated.',
-    })
-    expect(updateCommission).toHaveBeenCalledWith({
-      id: 19,
-      characterId: 3,
-      commissionDate: '2025-03-01',
-      creatorName: 'updated-piece',
-      workGroupId: null,
-      partNumber: null,
-      links: ['one', 'two'],
-      design: 'new design',
-      description: undefined,
-      keyword: 'glow',
-      hidden: true,
-    })
-  })
-
   it('returns a 404 payload for unknown admin routes', async () => {
     const backend = createCrudBackend()
 
@@ -601,46 +413,10 @@ describe('admin worker CRUD contract routing', () => {
     })
   })
 
-  it('normalizes update-character payload before delegating to backend', async () => {
-    const updateCharacter = vi.fn(async (_input: UpdateCharacterInput) =>
-      createJsonResponse({ status: 'success', message: 'Character updated.' }))
-    const backend = createCrudBackend({ updateCharacter })
-
-    const request = new Request(`${baseUrl}/api/admin/characters/14`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name: '  Renamed  ',
-        status: 'active',
-      }),
-    })
-
-    const response = await handleAdminApiRequest(request, {}, backend)
-
-    expect(response.status).toBe(200)
-    expect(await response.json()).toEqual({
-      status: 'success',
-      message: 'Character updated.',
-    })
-    expect(updateCharacter).toHaveBeenCalledWith({
-      id: 14,
-      name: 'Renamed',
-      status: 'active',
-    })
-  })
-
   it('handles create-character natively when DB binding exists', async () => {
-    const { db, executions } = createD1Recorder({
-      queryResults(query) {
-        if (query.includes('MAX(sort_order)')) {
-          return [{ maxOrder: 4 }]
-        }
+    const { database, db } = createSQLiteD1()
+    insertCharacter(database, 1, 'Existing', 'active', 4)
 
-        return []
-      },
-    })
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/characters`, {
         method: 'POST',
@@ -660,21 +436,16 @@ describe('admin worker CRUD contract routing', () => {
       status: 'success',
       message: 'Character "Alice" created.',
     })
-    const insertOps = executions.filter(item => item.query.includes('INSERT INTO characters'))
-    expect(insertOps).toHaveLength(1)
-    expect(insertOps[0]?.values).toEqual(['Alice', 'archived', 5])
+    expect(database.prepare('SELECT name, status, sort_order FROM characters ORDER BY sort_order').all()).toEqual([
+      { name: 'Existing', status: 'active', sort_order: 4 },
+      { name: 'Alice', status: 'archived', sort_order: 5 },
+    ])
   })
 
   it('handles update-character natively when DB binding exists', async () => {
-    const { db, executions } = createD1Recorder({
-      queryResults(query, values) {
-        if (query.includes('SELECT id FROM characters WHERE id = ?')) {
-          return [{ id: Number(values[0]) }]
-        }
+    const { database, db } = createSQLiteD1()
+    insertCharacter(database, 14, 'Before', 'archived', 1)
 
-        return []
-      },
-    })
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/characters/14`, {
         method: 'PATCH',
@@ -694,29 +465,27 @@ describe('admin worker CRUD contract routing', () => {
       status: 'success',
       message: 'Character "Renamed" updated.',
     })
-    const updateOps = executions.filter(item => item.query.includes('UPDATE characters SET name = ?, status = ?'))
-    expect(updateOps).toHaveLength(1)
-    expect(updateOps[0]?.values).toEqual(['Renamed', 'active', 14])
+    expect(database.prepare('SELECT id, name, status, sort_order FROM characters').all()).toEqual([
+      { id: 14, name: 'Renamed', status: 'active', sort_order: 1 },
+    ])
   })
 
   it('handles character reordering natively when DB binding exists', async () => {
-    const { db, executions } = createD1Recorder({
-      queryResults(query) {
-        if (query.includes('SELECT id FROM characters WHERE id IN')) {
-          return [{ id: 1 }, { id: 2 }, { id: 3 }]
-        }
-        return []
-      },
-    })
+    const { database, db } = createSQLiteD1()
+    insertCharacter(database, 1, 'One', 'archived', 3)
+    insertCharacter(database, 2, 'Two', 'active', 1)
+    insertCharacter(database, 3, 'Three', 'active', 2)
+
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/characters/order`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
+        // String identifiers must be coerced to numbers before persistence.
         body: JSON.stringify({
-          active: [1, 2],
-          archived: [3],
+          active: ['1', 2],
+          archived: ['3'],
         }),
       }),
       { DB: db },
@@ -727,31 +496,18 @@ describe('admin worker CRUD contract routing', () => {
       status: 'success',
       message: 'Character order updated.',
     })
-    const updateOps = executions.filter(item =>
-      item.query.includes('UPDATE characters SET sort_order ='),
-    )
-    expect(updateOps).toHaveLength(2)
-    expect(updateOps[0]!.query).toContain('WHEN ? THEN ? WHEN ? THEN ?')
-    expect(updateOps[0]!.values).toEqual([1, 1, 2, 2, 'active', 1, 2])
-    expect(updateOps[0]!.query).toContain('status = ?')
-    expect(updateOps[0]!.query).toContain('WHERE id IN (?, ?)')
-    expect(updateOps[1]!.query).toContain('WHEN ? THEN ?')
-    expect(updateOps[1]!.values).toEqual([3, 3, 'archived', 3])
-    expect(updateOps[1]!.query).toContain('status = ?')
-    expect(updateOps[1]!.query).toContain('WHERE id IN (?)')
+    expect(database.prepare('SELECT id, status, sort_order FROM characters ORDER BY id').all()).toEqual([
+      { id: 1, status: 'active', sort_order: 1 },
+      { id: 2, status: 'active', sort_order: 2 },
+      { id: 3, status: 'archived', sort_order: 3 },
+    ])
   })
 
   it('handles delete-character natively when DB binding exists', async () => {
-    const { db, executions } = createD1Recorder({
-      queryResults(query) {
-        if (query.includes('SELECT name FROM characters WHERE id = ?')) {
-          return [{ name: 'Alice' }]
-        }
-
-        return []
-      },
-    })
+    const { database, db } = createSQLiteD1()
+    seedDeletableCharacter(database, ['source-images/aaa-hash.jpg'])
     const { bucket } = createImagesBucketRecorder()
+
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/characters/7`, {
         method: 'DELETE',
@@ -764,35 +520,24 @@ describe('admin worker CRUD contract routing', () => {
       status: 'success',
       message: 'Character deleted.',
     })
-    expect(executions.filter(item => item.query.includes('DELETE FROM commissions WHERE character_id = ?')))
-      .toHaveLength(1)
-    expect(executions.filter(item => item.query.includes('DELETE FROM characters WHERE id = ?')))
-      .toHaveLength(1)
+    expect(database.prepare('SELECT id FROM characters').all()).toEqual([{ id: 8 }])
+    expect(database.prepare('SELECT id FROM commissions').all()).toEqual([{ id: 800 }])
+    expect(database.prepare('SELECT object_key FROM source_images').all())
+      .toEqual([{ object_key: 'source-images/bystander.jpg' }])
   })
 
   it('deletes exactly the character source-image R2 objects after the D1 commit', async () => {
-    const objectKeys = ['source-images/aaa-hash.jpg', 'source-images/bbb-hash.png']
-    const events: string[] = []
-    const { db } = createD1Recorder({
-      queryResults(query) {
-        if (query.includes('SELECT name FROM characters WHERE id = ?')) {
-          return [{ name: 'Alice' }]
-        }
-        if (query.includes('SELECT object_key as objectKey FROM source_images WHERE')) {
-          return objectKeys.map(objectKey => ({ objectKey }))
-        }
-
-        return []
-      },
-      runBehavior(query) {
-        if (query.includes('DELETE FROM characters WHERE id = ?')) {
-          events.push('d1-commit')
-        }
-      },
-    })
+    const { database, db } = createSQLiteD1()
+    seedDeletableCharacter(database, ['source-images/aaa-hash.jpg'])
+    // A legacy row linked only by commission_file_name must be found by the same delete predicate.
+    insertCommission(database, { id: 2000, characterId: 7, fileName: 'alice-legacy' })
+    insertSourceImage(database, 'alice-legacy', null, 'source-images/bbb-hash.png')
     const { bucket, deleteObject } = createImagesBucketRecorder()
+    const characterRowsAtR2Delete: number[] = []
     deleteObject.mockImplementation(async () => {
-      events.push('r2-delete')
+      characterRowsAtR2Delete.push(
+        (database.prepare('SELECT COUNT(*) as count FROM characters WHERE id = 7').get() as { count: number }).count,
+      )
       return {}
     })
 
@@ -806,24 +551,15 @@ describe('admin worker CRUD contract routing', () => {
     expect(response.status).toBe(200)
     // One batched delete call keeps the keys exactly the set read back from D1 before the commit.
     expect(deleteObject).toHaveBeenCalledTimes(1)
-    expect((deleteObject.mock.calls[0]![0] as string[]).toSorted()).toEqual(objectKeys.toSorted())
+    expect((deleteObject.mock.calls[0]![0] as string[]).toSorted())
+      .toEqual(['source-images/aaa-hash.jpg', 'source-images/bbb-hash.png'])
     // D1 must commit before any object is removed; a lost delete keeps the row and loses the object otherwise.
-    expect(events).toEqual(['d1-commit', 'r2-delete'])
+    expect(characterRowsAtR2Delete).toEqual([0])
   })
 
   it('keeps the D1 delete committed and returns 200 when R2 cleanup fails', async () => {
-    const { db, executions } = createD1Recorder({
-      queryResults(query) {
-        if (query.includes('SELECT name FROM characters WHERE id = ?')) {
-          return [{ name: 'Alice' }]
-        }
-        if (query.includes('SELECT object_key as objectKey FROM source_images WHERE')) {
-          return [{ objectKey: 'source-images/aaa-hash.jpg' }]
-        }
-
-        return []
-      },
-    })
+    const { database, db } = createSQLiteD1()
+    seedDeletableCharacter(database, ['source-images/aaa-hash.jpg'])
     const { bucket, deleteObject } = createImagesBucketRecorder()
     deleteObject.mockRejectedValue(new Error('R2 unavailable'))
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -840,13 +576,16 @@ describe('admin worker CRUD contract routing', () => {
       status: 'success',
       message: 'Character deleted.',
     })
-    expect(executions.filter(item => item.query.includes('DELETE FROM characters WHERE id = ?')))
-      .toHaveLength(1)
+    expect(deleteObject).toHaveBeenCalledTimes(1)
+    expect(database.prepare('SELECT id FROM characters').all()).toEqual([{ id: 8 }])
+    expect(database.prepare('SELECT id FROM commissions').all()).toEqual([{ id: 800 }])
     expect(warn).toHaveBeenCalled()
   })
 
   it('returns 503 without deleting D1 rows when the IMAGES binding is missing', async () => {
-    const { db, executions } = createD1Recorder()
+    const { database, db } = createSQLiteD1()
+    seedDeletableCharacter(database, ['source-images/aaa-hash.jpg'])
+
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/characters/7`, {
         method: 'DELETE',
@@ -855,23 +594,19 @@ describe('admin worker CRUD contract routing', () => {
     )
 
     expect(response.status).toBe(503)
-    expect(executions).toEqual([])
+    expect(await response.json()).toEqual({
+      status: 'error',
+      message: 'Admin worker IMAGES binding is required for this route.',
+    })
+    expect(countRows(database, 'characters')).toBe(2)
+    expect(countRows(database, 'commissions')).toBe(2)
+    expect(countRows(database, 'source_images')).toBe(2)
   })
 
   it('deletes R2 objects in batches of at most 1000 keys', async () => {
+    const { database, db } = createSQLiteD1()
     const objectKeys = Array.from({ length: 2500 }, (_, index) => `source-images/key-${index}.jpg`)
-    const { db } = createD1Recorder({
-      queryResults(query) {
-        if (query.includes('SELECT name FROM characters WHERE id = ?')) {
-          return [{ name: 'Alice' }]
-        }
-        if (query.includes('SELECT object_key as objectKey FROM source_images WHERE')) {
-          return objectKeys.map(objectKey => ({ objectKey }))
-        }
-
-        return []
-      },
-    })
+    seedDeletableCharacter(database, objectKeys)
     const { bucket, deleteObject } = createImagesBucketRecorder()
 
     const response = await handleAdminApiRequest(
@@ -888,21 +623,14 @@ describe('admin worker CRUD contract routing', () => {
   })
 
   it('handles create-commission natively when DB and IMAGES bindings exist', async () => {
-    const { db, executions } = createD1Recorder({
-      queryResults(query, values) {
-        if (query.includes('SELECT id, name FROM characters WHERE id = ?')) {
-          return [{ id: Number(values[0]), name: 'Alice' }]
-        }
-
-        return []
-      },
-    })
+    const { database, db } = createSQLiteD1()
+    insertCharacter(database, 7, 'Alice')
     const { bucket, get, put, deleteObject } = createImagesBucketRecorder()
 
     const formData = new FormData()
     formData.set('characterId', '7')
-    formData.set('commissionDate', '2025-03-01')
-    formData.set('creatorName', 'sample-piece')
+    formData.set('commissionDate', '  2025-03-01  ')
+    formData.set('creatorName', '  sample-piece  ')
     formData.set('workGroupId', '')
     formData.set('partNumber', '')
     formData.set('links', ' https://a.example \n\nhttps://b.example ')
@@ -930,7 +658,8 @@ describe('admin worker CRUD contract routing', () => {
     })
     expect(get).not.toHaveBeenCalled()
     expect(put).toHaveBeenCalledTimes(1)
-    expect(put.mock.calls[0]?.[0]).toMatch(/^source-images\/[a-f0-9]{64}-[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}\.png$/)
+    const objectKey = put.mock.calls[0]?.[0]
+    expect(objectKey).toMatch(flatPngKeyPattern)
     expect(put.mock.calls[0]?.[2]).toEqual({
       httpMetadata: {
         contentType: 'image/png',
@@ -938,47 +667,54 @@ describe('admin worker CRUD contract routing', () => {
     })
     expect(deleteObject).not.toHaveBeenCalled()
 
-    const insertOps = executions.filter(item => item.query.includes('INSERT INTO commissions'))
-    expect(insertOps).toHaveLength(1)
-    expect(insertOps[0]?.values).toEqual([
-      expect.stringMatching(/^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/),
-      7,
-      '2025-03-01',
-      'sample-piece',
-      null,
-      null,
-      expect.stringMatching(/^commission-[\w-]+$/),
-      '["https://a.example","https://b.example"]',
-      'outfit',
-      'desc',
-      'tag',
-      1,
-    ])
+    const commissions = database.prepare(`
+      SELECT id, public_id, character_id, commission_date, creator_name, work_group_id, part_number,
+        file_name, links, design, description, keyword, hidden
+      FROM commissions
+    `).all() as Array<{ id: number, file_name: string }>
+    expect(commissions).toEqual([{
+      id: expect.any(Number),
+      public_id: expect.stringMatching(uuidV4Pattern),
+      character_id: 7,
+      commission_date: '2025-03-01',
+      creator_name: 'sample-piece',
+      work_group_id: null,
+      part_number: null,
+      file_name: expect.stringMatching(/^commission-[\w-]+$/),
+      links: '["https://a.example","https://b.example"]',
+      design: 'outfit',
+      description: 'desc',
+      keyword: 'tag',
+      hidden: 1,
+    }])
+    expect(database.prepare('SELECT commission_file_name, commission_id, object_key, mime_type, byte_size FROM source_images').all())
+      .toEqual([{
+        commission_file_name: commissions[0]!.file_name,
+        commission_id: commissions[0]!.id,
+        object_key: objectKey,
+        mime_type: 'image/png',
+        byte_size: 3,
+      }])
   })
 
   it('does not delete an existing commission when a create insert conflicts', async () => {
-    const { db } = createD1Recorder({
-      queryResults(query, values) {
-        if (query.includes('SELECT id, name FROM characters WHERE id = ?')) {
-          return [{ id: Number(values[0]), name: 'Alice' }]
-        }
-
-        return []
-      },
-      runBehavior(query) {
-        if (query.includes('INSERT INTO commissions')) {
-          return { success: false }
-        }
-
-        return undefined
-      },
-    })
+    const { database, db, batchCallCount } = createSQLiteD1()
+    const workGroupId = 'a1b2c3d4-e5f6-4789-a012-3456789abcde'
+    insertCharacter(database, 7, 'Alice')
+    database.prepare('INSERT INTO commission_groups (id) VALUES (?)').run(workGroupId)
+    insertCommission(database, { id: 70, characterId: 7, fileName: 'existing-part-1', workGroupId, partNumber: 1 })
+    insertSourceImage(database, 'existing-part-1', 70, 'source-images/existing.jpg')
+    const commissionsBefore = database.prepare('SELECT * FROM commissions').all()
+    const sourceImagesBefore = database.prepare('SELECT * FROM source_images').all()
     const { bucket, put, deleteObject } = createImagesBucketRecorder()
 
+    // Reusing (work group, part 1) violates the real unique index inside the create batch.
     const formData = new FormData()
     formData.set('characterId', '7')
     formData.set('commissionDate', '2025-03-01')
     formData.set('creatorName', 'sample-piece')
+    formData.set('workGroupId', workGroupId)
+    formData.set('partNumber', '1')
     formData.set('sourceImage', new File(['png'], 'sample.png', { type: 'image/png' }))
 
     const response = await handleAdminApiRequest(
@@ -995,38 +731,34 @@ describe('admin worker CRUD contract routing', () => {
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual({
       status: 'error',
-      message: 'D1 batch failed.',
+      message: expect.stringContaining('UNIQUE constraint failed'),
     })
+    expect(batchCallCount()).toBe(1)
+    expect(database.prepare('SELECT * FROM commissions').all()).toEqual(commissionsBefore)
+    expect(database.prepare('SELECT * FROM source_images').all()).toEqual(sourceImagesBefore)
     expect(put).toHaveBeenCalledTimes(1)
     expect(deleteObject).not.toHaveBeenCalled()
-    expect(put.mock.calls[0]?.[0]).toMatch(/^source-images\/[a-f0-9]{64}-[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}\.png$/)
+    expect(put.mock.calls[0]?.[0]).toMatch(flatPngKeyPattern)
   })
 
   it('handles update-commission natively when DB binding exists', async () => {
-    const { db, executions } = createD1Recorder({
-      queryResults(query, values) {
-        if (query.includes('FROM commissions') && query.includes('WHERE id = ?')) {
-          return [{
-            characterId: 1,
-            fileName: '20250301_sample-piece',
-            commissionDate: '2025-03-01',
-            creatorName: 'sample-piece',
-            links: '["https://a.example"]',
-            design: 'old',
-            description: 'old desc',
-            keyword: 'old',
-            hidden: 0,
-          }]
-        }
-
-        if (query.includes('SELECT id FROM characters WHERE id = ?')) {
-          return [{ id: Number(values[0]) }]
-        }
-
-        return []
-      },
+    const { database, db } = createSQLiteD1()
+    insertCharacter(database, 1, 'Alice')
+    insertCharacter(database, 3, 'Gamma')
+    insertCommission(database, {
+      id: 19,
+      characterId: 1,
+      fileName: '20250301_sample-piece',
+      commissionDate: '2025-03-01',
+      creatorName: 'sample-piece',
+      links: '["https://a.example"]',
+      design: 'old',
+      description: 'old desc',
+      keyword: 'old',
+      hidden: 0,
     })
     const { bucket, get, put, deleteObject } = createImagesBucketRecorder()
+
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/commissions/19`, {
         method: 'PATCH',
@@ -1034,15 +766,15 @@ describe('admin worker CRUD contract routing', () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          characterId: 3,
-          commissionDate: '2025-03-02',
-          creatorName: 'updated-piece',
-          workGroupId: null,
-          partNumber: null,
+          characterId: '3',
+          commissionDate: '  2025-03-02  ',
+          creatorName: '  updated-piece  ',
+          workGroupId: '',
+          partNumber: '',
           links: ' one \n two ',
-          design: 'new design',
+          design: '  new design  ',
           description: '',
-          keyword: ' glow ',
+          keyword: '  glow  ',
           hidden: true,
         }),
       }),
@@ -1054,36 +786,36 @@ describe('admin worker CRUD contract routing', () => {
       status: 'success',
       message: 'Commission dated 2025-03-02 updated.',
     })
-    const updateOps = executions.filter(item => item.query.includes('UPDATE commissions'))
-    expect(updateOps).toHaveLength(1)
-    expect(updateOps[0]?.values).toEqual([
-      3,
-      '2025-03-02',
-      'updated-piece',
-      null,
-      null,
-      '["one","two"]',
-      'new design',
-      null,
-      'glow',
-      1,
-      19,
-    ])
+    expect(database.prepare(`
+      SELECT character_id, commission_date, creator_name, work_group_id, part_number,
+        file_name, links, design, description, keyword, hidden
+      FROM commissions WHERE id = 19
+    `).get()).toEqual({
+      character_id: 3,
+      commission_date: '2025-03-02',
+      creator_name: 'updated-piece',
+      work_group_id: null,
+      part_number: null,
+      file_name: '20250301_sample-piece',
+      links: '["one","two"]',
+      design: 'new design',
+      description: null,
+      keyword: 'glow',
+      hidden: 1,
+    })
     expect(get).not.toHaveBeenCalled()
     expect(put).not.toHaveBeenCalled()
     expect(deleteObject).not.toHaveBeenCalled()
   })
 
   it('handles delete-commission natively when DB binding exists', async () => {
-    const { db, executions } = createD1Recorder({
-      queryResults(query) {
-        if (query.includes('SELECT file_name as fileName FROM commissions WHERE id = ?')) {
-          return [{ fileName: '20250301_sample-piece' }]
-        }
+    const { database, db } = createSQLiteD1()
+    insertCharacter(database, 1, 'Alice')
+    insertCommission(database, { id: 19, characterId: 1, fileName: '20250301_sample-piece' })
+    insertSourceImage(database, '20250301_sample-piece', 19, 'source-images/deleted.jpg')
+    insertCommission(database, { id: 20, characterId: 1, fileName: '20250302_kept-piece' })
+    insertSourceImage(database, '20250302_kept-piece', 20, 'source-images/kept.jpg')
 
-        return []
-      },
-    })
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/commissions/19`, {
         method: 'DELETE',
@@ -1096,20 +828,15 @@ describe('admin worker CRUD contract routing', () => {
       status: 'success',
       message: 'Commission deleted.',
     })
-    expect(executions.filter(item => item.query.includes('DELETE FROM commissions WHERE id = ?')))
-      .toHaveLength(1)
+    expect(database.prepare('SELECT id FROM commissions').all()).toEqual([{ id: 20 }])
+    expect(database.prepare('SELECT commission_id, object_key FROM source_images').all())
+      .toEqual([{ commission_id: 20, object_key: 'source-images/kept.jpg' }])
   })
 
   it('handles source-image replacement natively when DB and IMAGES bindings exist', async () => {
-    const { db } = createD1Recorder({
-      queryResults(query) {
-        if (query.includes('SELECT file_name as fileName FROM commissions WHERE id = ?')) {
-          return [{ fileName: '20250301_alice-maker' }]
-        }
-
-        return []
-      },
-    })
+    const { database, db } = createSQLiteD1()
+    insertCharacter(database, 1, 'Alice')
+    insertCommission(database, { id: 19, characterId: 1, fileName: '20250301_alice-maker' })
     const { bucket, put, deleteObject, get } = createImagesBucketRecorder()
 
     const formData = new FormData()
@@ -1134,19 +861,28 @@ describe('admin worker CRUD contract routing', () => {
     })
     expect(get).not.toHaveBeenCalled()
     expect(put).toHaveBeenCalledTimes(1)
-    expect(put.mock.calls[0]?.[0]).toMatch(/^source-images\/[a-f0-9]{64}-[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}\.jpg$/)
+    expect(put.mock.calls[0]?.[0]).toMatch(flatJpgKeyPattern)
     expect(deleteObject).not.toHaveBeenCalled()
+    // The stored identity comes from D1's file_name, never from the client-sent commissionFileName.
+    expect(database.prepare('SELECT commission_file_name, commission_id, object_key, mime_type, byte_size FROM source_images').all())
+      .toEqual([{
+        commission_file_name: '20250301_alice-maker',
+        commission_id: 19,
+        object_key: put.mock.calls[0]?.[0],
+        mime_type: 'image/jpeg',
+        byte_size: 3,
+      }])
   })
 
   it('keeps filename metadata while identical successive uploads get distinct flat keys', async () => {
-    const { db, executions } = createD1Recorder({
-      queryResults(query) {
-        return query.includes('SELECT file_name as fileName FROM commissions WHERE id = ?')
-          ? [{ fileName: '20250301_alice-maker' }]
-          : []
-      },
-    })
-    const { bucket, put } = createImagesBucketRecorder()
+    const { database, db } = createSQLiteD1()
+    insertCharacter(database, 1, 'Alice')
+    insertCommission(database, { id: 19, characterId: 1, fileName: '20250301_alice-maker' })
+    const { bucket, put, deleteObject } = createImagesBucketRecorder()
+    const selectSourceImages = database.prepare(
+      'SELECT commission_file_name, commission_id, object_key, mime_type, byte_size, sha256 FROM source_images',
+    )
+    const storedRows = []
     for (let index = 0; index < 2; index += 1) {
       const formData = new FormData()
       formData.set('commissionFileName', 'stale-client-name')
@@ -1156,33 +892,38 @@ describe('admin worker CRUD contract routing', () => {
         { DB: db, IMAGES: bucket },
       )
       expect(response.status).toBe(200)
+      storedRows.push(selectSourceImages.all())
     }
     const keys = put.mock.calls.map(call => call[0])
     expect(keys).toHaveLength(2)
     expect(keys[0]).not.toBe(keys[1])
     for (const key of keys) {
-      expect(key).toMatch(/^source-images\/[a-f0-9]{64}-[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}\.png$/)
+      expect(key).toMatch(flatPngKeyPattern)
       expect(key).not.toContain('20250301_alice-maker')
     }
-    const writes = executions.filter(item => item.query.includes('INSERT INTO source_images'))
-    expect(writes).toHaveLength(2)
-    expect(writes.map(item => item.values.slice(0, 4))).toEqual(keys.map(key => [
-      '20250301_alice-maker',
-      '20250301_alice-maker',
-      key,
-      'image/png',
-    ]))
-    expect(writes[0]?.values.slice(4)).toEqual(writes[1]?.values.slice(4))
+    // One metadata row per commission: each upload replaces it, keeping filename, size and hash.
+    expect(storedRows.map(rows => rows.map(row => row.object_key))).toEqual([[keys[0]], [keys[1]]])
+    for (const rows of storedRows) {
+      expect(rows[0]).toMatchObject({
+        commission_file_name: '20250301_alice-maker',
+        commission_id: 19,
+        mime_type: 'image/png',
+        byte_size: 10,
+        sha256: storedRows[0]![0]!.sha256,
+      })
+    }
+    // The replaced object is released once the new metadata row is committed.
+    expect(deleteObject).toHaveBeenCalledTimes(1)
+    expect(deleteObject).toHaveBeenCalledWith(keys[0])
   })
 
   it('loads bootstrap data natively when DB binding exists', async () => {
-    const backend = createCrudBackend()
-    const { db } = createAdminReadD1Database()
+    const { database, db } = createSQLiteD1()
+    seedAdminReadFixture(database)
 
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/bootstrap`, { method: 'GET' }),
       { DB: db },
-      backend,
     )
 
     expect(response.status).toBe(200)
@@ -1258,13 +999,12 @@ describe('admin worker CRUD contract routing', () => {
   })
 
   it('loads aliases bootstrap data natively when DB binding exists', async () => {
-    const backend = createCrudBackend()
-    const { db } = createAdminReadD1Database()
+    const { database, db } = createSQLiteD1()
+    seedAdminReadFixture(database)
 
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/aliases/bootstrap`, { method: 'GET' }),
       { DB: db },
-      backend,
     )
 
     expect(response.status).toBe(200)
@@ -1319,13 +1059,12 @@ describe('admin worker CRUD contract routing', () => {
   })
 
   it('loads suggestion data natively when DB binding exists', async () => {
-    const backend = createCrudBackend()
-    const { db } = createAdminReadD1Database()
+    const { database, db } = createSQLiteD1()
+    seedAdminReadFixture(database)
 
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/suggestion`, { method: 'GET' }),
       { DB: db },
-      backend,
     )
 
     expect(response.status).toBe(200)
@@ -1346,13 +1085,12 @@ describe('admin worker CRUD contract routing', () => {
   })
 
   it('loads character commissions natively when DB binding exists', async () => {
-    const backend = createCrudBackend()
-    const { db } = createAdminReadD1Database()
+    const { database, db } = createSQLiteD1()
+    seedAdminReadFixture(database)
 
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/characters/1/commissions`, { method: 'GET' }),
       { DB: db },
-      backend,
     )
 
     expect(response.status).toBe(200)
@@ -1379,24 +1117,16 @@ describe('admin worker CRUD contract routing', () => {
   })
 
   it('loads source images by commission ID without exposing the legacy asset key', async () => {
-    const backend = createCrudBackend()
-    const { db } = createD1Recorder({
-      queryResults(query, values) {
-        if (query.includes('COALESCE') && Number(values[0]) === 19) {
-          return [{ fileName: 'commission-opaque-key', objectKey: 'source-images/commission-opaque-key/hash.jpg' }]
-        }
-        return []
-      },
-    })
+    const { database, db } = createSQLiteD1()
+    seedAdminReadFixture(database)
     const imageBody = new Uint8Array([1, 2, 3]).buffer
     const get = vi.fn(async (key: string) => key === 'source-images/commission-opaque-key/hash.jpg'
       ? createR2SourceImageObject(imageBody, { contentType: 'image/jpeg', httpEtag: '"hash-etag"' })
       : null)
 
     const response = await handleAdminApiRequest(
-      new Request(`${baseUrl}/api/admin/commissions/19/source-image`, { method: 'GET' }),
+      new Request(`${baseUrl}/api/admin/commissions/10/source-image`, { method: 'GET' }),
       { DB: db, IMAGES: { get } },
-      backend,
     )
 
     expect(response.status).toBe(200)
@@ -1409,12 +1139,10 @@ describe('admin worker CRUD contract routing', () => {
   })
 
   it('revalidates commission source images with If-None-Match', async () => {
-    const backend = createCrudBackend()
+    const { database, db } = createSQLiteD1()
+    seedAdminReadFixture(database)
     const imageBody = new Uint8Array([4, 5, 6]).buffer
     const etag = '"hash-etag"'
-    const sourceImageRow = [
-      { fileName: 'commission-opaque-key', objectKey: 'source-images/commission-opaque-key/hash.jpg' },
-    ]
     // Open stream (never closed) so cancel() reaches the underlying source; the 304 path
     // must release the fetched body instead of leaking it.
     let matchingBodyCancelled = false
@@ -1428,12 +1156,11 @@ describe('admin worker CRUD contract routing', () => {
     const matchingGet = vi.fn(async () => matchingObject)
 
     const matching = await handleAdminApiRequest(
-      new Request(`${baseUrl}/api/admin/commissions/19/source-image`, {
+      new Request(`${baseUrl}/api/admin/commissions/10/source-image`, {
         method: 'GET',
         headers: { 'If-None-Match': etag },
       }),
-      { DB: createD1Recorder({ queryResults: () => sourceImageRow }).db, IMAGES: { get: matchingGet } },
-      backend,
+      { DB: db, IMAGES: { get: matchingGet } },
     )
 
     expect(matching.status).toBe(304)
@@ -1447,12 +1174,11 @@ describe('admin worker CRUD contract routing', () => {
       : null)
 
     const stale = await handleAdminApiRequest(
-      new Request(`${baseUrl}/api/admin/commissions/19/source-image`, {
+      new Request(`${baseUrl}/api/admin/commissions/10/source-image`, {
         method: 'GET',
         headers: { 'If-None-Match': '"other-etag"' },
       }),
-      { DB: createD1Recorder({ queryResults: () => sourceImageRow }).db, IMAGES: { get } },
-      backend,
+      { DB: db, IMAGES: { get } },
     )
 
     expect(stale.status).toBe(200)
@@ -1461,19 +1187,14 @@ describe('admin worker CRUD contract routing', () => {
   })
 
   it('returns 404 without probing root keys when the commission has no source-image metadata', async () => {
-    const backend = createCrudBackend()
-    const { db } = createD1Recorder({
-      queryResults() {
-        return [{ fileName: 'legacy-fallback', objectKey: null }]
-      },
-    })
+    const { database, db } = createSQLiteD1()
+    seedAdminReadFixture(database)
     const get = vi.fn(async (_key: string) =>
       createR2SourceImageObject(new Uint8Array([7, 8, 9]).buffer, { contentType: 'image/png' }))
 
     const response = await handleAdminApiRequest(
-      new Request(`${baseUrl}/api/admin/commissions/19/source-image`, { method: 'GET' }),
+      new Request(`${baseUrl}/api/admin/commissions/11/source-image`, { method: 'GET' }),
       { DB: db, IMAGES: { get } },
-      backend,
     )
 
     expect(response.status).toBe(404)
@@ -1482,30 +1203,25 @@ describe('admin worker CRUD contract routing', () => {
   })
 
   it('returns 404 when the resolved object key is missing from R2 instead of trying other keys', async () => {
-    const backend = createCrudBackend()
-    const { db } = createD1Recorder({
-      queryResults() {
-        return [{ fileName: 'legacy-fallback', objectKey: 'source-images/legacy-fallback/hash.png' }]
-      },
-    })
-    const get = vi.fn(async (key: string) => key === 'legacy-fallback.png'
-      ? createR2SourceImageObject(new Uint8Array([7, 8, 9]).buffer, { contentType: 'image/png' })
+    const { database, db } = createSQLiteD1()
+    seedAdminReadFixture(database)
+    const get = vi.fn(async (key: string) => key === '20250301_alice-maker.jpg'
+      ? createR2SourceImageObject(new Uint8Array([7, 8, 9]).buffer, { contentType: 'image/jpeg' })
       : null)
 
     const response = await handleAdminApiRequest(
-      new Request(`${baseUrl}/api/admin/commissions/19/source-image`, { method: 'GET' }),
+      new Request(`${baseUrl}/api/admin/commissions/10/source-image`, { method: 'GET' }),
       { DB: db, IMAGES: { get } },
-      backend,
     )
 
     expect(response.status).toBe(404)
     expect(get).toHaveBeenCalledTimes(1)
-    expect(get).toHaveBeenCalledWith('source-images/legacy-fallback/hash.png')
+    expect(get).toHaveBeenCalledWith('source-images/commission-opaque-key/hash.jpg')
   })
 
   it('handles suggestion writes natively when DB binding exists', async () => {
-    const backend = createCrudBackend()
-    const { db, executions } = createD1Recorder()
+    const { database, db } = createSQLiteD1()
+    database.exec('INSERT INTO home_featured_search_keywords (keyword, sort_order) VALUES (\'stale\', 1)')
 
     const request = new Request(`${baseUrl}/api/admin/suggestion`, {
       method: 'POST',
@@ -1517,32 +1233,22 @@ describe('admin worker CRUD contract routing', () => {
       }),
     })
 
-    const response = await handleAdminApiRequest(
-      request,
-      { DB: db },
-      backend,
-    )
+    const response = await handleAdminApiRequest(request, { DB: db })
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({
       status: 'success',
       message: 'Home featured keywords saved.',
     })
-    const deleteOps = executions.filter(item =>
-      item.query.includes('DELETE FROM home_featured_search_keywords'),
-    )
-    const insertOps = executions.filter(item =>
-      item.query.includes('INSERT INTO home_featured_search_keywords'),
-    )
-
-    expect(deleteOps).toHaveLength(1)
-    expect(insertOps).toHaveLength(1)
-    expect(insertOps[0]!.values).toEqual(['Kanaut Nishe', 1, 'maid', 2])
+    expect(database.prepare('SELECT keyword, sort_order FROM home_featured_search_keywords ORDER BY sort_order').all())
+      .toEqual([
+        { keyword: 'Kanaut Nishe', sort_order: 1 },
+        { keyword: 'maid', sort_order: 2 },
+      ])
   })
 
   it('handles creator alias writes natively when DB binding exists', async () => {
-    const backend = createCrudBackend()
-    const { db, executions } = createD1Recorder()
+    const { database, db } = createSQLiteD1()
 
     const request = new Request(`${baseUrl}/api/admin/aliases/batch`, {
       method: 'POST',
@@ -1557,26 +1263,21 @@ describe('admin worker CRUD contract routing', () => {
       }),
     })
 
-    const response = await handleAdminApiRequest(
-      request,
-      { DB: db },
-      backend,
-    )
+    const response = await handleAdminApiRequest(request, { DB: db })
 
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({
       status: 'success',
       message: 'Creator aliases saved.',
     })
-    const insertOps = executions.filter(item => item.query.includes('INSERT INTO creator_aliases'))
-    expect(insertOps).toHaveLength(1)
-    expect(insertOps[0]?.values[0]).toBe('Q')
-    expect(JSON.parse(String(insertOps[0]?.values[1]))).toEqual(expect.arrayContaining(['Cue', 'cue']))
+    const rows = database.prepare('SELECT creator_name, aliases FROM creator_aliases').all() as Array<{ creator_name: string, aliases: string }>
+    expect(rows.map(row => row.creator_name)).toEqual(['Q'])
+    expect(JSON.parse(rows[0]!.aliases)).toEqual(expect.arrayContaining(['Cue', 'cue']))
   })
 
   it('keeps creator alias rowsJson compatibility and delete semantics when DB binding exists', async () => {
-    const backend = createCrudBackend()
-    const { db, executions } = createD1Recorder()
+    const { database, db } = createSQLiteD1()
+    database.exec(`INSERT INTO creator_aliases (creator_name, aliases) VALUES ('Q', '["old"]'), ('Other', '["o"]')`)
 
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/aliases/batch`, {
@@ -1591,7 +1292,6 @@ describe('admin worker CRUD contract routing', () => {
         }),
       }),
       { DB: db },
-      backend,
     )
 
     expect(response.status).toBe(200)
@@ -1599,13 +1299,8 @@ describe('admin worker CRUD contract routing', () => {
       status: 'success',
       message: 'Creator aliases saved.',
     })
-
-    const deleteOps = executions.filter(item => item.query.includes('DELETE FROM creator_aliases'))
-    const insertOps = executions.filter(item => item.query.includes('INSERT INTO creator_aliases'))
-
-    expect(deleteOps).toHaveLength(1)
-    expect(deleteOps[0]?.values).toEqual(['Q'])
-    expect(insertOps).toHaveLength(0)
+    expect(database.prepare('SELECT creator_name, aliases FROM creator_aliases').all())
+      .toEqual([{ creator_name: 'Other', aliases: '["o"]' }])
   })
 
   it.each([
@@ -1631,7 +1326,7 @@ describe('admin worker CRUD contract routing', () => {
           body: formData,
         })
       },
-      env: () => ({ DB: createD1Recorder().db }),
+      env: () => ({ DB: createSQLiteD1().db }),
       // No injected backend: the default backend is what turns a missing IMAGES binding into a 503.
       backend: () => undefined,
       message: 'Admin worker IMAGES binding is required for this route.',
