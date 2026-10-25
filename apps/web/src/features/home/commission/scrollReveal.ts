@@ -3,8 +3,8 @@
  *
  * Only animates entries that enter the viewport by scrolling — entries already
  * visible on initial load (or scroll-restored) are left alone to avoid flicker.
- * A MutationObserver watches for dynamically batch-loaded entries and panel
- * visibility changes.
+ * A MutationObserver watches for view-panel and archived-container visibility
+ * changes.
  */
 
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '@features/home/events'

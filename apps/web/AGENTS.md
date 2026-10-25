@@ -34,8 +34,9 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   persistence pair; state and events in `commission/archivedCharactersState.ts`) and answers show requests
   synchronously, so callers subscribe before requesting and can scroll in the same frame. It reads the panel
   attribute on mount: the inline script in `StaticCommissionSections.astro` already expanded archived before paint
-  when the hash (character view) targets an archived entry. `homeHashTarget.ts` is the single owner of hash
-  navigation: it resolves the hash via `getHashTarget`, expands archived when needed and scrolls. Entry ids are
+  when the hash (character view) targets an archived entry. `homeHashTarget.ts` owns the URL hash (on
+  load, on `hashchange` and on a re-click of the current hash): it resolves it via `getHashTarget`, expands archived
+  when needed and scrolls; sidebar and hamburger resolve their own clicks through the same helpers. Entry ids are
   `<sectionId>-commission-<publicId>` and the same id appears in both the character and timeline panels;
   `getHashTarget` (`lib/navigation/hashAnchor.ts`) picks the copy in the active panel, so never resolve with a
   bare `getElementById`. Search treats entries inside the collapsed container as hidden matches (the "load

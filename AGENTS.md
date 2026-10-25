@@ -4,7 +4,7 @@ Guidance for coding agents working in this repository. Nested `AGENTS.md` files 
 each directory's `CLAUDE.md` is only `@AGENTS.md`.
 
 > **Maintenance rule:** in the same change, update this file (and any nested `AGENTS.md`) when you change
-> architecture, configuration layout, the deferred-loading contract, or a non-obvious behavior; update
+> architecture, configuration layout, the static listing / archived toggle contract, or a non-obvious behavior; update
 > `docs/api-reference.md` / `docs/ai-agent-guide.md` when any `/api/admin/*` contract or implicit behavior
 > changes. Record a new gotcha in the closest section here — no separate lessons/todo files. Only record what
 > would prevent a future mistake; no history narration or one-off fixes.
