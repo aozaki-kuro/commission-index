@@ -30,8 +30,17 @@ async function entryHash(page: Page, displayName: string, commissionId: number) 
 
 async function expectNearTop(locator: Locator) {
   await expect(locator).toBeVisible()
-  await expect.poll(async () => (await locator.boundingBox())?.y ?? Number.NaN).toBeGreaterThanOrEqual(0)
+  // Top-aligned scrolling on a fractional layout position can leave the target a subpixel above 0.
+  await expect.poll(async () => (await locator.boundingBox())?.y ?? Number.NaN).toBeGreaterThanOrEqual(-1)
   await expect.poll(async () => (await locator.boundingBox())?.y ?? Number.NaN).toBeLessThanOrEqual(250)
+}
+
+// goto('/') then goto('/#id') is a same-document fragment navigation: no reload, no inline scripts, and
+// Playwright returns null. Leaving for about:blank first makes the deep link a real document load.
+async function gotoFreshDocument(page: Page, url: string) {
+  await page.goto('about:blank')
+  const response = await page.goto(url)
+  expect(response, `fresh document load for ${url}`).not.toBeNull()
 }
 
 const characterPanel = (page: Page) => page.locator('[data-commission-view-panel="character"]')
@@ -56,7 +65,7 @@ for (const viewport of viewports) {
       await page.goto('/')
       await expectFixtureData(page)
       const hash = await entryHash(page, '枫霜 Kaede', 202)
-      await page.goto(`/${hash}`)
+      await gotoFreshDocument(page, `/${hash}`)
       await expectFixtureData(page)
       await expectNearTop(page.locator(hash))
     })
@@ -65,17 +74,25 @@ for (const viewport of viewports) {
       await page.goto('/')
       await expectFixtureData(page)
       const hash = await entryHash(page, 'Orion Vale', 302)
-      await page.goto(`/${hash}`, { waitUntil: 'domcontentloaded' })
-      // Read before any client module can react: the pre-paint inline script must already have
-      // expanded archived so native fragment scrolling lands on the entry.
-      const prePaint = await page.evaluate(() => ({
+
+      // Block every script request so only inline scripts run: this isolates the pre-paint expand in
+      // StaticCommissionSections.astro from the client modules (toggle, hash target) that would also expand it.
+      await page.route('**/*', route => route.request().resourceType() === 'script' ? route.abort() : route.continue())
+      await gotoFreshDocument(page, `/${hash}`)
+      await expectFixtureData(page)
+      const inlineOnly = await page.evaluate(() => ({
         visibility: document.querySelector<HTMLElement>('[data-commission-view-panel="character"]')
           ?.dataset
           .archivedVisibility,
         scrollY: window.scrollY,
       }))
-      expect(prePaint.visibility).toBe('visible')
-      expect(prePaint.scrollY).toBeGreaterThan(0)
+      expect(inlineOnly.visibility).toBe('visible')
+      // Native fragment scrolling can only land on the entry because the container is no longer display: none.
+      expect(inlineOnly.scrollY).toBeGreaterThan(0)
+      await expectNearTop(page.locator(hash))
+      await page.unrouteAll()
+
+      await gotoFreshDocument(page, `/${hash}`)
       await expectFixtureData(page)
       await expect(characterPanel(page)).toHaveAttribute('data-archived-visibility', 'visible')
       await expectNearTop(page.locator(hash))
