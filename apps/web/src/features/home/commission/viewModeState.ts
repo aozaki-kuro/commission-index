@@ -28,6 +28,6 @@ export function replaceCommissionViewModeInAddress(win: Window, mode: Commission
     url.searchParams.delete('view')
   }
 
-  win.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+  win.history.replaceState(win.history.state, '', `${url.pathname}${url.search}${url.hash}`)
   win.dispatchEvent(new Event(COMMISSION_VIEW_MODE_CHANGE_EVENT))
 }

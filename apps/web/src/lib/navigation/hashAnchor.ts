@@ -76,7 +76,7 @@ export function clearLocationHash() {
   if (!hash)
     return
 
-  history.replaceState(null, '', `${pathname}${search}`)
+  history.replaceState(history.state, '', `${pathname}${search}`)
 }
 
 export function clearHashIfTargetOffscreen() {

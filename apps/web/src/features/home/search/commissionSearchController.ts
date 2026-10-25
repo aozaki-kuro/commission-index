@@ -62,10 +62,18 @@ function buildSearchUrl(rawQuery: string) {
   return url.toString()
 }
 
+// Single writer for `?q=`. replaceState (never pushState) keeps one history entry per page, and passing the
+// current state through preserves ClientRouter's {index, scrollX, scrollY}. It fires no location-change event,
+// so a self-write is never re-read as an external query.
+function writeSearchQueryToAddress(rawQuery: string) {
+  const url = new URL(buildSearchUrl(rawQuery))
+  if (url.search === window.location.search)
+    return
+  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
+}
+
 function clearSearchQueryParamInAddress() {
-  const url = new URL(window.location.href)
-  url.searchParams.delete('q')
-  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+  writeSearchQueryToAddress('')
   dispatchSearchQueryLocationChange()
 }
 
@@ -299,6 +307,26 @@ export function initSearchController(root: HTMLElement) {
   // This keeps typing responsive while deferring expensive work.
 
   const RECOMPUTE_DEBOUNCE_MS = 100
+  const ADDRESS_SYNC_DEBOUNCE_MS = 300
+
+  let addressSyncTimerId = 0
+  function cancelAddressSync() {
+    if (addressSyncTimerId)
+      clearTimeout(addressSyncTimerId)
+    addressSyncTimerId = 0
+  }
+
+  // Keeps refresh/share in step with the query the list actually shows, without a write per keystroke.
+  function scheduleAddressSync() {
+    cancelAddressSync()
+    if (query === getUrlQuerySnapshot())
+      return
+    const appliedQuery = query
+    addressSyncTimerId = window.setTimeout(() => {
+      addressSyncTimerId = 0
+      writeSearchQueryToAddress(appliedQuery)
+    }, ADDRESS_SYNC_DEBOUNCE_MS)
+  }
 
   let recomputeRafId = 0
   let recomputeTimerId = 0
@@ -338,6 +366,8 @@ export function initSearchController(root: HTMLElement) {
         jumpToCommissionSearch({ focusMode: 'none' })
       })
     }
+
+    scheduleAddressSync()
 
     // Compute popular keywords
     const popularKeywords = computePopularKeywords()
@@ -549,6 +579,7 @@ export function initSearchController(root: HTMLElement) {
       input.value = ''
       showSuggestionPanel()
       copyState = 'idle'
+      cancelAddressSync()
       clearSearchQueryParamInAddress()
       if (!shouldUseTapLikeFocus()) {
         input.focus()
@@ -700,6 +731,11 @@ export function initSearchController(root: HTMLElement) {
   })
 
   const unsubUrlQuery = subscribeToUrlQuerySnapshot(() => {
+    // Back/forward landed on a different ?q=: the address wins over what was typed.
+    if (getUrlQuerySnapshot() !== query) {
+      inputQuery = null
+      cancelAddressSync()
+    }
     scheduleRecompute({ immediate: true })
   })
 
@@ -741,5 +777,6 @@ export function initSearchController(root: HTMLElement) {
       clearTimeout(recomputeTimerId)
     if (copyResetTimer)
       clearTimeout(copyResetTimer)
+    cancelAddressSync()
   }
 }
