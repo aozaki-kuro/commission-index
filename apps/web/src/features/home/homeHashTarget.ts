@@ -3,7 +3,7 @@ import {
   isArchivedCharactersVisible,
   requestArchivedCharactersVisibility,
 } from '@features/home/commission/archivedCharactersState'
-import { getHashTarget, scrollToHashTargetFromHrefWithoutHash } from '@lib/navigation/hashAnchor'
+import { getHashTarget, isUnmodifiedPrimaryClick, scrollToHashTargetFromHrefWithoutHash } from '@lib/navigation/hashAnchor'
 
 interface HomeHashTargetDeps {
   scrollToHashWithoutWrite: typeof scrollToHashTargetFromHrefWithoutHash
@@ -51,12 +51,7 @@ export function mountHomeHashTarget({
   // match, which is the hidden character copy in timeline view. Other hashes stay with the native jump.
   const onDocumentClick = (event: MouseEvent) => {
     if (
-      event.defaultPrevented
-      || event.button !== 0
-      || event.metaKey
-      || event.ctrlKey
-      || event.shiftKey
-      || event.altKey
+      !isUnmodifiedPrimaryClick(event)
       || !(event.target instanceof Element)
     ) {
       return

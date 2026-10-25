@@ -21,6 +21,7 @@ import {
 import {
   clearHashIfTargetOffscreen,
   clearLocationHash,
+  isUnmodifiedPrimaryClick,
   scrollToHashTargetFromHrefWithoutHash,
 } from '@lib/navigation/hashAnchor'
 import { jumpToCommissionSearch } from '@lib/navigation/jumpToCommissionSearch'
@@ -511,6 +512,8 @@ export function mountSidebarNavEnhancer({
 
     const searchLink = target.closest<HTMLAnchorElement>(SEARCH_LINK_SELECTOR)
     if (searchLink) {
+      if (!isUnmodifiedPrimaryClick(event))
+        return
       event.preventDefault()
 
       if (!hasTrackedSidebarSearchUsage) {
@@ -531,6 +534,7 @@ export function mountSidebarNavEnhancer({
       archivedLoadTrigger
       && archivedLoadTrigger.closest(ARCHIVED_DETAILS_SELECTOR)
       && !isArchivedCharactersVisible(doc)
+      && (!(archivedLoadTrigger instanceof HTMLAnchorElement) || isUnmodifiedPrimaryClick(event))
     ) {
       event.preventDefault()
       openArchivedDetails()
@@ -538,7 +542,7 @@ export function mountSidebarNavEnhancer({
     }
 
     const characterLink = target.closest<HTMLAnchorElement>(CHARACTER_LINK_SELECTOR)
-    if (!characterLink)
+    if (!characterLink || !isUnmodifiedPrimaryClick(event))
       return
 
     const mode = getCurrentMode(win)

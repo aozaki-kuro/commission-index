@@ -59,6 +59,18 @@ export function scrollToHashTargetFromHrefWithoutHash(rawHref: string | null): b
   return true
 }
 
+// False for clicks the browser must handle itself (new tab/window, middle button, or already handled).
+export function isUnmodifiedPrimaryClick(event: MouseEvent) {
+  return !(
+    event.defaultPrevented
+    || event.button !== 0
+    || event.metaKey
+    || event.ctrlKey
+    || event.shiftKey
+    || event.altKey
+  )
+}
+
 export function clearLocationHash() {
   const { pathname, search, hash } = window.location
   if (!hash)

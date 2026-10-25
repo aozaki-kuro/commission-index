@@ -13,7 +13,7 @@ import {
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT, HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from '@features/home/events'
 import { ANALYTICS_EVENTS } from '@lib/analytics/events'
 import { trackRybbitEvent } from '@lib/analytics/track'
-import { scrollToHashTargetFromHrefWithoutHash } from '@lib/navigation/hashAnchor'
+import { isUnmodifiedPrimaryClick, scrollToHashTargetFromHrefWithoutHash } from '@lib/navigation/hashAnchor'
 import { jumpToCommissionSearch } from '@lib/navigation/jumpToCommissionSearch'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '@lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '@lib/navigation/syncHiddenSectionLinkAvailability'
@@ -452,7 +452,7 @@ export function mountMobileHamburgerMenu({
     }
 
     const navLink = target.closest<HTMLAnchorElement>(NAV_LINK_SELECTOR)
-    if (!navLink)
+    if (!navLink || !isUnmodifiedPrimaryClick(event))
       return
 
     const mode = readCommissionViewMode(win)
