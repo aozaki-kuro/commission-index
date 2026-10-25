@@ -78,6 +78,26 @@ existing open-source library"). Evidence and rulings below stand in for a separa
   `{"v": "<version>"}` with `Cache-Control: no-cache` and is fetched only after a `home-search-entries.<v>.json` 404,
   which keeps today's retry-once behavior.
 
+### Execution rulings (made while executing; same shape: what, why, cost if wrong)
+
+- **Pre-paint archived expand runs in character view only.** In timeline view `getElementById` returns the hidden
+  character copy, and archived entries' timeline copies live outside the archived container. Cost if wrong: a cold
+  timeline deep link to an archived entry would need its own branch.
+- **The head-script `data-home-hash-restoring` branch is deleted, with no replacement reveal.** It ran before body
+  parse, so it hid the shell for every hash until a loader or the 3 s timer cleared it. Cost if wrong: none found.
+- **A cold `/?view=timeline#<id>` scrolls synchronously from the existing inline view script.** Native fragment
+  scroll targets the hidden character copy. Cost if wrong: one inline branch to revert.
+- **Switching views while a hash is present keeps each view's saved scroll, with no hash re-scroll.** Users already
+  got this before the change: `restoreScrollFor` ran after the loader's hash scroll, except under reduced motion.
+  Known gap: `/?view=timeline#<archived id>` switched to character view lands at the top with archived collapsed;
+  re-clicking the hash recovers. Cost if wrong: one view-change listener in `homeHashTarget`.
+- **Re-clicking the current hash is handled in `homeHashTarget.ts` by a delegated `click` listener.**
+  `updateLinks.ts` is not brought back. No `hashchange` fires on a re-click, and the native jump hits the hidden
+  copy. Cost if wrong: it intercepts a click it should not. Modified-click and different-hash tests pin that.
+- **Task 5's docs half ran in parallel with Task 3's fix loop; its code half ran in parallel with Task 4's
+  review.** The docs touch no code. The code half only deletes files outside Task 4's fix surface. Cost if wrong:
+  a rebase. None was needed.
+
 ## Global Constraints
 
 - `apps/web` imports use `@layouts/*`, `@features/*`, `@lib/*`; no `#` aliases.
