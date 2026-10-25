@@ -1,5 +1,6 @@
 import { mountHomeUpdateLinks } from '@features/home/blocks/updateLinks'
 import { mountCommissionViewModeDomSync } from '@features/home/commission/commissionViewModeDomSync'
+import { mountImageFadeIn } from '@features/home/commission/imageFadeIn'
 import { mountActiveCharactersLoader } from '@features/home/commission/loader/activeCharactersLoader'
 import { mountArchivedCharactersLoader } from '@features/home/commission/loader/archivedCharactersLoader'
 import { mountTimelineViewLoader } from '@features/home/commission/loader/timelineViewLoader'
@@ -38,6 +39,7 @@ interface HomePageClientDeps {
   mountMobileLanguageMenu: Mount
   mountFloatingButtonsAutoHide: Mount
   mountMobileViewModeTabs: Mount
+  mountImageFadeIn: Mount
   mountScrollReveal: Mount
   mountScrollDepthTracker: Mount
   mountUnpublishedInterestButtons: Mount
@@ -60,6 +62,7 @@ const defaultDeps: HomePageClientDeps = {
   mountMobileLanguageMenu: () => mountMobileLanguageMenu(),
   mountFloatingButtonsAutoHide: () => mountFloatingButtonsAutoHide(),
   mountMobileViewModeTabs: () => mountMobileViewModeTabs(),
+  mountImageFadeIn: () => mountImageFadeIn(),
   mountScrollReveal: () => mountScrollReveal(),
   mountScrollDepthTracker: () =>
     mountScrollDepthTracker({
@@ -102,6 +105,7 @@ export function mountHomePageClient({ deps: depsOverrides }: MountHomePageClient
     deps.mountTimelineViewLoader,
     deps.mountHomeScrollRestore,
     deps.mountHomeUpdateLinks,
+    deps.mountImageFadeIn,
   ]
   const deferredMounts: Mount[] = [
     deps.mountSidebarNavEnhancer,

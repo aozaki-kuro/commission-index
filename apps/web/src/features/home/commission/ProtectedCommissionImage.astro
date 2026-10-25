@@ -20,6 +20,7 @@ const { altText, sourceImage, priority = false } = Astro.props as ProtectedCommi
 <div
   data-commission-image="true"
   data-commission-alt={altText}
+  data-loaded={priority ? '' : undefined}
   class="
     relative
     before:pointer-events-none before:absolute before:inset-0
