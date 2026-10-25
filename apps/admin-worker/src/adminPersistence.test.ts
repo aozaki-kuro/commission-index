@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createSQLiteD1 } from '../test/sqliteD1'
-import { createCommission, deleteCharacter, saveHomeFeaturedSearchKeywords, updateCharacterOrder } from './adminPersistence'
+import { createCommission, deleteCharacter, saveHomeFeaturedSearchKeywords, updateCharacter, updateCharacterOrder } from './adminPersistence'
 
 describe('d1 batch persistence', () => {
   it('stores explicit identity fields and binds source-image metadata to the new commission id', async () => {
@@ -200,5 +200,73 @@ describe('character delete source-image selection', () => {
     expect(objectKeys).toEqual(['source-images/own.jpg'])
     expect(database.prepare('SELECT object_key FROM source_images ORDER BY commission_file_name').all())
       .toEqual([{ object_key: 'source-images/shared.jpg' }])
+  })
+})
+
+describe('character rename and aliases', () => {
+  const aliasRows = (database: ReturnType<typeof createSQLiteD1>['database']) =>
+    database.prepare('SELECT character_name, aliases FROM character_aliases ORDER BY character_name').all()
+
+  function seed() {
+    const { database, db } = createSQLiteD1()
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS character_aliases (character_name TEXT PRIMARY KEY, aliases TEXT NOT NULL);
+      INSERT INTO characters (id, name, status, sort_order) VALUES (1, 'Old Name', 'active', 1);
+      INSERT INTO characters (id, name, status, sort_order) VALUES (2, 'Other', 'active', 2);
+    `)
+    return { database, db }
+  }
+
+  it('moves aliases to the new name and leaves no row under the old one', async () => {
+    const { database, db } = seed()
+    database.exec('INSERT INTO character_aliases VALUES (\'Old Name\', \'["Alpha","Beta"]\')')
+
+    await updateCharacter(db, { id: 1, name: 'New Name', status: 'active' })
+
+    expect(aliasRows(database)).toEqual([{ character_name: 'New Name', aliases: '["Alpha","Beta"]' }])
+  })
+
+  it('merges with an orphan row already stored under the new name, deduplicating case-insensitively', async () => {
+    const { database, db } = seed()
+    database.exec(`
+      INSERT INTO character_aliases VALUES ('Old Name', '["Alpha","Beta"]');
+      INSERT INTO character_aliases VALUES ('new name', '["beta","Gamma"]');
+    `)
+
+    await updateCharacter(db, { id: 1, name: 'New Name', status: 'active' })
+
+    const rows = aliasRows(database) as Array<{ character_name: string, aliases: string }>
+    expect(rows).toHaveLength(1)
+    expect(rows[0]?.character_name).toBe('New Name')
+    expect(JSON.parse(rows[0]?.aliases ?? '[]')).toEqual(['beta', 'Gamma', 'Alpha'])
+  })
+
+  it('moves an alias row whose stored name differs from the old name only by case and spacing', async () => {
+    const { database, db } = seed()
+    database.exec('INSERT INTO character_aliases VALUES (\'old  NAME\', \'["Alpha"]\')')
+
+    await updateCharacter(db, { id: 1, name: 'New Name', status: 'active' })
+
+    expect(aliasRows(database)).toEqual([{ character_name: 'New Name', aliases: '["Alpha"]' }])
+  })
+
+  it('renames a character that has no aliases', async () => {
+    const { database, db } = seed()
+
+    await updateCharacter(db, { id: 1, name: 'New Name', status: 'archived' })
+
+    expect(database.prepare('SELECT name, status FROM characters WHERE id = 1').get())
+      .toEqual({ name: 'New Name', status: 'archived' })
+    expect(aliasRows(database)).toEqual([])
+  })
+
+  it('leaves both tables unchanged when the new name collides with another character', async () => {
+    const { database, db } = seed()
+    database.exec('INSERT INTO character_aliases VALUES (\'Old Name\', \'["Alpha"]\')')
+
+    await expect(updateCharacter(db, { id: 1, name: 'Other', status: 'active' })).rejects.toThrow()
+
+    expect(database.prepare('SELECT name FROM characters WHERE id = 1').get()).toEqual({ name: 'Old Name' })
+    expect(aliasRows(database)).toEqual([{ character_name: 'Old Name', aliases: '["Alpha"]' }])
   })
 })

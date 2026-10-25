@@ -245,7 +245,7 @@ function parseCommissionFieldsFromJson(payload: Record<string, unknown>) {
   })
 }
 
-function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' | 'commissionDate' | 'creatorName' | 'workGroupId' | 'partNumber'>) {
+function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' | 'commissionDate' | 'creatorName' | 'workGroupId' | 'partNumber' | 'links'>) {
   if (!Number.isFinite(fields.characterId) || fields.characterId <= 0) {
     return 'Character selection is required.'
   }
@@ -264,6 +264,13 @@ function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' |
 
   if (fields.creatorName && [...fields.creatorName].some(character => character.charCodeAt(0) <= 0x1F)) {
     return 'Creator name must be a string or null.'
+  }
+
+  // Links are rendered into href on the public site, so only absolute http(s) URLs may pass (blocks javascript: etc.).
+  for (const link of fields.links) {
+    if (!URL.canParse(link) || !['http:', 'https:'].includes(new URL(link).protocol)) {
+      return `Link "${link}" must be an http(s) URL.`
+    }
   }
 
   const uuidV4Pattern = /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/

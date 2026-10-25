@@ -8,6 +8,7 @@ import {
   normalizeKeywordAliases,
   normalizeKeywordAliasKey,
   normalizeKeywordBaseTerm,
+  parseCharacterAliasesJson,
   splitKeywordTerms,
 } from '../../../packages/domain/src/index'
 
@@ -41,6 +42,7 @@ interface MaxSortOrderRow {
 
 interface CharacterIdRow {
   id: number
+  name: string
 }
 
 interface CharacterNameRow {
@@ -327,7 +329,7 @@ export async function updateCharacter(
 
   const existing = await queryFirstRow<CharacterIdRow>(
     db,
-    'SELECT id FROM characters WHERE id = ? LIMIT 1',
+    'SELECT id, name FROM characters WHERE id = ? LIMIT 1',
     [input.id],
   )
 
@@ -335,11 +337,43 @@ export async function updateCharacter(
     throw new Error('Character not found.')
   }
 
-  await runStatement(
-    db,
-    'UPDATE characters SET name = ?, status = ? WHERE id = ?',
-    [name, input.status, input.id],
-  )
+  const operations: Array<{ query: string, values?: unknown[] }> = [{
+    query: 'UPDATE characters SET name = ?, status = ? WHERE id = ?',
+    values: [name, input.status, input.id],
+  }]
+
+  // character_aliases is keyed by the exact name, so a rename must re-home its row in the same batch or the
+  // aliases silently stop applying.
+  if (existing.name !== name) {
+    await ensureCharacterAliasesTable(db)
+    const oldKey = normalizeCharacterAliasKey(existing.name)
+    const newKey = normalizeCharacterAliasKey(name)
+    const results = await queryRows<{ character_name: string, aliases: string }>(
+      db,
+      'SELECT character_name, aliases FROM character_aliases',
+    )
+    const oldRows = results.filter(row => normalizeCharacterAliasKey(row.character_name) === oldKey)
+    const targetRows = results.filter(row => normalizeCharacterAliasKey(row.character_name) === newKey)
+
+    if (oldRows.length > 0 || targetRows.length > 0) {
+      // Merge rather than replace so renaming back (A -> B -> A) recovers aliases left behind under the old name.
+      const aliases = normalizeCharacterAliases([
+        ...targetRows.flatMap(row => parseCharacterAliasesJson(row.aliases)),
+        ...oldRows.flatMap(row => parseCharacterAliasesJson(row.aliases)),
+      ])
+      for (const row of [...oldRows, ...targetRows]) {
+        operations.push({ query: 'DELETE FROM character_aliases WHERE character_name = ?', values: [row.character_name] })
+      }
+      if (aliases.length > 0) {
+        operations.push({
+          query: 'INSERT INTO character_aliases (character_name, aliases) VALUES (?, ?)',
+          values: [name, JSON.stringify(aliases)],
+        })
+      }
+    }
+  }
+
+  await runStatementsAtomically(db, operations)
 
   return name
 }
