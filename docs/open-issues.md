@@ -2,6 +2,14 @@
 
 仍未关闭的问题清单，最后核对于 2026-10-11。每条动手前须重新对照代码核实；行号会漂移。
 
+## 已于 2026-10-26 收口
+
+`audit-2026-10-12-full-repo.md` 中以下条目已修，不再单列：
+
+- **WRK-1 / WRK-2 / WRK-5 / WRK-10**（#410）：改名时同批迁移别名行（合并而非覆盖）；上传按 magic bytes 判定 JPEG/PNG 并限 10 MiB；建议词后缀只剥 `(preview)` / `(part N)`，worker 改用 domain 实现；作品链接只接受绝对 http(s) URL。
+- **WEB-9 / WEB-11 / WEB-5**（#412）：导航拦截放行修饰键与非主键点击；`?q=` 随已应用查询 `replaceState` 同步，`popstate` 改变 `?q=` 时以地址为准；所有 `replaceState` 透传 `history.state`。滚动淡入不再监听 body 子树。
+- **随批次加载器删除而失效**（#409，静态列表）：WEB-1、WEB-2、WEB-3、WEB-6、WEB-15、WEB-16、WEB-17，以及 WEB-7 中 loader 相关部分；对应代码已不存在。
+
 ## 已于 2026-10-11 收口
 
 - **LOGIC-02 跨标签过度拉取**：广播可携带 `characterIds`（`dataUpdateSignal.ts`），Edit 页只重取受影响的已加载角色；无 scope（别名、角色增删改排序、关键词批量、storage 回退、旧标签、无排队请求的首次载入）保持全量重取。过期标签的 scope 可能漏掉他处移入的角色组，该组在下次全量刷新时更新。
