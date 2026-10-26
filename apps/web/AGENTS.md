@@ -75,7 +75,7 @@ JSON / HTML, or the archived toggle / hash navigation contract change.
 - Search UI must be layout-stable on first paint — no shell-to-content swaps
 - Production search index: `/search/home-search-entries.<v>.json` (not DOM metadata), `v` from the root `data-search-index-version` attribute (`#--------Commissions--------`); a 404 retries once with `v` from `/search/home-search-version.json` (`no-cache`); no unversioned index route exists
 - Search locale labels resolve from `homeSearchControls.ts` (not the full `homeLocale` graph)
-- `?q=` mirrors the applied query: written via `replaceState(history.state, …)` ~300 ms after it is applied (never `pushState`; `null` state would wipe ClientRouter's), removed on clear; a self-write fires no location-change event, `popstate` makes the address win over typed text
+- `?q=` mirrors the applied query: written via `replaceState(history.state, …)` ~300 ms after it is applied (never `pushState`; `null` state would wipe ClientRouter's), removed on clear; a self-write fires no location-change event; a `popstate` that changes `?q=` makes the address win over typed text, a hash-only one keeps it
 - Link-click interceptors (sidebar, hamburger, hash) must bail on `!isUnmodifiedPrimaryClick(event)` (`lib/navigation/hashAnchor.ts`) so modified/middle clicks open normally
 - Matcher rules (CJK/kana vs JS `\b`) live in the root `AGENTS.md`
 
