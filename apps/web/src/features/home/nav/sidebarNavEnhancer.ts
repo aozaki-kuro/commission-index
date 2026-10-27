@@ -496,11 +496,6 @@ export function mountSidebarNavEnhancer({
       if (!nextMode)
         return
 
-      deps.trackEvent(ANALYTICS_EVENTS.sidebarViewModeToggleUsed, {
-        from_mode: currentMode,
-        to_mode: nextMode,
-        already_active: currentMode === nextMode,
-      })
       if (nextMode !== currentMode) {
         replaceCommissionViewModeInAddress(win, nextMode)
       }

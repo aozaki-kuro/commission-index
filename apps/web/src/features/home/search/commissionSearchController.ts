@@ -220,7 +220,6 @@ export function initSearchController(root: HTMLElement) {
   function applySuggestion(suggestion: string | null) {
     if (!suggestion)
       return
-    trackRybbitEvent(ANALYTICS_EVENTS.suggestionSelected, { term: suggestion })
     applySelectedQuery(applySuggestionToQuery(query, suggestion))
   }
 
@@ -694,7 +693,6 @@ export function initSearchController(root: HTMLElement) {
   // Rotate button: next keyword page + dismiss featured keywords
   if (rotateBtn) {
     rotateBtn.addEventListener('click', () => {
-      trackRybbitEvent(ANALYTICS_EVENTS.keywordRefreshClicked)
       hasDismissedFeaturedKeywords = true
       popularKeywordPage += 1
 

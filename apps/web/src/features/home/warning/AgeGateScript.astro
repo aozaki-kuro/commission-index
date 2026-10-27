@@ -135,6 +135,8 @@ const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
 </style>
 
 <script>
+import { ANALYTICS_EVENTS } from '@lib/analytics/events'
+import { trackRybbitEvent } from '@lib/analytics/track'
 import { bindSoftNavMount } from '@lib/astro/softNavMount'
 import { CONFIRMED_AGE_KEY, CONFIRMED_IN_MEMORY_FLAG, hasValidAgeConfirmation, readStoredAgeConfirmation, writeStoredAgeConfirmation } from './ageGate'
 
@@ -195,6 +197,9 @@ function mountAgeGate(): (() => void) | null {
     }
     delete document.documentElement.dataset[INITIAL_ATTRIBUTE]
     isOpen = open
+    // Once per mount: `shown` minus `confirmed` is how many visitors the gate turned away.
+    if (open && !hasOpened)
+      trackRybbitEvent(ANALYTICS_EVENTS.ageGate, { action: 'shown' })
     if (open)
       hasOpened = true
 
@@ -232,6 +237,7 @@ function mountAgeGate(): (() => void) | null {
   }
 
   const onConfirmAge = () => {
+    trackRybbitEvent(ANALYTICS_EVENTS.ageGate, { action: 'confirmed' })
     if (!writeStoredAgeConfirmation(() => localStorage, String(Date.now())))
       memoryFlags[CONFIRMED_IN_MEMORY_FLAG] = true
     window.dispatchEvent(new Event(AGE_CONFIRM_EVENT))

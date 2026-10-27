@@ -171,10 +171,6 @@ describe('mobileHamburgerMenu', () => {
     getSearchAction()!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
 
     expect(jumpToSearch).toHaveBeenCalledWith({ topGap: 40, focusMode: 'immediate' })
-    expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.hamburgerMenuUsed, {
-      active_count: 2,
-      archived_count: 1,
-    })
     expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.sidebarNavUsed, {
       source: 'search_link',
       nav_surface: 'hamburger',

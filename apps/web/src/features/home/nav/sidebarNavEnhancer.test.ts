@@ -1,7 +1,6 @@
 import {
   ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT,
 } from '@features/home/commission/archivedCharactersState'
-import { ANALYTICS_EVENTS } from '@lib/analytics/events'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '@lib/navigation/sidebarSearchState'
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -72,10 +71,9 @@ describe('sidebarNavEnhancer', () => {
   })
 
   it('syncs URL and panel visibility when view mode toggles', () => {
-    const trackEvent = vi.fn()
     const cleanup = mountSidebarNavEnhancer({
       deps: {
-        trackEvent,
+        trackEvent: vi.fn(),
       },
     })
 
@@ -97,14 +95,6 @@ describe('sidebarNavEnhancer', () => {
         ?.classList
         .contains('hidden'),
     ).toBe(false)
-    expect(trackEvent).toHaveBeenCalledWith(
-      ANALYTICS_EVENTS.sidebarViewModeToggleUsed,
-      expect.objectContaining({
-        from_mode: 'character',
-        to_mode: 'timeline',
-      }),
-    )
-
     cleanup()
   })
 

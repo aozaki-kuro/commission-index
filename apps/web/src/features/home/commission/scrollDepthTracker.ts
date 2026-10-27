@@ -6,7 +6,8 @@ const TIMELINE_ENTRY_SELECTOR = '[data-commission-entry="true"]'
 // Tailwind's `lg`: the breakpoint where the desktop sidebar replaces the hamburger menu.
 const DESKTOP_LAYOUT_QUERY = '(min-width: 64rem)'
 
-export const SCROLL_DEPTH_MILESTONES = [25, 50, 75, 100] as const
+// 5/10 split the first quarter, where most sessions stop, into "barely scrolled" and "left early".
+export const SCROLL_DEPTH_MILESTONES = [5, 10, 25, 50, 75, 100] as const
 
 export interface ScrollDepthEventProperties {
   depth: (typeof SCROLL_DEPTH_MILESTONES)[number]
