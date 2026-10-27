@@ -73,22 +73,23 @@ describe('scrollDepthTracker', () => {
     const trackEvent = vi.fn<(properties: ScrollDepthEventProperties) => void>()
     const dispose = mountScrollDepthTracker({ trackEvent })
 
-    // Entries 0-1 have entered the 800px viewport: 2 of 8 = 25%.
+    // Entries 0-1 have entered the 800px viewport: 2 of 8 = 25%, crossing 5 and 10 on the way.
     await scrollTo(1)
     await vi.waitFor(() => {
-      expect(trackEvent).toHaveBeenCalledTimes(1)
+      expect(trackEvent).toHaveBeenCalledTimes(3)
     })
+    expect(trackEvent.mock.calls.map(([properties]) => properties.depth)).toEqual([5, 10, 25])
     expect(trackEvent).toHaveBeenLastCalledWith({ depth: 25, view_mode: 'character', layout: 'mobile', total_entries: 8 })
 
     // Scrolling back and forth over a reached milestone must not repeat it.
     await scrollTo(0)
     await scrollTo(1)
-    expect(trackEvent).toHaveBeenCalledTimes(1)
+    expect(trackEvent).toHaveBeenCalledTimes(3)
 
     // Entry 3 (the last active one) entering = 4 of 8 = 50%.
     await scrollTo(1000)
     await vi.waitFor(() => {
-      expect(trackEvent).toHaveBeenCalledTimes(2)
+      expect(trackEvent).toHaveBeenCalledTimes(4)
     })
     expect(trackEvent).toHaveBeenLastCalledWith(expect.objectContaining({ depth: 50 }))
 
@@ -102,7 +103,7 @@ describe('scrollDepthTracker', () => {
 
     await scrollTo(3000)
     await vi.waitFor(() => {
-      expect(trackEvent.mock.calls.map(([properties]) => properties.depth)).toEqual([25, 50, 75, 100])
+      expect(trackEvent.mock.calls.map(([properties]) => properties.depth)).toEqual([5, 10, 25, 50, 75, 100])
     })
 
     dispose()
@@ -115,16 +116,18 @@ describe('scrollDepthTracker', () => {
 
     await scrollTo(1)
     await vi.waitFor(() => {
-      expect(trackEvent).toHaveBeenCalledTimes(1)
+      expect(trackEvent).toHaveBeenCalledTimes(3)
     })
 
     setActivePanel('timeline')
     // Back at the top: timeline entries 0-1 are in view = 2 of 4 = 50%.
     await scrollTo(0)
     await vi.waitFor(() => {
-      expect(trackEvent).toHaveBeenCalledTimes(3)
+      expect(trackEvent).toHaveBeenCalledTimes(7)
     })
-    expect(trackEvent.mock.calls.slice(1).map(([properties]) => properties)).toEqual([
+    expect(trackEvent.mock.calls.slice(3).map(([properties]) => properties)).toEqual([
+      { depth: 5, view_mode: 'timeline', layout: 'desktop', total_entries: 4 },
+      { depth: 10, view_mode: 'timeline', layout: 'desktop', total_entries: 4 },
       { depth: 25, view_mode: 'timeline', layout: 'desktop', total_entries: 4 },
       { depth: 50, view_mode: 'timeline', layout: 'desktop', total_entries: 4 },
     ])

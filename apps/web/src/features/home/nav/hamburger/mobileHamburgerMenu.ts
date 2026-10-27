@@ -182,7 +182,6 @@ export function mountMobileHamburgerMenu({
   let disposed = false
   let closeTimerId: number | null = null
   let openRafId: number | null = null
-  let hasTrackedHamburgerUsage = false
   let hasTrackedSearchUsage = false
   let didHandleSearchPointerDown = false
   let expandedCharacterSection: CharacterSectionKey | null = 'active'
@@ -272,14 +271,6 @@ export function mountMobileHamburgerMenu({
   const openMenu = () => {
     if (ageGateOpen)
       return
-
-    if (!hasTrackedHamburgerUsage) {
-      hasTrackedHamburgerUsage = true
-      deps.trackEvent(ANALYTICS_EVENTS.hamburgerMenuUsed, {
-        active_count: activeCount,
-        archived_count: archivedCount,
-      })
-    }
 
     clearCloseTimer()
     clearOpenRaf()
@@ -410,12 +401,6 @@ export function mountMobileHamburgerMenu({
       const nextMode = resolveCommissionViewModeFromElement(viewModeToggle)
       if (!nextMode)
         return
-
-      deps.trackEvent(ANALYTICS_EVENTS.sidebarViewModeToggleUsed, {
-        from_mode: currentMode,
-        to_mode: nextMode,
-        already_active: currentMode === nextMode,
-      })
 
       if (currentMode !== nextMode) {
         replaceCommissionViewModeInAddress(win, nextMode)
