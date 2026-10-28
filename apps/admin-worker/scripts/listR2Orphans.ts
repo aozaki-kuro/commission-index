@@ -120,7 +120,9 @@ async function listR2ObjectKeys(bucketName: string, accountId: string, token: st
       url.searchParams.set('cursor', cursor)
     }
 
-    const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
     if (!response.ok) {
       throw new Error(`R2 list failed with HTTP ${response.status}.`)
     }
@@ -130,7 +132,9 @@ async function listR2ObjectKeys(bucketName: string, accountId: string, token: st
       keys.push(item.key)
     }
 
-    cursor = body.result_info?.is_truncated ? (body.result_info.cursor ?? null) : null
+    cursor = body.result_info?.is_truncated
+      ? (body.result_info.cursor ?? null)
+      : null
   } while (cursor)
 
   return keys
@@ -152,7 +156,9 @@ function listReferencedObjectKeys(databaseBinding: string, usePreview: boolean) 
     args.splice(6, 0, '--preview')
   }
 
-  const wranglerBin = existsSync(localWranglerBinPath) ? localWranglerBinPath : 'wrangler'
+  const wranglerBin = existsSync(localWranglerBinPath)
+    ? localWranglerBinPath
+    : 'wrangler'
   const result = spawnSync(wranglerBin, args, {
     cwd: adminWorkerRoot,
     encoding: 'utf8',
@@ -169,7 +175,10 @@ function listReferencedObjectKeys(databaseBinding: string, usePreview: boolean) 
 async function deleteR2Object(bucketName: string, key: string, accountId: string, token: string) {
   const response = await fetch(
     `${cloudflareApiBase}/accounts/${accountId}/r2/buckets/${bucketName}/objects/${encodeObjectKey(key)}`,
-    { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    },
   )
   if (!response.ok) {
     throw new Error(`R2 delete of ${key} failed with HTTP ${response.status}.`)
@@ -203,7 +212,9 @@ export async function main(argv: string[] = process.argv.slice(2)) {
     }
     catch (error) {
       failed += 1
-      console.error(error instanceof Error ? error.message : String(error))
+      console.error(error instanceof Error
+        ? error.message
+        : String(error))
     }
   }
 
@@ -214,7 +225,9 @@ export async function main(argv: string[] = process.argv.slice(2)) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   void main().catch((error) => {
-    console.error(error instanceof Error ? error.message : String(error))
+    console.error(error instanceof Error
+      ? error.message
+      : String(error))
     process.exitCode = 1
   })
 }

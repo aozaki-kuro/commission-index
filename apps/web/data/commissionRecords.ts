@@ -23,7 +23,9 @@ function loadCharacterRecords(): CharacterRecord[] {
 const staticCharacterRecords = loadCharacterRecords()
 
 export function getCharacterRecords(): CharacterRecord[] {
-  return isDevelopment ? loadCharacterRecords() : staticCharacterRecords
+  return isDevelopment
+    ? loadCharacterRecords()
+    : staticCharacterRecords
 }
 
 export { staticCharacterRecords as characterRecords }

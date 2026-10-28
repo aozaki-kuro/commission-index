@@ -21,12 +21,16 @@ export function extractCommissionDetails(fileName: string): CommissionFileDetail
 
   const creatorName = match[2]?.trim() ?? ''
   const suffix = creatorName.match(/\s+\(part ([1-9]\d*)\)$/i)
-  const partNumber = suffix ? Number(suffix[1]) : null
+  const partNumber = suffix
+    ? Number(suffix[1])
+    : null
   const hasValidPartNumber = partNumber !== null && Number.isSafeInteger(partNumber)
 
   return {
     commissionDate,
-    creatorName: hasValidPartNumber ? creatorName.slice(0, -suffix![0].length).trim() : creatorName,
+    creatorName: hasValidPartNumber
+      ? creatorName.slice(0, -suffix![0].length).trim()
+      : creatorName,
     workGroupId: hasValidPartNumber ? 'new' : '',
     partNumber: hasValidPartNumber ? partNumber : null,
   }

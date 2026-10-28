@@ -12,11 +12,17 @@ const lazyCreate = vi.hoisted(() => {
   return { promise, resolve }
 })
 
-vi.mock('./components/FloatingRebuildButton', () => ({ FloatingRebuildButton: () => null }))
-vi.mock('./pages/AdminOverviewPage', () => ({ AdminOverviewPage: () => <p>Overview ready</p> }))
+vi.mock('./components/FloatingRebuildButton', () => ({
+  FloatingRebuildButton: () => null,
+}))
+vi.mock('./pages/AdminOverviewPage', () => ({
+  AdminOverviewPage: () => <p>Overview ready</p>,
+}))
 vi.mock('./pages/AdminCreatePage', async () => {
   await lazyCreate.promise
-  return { AdminCreatePage: () => <p>Create ready</p> }
+  return {
+    AdminCreatePage: () => <p>Create ready</p>,
+  }
 })
 vi.mock('./pages/AdminEditPage', () => ({
   AdminEditPage: ({ onReady }: { onReady?: () => void }) => (
@@ -90,7 +96,9 @@ describe('route load boundary', () => {
       await new Promise(resolve => setTimeout(resolve, 0))
     })
     expect(scrollTo).not.toHaveBeenCalled()
-    const ready = [...container.querySelectorAll('button')].find(button => button.textContent === 'Finish loading edit groups')!
+    const ready = [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Finish loading edit groups')!
     expect(window.history.scrollRestoration).toBe('manual')
     await act(async () => ready.click())
     expect(scrollTo).toHaveBeenCalledOnce()
@@ -105,7 +113,9 @@ describe('route load boundary', () => {
     scrollTo.mockClear()
     await act(async () => container.querySelector<HTMLAnchorElement>('a[href="/edit"]')!.click())
     await act(async () => window.dispatchEvent(new WheelEvent('wheel')))
-    const cancelledReady = [...container.querySelectorAll('button')].find(button => button.textContent === 'Finish loading edit groups')!
+    const cancelledReady = [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Finish loading edit groups')!
     await act(async () => cancelledReady.click())
     expect(scrollTo).not.toHaveBeenCalled()
   })

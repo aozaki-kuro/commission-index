@@ -104,7 +104,9 @@ function writeStoredScrollTop(onQuotaExceeded?: () => void) {
     return
   }
 
-  const visibleAnchor = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)]
+  const visibleAnchor = (selector: string) => [
+    ...document.querySelectorAll<HTMLElement>(selector),
+  ]
     .map((element) => {
       const rect = element.getBoundingClientRect()
       return { element, rect }
@@ -157,7 +159,10 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
   const cancelledScrollRestoreRef = useRef(false)
   const [areOpenGroupsLoaded, setAreOpenGroupsLoaded] = useState(false)
   const markOpenGroupsLoaded = useCallback(() => setAreOpenGroupsLoaded(true), [])
-  const pendingRefreshRef = useRef<PendingRefresh>({ all: false, ids: new Set() })
+  const pendingRefreshRef = useRef<PendingRefresh>({
+    all: false,
+    ids: new Set(),
+  })
   const refreshData = useCallback(() => {
     pendingRefreshRef.current.all = true
     setReloadToken(token => token + 1)
@@ -218,8 +223,13 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
 
         const pending = pendingRefreshRef.current
         // Nothing queued (first landing, cached revalidation) must stay a full refresh, never an empty scope.
-        const refreshScope = pending.all || pending.ids.size === 0 ? null : new Set(pending.ids)
-        pendingRefreshRef.current = { all: false, ids: new Set() }
+        const refreshScope = pending.all || pending.ids.size === 0
+          ? null
+          : new Set(pending.ids)
+        pendingRefreshRef.current = {
+          all: false,
+          ids: new Set(),
+        }
         dispatch({
           payload,
           refreshScope,
@@ -236,7 +246,9 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
         }
 
         dispatch({
-          message: error instanceof Error ? error.message : 'Failed to load admin data.',
+          message: error instanceof Error
+            ? error.message
+            : 'Failed to load admin data.',
           type: 'failed',
         })
       })
@@ -347,7 +359,12 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
       disposed = true
       window.cancelAnimationFrame(frameId)
     }
-  }, [areOpenGroupsLoaded, hasRestoredScroll, pendingScrollState, state.payload])
+  }, [
+    areOpenGroupsLoaded,
+    hasRestoredScroll,
+    pendingScrollState,
+    state.payload,
+  ])
 
   return (
     <>

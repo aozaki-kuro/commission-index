@@ -88,7 +88,9 @@ function TabButton({ activeTab, count, label, onSelect, tab }: TabButtonProps) {
       role="tab"
       aria-selected={isActive}
       aria-controls={`aliases-panel-${tab}`}
-      tabIndex={isActive ? 0 : -1}
+      tabIndex={isActive
+        ? 0
+        : -1}
       onClick={() => onSelect(tab)}
       className={`
         relative inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium sm:gap-2 sm:px-4 sm:text-sm
@@ -184,21 +186,27 @@ export function AdminAliasesDashboard({
       >
         <TabButton
           activeTab={activeTab}
-          count={isLoading || isUnavailable ? null : characterRows.length}
+          count={isLoading || isUnavailable
+            ? null
+            : characterRows.length}
           label="Character"
           onSelect={setActiveTab}
           tab="character"
         />
         <TabButton
           activeTab={activeTab}
-          count={isLoading || isUnavailable ? null : creatorRows.length}
+          count={isLoading || isUnavailable
+            ? null
+            : creatorRows.length}
           label="Creator"
           onSelect={setActiveTab}
           tab="creator"
         />
         <TabButton
           activeTab={activeTab}
-          count={isLoading || isUnavailable ? null : keywordRows.length}
+          count={isLoading || isUnavailable
+            ? null
+            : keywordRows.length}
           label="Keyword"
           onSelect={setActiveTab}
           tab="keyword"

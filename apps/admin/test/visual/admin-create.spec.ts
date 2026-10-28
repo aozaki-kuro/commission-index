@@ -71,9 +71,18 @@ test('commission metadata fields align and the date picker fits desktop and mobi
     await page.getByRole('heading', { name: 'Entry details' }).waitFor()
 
     const fieldPairs = [
-      [page.getByText('Character', { exact: true }), page.getByRole('combobox', { name: 'Character' })],
-      [page.getByText('Delivery date', { exact: true }), page.getByRole('textbox', { name: 'Delivery date' })],
-      [page.getByText('Creator (optional)', { exact: true }), page.getByRole('textbox', { name: 'Creator (optional)' })],
+      [
+        page.getByText('Character', { exact: true }),
+        page.getByRole('combobox', { name: 'Character' }),
+      ],
+      [
+        page.getByText('Delivery date', { exact: true }),
+        page.getByRole('textbox', { name: 'Delivery date' }),
+      ],
+      [
+        page.getByText('Creator (optional)', { exact: true }),
+        page.getByRole('textbox', { name: 'Creator (optional)' }),
+      ],
     ] as const
 
     for (const [label, control] of fieldPairs) {
@@ -243,12 +252,16 @@ test('source image cropper supports touch transform gestures', async ({ page }, 
       clientY: number,
     ) => new PointerEvent(type, {
       bubbles: true,
-      buttons: type === 'pointerup' ? 0 : 1,
+      buttons: type === 'pointerup'
+        ? 0
+        : 1,
       cancelable: true,
       clientX,
       clientY,
       isPrimary: pointerId === 1,
-      pressure: type === 'pointerup' ? 0 : 0.5,
+      pressure: type === 'pointerup'
+        ? 0
+        : 0.5,
       pointerId,
       pointerType: 'touch',
     })
@@ -365,7 +378,12 @@ test('overview quick actions stay inside the client shell', async ({ page }, tes
 // 使用模拟 API，覆盖两个入口；动画开启时必须等内容和遮罩实际退场。
 for (const routeName of ['create', 'edit']) {
   for (const reducedMotion of ['no-preference', 'reduce'] as const) {
-    for (const action of ['Cancel', 'Close', 'Escape', 'Use image']) {
+    for (const action of [
+      'Cancel',
+      'Close',
+      'Escape',
+      'Use image',
+    ]) {
       test(`crop lifecycle ${routeName} ${reducedMotion} ${action}`, async ({ page }) => {
         await mockAdminApi(page)
         await page.emulateMedia({ reducedMotion })
@@ -393,8 +411,11 @@ for (const routeName of ['create', 'edit']) {
           Object.assign(window, { cropExitEvents: events })
           document.addEventListener('animationend', (event) => {
             const target = event.target as HTMLElement
-            if (event.animationName === 'dialog-crop-content-out')
-              events.push(target.getAttribute('data-dialog-overlay') === 'crop' ? 'overlay' : 'content')
+            if (event.animationName === 'dialog-crop-content-out') {
+              events.push(target.getAttribute('data-dialog-overlay') === 'crop'
+                ? 'overlay'
+                : 'content')
+            }
           })
         })
         if (action === 'Escape')
@@ -404,7 +425,9 @@ for (const routeName of ['create', 'edit']) {
         await expect(crop).toHaveCount(0)
         await expect(page.locator('[data-dialog-overlay="crop"]')).toHaveCount(0)
         const events = await page.evaluate(() => (window as unknown as { cropExitEvents: string[] }).cropExitEvents)
-        expect(events.sort()).toEqual(reducedMotion === 'reduce' ? [] : ['content', 'overlay'])
+        expect(events.sort()).toEqual(reducedMotion === 'reduce'
+          ? []
+          : ['content', 'overlay'])
         if (routeName === 'edit') {
           await expect(page.getByRole('dialog')).toHaveCount(1)
           if (action === 'Use image')

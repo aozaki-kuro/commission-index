@@ -91,7 +91,10 @@ const defaultDeps: HomePageClientDeps = {
 }
 
 export function mountHomePageClient({ deps: depsOverrides }: MountHomePageClientOptions = {}) {
-  const deps = { ...defaultDeps, ...depsOverrides }
+  const deps = {
+    ...defaultDeps,
+    ...depsOverrides,
+  }
   const criticalMounts: Mount[] = [
     deps.mountCommissionViewModeDomSync,
     // The toggle restores saved visibility before the hash target and scroll restore read the layout.

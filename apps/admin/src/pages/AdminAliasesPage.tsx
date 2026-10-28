@@ -88,7 +88,9 @@ export function AdminAliasesPage() {
         }
 
         dispatch({
-          message: error instanceof Error ? error.message : 'Failed to load alias data.',
+          message: error instanceof Error
+            ? error.message
+            : 'Failed to load alias data.',
           type: 'failed',
         })
       })

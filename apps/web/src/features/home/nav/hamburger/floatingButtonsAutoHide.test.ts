@@ -39,7 +39,10 @@ describe('floatingButtonsAutoHide', () => {
   beforeEach(() => {
     scrollY = 400
     scrollHeight = 5000
-    Object.defineProperty(window, 'scrollY', { configurable: true, get: () => scrollY })
+    Object.defineProperty(window, 'scrollY', {
+      configurable: true,
+      get: () => scrollY,
+    })
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 })
     Object.defineProperty(document.documentElement, 'scrollHeight', {
       configurable: true,
@@ -96,36 +99,56 @@ describe('floatingButtonsAutoHide', () => {
   })
 
   it.each([
-    ['language menu open', () => {
-      document.querySelector<HTMLDetailsElement>('[data-mobile-language-menu="true"]')!.open = true
-    }, () => {
-      document.querySelector<HTMLDetailsElement>('[data-mobile-language-menu="true"]')!.open = false
-    }],
-    ['hamburger mounted', () => {
-      hamburger().dataset.mobileHamburgerMounted = 'true'
-    }, () => {
-      hamburger().dataset.mobileHamburgerMounted = 'false'
-    }],
-    ['hamburger open', () => {
-      hamburger().dataset.mobileHamburgerOpen = 'true'
-    }, () => {
-      hamburger().dataset.mobileHamburgerOpen = 'false'
-    }],
-    ['keyboard focus inside', () => {
-      const button = hamburger().querySelector('button')!
-      // jsdom's :focus-visible heuristic is unreliable, so pin keyboard-originated focus explicitly.
-      vi.spyOn(button, 'matches').mockImplementation(
-        selector => selector === ':focus-visible' || Element.prototype.matches.call(button, selector),
-      )
-      button.focus()
-    }, () => {
-      document.querySelector<HTMLElement>('#outside')!.focus()
-    }],
-    ['age gate open', () => {
-      document.documentElement.dataset.ageGateOpen = 'true'
-    }, () => {
-      document.documentElement.removeAttribute('data-age-gate-open')
-    }],
+    [
+      'language menu open',
+      () => {
+        document.querySelector<HTMLDetailsElement>('[data-mobile-language-menu="true"]')!.open = true
+      },
+      () => {
+        document.querySelector<HTMLDetailsElement>('[data-mobile-language-menu="true"]')!.open = false
+      },
+    ],
+    [
+      'hamburger mounted',
+      () => {
+        hamburger().dataset.mobileHamburgerMounted = 'true'
+      },
+      () => {
+        hamburger().dataset.mobileHamburgerMounted = 'false'
+      },
+    ],
+    [
+      'hamburger open',
+      () => {
+        hamburger().dataset.mobileHamburgerOpen = 'true'
+      },
+      () => {
+        hamburger().dataset.mobileHamburgerOpen = 'false'
+      },
+    ],
+    [
+      'keyboard focus inside',
+      () => {
+        const button = hamburger().querySelector('button')!
+        // jsdom's :focus-visible heuristic is unreliable, so pin keyboard-originated focus explicitly.
+        vi.spyOn(button, 'matches').mockImplementation(
+          selector => selector === ':focus-visible' || Element.prototype.matches.call(button, selector),
+        )
+        button.focus()
+      },
+      () => {
+        document.querySelector<HTMLElement>('#outside')!.focus()
+      },
+    ],
+    [
+      'age gate open',
+      () => {
+        document.documentElement.dataset.ageGateOpen = 'true'
+      },
+      () => {
+        document.documentElement.removeAttribute('data-age-gate-open')
+      },
+    ],
   ])('never hides while pinned: %s', async (_name, pin, release) => {
     const dispose = mountFloatingButtonsAutoHide()
     pin()
@@ -184,12 +207,16 @@ describe('floatingButtonsAutoHide', () => {
     await vi.waitFor(() => expect(isHidden(hamburger())).toBe(true))
 
     window.dispatchEvent(
-      new CustomEvent(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, { detail: { mounted: true } }),
+      new CustomEvent(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, {
+        detail: { mounted: true },
+      }),
     )
     expect(isHidden(hamburger())).toBe(false)
     expect(isHidden(languageRoot())).toBe(false)
     window.dispatchEvent(
-      new CustomEvent(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, { detail: { mounted: false } }),
+      new CustomEvent(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, {
+        detail: { mounted: false },
+      }),
     )
 
     await scrollTo(500)

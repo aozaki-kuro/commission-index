@@ -64,7 +64,9 @@ describe('admin edit page cached refresh recovery', () => {
 
     expect(container.textContent).toContain('Cached dashboard')
     expect(container.textContent).toContain('Refresh failed')
-    const retry = [...container.querySelectorAll('button')]
+    const retry = [
+      ...container.querySelectorAll('button'),
+    ]
       .find(button => button.textContent === 'Try again')!
     await act(async () => {
       retry.click()
@@ -94,18 +96,26 @@ describe('admin edit page cached refresh recovery', () => {
     expect(api.scopes.every(scope => scope === null)).toBe(true)
 
     await act(async () => {
-      api.dataUpdate!({ characterIds: [3, 1] })
-      api.dataUpdate!({ characterIds: [2] })
+      api.dataUpdate!({
+        characterIds: [3, 1],
+      })
+      api.dataUpdate!({
+        characterIds: [2],
+      })
     })
     await vi.waitFor(() => expect(api.scopes.at(-1)).toEqual([1, 2, 3]))
 
     await act(async () => {
-      api.dataUpdate!({ characterIds: [5] })
+      api.dataUpdate!({
+        characterIds: [5],
+      })
       api.dataUpdate!()
     })
     await vi.waitFor(() => expect(api.scopes.at(-1)).toBeNull())
 
-    await act(async () => api.dataUpdate!({ characterIds: [4] }))
+    await act(async () => api.dataUpdate!({
+      characterIds: [4],
+    }))
     await vi.waitFor(() => expect(api.scopes.at(-1)).toEqual([4]))
   })
 
@@ -113,8 +123,13 @@ describe('admin edit page cached refresh recovery', () => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
     class ReloadNavigation { type = 'reload' }
     Object.assign(globalThis, { PerformanceNavigationTiming: ReloadNavigation })
-    vi.spyOn(performance, 'getEntriesByType').mockReturnValue([new ReloadNavigation() as unknown as PerformanceEntry])
-    window.sessionStorage.setItem('admin-dashboard-scroll', JSON.stringify({ top: 420, timestamp: Date.now() }))
+    vi.spyOn(performance, 'getEntriesByType').mockReturnValue([
+      new ReloadNavigation() as unknown as PerformanceEntry,
+    ])
+    window.sessionStorage.setItem('admin-dashboard-scroll', JSON.stringify({
+      top: 420,
+      timestamp: Date.now(),
+    }))
     const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
     let frame: FrameRequestCallback | undefined
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {

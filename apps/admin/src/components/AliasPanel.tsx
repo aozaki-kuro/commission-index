@@ -52,8 +52,16 @@ export function AliasPanel({
   const [saved, setSaved] = useState<{ rows: AliasRow[], values: Record<string, string> }>({ rows, values: {} })
   const latestRowsRef = useRef(rows)
   latestRowsRef.current = rows
-  const baseline = Object.fromEntries(rows.map(row => [row.key, saved.rows === rows && Object.hasOwn(saved.values, row.key) ? saved.values[row.key] : row.initialValue]))
-  const values = { ...baseline, ...drafts }
+  const baseline = Object.fromEntries(rows.map(row => [
+    row.key,
+    saved.rows === rows && Object.hasOwn(saved.values, row.key)
+      ? saved.values[row.key]
+      : row.initialValue,
+  ]))
+  const values = {
+    ...baseline,
+    ...drafts,
+  }
   const changedRows = rows.filter(row => values[row.key] !== baseline[row.key])
   const normalizedQuery = query.trim().toLocaleLowerCase()
   const visibleRows = rows.filter(row => `${row.key} ${baseline[row.key]}`.toLocaleLowerCase().includes(normalizedQuery))
@@ -67,10 +75,23 @@ export function AliasPanel({
       result = await formAction(previous, data)
     }
     catch (error) {
-      return { status: 'error' as const, message: error instanceof Error ? error.message : errorFallback }
+      return {
+        status: 'error' as const,
+        message: error instanceof Error
+          ? error.message
+          : errorFallback,
+      }
     }
     if (result.status === 'success') {
-      setSaved(current => ({ rows: latestRowsRef.current, values: { ...(current.rows === latestRowsRef.current ? current.values : {}), ...submitted } }))
+      setSaved(current => ({
+        rows: latestRowsRef.current,
+        values: {
+          ...(current.rows === latestRowsRef.current
+            ? current.values
+            : {}),
+          ...submitted,
+        },
+      }))
       setDrafts((current) => {
         const next = { ...current }
         for (const [key, value] of Object.entries(submitted)) {
@@ -99,13 +120,23 @@ export function AliasPanel({
         </label>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <input id={`${id}-filter`} type="search" value={query} onChange={event => setQuery(event.target.value)} disabled={isLoading || isUnavailable} placeholder={`Search ${columnHeader.toLowerCase()} or alias`} className={`${formControlStyles} min-w-0 md:max-w-md`} />
-          <span className="pl-1 tabular-nums text-xs text-gray-500 dark:text-gray-400" aria-live="polite">{isLoading || isUnavailable ? '— entries' : `${visibleRows.length} of ${rows.length} entries`}</span>
+          <span className="pl-1 tabular-nums text-xs text-gray-500 dark:text-gray-400" aria-live="polite">
+            {isLoading || isUnavailable
+              ? '— entries'
+              : `${visibleRows.length} of ${rows.length} entries`}
+          </span>
         </div>
         <p className="pl-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Separate aliases with commas. Clear a field to remove its aliases.</p>
       </div>
       <div className="admin-glass sticky top-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 px-4 py-3 shadow-sm dark:border-gray-700">
         <div className="space-y-1">
-          <p className="text-sm font-medium text-gray-700 dark:text-gray-200" aria-live="polite">{changedRows.length > 0 ? `${changedRows.length} unsaved ${changedRows.length === 1 ? 'change' : 'changes'}` : 'No unsaved changes'}</p>
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-200" aria-live="polite">
+            {changedRows.length > 0
+              ? `${changedRows.length} unsaved ${changedRows.length === 1
+                ? 'change'
+                : 'changes'}`
+              : 'No unsaved changes'}
+          </p>
           <p className="text-xs text-gray-500 dark:text-gray-400">Only changed rows in this section are saved.</p>
         </div>
         <fieldset disabled={pending || isLoading || isUnavailable || changedRows.length === 0} className="min-w-0">
@@ -122,7 +153,13 @@ export function AliasPanel({
           : isUnavailable
             ? <p className="py-4 pl-1 text-sm text-gray-500 dark:text-gray-400">Alias data is unavailable. Use the retry notice to load it.</p>
             : visibleRows.length === 0
-              ? <p className="py-4 pl-1 text-sm text-gray-500 dark:text-gray-400">{rows.length === 0 ? emptyMessage : 'No aliases match this filter.'}</p>
+              ? (
+                  <p className="py-4 pl-1 text-sm text-gray-500 dark:text-gray-400">
+                    {rows.length === 0
+                      ? emptyMessage
+                      : 'No aliases match this filter.'}
+                  </p>
+                )
               : visibleRows.map((row) => {
                   const inputId = `${id}-${encodeURIComponent(row.key)}`
                   return (
@@ -135,7 +172,9 @@ export function AliasPanel({
                         <p className="text-xs text-gray-500 dark:text-gray-400">
                           {row.count}
                           {' '}
-                          {row.count === 1 ? 'commission' : 'commissions'}
+                          {row.count === 1
+                            ? 'commission'
+                            : 'commissions'}
                         </p>
                       </div>
                       <div className="relative min-w-0">

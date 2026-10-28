@@ -7,15 +7,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FloatingNoticeProvider } from '../FloatingNotice'
 import { CommissionEditForm } from './CommissionEditForm'
 
-const api = vi.hoisted(() => ({ save: vi.fn(), remove: vi.fn(), upload: vi.fn(), saved: vi.fn(), deleted: vi.fn() }))
+const api = vi.hoisted(() => ({
+  save: vi.fn(),
+  remove: vi.fn(),
+  upload: vi.fn(),
+  saved: vi.fn(),
+  deleted: vi.fn(),
+}))
 vi.mock('../../lib/adminActions', () => ({
   updateCommissionAction: api.save,
   deleteCommissionAction: api.remove,
   replaceCommissionSourceImageAction: api.upload,
 }))
-vi.mock('../../lib/dataUpdateSignal', () => ({ notifyDataUpdate: vi.fn() }))
-vi.mock('../../lib/pendingRebuildSignal', () => ({ markPendingRebuild: vi.fn() }))
-vi.mock('../create/DuplicateCommissionNotice', () => ({ DuplicateCommissionNotice: () => null }))
+vi.mock('../../lib/dataUpdateSignal', () => ({
+  notifyDataUpdate: vi.fn(),
+}))
+vi.mock('../../lib/pendingRebuildSignal', () => ({
+  markPendingRebuild: vi.fn(),
+}))
+vi.mock('../create/DuplicateCommissionNotice', () => ({
+  DuplicateCommissionNotice: () => null,
+}))
 vi.mock('../create/CommissionSharedFields', () => ({
   CommissionSharedFields: (props: {
     creatorName: string
@@ -52,7 +64,15 @@ vi.mock('../image/ImageCropDialog', () => ({
   ImageCropDialog: ({ file, onConfirm }: { file: File, onConfirm: (file: File) => void }) => <button type="button" onClick={() => onConfirm(file)}>Confirm crop</button>,
 }))
 
-const characters: CharacterRow[] = [{ id: 1, name: 'Character', status: 'active', sortOrder: 0, commissionCount: 1 }]
+const characters: CharacterRow[] = [
+  {
+    id: 1,
+    name: 'Character',
+    status: 'active',
+    sortOrder: 0,
+    commissionCount: 1,
+  },
+]
 const commission: CommissionRow = {
   id: 1,
   publicId: '00000000-0000-4000-8000-000000000001',
@@ -89,7 +109,9 @@ describe('edit form mutation lifecycle', () => {
     container.remove()
     vi.useRealTimers()
   })
-  const button = (label: string) => [...container.querySelectorAll('button')].find(element => element.textContent === label)!
+  const button = (label: string) => [
+    ...container.querySelectorAll('button'),
+  ].find(element => element.textContent === label)!
   const submit = () => act(async () => container.querySelector('form')!.requestSubmit())
   const typeCreator = (value: string) => act(async () => {
     const input = container.querySelector('input[name="creatorName"]')!
@@ -149,7 +171,11 @@ describe('edit form mutation lifecycle', () => {
       return event.defaultPrevented
     }
     const input = container.querySelector('input[type="file"]')!
-    Object.defineProperty(input, 'files', { value: [new File(['image'], 'art.png', { type: 'image/png' })] })
+    Object.defineProperty(input, 'files', {
+      value: [
+        new File(['image'], 'art.png', { type: 'image/png' }),
+      ],
+    })
     await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })))
     expect(unloadPrevented()).toBe(true)
   })
@@ -187,7 +213,11 @@ describe('edit form mutation lifecycle', () => {
       finish = resolve
     }))
     const input = container.querySelector('input[type="file"]')!
-    Object.defineProperty(input, 'files', { value: [new File(['image'], 'art.png', { type: 'image/png' })] })
+    Object.defineProperty(input, 'files', {
+      value: [
+        new File(['image'], 'art.png', { type: 'image/png' }),
+      ],
+    })
     await act(async () => input.dispatchEvent(new Event('change', { bubbles: true })))
     await act(async () => button('Confirm crop').click())
     expect(button('Save changes').disabled).toBe(true)

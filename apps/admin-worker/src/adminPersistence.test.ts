@@ -117,7 +117,10 @@ describe('d1 batch persistence', () => {
 
     expect(batchCallCount()).toBe(1)
     expect(database.prepare('SELECT keyword FROM home_featured_search_keywords ORDER BY sort_order').all())
-      .toEqual([{ keyword: 'old-a' }, { keyword: 'old-b' }])
+      .toEqual([
+        { keyword: 'old-a' },
+        { keyword: 'old-b' },
+      ])
   })
 
   it('rolls back active and archived ordering together when an archived update fails', async () => {
@@ -130,7 +133,10 @@ describe('d1 batch persistence', () => {
     `)
 
     await expect(
-      updateCharacterOrder(db, { active: [2, 1], archived: [3] }),
+      updateCharacterOrder(db, {
+        active: [2, 1],
+        archived: [3],
+      }),
     ).rejects.toThrow('Injected batch')
 
     expect(batchCallCount()).toBe(1)
@@ -162,7 +168,9 @@ describe('character delete source-image selection', () => {
 
     expect(objectKeys.toSorted()).toEqual(['source-images/by-id.jpg', 'source-images/by-name.jpg'])
     expect(database.prepare('SELECT object_key FROM source_images ORDER BY object_key').all())
-      .toEqual([{ object_key: 'source-images/kept.jpg' }])
+      .toEqual([
+        { object_key: 'source-images/kept.jpg' },
+      ])
   })
 
   it('never returns an object key that a row surviving the delete still references', async () => {
@@ -199,7 +207,9 @@ describe('character delete source-image selection', () => {
 
     expect(objectKeys).toEqual(['source-images/own.jpg'])
     expect(database.prepare('SELECT object_key FROM source_images ORDER BY commission_file_name').all())
-      .toEqual([{ object_key: 'source-images/shared.jpg' }])
+      .toEqual([
+        { object_key: 'source-images/shared.jpg' },
+      ])
   })
 })
 
@@ -223,7 +233,9 @@ describe('character rename and aliases', () => {
 
     await updateCharacter(db, { id: 1, name: 'New Name', status: 'active' })
 
-    expect(aliasRows(database)).toEqual([{ character_name: 'New Name', aliases: '["Alpha","Beta"]' }])
+    expect(aliasRows(database)).toEqual([
+      { character_name: 'New Name', aliases: '["Alpha","Beta"]' },
+    ])
   })
 
   it('merges with an orphan row already stored under the new name, deduplicating case-insensitively', async () => {
@@ -247,7 +259,9 @@ describe('character rename and aliases', () => {
 
     await updateCharacter(db, { id: 1, name: 'New Name', status: 'active' })
 
-    expect(aliasRows(database)).toEqual([{ character_name: 'New Name', aliases: '["Alpha"]' }])
+    expect(aliasRows(database)).toEqual([
+      { character_name: 'New Name', aliases: '["Alpha"]' },
+    ])
   })
 
   it('renames a character that has no aliases', async () => {
@@ -267,6 +281,8 @@ describe('character rename and aliases', () => {
     await expect(updateCharacter(db, { id: 1, name: 'Other', status: 'active' })).rejects.toThrow()
 
     expect(database.prepare('SELECT name FROM characters WHERE id = 1').get()).toEqual({ name: 'Old Name' })
-    expect(aliasRows(database)).toEqual([{ character_name: 'Old Name', aliases: '["Alpha"]' }])
+    expect(aliasRows(database)).toEqual([
+      { character_name: 'Old Name', aliases: '["Alpha"]' },
+    ])
   })
 })

@@ -202,14 +202,22 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       sourceDate: 'date',
       sourcePrefix: 'in',
       formatCollapsedArchivedSummary: (characterCount, commissionCount) =>
-        `${characterCount} Archived Character${characterCount === 1 ? '' : 's'} / ${commissionCount} commission${commissionCount === 1 ? '' : 's'}`,
-      formatMatchCount: count => `${count} ${count === 1 ? 'match' : 'matches'}`,
+        `${characterCount} Archived Character${characterCount === 1
+          ? ''
+          : 's'} / ${commissionCount} commission${commissionCount === 1
+          ? ''
+          : 's'}`,
+      formatMatchCount: count => `${count} ${count === 1
+        ? 'match'
+        : 'matches'}`,
       formatSearchResultsStatus: (matchedCount, entriesCount) =>
         `Search results: ${matchedCount} of ${entriesCount} commissions shown.`,
       formatSearchClearedStatus: entriesCount =>
         `Search cleared. Showing all ${entriesCount} commissions.`,
       formatHiddenArchivedResultsNotice: count =>
-        `${count} archived match${count === 1 ? '' : 'es'} hidden.`,
+        `${count} archived match${count === 1
+          ? ''
+          : 'es'} hidden.`,
       searchHelpTitle: 'Search Help',
       searchHelpIntro: 'Type one or more keywords to filter commissions.',
       searchHelpSyntaxHeader: 'Syntax',
@@ -478,7 +486,9 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
 
 export function normalizeHomeLocale(locale?: string | null): HomeLocale {
   const normalized = locale?.toLowerCase() ?? DEFAULT_HOME_LOCALE
-  return HOME_LOCALE_SET.has(normalized) ? (normalized as HomeLocale) : DEFAULT_HOME_LOCALE
+  return HOME_LOCALE_SET.has(normalized)
+    ? (normalized as HomeLocale)
+    : DEFAULT_HOME_LOCALE
 }
 
 export function getHomeLocaleMessages(locale?: string | null) {

@@ -56,7 +56,13 @@ export default defineConfig({
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: [
-    ['html', { open: 'never', outputFolder: resolve(rootDir, 'playwright-report') }],
+    [
+      'html',
+      {
+        open: 'never',
+        outputFolder: resolve(rootDir, 'playwright-report'),
+      },
+    ],
     ['list'],
   ],
   use: {
@@ -67,6 +73,10 @@ export default defineConfig({
     timezoneId: 'Asia/Shanghai',
     trace: 'on-first-retry',
   },
-  projects: offlineVisual ? [webProject] : [webProject, adminProject],
-  webServer: offlineVisual ? [webServer] : [webServer, ...adminServers],
+  projects: offlineVisual
+    ? [webProject]
+    : [webProject, adminProject],
+  webServer: offlineVisual
+    ? [webServer]
+    : [webServer, ...adminServers],
 })

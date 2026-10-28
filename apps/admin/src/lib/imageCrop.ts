@@ -327,7 +327,9 @@ export function setFileInputValue(input: HTMLInputElement, file: File) {
 function getJpegFileName(fileName: string) {
   const trimmed = fileName.trim()
   const extensionIndex = trimmed.lastIndexOf('.')
-  const stem = extensionIndex > 0 ? trimmed.slice(0, extensionIndex) : trimmed
+  const stem = extensionIndex > 0
+    ? trimmed.slice(0, extensionIndex)
+    : trimmed
   return `${stem || 'source-image'}.jpg`
 }
 

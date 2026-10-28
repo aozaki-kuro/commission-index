@@ -100,17 +100,19 @@ export function findDuplicateCommissionHints({
         reasons.push(`Shared keyword: ${sharedKeywords.slice(0, 2).join(', ')}`)
       }
 
-      return [{
-        characterId: candidate.characterId,
-        characterName: candidate.characterName,
-        commissionDate: candidate.commissionDate,
-        creatorName: candidate.creatorName,
-        commissionId: candidate.id,
-        publicId: candidate.publicId,
-        displayLabel: getCommissionDisplayLabel(candidate),
-        reasons,
-        score,
-      } satisfies DuplicateCommissionHint]
+      return [
+{
+  characterId: candidate.characterId,
+  characterName: candidate.characterName,
+  commissionDate: candidate.commissionDate,
+  creatorName: candidate.creatorName,
+  commissionId: candidate.id,
+  publicId: candidate.publicId,
+  displayLabel: getCommissionDisplayLabel(candidate),
+  reasons,
+  score,
+} satisfies DuplicateCommissionHint,
+      ]
     })
     .toSorted((left, right) => right.score - left.score || right.commissionId - left.commissionId)
     .slice(0, limit)

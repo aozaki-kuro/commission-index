@@ -55,7 +55,9 @@ export function CommissionEditDrawer({
       <DialogContent variant="sheet" aria-describedby={undefined}>
         <DialogHeader>
           <DialogTitle
-            aria-label={displayCommission ? getCommissionAccessibleLabel(displayCommission) : undefined}
+            aria-label={displayCommission
+              ? getCommissionAccessibleLabel(displayCommission)
+              : undefined}
             title={displayCommission?.publicId}
           >
             <span className="
@@ -63,7 +65,9 @@ export function CommissionEditDrawer({
               dark:text-gray-100
             "
             >
-              {displayCommission ? getCommissionTitle(displayCommission) : ''}
+              {displayCommission
+                ? getCommissionTitle(displayCommission)
+                : ''}
             </span>
             <span className="mt-1 flex min-w-0 items-baseline justify-between gap-3 text-sm font-normal text-gray-500 dark:text-gray-400">
               <span className="truncate">{displayCommission?.characterName ?? ''}</span>

@@ -17,13 +17,34 @@ export interface DisplayLinksSelection {
 export const COMMISSION_LINK_TEXT_CLASS = 'select-none underline underline-offset-2'
 
 const LINK_PRIORITY: Array<{ type: string, patterns: string[] }> = [
-  { type: 'Twitter', patterns: ['twitter.com', 'x.com'] },
-  { type: 'Pixiv', patterns: ['pixiv.net'] },
-  { type: 'Nijie', patterns: ['nijie.info'] },
-  { type: 'Fanbox', patterns: ['fanbox.cc'] },
-  { type: 'Patreon', patterns: ['patreon.com'] },
-  { type: 'Fantia', patterns: ['fantia.jp'] },
-  { type: 'Hedao', patterns: ['hedaoapp.com'] },
+  {
+    type: 'Twitter',
+    patterns: ['twitter.com', 'x.com'],
+  },
+  {
+    type: 'Pixiv',
+    patterns: ['pixiv.net'],
+  },
+  {
+    type: 'Nijie',
+    patterns: ['nijie.info'],
+  },
+  {
+    type: 'Fanbox',
+    patterns: ['fanbox.cc'],
+  },
+  {
+    type: 'Patreon',
+    patterns: ['patreon.com'],
+  },
+  {
+    type: 'Fantia',
+    patterns: ['fantia.jp'],
+  },
+  {
+    type: 'Hedao',
+    patterns: ['hedaoapp.com'],
+  },
 ]
 
 export function selectDisplayLinks({

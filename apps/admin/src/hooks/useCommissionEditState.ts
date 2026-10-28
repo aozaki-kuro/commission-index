@@ -27,7 +27,9 @@ export function useCommissionEditState({
 
   const initialCharacterId = useMemo(() => {
     const exists = characters.some(character => character.id === commission.characterId)
-    return exists ? commission.characterId : (sortedCharacters[0]?.id ?? commission.characterId)
+    return exists
+      ? commission.characterId
+      : (sortedCharacters[0]?.id ?? commission.characterId)
   }, [characters, commission.characterId, sortedCharacters])
 
   const [selectedCharacterId, setSelectedCharacterId] = useState<number>(initialCharacterId)

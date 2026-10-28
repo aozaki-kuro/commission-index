@@ -133,7 +133,9 @@ const priorityImage = firstSourceImage
   : undefined
 
 const resolvedCanonicalPath
-  = canonicalPath ?? (resolvedLocale === 'en' ? '/' : `/${resolvedLocale}/`)
+  = canonicalPath ?? (resolvedLocale === 'en'
+? '/'
+: `/${resolvedLocale}/`)
 ---
 
 <BaseLayout
@@ -152,7 +154,12 @@ const resolvedCanonicalPath
   <script
     is:inline
     slot="head"
-    define:vars={{ confirmedKey: CONFIRMED_AGE_KEY, memoryFlag: CONFIRMED_IN_MEMORY_FLAG, confirmDuration: AGE_CONFIRM_DURATION, lighthouseToken: LIGHTHOUSE_USER_AGENT_TOKEN }}
+    define:vars={{
+confirmedKey: CONFIRMED_AGE_KEY,
+memoryFlag: CONFIRMED_IN_MEMORY_FLAG,
+confirmDuration: AGE_CONFIRM_DURATION,
+lighthouseToken: LIGHTHOUSE_USER_AGENT_TOKEN,
+}}
   >
     // Mirrors hasValidAgeConfirmation() in warning/ageGate.ts: show the gate in the first frame
     // instead of waiting for the module script. Unreadable storage opens the gate too, unless the user
@@ -176,38 +183,40 @@ const resolvedCanonicalPath
     }
   </script>
   <script is:inline slot="head">
-    try {
-      const rawState = window.sessionStorage.getItem('home:scroll-state')
-      if (!rawState || window.location.hash) {
-        // noop
+try {
+  const rawState = window.sessionStorage.getItem('home:scroll-state')
+  if (!rawState || window.location.hash) {
+    // noop
+  }
+  else {
+    const navigationEntry = window.performance.getEntriesByType('navigation')[0]
+    const navigationType
+      = navigationEntry && 'type' in navigationEntry
+        ? String(navigationEntry.type)
+        : ''
+    const parsedState = JSON.parse(rawState)
+
+    if (
+      navigationType === 'reload'
+      && parsedState
+      && parsedState.pathname === window.location.pathname
+      && parsedState.search === window.location.search
+    ) {
+      document.documentElement.dataset.homeScrollRestoring = 'true'
+
+      try {
+        window.history.scrollRestoration = 'manual'
       }
-      else {
-        const navigationEntry = window.performance.getEntriesByType('navigation')[0]
-        const navigationType
-          = navigationEntry && 'type' in navigationEntry ? String(navigationEntry.type) : ''
-        const parsedState = JSON.parse(rawState)
-
-        if (
-          navigationType === 'reload'
-          && parsedState
-          && parsedState.pathname === window.location.pathname
-          && parsedState.search === window.location.search
-        ) {
-          document.documentElement.dataset.homeScrollRestoring = 'true'
-
-          try {
-            window.history.scrollRestoration = 'manual'
-          }
-          catch {
-            // Ignore unsupported browsers.
-          }
-        }
+      catch {
+        // Ignore unsupported browsers.
       }
     }
-    catch {
-      // Ignore malformed session state and allow the page to render normally.
-    }
-  </script>
+  }
+}
+catch {
+  // Ignore malformed session state and allow the page to render normally.
+}
+</script>
   <AgeGateScript locale={resolvedLocale} />
   <CommissionDescription
     locale={resolvedLocale}

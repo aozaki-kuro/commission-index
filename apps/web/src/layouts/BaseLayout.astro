@@ -22,7 +22,9 @@ interface Props {
 
 const { title, fullTitle, description = SiteMeta.description, canonicalPath = '/', lang = 'en', priorityImage }
   = Astro.props as Props
-const pageTitle = fullTitle ?? (title ? `${title} | ${SiteMeta.site}` : SiteMeta.site)
+const pageTitle = fullTitle ?? (title
+? `${title} | ${SiteMeta.site}`
+: SiteMeta.site)
 const socialTitle = fullTitle ?? SiteMeta.site
 const canonicalUrl = new URL(canonicalPath, SiteMeta.canonicalUrl).toString()
 ---

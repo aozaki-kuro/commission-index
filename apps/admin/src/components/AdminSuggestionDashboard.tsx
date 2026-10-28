@@ -54,7 +54,11 @@ function KeywordItem({ dragHandleProps, isDragging, keyword, index, count, onRem
 }
 
 export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isReady = true, isLoading = false }: AdminSuggestionDashboardProps) {
-  const [selection, setSelection] = useState(() => ({ source: featuredKeywords, values: dedupeKeywords(featuredKeywords, MAX_FEATURED_KEYWORDS), dirty: false }))
+  const [selection, setSelection] = useState(() => ({
+    source: featuredKeywords,
+    values: dedupeKeywords(featuredKeywords, MAX_FEATURED_KEYWORDS),
+    dirty: false,
+  }))
   const [state, formAction, isPending] = useActionState(async (previous: typeof INITIAL_FORM_STATE, formData: FormData) => {
     const submittedKeywords = JSON.parse(formData.get('keywordsJson') as string) as string[]
     const result = await saveHomeFeaturedKeywordsAction(previous, formData)
@@ -77,7 +81,9 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
   if (selection.source !== featuredKeywords) {
     setSelection(previous => ({
       source: featuredKeywords,
-      values: previous.dirty ? previous.values : dedupeKeywords(featuredKeywords, MAX_FEATURED_KEYWORDS),
+      values: previous.dirty
+        ? previous.values
+        : dedupeKeywords(featuredKeywords, MAX_FEATURED_KEYWORDS),
       dirty: previous.dirty,
     }))
   }
@@ -92,7 +98,11 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
   const canAddManual = canAddMore && !!normalizedManualInput && !selectedKeySet.has(normalizeKeywordKey(normalizedManualInput))
   const disabled = !isReady || isPending
   const handleReorder = useCallback((fromIndex: number, toIndex: number) => {
-    setSelection(previous => ({ ...previous, dirty: true, values: arrayMove(previous.values, fromIndex, toIndex) }))
+    setSelection(previous => ({
+      ...previous,
+      dirty: true,
+      values: arrayMove(previous.values, fromIndex, toIndex),
+    }))
   }, [])
   const { containerProps, dragHandleProps, dragItemAttr, draggingIndex, dropIndicatorIndex } = useNativeDragReorder({ itemCount: selectedKeywords.length, onReorder: handleReorder, disabled })
   const addKeyword = (raw: string) => {
@@ -100,11 +110,19 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
     setSelection((previous) => {
       if (!keyword || previous.values.length >= MAX_FEATURED_KEYWORDS || previous.values.some(item => normalizeKeywordKey(item) === normalizeKeywordKey(keyword)))
         return previous
-      return { ...previous, dirty: true, values: [...previous.values, keyword] }
+      return {
+        ...previous,
+        dirty: true,
+        values: [...previous.values, keyword],
+      }
     })
   }
   const removeKeyword = (keyword: string) => {
-    setSelection(previous => ({ ...previous, dirty: true, values: previous.values.filter(item => normalizeKeywordKey(item) !== normalizeKeywordKey(keyword)) }))
+    setSelection(previous => ({
+      ...previous,
+      dirty: true,
+      values: previous.values.filter(item => normalizeKeywordKey(item) !== normalizeKeywordKey(keyword)),
+    }))
   }
   const addManual = () => {
     if (!canAddManual)
@@ -118,7 +136,11 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
       <input type="hidden" name="keywordsJson" value={JSON.stringify(selectedKeywords)} />
       <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-200/80 pb-5 dark:border-gray-700/80">
         <p className="max-w-xl text-sm text-gray-600 dark:text-gray-300">Choose up to six keywords to help visitors explore the home page.</p>
-        <span className="tabular-nums text-xs text-gray-500 dark:text-gray-400">{isReady ? `${selectedKeywords.length} / ${MAX_FEATURED_KEYWORDS} selected` : '— / 6 selected'}</span>
+        <span className="tabular-nums text-xs text-gray-500 dark:text-gray-400">
+          {isReady
+            ? `${selectedKeywords.length} / ${MAX_FEATURED_KEYWORDS} selected`
+            : '— / 6 selected'}
+        </span>
       </header>
       <fieldset disabled={disabled} aria-busy={!isReady && isLoading} className="min-w-0 space-y-6">
         <div className="grid min-w-0 gap-8 @min-[48rem]/workspace:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
@@ -174,7 +196,18 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
                           {filteredOptions.map((keyword) => {
                             const isSelected = selectedKeySet.has(normalizeKeywordKey(keyword))
                             return (
-                              <button key={keyword} type="button" aria-pressed={isSelected} onClick={() => isSelected ? removeKeyword(keyword) : addKeyword(keyword)} disabled={!isSelected && !canAddMore} className={`max-w-full rounded-md border px-3 py-2 text-left text-sm break-words transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40 ${isSelected ? 'border-gray-900 bg-gray-900 text-white dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900' : 'border-gray-200 bg-transparent text-gray-600 hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:text-gray-100'}`}>{keyword}</button>
+                              <button
+                                key={keyword}
+                                type="button"
+                                aria-pressed={isSelected}
+                                onClick={() => isSelected
+                                  ? removeKeyword(keyword)
+                                  : addKeyword(keyword)}
+                                disabled={!isSelected && !canAddMore}
+                                className={`max-w-full rounded-md border px-3 py-2 text-left text-sm break-words transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40 ${isSelected ? 'border-gray-900 bg-gray-900 text-white dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900' : 'border-gray-200 bg-transparent text-gray-600 hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:text-gray-100'}`}
+                              >
+                                {keyword}
+                              </button>
                             )
                           })}
                         </div>

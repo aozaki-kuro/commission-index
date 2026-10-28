@@ -63,15 +63,24 @@ function buildRealFixtures() {
     const creator = commission.creatorName
     const dateTokens = [
       `date_y_${year}`,
-      month ? `date_ym_${year}_${month}` : '',
-      date ? `date_ymd_${date}` : '',
+      month
+        ? `date_ym_${year}_${month}`
+        : '',
+      date
+        ? `date_ymd_${date}`
+        : '',
     ]
       .filter(Boolean)
       .join(' ')
 
     searchEntries.push({
       id,
-      searchText: [commission.character, creator, commission.Keyword ?? '', dateTokens]
+      searchText: [
+        commission.character,
+        creator,
+        commission.Keyword ?? '',
+        dateTokens,
+      ]
         .filter(Boolean)
         .join(' '),
     })
@@ -82,8 +91,16 @@ function buildRealFixtures() {
     >()
     const candidates = [
       { source: 'Character' as const, term: commission.character },
-      ...(year && month ? [{ source: 'Date' as const, term: `${year}/${month}` }] : []),
-      ...(creator ? [{ source: 'Creator' as const, term: creator }] : []),
+      ...(year && month
+        ? [
+            { source: 'Date' as const, term: `${year}/${month}` },
+          ]
+        : []),
+      ...(creator
+        ? [
+            { source: 'Creator' as const, term: creator },
+          ]
+        : []),
       ...String(commission.Keyword ?? '')
         .split(/[\n,，、;；]/)
         .map(term => term.trim())
@@ -144,7 +161,9 @@ describeRealData('search utils (trimmed + real db sample)', () => {
 
   it('filters creator suggestions by context and exclusion with real counts', () => {
     const { searchIndex, suggestionEntries, suggestions, creatorToIds } = buildRealFixtures()
-    const target = [...creatorToIds.entries()].find(([, ids]) => ids.length >= 2)
+    const target = [
+      ...creatorToIds.entries(),
+    ].find(([, ids]) => ids.length >= 2)
 
     expect(target).toBeTruthy()
 
@@ -202,9 +221,13 @@ describe('search utils', () => {
   })
 
   it('reuses query cache across index wrappers that share a fuse instance', () => {
-    const entries: Entry[] = [{ id: 1, searchText: 'lucia maid outfit' }]
+    const entries: Entry[] = [
+      { id: 1, searchText: 'lucia maid outfit' },
+    ]
     const fuse = {
-      search: vi.fn(() => [{ item: entries[0] }]),
+      search: vi.fn(() => [
+        { item: entries[0] },
+      ]),
     } as unknown as Fuse<Entry>
     const firstIndex: SearchIndexLike<Entry> = {
       entries,
@@ -224,7 +247,9 @@ describe('search utils', () => {
   })
 
   it('does not reuse non-fuse fallback cache after fuse hydration', () => {
-    const entries: Entry[] = [{ id: 1, searchText: 'lucia maid outfit' }]
+    const entries: Entry[] = [
+      { id: 1, searchText: 'lucia maid outfit' },
+    ]
     const coldIndex: SearchIndexLike<Entry> = {
       cacheKey: entries,
       entries,
@@ -233,7 +258,9 @@ describe('search utils', () => {
       fuse: null,
     }
     const fuse = {
-      search: vi.fn(() => [{ item: entries[0] }]),
+      search: vi.fn(() => [
+        { item: entries[0] },
+      ]),
     } as unknown as Fuse<Entry>
     const warmIndex: SearchIndexLike<Entry> = {
       ...coldIndex,

@@ -269,9 +269,17 @@ function getDomSearchContext(viewMode: 'character' | 'timeline') {
   const archivedDivider = root.querySelector<HTMLElement>('[data-archived-divider="true"]')
   const archivedPlaceholder = root.querySelector<HTMLElement>('[data-archived-sections-placeholder="true"]')
   const archivedContainer = root.querySelector<HTMLElement>(ARCHIVED_CONTAINER_SELECTOR)
-  const collapsedArchivedContainer = archivedContainer?.classList.contains('hidden') ? archivedContainer : null
+  const collapsedArchivedContainer = archivedContainer?.classList.contains('hidden')
+    ? archivedContainer
+    : null
 
-  return { domEntries, sections, archivedDivider, archivedPlaceholder, collapsedArchivedContainer }
+  return {
+    domEntries,
+    sections,
+    archivedDivider,
+    archivedPlaceholder,
+    collapsedArchivedContainer,
+  }
 }
 
 export function buildSearchIndex(viewMode: 'character' | 'timeline', externalEntries?: CommissionSearchEntrySource[], options?: {
@@ -308,7 +316,12 @@ export function buildSearchIndex(viewMode: 'character' | 'timeline', externalEnt
       entry.sectionId = domEntry?.sectionId
     }
 
-    return finalizeSearchIndex(entries, { sections, archivedDivider, archivedPlaceholder, collapsedArchivedContainer })
+    return finalizeSearchIndex(entries, {
+      sections,
+      archivedDivider,
+      archivedPlaceholder,
+      collapsedArchivedContainer,
+    })
   }
 
   const entries = domEntries.map(({ element, sectionId, domKey }, id) => {
@@ -324,7 +337,12 @@ export function buildSearchIndex(viewMode: 'character' | 'timeline', externalEnt
     }
   })
 
-  return finalizeSearchIndex(entries, { sections, archivedDivider, archivedPlaceholder, collapsedArchivedContainer })
+  return finalizeSearchIndex(entries, {
+    sections,
+    archivedDivider,
+    archivedPlaceholder,
+    collapsedArchivedContainer,
+  })
 }
 
 function addRelatedTerms(related: Map<string, Set<string>>, terms: string[]) {
@@ -340,7 +358,9 @@ function addRelatedTerms(related: Map<string, Set<string>>, terms: string[]) {
   if (uniqueTerms.size < 2)
     return
 
-  const values = [...uniqueTerms.values()]
+  const values = [
+    ...uniqueTerms.values(),
+  ]
   for (const leftTerm of values) {
     const leftKey = normalizeSuggestionTermKey(leftTerm)
     if (!leftKey)

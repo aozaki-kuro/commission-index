@@ -81,7 +81,15 @@ export function AddCommissionForm({
   const [hasTextDraft, setHasTextDraft] = useState(false)
   const [savedDraft, setSavedDraft] = useState(EMPTY_DRAFT)
   // Controlled fields survive a successful reset, so dirty is measured against the last saved values.
-  const controlledDraft = JSON.stringify([characterId, isHidden, commissionDate, creatorName, workGroupId, partNumber, keywordValue])
+  const controlledDraft = JSON.stringify([
+    characterId,
+    isHidden,
+    commissionDate,
+    creatorName,
+    workGroupId,
+    partNumber,
+    keywordValue,
+  ])
   useUnsavedChangesGuard(controlledDraft !== savedDraft || hasTextDraft || croppedImage !== null || pendingCropFile !== null)
 
   useEffect(() => {
@@ -104,10 +112,20 @@ export function AddCommissionForm({
         commissionDate: commissionDate || null,
         creatorName,
         workGroupId: workGroupId || null,
-        partNumber: partNumber ? Number(partNumber) : null,
+        partNumber: partNumber
+          ? Number(partNumber)
+          : null,
         keyword: keywordValue,
       }),
-    [characterId, commissionDate, commissionSearchRows, creatorName, keywordValue, workGroupId, partNumber],
+    [
+      characterId,
+      commissionDate,
+      commissionSearchRows,
+      creatorName,
+      keywordValue,
+      workGroupId,
+      partNumber,
+    ],
   )
 
   const handleSourceImageChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -231,7 +249,12 @@ export function AddCommissionForm({
 
       {sourceImageHint
         ? (
-            <FloatingNotice tone={sourceImageHintTone === 'error' ? 'error' : 'success'} onDismiss={() => setSourceImageHint('')}>
+            <FloatingNotice
+              tone={sourceImageHintTone === 'error'
+                ? 'error'
+                : 'success'}
+              onDismiss={() => setSourceImageHint('')}
+            >
               {sourceImageHint}
             </FloatingNotice>
           )

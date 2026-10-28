@@ -82,13 +82,22 @@ export function queueWebsiteRebuild(): Promise<void> {
         catch (error) {
           lastPollError = error
         }
-        delay = delay === 0 ? firstPollDelayMs : Math.min(delay * 2, maxPollDelayMs)
+        delay = delay === 0
+          ? firstPollDelayMs
+          : Math.min(delay * 2, maxPollDelayMs)
       }
-      const detail = lastPollError instanceof Error ? ` Last check failed: ${lastPollError.message}` : ''
+      const detail = lastPollError instanceof Error
+        ? ` Last check failed: ${lastPollError.message}`
+        : ''
       publishState({ status: 'unconfirmed', message: `Website update not confirmed — check the workflow.${detail}` })
     })
     .catch((error) => {
-      publishState({ status: 'error', message: error instanceof Error ? error.message : 'Could not queue the rebuild. Try again.' })
+      publishState({
+        status: 'error',
+        message: error instanceof Error
+          ? error.message
+          : 'Could not queue the rebuild. Try again.',
+      })
     })
     .finally(() => {
       inFlight = null

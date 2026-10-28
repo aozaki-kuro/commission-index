@@ -3,7 +3,11 @@ import { buildHomeSearchEntriesArtifact } from '@lib/pipeline/homeSearchEntries'
 
 export function getStaticPaths() {
   const { version } = buildHomeSearchEntriesArtifact()
-  return [{ params: { v: version } }]
+  return [
+    {
+      params: { v: version },
+    },
+  ]
 }
 
 export const GET: APIRoute = ({ params }) => {

@@ -36,7 +36,9 @@ const resolvedSummary = summary ?? buildHomeUpdateSummary(commissionData, active
     >
       <p class="mb-2">
         {messages.update.formatTotalCommissions(resolvedSummary.totalCommissions)}
-        {isMilestoneCommissionCount(resolvedSummary.totalCommissions) ? ' 🎉' : ''}
+        {isMilestoneCommissionCount(resolvedSummary.totalCommissions)
+? ' 🎉'
+: ''}
       </p>
 
       <div class="flex items-baseline">

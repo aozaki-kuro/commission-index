@@ -6,7 +6,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FloatingNoticeProvider } from '../FloatingNotice'
 import { CommissionManager } from './CommissionManager'
 
-const api = vi.hoisted(() => ({ load: vi.fn(), refresh: vi.fn(), rename: vi.fn(), saveOrder: vi.fn(), pendingSave: null as (() => void) | null }))
+const api = vi.hoisted(() => ({
+  load: vi.fn(),
+  refresh: vi.fn(),
+  rename: vi.fn(),
+  saveOrder: vi.fn(),
+  pendingSave: null as (() => void) | null,
+}))
 vi.mock('../../lib/adminActions', () => ({
   fetchCharacterCommissionsAction: api.load,
   deleteCharacterAction: vi.fn(),
@@ -18,13 +24,31 @@ vi.mock('./KeywordReplacePopover', () => ({
 }))
 vi.mock('./CommissionEditDrawer', () => ({
   CommissionEditDrawer: ({ commission, onSaveSuccess, onDelete, onClose }: { commission: CommissionRow | null, onSaveSuccess: (row: CommissionRow) => void, onDelete: () => void, onClose: () => void }) => commission
-    ? createElement('div', { 'role': 'dialog', 'data-keyword': commission.keyword }, `Editing ${commission.id}`, createElement('button', { onClick: () => onSaveSuccess({ ...commission, creatorName: 'Changed creator' }) }, 'Save edit'), createElement('button', { onClick: () => onSaveSuccess({ ...commission, keyword: 'Fresh keyword' }) }, 'Save keyword'), createElement('button', { onClick: onDelete }, 'Delete entry'), createElement('button', { onClick: onClose }, 'Close editor'), createElement('button', { onClick: () => { api.pendingSave = () => onSaveSuccess({ ...commission, creatorName: 'Late edit' }) } }, 'Start delayed save'))
+    ? createElement('div', { 'role': 'dialog', 'data-keyword': commission.keyword }, `Editing ${commission.id}`, createElement('button', {
+        onClick: () => onSaveSuccess({ ...commission, creatorName: 'Changed creator' }),
+      }, 'Save edit'), createElement('button', {
+        onClick: () => onSaveSuccess({ ...commission, keyword: 'Fresh keyword' }),
+      }, 'Save keyword'), createElement('button', { onClick: onDelete }, 'Delete entry'), createElement('button', { onClick: onClose }, 'Close editor'), createElement('button', {
+        onClick: () => { api.pendingSave = () => onSaveSuccess({ ...commission, creatorName: 'Late edit' }) },
+      }, 'Start delayed save'))
     : null,
 }))
 
 const characters: CharacterRow[] = [
-  { id: 1, name: 'First', status: 'active', sortOrder: 0, commissionCount: 1 },
-  { id: 2, name: 'Second', status: 'active', sortOrder: 1, commissionCount: 1 },
+  {
+    id: 1,
+    name: 'First',
+    status: 'active',
+    sortOrder: 0,
+    commissionCount: 1,
+  },
+  {
+    id: 2,
+    name: 'Second',
+    status: 'active',
+    sortOrder: 1,
+    commissionCount: 1,
+  },
 ]
 const rows: AdminCommissionSearchRow[] = characters.map(character => ({
   id: character.id,
@@ -77,10 +101,16 @@ describe('commission manager search and disclosure lifecycle', () => {
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Enter reorder mode"]')!.click())
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Move Second down"]')!.click())
     expect(container.querySelector('#admin-character-2')?.getAttribute('data-character-status')).toBe('archived')
-    expect(api.saveOrder).toHaveBeenLastCalledWith({ active: [1], archived: [2] })
+    expect(api.saveOrder).toHaveBeenLastCalledWith({
+      active: [1],
+      archived: [2],
+    })
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Move Second up"]')!.click())
     expect(container.querySelector('#admin-character-2')?.getAttribute('data-character-status')).toBe('active')
-    expect(api.saveOrder).toHaveBeenLastCalledWith({ active: [1, 2], archived: [] })
+    expect(api.saveOrder).toHaveBeenLastCalledWith({
+      active: [1, 2],
+      archived: [],
+    })
   })
 
   it('saves the current name when focus moves to another character action', async () => {
@@ -128,7 +158,10 @@ describe('commission manager search and disclosure lifecycle', () => {
   })
 
   it('searches bootstrap rows without fetching or changing the browse disclosures', async () => {
-    window.localStorage.setItem('admin-existing-open', JSON.stringify({ ids: [1], timestamp: Date.now() }))
+    window.localStorage.setItem('admin-existing-open', JSON.stringify({
+      ids: [1],
+      timestamp: Date.now(),
+    }))
     await render()
     expect(api.load).toHaveBeenCalledTimes(1)
     await search('Second')
@@ -170,10 +203,14 @@ describe('commission manager search and disclosure lifecycle', () => {
     await render()
     await search('Second')
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Search results"] button')!.click())
-    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Save edit')!.click())
+    await act(async () => [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Save edit')!.click())
     await search('Changed creator')
     expect(container.querySelector('[aria-label="Search results"]')?.textContent).toContain('Changed creator')
-    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Delete entry')!.click())
+    await act(async () => [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Delete entry')!.click())
     expect(container.querySelector('[aria-label="Search results"]')?.textContent).toContain('No commissions match')
     expect(api.refresh).toHaveBeenCalledTimes(2)
   })
@@ -182,7 +219,9 @@ describe('commission manager search and disclosure lifecycle', () => {
     await render()
     await search('Second')
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Search results"] button')!.click())
-    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Save keyword')!.click())
+    await act(async () => [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Save keyword')!.click())
     await search('Fresh keyword')
     expect(container.querySelector('[aria-label="Search results"]')?.textContent).toContain('Second')
     expect(api.refresh).toHaveBeenCalledOnce()
@@ -192,7 +231,9 @@ describe('commission manager search and disclosure lifecycle', () => {
     await render()
     await search('Second')
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Search results"] button')!.click())
-    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Start delayed save')!.click())
+    await act(async () => [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Start delayed save')!.click())
     // The save callback was created before this refresh; its overlay must still target the latest rows.
     await render([...rows])
     await act(async () => api.pendingSave?.())
@@ -204,8 +245,12 @@ describe('commission manager search and disclosure lifecycle', () => {
     await render()
     await search('Second')
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Search results"] button')!.click())
-    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Start delayed save')!.click())
-    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Close editor')!.click())
+    await act(async () => [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Start delayed save')!.click())
+    await act(async () => [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Close editor')!.click())
     await act(async () => api.pendingSave?.())
     expect(container.querySelector('[role="dialog"]')).toBeNull()
     await search('Late edit')
@@ -213,7 +258,10 @@ describe('commission manager search and disclosure lifecycle', () => {
   })
 
   it('keeps the old grid, focus and disclosures during targeted refresh and on failure', async () => {
-    window.localStorage.setItem('admin-existing-open', JSON.stringify({ ids: [1], timestamp: Date.now() }))
+    window.localStorage.setItem('admin-existing-open', JSON.stringify({
+      ids: [1],
+      timestamp: Date.now(),
+    }))
     await render()
     const thumbnail = container.querySelector('[data-commission-id="1"]')
     const input = container.querySelector('input[aria-label="Search commissions"]') as HTMLInputElement
@@ -230,12 +278,17 @@ describe('commission manager search and disclosure lifecycle', () => {
     expect(container.querySelector('[data-commission-id="1"]')).toBe(thumbnail)
     expect(container.textContent).toContain('Refresh offline')
     expect(container.querySelector('#admin-character-1 button[aria-expanded]')?.getAttribute('aria-expanded')).toBe('true')
-    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Try again')!.click())
+    await act(async () => [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Try again')!.click())
     expect(container.textContent).not.toContain('Refresh offline')
   })
 
   it('refetches only scoped loaded groups when new bootstrap rows land', async () => {
-    window.localStorage.setItem('admin-existing-open', JSON.stringify({ ids: [1, 2], timestamp: Date.now() }))
+    window.localStorage.setItem('admin-existing-open', JSON.stringify({
+      ids: [1, 2],
+      timestamp: Date.now(),
+    }))
     await render()
     await vi.waitFor(() => expect(api.load).toHaveBeenCalledTimes(2))
     api.load.mockClear()
@@ -248,7 +301,10 @@ describe('commission manager search and disclosure lifecycle', () => {
   })
 
   it('keeps a refresh error from an unscoped group when a scoped refetch succeeds', async () => {
-    window.localStorage.setItem('admin-existing-open', JSON.stringify({ ids: [1, 2], timestamp: Date.now() }))
+    window.localStorage.setItem('admin-existing-open', JSON.stringify({
+      ids: [1, 2],
+      timestamp: Date.now(),
+    }))
     await render()
     await vi.waitFor(() => expect(api.load).toHaveBeenCalledTimes(2))
     api.load.mockImplementation(async (id: number) => {
@@ -268,20 +324,27 @@ describe('commission manager search and disclosure lifecycle', () => {
   it('requests bootstrap refresh after keyword replacement while retaining the query', async () => {
     await render()
     await search('Second')
-    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Complete replacement')!.click())
+    await act(async () => [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Complete replacement')!.click())
     expect(api.refresh).toHaveBeenCalledOnce()
     expect((container.querySelector('input[aria-label="Search commissions"]') as HTMLInputElement).value).toBe('Second')
   })
 
   it.each(['browse', 'search'])('waits for fresh details after keyword replacement from %s', async (mode) => {
-    window.localStorage.setItem('admin-existing-open', JSON.stringify({ ids: [1], timestamp: Date.now() }))
+    window.localStorage.setItem('admin-existing-open', JSON.stringify({
+      ids: [1],
+      timestamp: Date.now(),
+    }))
     await render()
     const thumbnail = container.querySelector('[data-commission-id="1"]')!
     let finish!: (value: CommissionRow[]) => void
     api.load.mockImplementationOnce(() => new Promise((resolve) => {
       finish = resolve
     }))
-    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Complete replacement')!.click())
+    await act(async () => [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Complete replacement')!.click())
     if (mode === 'search')
       await search('First')
     await act(async () => (mode === 'browse'
@@ -289,12 +352,17 @@ describe('commission manager search and disclosure lifecycle', () => {
       : container.querySelector<HTMLButtonElement>('[aria-label="Search results"] button')!).click())
     expect(container.querySelector('[role="dialog"]')).toBeNull()
     expect(api.load).toHaveBeenCalledTimes(2)
-    await act(async () => finish([{ ...commissions[0]!, keyword: 'Replaced keyword' }]))
+    await act(async () => finish([
+      { ...commissions[0]!, keyword: 'Replaced keyword' },
+    ]))
     expect(container.querySelector('[role="dialog"]')?.getAttribute('data-keyword')).toBe('Replaced keyword')
   })
 
   it('keeps stale cards visible but requires retry after detail refresh fails', async () => {
-    window.localStorage.setItem('admin-existing-open', JSON.stringify({ ids: [1], timestamp: Date.now() }))
+    window.localStorage.setItem('admin-existing-open', JSON.stringify({
+      ids: [1],
+      timestamp: Date.now(),
+    }))
     await render()
     const thumbnail = container.querySelector<HTMLButtonElement>('[data-commission-id="1"]')!
     let reject!: (error: Error) => void
@@ -308,42 +376,66 @@ describe('commission manager search and disclosure lifecycle', () => {
     await act(async () => reject(new Error('Offline')))
     expect(container.querySelector('[data-commission-id="1"]')).toBe(thumbnail)
     expect(container.querySelector('[role="dialog"]')).toBeNull()
-    api.load.mockResolvedValueOnce([{ ...commissions[0]!, keyword: 'Fresh after retry' }])
-    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Retry opening commission')!.click())
+    api.load.mockResolvedValueOnce([
+      { ...commissions[0]!, keyword: 'Fresh after retry' },
+    ])
+    await act(async () => [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Retry opening commission')!.click())
     expect(container.querySelector('[role="dialog"]')?.getAttribute('data-keyword')).toBe('Fresh after retry')
   })
 
   it('continues a pending selection through a superseding background request', async () => {
-    window.localStorage.setItem('admin-existing-open', JSON.stringify({ ids: [1], timestamp: Date.now() }))
+    window.localStorage.setItem('admin-existing-open', JSON.stringify({
+      ids: [1],
+      timestamp: Date.now(),
+    }))
     await render()
     let finishOld!: (value: CommissionRow[]) => void
     let finishNew!: (value: CommissionRow[]) => void
     api.load
       .mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve }))
       .mockImplementationOnce(() => new Promise((resolve) => { finishNew = resolve }))
-    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Complete replacement')!.click())
+    await act(async () => [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Complete replacement')!.click())
     await act(async () => container.querySelector<HTMLButtonElement>('[data-commission-id="1"]')!.click())
     await render([...rows])
-    await act(async () => finishNew([{ ...commissions[0]!, keyword: 'Newest' }]))
-    await act(async () => finishOld([{ ...commissions[0]!, keyword: 'Outdated' }]))
+    await act(async () => finishNew([
+      { ...commissions[0]!, keyword: 'Newest' },
+    ]))
+    await act(async () => finishOld([
+      { ...commissions[0]!, keyword: 'Outdated' },
+    ]))
     expect(container.querySelector('[role="dialog"]')?.getAttribute('data-keyword')).toBe('Newest')
   })
 
   it('does not accept a detail request that started before keyword replacement', async () => {
-    window.localStorage.setItem('admin-existing-open', JSON.stringify({ ids: [1], timestamp: Date.now() }))
+    window.localStorage.setItem('admin-existing-open', JSON.stringify({
+      ids: [1],
+      timestamp: Date.now(),
+    }))
     await render()
     let finish!: (value: CommissionRow[]) => void
     api.load.mockImplementationOnce(() => new Promise((resolve) => {
       finish = resolve
     }))
     await render([...rows])
-    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Complete replacement')!.click())
+    await act(async () => [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Complete replacement')!.click())
     await act(async () => container.querySelector<HTMLButtonElement>('[data-commission-id="1"]')!.click())
-    await act(async () => finish([{ ...commissions[0]!, keyword: 'Before replacement' }]))
+    await act(async () => finish([
+      { ...commissions[0]!, keyword: 'Before replacement' },
+    ]))
     expect(container.querySelector('[role="dialog"]')).toBeNull()
     expect(container.textContent).toContain('Retry opening commission')
-    api.load.mockResolvedValueOnce([{ ...commissions[0]!, keyword: 'After replacement' }])
-    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Retry opening commission')!.click())
+    api.load.mockResolvedValueOnce([
+      { ...commissions[0]!, keyword: 'After replacement' },
+    ])
+    await act(async () => [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Retry opening commission')!.click())
     expect(container.querySelector('[role="dialog"]')?.getAttribute('data-keyword')).toBe('After replacement')
   })
 
@@ -354,11 +446,15 @@ describe('commission manager search and disclosure lifecycle', () => {
 
     expect(container.querySelectorAll('#admin-character-2 img[src*="/api/admin/commissions/"]')).toHaveLength(0)
     await act(async () => firstToggle.click())
-    const expandedImages = [...container.querySelectorAll<HTMLImageElement>('#admin-character-1 img[src*="/api/admin/commissions/"]')]
+    const expandedImages = [
+      ...container.querySelectorAll<HTMLImageElement>('#admin-character-1 img[src*="/api/admin/commissions/"]'),
+    ]
     expect(expandedImages.length).toBeGreaterThan(0)
 
     await act(async () => firstToggle.click())
-    expect([...container.querySelectorAll('#admin-character-1 img[src*="/api/admin/commissions/"]')]).toEqual(expandedImages)
+    expect([
+      ...container.querySelectorAll('#admin-character-1 img[src*="/api/admin/commissions/"]'),
+    ]).toEqual(expandedImages)
     expect(secondToggle.getAttribute('aria-expanded')).toBe('false')
   })
 })

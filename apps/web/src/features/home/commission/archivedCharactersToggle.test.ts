@@ -116,7 +116,10 @@ describe('mountArchivedCharactersToggle', () => {
     window.dispatchEvent(new Event(ARCHIVED_CHARACTERS_SHOW_REQUEST_EVENT))
     window.dispatchEvent(new Event(ARCHIVED_CHARACTERS_COLLAPSE_REQUEST_EVENT))
 
-    expect(details).toEqual([{ visibility: 'visible' }, { visibility: 'hidden' }])
+    expect(details).toEqual([
+      { visibility: 'visible' },
+      { visibility: 'hidden' },
+    ])
     cleanup()
     window.removeEventListener(ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, onStateChange)
   })

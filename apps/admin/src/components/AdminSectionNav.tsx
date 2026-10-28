@@ -28,7 +28,13 @@ interface AdminSectionNavProps {
 }
 
 export function AdminSectionNav({ current, onNavigate, publicSiteUrl }: AdminSectionNavProps) {
-  const icons = { overview: IconHome, create: IconPlus, edit: IconListDetails, aliases: IconTags, suggestion: IconSearch }
+  const icons = {
+    overview: IconHome,
+    create: IconPlus,
+    edit: IconListDetails,
+    aliases: IconTags,
+    suggestion: IconSearch,
+  }
   return (
     <nav
       aria-label="Admin sections"

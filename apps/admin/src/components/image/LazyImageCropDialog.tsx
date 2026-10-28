@@ -40,8 +40,11 @@ export function LazyImageCropDialog(props: ImageCropDialogProps) {
       },
       (error: unknown) => {
         console.error('[image-crop] failed to load image editor', error)
-        if (active)
-          setLoadError(error instanceof Error ? error.message : String(error))
+        if (active) {
+          setLoadError(error instanceof Error
+            ? error.message
+            : String(error))
+        }
       },
     )
 

@@ -26,7 +26,9 @@ import { arrayMove } from './useNativeDragReorder'
 
 const disclosureStorageKey = 'admin-existing-open'
 const expiryMs = 30 * 60 * 1000
-const useSafeLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect
+const useSafeLayoutEffect = typeof window === 'undefined'
+  ? useEffect
+  : useLayoutEffect
 
 export const DIVIDER_ID = 'divider'
 
@@ -161,8 +163,12 @@ function readOpenIdsFromStorage(): Set<number> {
       return new Set(parsed.ids.filter((value): value is number => Number.isInteger(value) && value > 0))
     }
 
-    const legacyId = 'id' in parsed ? parsed.id : undefined
-    return typeof legacyId === 'number' && legacyId > 0 ? new Set([legacyId]) : new Set()
+    const legacyId = 'id' in parsed
+      ? parsed.id
+      : undefined
+    return typeof legacyId === 'number' && legacyId > 0
+      ? new Set([legacyId])
+      : new Set()
   }
   catch {
     return new Set()
@@ -193,7 +199,9 @@ function saveOpenIdsToStorage(openIds: Set<number>, onQuotaExceeded?: () => void
 
 function openIdsReducer(state: Set<number>, action: OpenIdsAction): Set<number> {
   if (action.type === 'clear') {
-    return state.size === 0 ? state : new Set()
+    return state.size === 0
+      ? state
+      : new Set()
   }
 
   if (action.type === 'toggle') {
@@ -208,7 +216,9 @@ function openIdsReducer(state: Set<number>, action: OpenIdsAction): Set<number> 
   }
 
   const next = new Set([...state].filter(id => action.validIds.has(id)))
-  return next.size === state.size && [...next].every(id => state.has(id)) ? state : next
+  return next.size === state.size && [...next].every(id => state.has(id))
+    ? state
+    : next
 }
 
 function commissionMapReducer(
@@ -242,13 +252,21 @@ function commissionMapReducer(
 
 function mergeCharactersInLocalOrder(current: ListItem[], incoming: ListItem[]): ListItem[] {
   // 写入中的顺序以本地为准，外部快照仍可更新元数据、新增和删除角色。
-  const nextCharacters = new Map(incoming.flatMap(item => item.type === 'character' ? [[item.data.id, item] as const] : []))
-  const knownIds = new Set(current.flatMap(item => item.type === 'character' ? [item.data.id] : []))
+  const nextCharacters = new Map(incoming.flatMap(item => item.type === 'character'
+    ? [
+        [item.data.id, item] as const,
+      ]
+    : []))
+  const knownIds = new Set(current.flatMap(item => item.type === 'character'
+    ? [item.data.id]
+    : []))
   const merged = current.flatMap<ListItem>((item) => {
     if (item.type === 'divider')
       return [item]
     const replacement = nextCharacters.get(item.data.id)
-    return replacement ? [replacement] : []
+    return replacement
+      ? [replacement]
+      : []
   })
   const added = incoming.filter((item): item is CharacterItem => item.type === 'character' && !knownIds.has(item.data.id))
   merged.splice(merged.findIndex(item => item.type === 'divider'), 0, ...added.filter(item => item.data.status === 'active'))
@@ -271,7 +289,10 @@ function listReducer(state: ListItem[], action: ListAction): ListItem[] {
 
   return state.map(item =>
     item.type === 'character' && item.data.id === action.characterId
-      ? { ...item, data: { ...item.data, name: action.name } }
+      ? {
+          ...item,
+          data: { ...item.data, name: action.name },
+        }
       : item,
   )
 }
@@ -480,7 +501,9 @@ export function useCommissionManager({
       return 'active'
     }
 
-    return itemIndex < dividerIndex ? 'active' : 'archived'
+    return itemIndex < dividerIndex
+      ? 'active'
+      : 'archived'
   }, [list])
 
   const startEditingName = useCallback((character: CharacterRow) => {
@@ -493,7 +516,9 @@ export function useCommissionManager({
 
   const handleRenameChange = useCallback((value: string) => {
     renameSessionRef.current += 1
-    setEditing(current => (current ? { ...current, value } : current))
+    setEditing(current => (current
+      ? { ...current, value }
+      : current))
   }, [])
 
   const cancelEditing = useCallback(() => {
@@ -534,8 +559,11 @@ export function useCommissionManager({
         return
       renameSessionRef.current += 1
       setFeedback(nextFeedback)
-      if (close)
-        setEditing(latest => latest === current ? null : latest)
+      if (close) {
+        setEditing(latest => latest === current
+          ? null
+          : latest)
+      }
     }
     setFeedback({ text: 'Updating name…', type: 'success' })
 
@@ -573,7 +601,15 @@ export function useCommissionManager({
             renameRequestsRef.current.delete(current.id)
         })
     })
-  }, [cancelEditing, editing, enqueueCharacterWrite, getCharacterStatus, list, startRenameTransition, toFeedback])
+  }, [
+    cancelEditing,
+    editing,
+    enqueueCharacterWrite,
+    getCharacterStatus,
+    list,
+    startRenameTransition,
+    toFeedback,
+  ])
 
   const performDeleteCharacter = useCallback((character: CharacterRow) => {
     if (activeDeleteRequestIdRef.current !== null || isDeletePending || deletingId !== null) {
@@ -585,7 +621,9 @@ export function useCommissionManager({
     setIsDeletePending(true)
     setFeedback({ text: 'Deleting…', type: 'success' })
     setDeletingId(character.id)
-    setEditing(current => (current?.id === character.id ? null : current))
+    setEditing(current => (current?.id === character.id
+      ? null
+      : current))
 
     void deleteCharacterAction(character.id)
       .then((result) => {
@@ -621,7 +659,9 @@ export function useCommissionManager({
 
   const activeCount = useMemo(() => {
     const dividerIndex = list.findIndex(item => item.type === 'divider')
-    return dividerIndex === -1 ? 0 : dividerIndex
+    return dividerIndex === -1
+      ? 0
+      : dividerIndex
   }, [list])
 
   const toggleCharacterOpen = useCallback((characterId: number) => {

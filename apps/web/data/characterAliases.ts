@@ -26,11 +26,16 @@ function loadCharacterAliases(): CharacterAliasEntry[] {
     const previous = aliasMap.get(key)
     aliasMap.set(key, {
       characterName: previous?.characterName ?? normalizedCharacterName,
-      aliases: normalizeCharacterAliases([...(previous?.aliases ?? []), ...aliases]),
+      aliases: normalizeCharacterAliases([
+        ...(previous?.aliases ?? []),
+        ...aliases,
+      ]),
     })
   })
 
-  return [...aliasMap.values()].toSorted((a, b) =>
+  return [
+    ...aliasMap.values(),
+  ].toSorted((a, b) =>
     a.characterName.localeCompare(b.characterName, 'ja'))
 }
 

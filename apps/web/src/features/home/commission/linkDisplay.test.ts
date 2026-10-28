@@ -39,9 +39,13 @@ describe('linkDisplay', () => {
 
   it('reports whether any displayable link exists', () => {
     expect(hasDisplayableLinks({ links: [] })).toBe(false)
-    expect(hasDisplayableLinks({ links: ['https://example.com/no-match'] })).toBe(false)
+    expect(hasDisplayableLinks({
+      links: ['https://example.com/no-match'],
+    })).toBe(false)
     expect(hasDisplayableLinks({ links: [], designLink: 'https://example.com/design' })).toBe(true)
-    expect(hasDisplayableLinks({ links: ['https://twitter.com/example/status/1'] })).toBe(true)
+    expect(hasDisplayableLinks({
+      links: ['https://twitter.com/example/status/1'],
+    })).toBe(true)
   })
 
   it('numbers same-platform parts when there are multiple', () => {

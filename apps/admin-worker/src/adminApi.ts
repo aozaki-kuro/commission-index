@@ -175,12 +175,16 @@ function parseOptionalField(rawValue: string) {
 function normalizeCommissionPartFields(input: { workGroupId: string, partNumber: string }) {
   const workGroupId = input.workGroupId.trim().toLowerCase() || null
   const rawPartNumber = input.partNumber.trim()
-  const partNumber = rawPartNumber ? Number(rawPartNumber) : null
+  const partNumber = rawPartNumber
+    ? Number(rawPartNumber)
+    : null
   return { workGroupId, partNumber }
 }
 
 function parseCharacterStatus(value: unknown): CharacterStatus {
-  return String(value) === 'archived' ? 'archived' : 'active'
+  return String(value) === 'archived'
+    ? 'archived'
+    : 'active'
 }
 
 function parseCommissionFields(input: {
@@ -230,8 +234,12 @@ function parseCommissionFieldsFromJson(payload: Record<string, unknown>) {
   return parseCommissionFields({
     characterId: Number(payload.characterId),
     commissionDate: String(payload.commissionDate ?? ''),
-    creatorName: rawCreatorName === null || typeof rawCreatorName === 'string' ? String(rawCreatorName ?? '') : '\u0000',
-    workGroupId: payload.workGroupId === null || typeof payload.workGroupId === 'string' ? String(payload.workGroupId ?? '') : '\u0000',
+    creatorName: rawCreatorName === null || typeof rawCreatorName === 'string'
+      ? String(rawCreatorName ?? '')
+      : '\u0000',
+    workGroupId: payload.workGroupId === null || typeof payload.workGroupId === 'string'
+      ? String(payload.workGroupId ?? '')
+      : '\u0000',
     partNumber: payload.partNumber === null || payload.partNumber === undefined
       ? ''
       : typeof payload.partNumber === 'number' || typeof payload.partNumber === 'string'
@@ -294,7 +302,9 @@ function parseIdFromPath(pathname: string, pattern: RegExp) {
   }
 
   const id = Number(match[1])
-  return Number.isFinite(id) && id > 0 ? id : null
+  return Number.isFinite(id) && id > 0
+    ? id
+    : null
 }
 
 function getUploadedSourceImage(formData: FormData) {
@@ -312,7 +322,9 @@ function getUploadedSourceImage(formData: FormData) {
 
 async function parseJsonBody(request: Request): Promise<Record<string, unknown>> {
   const payload = await request.json() as unknown
-  return payload && typeof payload === 'object' ? payload as Record<string, unknown> : {}
+  return payload && typeof payload === 'object'
+    ? payload as Record<string, unknown>
+    : {}
 }
 
 function parseStructuredArray<T>(value: unknown, fallbackFieldValue?: unknown): T[] {
@@ -322,7 +334,9 @@ function parseStructuredArray<T>(value: unknown, fallbackFieldValue?: unknown): 
 
   const rawValue = fallbackFieldValue ?? value ?? '[]'
   const parsed = JSON.parse(String(rawValue)) as unknown
-  return Array.isArray(parsed) ? parsed as T[] : []
+  return Array.isArray(parsed)
+    ? parsed as T[]
+    : []
 }
 
 async function handleCrudBackendRequest(operation: () => Promise<Response>) {
@@ -330,7 +344,9 @@ async function handleCrudBackendRequest(operation: () => Promise<Response>) {
     return await operation()
   }
   catch (error) {
-    const message = error instanceof Error ? error.message : 'Admin worker request failed.'
+    const message = error instanceof Error
+      ? error.message
+      : 'Admin worker request failed.'
     return json({
       status: 'error',
       message,
@@ -371,7 +387,9 @@ function createNativeCrudBackend(
         })
       }
       catch (error) {
-        return failure(error instanceof Error ? error.message : 'Failed to create character.')
+        return failure(error instanceof Error
+          ? error.message
+          : 'Failed to create character.')
       }
     },
     async updateCharacter(input) {
@@ -383,7 +401,9 @@ function createNativeCrudBackend(
         })
       }
       catch (error) {
-        return failure(error instanceof Error ? error.message : 'Failed to update character.')
+        return failure(error instanceof Error
+          ? error.message
+          : 'Failed to update character.')
       }
     },
     async updateCharacterOrder(payload) {
@@ -395,7 +415,9 @@ function createNativeCrudBackend(
         })
       }
       catch (error) {
-        return failure(error instanceof Error ? error.message : 'Failed to update character order.')
+        return failure(error instanceof Error
+          ? error.message
+          : 'Failed to update character order.')
       }
     },
     async deleteCharacter(id) {
@@ -409,7 +431,9 @@ function createNativeCrudBackend(
         objectKeys = await persistCharacterDelete(db, id)
       }
       catch (error) {
-        return failure(error instanceof Error ? error.message : 'Failed to delete character.')
+        return failure(error instanceof Error
+          ? error.message
+          : 'Failed to delete character.')
       }
 
       try {
@@ -443,7 +467,9 @@ function createNativeCrudBackend(
         })
       }
       catch (error) {
-        return failure(error instanceof Error ? error.message : 'Failed to save source image.')
+        return failure(error instanceof Error
+          ? error.message
+          : 'Failed to save source image.')
       }
 
       try {
@@ -458,7 +484,9 @@ function createNativeCrudBackend(
       }
       catch (error) {
         // 保留新对象以覆盖“D1 已提交但响应丢失”的不确定窗口；孤儿对象可安全清理。
-        return failure(error instanceof Error ? error.message : 'Failed to add commission.')
+        return failure(error instanceof Error
+          ? error.message
+          : 'Failed to add commission.')
       }
     },
     async updateCommission(input) {
@@ -471,7 +499,9 @@ function createNativeCrudBackend(
         })
       }
       catch (error) {
-        return failure(error instanceof Error ? error.message : 'Failed to update commission.')
+        return failure(error instanceof Error
+          ? error.message
+          : 'Failed to update commission.')
       }
     },
     async deleteCommission(id) {
@@ -483,7 +513,9 @@ function createNativeCrudBackend(
         })
       }
       catch (error) {
-        return failure(error instanceof Error ? error.message : 'Failed to delete commission.')
+        return failure(error instanceof Error
+          ? error.message
+          : 'Failed to delete commission.')
       }
     },
     async replaceCommissionSourceImage(input) {
@@ -502,7 +534,9 @@ function createNativeCrudBackend(
           await persistSourceImageMetadata(db, savedSourceImage)
         }
         catch (error) {
-          return failure(error instanceof Error ? error.message : 'Failed to update source image metadata.')
+          return failure(error instanceof Error
+            ? error.message
+            : 'Failed to update source image metadata.')
         }
 
         if (previousImage && previousImage.objectKey !== savedSourceImage.objectKey) {
@@ -516,7 +550,9 @@ function createNativeCrudBackend(
         })
       }
       catch (error) {
-        return failure(error instanceof Error ? error.message : 'Failed to replace source image.')
+        return failure(error instanceof Error
+          ? error.message
+          : 'Failed to replace source image.')
       }
     },
   }
@@ -581,8 +617,12 @@ async function handleCrudRequest(request: Request, backend: AdminCrudBackend) {
   if (request.method === 'PUT' && pathname === '/api/admin/characters/order') {
     const body = await parseJsonBody(request)
     return handleCrudBackendRequest(() => backend.updateCharacterOrder({
-      active: Array.isArray(body.active) ? body.active.map(Number) : [],
-      archived: Array.isArray(body.archived) ? body.archived.map(Number) : [],
+      active: Array.isArray(body.active)
+        ? body.active.map(Number)
+        : [],
+      archived: Array.isArray(body.archived)
+        ? body.archived.map(Number)
+        : [],
     }))
   }
 
@@ -694,7 +734,9 @@ async function handleBatchWriteRequest(request: Request, env: Env) {
       return json({ status: 'success', message: 'Creator aliases saved.' } satisfies ApiState)
     }
     catch (error) {
-      return failure(error instanceof Error ? error.message : 'Failed to save creator aliases.')
+      return failure(error instanceof Error
+        ? error.message
+        : 'Failed to save creator aliases.')
     }
   }
 
@@ -718,7 +760,9 @@ async function handleBatchWriteRequest(request: Request, env: Env) {
       return json({ status: 'success', message: 'Character aliases saved.' } satisfies ApiState)
     }
     catch (error) {
-      return failure(error instanceof Error ? error.message : 'Failed to save character aliases.')
+      return failure(error instanceof Error
+        ? error.message
+        : 'Failed to save character aliases.')
     }
   }
 
@@ -742,7 +786,9 @@ async function handleBatchWriteRequest(request: Request, env: Env) {
       return json({ status: 'success', message: 'Keyword aliases saved.' } satisfies ApiState)
     }
     catch (error) {
-      return failure(error instanceof Error ? error.message : 'Failed to save keyword aliases.')
+      return failure(error instanceof Error
+        ? error.message
+        : 'Failed to save keyword aliases.')
     }
   }
 
@@ -759,7 +805,9 @@ async function handleBatchWriteRequest(request: Request, env: Env) {
       return json({ status: 'success', message: 'Home featured keywords saved.' } satisfies ApiState)
     }
     catch (error) {
-      return failure(error instanceof Error ? error.message : 'Failed to save home featured keywords.')
+      return failure(error instanceof Error
+        ? error.message
+        : 'Failed to save home featured keywords.')
     }
   }
 
@@ -807,10 +855,14 @@ export async function handleAdminApiRequest(
       }
 
       const text = await response.text().catch(() => '')
-      return failure(`GitHub API returned ${response.status}${text ? `: ${text}` : ''}`, 502)
+      return failure(`GitHub API returned ${response.status}${text
+        ? `: ${text}`
+        : ''}`, 502)
     }
     catch (error) {
-      return failure(error instanceof Error ? error.message : 'Failed to dispatch rebuild.', 502)
+      return failure(error instanceof Error
+        ? error.message
+        : 'Failed to dispatch rebuild.', 502)
     }
   }
 

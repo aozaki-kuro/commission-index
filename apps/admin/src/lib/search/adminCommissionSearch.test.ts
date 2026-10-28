@@ -20,7 +20,11 @@ const commission: AdminCommissionSearchRow = {
 }
 
 const aliases: CreatorAliasRow[] = [
-  { creatorName: 'artist name', aliases: ['A. Name'], commissionCount: 1 },
+  {
+    creatorName: 'artist name',
+    aliases: ['A. Name'],
+    commissionCount: 1,
+  },
 ]
 
 describe('buildAdminCommissionSearchEntries', () => {
@@ -37,12 +41,14 @@ describe('buildAdminCommissionSearchEntries', () => {
   })
 
   it('keeps undated or unknown-creator commissions searchable by other fields', () => {
-    const [entry] = buildAdminCommissionSearchEntries([{
-      ...commission,
-      commissionDate: null,
-      creatorName: null,
-      fileName: 'private-storage-key',
-    }], [])
+    const [entry] = buildAdminCommissionSearchEntries([
+      {
+        ...commission,
+        commissionDate: null,
+        creatorName: null,
+        fileName: 'private-storage-key',
+      },
+    ], [])
 
     expect(entry?.searchText).toContain('sakura')
     expect(entry?.searchText).toContain('beach scene')

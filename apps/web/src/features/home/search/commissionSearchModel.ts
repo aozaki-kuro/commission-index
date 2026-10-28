@@ -210,7 +210,9 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   // cachedHydratedIndex !== null is included so the memoized result is invalidated once
   // Fuse.js finishes loading — otherwise a keyword-click recompute (which runs before Fuse is
   // ready) would be permanently cached and a subsequent retry would return the stale empty result.
-  const outputKey = `${query}\0${mode}\0${isIndexReady}\0${shouldWarmFuse}\0${isSuggestionPanelDismissed}\0${activeCommandValue}\0${archivedVisible}\0${externalEntries?.length ?? -1}\0${disableDomFiltering}\0${suppressInitialSuggestionPanelAnimation}\0${initialQuery === undefined ? 'unset' : `set:${initialQuery}`}\0${cachedHydratedIndex !== null}`
+  const outputKey = `${query}\0${mode}\0${isIndexReady}\0${shouldWarmFuse}\0${isSuggestionPanelDismissed}\0${activeCommandValue}\0${archivedVisible}\0${externalEntries?.length ?? -1}\0${disableDomFiltering}\0${suppressInitialSuggestionPanelAnimation}\0${initialQuery === undefined
+    ? 'unset'
+    : `set:${initialQuery}`}\0${cachedHydratedIndex !== null}`
   if (
     cachedOutput
     && cachedOutputKey === outputKey
@@ -278,7 +280,9 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   let resolvedIndex: SearchIndex
   if (cachedHydratedIndex && cachedHydratedIndex.entries === index.entries) {
     // Hydrated index matches current entries — merge fuse if index lost it
-    resolvedIndex = index.fuse ? index : { ...index, fuse: cachedHydratedIndex.fuse }
+    resolvedIndex = index.fuse
+      ? index
+      : { ...index, fuse: cachedHydratedIndex.fuse }
   }
   else {
     resolvedIndex = index
@@ -414,7 +418,9 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   ) {
     hasTrackedSearchUsage = true
     trackRybbitEvent(ANALYTICS_EVENTS.searchUsed, {
-      source: initialQuery === undefined ? 'url_query' : 'input',
+      source: initialQuery === undefined
+        ? 'url_query'
+        : 'input',
     })
   }
 

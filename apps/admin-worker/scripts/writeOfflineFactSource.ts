@@ -29,7 +29,9 @@ try {
   target = resolveOfflineFactSourceTarget(webRoot, process.env.FACT_SOURCE_DIR)
 }
 catch (error) {
-  console.error(error instanceof Error ? error.message : error)
+  console.error(error instanceof Error
+    ? error.message
+    : error)
   process.exit(1)
 }
 const { directory } = target

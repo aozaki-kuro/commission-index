@@ -27,10 +27,35 @@ function createJsonResponse(payload: unknown, status = 200) {
 function imageBytes(kind: 'jpg' | 'png' | 'webp', tail = 'body') {
   const header = {
     jpg: [0xFF, 0xD8, 0xFF, 0xE0],
-    png: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A],
-    webp: [0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50],
+    png: [
+      0x89,
+      0x50,
+      0x4E,
+      0x47,
+      0x0D,
+      0x0A,
+      0x1A,
+      0x0A,
+    ],
+    webp: [
+      0x52,
+      0x49,
+      0x46,
+      0x46,
+      0,
+      0,
+      0,
+      0,
+      0x57,
+      0x45,
+      0x42,
+      0x50,
+    ],
   }[kind]
-  return new Uint8Array([...header, ...new TextEncoder().encode(tail)])
+  return new Uint8Array([
+    ...header,
+    ...new TextEncoder().encode(tail),
+  ])
 }
 
 function createR2SourceImageObject(
@@ -80,9 +105,13 @@ function buildCommissionMutationRequest(options: {
     formData.set('commissionDate', '2025-03-01')
     formData.set('creatorName', 'test-creator')
     formData.set('workGroupId', options.workGroupId ?? '')
-    formData.set('partNumber', options.partNumber == null ? '' : String(options.partNumber))
+    formData.set('partNumber', options.partNumber == null
+      ? ''
+      : String(options.partNumber))
     formData.set('links', '')
-    formData.set('sourceImage', new File([imageBytes('png')], 'test.png', { type: 'image/png' }))
+    formData.set('sourceImage', new File([
+      imageBytes('png'),
+    ], 'test.png', { type: 'image/png' }))
 
     return new Request(`${baseUrl}/api/admin/commissions`, { method: 'POST', body: formData })
   }
@@ -167,7 +196,9 @@ function createImagesBucketRecorder(options: {
     if (key in existingObjects) {
       const object = existingObjects[key]!
       return {
-        httpMetadata: object.contentType ? { contentType: object.contentType } : undefined,
+        httpMetadata: object.contentType
+          ? { contentType: object.contentType }
+          : undefined,
         async arrayBuffer() {
           return object.body ?? new Uint8Array([1, 2, 3]).buffer
         },
@@ -345,7 +376,14 @@ describe('admin worker CRUD contract routing', () => {
       new Request(`${baseUrl}/api/admin/commissions/19`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ characterId: 3, commissionDate: '2025-02-30', workGroupId: null, partNumber: null, links: '', hidden: false }),
+        body: JSON.stringify({
+          characterId: 3,
+          commissionDate: '2025-02-30',
+          workGroupId: null,
+          partNumber: null,
+          links: '',
+          hidden: false,
+        }),
       }),
       {},
       backend,
@@ -476,7 +514,12 @@ describe('admin worker CRUD contract routing', () => {
       message: 'Character "Renamed" updated.',
     })
     expect(database.prepare('SELECT id, name, status, sort_order FROM characters').all()).toEqual([
-      { id: 14, name: 'Renamed', status: 'active', sort_order: 1 },
+      {
+        id: 14,
+        name: 'Renamed',
+        status: 'active',
+        sort_order: 1,
+      },
     ])
   })
 
@@ -530,10 +573,16 @@ describe('admin worker CRUD contract routing', () => {
       status: 'success',
       message: 'Character deleted.',
     })
-    expect(database.prepare('SELECT id FROM characters').all()).toEqual([{ id: 8 }])
-    expect(database.prepare('SELECT id FROM commissions').all()).toEqual([{ id: 800 }])
+    expect(database.prepare('SELECT id FROM characters').all()).toEqual([
+      { id: 8 },
+    ])
+    expect(database.prepare('SELECT id FROM commissions').all()).toEqual([
+      { id: 800 },
+    ])
     expect(database.prepare('SELECT object_key FROM source_images').all())
-      .toEqual([{ object_key: 'source-images/bystander.jpg' }])
+      .toEqual([
+        { object_key: 'source-images/bystander.jpg' },
+      ])
   })
 
   it('deletes exactly the character source-image R2 objects after the D1 commit', async () => {
@@ -587,8 +636,12 @@ describe('admin worker CRUD contract routing', () => {
       message: 'Character deleted.',
     })
     expect(deleteObject).toHaveBeenCalledTimes(1)
-    expect(database.prepare('SELECT id FROM characters').all()).toEqual([{ id: 8 }])
-    expect(database.prepare('SELECT id FROM commissions').all()).toEqual([{ id: 800 }])
+    expect(database.prepare('SELECT id FROM characters').all()).toEqual([
+      { id: 8 },
+    ])
+    expect(database.prepare('SELECT id FROM commissions').all()).toEqual([
+      { id: 800 },
+    ])
     expect(warn).toHaveBeenCalled()
   })
 
@@ -648,7 +701,9 @@ describe('admin worker CRUD contract routing', () => {
     formData.set('description', '  desc  ')
     formData.set('keyword', '  tag  ')
     formData.set('hidden', 'on')
-    formData.set('sourceImage', new File([imageBytes('png')], 'sample.png', { type: 'image/png' }))
+    formData.set('sourceImage', new File([
+      imageBytes('png'),
+    ], 'sample.png', { type: 'image/png' }))
 
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/commissions`, {
@@ -682,29 +737,33 @@ describe('admin worker CRUD contract routing', () => {
         file_name, links, design, description, keyword, hidden
       FROM commissions
     `).all() as Array<{ id: number, file_name: string }>
-    expect(commissions).toEqual([{
-      id: expect.any(Number),
-      public_id: expect.stringMatching(uuidV4Pattern),
-      character_id: 7,
-      commission_date: '2025-03-01',
-      creator_name: 'sample-piece',
-      work_group_id: null,
-      part_number: null,
-      file_name: expect.stringMatching(/^commission-[\w-]+$/),
-      links: '["https://a.example","https://b.example"]',
-      design: 'outfit',
-      description: 'desc',
-      keyword: 'tag',
-      hidden: 1,
-    }])
+    expect(commissions).toEqual([
+      {
+        id: expect.any(Number),
+        public_id: expect.stringMatching(uuidV4Pattern),
+        character_id: 7,
+        commission_date: '2025-03-01',
+        creator_name: 'sample-piece',
+        work_group_id: null,
+        part_number: null,
+        file_name: expect.stringMatching(/^commission-[\w-]+$/),
+        links: '["https://a.example","https://b.example"]',
+        design: 'outfit',
+        description: 'desc',
+        keyword: 'tag',
+        hidden: 1,
+      },
+    ])
     expect(database.prepare('SELECT commission_file_name, commission_id, object_key, mime_type, byte_size FROM source_images').all())
-      .toEqual([{
-        commission_file_name: commissions[0]!.file_name,
-        commission_id: commissions[0]!.id,
-        object_key: objectKey,
-        mime_type: 'image/png',
-        byte_size: 12,
-      }])
+      .toEqual([
+        {
+          commission_file_name: commissions[0]!.file_name,
+          commission_id: commissions[0]!.id,
+          object_key: objectKey,
+          mime_type: 'image/png',
+          byte_size: 12,
+        },
+      ])
   })
 
   it('does not delete an existing commission when a create insert conflicts', async () => {
@@ -712,7 +771,13 @@ describe('admin worker CRUD contract routing', () => {
     const workGroupId = 'a1b2c3d4-e5f6-4789-a012-3456789abcde'
     insertCharacter(database, 7, 'Alice')
     database.prepare('INSERT INTO commission_groups (id) VALUES (?)').run(workGroupId)
-    insertCommission(database, { id: 70, characterId: 7, fileName: 'existing-part-1', workGroupId, partNumber: 1 })
+    insertCommission(database, {
+      id: 70,
+      characterId: 7,
+      fileName: 'existing-part-1',
+      workGroupId,
+      partNumber: 1,
+    })
     insertSourceImage(database, 'existing-part-1', 70, 'source-images/existing.jpg')
     const commissionsBefore = database.prepare('SELECT * FROM commissions').all()
     const sourceImagesBefore = database.prepare('SELECT * FROM source_images').all()
@@ -725,7 +790,9 @@ describe('admin worker CRUD contract routing', () => {
     formData.set('creatorName', 'sample-piece')
     formData.set('workGroupId', workGroupId)
     formData.set('partNumber', '1')
-    formData.set('sourceImage', new File([imageBytes('png')], 'sample.png', { type: 'image/png' }))
+    formData.set('sourceImage', new File([
+      imageBytes('png'),
+    ], 'sample.png', { type: 'image/png' }))
 
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/commissions`, {
@@ -823,7 +890,13 @@ describe('admin worker CRUD contract routing', () => {
     const workGroupId = 'a1b2c3d4-e5f6-4789-a012-3456789abcde'
     insertCharacter(database, 1, 'Alice')
     database.prepare('INSERT INTO commission_groups (id) VALUES (?)').run(workGroupId)
-    insertCommission(database, { id: 19, characterId: 1, fileName: '20250301_sample-piece', workGroupId, partNumber: 1 })
+    insertCommission(database, {
+      id: 19,
+      characterId: 1,
+      fileName: '20250301_sample-piece',
+      workGroupId,
+      partNumber: 1,
+    })
 
     // The admin edit form sends null (not '') for an ungrouped commission.
     const response = await handleAdminApiRequest(
@@ -868,9 +941,13 @@ describe('admin worker CRUD contract routing', () => {
       status: 'success',
       message: 'Commission deleted.',
     })
-    expect(database.prepare('SELECT id FROM commissions').all()).toEqual([{ id: 20 }])
+    expect(database.prepare('SELECT id FROM commissions').all()).toEqual([
+      { id: 20 },
+    ])
     expect(database.prepare('SELECT commission_id, object_key FROM source_images').all())
-      .toEqual([{ commission_id: 20, object_key: 'source-images/kept.jpg' }])
+      .toEqual([
+        { commission_id: 20, object_key: 'source-images/kept.jpg' },
+      ])
   })
 
   it('handles source-image replacement natively when DB and IMAGES bindings exist', async () => {
@@ -881,7 +958,9 @@ describe('admin worker CRUD contract routing', () => {
 
     const formData = new FormData()
     formData.set('commissionFileName', 'stale-client-name')
-    formData.set('sourceImage', new File([imageBytes('jpg')], 'sample.jpg', { type: 'image/jpeg' }))
+    formData.set('sourceImage', new File([
+      imageBytes('jpg'),
+    ], 'sample.jpg', { type: 'image/jpeg' }))
 
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/commissions/19/source-image`, {
@@ -905,13 +984,15 @@ describe('admin worker CRUD contract routing', () => {
     expect(deleteObject).not.toHaveBeenCalled()
     // The stored identity comes from D1's file_name, never from the client-sent commissionFileName.
     expect(database.prepare('SELECT commission_file_name, commission_id, object_key, mime_type, byte_size FROM source_images').all())
-      .toEqual([{
-        commission_file_name: '20250301_alice-maker',
-        commission_id: 19,
-        object_key: put.mock.calls[0]?.[0],
-        mime_type: 'image/jpeg',
-        byte_size: 8,
-      }])
+      .toEqual([
+        {
+          commission_file_name: '20250301_alice-maker',
+          commission_id: 19,
+          object_key: put.mock.calls[0]?.[0],
+          mime_type: 'image/jpeg',
+          byte_size: 8,
+        },
+      ])
   })
 
   it('keeps filename metadata while identical successive uploads get distinct flat keys', async () => {
@@ -931,7 +1012,9 @@ describe('admin worker CRUD contract routing', () => {
     for (let index = 0; index < 2; index += 1) {
       const formData = new FormData()
       formData.set('commissionFileName', 'stale-client-name')
-      formData.set('sourceImage', new File([imageBytes('png', 'same bytes')], 'sample.png', { type: 'image/png' }))
+      formData.set('sourceImage', new File([
+        imageBytes('png', 'same bytes'),
+      ], 'sample.png', { type: 'image/png' }))
       const response = await handleAdminApiRequest(
         new Request(`${baseUrl}/api/admin/commissions/19/source-image`, { method: 'POST', body: formData }),
         { DB: db, IMAGES: bucket },
@@ -947,7 +1030,10 @@ describe('admin worker CRUD contract routing', () => {
       expect(key).not.toContain('20250301_alice-maker')
     }
     // One metadata row per commission: each upload replaces it, keeping filename, size and hash.
-    expect(storedRows.map(rows => rows.map(row => row.object_key))).toEqual([[keys[0]], [keys[1]]])
+    expect(storedRows.map(rows => rows.map(row => row.object_key))).toEqual([
+      [keys[0]],
+      [keys[1]],
+    ])
     for (const rows of storedRows) {
       expect(rows[0]).toMatchObject({
         commission_file_name: '20250301_alice-maker',
@@ -961,7 +1047,9 @@ describe('admin worker CRUD contract routing', () => {
     expect(deleteObject).toHaveBeenCalledTimes(1)
     expect(deleteObject).toHaveBeenCalledWith(keys[0])
     // Deleting first would lose the live image if the D1 write then failed.
-    expect(storedKeysAtR2Delete).toEqual([[keys[1]]])
+    expect(storedKeysAtR2Delete).toEqual([
+      [keys[1]],
+    ])
   })
 
   it('loads bootstrap data natively when DB binding exists', async () => {
@@ -1173,7 +1261,10 @@ describe('admin worker CRUD contract routing', () => {
 
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/commissions/10/source-image`, { method: 'GET' }),
-      { DB: db, IMAGES: { get } },
+      {
+        DB: db,
+        IMAGES: { get },
+      },
     )
 
     expect(response.status).toBe(200)
@@ -1197,7 +1288,9 @@ describe('admin worker CRUD contract routing', () => {
       httpMetadata: { contentType: 'image/jpeg' },
       httpEtag: etag,
       size: imageBody.byteLength,
-      body: new ReadableStream({ cancel() { matchingBodyCancelled = true } }),
+      body: new ReadableStream({
+        cancel() { matchingBodyCancelled = true },
+      }),
       async arrayBuffer() { return imageBody },
     }
     const matchingGet = vi.fn(async () => matchingObject)
@@ -1207,7 +1300,10 @@ describe('admin worker CRUD contract routing', () => {
         method: 'GET',
         headers: { 'If-None-Match': etag },
       }),
-      { DB: db, IMAGES: { get: matchingGet } },
+      {
+        DB: db,
+        IMAGES: { get: matchingGet },
+      },
     )
 
     expect(matching.status).toBe(304)
@@ -1225,7 +1321,10 @@ describe('admin worker CRUD contract routing', () => {
         method: 'GET',
         headers: { 'If-None-Match': '"other-etag"' },
       }),
-      { DB: db, IMAGES: { get } },
+      {
+        DB: db,
+        IMAGES: { get },
+      },
     )
 
     expect(stale.status).toBe(200)
@@ -1241,7 +1340,10 @@ describe('admin worker CRUD contract routing', () => {
 
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/commissions/11/source-image`, { method: 'GET' }),
-      { DB: db, IMAGES: { get } },
+      {
+        DB: db,
+        IMAGES: { get },
+      },
     )
 
     expect(response.status).toBe(404)
@@ -1258,7 +1360,10 @@ describe('admin worker CRUD contract routing', () => {
 
     const response = await handleAdminApiRequest(
       new Request(`${baseUrl}/api/admin/commissions/10/source-image`, { method: 'GET' }),
-      { DB: db, IMAGES: { get } },
+      {
+        DB: db,
+        IMAGES: { get },
+      },
     )
 
     expect(response.status).toBe(404)
@@ -1304,8 +1409,14 @@ describe('admin worker CRUD contract routing', () => {
       },
       body: JSON.stringify({
         rows: [
-          { creatorName: 'Q (part 1)', aliases: ['Cue'] },
-          { creatorName: 'Q (part 2)', aliases: ['cue'] },
+          {
+            creatorName: 'Q (part 1)',
+            aliases: ['Cue'],
+          },
+          {
+            creatorName: 'Q (part 2)',
+            aliases: ['cue'],
+          },
         ],
       }),
     })
@@ -1347,7 +1458,9 @@ describe('admin worker CRUD contract routing', () => {
       message: 'Creator aliases saved.',
     })
     expect(database.prepare('SELECT creator_name, aliases FROM creator_aliases').all())
-      .toEqual([{ creator_name: 'Other', aliases: '["o"]' }])
+      .toEqual([
+        { creator_name: 'Other', aliases: '["o"]' },
+      ])
   })
 
   it.each([
@@ -1356,7 +1469,9 @@ describe('admin worker CRUD contract routing', () => {
       request: () => new Request(`${baseUrl}/api/admin/suggestion`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keywords: ['maid'] }),
+        body: JSON.stringify({
+          keywords: ['maid'],
+        }),
       }),
       env: () => ({}),
       backend: () => createCrudBackend(),
@@ -1367,7 +1482,9 @@ describe('admin worker CRUD contract routing', () => {
       request: () => {
         const formData = new FormData()
         formData.set('commissionFileName', '20250301_sample-piece')
-        formData.set('sourceImage', new File([imageBytes('png')], 'sample.png', { type: 'image/png' }))
+        formData.set('sourceImage', new File([
+          imageBytes('png'),
+        ], 'sample.png', { type: 'image/png' }))
         return new Request(`${baseUrl}/api/admin/commissions/19/source-image`, {
           method: 'POST',
           body: formData,
@@ -1423,7 +1540,9 @@ describe('admin worker CRUD contract routing', () => {
       const { bucket, put } = createImagesBucketRecorder()
 
       const response = await handleAdminApiRequest(
-        createRequest(new File([imageBytes('webp')], 'a.jpg', { type: 'image/jpeg' })),
+        createRequest(new File([
+          imageBytes('webp'),
+        ], 'a.jpg', { type: 'image/jpeg' })),
         { DB: db, IMAGES: bucket },
       )
 
@@ -1438,13 +1557,17 @@ describe('admin worker CRUD contract routing', () => {
       const { bucket, put } = createImagesBucketRecorder()
 
       const response = await handleAdminApiRequest(
-        createRequest(new File([imageBytes('png')], 'a.jpg', { type: 'image/jpeg' })),
+        createRequest(new File([
+          imageBytes('png'),
+        ], 'a.jpg', { type: 'image/jpeg' })),
         { DB: db, IMAGES: bucket },
       )
 
       expect(response.status).toBe(200)
       expect(put.mock.calls[0]?.[0]).toMatch(flatPngKeyPattern)
-      expect(put.mock.calls[0]?.[2]).toEqual({ httpMetadata: { contentType: 'image/png' } })
+      expect(put.mock.calls[0]?.[2]).toEqual({
+        httpMetadata: { contentType: 'image/png' },
+      })
     })
 
     it('rejects an oversized upload before any R2 put', async () => {
@@ -1452,12 +1575,18 @@ describe('admin worker CRUD contract routing', () => {
       insertCharacter(database, 7, 'Alice')
       const { bucket, put } = createImagesBucketRecorder()
       // A real oversized body: a size override on File would not survive the FormData round trip.
-      const oversized = new File([imageBytes('jpg'), new Uint8Array(10 * 1024 * 1024)], 'a.jpg', { type: 'image/jpeg' })
+      const oversized = new File([
+        imageBytes('jpg'),
+        new Uint8Array(10 * 1024 * 1024),
+      ], 'a.jpg', { type: 'image/jpeg' })
 
       const response = await handleAdminApiRequest(createRequest(oversized), { DB: db, IMAGES: bucket })
 
       expect(response.status).toBe(400)
-      expect(await response.json()).toEqual({ status: 'error', message: expect.stringContaining('10 MiB') })
+      expect(await response.json()).toEqual({
+        status: 'error',
+        message: expect.stringContaining('10 MiB'),
+      })
       expect(put).not.toHaveBeenCalled()
     })
 
@@ -1467,7 +1596,9 @@ describe('admin worker CRUD contract routing', () => {
       insertCommission(database, { id: 19, characterId: 1, fileName: '20250301_alice-maker' })
       const { bucket, put } = createImagesBucketRecorder()
       const formData = new FormData()
-      formData.set('sourceImage', new File([imageBytes('webp')], 'a.png', { type: 'image/png' }))
+      formData.set('sourceImage', new File([
+        imageBytes('webp'),
+      ], 'a.png', { type: 'image/png' }))
 
       const response = await handleAdminApiRequest(
         new Request(`${baseUrl}/api/admin/commissions/19/source-image`, { method: 'POST', body: formData }),
@@ -1488,20 +1619,30 @@ describe('admin worker CRUD contract routing', () => {
         const rawLinks = links.replaceAll('\\n', '\n')
 
         const created = await handleAdminApiRequest(
-          createRequest(new File([imageBytes('jpg')], 'a.jpg', { type: 'image/jpeg' }), rawLinks),
+          createRequest(new File([
+            imageBytes('jpg'),
+          ], 'a.jpg', { type: 'image/jpeg' }), rawLinks),
           { DB: db, IMAGES: bucket },
         )
         const updated = await handleAdminApiRequest(
           new Request(`${baseUrl}/api/admin/commissions/19`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ characterId: 7, commissionDate: '2025-03-01', links: rawLinks, hidden: false }),
+            body: JSON.stringify({
+              characterId: 7,
+              commissionDate: '2025-03-01',
+              links: rawLinks,
+              hidden: false,
+            }),
           }),
           { DB: db, IMAGES: bucket },
         )
 
         expect(created.status).toBe(400)
-        expect(await created.json()).toEqual({ status: 'error', message: expect.stringMatching(/^Link ".+" must be an http\(s\) URL\.$/) })
+        expect(await created.json()).toEqual({
+          status: 'error',
+          message: expect.stringMatching(/^Link ".+" must be an http\(s\) URL\.$/),
+        })
         expect(updated.status).toBe(400)
         expect(put).not.toHaveBeenCalled()
       },
@@ -1513,7 +1654,9 @@ describe('admin worker CRUD contract routing', () => {
         insertCharacter(database, 7, 'Alice')
         const { bucket } = createImagesBucketRecorder()
         const response = await handleAdminApiRequest(
-          createRequest(new File([imageBytes('jpg')], 'a.jpg', { type: 'image/jpeg' }), links),
+          createRequest(new File([
+            imageBytes('jpg'),
+          ], 'a.jpg', { type: 'image/jpeg' }), links),
           { DB: db, IMAGES: bucket },
         )
         expect(response.status).toBe(200)

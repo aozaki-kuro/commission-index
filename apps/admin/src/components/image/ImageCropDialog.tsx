@@ -103,7 +103,9 @@ export function ImageCropDialog({
       closeWithAction(() => onConfirm(output))
     }
     catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : 'Unable to process this image.')
+      setError(caughtError instanceof Error
+        ? caughtError.message
+        : 'Unable to process this image.')
     }
     finally {
       setIsProcessing(false)

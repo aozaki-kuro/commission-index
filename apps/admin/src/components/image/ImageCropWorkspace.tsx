@@ -439,7 +439,10 @@ export function ImageCropWorkspace({ imageUrl, onChange, onError, ref }: ImageCr
       customEvent.preventDefault()
       const currentSelection = getSelection(selection)
       const currentGeometry = getImageGeometry(image)
-      const requestedGeometry = { ...currentGeometry, matrix: toMatrix(customEvent.detail.matrix) }
+      const requestedGeometry = {
+        ...currentGeometry,
+        matrix: toMatrix(customEvent.detail.matrix),
+      }
       const oldRotation = getRotation(toMatrix(customEvent.detail.oldMatrix))
       const nextRotation = getRotation(requestedGeometry.matrix)
       const rotationChanged = Math.abs(nextRotation - oldRotation) > ROTATION_EPSILON

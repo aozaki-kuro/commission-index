@@ -43,7 +43,9 @@ export function getHashTarget(hash: string): HTMLElement | null {
 export function getHashFromHref(rawHref: string | null): string {
   if (!rawHref)
     return ''
-  return rawHref.startsWith('#') ? rawHref : new URL(rawHref, window.location.href).hash
+  return rawHref.startsWith('#')
+    ? rawHref
+    : new URL(rawHref, window.location.href).hash
 }
 
 export function scrollToHashTargetFromHrefWithoutHash(rawHref: string | null): boolean {

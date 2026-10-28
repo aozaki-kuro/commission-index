@@ -114,7 +114,9 @@ function getArchivedLink() {
   )
 }
 function getEmptyActiveLink() {
-  return [...document.querySelectorAll<HTMLAnchorElement>('[data-mobile-nav-link="true"]')]
+  return [
+    ...document.querySelectorAll<HTMLAnchorElement>('[data-mobile-nav-link="true"]'),
+  ]
     .find(link => link.dataset.mobileNavSectionId === 'empty-item') ?? null
 }
 describe('mobileHamburgerMenu', () => {
@@ -271,7 +273,12 @@ describe('mobileHamburgerMenu', () => {
     getToggle()!.click()
     trackEvent.mockClear()
     const link = getArchivedLink()!
-    for (const init of [{ ctrlKey: true }, { metaKey: true }, { shiftKey: true }, { button: 1 }]) {
+    for (const init of [
+      { ctrlKey: true },
+      { metaKey: true },
+      { shiftKey: true },
+      { button: 1 },
+    ]) {
       const event = new MouseEvent('click', { bubbles: true, cancelable: true, ...init })
       link.dispatchEvent(event)
       expect(event.defaultPrevented).toBe(false)

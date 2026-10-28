@@ -90,11 +90,19 @@ describe('alias normalization consistency', () => {
       // Simulates multiple DB rows being merged
       const batch1 = normalizeAliases(['Nanashi', '七市'])
       const batch2 = normalizeAliases(['nanashi', 'Nanashi (old)'])
-      const merged = normalizeAliases([...batch1, ...batch2])
+      const merged = normalizeAliases([
+        ...batch1,
+        ...batch2,
+      ])
 
       // Should preserve all distinct spellings
       expect(merged).toHaveLength(4)
-      expect(merged).toEqual(expect.arrayContaining(['Nanashi', 'nanashi', '七市', 'Nanashi (old)']))
+      expect(merged).toEqual(expect.arrayContaining([
+        'Nanashi',
+        'nanashi',
+        '七市',
+        'Nanashi (old)',
+      ]))
     })
   })
 })

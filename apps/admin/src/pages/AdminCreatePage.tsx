@@ -88,7 +88,9 @@ export function AdminCreatePage() {
         }
 
         dispatch({
-          message: error instanceof Error ? error.message : 'Failed to load admin data.',
+          message: error instanceof Error
+            ? error.message
+            : 'Failed to load admin data.',
           type: 'failed',
         })
       })

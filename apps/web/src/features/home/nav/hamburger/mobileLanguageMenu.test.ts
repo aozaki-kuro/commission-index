@@ -46,7 +46,9 @@ describe('mobileLanguageMenu', () => {
 
     menu!.open = true
     window.dispatchEvent(
-      new CustomEvent(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, { detail: { mounted: true } }),
+      new CustomEvent(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, {
+        detail: { mounted: true },
+      }),
     )
 
     expect(root?.classList.contains('opacity-0')).toBe(true)
@@ -54,7 +56,9 @@ describe('mobileLanguageMenu', () => {
     expect(menu?.open).toBe(false)
 
     window.dispatchEvent(
-      new CustomEvent(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, { detail: { mounted: false } }),
+      new CustomEvent(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, {
+        detail: { mounted: false },
+      }),
     )
 
     expect(root?.classList.contains('opacity-100')).toBe(true)
@@ -108,7 +112,9 @@ describe('mobileLanguageMenu', () => {
 
     cleanup()
     window.dispatchEvent(
-      new CustomEvent(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, { detail: { mounted: true } }),
+      new CustomEvent(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, {
+        detail: { mounted: true },
+      }),
     )
 
     expect(anchor?.classList.contains('pointer-events-none')).toBe(false)

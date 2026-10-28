@@ -92,7 +92,9 @@ function renderPopularKeywords(
 
   keywords.forEach((keyword, index) => {
     const li = document.createElement('li')
-    li.className = `shrink-0${index >= 4 ? ' hidden lg:block' : ''}`
+    li.className = `shrink-0${index >= 4
+      ? ' hidden lg:block'
+      : ''}`
 
     const btn = document.createElement('button')
     btn.type = 'button'

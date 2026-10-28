@@ -13,7 +13,10 @@ import {
   websiteRebuildPollTimeoutMs,
 } from './websiteRebuild'
 
-const api = vi.hoisted(() => ({ trigger: vi.fn(), fetchBuildInfo: vi.fn() }))
+const api = vi.hoisted(() => ({
+  trigger: vi.fn(),
+  fetchBuildInfo: vi.fn(),
+}))
 vi.mock('./adminApi', () => ({
   triggerRebuildDeploy: api.trigger,
   getAdminApiBaseUrl: () => '',
@@ -31,7 +34,12 @@ vi.mock('./liveBuildInfo', () => ({
 }))
 
 const dispatchedAt = '2026-10-09T10:00:00.000Z'
-const staleBuild = { dataRevision: 'old', dataExportedAt: '2026-10-09T09:59:00.000Z', codeSha: null, builtAt: '2026-10-09T10:01:00.000Z' }
+const staleBuild = {
+  dataRevision: 'old',
+  dataExportedAt: '2026-10-09T09:59:00.000Z',
+  codeSha: null,
+  builtAt: '2026-10-09T10:01:00.000Z',
+}
 const confirmedBuild = { ...staleBuild, dataRevision: 'new', dataExportedAt: '2026-10-09T10:00:01.000Z' }
 // The second poll fires 5 s after dispatch under the ramp-up backoff.
 const secondPollMs = 5000
@@ -135,13 +143,19 @@ describe('shared website rebuild lifecycle', () => {
     document.body.append(container)
     root = createRoot(container)
     const render = (overview: boolean) => act(async () => root!.render(
-      <FloatingNoticeProvider>{overview ? <AdminOverviewPage onNavigate={() => {}} /> : <FloatingRebuildButton />}</FloatingNoticeProvider>,
+      <FloatingNoticeProvider>
+        {overview
+          ? <AdminOverviewPage onNavigate={() => {}} />
+          : <FloatingRebuildButton />}
+      </FloatingNoticeProvider>,
     ))
     await render(false)
     await act(async () => container!.querySelector('button')!.click())
     expect(api.trigger).toHaveBeenCalledOnce()
     await render(true)
-    const overviewButton = [...container.querySelectorAll('button')].find(button => button.textContent === 'Queueing…')!
+    const overviewButton = [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Queueing…')!
     expect(overviewButton.disabled).toBe(true)
     await render(false)
     expect(container.querySelector<HTMLButtonElement>('button')!.disabled).toBe(true)

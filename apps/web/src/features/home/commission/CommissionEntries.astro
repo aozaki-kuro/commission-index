@@ -61,7 +61,9 @@ const legacyAnchorIds = new Set<string>()
     const sourceImage = resolveSourceImageByCommissionId(commission.id)
     const elementId = `${entryAnchorPrefix}-commission-${commission.publicId}`
     const searchKey = buildCommissionSearchDomKey(entryAnchorPrefix, commission.publicId)
-    const legacyAnchorId = compactDate ? `${entryAnchorPrefix}-${compactDate}` : ''
+    const legacyAnchorId = compactDate
+? `${entryAnchorPrefix}-${compactDate}`
+: ''
     const shouldRenderLegacyAnchor = legacyAnchorId && !legacyAnchorIds.has(legacyAnchorId)
     if (shouldRenderLegacyAnchor) {
       legacyAnchorIds.add(legacyAnchorId)

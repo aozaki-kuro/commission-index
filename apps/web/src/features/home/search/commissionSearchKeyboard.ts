@@ -52,7 +52,9 @@ export function createListboxController(options: ListboxOptions): ListboxControl
         e.preventDefault()
         if (count === 0)
           return
-        const next = activeIndex < count - 1 ? activeIndex + 1 : 0
+        const next = activeIndex < count - 1
+          ? activeIndex + 1
+          : 0
         setActiveIndex(next)
         break
       }
@@ -60,7 +62,9 @@ export function createListboxController(options: ListboxOptions): ListboxControl
         e.preventDefault()
         if (count === 0)
           return
-        const prev = activeIndex > 0 ? activeIndex - 1 : count - 1
+        const prev = activeIndex > 0
+          ? activeIndex - 1
+          : count - 1
         setActiveIndex(prev)
         break
       }
@@ -91,7 +95,9 @@ export function createListboxController(options: ListboxOptions): ListboxControl
     getActiveIndex: () => activeIndex,
     reset() {
       const count = getItemCount()
-      setActiveIndex(count > 0 ? 0 : -1)
+      setActiveIndex(count > 0
+        ? 0
+        : -1)
     },
   }
 }

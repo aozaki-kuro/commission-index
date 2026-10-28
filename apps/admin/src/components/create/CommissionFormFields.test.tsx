@@ -11,7 +11,9 @@ function PartingHarness({ initialGroup = '', initialPart = '' }: { initialGroup?
   return (
     <form>
       <CommissionWorkGroupField
-        options={[{ id: 'existing-group', highestPartNumber: 2, label: 'Existing group' }]}
+        options={[
+          { id: 'existing-group', highestPartNumber: 2, label: 'Existing group' },
+        ]}
         value={value}
         onChange={setValue}
         partNumber={partNumber}
@@ -91,7 +93,9 @@ describe('commission form fields', () => {
   })
 
   it('flags a future delivery date with a custom validity message before submit', async () => {
-    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.useFakeTimers({
+      toFake: ['Date'],
+    })
     vi.setSystemTime(new Date('2026-10-09T12:00:00Z'))
     try {
       await renderDateField()
@@ -114,11 +118,13 @@ describe('commission form fields', () => {
   })
 
   it('defaults new groups to part one and existing groups to their next part', () => {
-    const options = [{
-      id: '9d2c7e2b-fbc4-4fe3-96a5-e62144a83c12',
-      label: 'Sakura · 2025-03-02 · Artist · 2 parts',
-      highestPartNumber: 2,
-    }]
+    const options = [
+      {
+        id: '9d2c7e2b-fbc4-4fe3-96a5-e62144a83c12',
+        label: 'Sakura · 2025-03-02 · Artist · 2 parts',
+        highestPartNumber: 2,
+      },
+    ]
 
     expect(getDefaultPartNumber('new', options)).toBe('1')
     expect(getDefaultPartNumber(options[0].id, options)).toBe('3')
@@ -161,7 +167,15 @@ describe('commission form fields', () => {
     expect(loadingTrigger.disabled).toBe(true)
     expect(container.textContent).not.toContain('No characters')
     expect(container.textContent).not.toContain('Add a character')
-    await act(async () => root.render(<CommissionCharacterField options={[{ id: 1, name: 'Character 1' }]} selectedCharacterId={null} onChange={onChange} />))
+    await act(async () => root.render(
+      <CommissionCharacterField
+        options={[
+          { id: 1, name: 'Character 1' },
+        ]}
+        selectedCharacterId={null}
+        onChange={onChange}
+      />,
+    ))
     expect(container.querySelector('[role="combobox"]')?.textContent).toBe(loadingTrigger.textContent)
     expect(container.querySelector<HTMLButtonElement>('[role="combobox"]')?.disabled).toBe(false)
   })

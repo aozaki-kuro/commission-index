@@ -52,8 +52,24 @@ describe('renderRssFeed', () => {
 
   it('escapes text and yields well-formed XML with atom link and lastBuildDate', () => {
     const items = [
-      buildRssItem({ ...base, id: 1, publicId: 'a', commissionDate: '2024-02-03', creatorName: 'A & <B> ]]> "C"', fileName: 'x', character: 'Tom & <Jerry>' }),
-      buildRssItem({ ...base, id: 2, publicId: 'b', commissionDate: '2025-01-05', creatorName: 'Plain', fileName: 'y', character: 'Beta' }),
+      buildRssItem({
+        ...base,
+        id: 1,
+        publicId: 'a',
+        commissionDate: '2024-02-03',
+        creatorName: 'A & <B> ]]> "C"',
+        fileName: 'x',
+        character: 'Tom & <Jerry>',
+      }),
+      buildRssItem({
+        ...base,
+        id: 2,
+        publicId: 'b',
+        commissionDate: '2025-01-05',
+        creatorName: 'Plain',
+        fileName: 'y',
+        character: 'Beta',
+      }),
     ]
     const xml = renderRssFeed(items)
     const doc = new DOMParser().parseFromString(xml, 'application/xml')
@@ -70,7 +86,15 @@ describe('renderRssFeed', () => {
 
   it('omits lastBuildDate when no item has a date', () => {
     const xml = renderRssFeed([
-      buildRssItem({ ...base, id: 3, publicId: 'c', commissionDate: null, creatorName: null, fileName: 'z', character: 'Gamma' }),
+      buildRssItem({
+        ...base,
+        id: 3,
+        publicId: 'c',
+        commissionDate: null,
+        creatorName: null,
+        fileName: 'z',
+        character: 'Gamma',
+      }),
     ])
     expect(xml).not.toContain('lastBuildDate')
   })

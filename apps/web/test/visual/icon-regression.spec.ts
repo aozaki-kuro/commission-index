@@ -121,7 +121,9 @@ test.describe('home desktop shells', () => {
 })
 
 test.describe('home mobile floating menus', () => {
-  test.use({ viewport: { width: 390, height: 844 } })
+  test.use({
+    viewport: { width: 390, height: 844 },
+  })
 
   test('mobile home shell stays visually stable', async ({ page }) => {
     await page.goto('/')

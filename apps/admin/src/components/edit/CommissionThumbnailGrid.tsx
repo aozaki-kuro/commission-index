@@ -76,7 +76,9 @@ export function CommissionThumbnail({
 
     const stored = window.sessionStorage.getItem(`admin-preview-image-version:${commissionId}`)
     const parsed = Number(stored)
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+    return Number.isFinite(parsed) && parsed > 0
+      ? parsed
+      : 0
   })
 
   useEffect(() => {
@@ -92,7 +94,9 @@ export function CommissionThumbnail({
     return () => window.removeEventListener('admin-preview-image-version', handlePreviewVersion)
   }, [commissionId])
 
-  const previewSrc = imageVersion > 0 ? `${imageSrc}?v=${imageVersion}` : imageSrc
+  const previewSrc = imageVersion > 0
+    ? `${imageSrc}?v=${imageVersion}`
+    : imageSrc
 
   // Retry the same URL once by remounting the image, then show the fallback.
   const [retriedSrc, setRetriedSrc] = useState<string | null>(null)
@@ -127,7 +131,9 @@ export function CommissionThumbnail({
         : shouldRenderImage
           ? (
               <img
-                key={retriedSrc === previewSrc ? 'retry' : 'initial'}
+                key={retriedSrc === previewSrc
+                  ? 'retry'
+                  : 'initial'}
                 src={previewSrc}
                 alt={alt}
                 loading="lazy"
@@ -229,7 +235,9 @@ function ThumbnailCard({
           <span>
             {commission.links.length}
             {' '}
-            {commission.links.length === 1 ? 'link' : 'links'}
+            {commission.links.length === 1
+              ? 'link'
+              : 'links'}
           </span>
           <span className="tabular-nums">
             #

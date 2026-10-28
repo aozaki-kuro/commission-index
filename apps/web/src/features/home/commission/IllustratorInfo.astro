@@ -22,12 +22,18 @@ const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
 const { Description: description = '', Links: links, Design: designLink } = commission
 const compactDate = commission.commissionDate?.replaceAll('-', '') ?? ''
 const linkId = `#${kebabName}-commission-${commission.publicId}`
-const formattedDate = compactDate ? parseAndFormatDate(compactDate, 'yyyy/MM/dd') : ''
-const interestKey = compactDate ? `${kebabName}-${compactDate}` : `${kebabName}-commission-${commission.publicId}`
+const formattedDate = compactDate
+? parseAndFormatDate(compactDate, 'yyyy/MM/dd')
+: ''
+const interestKey = compactDate
+? `${kebabName}-${compactDate}`
+: `${kebabName}-commission-${commission.publicId}`
 const quotedDescription = `"${description}"`
 
 const creatorName = commission.creatorName?.trim() || 'Anon'
-const partLabel = commission.partNumber == null ? null : `Part ${commission.partNumber}`
+const partLabel = commission.partNumber == null
+? null
+: `Part ${commission.partNumber}`
 const hasDescription = Boolean(description)
 const hasBoth = hasDescription
 

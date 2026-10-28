@@ -44,7 +44,9 @@ export function buildPopularKeywordPoolFromSuggestTexts(suggestTexts: Iterable<s
         continue
 
       const normalizedTerm
-        = source === 'Creator' ? (normalizeCreatorName(term) ?? term.trim()) : term.trim()
+        = source === 'Creator'
+          ? (normalizeCreatorName(term) ?? term.trim())
+          : term.trim()
       if (!normalizedTerm)
         continue
 
@@ -66,7 +68,9 @@ export function buildPopularKeywordPoolFromSuggestTexts(suggestTexts: Iterable<s
     }
   }
 
-  return [...termStats.values()].toSorted((a, b) => {
+  return [
+    ...termStats.values(),
+  ].toSorted((a, b) => {
     if (a.count !== b.count)
       return b.count - a.count
     return a.term.localeCompare(b.term)

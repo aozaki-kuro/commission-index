@@ -56,10 +56,14 @@ export function getAdminApiBaseUrl() {
 }
 
 export function getAdminApiUrl(pathname: string) {
-  const normalizedPath = pathname.startsWith('/') ? pathname : `/${pathname}`
+  const normalizedPath = pathname.startsWith('/')
+    ? pathname
+    : `/${pathname}`
   const baseUrl = getAdminApiBaseUrl()
 
-  return baseUrl ? `${baseUrl}${normalizedPath}` : normalizedPath
+  return baseUrl
+    ? `${baseUrl}${normalizedPath}`
+    : normalizedPath
 }
 
 function sleep(ms: number, signal?: AbortSignal) {
@@ -171,7 +175,9 @@ export async function fetchAdminJsonWithRetry<TPayload>(
     }
   }
 
-  throw lastError instanceof Error ? lastError : new Error(`Failed to load ${pathname}.`)
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`Failed to load ${pathname}.`)
 }
 
 export async function triggerRebuildDeploy(signal?: AbortSignal): Promise<{ status: string, message: string, dispatchedAt: string }> {

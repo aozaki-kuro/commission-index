@@ -81,7 +81,9 @@ for (const viewport of viewports) {
 
       // Block every script request so only inline scripts run: this isolates the pre-paint expand in
       // StaticCommissionSections.astro from the client modules (toggle, hash target) that would also expand it.
-      await page.route('**/*', route => route.request().resourceType() === 'script' ? route.abort() : route.continue())
+      await page.route('**/*', route => route.request().resourceType() === 'script'
+        ? route.abort()
+        : route.continue())
       await gotoFreshDocument(page, `/${hash}`)
       await expectFixtureData(page)
       const inlineOnly = await page.evaluate(() => ({
@@ -110,7 +112,9 @@ for (const viewport of viewports) {
 
       // Native fragment scrolling targets the hidden character-panel copy of the shared id; with scripts
       // blocked, only the inline view-swap script can move the page to the timeline copy before paint.
-      await page.route('**/*', route => route.request().resourceType() === 'script' ? route.abort() : route.continue())
+      await page.route('**/*', route => route.request().resourceType() === 'script'
+        ? route.abort()
+        : route.continue())
       await page.goto('about:blank')
       await page.goto(`/?view=timeline${hash}`, { waitUntil: 'domcontentloaded' })
       expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0)

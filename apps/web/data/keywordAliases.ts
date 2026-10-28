@@ -25,11 +25,16 @@ function loadKeywordAliases(): KeywordAliasEntry[] {
     const previous = aliasMap.get(key)
     aliasMap.set(key, {
       baseKeyword: previous?.baseKeyword ?? normalizedBaseKeyword,
-      aliases: normalizeKeywordAliases([...(previous?.aliases ?? []), ...aliases]),
+      aliases: normalizeKeywordAliases([
+        ...(previous?.aliases ?? []),
+        ...aliases,
+      ]),
     })
   })
 
-  return [...aliasMap.values()].toSorted((a, b) =>
+  return [
+    ...aliasMap.values(),
+  ].toSorted((a, b) =>
     a.baseKeyword.localeCompare(b.baseKeyword, 'ja'))
 }
 

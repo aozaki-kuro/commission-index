@@ -14,7 +14,9 @@ interface BatchSavePayload {
 function toErrorState(error: unknown, fallback: string): FormState {
   return {
     status: 'error',
-    message: error instanceof Error ? error.message : fallback,
+    message: error instanceof Error
+      ? error.message
+      : fallback,
   }
 }
 
@@ -46,13 +48,17 @@ async function parseResponse(response: Response): Promise<FormState> {
 
     return {
       status: payload.status,
-      message: payload.message ?? (payload.status === 'success' ? 'Saved.' : 'Request failed.'),
+      message: payload.message ?? (payload.status === 'success'
+        ? 'Saved.'
+        : 'Request failed.'),
     }
   }
   catch {
     return {
       status: 'error',
-      message: response.ok ? 'Failed to parse response.' : `Request failed (${response.status}).`,
+      message: response.ok
+        ? 'Failed to parse response.'
+        : `Request failed (${response.status}).`,
     }
   }
 }

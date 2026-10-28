@@ -19,7 +19,10 @@ describe('characters utils', () => {
 
   it('builds navigation items from character display names', () => {
     expect(
-      buildCharacterNavItems([{ DisplayName: 'Foo Bar' }, { DisplayName: 'Nero Claudius' }]),
+      buildCharacterNavItems([
+        { DisplayName: 'Foo Bar' },
+        { DisplayName: 'Nero Claudius' },
+      ]),
     ).toEqual([
       {
         displayName: 'Foo Bar',

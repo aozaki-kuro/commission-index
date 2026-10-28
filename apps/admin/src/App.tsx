@@ -25,7 +25,9 @@ function RouteLoadingNotice() {
     const timer = window.setTimeout(setVisible, 200, true)
     return () => window.clearTimeout(timer)
   }, [])
-  return visible ? <FloatingNotice>Loading page…</FloatingNotice> : null
+  return visible
+    ? <FloatingNotice>Loading page…</FloatingNotice>
+    : null
 }
 
 function RouteContentReady({ onReady }: { onReady: () => void }) {
@@ -146,7 +148,9 @@ export function App() {
   useEffect(() => {
     // Edit 按数据锚点恢复；其余页面刷新时仍交给浏览器恢复原位置。
     const previous = window.history.scrollRestoration
-    window.history.scrollRestoration = currentSection?.key === 'edit' ? 'manual' : 'auto'
+    window.history.scrollRestoration = currentSection?.key === 'edit'
+      ? 'manual'
+      : 'auto'
     return () => {
       window.history.scrollRestoration = previous
     }
@@ -174,8 +178,17 @@ export function App() {
       pendingScrollRef.current = null
     }
     const cancelOnScrollKey = (event: KeyboardEvent) => {
-      if (['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '].includes(event.key))
+      if ([
+        'ArrowDown',
+        'ArrowUp',
+        'PageDown',
+        'PageUp',
+        'Home',
+        'End',
+        ' ',
+      ].includes(event.key)) {
         cancelRestore()
+      }
     }
     window.addEventListener('popstate', handlePopState)
     window.addEventListener('wheel', cancelRestore, { passive: true })

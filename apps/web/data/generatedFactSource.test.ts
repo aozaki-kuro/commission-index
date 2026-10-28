@@ -14,15 +14,17 @@ const meta = {
 
 const publicId = (value: string) => `00000000-0000-4000-8000-${value.padStart(12, '0')}`
 
-function snapshot(commissions: unknown[] = [{
-  id: 1,
-  publicId: publicId('1'),
-  commissionDate: '2024-02-29',
-  creatorName: 'Artist',
-  fileName: 'opaque-source-key',
-  workGroupId: null,
-  partNumber: null,
-}]) {
+function snapshot(commissions: unknown[] = [
+  {
+    id: 1,
+    publicId: publicId('1'),
+    commissionDate: '2024-02-29',
+    creatorName: 'Artist',
+    fileName: 'opaque-source-key',
+    workGroupId: null,
+    partNumber: null,
+  },
+]) {
   const files = commissions
     .filter((commission): commission is Record<string, unknown> => typeof commission === 'object' && commission !== null)
     .filter(commission => Number.isSafeInteger(commission.id) && typeof commission.fileName === 'string')
@@ -31,13 +33,19 @@ function snapshot(commissions: unknown[] = [{
   return {
     content: {
       meta: { ...meta },
-      characters: [{ commissions }],
+      characters: [
+        { commissions },
+      ],
       creatorAliases: [],
       characterAliases: [],
       keywordAliases: [],
       featuredSearchKeywords: [],
     },
-    manifest: { meta: { ...meta }, files, missing: [] as unknown[] },
+    manifest: {
+      meta: { ...meta },
+      files,
+      missing: [] as unknown[],
+    },
   }
 }
 
@@ -57,10 +65,35 @@ describe('generated fact-source snapshot validation', () => {
   })
 
   it('rejects missing and duplicate commission IDs', () => {
-    const missing = snapshot([{ publicId: publicId('1'), commissionDate: null, creatorName: null, fileName: 'missing-id', workGroupId: null, partNumber: null }])
+    const missing = snapshot([
+      {
+        publicId: publicId('1'),
+        commissionDate: null,
+        creatorName: null,
+        fileName: 'missing-id',
+        workGroupId: null,
+        partNumber: null,
+      },
+    ])
     const duplicate = snapshot([
-      { id: 7, publicId: publicId('7'), commissionDate: null, creatorName: null, fileName: 'first', workGroupId: null, partNumber: null },
-      { id: 7, publicId: publicId('8'), commissionDate: null, creatorName: null, fileName: 'second', workGroupId: null, partNumber: null },
+      {
+        id: 7,
+        publicId: publicId('7'),
+        commissionDate: null,
+        creatorName: null,
+        fileName: 'first',
+        workGroupId: null,
+        partNumber: null,
+      },
+      {
+        id: 7,
+        publicId: publicId('8'),
+        commissionDate: null,
+        creatorName: null,
+        fileName: 'second',
+        workGroupId: null,
+        partNumber: null,
+      },
     ])
 
     expect(() => validateGeneratedFactSourceSnapshot(missing.content, missing.manifest)).toThrow(/commission ID/)
@@ -68,7 +101,17 @@ describe('generated fact-source snapshot validation', () => {
   })
 
   it('rejects impossible calendar dates and mismatched revisions', () => {
-    const invalidDate = snapshot([{ id: 8, publicId: publicId('8'), commissionDate: '2024-02-30', creatorName: null, fileName: 'bad-date', workGroupId: null, partNumber: null }])
+    const invalidDate = snapshot([
+      {
+        id: 8,
+        publicId: publicId('8'),
+        commissionDate: '2024-02-30',
+        creatorName: null,
+        fileName: 'bad-date',
+        workGroupId: null,
+        partNumber: null,
+      },
+    ])
     const mismatchedRevision = snapshot()
     mismatchedRevision.manifest.meta.revision = 'other-revision'
 
@@ -87,15 +130,80 @@ describe('generated fact-source snapshot validation', () => {
   })
 
   it('requires unique canonical lowercase UUID public IDs and valid optional part metadata', () => {
-    const missing = snapshot([{ id: 1, commissionDate: null, creatorName: null, fileName: 'missing-public-id', workGroupId: null, partNumber: null }])
-    const duplicate = snapshot([
-      { id: 1, publicId: publicId('1'), commissionDate: null, creatorName: null, fileName: 'first', workGroupId: null, partNumber: null },
-      { id: 2, publicId: publicId('1'), commissionDate: null, creatorName: null, fileName: 'second', workGroupId: null, partNumber: null },
+    const missing = snapshot([
+      {
+        id: 1,
+        commissionDate: null,
+        creatorName: null,
+        fileName: 'missing-public-id',
+        workGroupId: null,
+        partNumber: null,
+      },
     ])
-    const uppercase = snapshot([{ id: 1, publicId: publicId('A').toUpperCase(), commissionDate: null, creatorName: null, fileName: 'uppercase', workGroupId: null, partNumber: null }])
-    const invalidPart = snapshot([{ id: 1, publicId: publicId('1'), commissionDate: null, creatorName: null, fileName: 'bad-part', workGroupId: null, partNumber: 0 }])
-    const incompletePart = snapshot([{ id: 1, publicId: publicId('1'), commissionDate: null, creatorName: null, fileName: 'incomplete-part', workGroupId: publicId('2'), partNumber: null }])
-    const invalidGroup = snapshot([{ id: 1, publicId: publicId('1'), commissionDate: null, creatorName: null, fileName: 'invalid-group', workGroupId: 'not-a-uuid', partNumber: 1 }])
+    const duplicate = snapshot([
+      {
+        id: 1,
+        publicId: publicId('1'),
+        commissionDate: null,
+        creatorName: null,
+        fileName: 'first',
+        workGroupId: null,
+        partNumber: null,
+      },
+      {
+        id: 2,
+        publicId: publicId('1'),
+        commissionDate: null,
+        creatorName: null,
+        fileName: 'second',
+        workGroupId: null,
+        partNumber: null,
+      },
+    ])
+    const uppercase = snapshot([
+      {
+        id: 1,
+        publicId: publicId('A').toUpperCase(),
+        commissionDate: null,
+        creatorName: null,
+        fileName: 'uppercase',
+        workGroupId: null,
+        partNumber: null,
+      },
+    ])
+    const invalidPart = snapshot([
+      {
+        id: 1,
+        publicId: publicId('1'),
+        commissionDate: null,
+        creatorName: null,
+        fileName: 'bad-part',
+        workGroupId: null,
+        partNumber: 0,
+      },
+    ])
+    const incompletePart = snapshot([
+      {
+        id: 1,
+        publicId: publicId('1'),
+        commissionDate: null,
+        creatorName: null,
+        fileName: 'incomplete-part',
+        workGroupId: publicId('2'),
+        partNumber: null,
+      },
+    ])
+    const invalidGroup = snapshot([
+      {
+        id: 1,
+        publicId: publicId('1'),
+        commissionDate: null,
+        creatorName: null,
+        fileName: 'invalid-group',
+        workGroupId: 'not-a-uuid',
+        partNumber: 1,
+      },
+    ])
 
     expect(() => validateGeneratedFactSourceSnapshot(missing.content, missing.manifest)).toThrow(/public commission ID/)
     expect(() => validateGeneratedFactSourceSnapshot(duplicate.content, duplicate.manifest)).toThrow(/public commission ID/)
@@ -111,12 +219,24 @@ describe('collectHiddenCommissionIds', () => {
     const commission = (id: number, Hidden?: boolean) => ({ id, Hidden })
     const content = {
       characters: [
-        { commissions: [commission(1), commission(2, true)] },
-        { commissions: [commission(3, false), commission(4, true)] },
+        {
+          commissions: [
+            commission(1),
+            commission(2, true),
+          ],
+        },
+        {
+          commissions: [
+            commission(3, false),
+            commission(4, true),
+          ],
+        },
       ],
     } as unknown as Parameters<typeof collectHiddenCommissionIds>[0]
 
-    expect([...collectHiddenCommissionIds(content)]).toEqual([2, 4])
+    expect([
+      ...collectHiddenCommissionIds(content),
+    ]).toEqual([2, 4])
   })
 })
 

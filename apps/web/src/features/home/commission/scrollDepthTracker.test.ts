@@ -29,12 +29,24 @@ function stubLayout() {
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
     const index = Number(this.dataset.index ?? 0)
     const top = index * ENTRY_HEIGHT - scrollY
-    return { top, bottom: top + ENTRY_HEIGHT, height: ENTRY_HEIGHT, left: 0, right: 0, width: 0, x: 0, y: top, toJSON: () => ({}) }
+    return {
+      top,
+      bottom: top + ENTRY_HEIGHT,
+      height: ENTRY_HEIGHT,
+      left: 0,
+      right: 0,
+      width: 0,
+      x: 0,
+      y: top,
+      toJSON: () => ({}),
+    }
   })
   vi.spyOn(HTMLElement.prototype, 'getClientRects').mockImplementation(function (this: HTMLElement) {
     const panel = this.closest<HTMLElement>('[data-commission-view-panel]')
     const visible = panel?.dataset.commissionViewActive === 'true'
-    return (visible ? [{}] : []) as unknown as DOMRectList
+    return (visible
+      ? [{}]
+      : []) as unknown as DOMRectList
   })
 }
 
@@ -45,8 +57,11 @@ async function scrollTo(y: number) {
 }
 
 function setActivePanel(name: 'character' | 'timeline') {
-  for (const panel of document.querySelectorAll<HTMLElement>('[data-commission-view-panel]'))
-    panel.dataset.commissionViewActive = panel.dataset.commissionViewPanel === name ? 'true' : 'false'
+  for (const panel of document.querySelectorAll<HTMLElement>('[data-commission-view-panel]')) {
+    panel.dataset.commissionViewActive = panel.dataset.commissionViewPanel === name
+      ? 'true'
+      : 'false'
+  }
 }
 
 describe('scrollDepthTracker', () => {
@@ -54,7 +69,10 @@ describe('scrollDepthTracker', () => {
     scrollY = 0
     isDesktop = false
     window.history.replaceState(null, '', '/')
-    Object.defineProperty(window, 'scrollY', { configurable: true, get: () => scrollY })
+    Object.defineProperty(window, 'scrollY', {
+      configurable: true,
+      get: () => scrollY,
+    })
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: VIEWPORT_HEIGHT })
     Object.defineProperty(window, 'matchMedia', {
       configurable: true,
@@ -79,7 +97,12 @@ describe('scrollDepthTracker', () => {
       expect(trackEvent).toHaveBeenCalledTimes(3)
     })
     expect(trackEvent.mock.calls.map(([properties]) => properties.depth)).toEqual([5, 10, 25])
-    expect(trackEvent).toHaveBeenLastCalledWith({ depth: 25, view_mode: 'character', layout: 'mobile', total_entries: 8 })
+    expect(trackEvent).toHaveBeenLastCalledWith({
+      depth: 25,
+      view_mode: 'character',
+      layout: 'mobile',
+      total_entries: 8,
+    })
 
     // Scrolling back and forth over a reached milestone must not repeat it.
     await scrollTo(0)
@@ -126,10 +149,30 @@ describe('scrollDepthTracker', () => {
       expect(trackEvent).toHaveBeenCalledTimes(7)
     })
     expect(trackEvent.mock.calls.slice(3).map(([properties]) => properties)).toEqual([
-      { depth: 5, view_mode: 'timeline', layout: 'desktop', total_entries: 4 },
-      { depth: 10, view_mode: 'timeline', layout: 'desktop', total_entries: 4 },
-      { depth: 25, view_mode: 'timeline', layout: 'desktop', total_entries: 4 },
-      { depth: 50, view_mode: 'timeline', layout: 'desktop', total_entries: 4 },
+      {
+        depth: 5,
+        view_mode: 'timeline',
+        layout: 'desktop',
+        total_entries: 4,
+      },
+      {
+        depth: 10,
+        view_mode: 'timeline',
+        layout: 'desktop',
+        total_entries: 4,
+      },
+      {
+        depth: 25,
+        view_mode: 'timeline',
+        layout: 'desktop',
+        total_entries: 4,
+      },
+      {
+        depth: 50,
+        view_mode: 'timeline',
+        layout: 'desktop',
+        total_entries: 4,
+      },
     ])
 
     dispose()

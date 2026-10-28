@@ -52,12 +52,16 @@ describe('commissionSearchIndex', () => {
   it('reuses parsed suggestion rows for repeated searchSuggest values', () => {
     const first = buildSearchIndex(
       'character',
-      [buildEntry({ id: 1, domKey: 'first', searchSuggest: 'Keyword\tmaid' })],
+      [
+        buildEntry({ id: 1, domKey: 'first', searchSuggest: 'Keyword\tmaid' }),
+      ],
       { skipDomContext: true },
     )
     const second = buildSearchIndex(
       'character',
-      [buildEntry({ id: 1, domKey: 'first', searchSuggest: 'Keyword\tmaid' })],
+      [
+        buildEntry({ id: 1, domKey: 'first', searchSuggest: 'Keyword\tmaid' }),
+      ],
       { skipDomContext: true },
     )
 
@@ -68,7 +72,9 @@ describe('commissionSearchIndex', () => {
     const firstSuggest = 'Keyword\toldest'
     const first = buildSearchIndex(
       'character',
-      [buildEntry({ id: 1, domKey: 'first', searchSuggest: firstSuggest })],
+      [
+        buildEntry({ id: 1, domKey: 'first', searchSuggest: firstSuggest }),
+      ],
       { skipDomContext: true },
     )
     const firstRows = first.entries[0]?.suggestionRows
@@ -76,14 +82,18 @@ describe('commissionSearchIndex', () => {
     for (let i = 0; i < 520; i += 1) {
       buildSearchIndex(
         'character',
-        [buildEntry({ id: i + 2, domKey: `entry-${i}`, searchSuggest: `Keyword\tterm-${i}` })],
+        [
+          buildEntry({ id: i + 2, domKey: `entry-${i}`, searchSuggest: `Keyword\tterm-${i}` }),
+        ],
         { skipDomContext: true },
       )
     }
 
     const afterOverflow = buildSearchIndex(
       'character',
-      [buildEntry({ id: 1, domKey: 'first', searchSuggest: firstSuggest })],
+      [
+        buildEntry({ id: 1, domKey: 'first', searchSuggest: firstSuggest }),
+      ],
       { skipDomContext: true },
     )
 
@@ -136,9 +146,24 @@ describe('commissionSearchIndex strict term matching across scripts', () => {
     return buildSearchIndex(
       'character',
       [
-        buildMetadataEntry({ id: 1, domKey: 'han', characterName: 'Kanaut Nishe', creatorName: '七市' }),
-        buildMetadataEntry({ id: 2, domKey: 'latin', characterName: 'Kanaut Nishe', creatorName: 'Lucia' }),
-        buildMetadataEntry({ id: 3, domKey: 'kana', characterName: 'Kanaut Nishe', creatorName: 'ナナシ' }),
+        buildMetadataEntry({
+          id: 1,
+          domKey: 'han',
+          characterName: 'Kanaut Nishe',
+          creatorName: '七市',
+        }),
+        buildMetadataEntry({
+          id: 2,
+          domKey: 'latin',
+          characterName: 'Kanaut Nishe',
+          creatorName: 'Lucia',
+        }),
+        buildMetadataEntry({
+          id: 3,
+          domKey: 'kana',
+          characterName: 'Kanaut Nishe',
+          creatorName: 'ナナシ',
+        }),
       ],
       { skipDomContext: true },
     )

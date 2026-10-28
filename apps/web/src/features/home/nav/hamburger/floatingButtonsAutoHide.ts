@@ -79,7 +79,9 @@ export function mountFloatingButtonsAutoHide({
       return
 
     // A direction reversal restarts the count so only sustained travel flips the state.
-    travel = Math.sign(delta) === Math.sign(travel) ? travel + delta : delta
+    travel = Math.sign(delta) === Math.sign(travel)
+      ? travel + delta
+      : delta
     if (travel >= DIRECTION_THRESHOLD_PX) {
       travel = 0
       setHidden(true)

@@ -170,7 +170,9 @@ function normalizeCommissionMutation(input: {
   }
 
   const rawWorkGroupId = input.workGroupId?.trim().toLowerCase() || null
-  const workGroupId = rawWorkGroupId === 'new' ? crypto.randomUUID().toLowerCase() : rawWorkGroupId
+  const workGroupId = rawWorkGroupId === 'new'
+    ? crypto.randomUUID().toLowerCase()
+    : rawWorkGroupId
   const partNumber = input.partNumber ?? null
   const uuidV4Pattern = /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/
   if ((workGroupId === null) !== (partNumber === null)) {
@@ -226,7 +228,9 @@ function dedupeKeywords(keywords: Iterable<string>, maxCount = Number.POSITIVE_I
 
 async function runStatement(db: D1DatabaseLike, query: string, values: unknown[] = []) {
   const statement = db.prepare(query)
-  const runnable = values.length > 0 ? statement.bind(...values) : statement
+  const runnable = values.length > 0
+    ? statement.bind(...values)
+    : statement
   const result = await runnable.run()
 
   if (result.success === false) {
@@ -243,7 +247,9 @@ async function runStatementsAtomically(
   }
   const statements = operations.map(({ query, values = [] }) => {
     const statement = db.prepare(query)
-    return values.length > 0 ? statement.bind(...values) : statement
+    return values.length > 0
+      ? statement.bind(...values)
+      : statement
   })
 
   if (!db.batch) {
@@ -261,9 +267,13 @@ async function queryRows<TRow>(
   query: string,
   values: unknown[] = [],
 ): Promise<TRow[]> {
-  const statement = values.length > 0 ? db.prepare(query).bind(...values) : db.prepare(query)
+  const statement = values.length > 0
+    ? db.prepare(query).bind(...values)
+    : db.prepare(query)
   const result = await statement.all<TRow>()
-  return Array.isArray(result.results) ? result.results : []
+  return Array.isArray(result.results)
+    ? result.results
+    : []
 }
 
 async function queryFirstRow<TRow>(
@@ -337,10 +347,12 @@ export async function updateCharacter(
     throw new Error('Character not found.')
   }
 
-  const operations: Array<{ query: string, values?: unknown[] }> = [{
-    query: 'UPDATE characters SET name = ?, status = ? WHERE id = ?',
-    values: [name, input.status, input.id],
-  }]
+  const operations: Array<{ query: string, values?: unknown[] }> = [
+    {
+      query: 'UPDATE characters SET name = ?, status = ? WHERE id = ?',
+      values: [name, input.status, input.id],
+    },
+  ]
 
   // character_aliases is keyed by the exact name, so a rename must re-home its row in the same batch or the
   // aliases silently stop applying.
@@ -361,13 +373,22 @@ export async function updateCharacter(
         ...targetRows.flatMap(row => parseCharacterAliasesJson(row.aliases)),
         ...oldRows.flatMap(row => parseCharacterAliasesJson(row.aliases)),
       ])
-      for (const row of [...oldRows, ...targetRows]) {
-        operations.push({ query: 'DELETE FROM character_aliases WHERE character_name = ?', values: [row.character_name] })
+      for (const row of [
+        ...oldRows,
+        ...targetRows,
+      ]) {
+        operations.push({
+          query: 'DELETE FROM character_aliases WHERE character_name = ?',
+          values: [row.character_name],
+        })
       }
       if (aliases.length > 0) {
         operations.push({
           query: 'INSERT INTO character_aliases (character_name, aliases) VALUES (?, ?)',
-          values: [name, JSON.stringify(aliases)],
+          values: [
+            name,
+            JSON.stringify(aliases),
+          ],
         })
       }
     }
@@ -394,7 +415,10 @@ export async function updateCharacterOrder(
 
   const activeIds = active.map(Number)
   const archivedIds = archived.map(Number)
-  const orderedIds = [...activeIds, ...archivedIds]
+  const orderedIds = [
+    ...activeIds,
+    ...archivedIds,
+  ]
   if (new Set(orderedIds).size !== orderedIds.length) {
     throw new Error('Character order payload contains duplicate identifiers.')
   }
@@ -419,7 +443,11 @@ export async function updateCharacterOrder(
     const cases = ids.map(() => 'WHEN ? THEN ?').join(' ')
     return {
       query: `UPDATE characters SET sort_order = CASE id ${cases} END, status = ? WHERE id IN (${ids.map(() => '?').join(', ')})`,
-      values: [...ids.flatMap((id, index) => [id, offset + index + 1]), status, ...ids],
+      values: [
+        ...ids.flatMap((id, index) => [id, offset + index + 1]),
+        status,
+        ...ids,
+      ],
     }
   }
   const operations = [
@@ -461,8 +489,14 @@ export async function deleteCharacter(db: D1DatabaseLike, id: number) {
       query: `DELETE FROM source_images WHERE ${CHARACTER_SOURCE_IMAGE_PREDICATE}`,
       values: [id, id],
     },
-    { query: 'DELETE FROM commissions WHERE character_id = ?', values: [id] },
-    { query: 'DELETE FROM characters WHERE id = ?', values: [id] },
+    {
+      query: 'DELETE FROM commissions WHERE character_id = ?',
+      values: [id],
+    },
+    {
+      query: 'DELETE FROM characters WHERE id = ?',
+      values: [id],
+    },
   ])
 
   // Check survivors only after the commit: a key is safe to remove once no committed row references it.
@@ -471,7 +505,9 @@ export async function deleteCharacter(db: D1DatabaseLike, id: number) {
     db,
     'SELECT DISTINCT object_key as objectKey FROM source_images',
   )).map(row => row.objectKey))
-  return [...new Set(objectKeys)].filter(key => !survivingKeys.has(key))
+  return [
+    ...new Set(objectKeys),
+  ].filter(key => !survivingKeys.has(key))
 }
 
 export async function createCommission(
@@ -507,10 +543,12 @@ export async function createCommission(
   const publicId = crypto.randomUUID().toLowerCase()
   await runStatementsAtomically(db, [
     ...(normalizedInput.workGroupId
-      ? [{
-          query: 'INSERT OR IGNORE INTO commission_groups (id) VALUES (?)',
-          values: [normalizedInput.workGroupId],
-        }]
+      ? [
+          {
+            query: 'INSERT OR IGNORE INTO commission_groups (id) VALUES (?)',
+            values: [normalizedInput.workGroupId],
+          },
+        ]
       : []),
     {
       query: `
@@ -557,7 +595,14 @@ export async function createCommission(
           sha256 = excluded.sha256,
           updated_at = CURRENT_TIMESTAMP
       `,
-      values: [sourceImage.commissionFileName, sourceImage.commissionFileName, sourceImage.objectKey, sourceImage.mimeType, sourceImage.byteSize, sourceImage.sha256],
+      values: [
+        sourceImage.commissionFileName,
+        sourceImage.commissionFileName,
+        sourceImage.objectKey,
+        sourceImage.mimeType,
+        sourceImage.byteSize,
+        sourceImage.sha256,
+      ],
     },
   ])
 
@@ -669,10 +714,12 @@ export async function updateCommission(
 
   await runStatementsAtomically(db, [
     ...(normalizedInput.workGroupId
-      ? [{
-          query: 'INSERT OR IGNORE INTO commission_groups (id) VALUES (?)',
-          values: [normalizedInput.workGroupId],
-        }]
+      ? [
+          {
+            query: 'INSERT OR IGNORE INTO commission_groups (id) VALUES (?)',
+            values: [normalizedInput.workGroupId],
+          },
+        ]
       : []),
     updateOperation,
   ])
@@ -693,16 +740,28 @@ export async function deleteCommission(db: D1DatabaseLike, id: number) {
 
   await ensureSourceImagesTable(db)
   await runStatementsAtomically(db, [
-    { query: 'DELETE FROM source_images WHERE commission_file_name = ?', values: [existing.fileName] },
-    { query: 'DELETE FROM commissions WHERE id = ?', values: [id] },
+    {
+      query: 'DELETE FROM source_images WHERE commission_file_name = ?',
+      values: [existing.fileName],
+    },
+    {
+      query: 'DELETE FROM commissions WHERE id = ?',
+      values: [id],
+    },
   ])
 }
 
 export async function deleteCommissionByFileName(db: D1DatabaseLike, fileName: string) {
   await ensureSourceImagesTable(db)
   await runStatementsAtomically(db, [
-    { query: 'DELETE FROM source_images WHERE commission_file_name = ?', values: [fileName] },
-    { query: 'DELETE FROM commissions WHERE file_name = ?', values: [fileName] },
+    {
+      query: 'DELETE FROM source_images WHERE commission_file_name = ?',
+      values: [fileName],
+    },
+    {
+      query: 'DELETE FROM commissions WHERE file_name = ?',
+      values: [fileName],
+    },
   ])
 }
 
@@ -807,20 +866,31 @@ export async function saveCreatorAliasesBatch(
     const aliases = normalizeAliases(row.aliases)
     mergedRows.set(
       creatorName,
-      normalizeAliases([...(mergedRows.get(creatorName) ?? []), ...aliases]),
+      normalizeAliases([
+        ...(mergedRows.get(creatorName) ?? []),
+        ...aliases,
+      ]),
     )
   })
 
   await ensureCreatorAliasesTable(db)
-  await runStatementsAtomically(db, [...mergedRows.entries()].map(([creatorName, aliases]) => aliases.length === 0
-    ? { query: 'DELETE FROM creator_aliases WHERE creator_name = ?', values: [creatorName] }
+  await runStatementsAtomically(db, [
+    ...mergedRows.entries(),
+  ].map(([creatorName, aliases]) => aliases.length === 0
+    ? {
+        query: 'DELETE FROM creator_aliases WHERE creator_name = ?',
+        values: [creatorName],
+      }
     : {
         query: `
         INSERT INTO creator_aliases (creator_name, aliases)
         VALUES (?, ?)
         ON CONFLICT(creator_name) DO UPDATE SET aliases = excluded.aliases
       `,
-        values: [creatorName, JSON.stringify(aliases)],
+        values: [
+          creatorName,
+          JSON.stringify(aliases),
+        ],
       }))
 }
 
@@ -845,20 +915,31 @@ export async function saveCharacterAliasesBatch(
     const previous = mergedRows.get(key)
     mergedRows.set(key, {
       characterName: previous?.characterName ?? characterName,
-      aliases: normalizeCharacterAliases([...(previous?.aliases ?? []), ...aliases]),
+      aliases: normalizeCharacterAliases([
+        ...(previous?.aliases ?? []),
+        ...aliases,
+      ]),
     })
   })
 
   await ensureCharacterAliasesTable(db)
-  await runStatementsAtomically(db, [...mergedRows.values()].map(row => row.aliases.length === 0
-    ? { query: 'DELETE FROM character_aliases WHERE character_name = ?', values: [row.characterName] }
+  await runStatementsAtomically(db, [
+    ...mergedRows.values(),
+  ].map(row => row.aliases.length === 0
+    ? {
+        query: 'DELETE FROM character_aliases WHERE character_name = ?',
+        values: [row.characterName],
+      }
     : {
         query: `
         INSERT INTO character_aliases (character_name, aliases)
         VALUES (?, ?)
         ON CONFLICT(character_name) DO UPDATE SET aliases = excluded.aliases
       `,
-        values: [row.characterName, JSON.stringify(row.aliases)],
+        values: [
+          row.characterName,
+          JSON.stringify(row.aliases),
+        ],
       }))
 }
 
@@ -883,20 +964,31 @@ export async function saveKeywordAliasesBatch(
     const previous = mergedRows.get(key)
     mergedRows.set(key, {
       baseKeyword: previous?.baseKeyword ?? baseKeyword,
-      aliases: normalizeKeywordAliases([...(previous?.aliases ?? []), ...aliases]),
+      aliases: normalizeKeywordAliases([
+        ...(previous?.aliases ?? []),
+        ...aliases,
+      ]),
     })
   })
 
   await ensureKeywordAliasesTable(db)
-  await runStatementsAtomically(db, [...mergedRows.values()].map(row => row.aliases.length === 0
-    ? { query: 'DELETE FROM keyword_aliases WHERE base_keyword = ?', values: [row.baseKeyword] }
+  await runStatementsAtomically(db, [
+    ...mergedRows.values(),
+  ].map(row => row.aliases.length === 0
+    ? {
+        query: 'DELETE FROM keyword_aliases WHERE base_keyword = ?',
+        values: [row.baseKeyword],
+      }
     : {
         query: `
         INSERT INTO keyword_aliases (base_keyword, aliases)
         VALUES (?, ?)
         ON CONFLICT(base_keyword) DO UPDATE SET aliases = excluded.aliases
       `,
-        values: [row.baseKeyword, JSON.stringify(row.aliases)],
+        values: [
+          row.baseKeyword,
+          JSON.stringify(row.aliases),
+        ],
       }))
 }
 

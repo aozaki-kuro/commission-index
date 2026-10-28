@@ -5,14 +5,39 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AdminAliasesDashboard } from './AdminAliasesDashboard'
 import { FloatingNoticeProvider } from './FloatingNotice'
 
-const api = vi.hoisted(() => ({ character: vi.fn(), creator: vi.fn(), keyword: vi.fn(), mark: vi.fn(), notify: vi.fn(), saved: vi.fn() }))
+const api = vi.hoisted(() => ({
+  character: vi.fn(),
+  creator: vi.fn(),
+  keyword: vi.fn(),
+  mark: vi.fn(),
+  notify: vi.fn(),
+  saved: vi.fn(),
+}))
 vi.mock('../lib/adminActions', () => ({ saveCharacterAliasesBatchAction: api.character, saveCreatorAliasesBatchAction: api.creator, saveKeywordAliasesBatchAction: api.keyword }))
 vi.mock('../lib/dataUpdateSignal', () => ({ notifyDataUpdate: api.notify }))
 vi.mock('../lib/pendingRebuildSignal', () => ({ markPendingRebuild: api.mark }))
 
-const characters = [{ characterName: 'Lucia', aliases: ['Luci'], commissionCount: 3 }]
-const creators = [{ creatorName: '七市', aliases: ['Nanashi', 'Nana'], commissionCount: 2 }]
-const keywords = [{ baseKeyword: 'Full body', aliases: ['Standing'], commissionCount: 2 }]
+const characters = [
+  {
+    characterName: 'Lucia',
+    aliases: ['Luci'],
+    commissionCount: 3,
+  },
+]
+const creators = [
+  {
+    creatorName: '七市',
+    aliases: ['Nanashi', 'Nana'],
+    commissionCount: 2,
+  },
+]
+const keywords = [
+  {
+    baseKeyword: 'Full body',
+    aliases: ['Standing'],
+    commissionCount: 2,
+  },
+]
 
 describe('alias draft and batch editing', () => {
   let container: HTMLDivElement
@@ -33,7 +58,19 @@ describe('alias draft and batch editing', () => {
   })
   const render = (nextKeywords = keywords, isLoading = false) => act(async () => root.render(
     <FloatingNoticeProvider>
-      <AdminAliasesDashboard characters={isLoading ? [] : characters} creators={isLoading ? [] : creators} keywords={isLoading ? [] : nextKeywords} isLoading={isLoading} onSaved={api.saved} />
+      <AdminAliasesDashboard
+        characters={isLoading
+          ? []
+          : characters}
+        creators={isLoading
+          ? []
+          : creators}
+        keywords={isLoading
+          ? []
+          : nextKeywords}
+        isLoading={isLoading}
+        onSaved={api.saved}
+      />
     </FloatingNoticeProvider>,
   ))
   const panel = (type: string) => container.querySelector<HTMLElement>(`#aliases-panel-${type}`)!
@@ -60,7 +97,9 @@ describe('alias draft and batch editing', () => {
     expect(input('creator').value).toBe('Nanashi, Nana')
     await edit(input('creator'), 'Nanashi, Nana, Nanachi')
     await submit('creator')
-    expect(JSON.parse(api.creator.mock.calls[0]![1].get('rowsJson'))).toEqual([{ creatorName: '七市', aliases: 'Nanashi, Nana, Nanachi' }])
+    expect(JSON.parse(api.creator.mock.calls[0]![1].get('rowsJson'))).toEqual([
+      { creatorName: '七市', aliases: 'Nanashi, Nana, Nanachi' },
+    ])
   })
 
   it('keeps the shell during loading and merges new baseline rows without deleting their aliases', async () => {
@@ -71,9 +110,20 @@ describe('alias draft and batch editing', () => {
     expect(panel('keyword').querySelector('form')).toBe(form)
     await tab('keyword')
     await edit(input('keyword'), 'Local draft')
-    await render([...keywords, { baseKeyword: 'Portrait', aliases: ['Bust'], commissionCount: 1 }])
-    expect([...panel('keyword').querySelectorAll<HTMLInputElement>('input[type="text"]')].map(field => field.value)).toEqual(['Local draft', 'Bust'])
-    expect(payload('keyword')).toEqual([{ baseKeyword: 'Full body', aliases: 'Local draft' }])
+    await render([
+      ...keywords,
+      {
+        baseKeyword: 'Portrait',
+        aliases: ['Bust'],
+        commissionCount: 1,
+      },
+    ])
+    expect([
+      ...panel('keyword').querySelectorAll<HTMLInputElement>('input[type="text"]'),
+    ].map(field => field.value)).toEqual(['Local draft', 'Bust'])
+    expect(payload('keyword')).toEqual([
+      { baseKeyword: 'Full body', aliases: 'Local draft' },
+    ])
   })
 
   it('filters without losing editing focus, submits explicit deletions and marks every save', async () => {
@@ -84,7 +134,9 @@ describe('alias draft and batch editing', () => {
     field.focus()
     await edit(field, '')
     expect(document.activeElement).toBe(field)
-    expect(payload('keyword')).toEqual([{ baseKeyword: 'Full body', aliases: '' }])
+    expect(payload('keyword')).toEqual([
+      { baseKeyword: 'Full body', aliases: '' },
+    ])
     await submit('keyword')
     await edit(panel('keyword').querySelector<HTMLInputElement>('input[type="search"]')!, '')
     await edit(input('keyword'), 'New alias')

@@ -171,7 +171,9 @@ function parseIdFromPath(pathname: string, pattern: RegExp) {
   }
 
   const id = Number(match[1])
-  return Number.isFinite(id) && id > 0 ? id : null
+  return Number.isFinite(id) && id > 0
+    ? id
+    : null
 }
 
 function parseLinks(raw?: string | null): string[] {
@@ -181,7 +183,9 @@ function parseLinks(raw?: string | null): string[] {
 
   try {
     const parsed = JSON.parse(raw) as unknown
-    return Array.isArray(parsed) ? parsed.map(link => String(link)) : []
+    return Array.isArray(parsed)
+      ? parsed.map(link => String(link))
+      : []
   }
   catch {
     return []
@@ -301,7 +305,9 @@ function buildPopularKeywordPoolFromSuggestTexts(
     }
   }
 
-  return [...termStats.values()]
+  return [
+    ...termStats.values(),
+  ]
     .toSorted((left, right) => {
       if (left.count !== right.count) {
         return right.count - left.count
@@ -344,9 +350,13 @@ async function queryRows<TRow>(
   query: string,
   values: unknown[] = [],
 ): Promise<TRow[]> {
-  const statement = values.length > 0 ? db.prepare(query).bind(...values) : db.prepare(query)
+  const statement = values.length > 0
+    ? db.prepare(query).bind(...values)
+    : db.prepare(query)
   const result = await statement.all<TRow>()
-  return Array.isArray(result.results) ? result.results : []
+  return Array.isArray(result.results)
+    ? result.results
+    : []
 }
 
 async function queryFirstRow<TRow>(
@@ -443,7 +453,10 @@ async function loadCreatorAliasesAdminDataFromDatabase(db: D1DatabaseLike): Prom
     })
   }
 
-  const allCreatorNames = new Set<string>([...creatorCounts.keys(), ...aliasMap.keys()])
+  const allCreatorNames = new Set<string>([
+    ...creatorCounts.keys(),
+    ...aliasMap.keys(),
+  ])
 
   return Array.from(allCreatorNames, creatorName => ({
     creatorName,
@@ -532,7 +545,10 @@ async function loadCharacterAliasesAdminDataFromDatabase(db: D1DatabaseLike): Pr
   })
 
   const aliasMap = await getCharacterAliasesMapFromDatabase(db)
-  const allKeys = new Set<string>([...characterCounts.keys(), ...aliasMap.keys()])
+  const allKeys = new Set<string>([
+    ...characterCounts.keys(),
+    ...aliasMap.keys(),
+  ])
 
   return Array.from(allKeys, key => ({
     characterName:
@@ -612,7 +628,10 @@ async function loadKeywordAliasesAdminDataFromDatabase(db: D1DatabaseLike): Prom
   }
 
   const aliasMap = await getKeywordAliasesMapFromDatabase(db)
-  const allKeys = new Set<string>([...keywordCounts.keys(), ...aliasMap.keys()])
+  const allKeys = new Set<string>([
+    ...keywordCounts.keys(),
+    ...aliasMap.keys(),
+  ])
 
   return Array.from(allKeys, keywordKey => ({
     baseKeyword:
@@ -664,7 +683,9 @@ async function loadAdminBootstrapData(db: D1DatabaseLike): Promise<AdminBootstra
     commissionDate: row.commissionDate ?? null,
     creatorName: row.creatorName ?? null,
     workGroupId: row.workGroupId ?? null,
-    partNumber: row.partNumber == null ? null : Number(row.partNumber),
+    partNumber: row.partNumber == null
+      ? null
+      : Number(row.partNumber),
     fileName: row.fileName,
     links: row.links ?? '',
     design: row.design ?? null,
@@ -869,7 +890,9 @@ async function loadCharacterCommissions(
     commissionDate: row.commissionDate ?? null,
     creatorName: row.creatorName ?? null,
     workGroupId: row.workGroupId ?? null,
-    partNumber: row.partNumber == null ? null : Number(row.partNumber),
+    partNumber: row.partNumber == null
+      ? null
+      : Number(row.partNumber),
     fileName: row.fileName,
     links: parseLinks(row.links),
     design: row.design ?? null,
@@ -985,7 +1008,9 @@ export async function handleAdminReadRequest(request: Request, env: AdminReadEnv
       return await loadCommissionSourceImageResponse(bucket, db, commissionId, request.headers)
     }
     catch (error) {
-      return failure(error instanceof Error ? error.message : 'Failed to load source image.', 500)
+      return failure(error instanceof Error
+        ? error.message
+        : 'Failed to load source image.', 500)
     }
   }
 
@@ -998,7 +1023,9 @@ export async function handleAdminReadRequest(request: Request, env: AdminReadEnv
       return json(await loadAdminBootstrapData(db))
     }
     catch (error) {
-      return failure(error instanceof Error ? error.message : 'Failed to load admin bootstrap data.', 500)
+      return failure(error instanceof Error
+        ? error.message
+        : 'Failed to load admin bootstrap data.', 500)
     }
   }
 
@@ -1011,7 +1038,9 @@ export async function handleAdminReadRequest(request: Request, env: AdminReadEnv
       return json(await loadAdminAliasesData(db))
     }
     catch (error) {
-      return failure(error instanceof Error ? error.message : 'Failed to load admin aliases data.', 500)
+      return failure(error instanceof Error
+        ? error.message
+        : 'Failed to load admin aliases data.', 500)
     }
   }
 
@@ -1024,7 +1053,9 @@ export async function handleAdminReadRequest(request: Request, env: AdminReadEnv
       return json(await loadHomeSuggestionAdminData(db))
     }
     catch (error) {
-      return failure(error instanceof Error ? error.message : 'Failed to load suggestion data.', 500)
+      return failure(error instanceof Error
+        ? error.message
+        : 'Failed to load suggestion data.', 500)
     }
   }
 
@@ -1044,7 +1075,9 @@ export async function handleAdminReadRequest(request: Request, env: AdminReadEnv
       })
     }
     catch (error) {
-      return failure(error instanceof Error ? error.message : 'Failed to load commissions.', 500)
+      return failure(error instanceof Error
+        ? error.message
+        : 'Failed to load commissions.', 500)
     }
   }
 

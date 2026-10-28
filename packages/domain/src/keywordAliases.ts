@@ -8,7 +8,9 @@ export function normalizeKeywordBaseTerm(value: string): string | null {
 
 export function normalizeKeywordAliasKey(value: string): string | null {
   const normalized = normalizeKeywordBaseTerm(value)
-  return normalized ? normalized.toLowerCase() : null
+  return normalized
+    ? normalized.toLowerCase()
+    : null
 }
 
 export function splitKeywordTerms(keyword: string | null | undefined) {
@@ -19,7 +21,9 @@ export function splitKeywordTerms(keyword: string | null | undefined) {
 }
 
 export function normalizeKeywordAliases(aliases: string[] | string): string[] {
-  const values = Array.isArray(aliases) ? aliases : aliases.split(KEYWORD_SPLIT_PATTERN)
+  const values = Array.isArray(aliases)
+    ? aliases
+    : aliases.split(KEYWORD_SPLIT_PATTERN)
   const normalized = values
     .map(value => normalizeKeywordBaseTerm(value))
     .filter((value): value is string => Boolean(value))
@@ -31,7 +35,9 @@ export function normalizeKeywordAliases(aliases: string[] | string): string[] {
       deduped.set(key, value)
   })
 
-  return [...deduped.values()]
+  return [
+    ...deduped.values(),
+  ]
 }
 
 export function parseKeywordAliasesJson(value: string): string[] {

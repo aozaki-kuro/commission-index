@@ -141,7 +141,9 @@ function getPreparedSuggestions(suggestions: Suggestion[]) {
     return cached
   const next = suggestions.map((suggestion) => {
     const isDateSuggestion = suggestion.sources.includes('Date')
-    const parsed = isDateSuggestion ? parseDateSearchInput(suggestion.term) : null
+    const parsed = isDateSuggestion
+      ? parseDateSearchInput(suggestion.term)
+      : null
     const normalizedTerm = normalize(suggestion.term)
     const normalizedMatchToken = normalizeSuggestionMatchToken(suggestion.term)
 
@@ -152,7 +154,9 @@ function getPreparedSuggestions(suggestions: Suggestion[]) {
       hasMaskWildcard: normalizedMatchToken.includes('*'),
       isDateSuggestion,
       monthSortKey:
-        isDateSuggestion && parsed?.month ? Number(`${parsed.year}${parsed.month}`) : null,
+        isDateSuggestion && parsed?.month
+          ? Number(`${parsed.year}${parsed.month}`)
+          : null,
     }
   })
   preparedSuggestionsCache.set(suggestions, next)
@@ -206,8 +210,12 @@ function getStrictTermMatches<T extends SearchEntryLike>(index: SearchIndexLike<
 
   // JS \b is ASCII-only, so a term side without an ASCII word character (e.g. CJK/kana) gets no
   // boundary there; those scripts have no word separators, so a substring match is the intent.
-  const leadingBoundary = ASCII_WORD_START_PATTERN.test(term) ? '\\b' : ''
-  const trailingBoundary = ASCII_WORD_END_PATTERN.test(term) ? '\\b' : ''
+  const leadingBoundary = ASCII_WORD_START_PATTERN.test(term)
+    ? '\\b'
+    : ''
+  const trailingBoundary = ASCII_WORD_END_PATTERN.test(term)
+    ? '\\b'
+    : ''
   const pattern = new RegExp(`${leadingBoundary}${escapeRegExp(term)}${trailingBoundary}`, 'i')
   const matches = new Set(
     index.entries.filter(entry => pattern.test(entry.searchText)).map(entry => entry.id),
@@ -266,7 +274,9 @@ function getParsedFuseQuery(rawQuery: string): ParsedFuseQuery {
   const normalizedRawQuery = toFuseOperatorQuery(rawQuery)
   const parsed = {
     normalizedRawQuery,
-    tokens: normalizedRawQuery ? tokenizeQuery(normalizedRawQuery) : [],
+    tokens: normalizedRawQuery
+      ? tokenizeQuery(normalizedRawQuery)
+      : [],
   }
 
   return setLruCacheEntry(parsedFuseQueryCache, rawQuery, parsed, MAX_PARSED_QUERY_CACHE_SIZE)
@@ -292,7 +302,9 @@ export function parseSuggestionInputState(rawQuery: string): ParsedSuggestionInp
   const prefix = rawQuery.slice(0, tokenStart)
   const rawToken = rawQuery.slice(tokenStart)
   const hasNegationPrefix = rawToken.startsWith('!')
-  const tokenWithPossibleQuotes = hasNegationPrefix ? rawToken.slice(1) : rawToken
+  const tokenWithPossibleQuotes = hasNegationPrefix
+    ? rawToken.slice(1)
+    : rawToken
   const hasOpeningQuote = tokenWithPossibleQuotes.startsWith('"')
   const hasClosedQuote
     = hasOpeningQuote && tokenWithPossibleQuotes.length >= 2 && tokenWithPossibleQuotes.endsWith('"')
@@ -342,7 +354,9 @@ function parseQueryTermToken(token: string) {
     return null
 
   const isNegated = token.startsWith('!')
-  const rawTerm = trimWrappingQuotes(isNegated ? token.slice(1) : token)
+  const rawTerm = trimWrappingQuotes(isNegated
+    ? token.slice(1)
+    : token)
   if (!rawTerm)
     return null
 
@@ -406,7 +420,9 @@ function evaluateStrictQuery<T extends SearchEntryLike>(index: SearchIndexLike<T
     hasTerm = true
     const termMatches = getStrictTermMatches(index, rawTerm)
     if (!current) {
-      current = isNegated ? new Set(index.allIds) : new Set(termMatches)
+      current = isNegated
+        ? new Set(index.allIds)
+        : new Set(termMatches)
       if (isNegated)
         excludeInPlace(current, termMatches)
     }
@@ -601,7 +617,9 @@ function matchesPlainSuggestion(pattern: string, query: string): 'exact' | 'star
     return 'exact'
   if (pattern.startsWith(query))
     return 'startsWith'
-  return pattern.includes(query) ? 'includes' : null
+  return pattern.includes(query)
+    ? 'includes'
+    : null
 }
 
 function matchesMaskedSuggestion(pattern: string, query: string): 'exact' | 'startsWith' | 'includes' | null {
@@ -622,7 +640,9 @@ function matchesMaskedSuggestion(pattern: string, query: string): 'exact' | 'sta
 }
 
 function trimWrappingQuotes(value: string) {
-  return value.startsWith('"') && value.endsWith('"') && value.length >= 2 ? value.slice(1, -1) : value
+  return value.startsWith('"') && value.endsWith('"') && value.length >= 2
+    ? value.slice(1, -1)
+    : value
 }
 
 function normalizeDateTokenInQuery(token: string) {
@@ -675,9 +695,13 @@ export function applySuggestionToQuery(rawQuery: string, suggestion: string) {
 
   const tokenTailStart = getSuggestionTokenTailStart(rawQuery)
   const nextQuery = tokenTailStart === null
-    ? (rawQuery ? `${rawQuery}${suggestionToken}` : suggestionToken)
+    ? (rawQuery
+        ? `${rawQuery}${suggestionToken}`
+        : suggestionToken)
     : `${rawQuery.slice(0, tokenTailStart)}${suggestionToken}`
-  return TRAILING_TOKEN_SEPARATOR_PATTERN.test(nextQuery) ? nextQuery : `${nextQuery} `
+  return TRAILING_TOKEN_SEPARATOR_PATTERN.test(nextQuery)
+    ? nextQuery
+    : `${nextQuery} `
 }
 
 export function getMatchedEntryIds<T extends SearchEntryLike>(rawQuery: string, index: SearchIndexLike<T>) {
@@ -693,7 +717,9 @@ export function getMatchedEntryIds<T extends SearchEntryLike>(rawQuery: string, 
   if (cached)
     return cached
 
-  const strictMatchIds = tokens.length ? evaluateStrictQuery(index, tokens) : null
+  const strictMatchIds = tokens.length
+    ? evaluateStrictQuery(index, tokens)
+    : null
   if (!fuse) {
     return setLruCacheEntry(
       queryCache,
@@ -758,7 +784,12 @@ export function collectSuggestions(entries: SuggestionEntryLike[]) {
     }
   }
 
-  const sourceOrder = { Character: 0, Date: 1, Keyword: 2, Creator: 3 } satisfies Record<
+  const sourceOrder = {
+    Character: 0,
+    Date: 1,
+    Keyword: 2,
+    Creator: 3,
+  } satisfies Record<
     SuggestionSource,
     number
   >
@@ -860,7 +891,11 @@ export function filterSuggestions({
     if (!matchType)
       continue
 
-    const rank = matchType === 'exact' ? 0 : matchType === 'startsWith' ? 1 : 2
+    const rank = matchType === 'exact'
+      ? 0
+      : matchType === 'startsWith'
+        ? 1
+        : 2
     const contextCount = useGlobalCounts
       ? suggestion.count
       : (contextTermCounts?.get(normalizedTerm) ?? 0)
@@ -868,7 +903,13 @@ export function filterSuggestions({
       continue
     insertTopSuggestionMatch(
       topMatches,
-      { suggestion, contextCount, rank, isDateSuggestion, monthSortKey },
+      {
+        suggestion,
+        contextCount,
+        rank,
+        isDateSuggestion,
+        monthSortKey,
+      },
       limit,
     )
   }

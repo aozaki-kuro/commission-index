@@ -57,7 +57,16 @@ function sniffImageExtension(bytes: Uint8Array): '.jpg' | '.png' | null {
     return '.jpg'
   }
 
-  const pngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+  const pngSignature = [
+    0x89,
+    0x50,
+    0x4E,
+    0x47,
+    0x0D,
+    0x0A,
+    0x1A,
+    0x0A,
+  ]
   if (pngSignature.every((byte, index) => bytes[index] === byte)) {
     return '.png'
   }

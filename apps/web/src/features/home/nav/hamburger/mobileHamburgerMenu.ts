@@ -133,7 +133,10 @@ export function mountMobileHamburgerMenu({
   doc = document,
   deps: depsOverrides,
 }: MountMobileHamburgerMenuOptions = {}) {
-  const deps = { ...defaultDeps, ...depsOverrides }
+  const deps = {
+    ...defaultDeps,
+    ...depsOverrides,
+  }
   const root = doc.querySelector<HTMLElement>(ROOT_SELECTOR)
   const toggle = root?.querySelector<HTMLButtonElement>(TOGGLE_SELECTOR) ?? null
   const toggleLabel = root?.querySelector<HTMLElement>(TOGGLE_LABEL_SELECTOR) ?? null
@@ -147,8 +150,12 @@ export function mountMobileHamburgerMenu({
   if (!root || !toggle || !toggleLabel || !backdrop || !panel || !navRoot || !searchAction)
     return () => {}
 
-  const viewModeToggles = [...root.querySelectorAll<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR)]
-  const navPanels = [...root.querySelectorAll<HTMLElement>(NAV_PANEL_SELECTOR)]
+  const viewModeToggles = [
+    ...root.querySelectorAll<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR),
+  ]
+  const navPanels = [
+    ...root.querySelectorAll<HTMLElement>(NAV_PANEL_SELECTOR),
+  ]
   const navPanelByMode = new Map<CommissionViewMode, HTMLElement>()
   navPanels.forEach((panelNode) => {
     const mode = resolveViewModeFromPanel(panelNode)
@@ -321,7 +328,9 @@ export function mountMobileHamburgerMenu({
     if (!currentPanel)
       return navRoot
 
-    return currentPanel.querySelector(NAV_LINK_SELECTOR) ? currentPanel : navRoot
+    return currentPanel.querySelector(NAV_LINK_SELECTOR)
+      ? currentPanel
+      : navRoot
   }
 
   const syncLinkAvailability = () => {
@@ -339,7 +348,9 @@ export function mountMobileHamburgerMenu({
   }
 
   const getVisibleItemCount = (mode: CommissionViewMode) =>
-    mode === 'timeline' ? timelineCount : activeCount + archivedCount
+    mode === 'timeline'
+      ? timelineCount
+      : activeCount + archivedCount
 
   const trackCharacterNavClick = (navLink: HTMLAnchorElement) => {
     const mode = readCommissionViewMode(win)
@@ -418,7 +429,9 @@ export function mountMobileHamburgerMenu({
       const sectionKey = resolveCharacterSectionKeyFromElement(characterSectionToggle)
       if (!sectionKey)
         return
-      expandedCharacterSection = expandedCharacterSection === sectionKey ? null : sectionKey
+      expandedCharacterSection = expandedCharacterSection === sectionKey
+        ? null
+        : sectionKey
       syncCharacterSectionState()
       if (expandedCharacterSection === 'archived' && !isArchivedCharactersVisible(doc)) {
         deps.requestArchivedVisibility(win, 'visible')

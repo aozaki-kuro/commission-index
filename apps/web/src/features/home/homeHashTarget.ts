@@ -22,7 +22,10 @@ export function mountHomeHashTarget({
   doc?: Document
   deps?: Partial<HomeHashTargetDeps>
 } = {}) {
-  const deps = { ...defaultDeps, ...depsOverrides }
+  const deps = {
+    ...defaultDeps,
+    ...depsOverrides,
+  }
   let rafId: number | null = null
 
   const scrollToTarget = (hash: string, target: HTMLElement) => {

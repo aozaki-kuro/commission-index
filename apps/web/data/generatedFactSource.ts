@@ -28,7 +28,9 @@ function resolveFactSourceDirOverride(): string | null {
     return configured
   }
   const cwd = process.cwd()
-  const webRoot = fs.existsSync(path.join(cwd, 'astro.config.ts')) ? cwd : path.join(cwd, 'apps', 'web')
+  const webRoot = fs.existsSync(path.join(cwd, 'astro.config.ts'))
+    ? cwd
+    : path.join(cwd, 'apps', 'web')
   return path.resolve(webRoot, configured)
 }
 
@@ -88,7 +90,9 @@ function readGeneratedJsonFile<T>(fileName: string): T {
     return JSON.parse(fs.readFileSync(filePath, 'utf8')) as T
   }
   catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = error instanceof Error
+      ? error.message
+      : String(error)
     throw new Error(`Failed to parse generated fact source file ${filePath}: ${message}`)
   }
 }
@@ -208,7 +212,10 @@ export function validateGeneratedFactSourceSnapshot(
   }
   const imageIds = new Set<number>()
   const imageFileNames = new Set<string>()
-  for (const image of [...manifest.files, ...manifest.missing]) {
+  for (const image of [
+    ...manifest.files,
+    ...manifest.missing,
+  ]) {
     if (!isRecord(image) || !Number.isSafeInteger(image.commissionId) || (image.commissionId as number) <= 0) {
       throw new Error('Generated source-image manifest has an invalid commission ID.')
     }

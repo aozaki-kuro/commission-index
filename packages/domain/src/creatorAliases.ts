@@ -12,9 +12,13 @@ export function normalizeCreatorName(value: string): string | null {
 }
 
 export function normalizeAliases(aliases: string[] | string): string[] {
-  const values = Array.isArray(aliases) ? aliases : aliases.split(ALIAS_SPLIT_PATTERN)
+  const values = Array.isArray(aliases)
+    ? aliases
+    : aliases.split(ALIAS_SPLIT_PATTERN)
   const normalized = values.map(alias => alias.trim()).filter(Boolean)
-  return [...new Set(normalized)]
+  return [
+    ...new Set(normalized),
+  ]
 }
 
 export function parseAliasesJson(value: string): string[] {

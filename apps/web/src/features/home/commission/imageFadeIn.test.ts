@@ -7,7 +7,11 @@ function setup(complete: boolean) {
   const wrapper = document.querySelector<HTMLElement>('[data-commission-image]')!
   const img = wrapper.querySelector('img')!
   Object.defineProperty(img, 'complete', { configurable: true, value: complete })
-  return { wrapper, img, outside: document.getElementById('outside')! }
+  return {
+    wrapper,
+    img,
+    outside: document.getElementById('outside')!,
+  }
 }
 
 afterEach(() => {
