@@ -81,7 +81,10 @@ describe('mountHomeScrollRestore', () => {
     const restoreScrollPosition = vi.fn()
 
     const cleanup = mountHomeScrollRestore({
-      deps: { readNavigationType: () => 'reload', restoreScrollPosition },
+      deps: {
+        readNavigationType: () => 'reload',
+        restoreScrollPosition,
+      },
     })
 
     expect(restoreScrollPosition).toHaveBeenCalledTimes(1)
@@ -98,7 +101,10 @@ describe('mountHomeScrollRestore', () => {
     const restoreScrollPosition = vi.fn()
 
     const cleanup = mountHomeScrollRestore({
-      deps: { readNavigationType: () => 'reload', restoreScrollPosition },
+      deps: {
+        readNavigationType: () => 'reload',
+        restoreScrollPosition,
+      },
     })
 
     expect(restoreScrollPosition).toHaveBeenCalledWith(window, { x: 0, y: 3200 })
@@ -113,7 +119,10 @@ describe('mountHomeScrollRestore', () => {
     const restoreScrollPosition = vi.fn()
 
     const cleanup = mountHomeScrollRestore({
-      deps: { readNavigationType: () => 'reload', restoreScrollPosition },
+      deps: {
+        readNavigationType: () => 'reload',
+        restoreScrollPosition,
+      },
     })
 
     expect(restoreScrollPosition).not.toHaveBeenCalled()
@@ -129,7 +138,10 @@ describe('mountHomeScrollRestore', () => {
     const restoreScrollPosition = vi.fn()
 
     const cleanup = mountHomeScrollRestore({
-      deps: { readNavigationType: () => 'navigate', restoreScrollPosition },
+      deps: {
+        readNavigationType: () => 'navigate',
+        restoreScrollPosition,
+      },
     })
 
     expect(restoreScrollPosition).not.toHaveBeenCalled()

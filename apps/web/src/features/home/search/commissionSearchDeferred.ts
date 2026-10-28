@@ -17,7 +17,9 @@ const HOME_ROOT_ID = '--------Commissions--------'
 const HOME_SEARCH_VERSION_URL = '/search/home-search-version.json'
 
 export function readHomeSearchIndexVersion(doc?: Document): string | null {
-  const resolvedDocument = doc ?? (typeof document !== 'undefined' ? document : null)
+  const resolvedDocument = doc ?? (typeof document !== 'undefined'
+    ? document
+    : null)
   return resolvedDocument?.getElementById(HOME_ROOT_ID)?.dataset.searchIndexVersion || null
 }
 
@@ -27,7 +29,9 @@ export async function fetchFreshHomeSearchIndexVersion(): Promise<string | null>
     if (!response.ok)
       return null
     const payload = await response.json() as { v?: unknown }
-    return typeof payload.v === 'string' && payload.v ? payload.v : null
+    return typeof payload.v === 'string' && payload.v
+      ? payload.v
+      : null
   }
   catch {
     return null
@@ -169,21 +173,32 @@ export function getPopularKeywordBatch(keywords: string[], page: number, batchSi
 const normalizeKeywordVariantKey = (value: string) => value.trim().toLowerCase()
 
 function collectSearchEntryElementsFromNode(root: ParentNode): HTMLElement[] {
-  const directEntries = [...root.querySelectorAll<HTMLElement>(COMMISSION_ENTRY_SELECTOR)]
-  const nestedTemplateEntries = [...root.querySelectorAll<HTMLTemplateElement>('template')].flatMap(template => collectSearchEntryElementsFromNode(template.content))
+  const directEntries = [
+    ...root.querySelectorAll<HTMLElement>(COMMISSION_ENTRY_SELECTOR),
+  ]
+  const nestedTemplateEntries = [
+    ...root.querySelectorAll<HTMLTemplateElement>('template'),
+  ].flatMap(template => collectSearchEntryElementsFromNode(template.content))
 
-  return [...directEntries, ...nestedTemplateEntries]
+  return [
+    ...directEntries,
+    ...nestedTemplateEntries,
+  ]
 }
 
 function buildAliasKeyLookup(aliasGroups: SearchSuggestionAliasGroup[]) {
   const keyToGroup = new Map<string, string>()
 
   for (const group of aliasGroups) {
-    const normalizedTerms = [...[group.term, ...group.aliases]
-      .map(term => normalizeKeywordVariantKey(term))
-      .filter((term): term is string => Boolean(term))]
+    const normalizedTerms = [
+      ...[group.term, ...group.aliases]
+        .map(term => normalizeKeywordVariantKey(term))
+        .filter((term): term is string => Boolean(term)),
+    ]
 
-    const uniqueTerms = [...new Set(normalizedTerms)]
+    const uniqueTerms = [
+      ...new Set(normalizedTerms),
+    ]
     if (uniqueTerms.length < 2)
       continue
 
@@ -323,7 +338,9 @@ function cryptoRandomIndex(length: number) {
 
 function extractSectionIdFromDomKey(domKey: string) {
   const separatorIndex = domKey.indexOf('::')
-  return separatorIndex > 0 ? domKey.slice(0, separatorIndex) : ''
+  return separatorIndex > 0
+    ? domKey.slice(0, separatorIndex)
+    : ''
 }
 
 export function pickWeightedEntry<T extends CommissionSearchEntrySource>(

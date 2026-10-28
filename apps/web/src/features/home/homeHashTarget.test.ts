@@ -43,7 +43,9 @@ describe('mountHomeHashTarget', () => {
   it('scrolls to the active-panel copy when ids are shared', () => {
     renderPanels({ activeView: 'timeline' })
     window.history.replaceState(null, '', '/?view=timeline#shared-entry')
-    const [characterCopy, timelineCopy] = [...document.querySelectorAll<HTMLElement>('[id="shared-entry"]')]
+    const [characterCopy, timelineCopy] = [
+      ...document.querySelectorAll<HTMLElement>('[id="shared-entry"]'),
+    ]
     characterCopy.scrollIntoView = vi.fn()
     timelineCopy.scrollIntoView = vi.fn()
 
@@ -67,7 +69,9 @@ describe('mountHomeHashTarget', () => {
       return true
     })
 
-    const cleanup = mountHomeHashTarget({ deps: { scrollToHashWithoutWrite } })
+    const cleanup = mountHomeHashTarget({
+      deps: { scrollToHashWithoutWrite },
+    })
 
     expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#archived-entry')
     expect(containerHiddenAtScroll).toEqual([false])
@@ -83,7 +87,9 @@ describe('mountHomeHashTarget', () => {
     window.history.replaceState(null, '', '/#missing-entry')
     const scrollToHashWithoutWrite = vi.fn(() => true)
 
-    const cleanup = mountHomeHashTarget({ deps: { scrollToHashWithoutWrite } })
+    const cleanup = mountHomeHashTarget({
+      deps: { scrollToHashWithoutWrite },
+    })
 
     expect(scrollToHashWithoutWrite).not.toHaveBeenCalled()
     expect(window.requestAnimationFrame).not.toHaveBeenCalled()
@@ -93,7 +99,9 @@ describe('mountHomeHashTarget', () => {
   it('reacts to hashchange', () => {
     renderPanels()
     const scrollToHashWithoutWrite = vi.fn(() => true)
-    const cleanup = mountHomeHashTarget({ deps: { scrollToHashWithoutWrite } })
+    const cleanup = mountHomeHashTarget({
+      deps: { scrollToHashWithoutWrite },
+    })
     expect(scrollToHashWithoutWrite).not.toHaveBeenCalled()
 
     window.history.replaceState(null, '', '/#section-active')
@@ -127,7 +135,9 @@ describe('mountHomeHashTarget', () => {
   it('same-hash click in timeline view scrolls the timeline copy', () => {
     renderPanels({ activeView: 'timeline' })
     window.history.replaceState(null, '', '/?view=timeline#shared-entry')
-    const [characterCopy, timelineCopy] = [...document.querySelectorAll<HTMLElement>('[id="shared-entry"]')]
+    const [characterCopy, timelineCopy] = [
+      ...document.querySelectorAll<HTMLElement>('[id="shared-entry"]'),
+    ]
     characterCopy.scrollIntoView = vi.fn()
     timelineCopy.scrollIntoView = vi.fn()
     const cleanup = mountHomeHashTarget({
@@ -147,7 +157,9 @@ describe('mountHomeHashTarget', () => {
     renderPanels({ activeView: 'timeline' })
     window.history.replaceState(null, '', '/?view=timeline#shared-entry')
     const scrollToHashWithoutWrite = vi.fn(() => true)
-    const cleanup = mountHomeHashTarget({ deps: { scrollToHashWithoutWrite } })
+    const cleanup = mountHomeHashTarget({
+      deps: { scrollToHashWithoutWrite },
+    })
     scrollToHashWithoutWrite.mockClear()
 
     const event = click(appendLink('#section-active'))
@@ -161,11 +173,18 @@ describe('mountHomeHashTarget', () => {
     renderPanels({ activeView: 'timeline' })
     window.history.replaceState(null, '', '/?view=timeline#shared-entry')
     const scrollToHashWithoutWrite = vi.fn(() => true)
-    const cleanup = mountHomeHashTarget({ deps: { scrollToHashWithoutWrite } })
+    const cleanup = mountHomeHashTarget({
+      deps: { scrollToHashWithoutWrite },
+    })
     scrollToHashWithoutWrite.mockClear()
     const link = appendLink('#shared-entry')
 
-    for (const init of [{ metaKey: true }, { ctrlKey: true }, { shiftKey: true }, { button: 1 }]) {
+    for (const init of [
+      { metaKey: true },
+      { ctrlKey: true },
+      { shiftKey: true },
+      { button: 1 },
+    ]) {
       const event = click(link, init)
       expect(event.defaultPrevented, JSON.stringify(init)).toBe(false)
     }
@@ -176,7 +195,9 @@ describe('mountHomeHashTarget', () => {
   it('dispose removes the hashchange and click listeners', () => {
     renderPanels()
     const scrollToHashWithoutWrite = vi.fn(() => true)
-    const cleanup = mountHomeHashTarget({ deps: { scrollToHashWithoutWrite } })
+    const cleanup = mountHomeHashTarget({
+      deps: { scrollToHashWithoutWrite },
+    })
     cleanup()
 
     window.history.replaceState(null, '', '/#section-active')

@@ -53,7 +53,9 @@ export function normalizeAdminPath(pathname: string) {
     return '/'
   }
 
-  return pathname.endsWith('/') ? pathname.slice(0, -1) : pathname
+  return pathname.endsWith('/')
+    ? pathname.slice(0, -1)
+    : pathname
 }
 
 export function getAdminSectionForPath(pathname: string) {

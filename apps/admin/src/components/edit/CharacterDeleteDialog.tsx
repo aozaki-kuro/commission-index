@@ -82,7 +82,9 @@ export function CharacterDeleteDialog({
             <span className="tabular-nums">{commissionCount}</span>
             {' '}
             entr
-            {commissionCount === 1 ? 'y' : 'ies'}
+            {commissionCount === 1
+              ? 'y'
+              : 'ies'}
             .
           </p>
         </div>

@@ -195,7 +195,9 @@ function parseArgs(argv: string[]): ParsedArgs {
 function getWranglerCommand() {
   return existsSync(localWranglerBinPath)
     ? localWranglerBinPath
-    : (existsSync(localWranglerCmdBinPath) ? localWranglerCmdBinPath : 'wrangler')
+    : (existsSync(localWranglerCmdBinPath)
+        ? localWranglerCmdBinPath
+        : 'wrangler')
 }
 
 function runWrangler(args: string[]): SpawnSyncReturns<string> {
@@ -281,7 +283,9 @@ function parseLinks(rawValue: unknown): string[] {
 
   try {
     const parsed = JSON.parse(String(rawValue)) as unknown
-    return Array.isArray(parsed) ? parsed.map(link => String(link)) : []
+    return Array.isArray(parsed)
+      ? parsed.map(link => String(link))
+      : []
   }
   catch {
     return []
@@ -297,11 +301,15 @@ function getLegacySeriesKey(fileName: string) {
 }
 
 function getLegacySeriesOrder(fileName: string) {
-  return getLegacySeriesKey(fileName) ? fileName : undefined
+  return getLegacySeriesKey(fileName)
+    ? fileName
+    : undefined
 }
 
 function getLegacySeriesKind(fileName: string) {
-  return /\s*\(preview\)$/i.test(fileName) ? 'preview' as const : null
+  return /\s*\(preview\)$/i.test(fileName)
+    ? 'preview' as const
+    : null
 }
 
 function buildCharacterRecords(
@@ -330,23 +338,39 @@ function buildCharacterRecords(
     character.commissions.push({
       id: Number(row.id),
       publicId: String(row.publicId),
-      commissionDate: row.commissionDate ? String(row.commissionDate) : null,
-      creatorName: row.creatorName ? String(row.creatorName) : null,
+      commissionDate: row.commissionDate
+        ? String(row.commissionDate)
+        : null,
+      creatorName: row.creatorName
+        ? String(row.creatorName)
+        : null,
       legacySeriesKind: getLegacySeriesKind(String(row.fileName)),
-      workGroupId: row.workGroupId ? String(row.workGroupId) : null,
-      partNumber: row.partNumber == null ? null : Number(row.partNumber),
+      workGroupId: row.workGroupId
+        ? String(row.workGroupId)
+        : null,
+      partNumber: row.partNumber == null
+        ? null
+        : Number(row.partNumber),
       fileName: String(row.fileName),
       seriesKey: getLegacySeriesKey(String(row.fileName)),
       seriesOrder: getLegacySeriesOrder(String(row.fileName)),
       Links: parseLinks(row.links),
-      Design: row.design ? String(row.design) : undefined,
-      Description: row.description ? String(row.description) : undefined,
-      Keyword: row.keyword ? String(row.keyword) : undefined,
+      Design: row.design
+        ? String(row.design)
+        : undefined,
+      Description: row.description
+        ? String(row.description)
+        : undefined,
+      Keyword: row.keyword
+        ? String(row.keyword)
+        : undefined,
       Hidden: Boolean(row.hidden ?? 0),
     })
   }
 
-  return [...characters.values()].toSorted((left, right) => left.sortOrder - right.sortOrder)
+  return [
+    ...characters.values(),
+  ].toSorted((left, right) => left.sortOrder - right.sortOrder)
 }
 
 function buildCreatorAliases(rows: CreatorAliasRow[]): CreatorAliasEntry[] {
@@ -361,7 +385,10 @@ function buildCreatorAliases(rows: CreatorAliasRow[]): CreatorAliasEntry[] {
     const aliases = parseAliasesJson(String(row.aliasesJson ?? row.aliases ?? '[]'))
     aliasMap.set(
       creatorName,
-      normalizeAliases([...(aliasMap.get(creatorName) ?? []), ...aliases]),
+      normalizeAliases([
+        ...(aliasMap.get(creatorName) ?? []),
+        ...aliases,
+      ]),
     )
   }
 
@@ -389,11 +416,16 @@ function buildCharacterAliases(rows: CharacterAliasRow[]): CharacterAliasEntry[]
     const previous = aliasMap.get(key)
     aliasMap.set(key, {
       characterName: previous?.characterName ?? normalizedCharacterName,
-      aliases: normalizeCharacterAliases([...(previous?.aliases ?? []), ...aliases]),
+      aliases: normalizeCharacterAliases([
+        ...(previous?.aliases ?? []),
+        ...aliases,
+      ]),
     })
   }
 
-  return [...aliasMap.values()].toSorted((left, right) =>
+  return [
+    ...aliasMap.values(),
+  ].toSorted((left, right) =>
     left.characterName.localeCompare(right.characterName, 'ja'))
 }
 
@@ -415,11 +447,16 @@ function buildKeywordAliases(rows: KeywordAliasRow[]): KeywordAliasEntry[] {
     const previous = aliasMap.get(key)
     aliasMap.set(key, {
       baseKeyword: previous?.baseKeyword ?? baseKeyword,
-      aliases: normalizeKeywordAliases([...(previous?.aliases ?? []), ...aliases]),
+      aliases: normalizeKeywordAliases([
+        ...(previous?.aliases ?? []),
+        ...aliases,
+      ]),
     })
   }
 
-  return [...aliasMap.values()].toSorted((left, right) =>
+  return [
+    ...aliasMap.values(),
+  ].toSorted((left, right) =>
     left.baseKeyword.localeCompare(right.baseKeyword, 'ja'))
 }
 
@@ -502,8 +539,14 @@ export function createSnapshot(content: SnapshotContentInput, manifest: Snapshot
     manifest: { ...manifest, meta: stableMeta },
   })).digest('hex')
   return {
-    content: { ...content, meta: { ...content.meta, revision } },
-    manifest: { ...manifest, meta: { ...manifest.meta, revision } },
+    content: {
+      ...content,
+      meta: { ...content.meta, revision },
+    },
+    manifest: {
+      ...manifest,
+      meta: { ...manifest.meta, revision },
+    },
   }
 }
 
@@ -543,7 +586,9 @@ async function waitForFile(filePath: string) {
 
 function resolveDownloadConcurrency() {
   const rawValue = process.env.FACT_SOURCE_DOWNLOAD_CONCURRENCY?.trim()
-  const parsedValue = rawValue ? Number.parseInt(rawValue, 10) : Number.NaN
+  const parsedValue = rawValue
+    ? Number.parseInt(rawValue, 10)
+    : Number.NaN
 
   if (!Number.isInteger(parsedValue) || parsedValue < 1) {
     return defaultDownloadConcurrency
@@ -724,7 +769,9 @@ function listExpectedSourceImages(characters: CharacterRecord[]): ExpectedSource
     }
   }
 
-  return [...byId.values()].toSorted((left, right) => left.commissionFileName.localeCompare(right.commissionFileName))
+  return [
+    ...byId.values(),
+  ].toSorted((left, right) => left.commissionFileName.localeCompare(right.commissionFileName))
 }
 
 async function downloadSourceImageObject(
@@ -939,13 +986,55 @@ async function stageSourceImages(
 }
 
 export const factSourceSnapshotTables = [
-  { fields: ['id', 'name', 'status', 'sortOrder'], query: 'SELECT id, name, status, sort_order as sortOrder FROM characters ORDER BY sort_order ASC, id ASC' },
-  { fields: ['id', 'publicId', 'characterId', 'commissionDate', 'creatorName', 'workGroupId', 'partNumber', 'fileName', 'links', 'design', 'description', 'hidden', 'keyword'], query: 'SELECT id, public_id as publicId, character_id as characterId, commission_date as commissionDate, creator_name as creatorName, work_group_id as workGroupId, part_number as partNumber, file_name as fileName, links, design, description, hidden, keyword FROM commissions ORDER BY character_id ASC, commission_date DESC, id DESC' },
-  { fields: ['creatorName', 'aliasesJson'], query: 'SELECT creator_name as creatorName, aliases as aliasesJson FROM creator_aliases ORDER BY creator_name ASC' },
-  { fields: ['characterName', 'aliasesJson'], query: 'SELECT character_name as characterName, aliases as aliasesJson FROM character_aliases ORDER BY character_name ASC' },
-  { fields: ['baseKeyword', 'aliasesJson'], query: 'SELECT base_keyword as baseKeyword, aliases as aliasesJson FROM keyword_aliases ORDER BY base_keyword ASC' },
-  { fields: ['keyword', 'sortOrder'], query: 'SELECT keyword, sort_order as sortOrder FROM home_featured_search_keywords ORDER BY sort_order ASC, keyword ASC' },
-  { fields: ['commissionId', 'commissionFileName', 'objectKey', 'mimeType', 'byteSize', 'sha256'], query: 'SELECT source_images.commission_id as commissionId, commissions.file_name as commissionFileName, source_images.object_key as objectKey, source_images.mime_type as mimeType, source_images.byte_size as byteSize, source_images.sha256 as sha256 FROM source_images JOIN commissions ON commissions.id = source_images.commission_id ORDER BY source_images.commission_id ASC' },
+  {
+    fields: ['id', 'name', 'status', 'sortOrder'],
+    query: 'SELECT id, name, status, sort_order as sortOrder FROM characters ORDER BY sort_order ASC, id ASC',
+  },
+  {
+    fields: [
+      'id',
+      'publicId',
+      'characterId',
+      'commissionDate',
+      'creatorName',
+      'workGroupId',
+      'partNumber',
+      'fileName',
+      'links',
+      'design',
+      'description',
+      'hidden',
+      'keyword',
+    ],
+    query: 'SELECT id, public_id as publicId, character_id as characterId, commission_date as commissionDate, creator_name as creatorName, work_group_id as workGroupId, part_number as partNumber, file_name as fileName, links, design, description, hidden, keyword FROM commissions ORDER BY character_id ASC, commission_date DESC, id DESC',
+  },
+  {
+    fields: ['creatorName', 'aliasesJson'],
+    query: 'SELECT creator_name as creatorName, aliases as aliasesJson FROM creator_aliases ORDER BY creator_name ASC',
+  },
+  {
+    fields: ['characterName', 'aliasesJson'],
+    query: 'SELECT character_name as characterName, aliases as aliasesJson FROM character_aliases ORDER BY character_name ASC',
+  },
+  {
+    fields: ['baseKeyword', 'aliasesJson'],
+    query: 'SELECT base_keyword as baseKeyword, aliases as aliasesJson FROM keyword_aliases ORDER BY base_keyword ASC',
+  },
+  {
+    fields: ['keyword', 'sortOrder'],
+    query: 'SELECT keyword, sort_order as sortOrder FROM home_featured_search_keywords ORDER BY sort_order ASC, keyword ASC',
+  },
+  {
+    fields: [
+      'commissionId',
+      'commissionFileName',
+      'objectKey',
+      'mimeType',
+      'byteSize',
+      'sha256',
+    ],
+    query: 'SELECT source_images.commission_id as commissionId, commissions.file_name as commissionFileName, source_images.object_key as objectKey, source_images.mime_type as mimeType, source_images.byte_size as byteSize, source_images.sha256 as sha256 FROM source_images JOIN commissions ON commissions.id = source_images.commission_id ORDER BY source_images.commission_id ASC',
+  },
 ]
 
 // 一个 SELECT 读取全部 D1 表，避免跨语句拼接不同时间的业务状态。
@@ -1077,7 +1166,9 @@ export async function main(argv: string[] = process.argv.slice(2)) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   void main().catch((error) => {
-    console.error(error instanceof Error ? error.message : String(error))
+    console.error(error instanceof Error
+      ? error.message
+      : String(error))
     process.exitCode = 1
   })
 }

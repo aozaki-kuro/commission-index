@@ -31,7 +31,9 @@ export function buildCharacterStatus(records: CharacterRecord[]): CommissionStat
 const staticCharacterStatus: CommissionStatus = buildCharacterStatus(characterRecords)
 
 export function getCharacterStatus(): CommissionStatus {
-  return isDevelopment ? buildCharacterStatus(getCharacterRecords()) : staticCharacterStatus
+  return isDevelopment
+    ? buildCharacterStatus(getCharacterRecords())
+    : staticCharacterStatus
 }
 
 export const characterStatus: CommissionStatus = staticCharacterStatus

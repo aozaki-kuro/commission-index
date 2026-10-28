@@ -41,7 +41,9 @@ function syncButtonsForKey({
   doc: Document
   recorded: boolean
 }) {
-  const buttons = [...doc.querySelectorAll<HTMLButtonElement>(BUTTON_SELECTOR)].filter(
+  const buttons = [
+    ...doc.querySelectorAll<HTMLButtonElement>(BUTTON_SELECTOR),
+  ].filter(
     button => button.dataset.commissionInterestKey === commissionKey,
   )
 
@@ -101,7 +103,9 @@ function collectInterestButtons(node: Node) {
   }
 
   if (node instanceof Element) {
-    return [...node.querySelectorAll<HTMLButtonElement>(BUTTON_SELECTOR)]
+    return [
+      ...node.querySelectorAll<HTMLButtonElement>(BUTTON_SELECTOR),
+    ]
   }
 
   return []
@@ -127,7 +131,9 @@ export function mountUnpublishedInterestButtons({
   doc = document,
   trackEvent,
 }: MountUnpublishedInterestButtonsOptions = {}) {
-  const buttons = [...doc.querySelectorAll<HTMLButtonElement>(BUTTON_SELECTOR)]
+  const buttons = [
+    ...doc.querySelectorAll<HTMLButtonElement>(BUTTON_SELECTOR),
+  ]
   const storage = resolveStorage(win)
   const hydratedButtons = new WeakSet<HTMLButtonElement>()
 

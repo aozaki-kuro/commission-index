@@ -82,7 +82,9 @@ describe('commission thumbnail grid image loading', () => {
     expect(images()).toHaveLength(0)
 
     await render(true)
-    const expanded = [...images()]
+    const expanded = [
+      ...images(),
+    ]
     expect(expanded).toHaveLength(3)
     for (const image of expanded) {
       expect(image.getAttribute('width')).toBe('1280')
@@ -91,7 +93,9 @@ describe('commission thumbnail grid image loading', () => {
     }
 
     await render(false)
-    expect([...images()]).toEqual(expanded)
+    expect([
+      ...images(),
+    ]).toEqual(expanded)
     expect(images()).toHaveLength(3)
   })
 

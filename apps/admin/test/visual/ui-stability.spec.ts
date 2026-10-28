@@ -10,8 +10,12 @@ const commissions = [1, 2].map(id => ({
   characterName: `Character ${id}`,
   commissionDate: '2026-09-29',
   creatorName: 'Artist',
-  workGroupId: id === 1 ? 'existing-group' : null,
-  partNumber: id === 1 ? 2 : null,
+  workGroupId: id === 1
+    ? 'existing-group'
+    : null,
+  partNumber: id === 1
+    ? 2
+    : null,
   fileName: `asset-${id}`,
   design: 'Reference',
   description: null,
@@ -32,7 +36,9 @@ async function mockApi(page: Page, firstCharacterCount = 1) {
   const rows = [
     ...Array.from({ length: firstCharacterCount }, (_, index) => ({
       ...commissions[0],
-      id: index === 0 ? 1 : index + 2,
+      id: index === 0
+        ? 1
+        : index + 2,
       publicId: `00000000-0000-4000-8000-${String(index + 10).padStart(12, '0')}`,
     })),
     commissions[1],
@@ -62,90 +68,193 @@ async function mockApi(page: Page, firstCharacterCount = 1) {
     const now = new Date().toISOString()
     await route.fulfill({
       headers: { 'Access-Control-Allow-Origin': '*' },
-      json: { dataRevision: 'fixture', dataExportedAt: now, codeSha: null, builtAt: now },
+      json: {
+        dataRevision: 'fixture',
+        dataExportedAt: now,
+        codeSha: null,
+        builtAt: now,
+      },
     })
   })
   await page.route('**/api/admin/**', async (route) => {
     const request = route.request()
     const pathname = new URL(request.url()).pathname
     if (pathname.endsWith('/health')) {
-      await route.fulfill({ json: { status: 'ok', message: 'Fixture connection ready.' } })
+      await route.fulfill({
+        json: { status: 'ok', message: 'Fixture connection ready.' },
+      })
       return
     }
     if (pathname.endsWith('/aliases/bootstrap')) {
       await control.aliasesGate
-      await route.fulfill({ json: {
-        characterAliases: [{ characterName: 'Character 1', commissionCount: 1, aliases: ['First'] }],
-        creatorAliases: [{ creatorName: '七市', commissionCount: 2, aliases: ['Nanashi', 'Nana'] }],
-        keywordAliases: [{ baseKeyword: 'studio', commissionCount: 2, aliases: ['workshop'] }],
-      } })
+      await route.fulfill({
+        json: {
+          characterAliases: [
+            {
+              characterName: 'Character 1',
+              commissionCount: 1,
+              aliases: ['First'],
+            },
+          ],
+          creatorAliases: [
+            {
+              creatorName: '七市',
+              commissionCount: 2,
+              aliases: ['Nanashi', 'Nana'],
+            },
+          ],
+          keywordAliases: [
+            {
+              baseKeyword: 'studio',
+              commissionCount: 2,
+              aliases: ['workshop'],
+            },
+          ],
+        },
+      })
       return
     }
     if (pathname.endsWith('/suggestion')) {
       await control.suggestionGate
       if (request.method() === 'GET') {
-        await route.fulfill({ json: { featuredKeywords: ['Summer', 'Winter'], keywordOptions: ['Summer', 'Winter', 'Spring', 'Autumn', 'Rain', 'Snow', 'A very long descriptive keyword '.repeat(5)] } })
+        await route.fulfill({
+          json: {
+            featuredKeywords: ['Summer', 'Winter'],
+            keywordOptions: [
+              'Summer',
+              'Winter',
+              'Spring',
+              'Autumn',
+              'Rain',
+              'Snow',
+              'A very long descriptive keyword '.repeat(5),
+            ],
+          },
+        })
       }
       else {
-        control.mutations.push({ path: pathname, body: request.postDataJSON() })
-        await route.fulfill({ json: { status: 'success', message: 'Suggestions saved.' } })
+        control.mutations.push({
+          path: pathname,
+          body: request.postDataJSON(),
+        })
+        await route.fulfill({
+          json: { status: 'success', message: 'Suggestions saved.' },
+        })
       }
       return
     }
     if (pathname.endsWith('/rebuild')) {
       control.rebuildRequests++
       await control.rebuildGate
-      await route.fulfill({ json: { status: 'success', message: 'Queued.', dispatchedAt: new Date().toISOString() } })
+      await route.fulfill({
+        json: {
+          status: 'success',
+          message: 'Queued.',
+          dispatchedAt: new Date().toISOString(),
+        },
+      })
       return
     }
     if (/\/(?:character-|keyword-)?aliases\/batch$/.test(pathname) && request.method() === 'POST') {
-      control.mutations.push({ path: pathname, body: request.postDataJSON() })
-      await route.fulfill({ json: { status: 'success', message: 'Aliases saved.' } })
+      control.mutations.push({
+        path: pathname,
+        body: request.postDataJSON(),
+      })
+      await route.fulfill({
+        json: { status: 'success', message: 'Aliases saved.' },
+      })
       return
     }
     if (pathname.endsWith('/bootstrap')) {
       control.bootstrapRequests++
       await control.bootstrapGate
       if (control.failBootstrap) {
-        await route.fulfill({ status: 500, json: { message: 'Fixture network unavailable' } })
+        await route.fulfill({
+          status: 500,
+          json: { message: 'Fixture network unavailable' },
+        })
         return
       }
-      const characters = commissions.map(row => ({ id: row.characterId, name: row.id === 2 ? control.secondCharacterName : row.characterName, status: row.id === 2 && control.archivedCharacter ? 'archived' : 'active', sortOrder: row.id, commissionCount: row.id === 1 ? firstCharacterCount : 1 }))
-      if (control.createdCharacter)
-        characters.push({ id: 3, name: 'New fixture character', status: 'active', sortOrder: 3, commissionCount: 0 })
-      await route.fulfill({ json: {
-        characters,
-        commissionSearchRows: rows.map(row => ({ ...row, links: JSON.stringify(row.links) })),
-        creatorAliases: [],
-      } })
+      const characters = commissions.map(row => ({
+        id: row.characterId,
+        name: row.id === 2
+          ? control.secondCharacterName
+          : row.characterName,
+        status: row.id === 2 && control.archivedCharacter
+          ? 'archived'
+          : 'active',
+        sortOrder: row.id,
+        commissionCount: row.id === 1
+          ? firstCharacterCount
+          : 1,
+      }))
+      if (control.createdCharacter) {
+        characters.push({
+          id: 3,
+          name: 'New fixture character',
+          status: 'active',
+          sortOrder: 3,
+          commissionCount: 0,
+        })
+      }
+      await route.fulfill({
+        json: {
+          characters,
+          commissionSearchRows: rows.map(row => ({
+            ...row,
+            links: JSON.stringify(row.links),
+          })),
+          creatorAliases: [],
+        },
+      })
       return
     }
     if (/characters\/\d+\/commissions$/.test(pathname)) {
       control.characterRequests++
       await control.characterGate
       await route.fulfill(control.failCharacter
-        ? { status: 500, json: { message: 'Fixture character unavailable' } }
-        : { json: { commissions: rows.filter(row => pathname.includes(`/characters/${row.characterId}/`)) } })
+        ? {
+            status: 500,
+            json: { message: 'Fixture character unavailable' },
+          }
+        : {
+            json: {
+              commissions: rows.filter(row => pathname.includes(`/characters/${row.characterId}/`)),
+            },
+          })
       return
     }
     if (pathname.endsWith('/characters') && request.method() === 'POST') {
       control.createdCharacter = true
-      await route.fulfill({ json: { status: 'success', message: 'Character created.' } })
+      await route.fulfill({
+        json: { status: 'success', message: 'Character created.' },
+      })
       return
     }
     if (pathname.endsWith('/commissions') && request.method() === 'POST' && control.createSucceeds) {
-      await route.fulfill({ json: { status: 'success', message: 'Commission saved.' } })
+      await route.fulfill({
+        json: { status: 'success', message: 'Commission saved.' },
+      })
       return
     }
     if (request.method() !== 'GET') {
-      await route.fulfill({ status: 400, json: { status: 'error', message: 'Fixture save rejected. '.repeat(20) } })
+      await route.fulfill({
+        status: 400,
+        json: {
+          status: 'error',
+          message: 'Fixture save rejected. '.repeat(20),
+        },
+      })
       return
     }
     if (pathname.endsWith('/source-image')) {
       await route.fulfill({ contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="525"><rect width="1280" height="525" fill="#d7dce0"/><circle cx="640" cy="262" r="150" fill="#a7b5ba"/></svg>' })
       return
     }
-    await route.fulfill({ status: 404, json: { message: 'Unexpected fixture API' } })
+    await route.fulfill({
+      status: 404,
+      json: { message: 'Unexpected fixture API' },
+    })
   })
   return control
 }
@@ -154,7 +263,12 @@ async function relativeBox(locator: Locator) {
   return locator.evaluate((element) => {
     const box = element.getBoundingClientRect()
     const form = element.closest('form')?.getBoundingClientRect()
-    return { x: box.x, y: box.y - (form?.y ?? 0), width: box.width, height: box.height }
+    return {
+      x: box.x,
+      y: box.y - (form?.y ?? 0),
+      width: box.width,
+      height: box.height,
+    }
   })
 }
 
@@ -179,7 +293,11 @@ async function waitForMaintenanceReady(page: Page, path: string) {
   if (path === '/suggestion')
     await expect(page.getByRole('button', { name: 'Save suggestions' })).toBeEnabled()
   await page.evaluate(() => document.fonts.ready)
-  await expect.poll(() => page.evaluate(() => document.getAnimations().filter(animation => animation.playState === 'running' && animation.effect?.getTiming().iterations !== Infinity).map(animation => ({ state: animation.playState, time: animation.currentTime, timing: animation.effect?.getComputedTiming() }))), { timeout: 3000, message: '等待当前运行的有限动画结束，不持有跨状态的 finished Promise' }).toEqual([])
+  await expect.poll(() => page.evaluate(() => document.getAnimations().filter(animation => animation.playState === 'running' && animation.effect?.getTiming().iterations !== Infinity).map(animation => ({
+    state: animation.playState,
+    time: animation.currentTime,
+    timing: animation.effect?.getComputedTiming(),
+  }))), { timeout: 3000, message: '等待当前运行的有限动画结束，不持有跨状态的 finished Promise' }).toEqual([])
 }
 
 async function collectWorkspaceBoundaries(page: Page) {
@@ -187,17 +305,32 @@ async function collectWorkspaceBoundaries(page: Page) {
     const main = document.querySelector('main')!
     const content = main.querySelector(':scope > div')!
     const surface = [...content.children].find(element => element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }))!
-    const elements = { main, header: main.querySelector(':scope > header')!, heading: main.querySelector('h1')!, content, surface }
+    const elements = {
+      main,
+      header: main.querySelector(':scope > header')!,
+      heading: main.querySelector('h1')!,
+      content,
+      surface,
+    }
     return Object.fromEntries(Object.entries(elements).map(([name, element]) => {
       const { left, right, width } = element.getBoundingClientRect()
-      return [name, { left, right, width }]
+      return [
+        name,
+        { left, right, width },
+      ]
     })) as Record<keyof typeof elements, { left: number, right: number, width: number }>
   })
 }
 
 for (const { viewport, colorScheme } of [
-  { viewport: { width: 1280, height: 720 }, colorScheme: 'dark' as const },
-  { viewport: { width: 2560, height: 1440 }, colorScheme: 'light' as const },
+  {
+    viewport: { width: 1280, height: 720 },
+    colorScheme: 'dark' as const,
+  },
+  {
+    viewport: { width: 2560, height: 1440 },
+    colorScheme: 'light' as const,
+  },
 ]) {
   test.describe(`HiDPI ${viewport.width}x${viewport.height} DPR2 ${colorScheme}`, () => {
     test.use({ viewport, deviceScaleFactor: 2, colorScheme })
@@ -285,7 +418,11 @@ test('create feedback and duplicate review never move fields or save; 320px fits
   await expect(character).toBeEnabled()
   await page.evaluate(() => document.fonts.ready)
   const before = await relativeBox(character)
-  await page.getByLabel('Source image', { exact: true }).setInputFiles({ name: 'invalid.txt', mimeType: 'text/plain', buffer: Buffer.from('invalid') })
+  await page.getByLabel('Source image', { exact: true }).setInputFiles({
+    name: 'invalid.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('invalid'),
+  })
   await expect(page.getByText('Choose a valid JPG or PNG image.')).toBeVisible()
   expect(await relativeBox(character)).toEqual(before)
   await page.getByRole('button', { name: 'Dismiss notification' }).click()
@@ -331,7 +468,11 @@ test('edit aligns field edges, preserves grouped values and floats persistent er
   await checkbox.check()
   await expect(dialog.getByRole('spinbutton', { name: 'Part number' })).toHaveValue('2')
   const before = await relativeBox(character)
-  await dialog.locator('input[type="file"]').setInputFiles({ name: 'invalid.txt', mimeType: 'text/plain', buffer: Buffer.from('invalid') })
+  await dialog.locator('input[type="file"]').setInputFiles({
+    name: 'invalid.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('invalid'),
+  })
   await expect(dialog.getByText('Choose a valid JPG or PNG image.')).toBeVisible()
   expect(await relativeBox(character)).toEqual(before)
   await dialog.getByRole('button', { name: 'Dismiss notification' }).click()
@@ -484,7 +625,13 @@ test('mobile workspace keeps all pages and navigation usable', async ({ page }) 
   await mockApi(page, 6)
   await page.setViewportSize({ width, height: 1000 })
   await page.emulateMedia({ colorScheme })
-  for (const path of ['/', '/create', '/edit', '/aliases', '/suggestion']) {
+  for (const path of [
+    '/',
+    '/create',
+    '/edit',
+    '/aliases',
+    '/suggestion',
+  ]) {
     await page.goto(path)
     await expect(page.getByRole('main').getByRole('heading', { level: 1 })).toBeVisible()
     await page.evaluate(() => document.fonts.ready)
@@ -524,17 +671,32 @@ test('short desktop navigation and keyboard skip link keep every destination rea
 test('all maintenance pages remain usable with doubled text size', async ({ page }) => {
   await mockApi(page)
   await page.setViewportSize({ width: 1280, height: 1000 })
-  for (const path of ['/', '/create', '/edit', '/aliases', '/suggestion']) {
+  for (const path of [
+    '/',
+    '/create',
+    '/edit',
+    '/aliases',
+    '/suggestion',
+  ]) {
     await page.goto(path)
     await expect(page.getByRole('main')).toBeVisible()
-    if (path === '/')
+    if (path === '/') {
       await expect(page.getByRole('region', { name: 'Collection summary' })).toHaveAttribute('aria-busy', 'false')
-    else if (path === '/aliases')
+    }
+    else if (path === '/aliases') {
       await expect(page.getByLabel('Character 1 aliases', { exact: true })).toBeEnabled()
-    else if (path === '/edit')
+    }
+    else if (path === '/edit') {
       await expect(page.getByRole('button', { name: 'Rename Character 1', exact: true })).toBeVisible()
-    else
-      await expect(page.getByRole('button', { name: path === '/create' ? 'Save commission' : 'Save suggestions', exact: true })).toBeEnabled()
+    }
+    else {
+      await expect(page.getByRole('button', {
+        name: path === '/create'
+          ? 'Save commission'
+          : 'Save suggestions',
+        exact: true,
+      })).toBeEnabled()
+    }
     await page.addStyleTag({ content: 'html { font-size: 200%; }' })
     await page.evaluate(() => document.fonts.ready)
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(1280)
@@ -551,7 +713,9 @@ test('character cancellation and archive roundtrip keep visible status', async (
     control.mutations.push({ path: '/characters/order', body })
     // 成功写入必须影响后续 bootstrap，不能返回永远未归档的旧 fixture。
     control.archivedCharacter = body.archived.includes(2)
-    await route.fulfill({ json: { status: 'success', message: 'Order saved.' } })
+    await route.fulfill({
+      json: { status: 'success', message: 'Order saved.' },
+    })
   })
   await page.setViewportSize({ width, height: 1000 })
   await page.goto('/edit')
@@ -579,7 +743,10 @@ test('character cancellation and archive roundtrip keep visible status', async (
   await move.focus()
   await page.keyboard.press('Enter')
   await expect.poll(() => control.mutations.length).toBe(1)
-  expect(control.mutations[0].body).toEqual({ active: [1], archived: [2] })
+  expect(control.mutations[0].body).toEqual({
+    active: [1],
+    archived: [2],
+  })
   await expect.poll(() => control.bootstrapRequests).toBe(2)
   await expect(page.locator('[data-character-id="2"]')).toHaveAttribute('data-character-status', 'archived')
   await expect(secondStatus).toHaveText('Archived')
@@ -591,7 +758,10 @@ test('character cancellation and archive roundtrip keep visible status', async (
   await restore.focus()
   await page.keyboard.press('Enter')
   await expect.poll(() => control.mutations.length).toBe(2)
-  expect(control.mutations[1].body).toEqual({ active: [1, 2], archived: [] })
+  expect(control.mutations[1].body).toEqual({
+    active: [1, 2],
+    archived: [],
+  })
   await expect.poll(() => control.bootstrapRequests).toBe(3)
   await expect(secondCharacter).toHaveAttribute('data-character-status', 'active')
   await expect(secondStatus).toHaveText('Active')
@@ -623,9 +793,18 @@ test('archived status icon stays visible with long names and doubled mobile text
     const bounds = element.getBoundingClientRect()
     const statusElement = element.querySelector<SVGSVGElement>('[data-character-status-icon]')!
     const statusBounds = statusElement.getBoundingClientRect()
-    const actions = [...element.querySelectorAll<HTMLElement>('button[aria-label]')].filter(button => button.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })).map((button) => {
+    const actions = [
+      ...element.querySelectorAll<HTMLElement>('button[aria-label]'),
+    ].filter(button => button.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })).map((button) => {
       const { left, right, width, height } = button.getBoundingClientRect()
-      return { label: button.getAttribute('aria-label'), left, right, width, height, clipped: button.scrollWidth > button.clientWidth + 1 }
+      return {
+        label: button.getAttribute('aria-label'),
+        left,
+        right,
+        width,
+        height,
+        clipped: button.scrollWidth > button.clientWidth + 1,
+      }
     })
     const clippedAncestors = []
     for (let ancestor = statusElement.parentElement; ancestor; ancestor = ancestor.parentElement) {
@@ -636,8 +815,22 @@ test('archived status icon stays visible with long names and doubled mobile text
       if (/hidden|clip/.test(style.overflowY) && (statusBounds.top < rect.top - 1 || statusBounds.bottom > rect.bottom + 1))
         clippedAncestors.push(ancestor.tagName)
     }
-    const overflow = [...document.querySelectorAll('body *')].filter(node => node instanceof HTMLElement && node.checkVisibility() && node.getBoundingClientRect().right > innerWidth + 1).map(node => ({ tag: node.tagName, text: node.textContent?.trim().slice(0, 50), className: node.className, right: node.getBoundingClientRect().right }))
-    return { documentWidth: document.documentElement.scrollWidth, overflow, bounds: { left: bounds.left, right: bounds.right }, status: { left: statusBounds.left, right: statusBounds.right, clipped: statusElement.scrollWidth > statusElement.clientWidth + 1 }, actions, clippedAncestors }
+    const overflow = [
+      ...document.querySelectorAll('body *'),
+    ].filter(node => node instanceof HTMLElement && node.checkVisibility() && node.getBoundingClientRect().right > innerWidth + 1).map(node => ({
+      tag: node.tagName,
+      text: node.textContent?.trim().slice(0, 50),
+      className: node.className,
+      right: node.getBoundingClientRect().right,
+    }))
+    return {
+      documentWidth: document.documentElement.scrollWidth,
+      overflow,
+      bounds: { left: bounds.left, right: bounds.right },
+      status: { left: statusBounds.left, right: statusBounds.right, clipped: statusElement.scrollWidth > statusElement.clientWidth + 1 },
+      actions,
+      clippedAncestors,
+    }
   })
   expect(geometry.documentWidth, JSON.stringify(geometry.overflow)).toBe(320)
   expect(geometry.status.left).toBeGreaterThanOrEqual(geometry.bounds.left)
@@ -715,7 +908,9 @@ test('suggestion preserves editor geometry, ordering and manual additions', asyn
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320)
   await save.click()
   await expect.poll(() => control.mutations.length).toBe(1)
-  expect(control.mutations[0].body).toEqual({ keywords: ['Winter', 'Summer', 'Custom keyword'] })
+  expect(control.mutations[0].body).toEqual({
+    keywords: ['Winter', 'Summer', 'Custom keyword'],
+  })
   const notices = page.locator('[data-notice-viewport="page"] > [role="status"]')
   await expect(notices).toHaveCount(2)
   const noticeBoxes = await notices.evaluateAll(elements => elements.map((element) => {
@@ -750,7 +945,11 @@ test('alias tabs retain drafts, all creator aliases and explicit clearing', asyn
   await expect(page.getByRole('textbox', { name: 'studio aliases', exact: true })).toHaveValue('')
   await page.getByRole('button', { name: 'Save keyword aliases', exact: true }).click()
   await expect.poll(() => control.mutations.length).toBe(1)
-  expect(control.mutations[0].body).toEqual({ rows: [{ baseKeyword: 'studio', aliases: '' }] })
+  expect(control.mutations[0].body).toEqual({
+    rows: [
+      { baseKeyword: 'studio', aliases: '' },
+    ],
+  })
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(320)
   await page.setViewportSize({ width: 1280, height: 1000 })
 })
@@ -778,7 +977,10 @@ test('keyword workspace keeps input and action anchors stable as preview and err
   await page.setViewportSize({ width: 1280, height: 1000 })
 })
 
-for (const scenario of [{ width: 1280, textScale: 100 }, { width: 320, textScale: 200 }]) {
+for (const scenario of [
+  { width: 1280, textScale: 100 },
+  { width: 320, textScale: 200 },
+]) {
   test(`cold character headers preserve geometry at ${scenario.width}px with ${scenario.textScale}% text`, async ({ page }) => {
     const control = await mockApi(page)
     const gate = deferred()
@@ -809,7 +1011,11 @@ for (const scenario of [{ width: 1280, textScale: 100 }, { width: 320, textScale
   })
 }
 
-for (const { width, count } of [{ width: 320, count: 0 }, { width: 768, count: 7 }, { width: 2560, count: 30 }]) {
+for (const { width, count } of [
+  { width: 320, count: 0 },
+  { width: 768, count: 7 },
+  { width: 2560, count: 30 },
+]) {
   test(`character grid preserves height for ${count} entries at ${width}px`, async ({ page }) => {
     const control = await mockApi(page, count)
     const gate = deferred()

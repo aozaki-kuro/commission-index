@@ -117,7 +117,9 @@ describe('sidebarNavEnhancer', () => {
   it('disables sidebar links for characters without commissions', () => {
     const cleanup = mountSidebarNavEnhancer()
 
-    const emptyLink = [...document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]')]
+    const emptyLink = [
+      ...document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]'),
+    ]
       .find(link => link.getAttribute('href') === '#section-empty')
 
     expect(emptyLink?.getAttribute('aria-disabled')).toBe('true')
@@ -133,12 +135,18 @@ describe('sidebarNavEnhancer', () => {
 
     emptyTitle!.getBoundingClientRect = () => new DOMRect(0, 180, 200, 40)
     emptyTitle!.getClientRects = () =>
-      [emptyTitle!.getBoundingClientRect()] as unknown as DOMRectList
+      [
+        emptyTitle!.getBoundingClientRect(),
+      ] as unknown as DOMRectList
     title!.getBoundingClientRect = () => new DOMRect(0, 900, 200, 40)
-    title!.getClientRects = () => [title!.getBoundingClientRect()] as unknown as DOMRectList
+    title!.getClientRects = () => [
+      title!.getBoundingClientRect(),
+    ] as unknown as DOMRectList
     introduction!.getBoundingClientRect = () => new DOMRect(0, -200, 200, 100)
     introduction!.getClientRects = () =>
-      [introduction!.getBoundingClientRect()] as unknown as DOMRectList
+      [
+        introduction!.getBoundingClientRect(),
+      ] as unknown as DOMRectList
 
     Object.defineProperty(window, 'scrollY', { value: 300, writable: true })
 
@@ -157,10 +165,14 @@ describe('sidebarNavEnhancer', () => {
     const introduction = document.getElementById('title-introduction')
 
     title!.getBoundingClientRect = () => new DOMRect(0, 200, 200, 40)
-    title!.getClientRects = () => [title!.getBoundingClientRect()] as unknown as DOMRectList
+    title!.getClientRects = () => [
+      title!.getBoundingClientRect(),
+    ] as unknown as DOMRectList
     introduction!.getBoundingClientRect = () => new DOMRect(0, -200, 200, 100)
     introduction!.getClientRects = () =>
-      [introduction!.getBoundingClientRect()] as unknown as DOMRectList
+      [
+        introduction!.getBoundingClientRect(),
+      ] as unknown as DOMRectList
 
     Object.defineProperty(window, 'scrollY', { value: 300, writable: true })
 
@@ -207,7 +219,12 @@ describe('sidebarNavEnhancer', () => {
     const clearHashNow = vi.fn()
     const requestArchivedVisibility = vi.fn()
     const cleanup = mountSidebarNavEnhancer({
-      deps: { clearHashNow, requestArchivedVisibility, scrollToHashWithoutWrite, trackEvent: vi.fn() },
+      deps: {
+        clearHashNow,
+        requestArchivedVisibility,
+        scrollToHashWithoutWrite,
+        trackEvent: vi.fn(),
+      },
     })
 
     const link = document.querySelector<HTMLAnchorElement>('a[href="#section-alpha"]')!
@@ -230,14 +247,26 @@ describe('sidebarNavEnhancer', () => {
     const jumpToSearch = vi.fn()
     const trackEvent = vi.fn()
     const cleanup = mountSidebarNavEnhancer({
-      deps: { clearHashNow, jumpToSearch, requestArchivedVisibility, scrollToHashWithoutWrite, trackEvent },
+      deps: {
+        clearHashNow,
+        jumpToSearch,
+        requestArchivedVisibility,
+        scrollToHashWithoutWrite,
+        trackEvent,
+      },
     })
     trackEvent.mockClear()
 
     const searchLink = document.querySelector<HTMLAnchorElement>('[data-sidebar-search-link="true"]')!
     const timelineLink = document.querySelector<HTMLAnchorElement>('a[href="#timeline-year-2026"]')!
     const archivedLink = document.querySelector<HTMLAnchorElement>('a[href="#section-archived"]')!
-    for (const init of [{ ctrlKey: true }, { metaKey: true }, { shiftKey: true }, { altKey: true }, { button: 1 }]) {
+    for (const init of [
+      { ctrlKey: true },
+      { metaKey: true },
+      { shiftKey: true },
+      { altKey: true },
+      { button: 1 },
+    ]) {
       for (const link of [searchLink, timelineLink, archivedLink]) {
         const event = new MouseEvent('click', { bubbles: true, cancelable: true, ...init })
         link.dispatchEvent(event)
@@ -287,7 +316,9 @@ describe('sidebarNavEnhancer', () => {
       },
     })
 
-    const archivedLink = [...document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]')].find(link => link.getAttribute('href') === '#section-archived')
+    const archivedLink = [
+      ...document.querySelectorAll<HTMLAnchorElement>('[data-sidebar-character-link="true"]'),
+    ].find(link => link.getAttribute('href') === '#section-archived')
     archivedLink?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 
     expect(requestArchivedVisibility).toHaveBeenCalledTimes(1)

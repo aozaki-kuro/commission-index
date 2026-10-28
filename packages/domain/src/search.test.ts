@@ -132,14 +132,18 @@ describe('search strict matching with CJK terms', () => {
 
 describe('search index cache', () => {
   it('reuses the index object for the same entries array and falls back to fuzzy search on a strict miss', () => {
-    const entries: Entry[] = [{ id: 1, searchText: 'lucia' }]
+    const entries: Entry[] = [
+      { id: 1, searchText: 'lucia' },
+    ]
     const index = createSearchIndex(entries)
 
     expect(createSearchIndex(entries)).toBe(index)
     expect(sortedIds(getMatchedEntryIds('luc', index))).toEqual([1])
 
     const fuse = {
-      search: vi.fn(() => [{ item: entries[0] }]),
+      search: vi.fn(() => [
+        { item: entries[0] },
+      ]),
     } as unknown as Fuse<Entry>
     const warmed = buildStrictIndex(entries, fuse)
 
@@ -149,17 +153,25 @@ describe('search index cache', () => {
   })
 
   it('keeps the hydrated index when a fuse instance already exists', async () => {
-    const entries: Entry[] = [{ id: 1, searchText: 'lucia' }]
-    const fuse = { search: vi.fn() } as unknown as Fuse<Entry>
+    const entries: Entry[] = [
+      { id: 1, searchText: 'lucia' },
+    ]
+    const fuse = {
+      search: vi.fn(),
+    } as unknown as Fuse<Entry>
     const withFuse = buildStrictIndex(entries, fuse)
 
     expect(await hydrateSearchIndexFuse(withFuse)).toBe(withFuse)
   })
 
   it('evicts the oldest query once the cache exceeds its limit', () => {
-    const entries: Entry[] = [{ id: 1, searchText: 'lucia' }]
+    const entries: Entry[] = [
+      { id: 1, searchText: 'lucia' },
+    ]
     const fuse = {
-      search: vi.fn(() => [{ item: entries[0] }]),
+      search: vi.fn(() => [
+        { item: entries[0] },
+      ]),
     } as unknown as Fuse<Entry>
     const index = buildStrictIndex(entries, fuse)
 
@@ -217,7 +229,9 @@ describe('parseSuggestionInputState', () => {
 describe('suggestion rows and text helpers', () => {
   it('parses suggestion rows, normalizing terms and dropping duplicates', () => {
     const rows = parseSuggestionRows('Character\tL*cia\nCharacter\tLucia\nKeyword\tblue, dragon')
-    expect([...rows.keys()]).toEqual(['l*cia', 'lucia', 'blue, dragon'])
+    expect([
+      ...rows.keys(),
+    ]).toEqual(['l*cia', 'lucia', 'blue, dragon'])
     expect(rows.get('lucia')?.source).toBe('Character')
     expect(rows.get('blue, dragon')?.source).toBe('Keyword')
   })
@@ -246,16 +260,40 @@ describe('collectSuggestions and filterSuggestions', () => {
     return rows
   }
   const entries: SuggestionEntryLike[] = [
-    { id: 1, suggestionRows: toRows([['Character', 'Karin'], ['Keyword', 'Maid']]) },
-    { id: 2, suggestionRows: toRows([['Character', 'Karin']]) },
-    { id: 3, suggestionRows: toRows([['Keyword', 'Maid']]) },
+    {
+      id: 1,
+      suggestionRows: toRows([
+        ['Character', 'Karin'],
+        ['Keyword', 'Maid'],
+      ]),
+    },
+    {
+      id: 2,
+      suggestionRows: toRows([
+        ['Character', 'Karin'],
+      ]),
+    },
+    {
+      id: 3,
+      suggestionRows: toRows([
+        ['Keyword', 'Maid'],
+      ]),
+    },
   ]
   const suggestions = collectSuggestions(entries)
 
   it('aggregates suggestion counts and sources, ordered by count then term', () => {
     expect(suggestions).toEqual([
-      { term: 'Karin', count: 2, sources: ['Character'] },
-      { term: 'Maid', count: 2, sources: ['Keyword'] },
+      {
+        term: 'Karin',
+        count: 2,
+        sources: ['Character'],
+      },
+      {
+        term: 'Maid',
+        count: 2,
+        sources: ['Keyword'],
+      },
     ])
   })
 
@@ -269,13 +307,29 @@ describe('collectSuggestions and filterSuggestions', () => {
     })
 
     expect(result).toEqual([
-      { term: 'Karin', count: 2, sources: ['Character'], matchedCount: 2 },
+      {
+        term: 'Karin',
+        count: 2,
+        sources: ['Character'],
+        matchedCount: 2,
+      },
     ])
     expect(
-      filterSuggestions({ entries, suggestions, suggestionQuery: '', suggestionContextMatchedIds: allIds }),
+      filterSuggestions({
+        entries,
+        suggestions,
+        suggestionQuery: '',
+        suggestionContextMatchedIds: allIds,
+      }),
     ).toEqual([])
     expect(
-      filterSuggestions({ entries, suggestions, suggestionQuery: 'ka', suggestionContextMatchedIds: allIds, limit: 0 }),
+      filterSuggestions({
+        entries,
+        suggestions,
+        suggestionQuery: 'ka',
+        suggestionContextMatchedIds: allIds,
+        limit: 0,
+      }),
     ).toEqual([])
   })
 
@@ -288,7 +342,12 @@ describe('collectSuggestions and filterSuggestions', () => {
       suggestionContextMatchedIds: narrowed,
     })
     expect(include).toEqual([
-      { term: 'Maid', count: 2, sources: ['Keyword'], matchedCount: 1 },
+      {
+        term: 'Maid',
+        count: 2,
+        sources: ['Keyword'],
+        matchedCount: 1,
+      },
     ])
 
     const exclusion = filterSuggestions({
@@ -299,7 +358,12 @@ describe('collectSuggestions and filterSuggestions', () => {
       isExclusionSuggestion: true,
     })
     expect(exclusion).toEqual([
-      { term: 'Karin', count: 2, sources: ['Character'], matchedCount: 1 },
+      {
+        term: 'Karin',
+        count: 2,
+        sources: ['Character'],
+        matchedCount: 1,
+      },
     ])
 
     // Context with no matching rows drops the suggestion entirely.
@@ -314,9 +378,20 @@ describe('collectSuggestions and filterSuggestions', () => {
   })
 
   it('only offers date suggestions for date-like numeric queries', () => {
-    const dateSuggestions: Suggestion[] = [{ term: '2024/02', count: 4, sources: ['Date'] }]
+    const dateSuggestions: Suggestion[] = [
+      {
+        term: '2024/02',
+        count: 4,
+        sources: ['Date'],
+      },
+    ]
     const allIds = new Set([1])
-    const dateEntries: SuggestionEntryLike[] = [{ id: 1, suggestionRows: new Map() }]
+    const dateEntries: SuggestionEntryLike[] = [
+      {
+        id: 1,
+        suggestionRows: new Map(),
+      },
+    ]
 
     expect(
       filterSuggestions({
@@ -325,7 +400,14 @@ describe('collectSuggestions and filterSuggestions', () => {
         suggestionQuery: '2024',
         suggestionContextMatchedIds: allIds,
       }),
-    ).toEqual([{ term: '2024/02', count: 4, sources: ['Date'], matchedCount: 4 }])
+    ).toEqual([
+      {
+        term: '2024/02',
+        count: 4,
+        sources: ['Date'],
+        matchedCount: 4,
+      },
+    ])
 
     expect(
       filterSuggestions({

@@ -24,8 +24,20 @@ vi.mock('../lib/adminActions', () => ({
 vi.mock('../lib/storageHelper', () => storage)
 
 const characters: CharacterRow[] = [
-  { id: 1, name: 'First', status: 'active', sortOrder: 0, commissionCount: 1 },
-  { id: 2, name: 'Second', status: 'active', sortOrder: 1, commissionCount: 0 },
+  {
+    id: 1,
+    name: 'First',
+    status: 'active',
+    sortOrder: 0,
+    commissionCount: 1,
+  },
+  {
+    id: 2,
+    name: 'Second',
+    status: 'active',
+    sortOrder: 1,
+    commissionCount: 0,
+  },
 ]
 const commissions: [] = []
 
@@ -87,7 +99,10 @@ describe('useCommissionManager request lifecycle', () => {
       onQuotaExceeded?.()
       return false
     })
-    window.localStorage.setItem('admin-existing-open', JSON.stringify({ ids: [1], timestamp: Date.now() }))
+    window.localStorage.setItem('admin-existing-open', JSON.stringify({
+      ids: [1],
+      timestamp: Date.now(),
+    }))
 
     await act(async () => root.render(createElement(Harness)))
     await act(async () => {})
@@ -96,9 +111,18 @@ describe('useCommissionManager request lifecycle', () => {
   })
 
   it('preserves stored disclosures until bootstrap data is ready', async () => {
-    window.localStorage.setItem('admin-existing-open', JSON.stringify({ ids: [1], timestamp: Date.now() }))
+    window.localStorage.setItem('admin-existing-open', JSON.stringify({
+      ids: [1],
+      timestamp: Date.now(),
+    }))
     function BootstrapHarness({ ready }: { ready: boolean }) {
-      const manager = useCommissionManager({ characters: ready ? characters : [], commissions, isDataReady: ready })
+      const manager = useCommissionManager({
+        characters: ready
+          ? characters
+          : [],
+        commissions,
+        isDataReady: ready,
+      })
       return createElement('output', null, [...manager.openIds].join(','))
     }
     await act(async () => root.render(createElement(BootstrapHarness, { ready: false })))
@@ -157,7 +181,9 @@ describe('useCommissionManager request lifecycle', () => {
   it('keeps local archive ordering when rename refresh precedes the queued order response', async () => {
     let finishRename!: (result: { status: 'success' }) => void
     let finishOrder!: (result: { status: 'success' }) => void
-    const renamedActiveRows = characters.map(character => character.id === 1 ? { ...character, name: 'Renamed' } : character)
+    const renamedActiveRows = characters.map(character => character.id === 1
+      ? { ...character, name: 'Renamed' }
+      : character)
     let serverRows = renamedActiveRows
     const refresh = vi.fn(() => root.render(createElement(RefreshHarness, { rows: serverRows })))
     const latestRefresh = vi.fn(() => root.render(createElement(RefreshHarness, { rows: serverRows, onRefresh: latestRefresh })))
@@ -174,16 +200,26 @@ describe('useCommissionManager request lifecycle', () => {
     expect(actions.renameCharacter).toHaveBeenCalledWith({ id: 1, name: 'Renamed', status: 'active' })
     expect(actions.saveCharacterOrder).not.toHaveBeenCalled()
     await act(async () => finishRename({ status: 'success' }))
-    expect(actions.saveCharacterOrder).toHaveBeenCalledWith({ active: [2], archived: [1] })
+    expect(actions.saveCharacterOrder).toHaveBeenCalledWith({
+      active: [2],
+      archived: [1],
+    })
     expect(manager.activeCount).toBe(1)
-    expect(manager.list.at(-1)).toMatchObject({ type: 'character', data: { id: 1 } })
+    expect(manager.list.at(-1)).toMatchObject({
+      type: 'character',
+      data: { id: 1 },
+    })
     expect(refresh).not.toHaveBeenCalled()
     // 模拟来自另一 tab 的旧 bootstrap；可更新名称和计数，但不能撤销本地归档。
-    const staleRows = renamedActiveRows.map(character => character.id === 2 ? { ...character, name: 'Second refreshed', commissionCount: 3 } : character)
+    const staleRows = renamedActiveRows.map(character => character.id === 2
+      ? { ...character, name: 'Second refreshed', commissionCount: 3 }
+      : character)
     await act(async () => root.render(createElement(RefreshHarness, { rows: staleRows, onRefresh: latestRefresh })))
     expect(manager.activeCount).toBe(1)
     expect(manager.orderedCharacters[0]).toMatchObject({ id: 2, name: 'Second refreshed', commissionCount: 3 })
-    serverRows = staleRows.map(character => character.id === 1 ? { ...character, status: 'archived', sortOrder: 1 } : { ...character, sortOrder: 0 })
+    serverRows = staleRows.map(character => character.id === 1
+      ? { ...character, status: 'archived', sortOrder: 1 }
+      : { ...character, sortOrder: 0 })
     await act(async () => finishOrder({ status: 'success' }))
     expect(refresh).not.toHaveBeenCalled()
     expect(latestRefresh).toHaveBeenCalledTimes(1)
@@ -204,7 +240,10 @@ describe('useCommissionManager request lifecycle', () => {
     await editName(characters[0]!, 'Renamed after archive')
     await act(async () => manager.submitRename())
 
-    expect(actions.saveCharacterOrder).toHaveBeenCalledWith({ active: [2], archived: [1] })
+    expect(actions.saveCharacterOrder).toHaveBeenCalledWith({
+      active: [2],
+      archived: [1],
+    })
     expect(actions.renameCharacter).not.toHaveBeenCalled()
 
     await act(async () => finishOrder({ status: 'success' }))
@@ -295,7 +334,10 @@ describe('useCommissionManager request lifecycle', () => {
     })
 
     expect(actions.saveCharacterOrder).toHaveBeenCalledTimes(1)
-    expect(actions.saveCharacterOrder).toHaveBeenCalledWith({ active: [2, 1], archived: [] })
+    expect(actions.saveCharacterOrder).toHaveBeenCalledWith({
+      active: [2, 1],
+      archived: [],
+    })
   })
 
   it('submits one delete while the request is pending', async () => {

@@ -41,7 +41,9 @@ export function buildWorkGroupOptions(rows: WorkGroupCandidate[]): CommissionWor
 
     groups.set(row.workGroupId, {
       candidate: row,
-      parts: row.partNumber ? [row.partNumber] : [],
+      parts: row.partNumber
+        ? [row.partNumber]
+        : [],
     })
   }
 
@@ -49,7 +51,9 @@ export function buildWorkGroupOptions(rows: WorkGroupCandidate[]): CommissionWor
     const sortedParts = parts.toSorted((left, right) => left - right)
     const creatorName = candidate.creatorName?.trim() || 'Anon'
     const partSummary = sortedParts.length > 0
-      ? ` · ${sortedParts.length} ${sortedParts.length === 1 ? 'part' : 'parts'}`
+      ? ` · ${sortedParts.length} ${sortedParts.length === 1
+        ? 'part'
+        : 'parts'}`
       : ''
 
     return {

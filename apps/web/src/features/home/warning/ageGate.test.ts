@@ -22,12 +22,22 @@ describe('hasValidAgeConfirmation', () => {
 
   it('fails closed for unreadable storage unless confirmed in memory', () => {
     const check = (confirmedInMemory?: boolean) =>
-      hasValidAgeConfirmation({ userAgent: browser, storedValue: readStoredAgeConfirmation(blockedStorage), now, confirmedInMemory })
+      hasValidAgeConfirmation({
+        userAgent: browser,
+        storedValue: readStoredAgeConfirmation(blockedStorage),
+        now,
+        confirmedInMemory,
+      })
 
     expect(check()).toBe(false)
     expect(check(false)).toBe(false)
     expect(check(true)).toBe(true)
-    expect(hasValidAgeConfirmation({ userAgent: browser, storedValue: null, now, confirmedInMemory: true })).toBe(true)
+    expect(hasValidAgeConfirmation({
+      userAgent: browser,
+      storedValue: null,
+      now,
+      confirmedInMemory: true,
+    })).toBe(true)
   })
 
   it('treats Lighthouse user agents as confirmed regardless of storage', () => {

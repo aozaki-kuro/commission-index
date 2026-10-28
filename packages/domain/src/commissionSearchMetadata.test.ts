@@ -38,7 +38,12 @@ describe('commissionSearchMetadata', () => {
     })
 
     it('expands character aliases into search text and suggestions', () => {
-      const aliasesMap = new Map([['alpha', ['Alfa', 'Alpha Prime']]])
+      const aliasesMap = new Map([
+        [
+          'alpha',
+          ['Alfa', 'Alpha Prime'],
+        ],
+      ])
 
       const metadata = buildCommissionSearchMetadata({
         characterName: 'Alpha',
@@ -55,7 +60,12 @@ describe('commissionSearchMetadata', () => {
     })
 
     it('expands creator aliases into search text and suggestions', () => {
-      const aliasesMap = new Map([['Artist Name', ['ArtistAlias']]])
+      const aliasesMap = new Map([
+        [
+          'Artist Name',
+          ['ArtistAlias'],
+        ],
+      ])
 
       const metadata = buildCommissionSearchMetadata({
         characterName: 'Alpha',
@@ -71,7 +81,12 @@ describe('commissionSearchMetadata', () => {
     })
 
     it('expands keyword aliases into search text', () => {
-      const aliasesMap = new Map([['blue', ['azure', 'cyan']]])
+      const aliasesMap = new Map([
+        [
+          'blue',
+          ['azure', 'cyan'],
+        ],
+      ])
 
       const metadata = buildCommissionSearchMetadata({
         characterName: 'Alpha',
@@ -122,7 +137,12 @@ describe('commissionSearchMetadata', () => {
     })
 
     it('deduplicates suggestions by normalized term', () => {
-      const characterAliasesMap = new Map([['alpha', ['Alpha', 'alpha']]])
+      const characterAliasesMap = new Map([
+        [
+          'alpha',
+          ['Alpha', 'alpha'],
+        ],
+      ])
 
       const metadata = buildCommissionSearchMetadata({
         characterName: 'Alpha',

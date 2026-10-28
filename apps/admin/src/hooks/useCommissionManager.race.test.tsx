@@ -17,8 +17,20 @@ vi.mock('../lib/adminActions', () => ({
 }))
 
 const characters: CharacterRow[] = [
-  { id: 1, name: 'First', status: 'active', sortOrder: 0, commissionCount: 1 },
-  { id: 2, name: 'Second', status: 'active', sortOrder: 1, commissionCount: 0 },
+  {
+    id: 1,
+    name: 'First',
+    status: 'active',
+    sortOrder: 0,
+    commissionCount: 1,
+  },
+  {
+    id: 2,
+    name: 'Second',
+    status: 'active',
+    sortOrder: 1,
+    commissionCount: 0,
+  },
 ]
 const commissions: [] = []
 

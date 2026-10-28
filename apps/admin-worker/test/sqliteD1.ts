@@ -17,7 +17,9 @@ export function createSQLiteD1({ failAtBatchStatement }: { failAtBatchStatement?
     return {
       bind: (...nextValues) => prepare(query, nextValues),
       async all<TRow>() {
-        return { results: database.prepare(query).all(...values as never[]) as TRow[] }
+        return {
+          results: database.prepare(query).all(...values as never[]) as TRow[],
+        }
       },
       async run() {
         database.prepare(query).run(...values as never[])
@@ -48,5 +50,9 @@ export function createSQLiteD1({ failAtBatchStatement }: { failAtBatchStatement?
     },
   }
 
-  return { database, db, batchCallCount: () => batchCalls }
+  return {
+    database,
+    db,
+    batchCallCount: () => batchCalls,
+  }
 }

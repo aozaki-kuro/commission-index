@@ -41,5 +41,7 @@ export function formatDate(date: Date, format: 'yyyy/MM/dd' | 'readable'): strin
  */
 export function parseAndFormatDate(dateStr: string, format: 'yyyy/MM/dd' | 'readable'): string {
   const date = parseDateString(dateStr)
-  return date ? formatDate(date, format) : ''
+  return date
+    ? formatDate(date, format)
+    : ''
 }

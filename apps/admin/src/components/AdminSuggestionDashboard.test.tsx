@@ -7,8 +7,12 @@ import { readCachedAdminJson } from '../lib/adminApi'
 import { markPendingRebuild } from '../lib/pendingRebuildSignal'
 import { AdminSuggestionDashboard } from './AdminSuggestionDashboard'
 
-vi.mock('../lib/adminActions', () => ({ saveHomeFeaturedKeywordsAction: vi.fn() }))
-vi.mock('../lib/pendingRebuildSignal', () => ({ markPendingRebuild: vi.fn() }))
+vi.mock('../lib/adminActions', () => ({
+  saveHomeFeaturedKeywordsAction: vi.fn(),
+}))
+vi.mock('../lib/pendingRebuildSignal', () => ({
+  markPendingRebuild: vi.fn(),
+}))
 
 describe('suggestion editor', () => {
   let container: HTMLDivElement

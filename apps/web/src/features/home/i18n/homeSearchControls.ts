@@ -64,13 +64,17 @@ const HOME_SEARCH_CONTROLS: Record<HomeSearchLocale, HomeSearchControls> = {
     sourceKeyword: 'keyword',
     sourceDate: 'date',
     sourcePrefix: 'in',
-    formatMatchCount: count => `${count} ${count === 1 ? 'match' : 'matches'}`,
+    formatMatchCount: count => `${count} ${count === 1
+      ? 'match'
+      : 'matches'}`,
     formatSearchResultsStatus: (matchedCount, entriesCount) =>
       `Search results: ${matchedCount} of ${entriesCount} commissions shown.`,
     formatSearchClearedStatus: entriesCount =>
       `Search cleared. Showing all ${entriesCount} commissions.`,
     formatHiddenArchivedResultsNotice: count =>
-      `${count} archived match${count === 1 ? '' : 'es'} hidden.`,
+      `${count} archived match${count === 1
+        ? ''
+        : 'es'} hidden.`,
     searchHelpTitle: 'Search Help',
     searchHelpIntro: 'Type one or more keywords to filter commissions.',
     searchHelpSyntaxHeader: 'Syntax',

@@ -8,7 +8,9 @@ let webRoot: string
 
 function writeContent(dir: string, databaseBinding: string) {
   mkdirSync(path.join(dir, 'fact-source'), { recursive: true })
-  writeFileSync(path.join(dir, 'fact-source', 'content.json'), JSON.stringify({ meta: { databaseBinding } }))
+  writeFileSync(path.join(dir, 'fact-source', 'content.json'), JSON.stringify({
+    meta: { databaseBinding },
+  }))
 }
 
 beforeEach(() => {
@@ -27,7 +29,12 @@ describe('resolveOfflineFactSourceTarget', () => {
   it('refuses an override that resolves to generated/, including via absolute path or symlink', () => {
     mkdirSync(path.join(webRoot, 'generated'))
     symlinkSync(path.join(webRoot, 'generated'), path.join(webRoot, 'alias'))
-    for (const value of ['generated', path.join(webRoot, 'generated'), 'alias', 'generated/../generated']) {
+    for (const value of [
+      'generated',
+      path.join(webRoot, 'generated'),
+      'alias',
+      'generated/../generated',
+    ]) {
       expect(() => resolveOfflineFactSourceTarget(webRoot, value)).toThrow(/real export/)
     }
   })

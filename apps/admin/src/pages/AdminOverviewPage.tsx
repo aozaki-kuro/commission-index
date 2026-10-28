@@ -53,27 +53,62 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
           dispatch({ type: 'loaded', payload })
       })
       .catch((error) => {
-        if (!controller.signal.aborted)
-          dispatch({ type: 'failed', message: error instanceof Error ? error.message : 'Could not load overview.' })
+        if (!controller.signal.aborted) {
+          dispatch({
+            type: 'failed',
+            message: error instanceof Error
+              ? error.message
+              : 'Could not load overview.',
+          })
+        }
       })
     return () => controller.abort()
   }, [reloadToken])
 
   const { payload } = state
   const characters = payload?.bootstrap.characters
-  const count = (value: number | undefined) => value === undefined ? '—' : String(value)
+  const count = (value: number | undefined) => value === undefined
+    ? '—'
+    : String(value)
   const metrics = [
-    { label: 'Commissions', value: count(characters?.reduce((total, row) => total + row.commissionCount, 0)), detail: 'Indexed works' },
-    { label: 'Characters', value: count(characters?.length), detail: `${count(characters?.filter(row => row.status === 'active').length)} active · ${count(characters?.filter(row => row.status !== 'active').length)} archived` },
-    { label: 'Alias rows', value: payload ? String(payload.aliases.characterAliases.length + payload.aliases.creatorAliases.length + payload.aliases.keywordAliases.length) : '—', detail: 'Character, creator & keyword' },
-    { label: 'Suggestions', value: count(payload?.suggestion.featuredKeywords.length), detail: 'Featured keywords' },
+    {
+      label: 'Commissions',
+      value: count(characters?.reduce((total, row) => total + row.commissionCount, 0)),
+      detail: 'Indexed works',
+    },
+    {
+      label: 'Characters',
+      value: count(characters?.length),
+      detail: `${count(characters?.filter(row => row.status === 'active').length)} active · ${count(characters?.filter(row => row.status !== 'active').length)} archived`,
+    },
+    {
+      label: 'Alias rows',
+      value: payload
+        ? String(payload.aliases.characterAliases.length + payload.aliases.creatorAliases.length + payload.aliases.keywordAliases.length)
+        : '—',
+      detail: 'Character, creator & keyword',
+    },
+    {
+      label: 'Suggestions',
+      value: count(payload?.suggestion.featuredKeywords.length),
+      detail: 'Featured keywords',
+    },
   ]
   const latest = payload?.bootstrap.commissionSearchRows.toSorted(compareCommissionsByDate).slice(0, 10) ?? []
 
   return (
     <div className="grid min-w-0 items-start gap-7 @min-[50rem]/workspace:grid-cols-[minmax(0,1fr)_17rem] @min-[50rem]/workspace:grid-rows-[auto_1fr] @min-[50rem]/workspace:gap-x-8">
       <AdminBootstrapStatus errorMessage={state.errorMessage} isLoading={state.isLoading} hasPayload={payload !== null} onRetry={reload} />
-      {(rebuild.status === 'success' || rebuild.status === 'error' || rebuild.status === 'unconfirmed') && <FloatingNotice tone={rebuild.status === 'unconfirmed' ? 'error' : rebuild.status} onDismiss={dismissWebsiteRebuildNotice}>{rebuild.message}</FloatingNotice>}
+      {(rebuild.status === 'success' || rebuild.status === 'error' || rebuild.status === 'unconfirmed') && (
+        <FloatingNotice
+          tone={rebuild.status === 'unconfirmed'
+            ? 'error'
+            : rebuild.status}
+          onDismiss={dismissWebsiteRebuildNotice}
+        >
+          {rebuild.message}
+        </FloatingNotice>
+      )}
 
       <section aria-labelledby="overview-actions" className="min-w-0 space-y-4 motion-safe:animate-[tabFade_300ms_ease-out] @min-[50rem]/workspace:col-start-1 @min-[50rem]/workspace:row-start-1">
         <h2 id="overview-actions" className="text-base font-semibold text-gray-900 dark:text-gray-100">Manage content</h2>
@@ -102,8 +137,15 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
               <h2 id="overview-publish" className="text-base font-semibold text-gray-900 dark:text-gray-100">Publish website</h2>
               <p className="text-sm leading-relaxed text-gray-500 dark:text-gray-400">Rebuild the public site from saved content.</p>
               {(rebuild.status === 'pending' || rebuild.status === 'success' || rebuild.status === 'error' || rebuild.status === 'unconfirmed') && (
-                <p role={rebuild.status === 'error' || rebuild.status === 'unconfirmed' ? 'alert' : 'status'} className="text-xs text-gray-600 dark:text-gray-400">
-                  {rebuild.message ?? (rebuild.status === 'pending' ? 'Waiting for the public site to confirm the update.' : null)}
+                <p
+                  role={rebuild.status === 'error' || rebuild.status === 'unconfirmed'
+                    ? 'alert'
+                    : 'status'}
+                  className="text-xs text-gray-600 dark:text-gray-400"
+                >
+                  {rebuild.message ?? (rebuild.status === 'pending'
+                    ? 'Waiting for the public site to confirm the update.'
+                    : null)}
                 </p>
               )}
             </div>
@@ -118,7 +160,15 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
               <dl className="mt-3 space-y-2 break-words text-gray-600 dark:text-gray-300">
                 <div className="flex flex-wrap gap-x-2">
                   <dt>Connection:</dt>
-                  <dd>{state.errorMessage ? 'Could not refresh data' : payload ? payload.health.status === 'ok' ? 'Connected' : 'Unavailable' : state.isLoading ? 'Checking…' : 'Unavailable'}</dd>
+                  <dd>
+                    {state.errorMessage
+                      ? 'Could not refresh data'
+                      : payload
+                        ? payload.health.status === 'ok'
+                          ? 'Connected'
+                          : 'Unavailable'
+                        : state.isLoading ? 'Checking…' : 'Unavailable'}
+                  </dd>
                 </div>
                 <div className="flex flex-wrap gap-x-2">
                   <dt>API origin:</dt>
@@ -188,7 +238,13 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
                 ))}
               </ol>
             )
-          : <p className="rounded-lg border border-dashed border-gray-300 px-4 py-8 text-sm leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400">{payload ? 'No commissions yet. Create your first commission above.' : state.isLoading ? 'Loading commissions…' : 'Commissions are unavailable. Retry loading the overview.'}</p>}
+          : (
+              <p className="rounded-lg border border-dashed border-gray-300 px-4 py-8 text-sm leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                {payload
+                  ? 'No commissions yet. Create your first commission above.'
+                  : state.isLoading ? 'Loading commissions…' : 'Commissions are unavailable. Retry loading the overview.'}
+              </p>
+            )}
       </section>
     </div>
   )

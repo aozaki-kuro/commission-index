@@ -105,7 +105,12 @@ export function KeywordReplacePopover({
       ...m,
       newKeyword: computeReplacement(m.currentKeyword, findTerm, replaceTerm),
     })),
-    [matches, findTerm, replaceTerm, completedIds],
+    [
+      matches,
+      findTerm,
+      replaceTerm,
+      completedIds,
+    ],
   )
 
   const handleReplaceAll = useCallback(() => {
@@ -119,7 +124,10 @@ export function KeywordReplacePopover({
       const finishPartial = () => {
         setProgress(null)
         if (savedIds.length > 0) {
-          setCompletedIds(previous => new Set([...previous, ...savedIds]))
+          setCompletedIds(previous => new Set([
+            ...previous,
+            ...savedIds,
+          ]))
           onComplete()
         }
       }
@@ -249,7 +257,9 @@ export function KeywordReplacePopover({
                 ? 'Enter text to preview the affected commissions.'
                 : matchesWithPreview.length === 0
                   ? 'No commissions match.'
-                  : `${matchesWithPreview.length} commission${matchesWithPreview.length === 1 ? '' : 's'} matched`}
+                  : `${matchesWithPreview.length} commission${matchesWithPreview.length === 1
+                    ? ''
+                    : 's'} matched`}
             </p>
             <div className="divide-y divide-gray-200 dark:divide-gray-800">
               {matchesWithPreview.map(match => (
@@ -294,7 +304,9 @@ export function KeywordReplacePopover({
             disabled={isPending || matchesWithPreview.length === 0 || !replaceTerm.trim()}
             className="inline-flex min-h-11 w-36 shrink-0 items-center justify-center rounded-lg bg-gray-900 px-3 text-sm font-semibold text-white transition hover:bg-gray-700 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200"
           >
-            {isPending ? `Saving ${progress?.current ?? 0}/${progress?.total ?? matchesWithPreview.length}` : 'Replace all'}
+            {isPending
+              ? `Saving ${progress?.current ?? 0}/${progress?.total ?? matchesWithPreview.length}`
+              : 'Replace all'}
           </button>
         </footer>
       </DialogContent>

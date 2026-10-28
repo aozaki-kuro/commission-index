@@ -58,11 +58,18 @@ describe('浮动通知的布局与生命周期', () => {
   it('刷新失败提供可展开详情和重试，恢复后无残留', async () => {
     const onRetry = vi.fn()
     const render = async (errorMessage: string | null) => {
-      await act(async () => root.render(createElement(FloatingNoticeProvider, null, createElement(AdminBootstrapStatus, { errorMessage, isLoading: false, hasPayload: true, onRetry }))))
+      await act(async () => root.render(createElement(FloatingNoticeProvider, null, createElement(AdminBootstrapStatus, {
+        errorMessage,
+        isLoading: false,
+        hasPayload: true,
+        onRetry,
+      }))))
     }
     await render('Detailed API failure')
     expect(container.querySelector('details')!.textContent).toContain('Detailed API failure')
-    const retry = [...container.querySelectorAll('button')].find(button => button.textContent === 'Try again')!
+    const retry = [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Try again')!
     await act(async () => retry.click())
     expect(onRetry).toHaveBeenCalledOnce()
     await render(null)

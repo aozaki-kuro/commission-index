@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { hasGeneratedFactSourceContent } from './generatedFactSource'
 
-const describeRealData = hasGeneratedFactSourceContent() ? describe : describe.skip
+const describeRealData = hasGeneratedFactSourceContent()
+  ? describe
+  : describe.skip
 
 describeRealData('commission data pipeline (real sqlite snapshot)', () => {
   it('keeps records and page data structurally consistent', async () => {

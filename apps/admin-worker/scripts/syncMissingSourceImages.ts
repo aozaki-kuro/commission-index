@@ -44,7 +44,9 @@ const missingObjectPattern = /NoSuchKey|The specified key does not exist|not fou
 function getWranglerCommand() {
   return existsSync(localWranglerBinPath)
     ? localWranglerBinPath
-    : (existsSync(localWranglerCmdBinPath) ? localWranglerCmdBinPath : 'wrangler')
+    : (existsSync(localWranglerCmdBinPath)
+        ? localWranglerCmdBinPath
+        : 'wrangler')
 }
 
 function runWranglerAsync(args: string[]) {
@@ -90,7 +92,9 @@ async function waitForFile(filePath: string) {
 
 function resolveDownloadConcurrency() {
   const rawValue = process.env.FACT_SOURCE_DOWNLOAD_CONCURRENCY?.trim()
-  const parsedValue = rawValue ? Number.parseInt(rawValue, 10) : Number.NaN
+  const parsedValue = rawValue
+    ? Number.parseInt(rawValue, 10)
+    : Number.NaN
 
   if (!Number.isInteger(parsedValue) || parsedValue < 1) {
     return defaultDownloadConcurrency
@@ -254,6 +258,8 @@ async function main() {
 }
 
 void main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error))
+  console.error(error instanceof Error
+    ? error.message
+    : String(error))
   process.exit(1)
 })

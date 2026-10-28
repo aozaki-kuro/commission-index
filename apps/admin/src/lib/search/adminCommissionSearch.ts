@@ -30,8 +30,12 @@ function buildCreatorAliasesMap(rows: CreatorAliasRow[]) {
 }
 
 function getCommissionSearchDetails(row: AdminCommissionSearchRow, creatorAliasesMap: Map<string, string[]>) {
-  const creatorKey = row.creatorName ? normalizeCreatorName(row.creatorName) : null
-  const creatorAliases = creatorKey ? creatorAliasesMap.get(creatorKey.toLocaleLowerCase()) ?? [] : []
+  const creatorKey = row.creatorName
+    ? normalizeCreatorName(row.creatorName)
+    : null
+  const creatorAliases = creatorKey
+    ? creatorAliasesMap.get(creatorKey.toLocaleLowerCase()) ?? []
+    : []
   const dateTerms = row.commissionDate
     ? [
         row.commissionDate,
@@ -40,7 +44,11 @@ function getCommissionSearchDetails(row: AdminCommissionSearchRow, creatorAliase
       ]
     : []
 
-  return [...dateTerms, row.creatorName ?? '', ...creatorAliases].join(' ').toLowerCase()
+  return [
+    ...dateTerms,
+    row.creatorName ?? '',
+    ...creatorAliases,
+  ].join(' ').toLowerCase()
 }
 
 export function buildAdminCommissionSearchEntries(

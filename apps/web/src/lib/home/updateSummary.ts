@@ -35,7 +35,9 @@ export function buildHomeUpdateSummary(commissionData: Props, activeCharacters: 
       key: commission.publicId,
       character: commission.character,
       href: `#${getCharacterSectionId(commission.character)}-commission-${commission.publicId}`,
-      dateLabel: compactDate ? parseAndFormatDate(compactDate, 'yyyy/MM/dd') : '',
+      dateLabel: compactDate
+        ? parseAndFormatDate(compactDate, 'yyyy/MM/dd')
+        : '',
     }
   })
 

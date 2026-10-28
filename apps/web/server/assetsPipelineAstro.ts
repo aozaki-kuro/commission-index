@@ -51,7 +51,9 @@ function hiddenSourceImagePlugin(): VitePlugin {
         : null
     },
     load(id) {
-      return id === HIDDEN_SOURCE_IMAGE_STUB_ID ? 'export default undefined' : null
+      return id === HIDDEN_SOURCE_IMAGE_STUB_ID
+        ? 'export default undefined'
+        : null
     },
   }
 }
@@ -61,7 +63,13 @@ export function assetsPipelineIntegration(): AstroIntegration {
     name: 'assets-pipeline',
     hooks: {
       'astro:config:setup': ({ updateConfig }) => {
-        updateConfig({ vite: { plugins: [hiddenSourceImagePlugin()] } })
+        updateConfig({
+          vite: {
+            plugins: [
+              hiddenSourceImagePlugin(),
+            ],
+          },
+        })
       },
       'astro:server:setup': async ({ server, logger }) => {
         const triggerReload = (filePath: string) => {

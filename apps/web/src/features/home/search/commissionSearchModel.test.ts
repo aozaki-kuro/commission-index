@@ -13,7 +13,9 @@ import {
   subscribeToUrlQuerySnapshot,
 } from './commissionSearchModel'
 
-vi.mock('@lib/analytics/track', () => ({ trackRybbitEvent: vi.fn() }))
+vi.mock('@lib/analytics/track', () => ({
+  trackRybbitEvent: vi.fn(),
+}))
 
 describe('getDomSnapshotKeyForMode', () => {
   it('keys the character snapshot by archived visibility only', () => {
@@ -73,8 +75,18 @@ describe('computeSearchModel archived matches', () => {
     formatHiddenArchivedResultsNotice: count => `${count} hidden`,
   }
   const externalEntries: CommissionSearchEntrySource[] = [
-    { id: 0, domKey: 'section-alpha::alpha', searchText: 'alpha', searchSuggest: 'Keyword\talpha' },
-    { id: 1, domKey: 'section-orion::orion', searchText: 'orion', searchSuggest: 'Keyword\torion' },
+    {
+      id: 0,
+      domKey: 'section-alpha::alpha',
+      searchText: 'alpha',
+      searchSuggest: 'Keyword\talpha',
+    },
+    {
+      id: 1,
+      domKey: 'section-orion::orion',
+      searchText: 'orion',
+      searchSuggest: 'Keyword\torion',
+    },
   ]
 
   function renderCharacterPanel(archivedVisible: boolean) {

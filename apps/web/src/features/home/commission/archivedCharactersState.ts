@@ -24,7 +24,9 @@ interface SavedArchivedCharactersVisibility {
 }
 
 function resolveDocument(doc?: Document) {
-  return doc ?? (typeof document !== 'undefined' ? document : null)
+  return doc ?? (typeof document !== 'undefined'
+    ? document
+    : null)
 }
 
 export function isArchivedCharactersVisible(doc?: Document) {
@@ -93,7 +95,9 @@ export function resolveReloadArchivedCharactersVisibility({
   doc?: Document
   win?: Window
 }): ArchivedCharactersVisibility {
-  const resolvedWindow = win ?? (typeof window !== 'undefined' ? window : null)
+  const resolvedWindow = win ?? (typeof window !== 'undefined'
+    ? window
+    : null)
   const resolvedDocument = resolveDocument(doc)
   if (!resolvedWindow || !resolvedDocument)
     return 'hidden'
@@ -117,7 +121,9 @@ export function resolveReloadArchivedCharactersVisibility({
   const viewportFocusY
     = resolvedWindow.scrollY + resolvedWindow.innerHeight * ARCHIVED_VIEWPORT_FOCUS_RATIO
 
-  return viewportFocusY >= archivedStartY ? 'visible' : 'hidden'
+  return viewportFocusY >= archivedStartY
+    ? 'visible'
+    : 'hidden'
 }
 
 export function persistReloadArchivedCharactersVisibility({

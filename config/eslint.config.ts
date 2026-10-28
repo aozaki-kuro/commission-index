@@ -8,7 +8,12 @@ const eslintConfig = antfu({
   react: {
     files: ['apps/admin/**/*.{ts,tsx}'],
   },
-  ignores: ['**/.wrangler/**', '**/.claude/**', 'docs/**', '.superpowers/**'],
+  ignores: [
+    '**/.wrangler/**',
+    '**/.claude/**',
+    'docs/**',
+    '.superpowers/**',
+  ],
   formatters: {
     css: true,
     html: true,

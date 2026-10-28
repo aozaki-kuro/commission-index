@@ -13,8 +13,12 @@ const rows: AdminCommissionSearchRow[] = [1, 2].map(id => ({
   commissionDate: '2026-09-29',
   creatorName: 'Creator',
   fileName: `asset-${id}`,
-  workGroupId: id === 1 ? '00000000-0000-4000-8000-000000000099' : null,
-  partNumber: id === 1 ? 2 : null,
+  workGroupId: id === 1
+    ? '00000000-0000-4000-8000-000000000099'
+    : null,
+  partNumber: id === 1
+    ? 2
+    : null,
   keyword: 'old',
   hidden: false,
   links: 'https://example.com',
@@ -25,7 +29,9 @@ describe('keyword replacement metadata contract', () => {
   let root: ReturnType<typeof createRoot>
   const fetchMock = vi.fn()
   const onComplete = vi.fn()
-  const buttons = () => [...document.querySelectorAll<HTMLButtonElement>('button')]
+  const buttons = () => [
+    ...document.querySelectorAll<HTMLButtonElement>('button'),
+  ]
   beforeEach(async () => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
     vi.stubGlobal('fetch', fetchMock)
@@ -36,7 +42,10 @@ describe('keyword replacement metadata contract', () => {
     root = createRoot(container)
     await act(async () => root.render(<KeywordReplacePopover commissionSearchRows={rows} onComplete={onComplete} />))
     await act(async () => buttons().find(button => button.getAttribute('aria-label') === 'Replace keywords')!.click())
-    for (const [id, value] of [['keyword-replace-find', 'old'], ['keyword-replace-with', 'old-new']]) {
+    for (const [id, value] of [
+      ['keyword-replace-find', 'old'],
+      ['keyword-replace-with', 'old-new'],
+    ]) {
       await act(async () => {
         const input = document.getElementById(id!)!
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value)
@@ -76,7 +85,9 @@ describe('keyword replacement metadata contract', () => {
     expect(onComplete).toHaveBeenCalledTimes(1)
     expect(document.body.textContent).toContain('Offline')
     expect(document.body.textContent).toContain('1 commission matched')
-    const refreshed = rows.map(row => row.id === 1 ? { ...row, keyword: 'old-new' } : row)
+    const refreshed = rows.map(row => row.id === 1
+      ? { ...row, keyword: 'old-new' }
+      : row)
     await act(async () => root.render(<KeywordReplacePopover commissionSearchRows={refreshed} onComplete={onComplete} />))
     await replace()
     expect(fetchMock).toHaveBeenCalledTimes(3)

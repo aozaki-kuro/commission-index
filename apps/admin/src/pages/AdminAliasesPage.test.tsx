@@ -5,11 +5,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FloatingNoticeProvider } from '../components/FloatingNotice'
 import { AdminAliasesPage } from './AdminAliasesPage'
 
-const api = vi.hoisted(() => ({ fetch: vi.fn(), cached: vi.fn() }))
+const api = vi.hoisted(() => ({
+  fetch: vi.fn(),
+  cached: vi.fn(),
+}))
 vi.mock('../lib/adminApi', () => ({ fetchAdminJsonWithRetry: api.fetch, readCachedAdminJson: api.cached }))
-vi.mock('../lib/dataUpdateSignal', () => ({ subscribeToDataUpdates: () => () => {}, notifyDataUpdate: vi.fn() }))
+vi.mock('../lib/dataUpdateSignal', () => ({
+  subscribeToDataUpdates: () => () => {},
+  notifyDataUpdate: vi.fn(),
+}))
 
-const payload = { characterAliases: [{ characterName: 'Lucia', aliases: ['Luci'], commissionCount: 1 }], creatorAliases: [], keywordAliases: [] }
+const payload = {
+  characterAliases: [
+    {
+      characterName: 'Lucia',
+      aliases: ['Luci'],
+      commissionCount: 1,
+    },
+  ],
+  creatorAliases: [],
+  keywordAliases: [],
+}
 
 describe('alias bootstrap layout', () => {
   let container: HTMLDivElement
@@ -54,7 +70,9 @@ describe('alias bootstrap layout', () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(field, 'Local alias draft')
       field.dispatchEvent(new Event('input', { bubbles: true }))
     })
-    await act(async () => [...container.querySelectorAll('button')].find(button => button.textContent === 'Try again')!.click())
+    await act(async () => [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Try again')!.click())
     expect(api.fetch).toHaveBeenCalledTimes(2)
     expect(field.value).toBe('Local alias draft')
     expect(container.textContent).not.toContain('Refresh failed')

@@ -20,7 +20,12 @@ function createRandom(seed: number) {
 
 describe('image crop geometry', () => {
   it('normalizes a Cropper.js matrix against the real rotated image polygon', () => {
-    const selection = { height: 210, width: 512, x: 144, y: 95 }
+    const selection = {
+      height: 210,
+      width: 512,
+      x: 144,
+      y: 95,
+    }
     const angle = 37 * Math.PI / 180
     const image = {
       baseCenter: { x: 400, y: 200 },
@@ -34,7 +39,10 @@ describe('image crop geometry', () => {
       ] as const,
       size: { height: 900, width: 1600 },
     }
-    const matrix = normalizeCropImageMatrix({ ...image, matrix: [...image.matrix] }, selection)
+    const matrix = normalizeCropImageMatrix({
+      ...image,
+      matrix: [...image.matrix],
+    }, selection)
     const normalized = { ...image, matrix }
 
     expect(isCropSelectionCovered(selection, normalized)).toBe(true)
@@ -98,8 +106,18 @@ describe('image crop geometry', () => {
       ] as [number, number, number, number, number, number],
       size: { height: 560, width: 900 },
     }
-    const current = { height: 164, width: 400, x: 200, y: 128 }
-    const requested = { height: 410, width: 1000, x: -100, y: 5 }
+    const current = {
+      height: 164,
+      width: 400,
+      x: 200,
+      y: 128,
+    }
+    const requested = {
+      height: 410,
+      width: 1000,
+      x: -100,
+      y: 5,
+    }
     const constrained = constrainCropSelectionChange({
       canvasSize,
       current,
@@ -142,7 +160,12 @@ describe('image crop geometry', () => {
   it('preserves the crop content when the responsive workspace resizes', () => {
     const currentCanvasSize = { height: 480, width: 900 }
     const nextCanvasSize = { height: 300, width: 390 }
-    const selection = { height: 210, width: 512, x: 194, y: 135 }
+    const selection = {
+      height: 210,
+      width: 512,
+      x: 194,
+      y: 135,
+    }
     const angle = 37 * Math.PI / 180
     const sourceImage = {
       baseCenter: { x: 800, y: 450 },

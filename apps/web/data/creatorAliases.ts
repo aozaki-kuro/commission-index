@@ -16,7 +16,12 @@ function loadCreatorAliases(): CreatorAliasEntry[] {
     const aliases = parseAliasesJson(JSON.stringify(row.aliases))
     aliasMap.set(
       creatorName,
-      [...new Set([...(aliasMap.get(creatorName) ?? []), ...aliases])],
+      [
+        ...new Set([
+          ...(aliasMap.get(creatorName) ?? []),
+          ...aliases,
+        ]),
+      ],
     )
   })
 

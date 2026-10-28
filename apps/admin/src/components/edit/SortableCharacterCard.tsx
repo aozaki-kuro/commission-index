@@ -227,7 +227,9 @@ export function SortableCharacterCard({
             "
             >
               {' '}
-              {totalCommissions === 1 ? 'entry' : 'entries'}
+              {totalCommissions === 1
+                ? 'entry'
+                : 'entries'}
             </span>
           </span>
 
@@ -252,10 +254,14 @@ export function SortableCharacterCard({
                   onStartEdit()
                 }
               }}
-              disabled={isReorderMode ? !onMoveUp : isDeleting}
+              disabled={isReorderMode
+                ? !onMoveUp
+                : isDeleting}
               aria-label={isReorderMode
                 ? `Move ${character.name} up`
-                : isEditing ? `Save name for ${character.name}` : `Rename ${character.name}`}
+                : isEditing
+                  ? `Save name for ${character.name}`
+                  : `Rename ${character.name}`}
               className={`
                 inline-flex size-11 shrink-0 items-center justify-center
                 rounded-lg border border-transparent text-gray-400
@@ -297,10 +303,14 @@ export function SortableCharacterCard({
                   onRequestDelete()
                 }
               }}
-              disabled={isReorderMode ? !onMoveDown : isDeleting}
+              disabled={isReorderMode
+                ? !onMoveDown
+                : isDeleting}
               aria-label={isReorderMode
                 ? `Move ${character.name} down`
-                : isEditing ? `Cancel renaming ${character.name}` : `Remove ${character.name}`}
+                : isEditing
+                  ? `Cancel renaming ${character.name}`
+                  : `Remove ${character.name}`}
               className={`
                 inline-flex size-11 shrink-0 items-center justify-center
                 rounded-lg border border-transparent text-gray-400

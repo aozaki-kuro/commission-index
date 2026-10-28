@@ -140,7 +140,9 @@ describe('unpublishedInterestClient', () => {
     `
 
     const cleanup = mountUnpublishedInterestButtons({ trackEvent })
-    const buttons = [...document.querySelectorAll<HTMLButtonElement>('[data-commission-interest-key]')]
+    const buttons = [
+      ...document.querySelectorAll<HTMLButtonElement>('[data-commission-interest-key]'),
+    ]
     const [dateButton, characterButton] = buttons
 
     if (!dateButton || !characterButton)
@@ -182,7 +184,9 @@ describe('unpublishedInterestClient', () => {
 
     await Promise.resolve()
 
-    const buttons = [...document.querySelectorAll<HTMLButtonElement>('[data-commission-interest-key]')]
+    const buttons = [
+      ...document.querySelectorAll<HTMLButtonElement>('[data-commission-interest-key]'),
+    ]
     const deferredButton = buttons.at(-1)
     if (!deferredButton)
       throw new Error('expected deferred interest button')

@@ -38,7 +38,11 @@ export function notifyDataUpdate(scope?: DataUpdateScope) {
       const channel = new BroadcastChannel(channelName)
       channel.postMessage({
         at: Date.now(),
-        ...(scope && { characterIds: [...new Set(scope.characterIds)] }),
+        ...(scope && {
+          characterIds: [
+            ...new Set(scope.characterIds),
+          ],
+        }),
         sessionId: tabSessionId,
         type: 'updated',
       })

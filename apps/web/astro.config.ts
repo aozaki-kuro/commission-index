@@ -42,9 +42,14 @@ export default defineConfig({
     },
   ],
 
-  integrations: [icon(), assetsPipelineIntegration()],
+  integrations: [
+    icon(),
+    assetsPipelineIntegration(),
+  ],
   vite: {
-    plugins: [tailwindcss()],
+    plugins: [
+      tailwindcss(),
+    ],
     resolve: {
       tsconfigPaths: true,
     },

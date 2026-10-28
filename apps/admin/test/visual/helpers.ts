@@ -150,8 +150,20 @@ export async function expectUnionToMatchSnapshot(
 }
 
 const fixtureCharacters: AdminBootstrapData['characters'] = [
-  { id: 1, name: 'Aster', status: 'active', sortOrder: 1, commissionCount: 2 },
-  { id: 2, name: 'Briar', status: 'active', sortOrder: 2, commissionCount: 1 },
+  {
+    id: 1,
+    name: 'Aster',
+    status: 'active',
+    sortOrder: 1,
+    commissionCount: 2,
+  },
+  {
+    id: 2,
+    name: 'Briar',
+    status: 'active',
+    sortOrder: 2,
+    commissionCount: 1,
+  },
 ]
 
 const fixtureCommissions: CommissionRow[] = [
@@ -214,23 +226,43 @@ const fixtureBootstrap: AdminBootstrapData = {
   characters: fixtureCharacters,
   commissionSearchRows: fixtureSearchRows,
   creatorAliases: [
-    { creatorName: 'Nanashi', commissionCount: 2, aliases: ['Nana'] },
+    {
+      creatorName: 'Nanashi',
+      commissionCount: 2,
+      aliases: ['Nana'],
+    },
     { creatorName: 'Kumo', commissionCount: 1, aliases: [] },
   ],
 }
 
 const fixtureAliases: AdminAliasesData = {
   characterAliases: [
-    { characterName: 'Aster', commissionCount: 2, aliases: ['Asu'] },
+    {
+      characterName: 'Aster',
+      commissionCount: 2,
+      aliases: ['Asu'],
+    },
     { characterName: 'Briar', commissionCount: 1, aliases: [] },
   ],
   creatorAliases: fixtureBootstrap.creatorAliases,
-  keywordAliases: [{ baseKeyword: 'Summer', commissionCount: 2, aliases: ['Natsu'] }],
+  keywordAliases: [
+    {
+      baseKeyword: 'Summer',
+      commissionCount: 2,
+      aliases: ['Natsu'],
+    },
+  ],
 }
 
 const fixtureSuggestion: HomeSuggestionAdminData = {
   featuredKeywords: ['Summer', 'Winter', 'Studio'],
-  keywordOptions: ['Summer', 'Winter', 'Studio', 'Rain', 'Snow'],
+  keywordOptions: [
+    'Summer',
+    'Winter',
+    'Studio',
+    'Rain',
+    'Snow',
+  ],
 }
 
 const fixtureImageSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="525"><rect width="1280" height="525" fill="#d7dce0"/><circle cx="640" cy="262" r="150" fill="#a7b5ba"/></svg>'
@@ -252,7 +284,12 @@ export async function mockAdminApi(page: Page): Promise<MockAdminApiCapture> {
     // Fixed timestamps keep the sidebar build-version UI stable in screenshots.
     await route.fulfill({
       headers: { 'Access-Control-Allow-Origin': '*' },
-      json: { dataRevision: 'fixture', dataExportedAt: '2026-09-29T00:00:00.000Z', codeSha: null, builtAt: '2026-09-29T00:00:00.000Z' },
+      json: {
+        dataRevision: 'fixture',
+        dataExportedAt: '2026-09-29T00:00:00.000Z',
+        codeSha: null,
+        builtAt: '2026-09-29T00:00:00.000Z',
+      },
     })
   })
 
@@ -269,14 +306,18 @@ export async function mockAdminApi(page: Page): Promise<MockAdminApiCapture> {
       if (method === 'POST') {
         capture.sourceImageBody = request.postDataBuffer()
         capture.sourceImageContentType = request.headers()['content-type'] ?? ''
-        await route.fulfill({ json: { status: 'success', message: 'Test source image replaced.' } })
+        await route.fulfill({
+          json: { status: 'success', message: 'Test source image replaced.' },
+        })
         return
       }
     }
     if (method === 'GET') {
       const characterCommissions = /\/characters\/(\d+)\/commissions$/.exec(pathname)
       if (pathname.endsWith('/health')) {
-        await route.fulfill({ json: { status: 'ok', message: 'Fixture connection ready.' } })
+        await route.fulfill({
+          json: { status: 'ok', message: 'Fixture connection ready.' },
+        })
         return
       }
       if (pathname.endsWith('/aliases/bootstrap')) {
@@ -293,13 +334,23 @@ export async function mockAdminApi(page: Page): Promise<MockAdminApiCapture> {
       }
       if (characterCommissions) {
         const characterId = Number(characterCommissions[1])
-        await route.fulfill({ json: { commissions: fixtureCommissions.filter(row => row.characterId === characterId) } })
+        await route.fulfill({
+          json: {
+            commissions: fixtureCommissions.filter(row => row.characterId === characterId),
+          },
+        })
         return
       }
-      await route.fulfill({ status: 404, json: { message: 'Unexpected fixture API' } })
+      await route.fulfill({
+        status: 404,
+        json: { message: 'Unexpected fixture API' },
+      })
       return
     }
-    await route.fulfill({ status: 400, json: { status: 'error', message: 'Unexpected fixture API mutation' } })
+    await route.fulfill({
+      status: 400,
+      json: { status: 'error', message: 'Unexpected fixture API mutation' },
+    })
   })
 
   return capture

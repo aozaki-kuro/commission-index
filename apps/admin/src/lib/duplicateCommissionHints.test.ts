@@ -25,8 +25,18 @@ function buildCommissionRow(
 describe('findDuplicateCommissionHints', () => {
   const commissions: AdminCommissionSearchRow[] = [
     buildCommissionRow({ id: 1, fileName: 'asset-a', keyword: 'dress, smile' }),
-    buildCommissionRow({ id: 2, fileName: 'asset-b', creatorName: 'Other Artist', keyword: 'dress' }),
-    buildCommissionRow({ id: 3, fileName: 'asset-c', creatorName: 'Artist (part 2)', keyword: 'dress, smile' }),
+    buildCommissionRow({
+      id: 2,
+      fileName: 'asset-b',
+      creatorName: 'Other Artist',
+      keyword: 'dress',
+    }),
+    buildCommissionRow({
+      id: 3,
+      fileName: 'asset-c',
+      creatorName: 'Artist (part 2)',
+      keyword: 'dress, smile',
+    }),
     buildCommissionRow({
       id: 4,
       characterId: 2,
@@ -72,7 +82,12 @@ describe('findDuplicateCommissionHints', () => {
     })).toMatchObject([
       {
         commissionId: 1,
-        reasons: ['Same character', 'Same date 2025-03-02', 'Same creator', 'Shared keyword: dress, smile'],
+        reasons: [
+          'Same character',
+          'Same date 2025-03-02',
+          'Same creator',
+          'Shared keyword: dress, smile',
+        ],
       },
     ])
   })

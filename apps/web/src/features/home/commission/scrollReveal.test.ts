@@ -82,7 +82,9 @@ describe('mountScrollReveal', () => {
             0: new DOMRect(0, 1200, 320, 120),
             length: 1,
             item(index: number) {
-              return index === 0 ? new DOMRect(0, 1200, 320, 120) : null
+              return index === 0
+                ? new DOMRect(0, 1200, 320, 120)
+                : null
             },
             * [Symbol.iterator]() {
               yield new DOMRect(0, 1200, 320, 120)
@@ -145,7 +147,9 @@ describe('mountScrollReveal', () => {
             0: rect,
             length: 1,
             item(index: number) {
-              return index === 0 ? rect : null
+              return index === 0
+                ? rect
+                : null
             },
             * [Symbol.iterator]() {
               yield rect

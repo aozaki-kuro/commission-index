@@ -226,7 +226,9 @@ export function syncDom(state: DomSyncState, refs: DomSyncRefs) {
   const previousMatchedIds = refs.previousMatchedIds
   const matchedIdsChanged = !areSetsEqual(previousMatchedIds, matchedIds)
   const indexChanged = refs.previousFilterIndex !== resolvedIndex
-  const visibleSectionIds = hasDeferredQuery ? new Set<string>() : null
+  const visibleSectionIds = hasDeferredQuery
+    ? new Set<string>()
+    : null
   let didLayoutChange = false
 
   if (!matchedIdsChanged && !indexChanged) {

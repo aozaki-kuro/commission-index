@@ -24,12 +24,16 @@ const staticCommissionData: Props = buildCommissionData(characterRecords)
 const staticCommissionDataMap = buildCommissionMap(staticCommissionData)
 
 export function getCommissionData(): Props {
-  return isDevelopment ? buildCommissionData(getCharacterRecords()) : staticCommissionData
+  return isDevelopment
+    ? buildCommissionData(getCharacterRecords())
+    : staticCommissionData
 }
 
 // 开发态每次重建映射，生产态复用缓存
 export function getCommissionDataMap() {
-  return isDevelopment ? buildCommissionMap(getCommissionData()) : staticCommissionDataMap
+  return isDevelopment
+    ? buildCommissionMap(getCommissionData())
+    : staticCommissionDataMap
 }
 
 export const commissionData: Props = staticCommissionData

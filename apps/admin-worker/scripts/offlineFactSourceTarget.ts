@@ -19,7 +19,9 @@ function realpathLoose(target: string): string {
 export function resolveOfflineFactSourceTarget(webRoot: string, configuredDir: string | undefined) {
   const generatedDir = path.join(webRoot, 'generated')
   const override = configuredDir?.trim()
-  const rootDir = override ? path.resolve(webRoot, override) : generatedDir
+  const rootDir = override
+    ? path.resolve(webRoot, override)
+    : generatedDir
   if (override && realpathLoose(rootDir) === realpathLoose(generatedDir)) {
     throw new Error(`Refusing to write the fixture into ${generatedDir}: that directory holds the real export. Unset FACT_SOURCE_DIR or point it elsewhere.`)
   }

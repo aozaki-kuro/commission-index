@@ -146,7 +146,9 @@ function resolveSectionIdFromHref(rawHref: string | null) {
   if (!rawHref)
     return null
 
-  const value = rawHref.startsWith('#') ? rawHref.slice(1) : rawHref
+  const value = rawHref.startsWith('#')
+    ? rawHref.slice(1)
+    : rawHref
   if (!value)
     return null
 
@@ -163,14 +165,23 @@ export function mountSidebarNavEnhancer({
   doc = document,
   deps: depsOverrides,
 }: MountSidebarNavEnhancerOptions = {}) {
-  const deps = { ...defaultDeps, ...depsOverrides }
+  const deps = {
+    ...defaultDeps,
+    ...depsOverrides,
+  }
   const navRoot = doc.getElementById(SIDEBAR_ROOT_ID)
   if (!navRoot)
     return () => {}
   const controlsRoot = doc.getElementById(SIDEBAR_CONTROLS_ROOT_ID) ?? navRoot
-  const viewModeToggles = [...controlsRoot.querySelectorAll<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR)]
-  const navPanels = [...navRoot.querySelectorAll<HTMLElement>(NAV_PANEL_SELECTOR)]
-  const allSidebarDots = [...navRoot.querySelectorAll<HTMLElement>(SIDEBAR_DOT_SELECTOR)]
+  const viewModeToggles = [
+    ...controlsRoot.querySelectorAll<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR),
+  ]
+  const navPanels = [
+    ...navRoot.querySelectorAll<HTMLElement>(NAV_PANEL_SELECTOR),
+  ]
+  const allSidebarDots = [
+    ...navRoot.querySelectorAll<HTMLElement>(SIDEBAR_DOT_SELECTOR),
+  ]
   const archivedDetails = navRoot.querySelector<HTMLDetailsElement>(ARCHIVED_DETAILS_SELECTOR)
   const backToTopButton = navRoot.querySelector<HTMLButtonElement>(BACK_TO_TOP_BUTTON_SELECTOR)
 
@@ -448,7 +459,9 @@ export function mountSidebarNavEnhancer({
         return visibility
     }
 
-    return isArchivedCharactersVisible(doc) ? 'visible' : 'hidden'
+    return isArchivedCharactersVisible(doc)
+      ? 'visible'
+      : 'hidden'
   }
 
   const onArchivedDetailsToggle = (event: Event) => {
@@ -615,7 +628,9 @@ export function mountSidebarNavEnhancer({
   win.addEventListener('popstate', onViewModeMaybeChanged)
 
   syncAll()
-  setArchivedDetailsVisibility(isArchivedCharactersVisible(doc) ? 'visible' : 'hidden')
+  setArchivedDetailsVisibility(isArchivedCharactersVisible(doc)
+    ? 'visible'
+    : 'hidden')
 
   return () => {
     if (disposed)

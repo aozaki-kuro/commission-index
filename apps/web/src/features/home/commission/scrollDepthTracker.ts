@@ -65,14 +65,23 @@ export function mountScrollDepthTracker({
     if (reported.size === SCROLL_DEPTH_MILESTONES.length)
       return
 
-    const selector = viewMode === 'character' ? CHARACTER_ENTRY_SELECTOR : TIMELINE_ENTRY_SELECTOR
+    const selector = viewMode === 'character'
+      ? CHARACTER_ENTRY_SELECTOR
+      : TIMELINE_ENTRY_SELECTOR
     const reachedPercent = (countReachedEntries(win, panel.querySelectorAll<HTMLElement>(selector)) / total) * 100
-    const layout = win.matchMedia?.(DESKTOP_LAYOUT_QUERY).matches ? 'desktop' : 'mobile'
+    const layout = win.matchMedia?.(DESKTOP_LAYOUT_QUERY).matches
+      ? 'desktop'
+      : 'mobile'
     for (const depth of SCROLL_DEPTH_MILESTONES) {
       if (reachedPercent < depth || reported.has(depth))
         continue
       reported.add(depth)
-      trackEvent({ depth, view_mode: viewMode, layout, total_entries: total })
+      trackEvent({
+        depth,
+        view_mode: viewMode,
+        layout,
+        total_entries: total,
+      })
     }
   }
 

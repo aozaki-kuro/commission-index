@@ -61,9 +61,13 @@ function isLegacyPreview(commission: Commission) {
 function selectLegacySeriesWinner<T extends Commission>(series: T[]) {
   return series.reduce((winner, commission) => {
     if (commission.seriesOrder != null && winner.seriesOrder != null) {
-      return commission.seriesOrder.localeCompare(winner.seriesOrder) > 0 ? commission : winner
+      return commission.seriesOrder.localeCompare(winner.seriesOrder) > 0
+        ? commission
+        : winner
     }
-    return sortCommissionsByDate(commission, winner) < 0 ? commission : winner
+    return sortCommissionsByDate(commission, winner) < 0
+      ? commission
+      : winner
   })
 }
 
@@ -80,7 +84,9 @@ export function sortCommissionsByDate<T extends Commission>(a: T, b: T): number 
  */
 export function flattenCommissions(data: Props, predicate?: (character: CharacterCommissions) => boolean): CommissionWithCharacter[] {
   return data
-    .filter(entry => (predicate ? predicate(entry) : true))
+    .filter(entry => (predicate
+      ? predicate(entry)
+      : true))
     .flatMap(({ Character, Commissions }) =>
       Commissions.map(commission => ({ ...commission, character: Character })),
     )
@@ -90,5 +96,7 @@ export function flattenCommissions(data: Props, predicate?: (character: Characte
  * Deduplicate legacy series and sort by explicit date, then stable identity.
  */
 export function collectUniqueCommissions(commissions: CommissionWithCharacter[]): CommissionWithCharacter[] {
-  return [...mergePartsAndPreviews(commissions).values()].toSorted(sortCommissionsByDate)
+  return [
+    ...mergePartsAndPreviews(commissions).values(),
+  ].toSorted(sortCommissionsByDate)
 }

@@ -8,11 +8,15 @@ export function normalizeCharacterAliasName(value: string): string | null {
 
 export function normalizeCharacterAliasKey(value: string): string | null {
   const normalized = normalizeCharacterAliasName(value)
-  return normalized ? normalized.toLowerCase() : null
+  return normalized
+    ? normalized.toLowerCase()
+    : null
 }
 
 export function normalizeCharacterAliases(aliases: string[] | string): string[] {
-  const values = Array.isArray(aliases) ? aliases : aliases.split(CHARACTER_ALIAS_SPLIT_PATTERN)
+  const values = Array.isArray(aliases)
+    ? aliases
+    : aliases.split(CHARACTER_ALIAS_SPLIT_PATTERN)
   const normalized = values
     .map(value => normalizeCharacterAliasName(value))
     .filter((value): value is string => Boolean(value))
@@ -24,7 +28,9 @@ export function normalizeCharacterAliases(aliases: string[] | string): string[] 
       deduped.set(key, value)
   })
 
-  return [...deduped.values()]
+  return [
+    ...deduped.values(),
+  ]
 }
 
 export function parseCharacterAliasesJson(value: string): string[] {

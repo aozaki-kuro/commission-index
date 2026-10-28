@@ -19,16 +19,22 @@ afterEach(() => {
 describe('parseHomeSearchEntries', () => {
   it('uses UUID identity from the public payload and assigns an internal search index', () => {
     const publicId = '00000000-0000-4000-8000-000000000001'
-    const entries = parseHomeSearchEntries([{ publicId, domKey: `alpha::${publicId}`, searchText: 'alpha artist' }])
+    const entries = parseHomeSearchEntries([
+      { publicId, domKey: `alpha::${publicId}`, searchText: 'alpha artist' },
+    ])
 
-    expect(entries).toEqual([{
-      id: 0,
-      publicId,
-      domKey: `alpha::${publicId}`,
-      searchText: 'alpha artist',
-      searchSuggest: undefined,
-    }])
-    expect(() => parseHomeSearchEntries([{ id: 1, domKey: 'alpha::1', searchText: 'alpha artist' }])).toThrow(/public commission identity/)
+    expect(entries).toEqual([
+      {
+        id: 0,
+        publicId,
+        domKey: `alpha::${publicId}`,
+        searchText: 'alpha artist',
+        searchSuggest: undefined,
+      },
+    ])
+    expect(() => parseHomeSearchEntries([
+      { id: 1, domKey: 'alpha::1', searchText: 'alpha artist' },
+    ])).toThrow(/public commission identity/)
   })
 })
 
@@ -44,7 +50,9 @@ function mountRoot(version: string) {
 
 function stubSearchFetch(secondEntriesStatus: number) {
   const fetchSpy = vi.fn(async (input: string | URL | Request) => {
-    const url = typeof input === 'string' ? input : input.toString()
+    const url = typeof input === 'string'
+      ? input
+      : input.toString()
     if (url === '/search/home-search-entries.abc.json')
       return new Response(null, { status: 404 })
     if (url.startsWith('/search/home-search-version.json'))
@@ -107,8 +115,18 @@ describe('pickWeightedEntry', () => {
       <div id="arc" data-character-status="archived"></div>
     `
     const pool = [
-      { id: 0, publicId: 'a', domKey: 'act::1', searchText: 'a' },
-      { id: 1, publicId: 'b', domKey: 'arc::2', searchText: 'b' },
+      {
+        id: 0,
+        publicId: 'a',
+        domKey: 'act::1',
+        searchText: 'a',
+      },
+      {
+        id: 1,
+        publicId: 'b',
+        domKey: 'arc::2',
+        searchText: 'b',
+      },
     ]
     // cryptoRandomIndex(100) = 50 < 75 picks the active pool.
     const getRandomValues = vi.spyOn(crypto, 'getRandomValues').mockImplementation((buf) => {
@@ -150,7 +168,13 @@ describe('createSeededRandom', () => {
 
 describe('shuffleKeywords', () => {
   it('preserves the same length and all elements', () => {
-    const keywords = ['alpha', 'beta', 'gamma', 'delta', 'epsilon']
+    const keywords = [
+      'alpha',
+      'beta',
+      'gamma',
+      'delta',
+      'epsilon',
+    ]
     const result = shuffleKeywords(keywords, 42)
     expect(result).toHaveLength(keywords.length)
     expect(result.toSorted()).toEqual(keywords.toSorted())
@@ -209,7 +233,12 @@ describe('collapseAliasKeywordVariants', () => {
   it('returns keywords unchanged when keywords are empty', () => {
     const result = collapseAliasKeywordVariants(
       [],
-      [{ term: 'cat', aliases: ['kitty'] }],
+      [
+        {
+          term: 'cat',
+          aliases: ['kitty'],
+        },
+      ],
       42,
     )
     expect(result).toHaveLength(0)
@@ -217,7 +246,12 @@ describe('collapseAliasKeywordVariants', () => {
 
   it('collapses alias variants into a single representative', () => {
     const keywords = ['Cat', 'Kitty', 'Dog']
-    const aliasGroups = [{ term: 'Cat', aliases: ['Kitty'] }]
+    const aliasGroups = [
+      {
+        term: 'Cat',
+        aliases: ['Kitty'],
+      },
+    ]
     const result = collapseAliasKeywordVariants(keywords, aliasGroups, 42)
     // One of Cat/Kitty should remain, Dog always present
     expect(result).toContain('Dog')
@@ -227,7 +261,12 @@ describe('collapseAliasKeywordVariants', () => {
 
   it('is deterministic for the same seed', () => {
     const keywords = ['Alpha', 'Bravo', 'alpha', 'Charlie']
-    const aliasGroups = [{ term: 'Alpha', aliases: ['Bravo'] }]
+    const aliasGroups = [
+      {
+        term: 'Alpha',
+        aliases: ['Bravo'],
+      },
+    ]
     const a = collapseAliasKeywordVariants(keywords, aliasGroups, 99)
     const b = collapseAliasKeywordVariants(keywords, aliasGroups, 99)
     expect(a).toEqual(b)
@@ -235,7 +274,12 @@ describe('collapseAliasKeywordVariants', () => {
 
   it('preserves non-aliased keywords', () => {
     const keywords = ['Red', 'Blue', 'Green']
-    const aliasGroups = [{ term: 'Yellow', aliases: ['Gold'] }]
+    const aliasGroups = [
+      {
+        term: 'Yellow',
+        aliases: ['Gold'],
+      },
+    ]
     const result = collapseAliasKeywordVariants(keywords, aliasGroups, 42)
     expect(result).toEqual(['Red', 'Blue', 'Green'])
   })

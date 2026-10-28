@@ -27,12 +27,17 @@ export function jumpToCommissionSearch({
   const getTargetTop = () =>
     Math.max(0, window.scrollY + searchSection.getBoundingClientRect().top - topGap)
   const scrollToTarget = (behavior: ScrollBehavior = 'smooth') => {
-    window.scrollTo({ top: getTargetTop(), behavior })
+    window.scrollTo({
+      top: getTargetTop(),
+      behavior,
+    })
   }
 
   const getSearchInput = () => {
     const searchInput = document.getElementById('commission-search-input')
-    return searchInput instanceof HTMLInputElement ? searchInput : null
+    return searchInput instanceof HTMLInputElement
+      ? searchInput
+      : null
   }
 
   const focusInput = (preventScroll: boolean) => {

@@ -51,7 +51,9 @@ export function AdminCreateDashboard({
         <AddCommissionForm
           characters={characters}
           commissionSearchRows={commissionSearchRows}
-          bootstrapState={hasPayload ? 'ready' : isLoading ? 'loading' : 'unavailable'}
+          bootstrapState={hasPayload
+            ? 'ready'
+            : isLoading ? 'loading' : 'unavailable'}
           onAddCharacter={() => setIsCharacterDialogOpen(true)}
         />
       </div>

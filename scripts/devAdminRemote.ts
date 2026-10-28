@@ -37,10 +37,14 @@ function startProcess(name: string, args: string[], extraEnv: Record<string, str
     // Log here: the outer catch stays silent once `stopping` is set, so an unexpected exit
     // would otherwise be indistinguishable from a normal Ctrl+C shutdown.
     console.error(
-      `[dev:admin] ${name} exited unexpectedly (${signal ? `signal ${signal}` : `code ${code}`}); stopping.`,
+      `[dev:admin] ${name} exited unexpectedly (${signal
+        ? `signal ${signal}`
+        : `code ${code}`}); stopping.`,
     )
     stopping = true
-    stopAll(signal ? 0 : (code ?? 1))
+    stopAll(signal
+      ? 0
+      : (code ?? 1))
   })
 
   child.on('error', (error) => {
@@ -79,7 +83,9 @@ async function assertPortAvailable(port: number, name: string) {
       })
     })
   }).catch((error) => {
-    const detail = error instanceof Error ? error.message : String(error)
+    const detail = error instanceof Error
+      ? error.message
+      : String(error)
     throw new Error(
       `[dev:admin] port ${port} for ${name} is already in use. Stop the existing process first. (${detail})`,
     )
@@ -181,7 +187,9 @@ void main().catch((error) => {
 
   console.error(
     '[dev:admin] failed to initialize standalone admin dev workflow:',
-    error instanceof Error ? error.message : error,
+    error instanceof Error
+      ? error.message
+      : error,
   )
   stopping = true
   stopAll(1)

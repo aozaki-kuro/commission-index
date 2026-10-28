@@ -45,17 +45,24 @@ function resolveCreatorSearchTerms(
   normalizedCreatorName: string | null,
   mode: CreatorSearchTextMode,
 ) {
-  if (mode === 'raw')
-    return rawCreatorName ? [rawCreatorName] : []
+  if (mode === 'raw') {
+    return rawCreatorName
+      ? [rawCreatorName]
+      : []
+  }
 
   if (mode === 'both') {
     const terms = [normalizedCreatorName, rawCreatorName].filter((value): value is string =>
       Boolean(value),
     )
-    return [...new Set(terms)]
+    return [
+      ...new Set(terms),
+    ]
   }
 
-  return normalizedCreatorName ? [normalizedCreatorName] : []
+  return normalizedCreatorName
+    ? [normalizedCreatorName]
+    : []
 }
 
 export function buildCommissionSearchDomKey(sectionId: string, publicId: string) {
@@ -85,25 +92,34 @@ export function buildCommissionSearchMetadata({
       ? (characterAliasesMap.get(characterAliasKey) ?? [])
       : []
   const rawCreatorName = creatorName?.trim() || null
-  const legacyIdentitySearchTerm = fileName && /^\d{8}(?:_|$)/.test(fileName) ? fileName : ''
-  const normalizedCreatorName = rawCreatorName ? normalizeCreatorName(rawCreatorName) : null
+  const legacyIdentitySearchTerm = fileName && /^\d{8}(?:_|$)/.test(fileName)
+    ? fileName
+    : ''
+  const normalizedCreatorName = rawCreatorName
+    ? normalizeCreatorName(rawCreatorName)
+    : null
   const creatorAliases
     = normalizedCreatorName && creatorAliasesMap
       ? (creatorAliasesMap.get(normalizedCreatorName) ?? [])
       : []
   const keywordTerms = splitKeywordTerms(keyword)
-  const keywordAliasTerms = [...new Set(
-    keywordTerms.flatMap((term) => {
-      const key = normalizeKeywordAliasKey(term)
-      if (!key || !keywordAliasesMap)
-        return []
-      return keywordAliasesMap.get(key) ?? []
-    }),
-  )]
+  const keywordAliasTerms = [
+    ...new Set(
+      keywordTerms.flatMap((term) => {
+        const key = normalizeKeywordAliasKey(term)
+        if (!key || !keywordAliasesMap)
+          return []
+        return keywordAliasesMap.get(key) ?? []
+      }),
+    ),
+  ]
   const keywordSearchText = keywordTerms.join(' ')
   const keywordAliasesSearchText = keywordAliasTerms.join(' ')
   const searchableDateTerms = commissionDate
-    ? [compactDate, ...buildDateSearchTokensFromCompactDate(compactDate)]
+    ? [
+        compactDate,
+        ...buildDateSearchTokensFromCompactDate(compactDate),
+      ]
     : []
   const creatorSuggestionTerm = resolveCreatorSuggestionTerm(
     rawCreatorName,
@@ -119,8 +135,16 @@ export function buildCommissionSearchMetadata({
   const suggestionEntries: Array<{ source: SuggestionSource, term: string }> = [
     { source: 'Character', term: characterName },
     ...characterAliases.map(alias => ({ source: 'Character' as const, term: alias })),
-    ...(year && month ? [{ source: 'Date' as const, term: `${year}/${month}` }] : []),
-    ...(creatorSuggestionTerm ? [{ source: 'Creator' as const, term: creatorSuggestionTerm }] : []),
+    ...(year && month
+      ? [
+          { source: 'Date' as const, term: `${year}/${month}` },
+        ]
+      : []),
+    ...(creatorSuggestionTerm
+      ? [
+          { source: 'Creator' as const, term: creatorSuggestionTerm },
+        ]
+      : []),
     ...creatorAliases.map(alias => ({ source: 'Creator' as const, term: alias })),
     ...keywordTerms.map(term => ({ source: 'Keyword' as const, term })),
     ...keywordAliasTerms.map(term => ({ source: 'Keyword' as const, term })),
@@ -141,7 +165,9 @@ export function buildCommissionSearchMetadata({
       ...creatorSearchTerms,
       ...creatorAliases,
       ...searchableDateTerms,
-      ...(legacyIdentitySearchTerm ? [legacyIdentitySearchTerm] : []),
+      ...(legacyIdentitySearchTerm
+        ? [legacyIdentitySearchTerm]
+        : []),
       design ?? '',
       description ?? '',
       keywordSearchText,

@@ -23,9 +23,18 @@ describe('creatorAliases data access', () => {
         },
         characters: [],
         creatorAliases: [
-          { creatorName: '七市', aliases: ['Nanashi'] },
-          { creatorName: '七市 (part 1)', aliases: ['nanashi'] },
-          { creatorName: 'Q (part 1)', aliases: ['Cue'] },
+          {
+            creatorName: '七市',
+            aliases: ['Nanashi'],
+          },
+          {
+            creatorName: '七市 (part 1)',
+            aliases: ['nanashi'],
+          },
+          {
+            creatorName: 'Q (part 1)',
+            aliases: ['Cue'],
+          },
         ],
         characterAliases: [],
         keywordAliases: [],

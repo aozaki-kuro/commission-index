@@ -43,7 +43,12 @@ function FormNotice({
   }
 
   return (
-    <FloatingNotice tone={status === 'error' ? 'error' : 'success'} onDismiss={() => setDismissed(true)}>
+    <FloatingNotice
+      tone={status === 'error'
+        ? 'error'
+        : 'success'}
+      onDismiss={() => setDismissed(true)}
+    >
       {status === 'error'
         ? (
             <details>

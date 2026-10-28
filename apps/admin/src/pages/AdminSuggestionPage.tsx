@@ -85,7 +85,9 @@ export function AdminSuggestionPage() {
         }
 
         dispatch({
-          message: error instanceof Error ? error.message : 'Failed to load suggestion data.',
+          message: error instanceof Error
+            ? error.message
+            : 'Failed to load suggestion data.',
           type: 'failed',
         })
       })

@@ -10,7 +10,9 @@ import { buildCommissionDataMap } from '@lib/sitePayload'
 const isDevelopment = process.env.NODE_ENV === 'development'
 
 export function buildSitePayload(): SitePayload {
-  const records = isDevelopment ? getCharacterRecords() : characterRecords
+  const records = isDevelopment
+    ? getCharacterRecords()
+    : characterRecords
   const commissionData = buildCommissionData(records)
   const characterStatus = buildCharacterStatus(records)
   const { groups: timelineGroups, navItems: monthNavItems } = buildCommissionTimeline(

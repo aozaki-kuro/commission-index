@@ -33,7 +33,9 @@ export function parseDateSearchInput(rawInput: string): DateSearchParts | null {
   let match = input.match(COMPACT_DATE_WITH_DAY_PATTERN)
   if (match) {
     const parts = { year: match[1], month: match[2] }
-    return isValidDateParts(parts) ? parts : null
+    return isValidDateParts(parts)
+      ? parts
+      : null
   }
 
   match = input.match(DELIMITED_YEAR_MONTH_DAY_PATTERN)
@@ -42,7 +44,9 @@ export function parseDateSearchInput(rawInput: string): DateSearchParts | null {
       year: match[1],
       month: pad2(match[2]),
     }
-    return isValidDateParts(parts) ? parts : null
+    return isValidDateParts(parts)
+      ? parts
+      : null
   }
 
   match = input.match(DELIMITED_MONTH_YEAR_PATTERN)
@@ -51,13 +55,17 @@ export function parseDateSearchInput(rawInput: string): DateSearchParts | null {
       year: match[2],
       month: pad2(match[1]),
     }
-    return isValidDateParts(parts) ? parts : null
+    return isValidDateParts(parts)
+      ? parts
+      : null
   }
 
   match = input.match(YEAR_ONLY_PATTERN)
   if (match) {
     const parts = { year: match[1] }
-    return isValidDateParts(parts) ? parts : null
+    return isValidDateParts(parts)
+      ? parts
+      : null
   }
 
   return null
@@ -71,12 +79,16 @@ export function toDateSearchTokens(parts: DateSearchParts): string[] {
 }
 
 export function toPrimaryDateSearchToken(parts: DateSearchParts) {
-  return parts.month ? `date_ym_${parts.year}_${parts.month}` : `date_y_${parts.year}`
+  return parts.month
+    ? `date_ym_${parts.year}_${parts.month}`
+    : `date_y_${parts.year}`
 }
 
 export function buildDateSearchTokensFromCompactDate(compactDate: string): string[] {
   const parsed = parseDateSearchInput(compactDate)
-  return parsed ? toDateSearchTokens(parsed) : []
+  return parsed
+    ? toDateSearchTokens(parsed)
+    : []
 }
 
 export function normalizeDateQueryToken(token: string): string | null {

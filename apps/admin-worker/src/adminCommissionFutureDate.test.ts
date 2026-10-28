@@ -58,7 +58,9 @@ function setClock(iso: string) {
 
 describe('commission future-date rule at the API boundary', () => {
   beforeEach(() => {
-    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.useFakeTimers({
+      toFake: ['Date'],
+    })
     setClock('2026-10-09T12:00:00Z')
   })
 
@@ -128,7 +130,9 @@ describe('commission future-date rule at the API boundary', () => {
 
 describe('commission future-date rule in persistence', () => {
   beforeEach(() => {
-    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.useFakeTimers({
+      toFake: ['Date'],
+    })
     setClock('2026-10-09T12:00:00Z')
   })
 

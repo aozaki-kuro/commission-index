@@ -25,7 +25,9 @@ interface MountHomeScrollRestoreOptions {
 const defaultDeps: HomeScrollRestoreDeps = {
   readNavigationType: (win) => {
     const navigationEntry = win.performance.getEntriesByType('navigation')[0]
-    return navigationEntry && 'type' in navigationEntry ? String(navigationEntry.type) : ''
+    return navigationEntry && 'type' in navigationEntry
+      ? String(navigationEntry.type)
+      : ''
   },
   restoreScrollPosition: restoreWindowScrollPosition,
 }
@@ -123,7 +125,10 @@ export function mountHomeScrollRestore({
   win = window,
   deps: depsOverrides,
 }: MountHomeScrollRestoreOptions = {}): Cleanup {
-  const deps = { ...defaultDeps, ...depsOverrides }
+  const deps = {
+    ...defaultDeps,
+    ...depsOverrides,
+  }
   const persistNow = () => {
     persistScrollState(win)
   }

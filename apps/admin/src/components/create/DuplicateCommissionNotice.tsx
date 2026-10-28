@@ -46,7 +46,9 @@ export function DuplicateCommissionNotice({ hints }: DuplicateCommissionNoticePr
     <FloatingNotice tone="warning" onDismiss={() => setDismissedSignature(signature)}>
       <details>
         <summary className="cursor-pointer font-medium">
-          {`${hints.length} possible duplicate ${hints.length === 1 ? 'entry' : 'entries'}`}
+          {`${hints.length} possible duplicate ${hints.length === 1
+            ? 'entry'
+            : 'entries'}`}
           <span className="ml-2 text-xs underline underline-offset-2">Review</span>
         </summary>
         <p className="mt-2 text-xs">Compare these records before saving.</p>

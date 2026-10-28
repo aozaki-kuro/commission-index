@@ -18,7 +18,10 @@ import {
   verifyExistingSnapshot,
 } from '../scripts/exportWebFactSource'
 
-vi.mock('node:child_process', () => ({ spawnSync: vi.fn(), spawn: vi.fn() }))
+vi.mock('node:child_process', () => ({
+  spawnSync: vi.fn(),
+  spawn: vi.fn(),
+}))
 
 const temporaryDirectories: string[] = []
 function temporaryDirectory() {
@@ -28,8 +31,22 @@ function temporaryDirectory() {
 }
 
 function fixture() {
-  const meta = { schemaVersion: 3 as const, source: 'remote-admin-fact-source' as const, exportedAt: '2026-01-01T00:00:00Z', revision: 'fixture', databaseBinding: 'fixture', imagesBucket: 'fixture' }
-  const content: GeneratedFactSourceContent = { meta, characters: [], creatorAliases: [], characterAliases: [], keywordAliases: [], featuredSearchKeywords: ['old'] }
+  const meta = {
+    schemaVersion: 3 as const,
+    source: 'remote-admin-fact-source' as const,
+    exportedAt: '2026-01-01T00:00:00Z',
+    revision: 'fixture',
+    databaseBinding: 'fixture',
+    imagesBucket: 'fixture',
+  }
+  const content: GeneratedFactSourceContent = {
+    meta,
+    characters: [],
+    creatorAliases: [],
+    characterAliases: [],
+    keywordAliases: [],
+    featuredSearchKeywords: ['old'],
+  }
   const manifest: GeneratedSourceImageManifest = { meta, files: [], missing: [] }
   return { content, manifest }
 }
@@ -64,7 +81,18 @@ function buildSnapshotRow({
 }
 
 function mockD1Snapshot(row: Record<string, string>) {
-  vi.mocked(spawnSync).mockReturnValue({ status: 0, stdout: JSON.stringify([{ results: [row] }]), stderr: '', pid: 0, signal: null, output: [] })
+  vi.mocked(spawnSync).mockReturnValue({
+    status: 0,
+    stdout: JSON.stringify([
+      {
+        results: [row],
+      },
+    ]),
+    stderr: '',
+    pid: 0,
+    signal: null,
+    output: [],
+  })
 }
 
 beforeEach(() => {
@@ -91,7 +119,17 @@ describe('事实源快照导出', () => {
     content.featuredSearchKeywords = ['new']
     expect(createSnapshot(content, manifest).content.meta.revision).not.toBe(first.content.meta.revision)
     content.featuredSearchKeywords = ['old']
-    manifest.files = [{ commissionId: 1, commissionFileName: '20260101', objectKey: 'source-images/20260101/hash-id.png', relativePath: 'source-images/20260101.png', mimeType: 'image/png', byteSize: 1, sha256: 'changed' }]
+    manifest.files = [
+      {
+        commissionId: 1,
+        commissionFileName: '20260101',
+        objectKey: 'source-images/20260101/hash-id.png',
+        relativePath: 'source-images/20260101.png',
+        mimeType: 'image/png',
+        byteSize: 1,
+        sha256: 'changed',
+      },
+    ]
     expect(createSnapshot(content, manifest).content.meta.revision).not.toBe(first.content.meta.revision)
   })
 
@@ -117,7 +155,9 @@ describe('事实源快照导出', () => {
     mkdirSync(path.join(directory, 'source-images'))
     const imagePath = path.join(directory, 'source-images/20260101.png')
     writeFileSync(imagePath, 'image')
-    manifest.files = [buildSourceImageFileRecord('20260101', 'source-images/20260101/hash.png', imagePath, 1)]
+    manifest.files = [
+      buildSourceImageFileRecord('20260101', 'source-images/20260101/hash.png', imagePath, 1),
+    ]
     const snapshot = createSnapshot(content, manifest)
     saveFixture(directory, snapshot)
     const revision = snapshot.content.meta.revision
@@ -130,7 +170,13 @@ describe('事实源快照导出', () => {
     expect(spawn).not.toHaveBeenCalled()
     writeFileSync(imagePath, 'changed-image')
     expect(() => verifyExistingSnapshot(directory, revision)).toThrow('图片校验失败')
-    saveFixture(directory, { ...snapshot, manifest: { ...snapshot.manifest, meta: { ...snapshot.manifest.meta, revision: 'different' } } })
+    saveFixture(directory, {
+      ...snapshot,
+      manifest: {
+        ...snapshot.manifest,
+        meta: { ...snapshot.manifest.meta, revision: 'different' },
+      },
+    })
     expect(() => verifyExistingSnapshot(directory)).toThrow('revision')
   })
 
@@ -167,7 +213,14 @@ describe('事实源快照导出', () => {
       database.exec('INSERT INTO source_images(commission_file_name, object_key, mime_type, byte_size, sha256, commission_id) VALUES (\'20260929_artist_fixture\', \'source-images/20260929/hash.png\', \'image/png\', 5, \'sha256\', 1)')
       database.exec('INSERT INTO home_featured_search_keywords(keyword, sort_order) VALUES (\'new remote content\', 1)')
       const row = database.prepare(factSourceSnapshotSql).get()
-      expect(JSON.parse(String(row?.table0))).toEqual([{ id: 1, name: 'fixture', status: 'active', sortOrder: 1 }])
+      expect(JSON.parse(String(row?.table0))).toEqual([
+        {
+          id: 1,
+          name: 'fixture',
+          status: 'active',
+          sortOrder: 1,
+        },
+      ])
       expect(JSON.parse(String(row?.table1)).find((commission: { fileName: string }) => commission.fileName === '20260929_artist_fixture')).toEqual({
         id: 1,
         publicId: expect.stringMatching(/^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/),
@@ -183,15 +236,30 @@ describe('事实源快照导出', () => {
         hidden: 0,
         keyword: null,
       })
-      expect(JSON.parse(String(row?.table6))).toEqual([{
-        commissionId: 1,
-        commissionFileName: '20260929_artist_fixture',
-        objectKey: 'source-images/20260929/hash.png',
-        mimeType: 'image/png',
-        byteSize: 5,
-        sha256: 'sha256',
-      }])
-      vi.mocked(spawnSync).mockReturnValue({ status: 0, stdout: JSON.stringify([{ results: [{ ...row, table1: '[]', table6: '[]' }] }]), stderr: '', pid: 0, signal: null, output: [] })
+      expect(JSON.parse(String(row?.table6))).toEqual([
+        {
+          commissionId: 1,
+          commissionFileName: '20260929_artist_fixture',
+          objectKey: 'source-images/20260929/hash.png',
+          mimeType: 'image/png',
+          byteSize: 5,
+          sha256: 'sha256',
+        },
+      ])
+      vi.mocked(spawnSync).mockReturnValue({
+        status: 0,
+        stdout: JSON.stringify([
+          {
+            results: [
+              { ...row, table1: '[]', table6: '[]' },
+            ],
+          },
+        ]),
+        stderr: '',
+        pid: 0,
+        signal: null,
+        output: [],
+      })
       const directory = temporaryDirectory()
       const old = fixture()
       saveFixture(directory, createSnapshot(old.content, old.manifest))
@@ -214,19 +282,66 @@ describe('事实源快照导出', () => {
   it('图片本地哈希不同于 D1 元数据时不能从旧缓存复用', () => {
     const directory = temporaryDirectory()
     writeFileSync(path.join(directory, '20260101.png'), 'old')
-    const row = { commissionId: 1, commissionFileName: '20260101', objectKey: 'source-images/20260101/new.png', mimeType: 'image/png', byteSize: 3, sha256: createHash('sha256').update('new').digest('hex') }
+    const row = {
+      commissionId: 1,
+      commissionFileName: '20260101',
+      objectKey: 'source-images/20260101/new.png',
+      mimeType: 'image/png',
+      byteSize: 3,
+      sha256: createHash('sha256').update('new').digest('hex'),
+    }
     expect(resolveReusableSourceImageRecord(directory, row)).toBeNull()
   })
 
   it('按 D1 object_key 下载图片，只写本地快照，不回写远端 D1', async () => {
     const objectKey = 'source-images/20260101/hash-uuid.jpg'
     const row = Object.fromEntries(Array.from({ length: 7 }, (_, index) => [`table${index}`, '[]']))
-    row.table0 = JSON.stringify([{ id: 1, name: 'fixture', status: 'active', sortOrder: 1 }])
-    row.table1 = JSON.stringify([{ id: 1, characterId: 1, commissionDate: '2026-01-01', creatorName: 'creator', fileName: '20260101', links: '[]', hidden: 0 }])
-    row.table6 = JSON.stringify([{ commissionId: 1, commissionFileName: '20260101', objectKey, mimeType: 'image/jpeg', byteSize: 5, sha256: createHash('sha256').update('image').digest('hex') }])
-    vi.mocked(spawnSync).mockReturnValue({ status: 0, stdout: JSON.stringify([{ results: [row] }]), stderr: '', pid: 0, signal: null, output: [] })
+    row.table0 = JSON.stringify([
+      {
+        id: 1,
+        name: 'fixture',
+        status: 'active',
+        sortOrder: 1,
+      },
+    ])
+    row.table1 = JSON.stringify([
+      {
+        id: 1,
+        characterId: 1,
+        commissionDate: '2026-01-01',
+        creatorName: 'creator',
+        fileName: '20260101',
+        links: '[]',
+        hidden: 0,
+      },
+    ])
+    row.table6 = JSON.stringify([
+      {
+        commissionId: 1,
+        commissionFileName: '20260101',
+        objectKey,
+        mimeType: 'image/jpeg',
+        byteSize: 5,
+        sha256: createHash('sha256').update('image').digest('hex'),
+      },
+    ])
+    vi.mocked(spawnSync).mockReturnValue({
+      status: 0,
+      stdout: JSON.stringify([
+        {
+          results: [row],
+        },
+      ]),
+      stderr: '',
+      pid: 0,
+      signal: null,
+      output: [],
+    })
     vi.mocked(spawn).mockImplementation(((_command: string, args: string[]) => {
-      const child = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough() })
+      const child = Object.assign(new EventEmitter(), {
+        stdout: new PassThrough(),
+        stderr: new PassThrough(),
+      })
       queueMicrotask(() => {
         writeFileSync(args[args.indexOf('--file') + 1], 'image')
         child.emit('close', 0)
@@ -253,10 +368,45 @@ describe('事实源快照导出', () => {
     const oldManifest = readFileSync(path.join(directory, 'fact-source/source-images-manifest.json'), 'utf8')
     const fileNames = ['20260101', '20260102_orphan', '20260103_orphan']
     const row = Object.fromEntries(Array.from({ length: 7 }, (_, index) => [`table${index}`, '[]']))
-    row.table0 = JSON.stringify([{ id: 1, name: 'fixture', status: 'active', sortOrder: 1 }])
-    row.table1 = JSON.stringify(fileNames.map((fileName, index) => ({ id: index + 1, characterId: 1, commissionDate: `2026-01-0${index + 1}`, creatorName: 'creator', fileName, links: '[]', hidden: 0 })))
-    row.table6 = JSON.stringify([{ commissionId: 1, commissionFileName: '20260101', objectKey: '20260101.jpg', mimeType: 'image/jpeg', byteSize: 5, sha256: createHash('sha256').update('image').digest('hex') }])
-    vi.mocked(spawnSync).mockReturnValue({ status: 0, stdout: JSON.stringify([{ results: [row] }]), stderr: '', pid: 0, signal: null, output: [] })
+    row.table0 = JSON.stringify([
+      {
+        id: 1,
+        name: 'fixture',
+        status: 'active',
+        sortOrder: 1,
+      },
+    ])
+    row.table1 = JSON.stringify(fileNames.map((fileName, index) => ({
+      id: index + 1,
+      characterId: 1,
+      commissionDate: `2026-01-0${index + 1}`,
+      creatorName: 'creator',
+      fileName,
+      links: '[]',
+      hidden: 0,
+    })))
+    row.table6 = JSON.stringify([
+      {
+        commissionId: 1,
+        commissionFileName: '20260101',
+        objectKey: '20260101.jpg',
+        mimeType: 'image/jpeg',
+        byteSize: 5,
+        sha256: createHash('sha256').update('image').digest('hex'),
+      },
+    ])
+    vi.mocked(spawnSync).mockReturnValue({
+      status: 0,
+      stdout: JSON.stringify([
+        {
+          results: [row],
+        },
+      ]),
+      stderr: '',
+      pid: 0,
+      signal: null,
+      output: [],
+    })
     await expect(main(['--output-root', directory])).rejects.toThrow('20260102_orphan, 20260103_orphan')
     expect(spawn).not.toHaveBeenCalled()
     expect(readFileSync(path.join(directory, 'fact-source/source-images-manifest.json'), 'utf8')).toBe(oldManifest)
@@ -278,8 +428,23 @@ describe('事实源快照导出', () => {
     const oldContent = readFileSync(path.join(directory, 'fact-source/content.json'), 'utf8')
     const oldManifest = readFileSync(path.join(directory, 'fact-source/source-images-manifest.json'), 'utf8')
     const row = Object.fromEntries(Array.from({ length: 7 }, (_, index) => [`table${index}`, '[]']))
-    row.table0 = JSON.stringify([{ id: 1, name: 'fixture', status: 'active', sortOrder: 1 }])
-    row.table1 = JSON.stringify(oldNames.slice(0, 2).map((fileName, index) => ({ id: index + 1, characterId: 1, commissionDate: `2026-01-0${index + 1}`, creatorName: 'creator', fileName, links: '[]', hidden: 0 })))
+    row.table0 = JSON.stringify([
+      {
+        id: 1,
+        name: 'fixture',
+        status: 'active',
+        sortOrder: 1,
+      },
+    ])
+    row.table1 = JSON.stringify(oldNames.slice(0, 2).map((fileName, index) => ({
+      id: index + 1,
+      characterId: 1,
+      commissionDate: `2026-01-0${index + 1}`,
+      creatorName: 'creator',
+      fileName,
+      links: '[]',
+      hidden: 0,
+    })))
     const imageRows = oldNames.slice(0, 2).map((commissionFileName, index) => ({
       commissionId: index + 1,
       commissionFileName,
@@ -289,11 +454,25 @@ describe('事实源快照导出', () => {
       sha256: createHash('sha256').update(`new-${commissionFileName}`).digest('hex'),
     }))
     row.table6 = JSON.stringify(imageRows)
-    vi.mocked(spawnSync).mockReturnValue({ status: 0, stdout: JSON.stringify([{ results: [row] }]), stderr: '', pid: 0, signal: null, output: [] })
+    vi.mocked(spawnSync).mockReturnValue({
+      status: 0,
+      stdout: JSON.stringify([
+        {
+          results: [row],
+        },
+      ]),
+      stderr: '',
+      pid: 0,
+      signal: null,
+      output: [],
+    })
     vi.stubEnv('FACT_SOURCE_DOWNLOAD_CONCURRENCY', '1')
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(spawn).mockImplementation(((_command: string, args: string[]) => {
-      const child = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough() })
+      const child = Object.assign(new EventEmitter(), {
+        stdout: new PassThrough(),
+        stderr: new PassThrough(),
+      })
       queueMicrotask(() => {
         if (args[3].endsWith(`/${imageRows[0].objectKey}`)) {
           writeFileSync(args[args.indexOf('--file') + 1], 'new-20260101')
@@ -324,22 +503,99 @@ describe('事实源快照导出', () => {
     const newBytes = 'new-bytes'
     const oldObjectKey = 'source-images/old-object.jpg'
     const settleRow = buildSnapshotRow({
-      characters: [{ id: 1, name: 'fixture', status: 'active', sortOrder: 1 }],
-      commissions: [{ id: 1, characterId: 1, commissionDate: '2026-01-01', creatorName: 'creator', fileName: '20260101', links: '[]', hidden: 0 }],
-      imageRows: [{ commissionId: 1, commissionFileName: '20260101', objectKey: newObjectKey, mimeType: 'image/jpeg', byteSize: newBytes.length, sha256: createHash('sha256').update(newBytes).digest('hex') }],
+      characters: [
+        {
+          id: 1,
+          name: 'fixture',
+          status: 'active',
+          sortOrder: 1,
+        },
+      ],
+      commissions: [
+        {
+          id: 1,
+          characterId: 1,
+          commissionDate: '2026-01-01',
+          creatorName: 'creator',
+          fileName: '20260101',
+          links: '[]',
+          hidden: 0,
+        },
+      ],
+      imageRows: [
+        {
+          commissionId: 1,
+          commissionFileName: '20260101',
+          objectKey: newObjectKey,
+          mimeType: 'image/jpeg',
+          byteSize: newBytes.length,
+          sha256: createHash('sha256').update(newBytes).digest('hex'),
+        },
+      ],
     })
     const initialRow = buildSnapshotRow({
-      characters: [{ id: 1, name: 'fixture', status: 'active', sortOrder: 1 }],
-      commissions: [{ id: 1, characterId: 1, commissionDate: '2026-01-01', creatorName: 'creator', fileName: '20260101', links: '[]', hidden: 0 }],
-      imageRows: [{ commissionId: 1, commissionFileName: '20260101', objectKey: oldObjectKey, mimeType: 'image/jpeg', byteSize: newBytes.length, sha256: createHash('sha256').update(newBytes).digest('hex') }],
+      characters: [
+        {
+          id: 1,
+          name: 'fixture',
+          status: 'active',
+          sortOrder: 1,
+        },
+      ],
+      commissions: [
+        {
+          id: 1,
+          characterId: 1,
+          commissionDate: '2026-01-01',
+          creatorName: 'creator',
+          fileName: '20260101',
+          links: '[]',
+          hidden: 0,
+        },
+      ],
+      imageRows: [
+        {
+          commissionId: 1,
+          commissionFileName: '20260101',
+          objectKey: oldObjectKey,
+          mimeType: 'image/jpeg',
+          byteSize: newBytes.length,
+          sha256: createHash('sha256').update(newBytes).digest('hex'),
+        },
+      ],
     })
     // First D1 read serves the pre-replacement snapshot, the retry read serves the committed one.
     vi.mocked(spawnSync)
-      .mockReturnValueOnce({ status: 0, stdout: JSON.stringify([{ results: [initialRow] }]), stderr: '', pid: 0, signal: null, output: [] })
-      .mockReturnValueOnce({ status: 0, stdout: JSON.stringify([{ results: [settleRow] }]), stderr: '', pid: 0, signal: null, output: [] })
+      .mockReturnValueOnce({
+        status: 0,
+        stdout: JSON.stringify([
+          {
+            results: [initialRow],
+          },
+        ]),
+        stderr: '',
+        pid: 0,
+        signal: null,
+        output: [],
+      })
+      .mockReturnValueOnce({
+        status: 0,
+        stdout: JSON.stringify([
+          {
+            results: [settleRow],
+          },
+        ]),
+        stderr: '',
+        pid: 0,
+        signal: null,
+        output: [],
+      })
     const downloadedKeys: string[] = []
     vi.mocked(spawn).mockImplementation(((_command: string, args: string[]) => {
-      const child = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough() })
+      const child = Object.assign(new EventEmitter(), {
+        stdout: new PassThrough(),
+        stderr: new PassThrough(),
+      })
       const requestedKey = args[3]
       queueMicrotask(() => {
         if (requestedKey.endsWith(`/${newObjectKey}`)) {
@@ -369,17 +625,46 @@ describe('事实源快照导出', () => {
     const old = fixture()
     saveFixture(directory, createSnapshot(old.content, old.manifest))
     const oldManifest = readFileSync(path.join(directory, 'fact-source/source-images-manifest.json'), 'utf8')
-    const imageRows = [{ commissionId: 1, commissionFileName: '20260101', objectKey: 'source-images/gone.jpg', mimeType: 'image/jpeg', byteSize: 5, sha256: 'sha256' }]
+    const imageRows = [
+      {
+        commissionId: 1,
+        commissionFileName: '20260101',
+        objectKey: 'source-images/gone.jpg',
+        mimeType: 'image/jpeg',
+        byteSize: 5,
+        sha256: 'sha256',
+      },
+    ]
     // Both reads return the same stale key, so the bounded retry must give up.
     const staleRow = buildSnapshotRow({
-      characters: [{ id: 1, name: 'fixture', status: 'active', sortOrder: 1 }],
-      commissions: [{ id: 1, characterId: 1, commissionDate: '2026-01-01', creatorName: 'creator', fileName: '20260101', links: '[]', hidden: 0 }],
+      characters: [
+        {
+          id: 1,
+          name: 'fixture',
+          status: 'active',
+          sortOrder: 1,
+        },
+      ],
+      commissions: [
+        {
+          id: 1,
+          characterId: 1,
+          commissionDate: '2026-01-01',
+          creatorName: 'creator',
+          fileName: '20260101',
+          links: '[]',
+          hidden: 0,
+        },
+      ],
       imageRows,
     })
     mockD1Snapshot(staleRow)
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(spawn).mockImplementation(((_command: string, _args: string[]) => {
-      const child = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough() })
+      const child = Object.assign(new EventEmitter(), {
+        stdout: new PassThrough(),
+        stderr: new PassThrough(),
+      })
       queueMicrotask(() => {
         child.stderr.write('NoSuchKey')
         child.emit('close', 1)
@@ -396,14 +681,43 @@ describe('事实源快照导出', () => {
   it('下载对象的字节与读取的 D1 快照不一致时立即中止，不重取快照', async () => {
     const directory = temporaryDirectory()
     const staleRow = buildSnapshotRow({
-      characters: [{ id: 1, name: 'fixture', status: 'active', sortOrder: 1 }],
-      commissions: [{ id: 1, characterId: 1, commissionDate: '2026-01-01', creatorName: 'creator', fileName: '20260101', links: '[]', hidden: 0 }],
-      imageRows: [{ commissionId: 1, commissionFileName: '20260101', objectKey: 'source-images/hash.jpg', mimeType: 'image/jpeg', byteSize: 5, sha256: createHash('sha256').update('expected').digest('hex') }],
+      characters: [
+        {
+          id: 1,
+          name: 'fixture',
+          status: 'active',
+          sortOrder: 1,
+        },
+      ],
+      commissions: [
+        {
+          id: 1,
+          characterId: 1,
+          commissionDate: '2026-01-01',
+          creatorName: 'creator',
+          fileName: '20260101',
+          links: '[]',
+          hidden: 0,
+        },
+      ],
+      imageRows: [
+        {
+          commissionId: 1,
+          commissionFileName: '20260101',
+          objectKey: 'source-images/hash.jpg',
+          mimeType: 'image/jpeg',
+          byteSize: 5,
+          sha256: createHash('sha256').update('expected').digest('hex'),
+        },
+      ],
     })
     mockD1Snapshot(staleRow)
     vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(spawn).mockImplementation(((_command: string, args: string[]) => {
-      const child = Object.assign(new EventEmitter(), { stdout: new PassThrough(), stderr: new PassThrough() })
+      const child = Object.assign(new EventEmitter(), {
+        stdout: new PassThrough(),
+        stderr: new PassThrough(),
+      })
       queueMicrotask(() => {
         writeFileSync(args[args.indexOf('--file') + 1], 'mismatch')
         child.emit('close', 0)

@@ -8,10 +8,30 @@ test.beforeEach(async ({ page }) => {
 })
 
 const scenarios = [
-  { name: 'desktop English', path: '/', width: 1440, height: 1000 },
-  { name: 'mobile Chinese', path: '/zh-tw/', width: 390, height: 844 },
-  { name: 'narrow Japanese', path: '/ja/', width: 320, height: 568 },
-  { name: 'short viewport', path: '/', width: 640, height: 320 },
+  {
+    name: 'desktop English',
+    path: '/',
+    width: 1440,
+    height: 1000,
+  },
+  {
+    name: 'mobile Chinese',
+    path: '/zh-tw/',
+    width: 390,
+    height: 844,
+  },
+  {
+    name: 'narrow Japanese',
+    path: '/ja/',
+    width: 320,
+    height: 568,
+  },
+  {
+    name: 'short viewport',
+    path: '/',
+    width: 640,
+    height: 320,
+  },
 ]
 
 for (const scenario of scenarios) {

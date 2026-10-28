@@ -32,7 +32,9 @@ export function mountArchivedCharactersToggle({
   // The pre-paint inline script may already have shown archived for a hash target, so the panel
   // attribute is the source of truth rather than an assumed initial `hidden`.
   const readVisibility = (): ArchivedCharactersVisibility =>
-    panel.dataset.archivedVisibility === 'visible' ? 'visible' : 'hidden'
+    panel.dataset.archivedVisibility === 'visible'
+      ? 'visible'
+      : 'hidden'
 
   // Applied synchronously so a caller can show archived and scroll into it in the same frame.
   const setVisibility = (visibility: ArchivedCharactersVisibility) => {

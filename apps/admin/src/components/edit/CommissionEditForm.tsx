@@ -69,7 +69,9 @@ function buildDraftSnapshot(draft: {
     trim(draft.creatorName),
     trim(draft.workGroupId),
     // Number input keeps "01"/"1.0" as typed; normalise so it matches the saved numeric baseline.
-    trim(draft.partNumber) === '' ? '' : String(Number(draft.partNumber)),
+    trim(draft.partNumber) === ''
+      ? ''
+      : String(Number(draft.partNumber)),
     draft.links.split('\n').map(trim).filter(Boolean),
     trim(draft.design),
     trim(draft.description),
@@ -104,7 +106,9 @@ export function CommissionEditForm({
 
     const stored = window.sessionStorage.getItem(buildPreviewVersionStorageKey(commission.id))
     const parsed = Number(stored)
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+    return Number.isFinite(parsed) && parsed > 0
+      ? parsed
+      : 0
   })
   const {
     commissionDate,
@@ -148,7 +152,9 @@ export function CommissionEditForm({
   })
   const [savedSnapshot, setSavedSnapshot] = useState(draftSnapshot)
   useUnsavedChangesGuard(draftSnapshot !== savedSnapshot || pendingCropFile !== null)
-  const previewImageSrc = imageVersion > 0 ? `${imageSrc}?v=${imageVersion}` : imageSrc
+  const previewImageSrc = imageVersion > 0
+    ? `${imageSrc}?v=${imageVersion}`
+    : imageSrc
   const accessibleLabel = getCommissionAccessibleLabel(commission)
   const duplicateHints = useMemo(
     () => findDuplicateCommissionHints({
@@ -158,17 +164,30 @@ export function CommissionEditForm({
       commissionDate: commissionDate || null,
       creatorName,
       workGroupId,
-      partNumber: partNumber ? Number(partNumber) : null,
+      partNumber: partNumber
+        ? Number(partNumber)
+        : null,
       keyword: keywordValue,
     }),
-    [commission.id, commissionDate, commissionSearchRows, creatorName, keywordValue, partNumber, selectedCharacterId, workGroupId],
+    [
+      commission.id,
+      commissionDate,
+      commissionSearchRows,
+      creatorName,
+      keywordValue,
+      partNumber,
+      selectedCharacterId,
+      workGroupId,
+    ],
   )
 
   async function saveCommission(previous: FormState, payload: FormData): Promise<FormState> {
     // 回调只反映本次提交；等待响应期间继续输入的草稿不应冒充已保存数据。
     const field = (name: string) => payload.get(name)?.toString().trim() ?? ''
     const requestedGroupId = field('workGroupId')
-    const savedGroupId = requestedGroupId === 'new' ? crypto.randomUUID() : requestedGroupId
+    const savedGroupId = requestedGroupId === 'new'
+      ? crypto.randomUUID()
+      : requestedGroupId
     payload.set('workGroupId', savedGroupId)
     const characterId = Number(field('characterId'))
     // A move changes both groups; capture the origin before awaiting because the prop may update meanwhile.
@@ -181,7 +200,9 @@ export function CommissionEditForm({
       commissionDate: field('commissionDate') || null,
       creatorName: field('creatorName') || null,
       workGroupId: savedGroupId || null,
-      partNumber: field('partNumber') ? Number(field('partNumber')) : null,
+      partNumber: field('partNumber')
+        ? Number(field('partNumber'))
+        : null,
       description: field('description') || null,
       design: field('design') || null,
       hidden: field('hidden') === 'on',
@@ -196,7 +217,9 @@ export function CommissionEditForm({
       return { status: 'error', message: 'Unable to update commission.' }
     }
     if (result.status === 'success') {
-      setWorkGroupId(current => current === requestedGroupId ? savedGroupId : current)
+      setWorkGroupId(current => current === requestedGroupId
+        ? savedGroupId
+        : current)
       notifyDataUpdate({ characterIds: affectedCharacterIds })
       markPendingRebuild()
       setSavedSnapshot(buildDraftSnapshot({
@@ -522,7 +545,9 @@ export function CommissionEditForm({
               `}
             `}
           >
-            {isDeleting ? 'Deleting…' : isDeleteArmed ? 'Confirm delete' : 'Delete'}
+            {isDeleting
+              ? 'Deleting…'
+              : isDeleteArmed ? 'Confirm delete' : 'Delete'}
           </button>
         </div>
       </div>

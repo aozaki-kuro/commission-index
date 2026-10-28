@@ -67,7 +67,10 @@ export function CommissionManager({
   const [loadedCharacterIds, setLoadedCharacterIds] = useState<Set<number>>(() => new Set())
   const [loadErrors, setLoadErrors] = useState<Map<number, string>>(() => new Map())
   const [refreshError, setRefreshError] = useState<string | null>(null)
-  const [searchUpdates, setSearchUpdates] = useState<{ base: AdminCommissionSearchRow[], rows: Map<number, CommissionRow | null> }>(() => ({ base: commissionSearchRows, rows: new Map() }))
+  const [searchUpdates, setSearchUpdates] = useState<{ base: AdminCommissionSearchRow[], rows: Map<number, CommissionRow | null> }>(() => ({
+    base: commissionSearchRows,
+    rows: new Map(),
+  }))
   const [selectedCommission, setSelectedCommission] = useState<CommissionRow | null>(null)
   const [pendingCommissionId, setPendingCommissionId] = useState<number | null>(null)
   const [selectionError, setSelectionError] = useState<{ commissionId: number, characterId: number } | null>(null)
@@ -122,7 +125,14 @@ export function CommissionManager({
       return [row]
     }
     const update = searchUpdates.rows.get(row.id)
-    return update ? [{ ...update, links: update.links.join('\n') }] : []
+    return update
+      ? [
+          {
+            ...update,
+            links: update.links.join('\n'),
+          },
+        ]
+      : []
   }), [commissionSearchRows, searchUpdates])
   const searchEntries = useMemo(
     () => buildAdminCommissionSearchEntries(currentSearchRows, creatorAliases),
@@ -143,7 +153,9 @@ export function CommissionManager({
       cancelled = true
     }
   }, [baseSearchIndex])
-  const searchIndex = (hydratedIndex?.base === baseSearchIndex) ? hydratedIndex.index : baseSearchIndex
+  const searchIndex = (hydratedIndex?.base === baseSearchIndex)
+    ? hydratedIndex.index
+    : baseSearchIndex
   const allCommissionIds = baseSearchIndex.allIds
   const matchedCommissionIds = useMemo(
     () => getMatchedEntryIds(deferredSearchQuery, searchIndex),
@@ -205,7 +217,9 @@ export function CommissionManager({
     // 刷新取代旧请求时，等待旧请求的选中操作必须接续最新响应。
     const latestResult = (): Promise<CommissionRow[] | null> | null => {
       const latest = latestLoadPromisesRef.current.get(characterId)
-      return latest && latest.version !== version ? latest.promise : null
+      return latest && latest.version !== version
+        ? latest.promise
+        : null
     }
     const request: Promise<CommissionRow[] | null> = fetchCharacterCommissionsAction(characterId)
       .then((commissions) => {
@@ -225,7 +239,9 @@ export function CommissionManager({
         if (!isCurrent()) {
           return latestResult()
         }
-        const message = error instanceof Error ? error.message : 'Failed to load commissions.'
+        const message = error instanceof Error
+          ? error.message
+          : 'Failed to load commissions.'
         setLoadErrors(previous => new Map(previous).set(characterId, message))
         if (loadedCharacterIdsRef.current.has(characterId)) {
           setRefreshError(message)
@@ -275,7 +291,9 @@ export function CommissionManager({
     const base = commissionSearchRowsRef.current
     setSearchUpdates(previous => ({
       base,
-      rows: new Map(previous.base === base ? previous.rows : []).set(id, row),
+      rows: new Map(previous.base === base
+        ? previous.rows
+        : []).set(id, row),
     }))
   }, [])
 
@@ -313,7 +331,14 @@ export function CommissionManager({
     return () => {
       active = false
     }
-  }, [characters, isInitialError, isInitialLoading, loadCharacterCommissions, onOpenGroupsLoaded, openIds])
+  }, [
+    characters,
+    isInitialError,
+    isInitialLoading,
+    loadCharacterCommissions,
+    onOpenGroupsLoaded,
+    openIds,
+  ])
 
   const invalidateCharacterLoad = useCallback((characterId: number) => {
     loadVersionsRef.current.set(characterId, (loadVersionsRef.current.get(characterId) ?? 0) + 1)
@@ -327,11 +352,18 @@ export function CommissionManager({
       invalidateCharacterLoad(previous.characterId)
     }
     setLoadedCommissions(previous =>
-      previous.map(commission => commission.id === updated.id ? updated : commission),
+      previous.map(commission => commission.id === updated.id
+        ? updated
+        : commission),
     )
     updateSearchRow(updated.id, updated)
     onRefresh?.()
-  }, [invalidateCharacterLoad, loadedCommissions, onRefresh, updateSearchRow])
+  }, [
+    invalidateCharacterLoad,
+    loadedCommissions,
+    onRefresh,
+    updateSearchRow,
+  ])
 
   const handleSearchResultSelect = useCallback((commissionId: number, characterId: number) => {
     const cached = loadedCommissions.find(commission => commission.id === commissionId)
@@ -377,7 +409,10 @@ export function CommissionManager({
 
   const handleKeywordReplaceComplete = useCallback(() => {
     // 旧网格可保留展示，但批量变更后的记录必须刷新后才能编辑。
-    for (const characterId of new Set([...loadedCharacterIdsRef.current, ...inFlightLoadPromisesRef.current.keys()])) {
+    for (const characterId of new Set([
+      ...loadedCharacterIdsRef.current,
+      ...inFlightLoadPromisesRef.current.keys(),
+    ])) {
       staleCharacterIdsRef.current.add(characterId)
       invalidateCharacterLoad(characterId)
     }
@@ -400,12 +435,20 @@ export function CommissionManager({
     updateSearchRow(selectedCommission.id, null)
     setSelectedCommission(null)
     onRefresh?.()
-  }, [handleDeleteCommission, invalidateCharacterLoad, onRefresh, selectedCommission, updateSearchRow])
+  }, [
+    handleDeleteCommission,
+    invalidateCharacterLoad,
+    onRefresh,
+    selectedCommission,
+    updateSearchRow,
+  ])
 
   const handleDrawerSaveSuccess = useCallback((updated: CommissionRow) => {
     handleCommissionSaved(updated)
     // 保存响应不得重新打开用户已关闭的抽屉，或切换回上一条作品。
-    setSelectedCommission(current => current?.id === updated.id ? updated : current)
+    setSelectedCommission(current => current?.id === updated.id
+      ? updated
+      : current)
   }, [handleCommissionSaved])
 
   return (
@@ -579,7 +622,9 @@ export function CommissionManager({
                         : pendingCommissionId === row.id && loadErrors.has(row.characterId)
                           ? `Could not load: ${loadErrors.get(row.characterId)} — select to retry`
                           : `#${formatCommissionPublicId(row.publicId)}`}
-                      {row.partNumber ? ` · Part ${row.partNumber}` : ''}
+                      {row.partNumber
+                        ? ` · Part ${row.partNumber}`
+                        : ''}
                     </span>
                   </span>
                 </button>
@@ -616,7 +661,9 @@ export function CommissionManager({
                       const character = item.data
                       const visibleCharacterCommissions
                         = sortedLoadedCommissionsByCharacter.get(character.id) ?? []
-                      const isActive = dividerIndex === -1 ? true : index < dividerIndex
+                      const isActive = dividerIndex === -1
+                        ? true
+                        : index < dividerIndex
                       return (
                         <div key={character.id} className="relative" {...dragItemAttr(index)}>
                           {dropIndicatorIndex === index && <DropIndicator />}
@@ -634,7 +681,9 @@ export function CommissionManager({
                             selectedCommissionId={selectedCommission?.id ?? null}
                             onSelectCommission={handleSelectCommission}
                             isEditing={editing?.id === character.id}
-                            editingValue={editing?.id === character.id ? editing.value : character.name}
+                            editingValue={editing?.id === character.id
+                              ? editing.value
+                              : character.name}
                             onStartEdit={() => startEditingName(character)}
                             onRenameChange={handleRenameChange}
                             onCancelEdit={cancelEditing}

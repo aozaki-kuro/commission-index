@@ -7,7 +7,9 @@ import { FloatingNotice } from './FloatingNotice'
 export function FloatingRebuildButton() {
   const hasPending = useSyncExternalStore(subscribeToPendingRebuild, isPendingRebuild, () => false)
   const rebuild = useSyncExternalStore(subscribeToWebsiteRebuild, getWebsiteRebuildState, getServerWebsiteRebuildState)
-  const status = rebuild.status === 'success' && hasPending ? 'idle' : rebuild.status
+  const status = rebuild.status === 'success' && hasPending
+    ? 'idle'
+    : rebuild.status
   if (!hasPending && status === 'idle')
     return null
 
@@ -26,9 +28,22 @@ export function FloatingRebuildButton() {
       : 'border-amber-400 text-amber-600 hover:border-amber-500 hover:text-amber-700 dark:border-amber-500 dark:text-amber-300 dark:hover:border-amber-400 dark:hover:text-amber-200'
 
   return (
-    <FloatingNotice tone={status === 'error' ? 'error' : status === 'success' ? 'success' : 'warning'}>
+    <FloatingNotice tone={status === 'error'
+      ? 'error'
+      : status === 'success'
+        ? 'success'
+        : 'warning'}
+    >
       <div className="flex min-w-0 items-center justify-between gap-4">
-        <p className="min-w-0 text-xs">{rebuild.message ?? (status === 'error' ? 'Rebuild could not be queued.' : status === 'success' ? 'Website updated and confirmed live.' : status === 'pending' ? 'Waiting for the public site to confirm the update.' : 'Saved changes are ready to publish.')}</p>
+        <p className="min-w-0 text-xs">
+          {rebuild.message ?? (status === 'error'
+            ? 'Rebuild could not be queued.'
+            : status === 'success'
+              ? 'Website updated and confirmed live.'
+              : status === 'pending'
+                ? 'Waiting for the public site to confirm the update.'
+                : 'Saved changes are ready to publish.')}
+        </p>
         <button
           type="button"
           onClick={() => void queueWebsiteRebuild()}

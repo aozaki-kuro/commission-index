@@ -18,7 +18,15 @@ const fieldDescriptionStyles = 'pl-1 text-xs leading-4 text-gray-500 dark:text-g
 const alignedFieldStyles = 'min-w-0 space-y-2'
 const metadataControlStyles = `${formControlStyles} min-h-11 px-4`
 
-const weekdayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const weekdayLabels = [
+  'Mon',
+  'Tue',
+  'Wed',
+  'Thu',
+  'Fri',
+  'Sat',
+  'Sun',
+]
 const monthFormatter = new Intl.DateTimeFormat('en', {
   month: 'long',
   timeZone: 'UTC',
@@ -98,7 +106,9 @@ function getCommissionDateValidityMessage(value: string) {
   if (!isValidIsoDate(value)) {
     return 'Enter a real date in YYYY-MM-DD format.'
   }
-  return isFutureCommissionDate(value, new Date()) ? 'Commission date cannot be in the future.' : ''
+  return isFutureCommissionDate(value, new Date())
+    ? 'Commission date cannot be in the future.'
+    : ''
 }
 
 type InputBinding = Pick<ComponentPropsWithoutRef<'input'>, 'value' | 'onChange'>
@@ -155,8 +165,12 @@ export function CommissionCharacterField({
         Character
       </label>
       <Select
-        value={selectedCharacterId === null ? '' : String(selectedCharacterId)}
-        onValueChange={value => onChange(value ? Number(value) : null)}
+        value={selectedCharacterId === null
+          ? ''
+          : String(selectedCharacterId)}
+        onValueChange={value => onChange(value
+          ? Number(value)
+          : null)}
         disabled={isDisabled}
         name="characterId"
       >
@@ -177,7 +191,9 @@ export function CommissionCharacterField({
         </SelectContent>
       </Select>
       <p className={fieldDescriptionStyles}>
-        {dataState === 'ready' && !hasCharacters ? 'Add a character to get started.' : 'Choose a character.'}
+        {dataState === 'ready' && !hasCharacters
+          ? 'Add a character to get started.'
+          : 'Choose a character.'}
       </p>
     </div>
   )
@@ -525,7 +541,9 @@ function CalendarDay({
             date.getUTCDate() + offset,
           )))
         }}
-        tabIndex={isSelected || isToday ? 0 : -1}
+        tabIndex={isSelected || isToday
+          ? 0
+          : -1}
         className={`
           mx-auto flex size-9 items-center justify-center rounded-full
           text-sm transition hover:bg-gray-100 focus-visible:outline-none
@@ -656,7 +674,9 @@ export function CommissionWorkGroupField({
                   aria-label="Part number"
                 />
                 <p className={fieldDescriptionStyles}>
-                  {selectedGroup ? `Next available: ${selectedGroup.highestPartNumber + 1}.` : 'Use a positive whole number.'}
+                  {selectedGroup
+                    ? `Next available: ${selectedGroup.highestPartNumber + 1}.`
+                    : 'Use a positive whole number.'}
                 </p>
               </div>
             </div>

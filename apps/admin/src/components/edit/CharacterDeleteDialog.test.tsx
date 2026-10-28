@@ -56,7 +56,9 @@ describe('character delete dialog accessibility', () => {
 
     const dialog = document.body.querySelector('[role="alertdialog"]')!
     const overlay = document.body.querySelector('[data-dialog-overlay="alert"]')!
-    const cancel = [...dialog.querySelectorAll('button')]
+    const cancel = [
+      ...dialog.querySelectorAll('button'),
+    ]
       .find(button => button.textContent === 'Cancel')!
     const labelledBy = dialog.getAttribute('aria-labelledby')
     const describedBy = dialog.getAttribute('aria-describedby')

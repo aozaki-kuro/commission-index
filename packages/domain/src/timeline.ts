@@ -44,7 +44,9 @@ export function buildCommissionTimeline(commissionMap: Map<string, CharacterComm
   groups: TimelineYearGroup[]
   navItems: CharacterNavItem[]
 } {
-  const sortedEntries = [...commissionMap.values()]
+  const sortedEntries = [
+    ...commissionMap.values(),
+  ]
     .flatMap(({ Character, Commissions }) =>
       Commissions.map(commission => ({ character: Character, commission })),
     )
@@ -73,7 +75,9 @@ export function buildCommissionTimeline(commissionMap: Map<string, CharacterComm
     })
   }
 
-  const groups = [...groupsByYear.values()]
+  const groups = [
+    ...groupsByYear.values(),
+  ]
   return {
     groups,
     navItems: groups.map(group => group.navItem),
