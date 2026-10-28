@@ -175,6 +175,8 @@ Pipeline order, release concurrency locks, the `deploy-web-snapshot` composite a
   upgrade in stages and pin back only packages with a real peer conflict or failing gate
 - Keep TypeScript on 6.x until both `@astrojs/check` and `typescript-eslint` publish TypeScript 7-compatible
   peer ranges; never bypass the mismatch with peer overrides
+- Keep `@types/node` on the runtime major pinned in `mise.toml` (`node = "24"`), not npm `latest`; `pnpm outdated`
+  will keep listing the newer major
 - Do not adopt Vite+ (`vite-plus`) or replace ESLint/prettier with oxlint/oxfmt: the 2026-10-11 evaluation found
   `vp dev/build` unusable with Astro, ~0 gain for admin build/tests, and lint/format losing `.astro`, pnpm-policy
   and markdown rules; owner ruled not to switch
@@ -194,6 +196,8 @@ Pipeline order, release concurrency locks, the `deploy-web-snapshot` composite a
 - Because these are plain pnpm scripts, environment variables (`CLOUDFLARE_API_TOKEN`, `FACT_SOURCE_USE_EXISTING_SNAPSHOT`) are inherited by child processes; no pass-through allowlist is needed.
 - A prerequisite owned by one workspace (e.g. apps/web's `fact-source:export`) must stay wired into the script
   that needs it, not hoisted into a shared recursive task.
+- A Cloudflare API `7403` ("account is not valid or is not authorized") from `fact-source:export` with valid local
+  credentials has been transient; retry once before debugging auth.
 
 ### Cloudflare Deploy
 
