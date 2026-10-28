@@ -33,6 +33,7 @@ Standalone admin Cloudflare Worker: API router, D1/R2 CRUD, asset serving. Produ
 - Never run `migrations apply` (or `pnpm -C apps/admin-worker run d1:migrate`) blindly against populated remote D1. It applies every pending migration; a pending `0003_rename_stale_to_archived.sql` rebuilds `characters` and can cascade-delete `commissions`.
 - `wrangler d1 migrations list` only lists unapplied files. Inspect the real remote schema, applied-migration table, row counts, and ID sets first (database `commission-index-admin-data`, binding `DB`, config `wrangler.jsonc`).
 - Remote commands are never part of local validation. Non-interactive runs skip Wrangler's confirmation prompt, so automation needs its own approval gate.
+- Read paths assume every migration in `migrations/` is applied and do no per-request schema probes. Apply (after the checks above) before deploying a worker whose reads depend on a new migration; otherwise those endpoints return 500.
 - D1 restore does not restore R2 bytes, and the two share no transaction. Once new writes are accepted, prefer forward repair over restoring an old D1 snapshot.
 
 ## Tests

@@ -41,7 +41,6 @@
 
 ## Worker + Data
 
-- **概览热路径 schema 探测（PERF-02，待生产核验）**：`adminData.ts:365-379` 的 `hasTable`、`hasCommissionKeywordColumn` 在 `:423,462,553,728,751` 每次请求执行。删除提案在**未合并**分支 `perf/admin-worker-drop-schema-probes`（commit `e410e3d`）；合并前须 owner 在只读生产 D1 上核验 schema（命令见 `HANDOFF.md`），不得盲目合并。
 - **未验证：R2 故障注入 / 真实运行时**：生产等价的隔离 D1/R2 并发创建；R2 get/put/cleanup 各阶段故障注入。原因：需要 Cloudflare 运行时，本地 SQLite + R2 mock 不构成证明。换图在途导出 `not_found` 的修复、角色删除清 R2 均已落地（R2 删除 commit on `chore/handoff-closeout`），但仍缺真实运行时验证。
 
 ## CI + Release

@@ -13,6 +13,10 @@ repeat them. Read both before writing automation.
   scripts must present an Access token.
 - The local worker (`pnpm run dev:admin`) talks to the **real remote D1/R2**. There is no mock or
   dev database; use a dedicated test character and clean up afterwards.
+- Read endpoints assume migrations `0001`–`0005` are applied. They no longer probe the schema per
+  request, so a D1 missing the `commissions.keyword` column or an alias / featured-keyword table
+  returns `500` from bootstrap, aliases, suggestion, or character commissions instead of degrading to
+  empty data. Apply migrations before deploying a worker that reads them.
 
 ---
 

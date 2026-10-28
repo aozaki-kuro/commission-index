@@ -34,10 +34,6 @@ interface ApiState {
   message: string
 }
 
-interface TableInfoRow {
-  name?: string | null
-}
-
 interface CharacterCountRow {
   id: number
   name: string
@@ -368,21 +364,6 @@ async function queryFirstRow<TRow>(
   return rows[0] ?? null
 }
 
-async function hasTable(db: D1DatabaseLike, tableName: string) {
-  const rows = await queryRows<TableInfoRow>(
-    db,
-    'SELECT name FROM sqlite_master WHERE type = ? AND name = ? LIMIT 1',
-    ['table', tableName],
-  )
-
-  return rows[0]?.name === tableName
-}
-
-async function hasCommissionKeywordColumn(db: D1DatabaseLike) {
-  const rows = await queryRows<TableInfoRow>(db, 'PRAGMA table_info(commissions)')
-  return rows.some(row => row.name === 'keyword')
-}
-
 async function loadCharacters(db: D1DatabaseLike): Promise<CharacterRow[]> {
   const rows = await queryRows<CharacterCountRow>(
     db,
@@ -426,32 +407,30 @@ async function loadCreatorAliasesAdminDataFromDatabase(db: D1DatabaseLike): Prom
   })
 
   const aliasMap = new Map<string, string[]>()
-  if (await hasTable(db, 'creator_aliases')) {
-    const aliasRows = await queryRows<CreatorAliasJsonRow>(
-      db,
-      `
-        SELECT
-          creator_name as creatorName,
-          aliases as aliasesJson
-        FROM creator_aliases
-        ORDER BY creator_name ASC
-      `,
-    )
+  const aliasRows = await queryRows<CreatorAliasJsonRow>(
+    db,
+    `
+      SELECT
+        creator_name as creatorName,
+        aliases as aliasesJson
+      FROM creator_aliases
+      ORDER BY creator_name ASC
+    `,
+  )
 
-    aliasRows.forEach((row) => {
-      const creatorName = normalizeCreatorName(row.creatorName)
-      if (!creatorName) {
-        return
-      }
+  aliasRows.forEach((row) => {
+    const creatorName = normalizeCreatorName(row.creatorName)
+    if (!creatorName) {
+      return
+    }
 
-      const mergedAliases = normalizeAliases([
-        ...(aliasMap.get(creatorName) ?? []),
-        ...parseAliasesJson(row.aliasesJson),
-      ])
+    const mergedAliases = normalizeAliases([
+      ...(aliasMap.get(creatorName) ?? []),
+      ...parseAliasesJson(row.aliasesJson),
+    ])
 
-      aliasMap.set(creatorName, mergedAliases)
-    })
-  }
+    aliasMap.set(creatorName, mergedAliases)
+  })
 
   const allCreatorNames = new Set<string>([
     ...creatorCounts.keys(),
@@ -468,10 +447,6 @@ async function loadCreatorAliasesAdminDataFromDatabase(db: D1DatabaseLike): Prom
 
 async function getCharacterAliasesMapFromDatabase(db: D1DatabaseLike) {
   const aliasesByCharacter = new Map<string, { characterName: string, aliases: string[] }>()
-  if (!(await hasTable(db, 'character_aliases'))) {
-    return aliasesByCharacter
-  }
-
   const aliasRows = await queryRows<CharacterAliasJsonRow>(
     db,
     `
@@ -562,10 +537,6 @@ async function loadCharacterAliasesAdminDataFromDatabase(db: D1DatabaseLike): Pr
 
 async function getKeywordAliasesMapFromDatabase(db: D1DatabaseLike) {
   const aliasesByKeyword = new Map<string, { baseKeyword: string, aliases: string[] }>()
-  if (!(await hasTable(db, 'keyword_aliases'))) {
-    return aliasesByKeyword
-  }
-
   const aliasRows = await queryRows<KeywordAliasJsonRow>(
     db,
     `
@@ -604,28 +575,26 @@ async function getKeywordAliasesMapFromDatabase(db: D1DatabaseLike) {
 async function loadKeywordAliasesAdminDataFromDatabase(db: D1DatabaseLike): Promise<KeywordAliasRow[]> {
   const keywordCounts = new Map<string, { baseKeyword: string, commissionCount: number }>()
 
-  if (await hasCommissionKeywordColumn(db)) {
-    const keywordRows = await queryRows<KeywordCountRow>(
-      db,
-      'SELECT keyword FROM commissions',
-    )
+  const keywordRows = await queryRows<KeywordCountRow>(
+    db,
+    'SELECT keyword FROM commissions',
+  )
 
-    keywordRows.forEach((row) => {
-      const uniqueTerms = new Set(splitKeywordTerms(row.keyword))
-      uniqueTerms.forEach((term) => {
-        const key = normalizeKeywordAliasKey(term)
-        if (!key) {
-          return
-        }
+  keywordRows.forEach((row) => {
+    const uniqueTerms = new Set(splitKeywordTerms(row.keyword))
+    uniqueTerms.forEach((term) => {
+      const key = normalizeKeywordAliasKey(term)
+      if (!key) {
+        return
+      }
 
-        const previous = keywordCounts.get(key)
-        keywordCounts.set(key, {
-          baseKeyword: previous?.baseKeyword ?? term,
-          commissionCount: (previous?.commissionCount ?? 0) + 1,
-        })
+      const previous = keywordCounts.get(key)
+      keywordCounts.set(key, {
+        baseKeyword: previous?.baseKeyword ?? term,
+        commissionCount: (previous?.commissionCount ?? 0) + 1,
       })
     })
-  }
+  })
 
   const aliasMap = await getKeywordAliasesMapFromDatabase(db)
   const allKeys = new Set<string>([
@@ -649,8 +618,6 @@ function normalizeAliasPriorityKey(value: string) {
 
 async function loadAdminBootstrapData(db: D1DatabaseLike): Promise<AdminBootstrapData> {
   const characters = await loadCharacters(db)
-  const hasKeywordColumn = await hasCommissionKeywordColumn(db)
-  const keywordSelect = hasKeywordColumn ? 'commissions.keyword as keyword' : 'NULL as keyword'
   const rawRows = await queryRows<BootstrapCommissionRow>(
     db,
     `
@@ -667,7 +634,7 @@ async function loadAdminBootstrapData(db: D1DatabaseLike): Promise<AdminBootstra
         commissions.links as links,
         commissions.design as design,
         commissions.description as description,
-        ${keywordSelect},
+        commissions.keyword as keyword,
         commissions.hidden as hidden
       FROM commissions
       JOIN characters ON characters.id = commissions.character_id
@@ -742,7 +709,7 @@ async function loadHomeFeaturedSearchKeywordsFromDatabase(
   db: D1DatabaseLike,
   limit = MAX_FEATURED_SEARCH_KEYWORDS,
 ) {
-  if (limit <= 0 || !(await hasTable(db, 'home_featured_search_keywords'))) {
+  if (limit <= 0) {
     return []
   }
 
@@ -765,10 +732,6 @@ async function loadHomeFeaturedSearchKeywordsFromDatabase(
 
 async function getCreatorAliasesMapFromDatabase(db: D1DatabaseLike) {
   const aliasesByCreator = new Map<string, string[]>()
-  if (!(await hasTable(db, 'creator_aliases'))) {
-    return aliasesByCreator
-  }
-
   const aliasRows = await queryRows<CreatorAliasJsonRow>(
     db,
     `
@@ -797,8 +760,6 @@ async function getCreatorAliasesMapFromDatabase(db: D1DatabaseLike) {
 }
 
 async function loadPopularKeywordOptions(db: D1DatabaseLike) {
-  const hasKeywordColumn = await hasCommissionKeywordColumn(db)
-  const keywordSelect = hasKeywordColumn ? 'commissions.keyword as keyword' : 'NULL as keyword'
   const commissionRows = await queryRows<SuggestionCommissionRow>(
     db,
     `
@@ -809,7 +770,7 @@ async function loadPopularKeywordOptions(db: D1DatabaseLike) {
         commissions.file_name as fileName,
         commissions.design as design,
         commissions.description as description,
-        ${keywordSelect}
+        commissions.keyword as keyword
       FROM commissions
       JOIN characters ON characters.id = commissions.character_id
     `,
@@ -854,8 +815,6 @@ async function loadCharacterCommissions(
   db: D1DatabaseLike,
   characterId: number,
 ): Promise<CommissionRow[]> {
-  const hasKeywordColumn = await hasCommissionKeywordColumn(db)
-  const keywordSelect = hasKeywordColumn ? 'commissions.keyword as keyword,' : 'NULL as keyword,'
   const rows = await queryRows<CommissionDetailRow>(
     db,
     `
@@ -872,7 +831,7 @@ async function loadCharacterCommissions(
         commissions.links as links,
         commissions.design as design,
         commissions.description as description,
-        ${keywordSelect}
+        commissions.keyword as keyword,
         commissions.hidden as hidden
       FROM commissions
       JOIN characters ON characters.id = commissions.character_id

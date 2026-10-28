@@ -68,7 +68,6 @@
   - `/admin`、`/api/admin/health` 返回 404。
   - 移动端冷启动 LCP 2.19 s（4x CPU + Slow 4G，未确认访客），CLS 0。trace 提示图片可省约 305 kB（ImageDelivery），未处理。
   - CJK 搜索：`七市` 21 条，`七市 Studio` 1 条，`七市 !Studio` 20 条，结果一致。
-- `perf/admin-worker-drop-schema-probes` 的分支引用曾丢失（提交还在），已重建，指向 `e410e3d`，仅本地。
 - `.claude/worktrees/agent-a9f0bf29c700a7946`（WP-D spike）有未提交改动，原样保留。
 - tmux 会话 `dev`（10-10 创建）一直开着，不是本轮的。
 
@@ -95,6 +94,5 @@
 - 验证 WP-C1 / C2 的真实 Actions 路径（触发一次 `rebuild`，看「跳过验证」摘要和源图缓存 save 是否被跳过）。
 - WP-C3（`web` 与 `build` 并行）：先量真实耗时再决定。
 - WP-D（admin dev 用 `@cloudflare/vite-plugin`）：等 owner 在 tmux 里对比 Ctrl+C / Enter 症状，再删 spike worktree。
-- PERF-02 生产只读核验前不得合并分支 `perf/admin-worker-drop-schema-probes`（`e410e3d`）。
 - master branch protection（P11）需在 GitHub 设置里确认。
 - `apps/admin-worker/scripts/listR2Orphans.ts` 首次运行必须由 owner 手动 dry-run，agent 不得运行。
