@@ -10,9 +10,6 @@ export const MAX_FEATURED_KEYWORDS = 6
 export const MAX_VISIBLE_POPULAR_KEYWORDS = 6
 export const COMMISSION_ENTRY_SELECTOR = '[data-commission-entry="true"]'
 
-// Probability of picking from the active pool when both pools are non-empty
-export const ACTIVE_WEIGHT = 0.75
-
 const HOME_ROOT_ID = '--------Commissions--------'
 const HOME_SEARCH_VERSION_URL = '/search/home-search-version.json'
 
@@ -322,61 +319,5 @@ export function buildPopularKeywordPoolFromEntries(entries: CommissionSearchEntr
     entries
       .map(entry => entry.searchSuggest ?? '')
       .filter((suggestText): suggestText is string => Boolean(suggestText)),
-  )
-}
-
-function cryptoRandomIndex(length: number) {
-  try {
-    const buf = new Uint32Array(1)
-    crypto.getRandomValues(buf)
-    return buf[0] % length
-  }
-  catch {
-    return Math.floor(Math.random() * length)
-  }
-}
-
-function extractSectionIdFromDomKey(domKey: string) {
-  const separatorIndex = domKey.indexOf('::')
-  return separatorIndex > 0
-    ? domKey.slice(0, separatorIndex)
-    : ''
-}
-
-export function pickWeightedEntry<T extends CommissionSearchEntrySource>(
-  pool: T[],
-): T {
-  if (pool.length <= 1)
-    return pool[cryptoRandomIndex(pool.length)]
-
-  const active: T[] = []
-  const rest: T[] = []
-
-  for (const entry of pool) {
-    const sectionId = extractSectionIdFromDomKey(entry.domKey)
-    if (sectionId && document.getElementById(sectionId)?.dataset.characterStatus === 'active')
-      active.push(entry)
-    else
-      rest.push(entry)
-  }
-
-  if (active.length === 0)
-    return rest[cryptoRandomIndex(rest.length)]
-  if (rest.length === 0)
-    return active[cryptoRandomIndex(active.length)]
-
-  const pickActive = cryptoRandomIndex(100) < ACTIVE_WEIGHT * 100
-  const chosen = pickActive ? active : rest
-  return chosen[cryptoRandomIndex(chosen.length)]
-}
-
-export function scrollAndAnimateEntry(element: HTMLElement) {
-  element.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  element.animate(
-    [
-      { boxShadow: '0 0 0 3px rgba(107,114,128,0.5)' },
-      { boxShadow: '0 0 0 12px rgba(107,114,128,0)' },
-    ],
-    { duration: 1100, easing: 'ease-out' },
   )
 }

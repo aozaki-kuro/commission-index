@@ -74,7 +74,7 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   reached entries against each view panel's server-rendered `data-total-entries` — active characters only for the
   character view (archived stays out), every entry for the timeline. Keep that count equal to what the panel
   renders statically. Silent while `?q=` filters the list. `reached_by` turns `jump` for the rest of the mount once
-  a nav character link, shuffle (`markScrollJump`) or a deep-linked hash moved the reader; a new jump path must call
+  a nav character link or a deep-linked hash moved the reader (`markScrollJump`); a new jump path must call
   `markScrollJump` too.
 - **Analytics events are decision-driven:** `@lib/analytics/events.ts` keeps only events a pending question or a
   standing signal reads (depth funnel, first-screen actions, nav jumps that inflate depth, `age_gate`
@@ -94,7 +94,8 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   `url_query`. Before 2026-11-01 it was always `url_query` (the model never got the real source), so older values
   are meaningless. `popular_keyword_clicked.from` is `row` (featured chips) or `all` (browse popover), added
   2026-11-01. Typed search was ~0.5% of sessions over Aug–Oct 2026, versus ~2.4% for keyword chips; invest in click
-  entry points, not query syntax.
+  entry points, not query syntax. The shuffle ("I feel lucky") button was removed on 2026-11-01 after
+  `shuffle_clicked` reached 0.28% of sessions over the same window.
 - **Unpublished interest:** the "want this" button keys its localStorage flag and `i_want_to_see_it { commission }`
   on `commission.publicId`; admin joins vote counts on that id (`GET /api/admin/interest`). Never key it on
   character name or date — same-day works collided and renames orphaned the votes.
