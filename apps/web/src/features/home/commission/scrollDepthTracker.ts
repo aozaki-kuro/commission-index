@@ -9,11 +9,19 @@ const DESKTOP_LAYOUT_QUERY = '(min-width: 64rem)'
 // 5/10 split the first quarter, where most sessions stop, into "barely scrolled" and "left early".
 export const SCROLL_DEPTH_MILESTONES = [5, 10, 25, 50, 75, 100] as const
 
+// Nav links, shuffle and deep links move the reader without scrolling past the entries in between.
+const SCROLL_JUMP_EVENT = 'commission:scroll-jump'
+
+export function markScrollJump(win: Window = window) {
+  win.dispatchEvent(new Event(SCROLL_JUMP_EVENT))
+}
+
 export interface ScrollDepthEventProperties {
   depth: (typeof SCROLL_DEPTH_MILESTONES)[number]
   view_mode: string
   layout: 'desktop' | 'mobile'
-  total_entries: number
+  // Sticky per mount: once a jump happened, later milestones no longer prove the reader scrolled there.
+  reached_by: 'scroll' | 'jump'
 }
 
 interface MountScrollDepthTrackerOptions {
@@ -47,6 +55,7 @@ export function mountScrollDepthTracker({
 }: MountScrollDepthTrackerOptions) {
   const reportedByViewMode = new Map<string, Set<number>>()
   let rafId: number | null = null
+  let jumped = win.location.hash !== ''
 
   const update = () => {
     rafId = null
@@ -80,7 +89,9 @@ export function mountScrollDepthTracker({
         depth,
         view_mode: viewMode,
         layout,
-        total_entries: total,
+        reached_by: jumped
+          ? 'jump'
+          : 'scroll',
       })
     }
   }
@@ -91,10 +102,16 @@ export function mountScrollDepthTracker({
     rafId = win.requestAnimationFrame(update)
   }
 
+  const onJump = () => {
+    jumped = true
+  }
+
   win.addEventListener('scroll', onScroll, { passive: true })
+  win.addEventListener(SCROLL_JUMP_EVENT, onJump)
 
   return () => {
     win.removeEventListener('scroll', onScroll)
+    win.removeEventListener(SCROLL_JUMP_EVENT, onJump)
     if (rafId !== null)
       win.cancelAnimationFrame(rafId)
     rafId = null

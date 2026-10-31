@@ -14,9 +14,6 @@ function renderMenu() {
       data-mobile-hamburger="true"
       data-mobile-hamburger-mounted="false"
       data-mobile-hamburger-open="false"
-      data-mobile-hamburger-active-count="2"
-      data-mobile-hamburger-archived-count="1"
-      data-mobile-hamburger-timeline-count="3"
       data-mobile-hamburger-open-label="Open navigation menu"
       data-mobile-hamburger-close-label="Close navigation menu"
     >
@@ -175,9 +172,8 @@ describe('mobileHamburgerMenu', () => {
     expect(jumpToSearch).toHaveBeenCalledWith({ topGap: 40, focusMode: 'immediate' })
     expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.sidebarNavUsed, {
       source: 'search_link',
-      nav_surface: 'hamburger',
+      layout: 'mobile',
       view_mode: 'character',
-      item_count: 3,
     })
 
     vi.advanceTimersByTime(MENU_TRANSITION_MS)
@@ -250,11 +246,8 @@ describe('mobileHamburgerMenu', () => {
     expect(scrollToHashWithoutWrite).toHaveBeenCalledWith('#archived-item')
     expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.sidebarNavUsed, {
       source: 'character_link',
-      nav_surface: 'hamburger',
+      layout: 'mobile',
       view_mode: 'character',
-      item_count: 3,
-      character_name: 'Archived',
-      section_id: 'archived-item',
     })
     expect(getRoot()?.dataset.mobileHamburgerOpen).toBe('false')
 
