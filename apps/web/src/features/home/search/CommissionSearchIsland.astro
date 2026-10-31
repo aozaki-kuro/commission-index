@@ -26,6 +26,9 @@ const browseTermClass = `
   dark:hover:text-white
   dark:focus-visible:outline-gray-300
 `
+// The entrance stagger counts rows across both sections, so Archived continues the cascade instead of restarting it.
+const browseRowOffsets = keywordBrowseSections.map((_, index) =>
+  keywordBrowseSections.slice(0, index).reduce((count, section) => count + section.groups.length, 0))
 ---
 
 <section
@@ -408,7 +411,7 @@ const browseTermClass = `
         md:grid-cols-2
       "
       >
-        {keywordBrowseSections.map(section => (
+        {keywordBrowseSections.map((section, sectionIndex) => (
           <section>
             <h2 class="
               mb-3.5 text-xs font-normal tracking-wider text-gray-500 uppercase
@@ -418,8 +421,11 @@ const browseTermClass = `
               {section.label}
             </h2>
             <ul class="space-y-5">
-              {section.groups.map(group => (
-                <li>
+              {section.groups.map((group, groupIndex) => (
+                <li
+                  data-browse-row
+                  style={`--i: ${browseRowOffsets[sectionIndex] + groupIndex}`}
+                >
                   <button
                     type="button"
                     data-browse-term={group.character}
@@ -599,6 +605,29 @@ const browseTermClass = `
         background: rgb(0 0 0 / 0);
         backdrop-filter: blur(0);
       }
+    }
+  }
+
+  /* Character rows cascade in on open like apple.com's nav flyout (its 0.32s, 80ms + 20ms per row, 4px drop).
+     The closed popover is display: none, so @starting-style replays on every open; closing stays a flat fade. */
+  [data-browse-row] {
+    transition:
+      opacity 320ms cubic-bezier(0.4, 0, 0.6, 1),
+      transform 320ms cubic-bezier(0.4, 0, 0.6, 1);
+    transition-delay: calc(80ms + min(var(--i, 0), 12) * 20ms);
+  }
+
+  @starting-style {
+    #search-browse-popover:popover-open [data-browse-row] {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-browse-row] {
+      transition-property: opacity;
+      transition-delay: 0ms;
     }
   }
 </style>
