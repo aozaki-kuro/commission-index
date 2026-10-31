@@ -73,6 +73,9 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   later server-arrival `timestamp_ms`, and milestones crossed in one scroll update are sent together, so later steps
   undercount. Renaming an event or changing a property's values breaks comparison with older data; adding or removing
   a property does not.
+- **Unpublished interest:** the "want this" button keys its localStorage flag and `i_want_to_see_it { commission }`
+  on `commission.publicId`; admin joins vote counts on that id (`GET /api/admin/interest`). Never key it on
+  character name or date — same-day works collided and renames orphaned the votes.
 - **Age gate first frame:** an inline head script in `HomePage.astro` sets `html[data-age-gate-initial=open]` (and `data-age-gate-open`) before paint when `warning/ageGate.ts` says the gate must show; CSS in `AgeGateScript.astro` renders it opaque with no animation. `mountAgeGate` removes the attribute and suppresses the entrance animation inline until the next state change. ClientRouter's `swapRootAttributes` resets `<html>` attributes from the server HTML on every swap, so the attribute cannot go stale
 - **Age gate persistence is best-effort:** unreadable or unwritable `localStorage` shows the gate on every full load (the inline head script and the module agree). A confirmation that cannot be persisted is remembered in memory via the `window[CONFIRMED_IN_MEMORY_FLAG]` flag (`warning/ageGate.ts`), which survives ClientRouter soft navigations (language switches) and resets on a full load. ClientRouter does not re-run an identical inline head script on swap, and the flag keeps the first frame closed even if it did
 - **Hidden DOM + observers:** sections rendered with `display: none` must not be marked "entered viewport"

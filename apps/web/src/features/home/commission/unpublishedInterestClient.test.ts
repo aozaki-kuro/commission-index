@@ -76,7 +76,7 @@ describe('unpublishedInterestClient', () => {
     button?.click()
 
     expect(trackEvent).toHaveBeenCalledTimes(1)
-    expect(trackEvent).toHaveBeenCalledWith({ sub_event: 'artoria-pendragon-20240203' })
+    expect(trackEvent).toHaveBeenCalledWith({ commission: 'artoria-pendragon-20240203' })
     expect(button?.disabled).toBe(true)
     expect(button?.getAttribute('aria-pressed')).toBe('true')
     expect(button?.title).toBe('Already recorded')
@@ -122,7 +122,7 @@ describe('unpublishedInterestClient', () => {
     button.click()
 
     expect(trackEvent).toHaveBeenCalledTimes(1)
-    expect(trackEvent).toHaveBeenCalledWith({ sub_event: 'mash-kyrielight-20240311' })
+    expect(trackEvent).toHaveBeenCalledWith({ commission: 'mash-kyrielight-20240311' })
     expect(button?.disabled).toBe(true)
     expect(button.getAttribute('aria-pressed')).toBe('true')
     expect(button.querySelector('[data-commission-interest-label]')?.textContent).toBe('Recorded')
@@ -151,7 +151,7 @@ describe('unpublishedInterestClient', () => {
     dateButton.click()
 
     expect(trackEvent).toHaveBeenCalledTimes(1)
-    expect(trackEvent).toHaveBeenCalledWith({ sub_event: 'shared-20240315' })
+    expect(trackEvent).toHaveBeenCalledWith({ commission: 'shared-20240315' })
 
     for (const button of buttons) {
       expect(button?.disabled).toBe(true)
@@ -192,7 +192,7 @@ describe('unpublishedInterestClient', () => {
       throw new Error('expected deferred interest button')
 
     expect(trackEvent).toHaveBeenCalledTimes(1)
-    expect(trackEvent).toHaveBeenCalledWith({ sub_event: 'deferred-20240316' })
+    expect(trackEvent).toHaveBeenCalledWith({ commission: 'deferred-20240316' })
     expect(deferredButton.disabled).toBe(true)
     expect(deferredButton.getAttribute('aria-pressed')).toBe('true')
     expect(deferredButton.title).toBe('Already recorded')

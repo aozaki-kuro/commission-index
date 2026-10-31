@@ -5,7 +5,8 @@ const LABEL_SELECTOR = '[data-commission-interest-label]'
 const RECORDED_ICON_SELECTOR = '[data-commission-interest-icon="recorded"]'
 
 interface TrackProperties {
-  sub_event: string
+  // publicId: the stable identity admin joins vote counts on.
+  commission: string
 }
 
 interface MountUnpublishedInterestButtonsOptions {
@@ -159,7 +160,7 @@ export function mountUnpublishedInterestButtons({
 
     writeRecordedState(commissionKey, storage)
     syncButtonsForKey({ commissionKey, doc, recorded: true })
-    trackEvent?.({ sub_event: commissionKey })
+    trackEvent?.({ commission: commissionKey })
   }
 
   for (const button of buttons) {
