@@ -104,10 +104,10 @@ curl https://admin.crystallize.cc/api/admin/interest
 
 ### `GET /api/admin/link-clicks`
 
-Read-only proxy of Rybbit's automatic outbound-link clicks for the last 365 days (UTC). No `DB` / `IMAGES`
+Read-only proxy of Rybbit's automatic outbound-link clicks for the current calendar year to date (UTC). No `DB` / `IMAGES`
 required. Requires the `RYBBIT_API_KEY` worker secret.
 
-**`200`:** `{ "since": "2025-10-31", "until": "2026-10-31", "clicks": [{ "url": "https://…", "count": 42 }] }` —
+**`200`:** `{ "since": "2026-01-01", "until": "2026-10-31", "clicks": [{ "url": "https://…", "count": 42 }] }` —
 raw href and click count, most clicked first, at most 1000 URLs (Rybbit's limit). URLs are not matched to
 commissions here; the admin overview joins them to commission `links`.
 

@@ -379,7 +379,7 @@ describe('admin worker CRUD contract routing', () => {
     expect((await call({ RYBBIT_API_KEY: 'secret-key' })).status).toBe(502)
   })
 
-  it('proxies the last year of Rybbit outbound clicks and shares the interest failure contract', async () => {
+  it('proxies this calendar year of Rybbit outbound clicks and shares the interest failure contract', async () => {
     const rybbitFetch = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => Response.json({
       data: [
         { url: 'https://www.pixiv.net/artworks/1', count: 12, lastClicked: '2026-10-30 10:00:00' },
@@ -397,7 +397,7 @@ describe('admin worker CRUD contract routing', () => {
     expect(body.clicks).toEqual([
       { url: 'https://www.pixiv.net/artworks/1', count: 12 },
     ])
-    expect(Date.parse(body.until) - Date.parse(body.since)).toBe(365 * 86_400_000)
+    expect(body.since).toBe(`${body.until.slice(0, 4)}-01-01`)
     const url = new URL(String(rybbitFetch.mock.calls[0]?.[0]))
     expect(url.pathname).toBe('/api/sites/3/events/outbound')
     expect(Object.fromEntries(url.searchParams)).toEqual({ start_date: body.since, end_date: body.until, time_zone: 'UTC' })
