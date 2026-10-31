@@ -1,12 +1,14 @@
-import type { AdminOverviewPayload } from '../lib/adminApi'
+import type { AdminCommissionSearchRow } from '@commission-index/domain'
+import type { AdminInterestPayload, AdminOverviewPayload } from '../lib/adminApi'
 import { useCallback, useEffect, useReducer, useState, useSyncExternalStore } from 'react'
 import { adminActionLinkStyles } from '../app/ui'
 import { AdminBootstrapStatus } from '../components/AdminBootstrapStatus'
 import { AdminInternalLink } from '../components/AdminInternalLink'
 import { FloatingNotice } from '../components/FloatingNotice'
-import { fetchAdminOverviewPayload, getAdminApiBaseUrl, getAdminApiUrl, readCachedAdminJson } from '../lib/adminApi'
+import { AdminInterestNotConfiguredError, fetchAdminInterest, fetchAdminOverviewPayload, getAdminApiBaseUrl, getAdminApiUrl, readCachedAdminJson } from '../lib/adminApi'
 import { compareCommissionsByDate, formatCommissionPublicId, getCommissionTitle } from '../lib/commissionPresentation'
 import { isPendingRebuild, subscribeToPendingRebuild } from '../lib/pendingRebuildSignal'
+import { rankUnpublishedInterest } from '../lib/unpublishedInterest'
 import { dismissWebsiteRebuildNotice, getServerWebsiteRebuildState, getWebsiteRebuildState, queueWebsiteRebuild, subscribeToWebsiteRebuild } from '../lib/websiteRebuild'
 
 interface OverviewState {
@@ -33,6 +35,36 @@ function overviewReducer(state: OverviewState, action: OverviewAction): Overview
   }
 }
 
+interface InterestState {
+  status: 'loading' | 'ready' | 'not-connected' | 'error'
+  payload: AdminInterestPayload | null
+}
+
+function createInitialInterestState(): InterestState {
+  const payload = readCachedAdminJson<AdminInterestPayload>('/api/admin/interest')
+  return {
+    status: payload ? 'ready' : 'loading',
+    payload,
+  }
+}
+
+type InterestAction
+  = { type: 'loading' }
+    | { type: 'loaded', payload: AdminInterestPayload }
+    | { type: 'failed', status: 'not-connected' | 'error' }
+
+function interestReducer(state: InterestState, action: InterestAction): InterestState {
+  switch (action.type) {
+    // A cached ranking stays visible while it refreshes in the background.
+    case 'loading': return state.payload
+      ? state
+      : { ...state, status: 'loading' }
+    case 'loaded': return { status: 'ready', payload: action.payload }
+    case 'failed': return { ...state, status: action.status }
+  }
+}
+
+const placeholderStyles = 'rounded-lg border border-dashed border-gray-300 px-4 py-8 text-sm leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400'
 const secondaryLinkStyles = 'rounded-md py-1 text-sm text-gray-600 underline underline-offset-4 transition hover:text-gray-950 focus-visible:outline-2 focus-visible:outline-offset-4 dark:text-gray-300 dark:hover:text-white'
 const utilityButtonStyles = 'inline-flex h-10 pointer-coarse:h-11 shrink-0 items-center justify-center rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-700 transition motion-safe:enabled:active:scale-[0.98] hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800'
 
@@ -43,6 +75,8 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
   const isDispatching = rebuild.status === 'pending'
   const hasPending = useSyncExternalStore(subscribeToPendingRebuild, isPendingRebuild, () => false)
   const reload = useCallback(() => setReloadToken(value => value + 1), [])
+  const [interest, dispatchInterest] = useReducer(interestReducer, undefined, createInitialInterestState)
+  const [interestReloadToken, setInterestReloadToken] = useState(0)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -64,6 +98,28 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
       })
     return () => controller.abort()
   }, [reloadToken])
+
+  // Independent of the overview payload: a missing analytics key or a Rybbit outage must not fail the page.
+  useEffect(() => {
+    const controller = new AbortController()
+    dispatchInterest({ type: 'loading' })
+    void fetchAdminInterest(controller.signal)
+      .then((payload) => {
+        if (!controller.signal.aborted)
+          dispatchInterest({ type: 'loaded', payload })
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          dispatchInterest({
+            type: 'failed',
+            status: error instanceof AdminInterestNotConfiguredError
+              ? 'not-connected'
+              : 'error',
+          })
+        }
+      })
+    return () => controller.abort()
+  }, [reloadToken, interestReloadToken])
 
   const { payload } = state
   const characters = payload?.bootstrap.characters
@@ -95,6 +151,9 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
     },
   ]
   const latest = payload?.bootstrap.commissionSearchRows.toSorted(compareCommissionsByDate).slice(0, 10) ?? []
+  const mostWanted = payload && interest.payload
+    ? rankUnpublishedInterest(payload.bootstrap.commissionSearchRows, interest.payload.counts)
+    : []
 
   return (
     <div className="grid min-w-0 items-start gap-7 @min-[50rem]/workspace:grid-cols-[minmax(0,1fr)_17rem] @min-[50rem]/workspace:grid-rows-[auto_1fr] @min-[50rem]/workspace:gap-x-8">
@@ -206,46 +265,92 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
         </section>
       </div>
 
-      <section aria-labelledby="overview-latest" className="min-w-0 space-y-3 @min-[50rem]/workspace:col-start-1 @min-[50rem]/workspace:row-start-2">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 id="overview-latest" className="text-base font-semibold text-gray-900 dark:text-gray-100">Latest commissions</h2>
-          <AdminInternalLink href="/edit" onNavigate={onNavigate} className={secondaryLinkStyles}>Open edit view</AdminInternalLink>
-        </div>
-        {latest.length > 0
-          ? (
-              <ol className="divide-y divide-gray-200 dark:divide-gray-800">
-                {latest.map(item => (
-                  <li key={item.id} className="flex min-w-0 items-center gap-3 py-2.5 sm:gap-4">
-                    <img
-                      src={getAdminApiUrl(`/api/admin/commissions/${item.id}/source-image`)}
-                      alt=""
-                      loading="lazy"
-                      width={128}
-                      height={64}
-                      className="h-14 w-20 shrink-0 rounded-md bg-gray-100 object-cover sm:w-24 dark:bg-gray-800"
-                    />
-                    <div className="min-w-0 flex-1 space-y-1.5">
-                      <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-100" title={getCommissionTitle(item)}>{getCommissionTitle(item)}</p>
-                      <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-                        <span className="min-w-0 truncate">{item.characterName}</span>
-                        <span className="shrink-0 tabular-nums" title={item.publicId}>
-                          #
-                          {formatCommissionPublicId(item.publicId)}
-                        </span>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            )
-          : (
-              <p className="rounded-lg border border-dashed border-gray-300 px-4 py-8 text-sm leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400">
-                {payload
-                  ? 'No commissions yet. Create your first commission above.'
-                  : state.isLoading ? 'Loading commissions…' : 'Commissions are unavailable. Retry loading the overview.'}
-              </p>
-            )}
-      </section>
+      <div className="min-w-0 space-y-7 @min-[50rem]/workspace:col-start-1 @min-[50rem]/workspace:row-start-2">
+        <section aria-labelledby="overview-latest" className="min-w-0 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="overview-latest" className="text-base font-semibold text-gray-900 dark:text-gray-100">Latest commissions</h2>
+            <AdminInternalLink href="/edit" onNavigate={onNavigate} className={secondaryLinkStyles}>Open edit view</AdminInternalLink>
+          </div>
+          {latest.length > 0
+            ? (
+                <ol className="divide-y divide-gray-200 dark:divide-gray-800">
+                  {latest.map(item => <CommissionListItem key={item.id} item={item} />)}
+                </ol>
+              )
+            : (
+                <p className={placeholderStyles}>
+                  {payload
+                    ? 'No commissions yet. Create your first commission above.'
+                    : state.isLoading ? 'Loading commissions…' : 'Commissions are unavailable. Retry loading the overview.'}
+                </p>
+              )}
+        </section>
+
+        <section aria-labelledby="overview-most-wanted" aria-busy={interest.status === 'loading' || (!payload && state.isLoading)} className="min-w-0 space-y-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <h2 id="overview-most-wanted" className="text-base font-semibold text-gray-900 dark:text-gray-100">Most wanted</h2>
+            {interest.payload && <p className="text-xs tabular-nums text-gray-500 dark:text-gray-400">{`Votes since ${interest.payload.since}`}</p>}
+          </div>
+          {mostWanted.length > 0
+            ? (
+                <ol className="divide-y divide-gray-200 dark:divide-gray-800">
+                  {mostWanted.map(entry => <CommissionListItem key={entry.row.id} item={entry.row} votes={entry.votes} />)}
+                </ol>
+              )
+            : interest.status === 'error'
+              ? (
+                  <div role="alert" className={`${placeholderStyles} flex flex-wrap items-center justify-between gap-3`}>
+                    <p>Could not load visitor votes.</p>
+                    <button type="button" onClick={() => setInterestReloadToken(value => value + 1)} className={`${utilityButtonStyles} min-w-28`}>Try again</button>
+                  </div>
+                )
+              : (
+                  <p className={placeholderStyles}>
+                    {interest.status === 'not-connected'
+                      ? 'Visitor analytics is not connected. Votes appear once the worker has a Rybbit API key.'
+                      : interest.status === 'loading' || (!payload && state.isLoading)
+                        ? 'Loading votes…'
+                        : payload
+                          ? 'No votes yet.'
+                          : 'Votes are unavailable. Retry loading the overview.'}
+                  </p>
+                )}
+        </section>
+      </div>
     </div>
+  )
+}
+
+function CommissionListItem({ item, votes }: { item: AdminCommissionSearchRow, votes?: number }) {
+  return (
+    <li className="flex min-w-0 items-center gap-3 py-2.5 sm:gap-4">
+      <img
+        src={getAdminApiUrl(`/api/admin/commissions/${item.id}/source-image`)}
+        alt=""
+        loading="lazy"
+        width={128}
+        height={64}
+        className="h-14 w-20 shrink-0 rounded-md bg-gray-100 object-cover sm:w-24 dark:bg-gray-800"
+      />
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <div className="flex min-w-0 items-baseline justify-between gap-3">
+          <p className="min-w-0 truncate text-sm font-medium text-gray-800 dark:text-gray-100" title={getCommissionTitle(item)}>{getCommissionTitle(item)}</p>
+          {votes !== undefined && (
+            <p className="shrink-0 text-sm font-medium tabular-nums text-gray-900 dark:text-gray-100">
+              {`${votes} ${votes === 1
+                ? 'vote'
+                : 'votes'}`}
+            </p>
+          )}
+        </div>
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+          <span className="min-w-0 truncate">{item.characterName}</span>
+          <span className="shrink-0 tabular-nums" title={item.publicId}>
+            #
+            {formatCommissionPublicId(item.publicId)}
+          </span>
+        </div>
+      </div>
+    </li>
   )
 }

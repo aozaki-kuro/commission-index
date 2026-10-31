@@ -33,13 +33,13 @@ directly. All JSON responses send `Cache-Control: no-store`.
 
 **Status codes.**
 
-| Status | Meaning                                                                                                     |
-| ------ | ----------------------------------------------------------------------------------------------------------- |
-| `400`  | Validation failure, **and** any failure inside a mutation (including D1 errors and missing rows)            |
-| `404`  | Unmatched route; unresolved source image                                                                    |
-| `500`  | Failure while loading a `GET` payload (bootstrap, aliases, suggestion, character commissions, source image) |
-| `502`  | `POST /rebuild` could not reach or was rejected by GitHub                                                   |
-| `503`  | Missing `DB` / `IMAGES` binding, or missing `GITHUB_DISPATCH_TOKEN`                                         |
+| Status | Meaning                                                                                                        |
+| ------ | -------------------------------------------------------------------------------------------------------------- |
+| `400`  | Validation failure, **and** any failure inside a mutation (including D1 errors and missing rows)               |
+| `404`  | Unmatched route; unresolved source image                                                                       |
+| `500`  | Failure while loading a `GET` payload (bootstrap, aliases, suggestion, character commissions, source image)    |
+| `502`  | `POST /rebuild` could not reach or was rejected by GitHub; `GET /interest` could not get a valid Rybbit answer |
+| `503`  | Missing `DB` / `IMAGES` binding, or missing `GITHUB_DISPATCH_TOKEN` / `RYBBIT_API_KEY`                         |
 
 Mutation wrappers convert every thrown error into `400` with the error message (for example a D1
 `UNIQUE` violation or `D1 write operation failed.`), so a mutation never returns `500` in practice.
@@ -84,6 +84,22 @@ failure reaching GitHub.
 
 ```bash
 curl -X POST https://admin.crystallize.cc/api/admin/rebuild
+```
+
+### `GET /api/admin/interest`
+
+Read-only proxy of Rybbit's `i_want_to_see_it` event properties: how many visitors asked to see each
+unpublished commission. No `DB` / `IMAGES` required. Requires the `RYBBIT_API_KEY` worker secret.
+
+**`200`:** `{ "since": "2026-10-31", "counts": { "<publicId>": 12 } }` — counts of events whose `commission`
+property equals the commission's `publicId`, from `since` through today (UTC). Works with no votes are absent.
+
+**Errors:** `503` key not configured (`RYBBIT_API_KEY is not configured on the worker.`); `502` Rybbit
+returned a non-2xx status (`Rybbit API returned <status>`), a malformed body, or was unreachable
+(`Could not reach Rybbit`).
+
+```bash
+curl https://admin.crystallize.cc/api/admin/interest
 ```
 
 ---

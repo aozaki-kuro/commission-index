@@ -27,6 +27,8 @@ vi.mock('./adminApi', () => ({
     aliases: { characterAliases: [], creatorAliases: [], keywordAliases: [] },
     suggestion: { featuredKeywords: [] },
   }),
+  fetchAdminInterest: async () => ({ since: '2026-10-31', counts: {} }),
+  AdminInterestNotConfiguredError: class extends Error {},
 }))
 vi.mock('./liveBuildInfo', () => ({
   fetchLiveBuildInfo: api.fetchBuildInfo,
