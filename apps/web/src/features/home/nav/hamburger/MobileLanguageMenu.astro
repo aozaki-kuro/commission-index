@@ -47,14 +47,9 @@ const backdropStyle = {
 
       <ul
         data-mobile-language-menu-panel="true"
-        style={backdropStyle}
         class="
-          pointer-events-none absolute right-4 bottom-full z-95 mb-3 w-48
-          origin-bottom-right translate-y-1 scale-95 space-y-1 rounded-xl border
-          border-white/20 bg-white/80 p-2 opacity-0
-          shadow-[0_8px_30px_rgb(0,0,0,0.12)] transition-[opacity,transform]
-          duration-220 ease-out
-          dark:bg-black/80
+          menu-glass pointer-events-none absolute right-4 bottom-full z-95 mb-3 w-48
+          origin-bottom-right translate-y-1 scale-95 space-y-1 p-2 opacity-0
         "
       >
         {
@@ -92,3 +87,32 @@ const backdropStyle = {
     </details>
   </div>
 </div>
+
+<style>
+  /* Same timing as the search popovers: a quick expo-out open and a shorter ease-in close. */
+  [data-mobile-language-menu-panel] {
+    transition:
+      opacity 120ms ease-in,
+      translate 120ms ease-in,
+      scale 120ms ease-in;
+  }
+
+  [data-mobile-language-menu][open] [data-mobile-language-menu-panel] {
+    transition-duration: 180ms;
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* Content of a closed <details> is skipped, so the panel has no style to transition from when it opens. */
+  @starting-style {
+    [data-mobile-language-menu][open] [data-mobile-language-menu-panel] {
+      opacity: 0;
+      translate: 0 0.25rem;
+      scale: 0.95;
+    }
+  }
+
+  /* A closed <details> hides its content at once; holding content-visibility lets the panel fade out first. */
+  [data-mobile-language-menu]::details-content {
+    transition: content-visibility 120ms allow-discrete;
+  }
+</style>
