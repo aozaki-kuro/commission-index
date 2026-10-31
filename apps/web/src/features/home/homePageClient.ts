@@ -68,7 +68,7 @@ const defaultDeps: HomePageClientDeps = {
     mountUnpublishedInterestButtons({
       trackEvent: (properties) => {
         trackRybbitEvent(ANALYTICS_EVENTS.iWantToSeeIt, {
-          sub_event: properties.sub_event,
+          commission: properties.commission,
         })
       },
     }),
