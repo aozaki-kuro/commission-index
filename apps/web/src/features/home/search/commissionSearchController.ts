@@ -6,6 +6,7 @@ import {
   isArchivedCharactersVisible,
   requestArchivedCharactersVisibility,
 } from '@features/home/commission/archivedCharactersState'
+import { markScrollJump } from '@features/home/commission/scrollDepthTracker'
 import { resolveHomeSearchControls } from '@features/home/i18n/homeSearchControls'
 import { LOAD_ARCHIVED_COMMAND_VALUE } from '@features/home/search/commissionSearchConstants'
 import {
@@ -655,6 +656,7 @@ export function initSearchController(root: HTMLElement) {
   if (shuffleBtn) {
     shuffleBtn.addEventListener('click', () => {
       trackRybbitEvent(ANALYTICS_EVENTS.shuffleClicked)
+      markScrollJump()
       if (!externalEntries || externalEntries.length === 0)
         return
 

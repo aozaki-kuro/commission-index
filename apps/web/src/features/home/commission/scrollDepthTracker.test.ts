@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import type { ScrollDepthEventProperties } from './scrollDepthTracker'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { mountScrollDepthTracker } from './scrollDepthTracker'
+import { markScrollJump, mountScrollDepthTracker } from './scrollDepthTracker'
 
 const VIEWPORT_HEIGHT = 800
 const ENTRY_HEIGHT = 400
@@ -101,7 +101,7 @@ describe('scrollDepthTracker', () => {
       depth: 25,
       view_mode: 'character',
       layout: 'mobile',
-      total_entries: 8,
+      reached_by: 'scroll',
     })
 
     // Scrolling back and forth over a reached milestone must not repeat it.
@@ -153,29 +153,57 @@ describe('scrollDepthTracker', () => {
         depth: 5,
         view_mode: 'timeline',
         layout: 'desktop',
-        total_entries: 4,
+        reached_by: 'scroll',
       },
       {
         depth: 10,
         view_mode: 'timeline',
         layout: 'desktop',
-        total_entries: 4,
+        reached_by: 'scroll',
       },
       {
         depth: 25,
         view_mode: 'timeline',
         layout: 'desktop',
-        total_entries: 4,
+        reached_by: 'scroll',
       },
       {
         depth: 50,
         view_mode: 'timeline',
         layout: 'desktop',
-        total_entries: 4,
+        reached_by: 'scroll',
       },
     ])
 
     dispose()
+  })
+
+  it('marks milestones reached after a nav jump, or on a deep-linked load, as jumps', async () => {
+    const trackEvent = vi.fn<(properties: ScrollDepthEventProperties) => void>()
+    const dispose = mountScrollDepthTracker({ trackEvent })
+
+    await scrollTo(1)
+    await vi.waitFor(() => {
+      expect(trackEvent).toHaveBeenCalledTimes(3)
+    })
+
+    markScrollJump()
+    await scrollTo(1000)
+    await vi.waitFor(() => {
+      expect(trackEvent).toHaveBeenCalledTimes(4)
+    })
+    expect(trackEvent.mock.calls.map(([properties]) => properties.reached_by)).toEqual(['scroll', 'scroll', 'scroll', 'jump'])
+    dispose()
+
+    window.history.replaceState(null, '', '/#section-alpha')
+    const deepLinkTrackEvent = vi.fn<(properties: ScrollDepthEventProperties) => void>()
+    const disposeDeepLink = mountScrollDepthTracker({ trackEvent: deepLinkTrackEvent })
+    await scrollTo(1)
+    await vi.waitFor(() => {
+      expect(deepLinkTrackEvent).toHaveBeenCalled()
+    })
+    expect(deepLinkTrackEvent).toHaveBeenLastCalledWith(expect.objectContaining({ reached_by: 'jump' }))
+    disposeDeepLink()
   })
 
   it('stays silent while a search query filters the list', async () => {

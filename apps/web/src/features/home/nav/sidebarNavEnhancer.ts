@@ -5,6 +5,7 @@ import {
   isArchivedCharactersVisible,
   requestArchivedCharactersVisibility,
 } from '@features/home/commission/archivedCharactersState'
+import { markScrollJump } from '@features/home/commission/scrollDepthTracker'
 import {
   readCommissionViewMode,
   replaceCommissionViewModeInAddress,
@@ -42,7 +43,6 @@ const BACK_TO_TOP_BUTTON_SELECTOR = '[data-sidebar-back-to-top-button="true"]'
 const ACTIVE_DOT_CLASSES = ['scale-100', 'opacity-100'] as const
 const HIDDEN_DOT_CLASSES = ['scale-95', 'opacity-0'] as const
 const SIDEBAR_DOT_SELECTOR = '[data-sidebar-dot-for]'
-const HASH_PREFIX_PATTERN = /^#/
 const BACK_TO_TOP_VISIBILITY_SCROLL_THRESHOLD = 360
 
 interface SidebarNavEnhancerDeps {
@@ -487,13 +487,12 @@ export function mountSidebarNavEnhancer({
     scheduleSyncActiveDots()
   }
 
-  const trackSidebarCharacterClick = (link: HTMLAnchorElement) => {
+  const trackSidebarCharacterClick = () => {
+    markScrollJump(win)
     deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
       source: 'character_link',
-      nav_surface: 'sidebar',
+      layout: 'desktop',
       view_mode: getCurrentMode(win),
-      character_name: link.textContent?.trim() || 'unknown',
-      section_id: link.getAttribute('href')?.replace(HASH_PREFIX_PATTERN, '') || 'unknown',
     })
   }
 
@@ -528,7 +527,7 @@ export function mountSidebarNavEnhancer({
         hasTrackedSidebarSearchUsage = true
         deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
           source: 'search_link',
-          nav_surface: 'sidebar',
+          layout: 'desktop',
           view_mode: getCurrentMode(win),
         })
       }
@@ -567,7 +566,7 @@ export function mountSidebarNavEnhancer({
         requestArchivedVisibility: deps.requestArchivedVisibility,
         win,
       })
-      trackSidebarCharacterClick(characterLink)
+      trackSidebarCharacterClick()
       return
     }
 
@@ -587,7 +586,7 @@ export function mountSidebarNavEnhancer({
       deps.clearHashNow()
     })
 
-    trackSidebarCharacterClick(characterLink)
+    trackSidebarCharacterClick()
   }
 
   const onSidebarSearchState = () => {

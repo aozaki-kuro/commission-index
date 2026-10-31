@@ -5,6 +5,7 @@ import {
   isArchivedCharactersVisible,
   requestArchivedCharactersVisibility,
 } from '@features/home/commission/archivedCharactersState'
+import { markScrollJump } from '@features/home/commission/scrollDepthTracker'
 import {
   readCommissionViewMode,
   replaceCommissionViewModeInAddress,
@@ -90,15 +91,6 @@ function resolveViewModeFromPanel(panel: HTMLElement): CommissionViewMode | null
   return null
 }
 
-function readCount(rawValue: string | undefined) {
-  if (!rawValue)
-    return 0
-  const value = Number(rawValue)
-  if (!Number.isFinite(value))
-    return 0
-  return Math.max(0, Math.floor(value))
-}
-
 function readAgeGateOpen(doc: Document) {
   if (doc.documentElement.dataset.ageGateOpen === 'true')
     return true
@@ -178,9 +170,6 @@ export function mountMobileHamburgerMenu({
   })
     .filter((section): section is CharacterSectionNode => Boolean(section))
 
-  const activeCount = readCount(root.dataset.mobileHamburgerActiveCount)
-  const archivedCount = readCount(root.dataset.mobileHamburgerArchivedCount)
-  const timelineCount = readCount(root.dataset.mobileHamburgerTimelineCount)
   const openNavigationLabel = root.dataset.mobileHamburgerOpenLabel ?? 'Open navigation menu'
   const closeNavigationLabel = root.dataset.mobileHamburgerCloseLabel ?? 'Close navigation menu'
 
@@ -347,32 +336,22 @@ export function mountMobileHamburgerMenu({
     syncLinkAvailability()
   }
 
-  const getVisibleItemCount = (mode: CommissionViewMode) =>
-    mode === 'timeline'
-      ? timelineCount
-      : activeCount + archivedCount
-
-  const trackCharacterNavClick = (navLink: HTMLAnchorElement) => {
-    const mode = readCommissionViewMode(win)
+  const trackCharacterNavClick = () => {
+    markScrollJump(win)
     deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
       source: 'character_link',
-      nav_surface: 'hamburger',
-      view_mode: mode,
-      item_count: getVisibleItemCount(mode),
-      character_name: navLink.textContent?.trim() || 'unknown',
-      section_id: navLink.dataset.mobileNavSectionId ?? 'unknown',
+      layout: 'mobile',
+      view_mode: readCommissionViewMode(win),
     })
   }
 
   const runSearchAction = () => {
-    const mode = readCommissionViewMode(win)
     if (!hasTrackedSearchUsage) {
       hasTrackedSearchUsage = true
       deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
         source: 'search_link',
-        nav_surface: 'hamburger',
-        view_mode: mode,
-        item_count: getVisibleItemCount(mode),
+        layout: 'mobile',
+        view_mode: readCommissionViewMode(win),
       })
     }
 
@@ -466,7 +445,7 @@ export function mountMobileHamburgerMenu({
         requestArchivedVisibility: deps.requestArchivedVisibility,
         win,
       })
-      trackCharacterNavClick(navLink)
+      trackCharacterNavClick()
       closeMenu()
       return
     }
@@ -480,7 +459,7 @@ export function mountMobileHamburgerMenu({
       deps.scrollToHashWithoutWrite(navLink.getAttribute('href'))
     }
 
-    trackCharacterNavClick(navLink)
+    trackCharacterNavClick()
     closeMenu()
   }
 
