@@ -396,9 +396,9 @@ const browseTermClass = `
       aria-label={controls.browseKeywordsLabel}
       class="
         m-auto max-h-[min(70dvh,34rem)] w-[min(calc(100vw-1rem),36rem)]
-        overflow-auto overscroll-contain rounded-xl border border-gray-200/80 bg-white/97 p-0
-        shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-xl
-        dark:border-gray-800 dark:bg-black/95
+        overflow-auto overscroll-contain rounded-xl border border-gray-200/80 bg-white/80 p-0
+        shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-xl backdrop-saturate-180
+        dark:border-gray-800 dark:bg-[rgb(29_29_31/0.8)]
       "
     >
       {/* Hierarchy comes from type size and tone alone, like apple.com's nav flyout: no dividers, chips or icons */}
@@ -529,6 +529,35 @@ const browseTermClass = `
     }
   }
 
+  /* Frosted curtain over the page, like apple.com's nav flyout (rgba(0,0,0,.4) + blur(20px)); the panel stays 80% opaque. */
+  #search-browse-popover::backdrop {
+    background: rgb(0 0 0 / 0);
+    backdrop-filter: blur(0);
+    transition:
+      background 180ms ease,
+      backdrop-filter 180ms ease,
+      display 180ms allow-discrete,
+      overlay 180ms allow-discrete;
+  }
+
+  #search-browse-popover:popover-open::backdrop {
+    background: rgb(0 0 0 / 0.15);
+    backdrop-filter: blur(20px);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    #search-browse-popover:popover-open::backdrop {
+      background: rgb(0 0 0 / 0.4);
+    }
+  }
+
+  @starting-style {
+    #search-browse-popover:popover-open::backdrop {
+      background: rgb(0 0 0 / 0);
+      backdrop-filter: blur(0);
+    }
+  }
+
   /* Narrow screens get a bottom sheet instead of an anchored popover (Apple HIG: no popovers in compact width). */
   @media (width < 48rem) {
     #search-browse-popover {
@@ -551,24 +580,6 @@ const browseTermClass = `
       #search-browse-popover:popover-open {
         transform: translateY(100%);
         opacity: 1;
-      }
-    }
-
-    #search-browse-popover::backdrop {
-      background: rgb(0 0 0 / 0);
-      transition:
-        background 180ms ease,
-        display 180ms allow-discrete,
-        overlay 180ms allow-discrete;
-    }
-
-    #search-browse-popover:popover-open::backdrop {
-      background: rgb(0 0 0 / 0.35);
-    }
-
-    @starting-style {
-      #search-browse-popover:popover-open::backdrop {
-        background: rgb(0 0 0 / 0);
       }
     }
   }
