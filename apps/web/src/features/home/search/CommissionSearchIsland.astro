@@ -338,26 +338,6 @@ const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
       "
     />
     <div class="flex shrink-0 gap-1.5">
-      {/* Shuffle / surprise me button */}
-      <button
-        id="search-shuffle"
-        type="button"
-        class="
-          size-7 shrink-0 rounded-full border border-gray-200/80 bg-white/70
-          text-gray-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)]
-          transition-[color,border-color,background-color,box-shadow] duration-200
-          hover:border-gray-400 hover:bg-white hover:text-gray-900
-          hover:shadow-[0_4px_14px_rgba(0,0,0,0.08)]
-          dark:border-gray-700 dark:bg-black/35 dark:text-gray-400
-          dark:hover:border-gray-500 dark:hover:bg-black/55
-          dark:hover:text-gray-100 dark:hover:shadow-[0_4px_14px_rgba(0,0,0,0.22)]
-          inline-flex items-center justify-center
-        "
-        aria-label={controls.shuffleRandomEntryLabel}
-      >
-        <Icon name="tabler:arrows-shuffle" class="size-4" aria-hidden="true" />
-      </button>
-
       {/* Opens the full character/keyword list; the row above only shows the featured few */}
       {keywordBrowseSections.length > 0 && (
         <button

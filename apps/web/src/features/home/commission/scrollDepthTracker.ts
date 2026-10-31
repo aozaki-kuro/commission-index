@@ -9,7 +9,7 @@ const DESKTOP_LAYOUT_QUERY = '(min-width: 64rem)'
 // 5/10 split the first quarter, where most sessions stop, into "barely scrolled" and "left early".
 export const SCROLL_DEPTH_MILESTONES = [5, 10, 25, 50, 75, 100] as const
 
-// Nav links, shuffle and deep links move the reader without scrolling past the entries in between.
+// Nav links and deep links move the reader without scrolling past the entries in between.
 const SCROLL_JUMP_EVENT = 'commission:scroll-jump'
 
 export function markScrollJump(win: Window = window) {

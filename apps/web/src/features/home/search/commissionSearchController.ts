@@ -3,11 +3,8 @@ import type { SearchQuerySource } from '@features/home/search/commissionSearchMo
 import type { PanelLoadedState } from '@features/home/search/commissionSearchPanelState'
 import type { CommissionViewMode } from '@features/home/search/commissionViewMode'
 import {
-  ARCHIVED_CONTAINER_SELECTOR,
-  isArchivedCharactersVisible,
   requestArchivedCharactersVisibility,
 } from '@features/home/commission/archivedCharactersState'
-import { markScrollJump } from '@features/home/commission/scrollDepthTracker'
 import { resolveHomeSearchControls } from '@features/home/i18n/homeSearchControls'
 import { LOAD_ARCHIVED_COMMAND_VALUE } from '@features/home/search/commissionSearchConstants'
 import {
@@ -19,8 +16,6 @@ import {
   getPopularKeywordBatch,
   MAX_FEATURED_KEYWORDS,
   MAX_VISIBLE_POPULAR_KEYWORDS,
-  pickWeightedEntry,
-  scrollAndAnimateEntry,
 } from '@features/home/search/commissionSearchDeferred'
 import { createDomSyncRefs, syncDom } from '@features/home/search/commissionSearchDomSync'
 import { getDropdownItemCount, renderDropdown } from '@features/home/search/commissionSearchDropdownRenderer'
@@ -135,7 +130,6 @@ export function initSearchController(root: HTMLElement) {
   const clearBtn = root.querySelector<HTMLElement>('#search-clear')
   const keywordListEl = root.querySelector<HTMLElement>('#search-keyword-list')
   const popularKeywordsEl = root.querySelector<HTMLElement>('#search-popular-keywords')
-  const shuffleBtn = root.querySelector<HTMLElement>('#search-shuffle')
   const browseTriggerEl = root.querySelector<HTMLElement>('#search-browse-trigger')
   const browsePopoverEl = root.querySelector<HTMLElement>('#search-browse-popover')
   const comboboxEl = inputEl?.closest<HTMLElement>('[role="combobox"]') ?? null
@@ -161,12 +155,10 @@ export function initSearchController(root: HTMLElement) {
   let popularKeywordPool: string[] = externalEntries
     ? buildPopularKeywordPoolFromEntries(externalEntries)
     : []
-  let matchedIds = new Set<number>()
   let copyState: 'idle' | 'success' = 'idle'
   let copyResetTimer: ReturnType<typeof setTimeout> | null = null
   let mode: CommissionViewMode = readViewMode()
   let panelState: PanelLoadedState = readPanelLoadedState()
-  let lastShuffledId: number | null = null
   let didAutoJump = false
   let requestedArchivedForSearch = false
 
@@ -385,9 +377,6 @@ export function initSearchController(root: HTMLElement) {
       disableDomFiltering: false,
       suppressInitialSuggestionPanelAnimation: false,
     })
-
-    // Update matched IDs
-    matchedIds = model.matchedIds
 
     const shouldSuspendArchivedFiltering = shouldSuspendDomFilteringForArchivedReveal(model)
     if (model.shouldAutoShowArchived) {
@@ -646,48 +635,6 @@ export function initSearchController(root: HTMLElement) {
       const toggleEvent = event as ToggleEvent
       if (toggleEvent.newState === 'open') {
         renderHelpContent(helpPopoverEl, controls)
-      }
-    })
-  }
-
-  // Shuffle button: pick weighted random entry, scroll to it
-  if (shuffleBtn) {
-    shuffleBtn.addEventListener('click', () => {
-      trackRybbitEvent(ANALYTICS_EVENTS.shuffleClicked)
-      markScrollJump()
-      if (!externalEntries || externalEntries.length === 0)
-        return
-
-      const candidates = matchedIds.size > 0
-        ? externalEntries.filter(entry => matchedIds.has(entry.id))
-        : externalEntries
-
-      if (candidates.length === 0)
-        return
-
-      // Avoid picking the same entry twice in a row
-      const pool = candidates.length > 1 && lastShuffledId !== null
-        ? candidates.filter(entry => entry.id !== lastShuffledId)
-        : candidates
-
-      const randomEntry = pickWeightedEntry(pool)
-      lastShuffledId = randomEntry.id
-
-      if (!randomEntry.domKey)
-        return
-
-      // Both panels render every entry under the same search key; the first document match is the
-      // character copy, which is display: none in timeline view, so resolve inside the current view's panel.
-      const element = document.querySelector<HTMLElement>(
-        `[data-commission-view-panel="${mode}"] [data-commission-search-key="${CSS.escape(randomEntry.domKey)}"]`,
-      )
-      if (element) {
-        // Collapsed archived entries are in the DOM but display: none, so they must be shown to scroll.
-        // Only character view owns the archived toggle; timeline view must never expand the hidden panel's archive.
-        if (mode === 'character' && element.closest(ARCHIVED_CONTAINER_SELECTOR) && !isArchivedCharactersVisible(document)) {
-          requestArchivedCharactersVisibility(window, 'visible')
-        }
-        scrollAndAnimateEntry(element)
       }
     })
   }
