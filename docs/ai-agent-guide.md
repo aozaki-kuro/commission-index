@@ -181,6 +181,10 @@ simply read as stored.
 - `GET /interest` makes a single upstream attempt (no retry in the worker); `502` is Rybbit-side and may be
   retried by the caller. Its `counts` are Rybbit event counts, not sessions, and cover only events since
   `since` (`2026-10-31`); earlier votes carried no `commission` property and are not counted.
+- `GET /link-clicks` behaves the same way upstream. Its `url` is the href exactly as the site rendered it at click
+  time, so it can differ from today's D1 link (`twitter.com` vs `x.com`, case, trailing `/`); match on a
+  normalized URL (`normalizeLinkUrl` in `apps/admin/src/lib/popularCommissions.ts`), and a link shared by several
+  works belongs to each of them. Non-commission links (odaibako, creator profiles) appear in the list too.
 
 ---
 

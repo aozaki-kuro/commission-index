@@ -199,38 +199,44 @@ export interface AdminInterestPayload {
   counts: Record<string, number>
 }
 
+export interface AdminLinkClicksPayload {
+  since: string
+  until: string
+  clicks: Array<{ url: string, count: number }>
+}
+
 /** The worker has no analytics key; retrying cannot heal it. */
-export class AdminInterestNotConfiguredError extends Error {}
+export class AdminAnalyticsNotConfiguredError extends Error {}
 
-const INTEREST_ATTEMPTS = 2
+const ANALYTICS_ATTEMPTS = 2
 
-export async function fetchAdminInterest(signal?: AbortSignal): Promise<AdminInterestPayload> {
-  const pathname = '/api/admin/interest'
+// Rybbit-backed reads: a 503 (no key) fails at once; anything else gets one retry. Success is cached for first paint.
+async function fetchAdminAnalytics<T>(pathname: string, signal?: AbortSignal): Promise<T> {
   let lastError: unknown = null
 
-  for (let attempt = 1; attempt <= INTEREST_ATTEMPTS; attempt += 1) {
+  for (let attempt = 1; attempt <= ANALYTICS_ATTEMPTS; attempt += 1) {
     const { controller, cleanup } = createAbortController(signal)
     const timeoutId = setTimeout(() => controller.abort(), DEFAULT_REQUEST_TIMEOUT_MS)
 
     try {
       const response = await fetch(getAdminApiUrl(pathname), { signal: controller.signal, cache: 'no-store' })
       if (response.status === 503) {
-        throw new AdminInterestNotConfiguredError('Visitor analytics is not connected.')
+        throw new AdminAnalyticsNotConfiguredError('Visitor analytics is not connected.')
       }
       if (!response.ok) {
         const data = await response.json().catch(() => null) as { message?: string } | null
         throw new Error(data?.message || `Failed to load ${pathname}: ${response.status}`)
       }
-      const payload = (await response.json()) as AdminInterestPayload
+      const payload = (await response.json()) as T
       writeCachedAdminJson(pathname, payload)
       return payload
     }
     catch (error) {
-      if (signal?.aborted || error instanceof AdminInterestNotConfiguredError) {
+      if (signal?.aborted || error instanceof AdminAnalyticsNotConfiguredError) {
         throw error
       }
       lastError = error
-      if (attempt < INTEREST_ATTEMPTS) {
+      if (attempt < ANALYTICS_ATTEMPTS) {
         await sleep(DEFAULT_BASE_DELAY_MS * attempt, signal)
       }
     }
@@ -243,6 +249,14 @@ export async function fetchAdminInterest(signal?: AbortSignal): Promise<AdminInt
   throw lastError instanceof Error
     ? lastError
     : new Error(`Failed to load ${pathname}.`)
+}
+
+export function fetchAdminInterest(signal?: AbortSignal) {
+  return fetchAdminAnalytics<AdminInterestPayload>('/api/admin/interest', signal)
+}
+
+export function fetchAdminLinkClicks(signal?: AbortSignal) {
+  return fetchAdminAnalytics<AdminLinkClicksPayload>('/api/admin/link-clicks', signal)
 }
 
 export async function fetchAdminOverviewPayload(

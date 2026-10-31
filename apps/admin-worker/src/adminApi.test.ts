@@ -379,6 +379,37 @@ describe('admin worker CRUD contract routing', () => {
     expect((await call({ RYBBIT_API_KEY: 'secret-key' })).status).toBe(502)
   })
 
+  it('proxies the last year of Rybbit outbound clicks and shares the interest failure contract', async () => {
+    const rybbitFetch = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) => Response.json({
+      data: [
+        { url: 'https://www.pixiv.net/artworks/1', count: 12, lastClicked: '2026-10-30 10:00:00' },
+        { url: '  ', count: 3 },
+        { url: 'https://x.com/a/status/2', count: 'many' },
+      ],
+    }))
+    vi.stubGlobal('fetch', rybbitFetch)
+    const call = (env: { RYBBIT_API_KEY?: string }) =>
+      handleAdminApiRequest(new Request(`${baseUrl}/api/admin/link-clicks`), env, createCrudBackend())
+
+    const response = await call({ RYBBIT_API_KEY: 'rybbit-key' })
+    expect(response.status).toBe(200)
+    const body = await response.json() as { since: string, until: string, clicks: unknown }
+    expect(body.clicks).toEqual([
+      { url: 'https://www.pixiv.net/artworks/1', count: 12 },
+    ])
+    expect(Date.parse(body.until) - Date.parse(body.since)).toBe(365 * 86_400_000)
+    const url = new URL(String(rybbitFetch.mock.calls[0]?.[0]))
+    expect(url.pathname).toBe('/api/sites/3/events/outbound')
+    expect(Object.fromEntries(url.searchParams)).toEqual({ start_date: body.since, end_date: body.until, time_zone: 'UTC' })
+    expect((rybbitFetch.mock.calls[0]?.[1]?.headers as Record<string, string>).Authorization).toBe('Bearer rybbit-key')
+
+    expect((await call({})).status).toBe(503)
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('nope', { status: 500 })))
+    const failed = await call({ RYBBIT_API_KEY: 'secret-key' })
+    expect(failed.status).toBe(502)
+    expect(JSON.stringify(await failed.json())).not.toContain('secret-key')
+  })
+
   it('rejects empty character names before hitting backend', async () => {
     const createCharacter = vi.fn(async (_input: CreateCharacterInput) =>
       createJsonResponse({ status: 'success', message: 'unexpected' }))

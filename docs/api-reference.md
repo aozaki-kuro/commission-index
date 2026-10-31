@@ -33,13 +33,13 @@ directly. All JSON responses send `Cache-Control: no-store`.
 
 **Status codes.**
 
-| Status | Meaning                                                                                                        |
-| ------ | -------------------------------------------------------------------------------------------------------------- |
-| `400`  | Validation failure, **and** any failure inside a mutation (including D1 errors and missing rows)               |
-| `404`  | Unmatched route; unresolved source image                                                                       |
-| `500`  | Failure while loading a `GET` payload (bootstrap, aliases, suggestion, character commissions, source image)    |
-| `502`  | `POST /rebuild` could not reach or was rejected by GitHub; `GET /interest` could not get a valid Rybbit answer |
-| `503`  | Missing `DB` / `IMAGES` binding, or missing `GITHUB_DISPATCH_TOKEN` / `RYBBIT_API_KEY`                         |
+| Status | Meaning                                                                                                                             |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `400`  | Validation failure, **and** any failure inside a mutation (including D1 errors and missing rows)                                    |
+| `404`  | Unmatched route; unresolved source image                                                                                            |
+| `500`  | Failure while loading a `GET` payload (bootstrap, aliases, suggestion, character commissions, source image)                         |
+| `502`  | `POST /rebuild` could not reach or was rejected by GitHub; `GET /interest` / `GET /link-clicks` could not get a valid Rybbit answer |
+| `503`  | Missing `DB` / `IMAGES` binding, or missing `GITHUB_DISPATCH_TOKEN` / `RYBBIT_API_KEY`                                              |
 
 Mutation wrappers convert every thrown error into `400` with the error message (for example a D1
 `UNIQUE` violation or `D1 write operation failed.`), so a mutation never returns `500` in practice.
@@ -100,6 +100,21 @@ returned a non-2xx status (`Rybbit API returned <status>`), a malformed body, or
 
 ```bash
 curl https://admin.crystallize.cc/api/admin/interest
+```
+
+### `GET /api/admin/link-clicks`
+
+Read-only proxy of Rybbit's automatic outbound-link clicks for the last 365 days (UTC). No `DB` / `IMAGES`
+required. Requires the `RYBBIT_API_KEY` worker secret.
+
+**`200`:** `{ "since": "2025-10-31", "until": "2026-10-31", "clicks": [{ "url": "https://…", "count": 42 }] }` —
+raw href and click count, most clicked first, at most 1000 URLs (Rybbit's limit). URLs are not matched to
+commissions here; the admin overview joins them to commission `links`.
+
+**Errors:** same as `GET /interest`.
+
+```bash
+curl https://admin.crystallize.cc/api/admin/link-clicks
 ```
 
 ---

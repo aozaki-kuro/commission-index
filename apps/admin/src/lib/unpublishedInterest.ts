@@ -1,20 +1,10 @@
 import type { AdminCommissionSearchRow } from '@commission-index/domain'
 import { compareCommissionsByDate } from './commissionPresentation'
+import { parseCommissionLinks } from './popularCommissions'
 
 export interface RankedInterestRow {
   row: AdminCommissionSearchRow
   votes: number
-}
-
-// D1 stores links as a JSON array string ('[]' when empty); legacy/null rows arrive as ''.
-function hasSourceLinks(links: string) {
-  try {
-    const parsed = JSON.parse(links) as unknown
-    return Array.isArray(parsed) && parsed.some(link => String(link).trim() !== '')
-  }
-  catch {
-    return false
-  }
 }
 
 /** Unpublished (no source links) works with at least one vote, most votes first, ties newest first. */
@@ -26,7 +16,7 @@ export function rankUnpublishedInterest(
   return rows
     .flatMap((row) => {
       const votes = counts[row.publicId] ?? 0
-      return votes > 0 && !hasSourceLinks(row.links)
+      return votes > 0 && parseCommissionLinks(row.links).length === 0
         ? [
             { row, votes },
           ]
