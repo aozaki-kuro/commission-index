@@ -22,10 +22,8 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
   visibility inherits into a popover. A term click hides the popover before applying the query, so focus does not
   return to the trigger.
 - Help and browse popovers: native `popover` does not position or animate itself. Their anchor positioning, 8px gap, collision fallbacks and transitions live together in the scoped CSS of `CommissionSearchIsland.astro`. Without CSS anchor support, keep the centered `m-auto` fallback.
-  The browse popover's character rows (`data-browse-row`, `--i` counted across both sections) cascade in via
-  `@starting-style`, which replays only because the closed popover is `display: none` (reopening mid exit-fade
-  skips the cascade). Never keep the closed popover rendered (e.g. `visibility`/`opacity` hiding) or rows stop
-  animating.
+  No per-row entrance stagger on the browse popover: it is opened repeatedly while picking tags, so a cascade reads
+  as lag (apple.com also cascades only on a cold open). The mobile hamburger menu keeps its stagger.
 - Any suggestion, stale or timeline interaction change needs regression test updates.
 - Lifecycle: ClientRouter soft navigation never fires `pagehide` and runs bundled module scripts only once. Mount
   through `bindSoftNavMount` (`@lib/astro/softNavMount`) on `astro:page-load` and tear down on `astro:before-swap`.
