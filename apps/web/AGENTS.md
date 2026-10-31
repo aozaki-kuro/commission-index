@@ -65,13 +65,14 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   "just in case". `age_gate` has no `left` action: the leave button navigates away immediately, so the event would
   be lost; derive it as `shown − confirmed`.
 - **Analytics properties are filter dimensions:** Rybbit's event list only counts events and breaks each property
-  down on its own; cross-cuts and per-session counts come from Funnels, whose event steps filter on exact property
-  values. So properties stay low-cardinality and shared: home events use `view_mode` and `layout`
-  (`desktop`/`mobile` at `lg`); never add counts, ids or names that change with content (`total_entries`,
-  `character_name` were removed for fragmenting breakdowns). Read the depth funnel as: path `/` (one locale per
-  funnel) → `scroll_depth_reached` with `depth`=5…100, `view_mode=character`, `reached_by=scroll`; this property set
-  is clean from 2026-11-01. Renaming an event or changing a property's values breaks comparison with older data;
-  adding or removing a property does not.
+  down on its own; per-session counts with exact property filters come from Goals and Funnels. So properties stay
+  low-cardinality and shared: home events use `view_mode` and `layout` (`desktop`/`mobile` at `lg`); never add
+  counts, ids or names that change with content (`total_entries`, `character_name` were removed for fragmenting
+  breakdowns). Read depth as one Goal per milestone (`scroll_depth_reached`, `depth`=5…100, `view_mode=character`,
+  plus `reached_by=scroll` for data from 2026-11-01). Do not chain milestones in a Funnel: its steps need a strictly
+  later server-arrival `timestamp_ms`, and milestones crossed in one scroll update are sent together, so later steps
+  undercount. Renaming an event or changing a property's values breaks comparison with older data; adding or removing
+  a property does not.
 - **Age gate first frame:** an inline head script in `HomePage.astro` sets `html[data-age-gate-initial=open]` (and `data-age-gate-open`) before paint when `warning/ageGate.ts` says the gate must show; CSS in `AgeGateScript.astro` renders it opaque with no animation. `mountAgeGate` removes the attribute and suppresses the entrance animation inline until the next state change. ClientRouter's `swapRootAttributes` resets `<html>` attributes from the server HTML on every swap, so the attribute cannot go stale
 - **Age gate persistence is best-effort:** unreadable or unwritable `localStorage` shows the gate on every full load (the inline head script and the module agree). A confirmation that cannot be persisted is remembered in memory via the `window[CONFIRMED_IN_MEMORY_FLAG]` flag (`warning/ageGate.ts`), which survives ClientRouter soft navigations (language switches) and resets on a full load. ClientRouter does not re-run an identical inline head script on swap, and the flag keeps the first frame closed even if it did
 - **Hidden DOM + observers:** sections rendered with `display: none` must not be marked "entered viewport"
