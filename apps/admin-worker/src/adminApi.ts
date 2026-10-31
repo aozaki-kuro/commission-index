@@ -1,6 +1,7 @@
 import type { D1DatabaseLike } from './adminPersistence'
 import { isFutureCommissionDate } from '../../../packages/domain/src/index'
 import { handleAdminReadRequest } from './adminData'
+import { INTEREST_SINCE, loadInterestCounts } from './adminInterest'
 import {
   createCharacter as persistCharacterCreate,
   deleteCharacter as persistCharacterDelete,
@@ -39,6 +40,7 @@ export interface Env {
   DB?: unknown
   IMAGES?: unknown
   GITHUB_DISPATCH_TOKEN?: string
+  RYBBIT_API_KEY?: string
 }
 
 function buildRebuildDispatchBody(dispatchedAt: string) {
@@ -827,6 +829,16 @@ export async function handleAdminApiRequest(
       status: 'ok',
       message: 'Admin worker D1/R2 runtime is responding.',
     })
+  }
+
+  if (request.method === 'GET' && pathname === '/api/admin/interest') {
+    if (!env.RYBBIT_API_KEY) {
+      return failure('RYBBIT_API_KEY is not configured on the worker.', 503)
+    }
+    const result = await loadInterestCounts(env.RYBBIT_API_KEY)
+    return result.ok
+      ? json({ since: INTEREST_SINCE, counts: result.counts })
+      : failure(result.message, 502)
   }
 
   if (request.method === 'POST' && pathname === '/api/admin/rebuild') {

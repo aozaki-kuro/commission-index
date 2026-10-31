@@ -164,7 +164,7 @@ simply read as stored.
   constraint, `D1 write operation failed.`) is wrapped into `400` with the raw message, so `400`
   does not imply a client mistake: a D1 outage also surfaces as `400`. `500` only comes from
   `GET` payload loaders.
-- `503` means a missing binding (or rebuild token) and will not heal on retry.
+- `503` means a missing binding (or rebuild token / `RYBBIT_API_KEY`) and will not heal on retry.
 - Missing-row cases return `400` (`Character not found.`, `Commission not found.`), except
   `DELETE /commissions/:id` (200 no-op) and `GET /characters/:id/commissions` (`200` with an empty
   list for an unknown character; check `/bootstrap` first if you need to tell the cases apart).
@@ -178,6 +178,9 @@ simply read as stored.
   date is corrected (AR "Commission fields").
 - After an ambiguous failure (timeout, dropped connection) on a mutation, re-read
   (`/bootstrap` or `/characters/:id/commissions`) instead of retrying blindly.
+- `GET /interest` makes a single upstream attempt (no retry in the worker); `502` is Rybbit-side and may be
+  retried by the caller. Its `counts` are Rybbit event counts, not sessions, and cover only events since
+  `since` (`2026-10-31`); earlier votes carried no `commission` property and are not counted.
 
 ---
 

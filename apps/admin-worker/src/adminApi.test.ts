@@ -320,6 +320,65 @@ describe('admin worker CRUD contract routing', () => {
     }
   })
 
+  it('proxies Rybbit vote counts keyed by publicId and ignores other property keys', async () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const rybbitFetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => Response.json({
+      data: [
+        { propertyKey: 'commission', propertyValue: 'abc123', count: 2 },
+        { propertyKey: 'commission', propertyValue: ' abc123 ', count: 3 },
+        { propertyKey: 'commission', propertyValue: 'def456', count: 1 },
+        { propertyKey: 'commission', propertyValue: '  ', count: 9 },
+        { propertyKey: 'commission', propertyValue: 'bad', count: Number.NaN },
+        { propertyKey: 'sub_event', propertyValue: 'old-key', count: 7 },
+      ],
+    }))
+    vi.stubGlobal('fetch', rybbitFetch)
+
+    const response = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/interest`),
+      { RYBBIT_API_KEY: 'rybbit-key' },
+      createCrudBackend(),
+    )
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Cache-Control')).toBe('no-store')
+    expect(await response.json()).toEqual({
+      since: '2026-10-31',
+      counts: { abc123: 5, def456: 1 },
+    })
+    const [url, init] = rybbitFetch.mock.calls[0] ?? []
+    // Read the clock on both sides so a run straddling UTC midnight still matches.
+    const todayAfter = new Date().toISOString().slice(0, 10)
+    expect([today, todayAfter].map(day =>
+      `https://sight.aozaki.cc/api/sites/3/events/properties?event_name=i_want_to_see_it&start_date=2026-10-31&end_date=${day}&time_zone=UTC`,
+    )).toContain(String(url))
+    expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer rybbit-key')
+  })
+
+  it('fails the interest route with 503 without a key and 502 on Rybbit errors, never leaking the key', async () => {
+    const call = (env: { RYBBIT_API_KEY?: string }) =>
+      handleAdminApiRequest(new Request(`${baseUrl}/api/admin/interest`), env, createCrudBackend())
+
+    const missing = await call({})
+    expect(missing.status).toBe(503)
+    expect(await missing.json()).toEqual({ status: 'error', message: 'RYBBIT_API_KEY is not configured on the worker.' })
+
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('nope', { status: 401 })))
+    const rejected = await call({ RYBBIT_API_KEY: 'secret-key' })
+    expect(rejected.status).toBe(502)
+    expect(await rejected.json()).toEqual({ status: 'error', message: 'Rybbit API returned 401' })
+
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new Error('boom secret-key')
+    }))
+    const unreachable = await call({ RYBBIT_API_KEY: 'secret-key' })
+    expect(unreachable.status).toBe(502)
+    expect(JSON.stringify(await unreachable.json())).not.toContain('secret-key')
+
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ data: 'oops' })))
+    expect((await call({ RYBBIT_API_KEY: 'secret-key' })).status).toBe(502)
+  })
+
   it('rejects empty character names before hitting backend', async () => {
     const createCharacter = vi.fn(async (_input: CreateCharacterInput) =>
       createJsonResponse({ status: 'success', message: 'unexpected' }))

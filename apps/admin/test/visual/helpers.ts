@@ -265,6 +265,15 @@ const fixtureSuggestion: HomeSuggestionAdminData = {
   ],
 }
 
+// Commission 1 has source links, so only commission 2 (links: []) ranks as most wanted.
+const fixtureInterest = {
+  since: '2026-10-31',
+  counts: {
+    [fixtureCommissions[0].publicId]: 5,
+    [fixtureCommissions[1].publicId]: 3,
+  },
+}
+
 const fixtureImageSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="525"><rect width="1280" height="525" fill="#d7dce0"/><circle cx="640" cy="262" r="150" fill="#a7b5ba"/></svg>'
 
 export interface MockAdminApiCapture {
@@ -330,6 +339,10 @@ export async function mockAdminApi(page: Page): Promise<MockAdminApiCapture> {
       }
       if (pathname.endsWith('/suggestion')) {
         await route.fulfill({ json: fixtureSuggestion })
+        return
+      }
+      if (pathname.endsWith('/interest')) {
+        await route.fulfill({ json: fixtureInterest })
         return
       }
       if (characterCommissions) {

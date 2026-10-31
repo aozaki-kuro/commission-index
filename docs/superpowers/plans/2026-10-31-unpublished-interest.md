@@ -21,7 +21,7 @@ decide what to publish next.
 
 1. [x] Web: interest button keys and reports by `publicId` (`IllustratorInfo.astro`, `unpublishedInterestClient.ts`,
        `homePageClient.ts`), tests, `apps/web/AGENTS.md`.
-2. [ ] Worker: `GET /api/admin/interest` → `{ since, counts: { [publicId]: number } }`, tests with a mocked Rybbit
+2. [x] Worker: `GET /api/admin/interest` → `{ since, counts: { [publicId]: number } }`, tests with a mocked Rybbit
        fetch, `docs/api-reference.md`, `docs/ai-agent-guide.md`, `apps/admin-worker/AGENTS.md`.
-3. [ ] Admin: overview "Most wanted" card joined with bootstrap rows, admin UI test, visual mock + baselines.
+3. [x] Admin: overview "Most wanted" card joined with bootstrap rows, admin UI test, visual mock + baselines.
 4. [ ] Owner: create a Rybbit API key and run `wrangler secret put RYBBIT_API_KEY` for `commission-index-admin`.

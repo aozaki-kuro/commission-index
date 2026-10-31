@@ -194,6 +194,57 @@ export async function triggerRebuildDeploy(signal?: AbortSignal): Promise<{ stat
   return data
 }
 
+export interface AdminInterestPayload {
+  since: string
+  counts: Record<string, number>
+}
+
+/** The worker has no analytics key; retrying cannot heal it. */
+export class AdminInterestNotConfiguredError extends Error {}
+
+const INTEREST_ATTEMPTS = 2
+
+export async function fetchAdminInterest(signal?: AbortSignal): Promise<AdminInterestPayload> {
+  const pathname = '/api/admin/interest'
+  let lastError: unknown = null
+
+  for (let attempt = 1; attempt <= INTEREST_ATTEMPTS; attempt += 1) {
+    const { controller, cleanup } = createAbortController(signal)
+    const timeoutId = setTimeout(() => controller.abort(), DEFAULT_REQUEST_TIMEOUT_MS)
+
+    try {
+      const response = await fetch(getAdminApiUrl(pathname), { signal: controller.signal, cache: 'no-store' })
+      if (response.status === 503) {
+        throw new AdminInterestNotConfiguredError('Visitor analytics is not connected.')
+      }
+      if (!response.ok) {
+        const data = await response.json().catch(() => null) as { message?: string } | null
+        throw new Error(data?.message || `Failed to load ${pathname}: ${response.status}`)
+      }
+      const payload = (await response.json()) as AdminInterestPayload
+      writeCachedAdminJson(pathname, payload)
+      return payload
+    }
+    catch (error) {
+      if (signal?.aborted || error instanceof AdminInterestNotConfiguredError) {
+        throw error
+      }
+      lastError = error
+      if (attempt < INTEREST_ATTEMPTS) {
+        await sleep(DEFAULT_BASE_DELAY_MS * attempt, signal)
+      }
+    }
+    finally {
+      clearTimeout(timeoutId)
+      cleanup()
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`Failed to load ${pathname}.`)
+}
+
 export async function fetchAdminOverviewPayload(
   options: FetchAdminJsonOptions = {},
 ): Promise<AdminOverviewPayload> {
