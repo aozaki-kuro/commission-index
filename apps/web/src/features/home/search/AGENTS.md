@@ -10,7 +10,12 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
 - Do not duplicate the filter algorithm here; use `@lib/search`.
 - Locale labels resolve from `../i18n/homeSearchControls.ts`.
 - Keep search box, dropdown and stale hint DOM structure and classNames stable to avoid layout jumps.
-- Help popover: native `popover` does not position or animate itself. Its anchor positioning, 8px gap, collision fallbacks and transitions live together in the scoped CSS of `CommissionSearchIsland.astro`. Without CSS anchor support, keep the centered `m-auto` fallback.
+- Keyword row: the admin-curated featured keywords (the entry-derived pool only when none are set) plus a fixed
+  "All" trigger for the browse popover; there is no rotation. The browse popover is server-rendered from `buildKeywordBrowseGroups` (`@lib/home/keywordBrowseGroups`):
+  characters in sidebar order (active, then archived), each with its keywords (aliases collapsed). It sits outside
+  `#search-popular-keywords`, because that row is `invisible` until populated and visibility inherits into a popover.
+  A term click hides the popover before applying the query, so focus does not return to the trigger.
+- Help and browse popovers: native `popover` does not position or animate itself. Their anchor positioning, 8px gap, collision fallbacks and transitions live together in the scoped CSS of `CommissionSearchIsland.astro`. Without CSS anchor support, keep the centered `m-auto` fallback.
 - Any suggestion, stale or timeline interaction change needs regression test updates.
 - Lifecycle: ClientRouter soft navigation never fires `pagehide` and runs bundled module scripts only once. Mount
   through `bindSoftNavMount` (`@lib/astro/softNavMount`) on `astro:page-load` and tear down on `astro:before-swap`.

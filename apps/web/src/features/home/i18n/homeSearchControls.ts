@@ -13,7 +13,7 @@ export interface HomeSearchControls {
   searchPlaceholder: string
   searchCommissions: string
   searchHelp: string
-  refreshPopularSearchLabel: string
+  browseKeywordsLabel: string
   shuffleRandomEntryLabel: string
   clearSearch: string
   copySearchUrl: string
@@ -52,7 +52,7 @@ const HOME_SEARCH_CONTROLS: Record<HomeSearchLocale, HomeSearchControls> = {
     searchPlaceholder: 'Search',
     searchCommissions: 'Search commissions',
     searchHelp: 'Search help',
-    refreshPopularSearchLabel: 'Refresh popular keywords',
+    browseKeywordsLabel: 'All',
     shuffleRandomEntryLabel: 'Shuffle',
     clearSearch: 'Clear search',
     copySearchUrl: 'Copy search URL',
@@ -110,7 +110,7 @@ const HOME_SEARCH_CONTROLS: Record<HomeSearchLocale, HomeSearchControls> = {
     searchPlaceholder: '搜尋',
     searchCommissions: '搜尋委託',
     searchHelp: '搜尋說明',
-    refreshPopularSearchLabel: '換一批熱門關鍵字',
+    browseKeywordsLabel: '全部',
     shuffleRandomEntryLabel: '隨機',
     clearSearch: '清除搜尋',
     copySearchUrl: '複製搜尋網址',
@@ -161,7 +161,7 @@ const HOME_SEARCH_CONTROLS: Record<HomeSearchLocale, HomeSearchControls> = {
     searchPlaceholder: '検索',
     searchCommissions: 'コミッションを検索',
     searchHelp: '検索ヘルプ',
-    refreshPopularSearchLabel: '人気キーワードを更新',
+    browseKeywordsLabel: 'すべて',
     shuffleRandomEntryLabel: 'シャッフル',
     clearSearch: '検索をクリア',
     copySearchUrl: '検索URLをコピー',

@@ -1,4 +1,5 @@
 import type { SearchSuggestionAliasGroup } from '@features/home/search/commissionSearchIndex'
+import type { SearchQuerySource } from '@features/home/search/commissionSearchModel'
 import type { PanelLoadedState } from '@features/home/search/commissionSearchPanelState'
 import type { CommissionViewMode } from '@features/home/search/commissionViewMode'
 import {
@@ -78,9 +79,6 @@ function clearSearchQueryParamInAddress() {
   dispatchSearchQueryLocationChange()
 }
 
-const REFRESH_ICON_SPIN_DURATION_MS = 650
-const REFRESH_ICON_SPIN_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)'
-
 // ==================== Popular keywords rendering ====================
 
 function renderPopularKeywords(
@@ -138,8 +136,8 @@ export function initSearchController(root: HTMLElement) {
   const keywordListEl = root.querySelector<HTMLElement>('#search-keyword-list')
   const popularKeywordsEl = root.querySelector<HTMLElement>('#search-popular-keywords')
   const shuffleBtn = root.querySelector<HTMLElement>('#search-shuffle')
-  const rotateBtn = root.querySelector<HTMLElement>('#search-rotate')
-  const rotateIconEl = root.querySelector<HTMLElement>('#search-rotate-icon')
+  const browseTriggerEl = root.querySelector<HTMLElement>('#search-browse-trigger')
+  const browsePopoverEl = root.querySelector<HTMLElement>('#search-browse-popover')
   const comboboxEl = inputEl?.closest<HTMLElement>('[role="combobox"]') ?? null
 
   if (!inputEl || !suggestionListEl || !liveEl)
@@ -159,8 +157,7 @@ export function initSearchController(root: HTMLElement) {
   let isSuggestionPanelDismissed = false
   let activeCommandValue = ''
   let externalEntries = getCachedHomeSearchEntries()
-  let popularKeywordPage = 0
-  let hasDismissedFeaturedKeywords = false
+  let querySource: SearchQuerySource = 'url_query'
   let popularKeywordPool: string[] = externalEntries
     ? buildPopularKeywordPoolFromEntries(externalEntries)
     : []
@@ -194,19 +191,13 @@ export function initSearchController(root: HTMLElement) {
     const featuredBatch = collapseAliasKeywordVariants(
       dedupedFeatured,
       suggestionAliasGroups,
-      popularKeywordPage ^ 0x9E3779B9,
+      0x9E3779B9,
     )
-    const shouldUseFeatured = !hasDismissedFeaturedKeywords && featuredBatch.length > 0
-
-    if (shouldUseFeatured)
+    if (featuredBatch.length > 0)
       return featuredBatch.slice(0, MAX_VISIBLE_POPULAR_KEYWORDS)
 
-    const collapsed = collapseAliasKeywordVariants(
-      popularKeywordPool,
-      suggestionAliasGroups,
-      popularKeywordPage,
-    )
-    return getPopularKeywordBatch(collapsed, popularKeywordPage, MAX_VISIBLE_POPULAR_KEYWORDS)
+    const collapsed = collapseAliasKeywordVariants(popularKeywordPool, suggestionAliasGroups, 0)
+    return getPopularKeywordBatch(collapsed, 0, MAX_VISIBLE_POPULAR_KEYWORDS)
   }
 
   // ==================== Suggestion panel helpers ====================
@@ -223,6 +214,7 @@ export function initSearchController(root: HTMLElement) {
   function applySuggestion(suggestion: string | null) {
     if (!suggestion)
       return
+    querySource = 'input'
     applySelectedQuery(applySuggestionToQuery(query, suggestion))
   }
 
@@ -389,6 +381,7 @@ export function initSearchController(root: HTMLElement) {
       activeCommandValue,
       controls,
       suggestionAliasGroups,
+      querySource,
       disableDomFiltering: false,
       suppressInitialSuggestionPanelAnimation: false,
     })
@@ -483,7 +476,7 @@ export function initSearchController(root: HTMLElement) {
           keywordListEl,
           popularKeywords,
           prepareSearchInteraction,
-          applyPopularKeyword,
+          keyword => applyPopularKeyword(keyword, 'row'),
         )
       }
       if (popularKeywordsEl) {
@@ -532,7 +525,7 @@ export function initSearchController(root: HTMLElement) {
 
   // ==================== Popular keyword interaction ====================
 
-  function applyPopularKeyword(keyword: string) {
+  function applyPopularKeyword(keyword: string, from: 'row' | 'all') {
     if (!keyword)
       return
 
@@ -540,7 +533,8 @@ export function initSearchController(root: HTMLElement) {
     if (!nextQuery.trim())
       return
 
-    trackRybbitEvent(ANALYTICS_EVENTS.popularKeywordClicked, { keyword })
+    trackRybbitEvent(ANALYTICS_EVENTS.popularKeywordClicked, { keyword, from })
+    querySource = 'keyword'
     prepareSearchInteraction()
     applySelectedQuery(nextQuery, {
       preventScroll: true,
@@ -562,6 +556,7 @@ export function initSearchController(root: HTMLElement) {
   })
   input.addEventListener('input', () => {
     prepareSearchInteraction()
+    querySource = 'input'
     setInputQuery(normalizeQuotedTokenBoundary(input.value))
     showSuggestionPanel()
     copyState = 'idle'
@@ -694,29 +689,20 @@ export function initSearchController(root: HTMLElement) {
     })
   }
 
-  // Rotate button: next keyword page + dismiss featured keywords
-  if (rotateBtn) {
-    rotateBtn.addEventListener('click', () => {
-      hasDismissedFeaturedKeywords = true
-      popularKeywordPage += 1
+  // Browse popover: the full character/keyword list behind the featured row
+  if (browseTriggerEl) {
+    browseTriggerEl.addEventListener('pointerdown', prepareSearchInteraction)
+    browseTriggerEl.addEventListener('focus', prepareSearchInteraction)
+  }
 
-      // Trigger refresh icon spin animation
-      if (rotateIconEl) {
-        rotateIconEl.getAnimations?.().forEach(a => a.cancel())
-        rotateIconEl.animate?.(
-          [
-            { transform: 'rotate(0deg)' },
-            { transform: 'rotate(-360deg)' },
-          ],
-          {
-            duration: REFRESH_ICON_SPIN_DURATION_MS,
-            easing: REFRESH_ICON_SPIN_EASING,
-            iterations: 1,
-          },
-        )
-      }
-
-      scheduleRecompute({ immediate: true })
+  if (browsePopoverEl) {
+    browsePopoverEl.addEventListener('click', (event) => {
+      const term = (event.target as Element).closest<HTMLElement>('[data-browse-term]')?.dataset.browseTerm
+      if (!term)
+        return
+      // Hide first: closing the popover returns focus to its trigger, which would steal it back from the input.
+      browsePopoverEl.hidePopover()
+      applyPopularKeyword(term, 'all')
     })
   }
 
@@ -743,6 +729,7 @@ export function initSearchController(root: HTMLElement) {
       lastAddressQuery = addressQuery
       if (addressQuery !== query) {
         inputQuery = null
+        querySource = 'url_query'
         cancelAddressSync()
       }
     }

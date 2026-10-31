@@ -118,6 +118,7 @@ describe('computeSearchModel archived matches', () => {
       activeCommandValue: LOAD_ARCHIVED_COMMAND_VALUE,
       controls,
       suggestionAliasGroups: [],
+      querySource: 'input',
       disableDomFiltering: false,
       suppressInitialSuggestionPanelAnimation: false,
     })
