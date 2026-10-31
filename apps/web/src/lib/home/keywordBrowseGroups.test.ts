@@ -24,10 +24,12 @@ describe('buildKeywordBrowseGroups', () => {
     expect(groups).toEqual([
       {
         character: 'Studio K',
+        coCharacters: [],
         keywords: ['ASU', 'isj', 'CIEL', 'Sekai'],
       },
       {
         character: 'Lucia',
+        coCharacters: [],
         keywords: ['TKS'],
       },
     ])
@@ -46,6 +48,7 @@ describe('buildKeywordBrowseGroups', () => {
     expect(groups).toEqual([
       {
         character: 'Tokomachi',
+        coCharacters: [],
         keywords: ['Hoshimachi Suisei'],
       },
     ])
@@ -58,7 +61,36 @@ describe('buildKeywordBrowseGroups', () => {
     ], [])
 
     expect(groups).toEqual([
-      { character: 'MUS1CA', keywords: [] },
+      { character: 'MUS1CA', coCharacters: [], keywords: [] },
+    ])
+  })
+
+  it('moves another listed character\'s name or alias out of keywords into co-characters', () => {
+    const groups = buildKeywordBrowseGroups([
+      character('Lucia', ['TKS, Kanaut Nishe', 'kanaut nishe', 'K*naut, TKS, L*cia']),
+      character('Kanaut Nishe', ['Lucia']),
+    ], [], [
+      {
+        characterName: 'Kanaut Nishe',
+        aliases: ['K*naut'],
+      },
+      {
+        characterName: 'Lucia',
+        aliases: ['L*cia'],
+      },
+    ])
+
+    expect(groups).toEqual([
+      {
+        character: 'Lucia',
+        coCharacters: ['Kanaut Nishe'],
+        keywords: ['TKS'],
+      },
+      {
+        character: 'Kanaut Nishe',
+        coCharacters: ['Lucia'],
+        keywords: [],
+      },
     ])
   })
 })

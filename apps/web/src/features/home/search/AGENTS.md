@@ -13,10 +13,13 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
 - Keyword row: the admin-curated featured keywords (the entry-derived pool only when none are set) plus a fixed
   "All" trigger for the browse popover; there is no rotation. The browse popover is server-rendered from
   `buildKeywordBrowseGroups` (`@lib/home/keywordBrowseGroups`): an Active and an Archived section, characters in
-  sidebar order, each with its keywords (aliases collapsed). Hierarchy is type size and tone only (no chips,
-  dividers or icons); below `48rem` it is a bottom sheet, not an anchored popover. It sits outside
-  `#search-popular-keywords`, because that row is `invisible` until populated and visibility inherits into a
-  popover. A term click hides the popover before applying the query, so focus does not return to the trigger.
+  sidebar order, each with its keywords (aliases collapsed). A keyword naming another listed character (or its
+  character alias) is a co-appearance: it renders first as `× Name` with `data-browse-scope` and searches both
+  characters (`Lucia "Kanaut Nishe"`), because the bare name would return everything of the other character.
+  Hierarchy is type size and tone only (no chips, dividers or icons); below `48rem` it is a bottom sheet, not an
+  anchored popover. It sits outside `#search-popular-keywords`, because that row is `invisible` until populated and
+  visibility inherits into a popover. A term click hides the popover before applying the query, so focus does not
+  return to the trigger.
 - Help and browse popovers: native `popover` does not position or animate itself. Their anchor positioning, 8px gap, collision fallbacks and transitions live together in the scoped CSS of `CommissionSearchIsland.astro`. Without CSS anchor support, keep the centered `m-auto` fallback.
 - Any suggestion, stale or timeline interaction change needs regression test updates.
 - Lifecycle: ClientRouter soft navigation never fires `pagehide` and runs bundled module scripts only once. Mount
