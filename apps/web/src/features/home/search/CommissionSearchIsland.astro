@@ -396,14 +396,14 @@ const browseTermClass = `
       aria-label={controls.browseKeywordsLabel}
       class="
         m-auto max-h-[min(70dvh,34rem)] w-[min(calc(100vw-1rem),36rem)]
-        overflow-auto overscroll-contain rounded-xl border border-gray-200/80 bg-white/80 p-0
+        overflow-auto overscroll-contain rounded-xl border border-gray-200/80 bg-white/80 p-0 max-md:bg-white/90
         shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-xl backdrop-saturate-180
         dark:border-gray-800 dark:bg-[rgb(29_29_31/0.8)]
       "
     >
       {/* Hierarchy comes from type size and tone alone, like apple.com's nav flyout: no dividers, chips or icons */}
       <div class="
-        grid gap-x-8 gap-y-6 px-6 pt-5
+        grid gap-x-8 gap-y-10 px-6 pt-5
         pb-[max(1rem,env(safe-area-inset-bottom))]
         md:grid-cols-2
       "
@@ -411,13 +411,13 @@ const browseTermClass = `
         {keywordBrowseSections.map(section => (
           <section>
             <h2 class="
-              mb-3.5 text-xs font-normal text-gray-500
+              mb-3.5 text-xs font-normal tracking-wider text-gray-500 uppercase
               dark:text-gray-500
             "
             >
               {section.label}
             </h2>
-            <ul class="space-y-4">
+            <ul class="space-y-5">
               {section.groups.map(group => (
                 <li>
                   <button
@@ -429,11 +429,11 @@ const browseTermClass = `
                   </button>
                   {(group.coCharacters.length > 0 || group.keywords.length > 0) && (
                     <ul class="
-                      mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs/5 text-gray-500
-                      dark:text-gray-400
+                      mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-sm/6 text-gray-700
+                      dark:text-gray-300
                     "
                     >
-                      {/* A co-appearance searches both characters, so it finds the shared works instead of everything of the other */}
+                      {/* A co-appearance ("w/ Name") searches both characters, so it finds the shared works instead of everything of the other */}
                       {group.coCharacters.map(coCharacter => (
                         <li>
                           <button
@@ -443,7 +443,7 @@ const browseTermClass = `
                             aria-label={`${group.character} ${coCharacter}`}
                             class={browseTermClass}
                           >
-                            <span class="text-gray-400 dark:text-gray-600" aria-hidden="true">×</span>
+                            <span aria-hidden="true">w/</span>
                             {' '}
                             {coCharacter}
                           </button>
@@ -545,41 +545,13 @@ const browseTermClass = `
     }
   }
 
-  /* Frosted curtain over the page, like apple.com's nav flyout (rgba(0,0,0,.4) + blur(20px)); the panel stays 80% opaque. */
-  #search-browse-popover::backdrop {
-    background: rgb(0 0 0 / 0);
-    backdrop-filter: blur(0);
-    transition:
-      background 180ms ease,
-      backdrop-filter 180ms ease,
-      display 180ms allow-discrete,
-      overlay 180ms allow-discrete;
-  }
-
-  #search-browse-popover:popover-open::backdrop {
-    background: rgb(0 0 0 / 0.15);
-    backdrop-filter: blur(20px);
-  }
-
-  @media (prefers-color-scheme: dark) {
-    #search-browse-popover:popover-open::backdrop {
-      background: rgb(0 0 0 / 0.4);
-    }
-  }
-
-  @starting-style {
-    #search-browse-popover:popover-open::backdrop {
-      background: rgb(0 0 0 / 0);
-      backdrop-filter: blur(0);
-    }
-  }
-
   /* Narrow screens get a bottom sheet instead of an anchored popover (Apple HIG: no popovers in compact width). */
   @media (width < 48rem) {
+    /* A full-height sheet (iOS large detent) with the hamburger menu's material, so both mobile surfaces match. */
     #search-browse-popover {
-      inset: auto 0 0;
+      inset: 2.5rem 0 0;
       width: 100%;
-      max-height: 75dvh;
+      max-height: none;
       margin: 0;
       border-width: 1px 0 0;
       border-radius: 1rem 1rem 0 0;
@@ -596,6 +568,36 @@ const browseTermClass = `
       #search-browse-popover:popover-open {
         transform: translateY(100%);
         opacity: 1;
+      }
+    }
+
+    /* Only the sheet dims and frosts the page; on wider screens the panel is a local popover with its own material,
+       like a macOS menu, so the search row stays crisp. Values follow apple.com's nav curtain. */
+    #search-browse-popover::backdrop {
+      background: rgb(0 0 0 / 0);
+      backdrop-filter: blur(0);
+      transition:
+        background 180ms ease,
+        backdrop-filter 180ms ease,
+        display 180ms allow-discrete,
+        overlay 180ms allow-discrete;
+    }
+
+    #search-browse-popover:popover-open::backdrop {
+      background: rgb(0 0 0 / 0.15);
+      backdrop-filter: blur(20px);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      #search-browse-popover:popover-open::backdrop {
+        background: rgb(0 0 0 / 0.4);
+      }
+    }
+
+    @starting-style {
+      #search-browse-popover:popover-open::backdrop {
+        background: rgb(0 0 0 / 0);
+        backdrop-filter: blur(0);
       }
     }
   }

@@ -24,9 +24,15 @@ const backdropStyle = {
   backdropFilter: STYLES.backdrop,
 }
 
+// Type follows apple.com's mobile menu: every link is one 28px/600 row in one ink; only group labels are smaller.
+// Row size comes from --menu-font/--menu-pad (scoped CSS below), so the default view fits the screen.
 const utilityActionButtonClassName
-  = 'flex w-full items-center justify-between rounded-lg px-4 py-1 text-gray-700 transition-colors duration-150 hover:bg-white/70 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-white/10 dark:hover:text-white'
-const utilityActionTextClassName = 'text-base leading-6 font-bold no-underline transition-colors duration-200'
+  = 'inline-flex items-center gap-3 py-(--menu-pad) text-gray-700 transition-colors duration-150 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white'
+const utilityActionTextClassName = 'text-(length:--menu-font) leading-[1.15] font-semibold tracking-[0.007em] no-underline'
+const sectionToggleClassName = 'mt-8 mb-1 flex items-center gap-1.5 text-left text-[17px]/[21px] font-normal text-gray-500 transition-colors duration-150 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+// Rows fade in top to bottom on open; `--i` drives the stagger delay in the scoped CSS below.
+const rowStyle = (index: number) => `--i: ${index}`
+const archivedToggleRow = 4 + activeNavItems.length
 ---
 
 <div
@@ -44,15 +50,12 @@ const utilityActionTextClassName = 'text-base leading-6 font-bold no-underline t
     lg:hidden
   "
 >
+  {/* The full-screen panel covers this; it stays as the dismiss target behind it. */}
   <button
     type="button"
     data-mobile-hamburger-backdrop="true"
     aria-label={controls.closeNavigationMenu}
-    class="
-      pointer-events-none fixed inset-0 z-60 hidden bg-gray-200/10 opacity-0
-      backdrop-blur-xs transition-opacity duration-200
-      dark:bg-gray-900/10
-    "
+    class="pointer-events-none fixed inset-0 z-60 hidden opacity-0"
   />
 
   <button
@@ -78,108 +81,86 @@ const utilityActionTextClassName = 'text-base leading-6 font-bold no-underline t
     </span>
   </button>
 
+  {/* Full-screen frosted panel like apple.com's mobile menu; it sits under the toggle (z-70) so the X stays on top. */}
   <div
     id="mobile-character-menu"
     data-mobile-hamburger-panel="true"
     aria-hidden="true"
-    style={backdropStyle}
+    style={`--menu-rows: ${3 + activeNavItems.length}`}
     class="
-      pointer-events-none absolute right-4 bottom-full z-80 mb-4 hidden
-      max-h-[calc(100dvh-8rem)] w-64 origin-bottom-right overflow-y-auto
-      rounded-xl border border-white/20 bg-white/80 opacity-0
-      shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-lg
-      transition-[opacity,transform] duration-220 ease-out
+      pointer-events-none fixed inset-0 z-[65] hidden overflow-y-auto overscroll-contain
+      bg-white/90 px-12 pt-16 pb-28 opacity-0 backdrop-blur-[20px] backdrop-saturate-180
+      transition-opacity duration-220 ease-out
       focus:outline-hidden
-      dark:bg-black/80
+      dark:bg-[rgb(29_29_31/0.8)]
     "
   >
-    <div class="space-y-0">
-      <div class="space-y-2 px-2 pt-3 pb-5">
-        <ul class="space-y-2">
-          <li class="relative">
-            <button
-              type="button"
-              data-mobile-hamburger-search-action="true"
-              data-link-style="true"
-              class={`${utilityActionButtonClassName} appearance-none border-0 bg-transparent p-0 text-left no-underline`.trim()}
-            >
-              <span class={utilityActionTextClassName}>{controls.search}</span>
-              <Icon name="tabler:search" class="size-3.5 text-gray-500 transition-colors" aria-hidden="true" />
-            </button>
-          </li>
+    <ul>
+      <li data-mobile-hamburger-row style={rowStyle(0)}>
+        <button
+          type="button"
+          data-mobile-hamburger-search-action="true"
+          data-link-style="true"
+          class={`${utilityActionButtonClassName} appearance-none border-0 bg-transparent p-0 text-left no-underline`}
+        >
+          <span class={utilityActionTextClassName}>{controls.search}</span>
+        </button>
+      </li>
 
-          <li class="relative">
-            <button
-              type="button"
-              data-mobile-hamburger-view-mode-toggle="true"
-              data-view-mode="character"
-              aria-pressed="true"
-              class={`${utilityActionButtonClassName} appearance-none border-0 bg-transparent p-0 text-left text-gray-900 dark:text-white`.trim()}
-            >
-              <span class={utilityActionTextClassName}>{controls.byCharacter}</span>
-              <Icon data-mobile-hamburger-view-mode-indicator="true" name="tabler:arrow-badge-left-filled" class="size-4 scale-100 text-gray-400 opacity-100 transition-[opacity,scale] duration-300" aria-hidden="true" />
-            </button>
-          </li>
+      <li data-mobile-hamburger-row style={rowStyle(1)}>
+        <button
+          type="button"
+          data-mobile-hamburger-view-mode-toggle="true"
+          data-view-mode="character"
+          aria-pressed="true"
+          class={`${utilityActionButtonClassName} appearance-none border-0 bg-transparent p-0 text-left text-gray-900 dark:text-white`}
+        >
+          <span class={utilityActionTextClassName}>{controls.byCharacter}</span>
+          <Icon data-mobile-hamburger-view-mode-indicator="true" name="tabler:arrow-badge-left-filled" class="size-5 scale-100 text-gray-400 opacity-100 transition-[opacity,scale] duration-300" aria-hidden="true" />
+        </button>
+      </li>
 
-          <li class="relative">
-            <button
-              type="button"
-              data-mobile-hamburger-view-mode-toggle="true"
-              data-view-mode="timeline"
-              aria-pressed="false"
-              class={`${utilityActionButtonClassName} appearance-none border-0 bg-transparent p-0 text-left`.trim()}
-            >
-              <span class={utilityActionTextClassName}>{controls.byDate}</span>
-              <Icon data-mobile-hamburger-view-mode-indicator="true" name="tabler:arrow-badge-left-filled" class="size-4 scale-95 text-gray-400 opacity-0 transition-[opacity,scale] duration-300" aria-hidden="true" />
-            </button>
-          </li>
-        </ul>
-      </div>
+      <li data-mobile-hamburger-row style={rowStyle(2)}>
+        <button
+          type="button"
+          data-mobile-hamburger-view-mode-toggle="true"
+          data-view-mode="timeline"
+          aria-pressed="false"
+          class={`${utilityActionButtonClassName} appearance-none border-0 bg-transparent p-0 text-left`}
+        >
+          <span class={utilityActionTextClassName}>{controls.byDate}</span>
+          <Icon data-mobile-hamburger-view-mode-indicator="true" name="tabler:arrow-badge-left-filled" class="size-5 scale-95 text-gray-400 opacity-0 transition-[opacity,scale] duration-300" aria-hidden="true" />
+        </button>
+      </li>
+    </ul>
 
-      <div class="p-2" data-mobile-nav-root="true">
-        <div class="relative" data-mobile-character-menu-list="true">
-          <div data-mobile-hamburger-nav-panel="character">
-          <section
-            class="
-              mt-2
-              first:mt-0
-            "
-            data-mobile-character-section="active"
-          >
+    <div data-mobile-nav-root="true">
+      <div class="relative" data-mobile-character-menu-list="true">
+        <div data-mobile-hamburger-nav-panel="character">
+          <section data-mobile-character-section="active">
             <button
               type="button"
               data-mobile-character-section-toggle="true"
               data-mobile-character-section-key="active"
+              data-mobile-hamburger-row
+              style={rowStyle(3)}
               aria-expanded="true"
               aria-controls="mobile-active-characters"
-              class="
-                flex w-full items-center justify-between
-                rounded-lg px-4 py-2 text-left transition-colors
-                duration-150
-                hover:bg-white/70
-                dark:hover:bg-white/10
-              "
+              class={sectionToggleClassName}
             >
-              <p class="
-                text-base/6 font-bold text-gray-700
-                dark:text-gray-200
-              "
-              >
-                {controls.activeCharacters}
-              </p>
-              <Icon data-mobile-character-section-chevron="true" name="tabler:chevron-down" class="size-4 rotate-180 text-gray-600 transition-transform duration-200 dark:text-gray-300" aria-hidden="true" />
+              <span>{controls.activeCharacters}</span>
+              <Icon data-mobile-character-section-chevron="true" name="tabler:chevron-down" class="size-4 rotate-180 transition-transform duration-200" aria-hidden="true" />
             </button>
             <div
               id="mobile-active-characters"
               data-mobile-character-section-panel="active"
-              class="mt-1"
             >
               {
                 activeNavItems.length > 0
 ? (
-                  <ul class="space-y-2">
-                    {activeNavItems.map(item => (
-                      <li class="relative">
+                  <ul>
+                    {activeNavItems.map((item, index) => (
+                      <li class="relative" data-mobile-hamburger-row style={rowStyle(4 + index)}>
                         <a
                           href={item.sectionHash}
                           data-mobile-nav-link="true"
@@ -195,7 +176,7 @@ const utilityActionTextClassName = 'text-base leading-6 font-bold no-underline t
                 )
 : (
                   <p class="
-                    px-4 py-2 text-sm text-gray-500
+                    py-2 text-sm text-gray-500
                     dark:text-gray-400
                   "
                   >
@@ -206,46 +187,29 @@ const utilityActionTextClassName = 'text-base leading-6 font-bold no-underline t
             </div>
           </section>
 
-          <section
-            class="
-              mt-2
-              first:mt-0
-            "
-            data-mobile-character-section="archived"
-          >
+          <section data-mobile-character-section="archived">
             <button
               type="button"
               data-mobile-character-section-toggle="true"
               data-mobile-character-section-key="archived"
+              data-mobile-hamburger-row
+              style={rowStyle(archivedToggleRow)}
               aria-expanded="false"
               aria-controls="mobile-archived-characters"
-              class="
-                flex w-full items-center justify-between
-                rounded-lg px-4 py-2 text-left transition-colors
-                duration-150
-                hover:bg-white/70
-                dark:hover:bg-white/10
-              "
+              class={sectionToggleClassName}
             >
-              <p class="
-                text-base/6 font-bold text-gray-700
-                dark:text-gray-200
-              "
-              >
-                {controls.archivedCharacters}
-              </p>
-              <Icon data-mobile-character-section-chevron="true" name="tabler:chevron-down" class="size-4 text-gray-600 transition-transform duration-200 dark:text-gray-300" aria-hidden="true" />
+              <span>{controls.archivedCharacters}</span>
+              <Icon data-mobile-character-section-chevron="true" name="tabler:chevron-down" class="size-4 transition-transform duration-200" aria-hidden="true" />
             </button>
             <div
               id="mobile-archived-characters"
               data-mobile-character-section-panel="archived"
-              class="mt-1"
               hidden
             >
               {
                 archivedNavItems.length > 0
 ? (
-                  <ul class="space-y-2">
+                  <ul>
                     {archivedNavItems.map(item => (
                       <li class="relative">
                         <a
@@ -263,7 +227,7 @@ const utilityActionTextClassName = 'text-base leading-6 font-bold no-underline t
                 )
 : (
                   <p class="
-                    px-4 py-2 text-sm text-gray-500
+                    py-2 text-sm text-gray-500
                     dark:text-gray-400
                   "
                   >
@@ -273,28 +237,64 @@ const utilityActionTextClassName = 'text-base leading-6 font-bold no-underline t
               }
             </div>
           </section>
-          </div>
+        </div>
 
-          <div data-mobile-hamburger-nav-panel="timeline" class="hidden">
-            <ul class="space-y-2">
-              {
-                monthNavItems.map(item => (
-                  <li class="relative">
-                    <a
-                      href={`/?view=timeline${item.sectionHash}`}
-                      data-mobile-nav-link="true"
-                      data-mobile-nav-section-id={item.sectionId}
-                      class={STYLES.listItem}
-                    >
-                      {item.displayName}
-                    </a>
-                  </li>
-                ))
-              }
-            </ul>
-          </div>
+        <div data-mobile-hamburger-nav-panel="timeline" class="mt-8 hidden">
+          <ul>
+            {
+              monthNavItems.map((item, index) => (
+                <li class="relative" data-mobile-hamburger-row style={rowStyle(3 + index)}>
+                  <a
+                    href={`/?view=timeline${item.sectionHash}`}
+                    data-mobile-nav-link="true"
+                    data-mobile-nav-section-id={item.sectionId}
+                    class={STYLES.listItem}
+                  >
+                    {item.displayName}
+                  </a>
+                </li>
+              ))
+            }
+          </ul>
         </div>
       </div>
     </div>
   </div>
 </div>
+
+<style>
+  /* apple.com's menu motion: rows fade and drop in, staggered, with its cubic-bezier(0.4, 0, 0.6, 1). Closing is flat. */
+  /* Rows shrink from Apple's ~52px toward 40px so the default view (three utilities plus the active characters)
+     fits one screen; past that floor, or with archived or the timeline open, the panel scrolls.
+     18.5rem is the panel's vertical padding plus both section labels. */
+  [data-mobile-hamburger-panel] {
+    --menu-row: clamp(2.5rem, (100dvh - 18.5rem) / var(--menu-rows), 3.25rem);
+    --menu-font: calc(var(--menu-row) * 0.54);
+    --menu-pad: calc((var(--menu-row) - var(--menu-font) * 1.15) / 2);
+  }
+
+  [data-mobile-hamburger-row] {
+    opacity: 0;
+    transform: translateY(-8px);
+    transition:
+      opacity 240ms cubic-bezier(0.4, 0, 0.6, 1),
+      transform 240ms cubic-bezier(0.4, 0, 0.6, 1);
+  }
+
+  [data-mobile-hamburger-open='true'] [data-mobile-hamburger-row] {
+    opacity: 1;
+    transform: none;
+    transition-delay: calc(80ms + min(var(--i, 0), 12) * 25ms);
+  }
+
+  [data-mobile-hamburger-open='true'] [data-mobile-hamburger-panel] {
+    transition-duration: 400ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.6, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-mobile-hamburger-row] {
+      transform: none;
+    }
+  }
+</style>

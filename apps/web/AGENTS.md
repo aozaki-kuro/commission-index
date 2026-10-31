@@ -53,6 +53,13 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   `astro:before-swap`; never mount from top-level module code
 - **Image fade-in:** `commission/imageFadeIn.ts` (mounted in `criticalMounts`) fades `[data-commission-image] > img` in on `load`. Fail open: CSS hides images only under `html[data-image-fade=on]`, which the mount sets after marking already-`complete` images `data-loaded`, so no-JS and cached reloads never flash. The LCP image (`priority`) is server-rendered with `data-loaded`: Chrome ignores `opacity: 0` paints for LCP. `load`/`error` do not bubble, so the listeners are document-level capture; `error` also marks loaded so a broken image never stays invisible. Dispose leaves the attribute; ClientRouter resets `<html>` attributes on swap and the next mount sets it again
 - **Floating buttons auto-hide:** below `lg` the hamburger and language roots get `data-floating-hidden` (one controller, `nav/hamburger/floatingButtonsAutoHide.ts`, mounted from `homePageClient.ts`) while scrolling down; never hidden near the top/bottom, while a menu is open, keyboard focus is inside, or the age gate is open. CSS-only hide (no `aria-hidden`/`inert`).
+- **Mobile hamburger menu:** a full-screen frosted panel styled after apple.com's mobile menu (every link one
+  28px/600 tier, group labels 17px gray, rows staggered in via `--i` on `[data-mobile-hamburger-row]`). The panel is
+  `z-[65]`, below the toggle's `z-[70]` inside the root's stacking context, so the X stays clickable on top of it.
+  Link rows size from `--menu-rows` (utilities + active characters): they shrink from 28px toward ~22px so the default
+  view fits one screen, then scroll. Change the panel padding or section labels and the `18.5rem` in its scoped CSS
+  must follow.
+  `STYLES.floatingButton`/`backdrop` are shared with the language menu; only `listItem` belongs to this menu.
 - **Scroll depth analytics:** `scroll_depth_reached` (5/10/25/50/75/100, `commission/scrollDepthTracker.ts`) measures
   reached entries against each view panel's server-rendered `data-total-entries` — active characters only for the
   character view (archived stays out), every entry for the timeline. Keep that count equal to what the panel
