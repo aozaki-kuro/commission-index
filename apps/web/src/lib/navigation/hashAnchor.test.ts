@@ -80,6 +80,28 @@ describe('hashAnchor utils', () => {
     )
   })
 
+  it('clears hash once a tall target\'s top edge scrolls above the viewport', () => {
+    const target = document.createElement('div')
+    target.id = 'character-lucia'
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
+      top: -400,
+      bottom: 3000,
+      left: 0,
+      right: 0,
+      width: 0,
+      height: 3400,
+      x: 0,
+      y: -400,
+      toJSON: () => {},
+    })
+    document.body.appendChild(target)
+    window.history.replaceState(null, '', '/#character-lucia')
+
+    clearHashIfTargetOffscreen()
+
+    expect(window.location.pathname + window.location.search + window.location.hash).toBe('/')
+  })
+
   it('keeps hash when target is within viewport', () => {
     const target = document.createElement('div')
     target.id = 'timeline-year-2026'
