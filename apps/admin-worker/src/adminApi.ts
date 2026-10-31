@@ -1,7 +1,7 @@
 import type { D1DatabaseLike } from './adminPersistence'
 import { isFutureCommissionDate } from '../../../packages/domain/src/index'
 import { handleAdminReadRequest } from './adminData'
-import { INTEREST_SINCE, loadInterestCounts } from './adminInterest'
+import { INTEREST_SINCE, loadInterestCounts, loadLinkClicks } from './adminInterest'
 import {
   createCharacter as persistCharacterCreate,
   deleteCharacter as persistCharacterDelete,
@@ -838,6 +838,16 @@ export async function handleAdminApiRequest(
     const result = await loadInterestCounts(env.RYBBIT_API_KEY)
     return result.ok
       ? json({ since: INTEREST_SINCE, counts: result.counts })
+      : failure(result.message, 502)
+  }
+
+  if (request.method === 'GET' && pathname === '/api/admin/link-clicks') {
+    if (!env.RYBBIT_API_KEY) {
+      return failure('RYBBIT_API_KEY is not configured on the worker.', 503)
+    }
+    const result = await loadLinkClicks(env.RYBBIT_API_KEY)
+    return result.ok
+      ? json({ since: result.since, until: result.until, clicks: result.clicks })
       : failure(result.message, 502)
   }
 

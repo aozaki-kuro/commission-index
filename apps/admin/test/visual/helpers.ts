@@ -274,6 +274,15 @@ const fixtureInterest = {
   },
 }
 
+const fixtureLinkClicks = {
+  since: '2025-10-31',
+  until: '2026-10-31',
+  clicks: [
+    { url: 'https://example.com/work/1', count: 42 },
+    { url: 'https://example.com/work/3', count: 17 },
+  ],
+}
+
 const fixtureImageSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="525"><rect width="1280" height="525" fill="#d7dce0"/><circle cx="640" cy="262" r="150" fill="#a7b5ba"/></svg>'
 
 export interface MockAdminApiCapture {
@@ -343,6 +352,10 @@ export async function mockAdminApi(page: Page): Promise<MockAdminApiCapture> {
       }
       if (pathname.endsWith('/interest')) {
         await route.fulfill({ json: fixtureInterest })
+        return
+      }
+      if (pathname.endsWith('/link-clicks')) {
+        await route.fulfill({ json: fixtureLinkClicks })
         return
       }
       if (characterCommissions) {

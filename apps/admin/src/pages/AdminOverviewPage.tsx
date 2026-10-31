@@ -1,13 +1,14 @@
 import type { AdminCommissionSearchRow } from '@commission-index/domain'
-import type { AdminInterestPayload, AdminOverviewPayload } from '../lib/adminApi'
+import type { AdminOverviewPayload } from '../lib/adminApi'
 import { useCallback, useEffect, useReducer, useState, useSyncExternalStore } from 'react'
 import { adminActionLinkStyles } from '../app/ui'
 import { AdminBootstrapStatus } from '../components/AdminBootstrapStatus'
 import { AdminInternalLink } from '../components/AdminInternalLink'
 import { FloatingNotice } from '../components/FloatingNotice'
-import { AdminInterestNotConfiguredError, fetchAdminInterest, fetchAdminOverviewPayload, getAdminApiBaseUrl, getAdminApiUrl, readCachedAdminJson } from '../lib/adminApi'
+import { AdminAnalyticsNotConfiguredError, fetchAdminInterest, fetchAdminLinkClicks, fetchAdminOverviewPayload, getAdminApiBaseUrl, getAdminApiUrl, readCachedAdminJson } from '../lib/adminApi'
 import { compareCommissionsByDate, formatCommissionPublicId, getCommissionTitle } from '../lib/commissionPresentation'
 import { isPendingRebuild, subscribeToPendingRebuild } from '../lib/pendingRebuildSignal'
+import { rankPopularCommissions } from '../lib/popularCommissions'
 import { rankUnpublishedInterest } from '../lib/unpublishedInterest'
 import { dismissWebsiteRebuildNotice, getServerWebsiteRebuildState, getWebsiteRebuildState, queueWebsiteRebuild, subscribeToWebsiteRebuild } from '../lib/websiteRebuild'
 
@@ -35,25 +36,19 @@ function overviewReducer(state: OverviewState, action: OverviewAction): Overview
   }
 }
 
-interface InterestState {
-  status: 'loading' | 'ready' | 'not-connected' | 'error'
-  payload: AdminInterestPayload | null
+type AnalyticsStatus = 'loading' | 'ready' | 'not-connected' | 'error'
+
+interface AnalyticsState<T> {
+  status: AnalyticsStatus
+  payload: T | null
 }
 
-function createInitialInterestState(): InterestState {
-  const payload = readCachedAdminJson<AdminInterestPayload>('/api/admin/interest')
-  return {
-    status: payload ? 'ready' : 'loading',
-    payload,
-  }
-}
-
-type InterestAction
+type AnalyticsAction<T>
   = { type: 'loading' }
-    | { type: 'loaded', payload: AdminInterestPayload }
+    | { type: 'loaded', payload: T }
     | { type: 'failed', status: 'not-connected' | 'error' }
 
-function interestReducer(state: InterestState, action: InterestAction): InterestState {
+function analyticsReducer<T>(state: AnalyticsState<T>, action: AnalyticsAction<T>): AnalyticsState<T> {
   switch (action.type) {
     // A cached ranking stays visible while it refreshes in the background.
     case 'loading': return state.payload
@@ -62,6 +57,42 @@ function interestReducer(state: InterestState, action: InterestAction): Interest
     case 'loaded': return { status: 'ready', payload: action.payload }
     case 'failed': return { ...state, status: action.status }
   }
+}
+
+// Independent of the overview payload: a missing analytics key or a Rybbit outage must not fail the page.
+function useAnalyticsFeed<T>(pathname: string, load: (signal: AbortSignal) => Promise<T>, reloadToken: number) {
+  const [state, dispatch] = useReducer(analyticsReducer<T>, pathname, (cachePath): AnalyticsState<T> => {
+    const payload = readCachedAdminJson<T>(cachePath)
+    return {
+      status: payload ? 'ready' : 'loading',
+      payload,
+    }
+  })
+  const [retryToken, setRetryToken] = useState(0)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    dispatch({ type: 'loading' })
+    void load(controller.signal)
+      .then((payload) => {
+        if (!controller.signal.aborted)
+          dispatch({ type: 'loaded', payload })
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) {
+          dispatch({
+            type: 'failed',
+            status: error instanceof AdminAnalyticsNotConfiguredError
+              ? 'not-connected'
+              : 'error',
+          })
+        }
+      })
+    return () => controller.abort()
+  }, [load, reloadToken, retryToken])
+
+  const retry = useCallback(() => setRetryToken(value => value + 1), [])
+  return [state, retry] as const
 }
 
 const placeholderStyles = 'rounded-lg border border-dashed border-gray-300 px-4 py-8 text-sm leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400'
@@ -75,8 +106,8 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
   const isDispatching = rebuild.status === 'pending'
   const hasPending = useSyncExternalStore(subscribeToPendingRebuild, isPendingRebuild, () => false)
   const reload = useCallback(() => setReloadToken(value => value + 1), [])
-  const [interest, dispatchInterest] = useReducer(interestReducer, undefined, createInitialInterestState)
-  const [interestReloadToken, setInterestReloadToken] = useState(0)
+  const [interest, retryInterest] = useAnalyticsFeed('/api/admin/interest', fetchAdminInterest, reloadToken)
+  const [linkClicks, retryLinkClicks] = useAnalyticsFeed('/api/admin/link-clicks', fetchAdminLinkClicks, reloadToken)
 
   useEffect(() => {
     const controller = new AbortController()
@@ -98,28 +129,6 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
       })
     return () => controller.abort()
   }, [reloadToken])
-
-  // Independent of the overview payload: a missing analytics key or a Rybbit outage must not fail the page.
-  useEffect(() => {
-    const controller = new AbortController()
-    dispatchInterest({ type: 'loading' })
-    void fetchAdminInterest(controller.signal)
-      .then((payload) => {
-        if (!controller.signal.aborted)
-          dispatchInterest({ type: 'loaded', payload })
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted) {
-          dispatchInterest({
-            type: 'failed',
-            status: error instanceof AdminInterestNotConfiguredError
-              ? 'not-connected'
-              : 'error',
-          })
-        }
-      })
-    return () => controller.abort()
-  }, [reloadToken, interestReloadToken])
 
   const { payload } = state
   const characters = payload?.bootstrap.characters
@@ -154,6 +163,10 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
   const mostWanted = payload && interest.payload
     ? rankUnpublishedInterest(payload.bootstrap.commissionSearchRows, interest.payload.counts)
     : []
+  const popular = payload && linkClicks.payload
+    ? rankPopularCommissions(payload.bootstrap.commissionSearchRows, linkClicks.payload.clicks, interest.payload?.counts ?? {})
+    : []
+  const overviewLoading = !payload && state.isLoading
 
   return (
     <div className="grid min-w-0 items-start gap-7 @min-[50rem]/workspace:grid-cols-[minmax(0,1fr)_17rem] @min-[50rem]/workspace:grid-rows-[auto_1fr] @min-[50rem]/workspace:gap-x-8">
@@ -286,7 +299,7 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
               )}
         </section>
 
-        <section aria-labelledby="overview-most-wanted" aria-busy={interest.status === 'loading' || (!payload && state.isLoading)} className="min-w-0 space-y-3">
+        <section aria-labelledby="overview-most-wanted" aria-busy={interest.status === 'loading' || overviewLoading} className="min-w-0 space-y-3">
           <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
             <h2 id="overview-most-wanted" className="text-base font-semibold text-gray-900 dark:text-gray-100">Most wanted</h2>
             {interest.payload && <p className="text-xs tabular-nums text-gray-500 dark:text-gray-400">{`Votes since ${interest.payload.since}`}</p>}
@@ -294,34 +307,86 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
           {mostWanted.length > 0
             ? (
                 <ol className="divide-y divide-gray-200 dark:divide-gray-800">
-                  {mostWanted.map(entry => <CommissionListItem key={entry.row.id} item={entry.row} votes={entry.votes} />)}
+                  {mostWanted.map(entry => (
+                    <CommissionListItem
+                      key={entry.row.id}
+                      item={entry.row}
+                      metrics={[
+                        { label: 'vote', value: entry.votes },
+                      ]}
+                    />
+                  ))}
                 </ol>
               )
-            : interest.status === 'error'
-              ? (
-                  <div role="alert" className={`${placeholderStyles} flex flex-wrap items-center justify-between gap-3`}>
-                    <p>Could not load visitor votes.</p>
-                    <button type="button" onClick={() => setInterestReloadToken(value => value + 1)} className={`${utilityButtonStyles} min-w-28`}>Try again</button>
-                  </div>
-                )
-              : (
-                  <p className={placeholderStyles}>
-                    {interest.status === 'not-connected'
-                      ? 'Visitor analytics is not connected. Votes appear once the worker has a Rybbit API key.'
-                      : interest.status === 'loading' || (!payload && state.isLoading)
-                        ? 'Loading votes…'
-                        : payload
-                          ? 'No votes yet.'
-                          : 'Votes are unavailable. Retry loading the overview.'}
-                  </p>
-                )}
+            : <AnalyticsPlaceholder status={interest.status} hasOverview={payload !== null} overviewLoading={overviewLoading} noun="votes" onRetry={retryInterest} />}
+        </section>
+
+        <section aria-labelledby="overview-popular" aria-busy={linkClicks.status === 'loading' || overviewLoading} className="min-w-0 space-y-3">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+            <h2 id="overview-popular" className="text-base font-semibold text-gray-900 dark:text-gray-100">Popular this year</h2>
+            {linkClicks.payload && <p className="text-xs tabular-nums text-gray-500 dark:text-gray-400">{`Link clicks since ${linkClicks.payload.since}`}</p>}
+          </div>
+          {popular.length > 0
+            ? (
+                <ol className="divide-y divide-gray-200 dark:divide-gray-800">
+                  {popular.map(entry => (
+                    <CommissionListItem
+                      key={entry.row.id}
+                      item={entry.row}
+                      metrics={[
+                        { label: 'click', value: entry.clicks },
+                        // Votes stay unknown, not zero, while the vote feed is unavailable.
+                        {
+                          label: 'vote',
+                          value: interest.payload ? entry.votes : null,
+                        },
+                      ]}
+                    />
+                  ))}
+                </ol>
+              )
+            : <AnalyticsPlaceholder status={linkClicks.status} hasOverview={payload !== null} overviewLoading={overviewLoading} noun="link clicks" onRetry={retryLinkClicks} />}
         </section>
       </div>
     </div>
   )
 }
 
-function CommissionListItem({ item, votes }: { item: AdminCommissionSearchRow, votes?: number }) {
+function AnalyticsPlaceholder({ status, hasOverview, overviewLoading, noun, onRetry }: {
+  status: AnalyticsStatus
+  hasOverview: boolean
+  overviewLoading: boolean
+  noun: string
+  onRetry: () => void
+}) {
+  const Noun = noun.charAt(0).toUpperCase() + noun.slice(1)
+  if (status === 'error') {
+    return (
+      <div role="alert" className={`${placeholderStyles} flex flex-wrap items-center justify-between gap-3`}>
+        <p>{`Could not load visitor ${noun}.`}</p>
+        <button type="button" onClick={onRetry} className={`${utilityButtonStyles} min-w-28`}>Try again</button>
+      </div>
+    )
+  }
+  return (
+    <p className={placeholderStyles}>
+      {status === 'not-connected'
+        ? `Visitor analytics is not connected. ${Noun} appear once the worker has a Rybbit API key.`
+        : status === 'loading' || overviewLoading
+          ? `Loading ${noun}…`
+          : hasOverview
+            ? `No ${noun} yet.`
+            : `${Noun} are unavailable. Retry loading the overview.`}
+    </p>
+  )
+}
+
+interface ListMetric {
+  label: string
+  value: number | null
+}
+
+function CommissionListItem({ item, metrics = [] }: { item: AdminCommissionSearchRow, metrics?: ListMetric[] }) {
   return (
     <li className="flex min-w-0 items-center gap-3 py-2.5 sm:gap-4">
       <img
@@ -333,21 +398,23 @@ function CommissionListItem({ item, votes }: { item: AdminCommissionSearchRow, v
         className="h-14 w-20 shrink-0 rounded-md bg-gray-100 object-cover sm:w-24 dark:bg-gray-800"
       />
       <div className="min-w-0 flex-1 space-y-1.5">
-        <div className="flex min-w-0 items-baseline justify-between gap-3">
-          <p className="min-w-0 truncate text-sm font-medium text-gray-800 dark:text-gray-100" title={getCommissionTitle(item)}>{getCommissionTitle(item)}</p>
-          {votes !== undefined && (
-            <p className="shrink-0 text-sm font-medium tabular-nums text-gray-900 dark:text-gray-100">
-              {`${votes} ${votes === 1
-                ? 'vote'
-                : 'votes'}`}
-            </p>
-          )}
-        </div>
+        <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-100" title={getCommissionTitle(item)}>{getCommissionTitle(item)}</p>
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
           <span className="min-w-0 truncate">{item.characterName}</span>
-          <span className="shrink-0 tabular-nums" title={item.publicId}>
-            #
-            {formatCommissionPublicId(item.publicId)}
+          {/* The short ID stays flush right in every list; metrics sit to its left. */}
+          <span className="ml-auto flex shrink-0 items-center gap-3 tabular-nums">
+            {metrics.map(metric => (
+              <span key={metric.label}>
+                <span className="font-medium text-gray-900 dark:text-gray-100">{metric.value ?? '—'}</span>
+                {` ${metric.value === 1
+                  ? metric.label
+                  : `${metric.label}s`}`}
+              </span>
+            ))}
+            <span title={item.publicId}>
+              #
+              {formatCommissionPublicId(item.publicId)}
+            </span>
           </span>
         </div>
       </div>

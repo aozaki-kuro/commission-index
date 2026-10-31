@@ -28,7 +28,8 @@ vi.mock('./adminApi', () => ({
     suggestion: { featuredKeywords: [] },
   }),
   fetchAdminInterest: async () => ({ since: '2026-10-31', counts: {} }),
-  AdminInterestNotConfiguredError: class extends Error {},
+  fetchAdminLinkClicks: async () => ({ since: '2025-10-31', until: '2026-10-31', clicks: [] }),
+  AdminAnalyticsNotConfiguredError: class extends Error {},
 }))
 vi.mock('./liveBuildInfo', () => ({
   fetchLiveBuildInfo: api.fetchBuildInfo,

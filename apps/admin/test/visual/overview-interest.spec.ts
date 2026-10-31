@@ -52,6 +52,15 @@ const interest = {
   },
 }
 
+const linkClicks = {
+  since: '2025-10-31',
+  until: '2026-10-31',
+  clicks: [
+    { url: 'http://www.Example.com/work/3/', count: 40 },
+    { url: 'https://odaibako.net/u/someone', count: 99 },
+  ],
+}
+
 const responses = {
   'ok': { status: 200, json: interest },
   'not-configured': {
@@ -69,11 +78,14 @@ const responses = {
 async function mockOverview(page: Page, mode: keyof typeof responses) {
   await mockAdminApi(page)
   await page.route('**/api/admin/bootstrap', route => route.fulfill({ json: bootstrap }))
-  const control = { mode, interestRequests: 0 }
+  const control = { mode, interestRequests: 0, linkClicksMode: 'ok' as 'ok' | 'rybbit-down' }
   await page.route('**/api/admin/interest', async (route) => {
     control.interestRequests++
     await route.fulfill(responses[control.mode])
   })
+  await page.route('**/api/admin/link-clicks', route => route.fulfill(control.linkClicksMode === 'ok'
+    ? { json: linkClicks }
+    : responses['rybbit-down']))
   return control
 }
 
@@ -130,4 +142,33 @@ test('most wanted offers a retry after a Rybbit failure', async ({ page }) => {
   await section.getByRole('button', { name: 'Try again' }).click()
   await expect(section.getByRole('listitem')).toHaveCount(3)
   expect(control.interestRequests).toBe(failed + 1)
+})
+
+test('popular this year ranks link clicks with votes beside them', async ({ page }) => {
+  await mockOverview(page, 'ok')
+  await page.goto('/')
+  const section = page.getByRole('region', { name: 'Popular this year' })
+  const items = section.getByRole('listitem')
+  await expect(section).toContainText('Link clicks since 2025-10-31')
+  // Clicks first; votes-only works follow by votes, then newest.
+  await expect(items).toHaveCount(4)
+  await expect(items.nth(0)).toContainText('2026-07-01 · Artist 3')
+  await expect(items.nth(0)).toContainText('40 clicks')
+  await expect(items.nth(0)).toContainText('9 votes')
+  await expect(items.nth(1)).toContainText('2026-04-01 · Artist 4')
+  await expect(items.nth(1)).toContainText('0 clicks')
+  await expect(items.nth(2)).toContainText('2026-06-01 · Artist 2')
+  await expect(items.nth(3)).toContainText('2026-05-01 · Artist 1')
+})
+
+test('popular this year fails on its own and retries', async ({ page }) => {
+  const control = await mockOverview(page, 'ok')
+  control.linkClicksMode = 'rybbit-down'
+  await page.goto('/')
+  const section = page.getByRole('region', { name: 'Popular this year' })
+  await expect(section.getByRole('alert')).toContainText('Could not load visitor link clicks.')
+  await expect(mostWanted(page).getByRole('listitem')).toHaveCount(3)
+  control.linkClicksMode = 'ok'
+  await section.getByRole('button', { name: 'Try again' }).click()
+  await expect(section.getByRole('listitem')).toHaveCount(4)
 })
