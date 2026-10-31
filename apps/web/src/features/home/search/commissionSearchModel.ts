@@ -155,7 +155,11 @@ export interface SearchModelInput {
   disableDomFiltering: boolean
   suppressInitialSuggestionPanelAnimation: boolean
   initialQuery?: string
+  /** What last set the query; reported once per mount as `search_used.source`. */
+  querySource: SearchQuerySource
 }
+
+export type SearchQuerySource = 'input' | 'keyword' | 'url_query'
 
 export interface SearchModelOutput {
   resolvedIndex: SearchIndex
@@ -200,6 +204,7 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
     disableDomFiltering,
     suppressInitialSuggestionPanelAnimation,
     initialQuery,
+    querySource,
   } = input
 
   const { archivedVisible } = panelState
@@ -417,11 +422,7 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
     && (resolvedIndex.entries.length === 0 || resolvedIndex.fuse)
   ) {
     hasTrackedSearchUsage = true
-    trackRybbitEvent(ANALYTICS_EVENTS.searchUsed, {
-      source: initialQuery === undefined
-        ? 'url_query'
-        : 'input',
-    })
+    trackRybbitEvent(ANALYTICS_EVENTS.searchUsed, { source: querySource })
   }
 
   const output: SearchModelOutput = {

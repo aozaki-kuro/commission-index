@@ -73,6 +73,11 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   later server-arrival `timestamp_ms`, and milestones crossed in one scroll update are sent together, so later steps
   undercount. Renaming an event or changing a property's values breaks comparison with older data; adding or removing
   a property does not.
+- **Search entry points:** `search_used.source` is `input`, `keyword` (featured row or browse popover) or
+  `url_query`. Before 2026-11-01 it was always `url_query` (the model never got the real source), so older values
+  are meaningless. `popular_keyword_clicked.from` is `row` (featured chips) or `all` (browse popover), added
+  2026-11-01. Typed search was ~0.5% of sessions over Aug–Oct 2026, versus ~2.4% for keyword chips; invest in click
+  entry points, not query syntax.
 - **Unpublished interest:** the "want this" button keys its localStorage flag and `i_want_to_see_it { commission }`
   on `commission.publicId`; admin joins vote counts on that id (`GET /api/admin/interest`). Never key it on
   character name or date — same-day works collided and renames orphaned the votes.

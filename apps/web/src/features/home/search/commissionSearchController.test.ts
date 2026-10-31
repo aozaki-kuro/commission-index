@@ -2,6 +2,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { initSearchController } from './commissionSearchController'
 
+const trackMock = vi.hoisted(() => ({
+  trackRybbitEvent: vi.fn(),
+}))
+
+vi.mock('@lib/analytics/track', () => trackMock)
+
 const archivedCharactersMock = vi.hoisted(() => ({
   isArchivedCharactersVisible: vi.fn(() => false),
   requestArchivedCharactersVisibility: vi.fn(),
@@ -206,6 +212,101 @@ describe('initSearchController', () => {
       expect(window.location.search).toBe('?q=baz')
 
       cleanup?.()
+    })
+  })
+
+  describe('keyword entry points', () => {
+    function trackedEvents(name: string) {
+      return trackMock.trackRybbitEvent.mock.calls
+        .filter(([eventName]) => eventName === name)
+        .map(([, properties]) => properties)
+    }
+
+    beforeEach(() => {
+      // jsdom has no scrollIntoView; the suggestion listbox calls it when it highlights an item.
+      Element.prototype.scrollIntoView = vi.fn()
+      searchEntriesMock.entries = [
+        { id: 0, domKey: 'character-alpha::alpha', searchText: 'alpha' },
+        { id: 1, domKey: 'character-beta::beta', searchText: 'beta' },
+      ]
+    })
+
+    afterEach(() => {
+      delete (Element.prototype as Partial<Element>).scrollIntoView
+    })
+
+    it('reports a featured chip click as from row and the search as keyword-sourced', async () => {
+      const cleanup = initSearchController(mountSearchRoot({
+        featuredKeywords: ['alpha'],
+      }))
+      await vi.waitFor(() => {
+        expect(document.querySelector('#search-keyword-list button')).not.toBeNull()
+      })
+
+      document.querySelector<HTMLButtonElement>('#search-keyword-list button')!.click()
+
+      expect(trackedEvents('popular_keyword_clicked')).toEqual([
+        { keyword: 'alpha', from: 'row' },
+      ])
+      await vi.waitFor(() => {
+        expect(trackedEvents('search_used')).toEqual([
+          { source: 'keyword' },
+        ])
+      })
+
+      cleanup?.()
+    })
+
+    it('applies a browse popover term, closes the popover and reports it as from all', async () => {
+      const root = mountSearchRoot()
+      root.insertAdjacentHTML('beforeend', `
+        <div id="search-browse-popover" popover>
+          <button type="button" data-browse-term="Studio K">Studio K</button>
+        </div>
+      `)
+      const popover = document.getElementById('search-browse-popover')!
+      popover.hidePopover = vi.fn()
+      const cleanup = initSearchController(root)
+
+      popover.querySelector('button')!.click()
+
+      expect(popover.hidePopover).toHaveBeenCalledOnce()
+      expect(document.querySelector<HTMLInputElement>('#commission-search-input')?.value).toBe('"Studio K" ')
+      expect(trackedEvents('popular_keyword_clicked')).toEqual([
+        { keyword: 'Studio K', from: 'all' },
+      ])
+      await vi.waitFor(() => {
+        expect(trackedEvents('search_used')).toEqual([
+          { source: 'keyword' },
+        ])
+      })
+
+      cleanup?.()
+    })
+
+    it('reports a typed search as input and a deep link as url_query', async () => {
+      window.history.replaceState(null, '', '/?q=beta')
+      const cleanup = initSearchController(mountSearchRoot())
+      await vi.waitFor(() => {
+        expect(trackedEvents('search_used')).toEqual([
+          { source: 'url_query' },
+        ])
+      })
+      cleanup?.()
+
+      trackMock.trackRybbitEvent.mockClear()
+      window.history.replaceState(null, '', '/')
+      const typedCleanup = initSearchController(mountSearchRoot())
+      const input = document.querySelector<HTMLInputElement>('#commission-search-input')!
+      input.value = 'alpha'
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      await vi.waitFor(() => {
+        expect(trackedEvents('search_used')).toEqual([
+          { source: 'input' },
+        ])
+      })
+
+      typedCleanup?.()
     })
   })
 

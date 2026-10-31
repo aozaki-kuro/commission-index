@@ -32,6 +32,7 @@ import {
 import AgeGateScript from '@features/home/warning/AgeGateScript.astro'
 import BaseLayout from '@layouts/BaseLayout.astro'
 import { buildSitePayload } from '@lib/home/buildSitePayload'
+import { buildKeywordBrowseGroups } from '@lib/home/keywordBrowseGroups'
 import { buildHomeUpdateSummary } from '@lib/home/updateSummary'
 import { listMissingSourceImages, resolveSourceImageByCommissionId } from '@lib/images/sourceImageRegistry'
 import { buildCommissionDataMap, buildCreatorAliasesMap } from '@lib/sitePayload'
@@ -93,6 +94,20 @@ const suggestionAliasGroups = [
     aliases: row.aliases,
   })),
 ]
+
+// Sidebar order: active characters first, then archived.
+const keywordBrowseGroups = buildKeywordBrowseGroups(
+  [
+...payload.characterStatus.active,
+...payload.characterStatus.archived,
+].flatMap((item) => {
+    const character = commissionMap.get(item.DisplayName)
+    return character
+? [character]
+: []
+  }),
+  keywordAliases,
+)
 
 const commissions = payload.commissionData.flatMap(character => character.Commissions)
 const missingSourceImages = listMissingSourceImages(commissions)
@@ -230,6 +245,7 @@ catch {
         locale={resolvedLocale}
         featuredKeywords={featuredSearchKeywords}
         suggestionAliasGroups={suggestionAliasGroups}
+        keywordBrowseGroups={keywordBrowseGroups}
       />
       <MobileHamburgerMenu
         active={payload.characterStatus.active}

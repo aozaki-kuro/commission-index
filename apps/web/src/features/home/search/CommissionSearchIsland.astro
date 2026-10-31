@@ -1,5 +1,6 @@
 ---
 import type { SearchSuggestionAliasGroup } from '@features/home/search/commissionSearchIndex'
+import type { KeywordBrowseGroup } from '@lib/home/keywordBrowseGroups'
 import { resolveHomeSearchControls } from '@features/home/i18n/homeSearchControls'
 import { Icon } from 'astro-icon/components'
 
@@ -7,15 +8,25 @@ interface Props {
   locale?: string
   featuredKeywords?: string[]
   suggestionAliasGroups?: SearchSuggestionAliasGroup[]
+  keywordBrowseGroups?: KeywordBrowseGroup[]
 }
 
 const {
   locale,
   featuredKeywords = [],
   suggestionAliasGroups = [],
+  keywordBrowseGroups = [],
 } = Astro.props
 
 const controls = resolveHomeSearchControls(locale)
+const browseChipClass = `
+  rounded-full border border-gray-300/80 bg-white/75 px-2.5 py-1 text-[11px]
+  text-gray-700 transition-colors
+  hover:border-gray-400 hover:text-gray-900
+  focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500
+  dark:border-gray-700 dark:bg-black/40 dark:text-gray-300
+  dark:hover:border-gray-500 dark:hover:text-gray-100
+`
 ---
 
 <section
@@ -351,37 +362,68 @@ const controls = resolveHomeSearchControls(locale)
         <Icon name="tabler:arrows-shuffle" class="size-4" aria-hidden="true" />
       </button>
 
-      {/* Rotate / refresh keywords button */}
-      <button
-        id="search-rotate"
-        type="button"
-        class="
-          size-7 shrink-0 rounded-full border border-gray-200/80 bg-white/70
-          text-gray-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)]
-          transition-[color,border-color,background-color,box-shadow]
-          duration-200
-          hover:border-gray-400 hover:bg-white hover:text-gray-900
-          hover:shadow-[0_4px_14px_rgba(0,0,0,0.08)]
-          dark:border-gray-700 dark:bg-black/35 dark:text-gray-400
-          dark:hover:border-gray-500 dark:hover:bg-black/55
-          dark:hover:text-gray-100
-          dark:hover:shadow-[0_4px_14px_rgba(0,0,0,0.22)]
-          inline-flex items-center justify-center
-        "
-        aria-label={controls.refreshPopularSearchLabel}
-      >
-        <span
-          id="search-rotate-icon"
+      {/* Opens the full character/keyword list; the row above only shows the featured few */}
+      {keywordBrowseGroups.length > 0 && (
+        <button
+          id="search-browse-trigger"
+          type="button"
+          popovertarget="search-browse-popover"
           class="
-            inline-flex origin-center
-            motion-reduce:transform-none
+            inline-flex h-7 shrink-0 items-center gap-0.5 rounded-full border
+            border-gray-200/80 bg-white/70 pr-2 pl-2.5 text-[11px] text-gray-600
+            shadow-[0_1px_2px_rgba(0,0,0,0.04)]
+            transition-[color,border-color,background-color,box-shadow] duration-200
+            hover:border-gray-400 hover:bg-white hover:text-gray-900
+            hover:shadow-[0_4px_14px_rgba(0,0,0,0.08)]
+            dark:border-gray-700 dark:bg-black/35 dark:text-gray-300
+            dark:hover:border-gray-500 dark:hover:bg-black/55
+            dark:hover:text-gray-100
+            dark:hover:shadow-[0_4px_14px_rgba(0,0,0,0.22)]
           "
         >
-          <Icon name="tabler:refresh" class="size-4" aria-hidden="true" />
-        </span>
-      </button>
+          {controls.browseKeywordsLabel}
+          <Icon name="tabler:chevron-down" class="size-3.5" aria-hidden="true" />
+        </button>
+      )}
     </div>
   </div>
+
+  {/* Browse popover: outside the keyword row, whose hidden-until-populated visibility would inherit into it */}
+  {keywordBrowseGroups.length > 0 && (
+    <div
+      id="search-browse-popover"
+      popover
+      role="dialog"
+      aria-label={controls.browseKeywordsLabel}
+      class="
+        m-auto max-h-[min(70dvh,28rem)] w-[min(calc(100vw-1rem),22rem)]
+        overflow-auto rounded-lg border border-gray-300/80 bg-white/95 p-3
+        text-gray-700 shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-sm
+        dark:border-gray-700 dark:bg-black/90 dark:text-gray-300
+      "
+    >
+      <ul class="space-y-2.5">
+        {keywordBrowseGroups.map(group => (
+          <li>
+            <button type="button" data-browse-term={group.character} class={`${browseChipClass} font-semibold`}>
+              {group.character}
+            </button>
+            {group.keywords.length > 0 && (
+              <ul class="mt-1.5 flex flex-wrap gap-1.5 border-l border-gray-200 pl-3 dark:border-gray-700">
+                {group.keywords.map(keyword => (
+                  <li>
+                    <button type="button" data-browse-term={keyword} class={browseChipClass}>
+                      {keyword}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
 
   {/* Live region for screen reader announcements */}
   <p id="search-live-region" aria-live="polite" class="sr-only" />
@@ -391,6 +433,14 @@ const controls = resolveHomeSearchControls(locale)
   #search-help-popover {
     --search-help-width: min(calc(100vw - 1rem), 26rem);
     max-height: calc(100dvh - 1rem);
+  }
+
+  #search-browse-popover {
+    --search-browse-width: min(calc(100vw - 1rem), 22rem);
+  }
+
+  #search-help-popover,
+  #search-browse-popover {
     opacity: 0;
     transform: scale(0.97);
     transform-origin: top right;
@@ -401,7 +451,8 @@ const controls = resolveHomeSearchControls(locale)
       overlay 120ms allow-discrete;
   }
 
-  #search-help-popover:popover-open {
+  #search-help-popover:popover-open,
+  #search-browse-popover:popover-open {
     opacity: 1;
     transform: scale(1);
     transition-duration: 180ms;
@@ -409,7 +460,8 @@ const controls = resolveHomeSearchControls(locale)
   }
 
   @starting-style {
-    #search-help-popover:popover-open {
+    #search-help-popover:popover-open,
+    #search-browse-popover:popover-open {
       opacity: 0;
       transform: scale(0.97);
     }
@@ -433,6 +485,21 @@ const controls = resolveHomeSearchControls(locale)
     @position-try --search-help-constrained {
       bottom: 0.5rem;
       height: auto;
+    }
+  }
+
+  @supports (position-anchor: --search-browse) {
+    #search-browse-trigger {
+      anchor-name: --search-browse;
+    }
+
+    #search-browse-popover {
+      position-anchor: --search-browse;
+      inset: auto;
+      top: calc(anchor(bottom) + 0.5rem);
+      right: clamp(0.5rem, anchor(right), calc(100vw - var(--search-browse-width) - 0.5rem));
+      margin: 0;
+      position-try-fallbacks: flip-block;
     }
   }
 </style>
