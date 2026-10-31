@@ -1,6 +1,6 @@
 # Popular commissions in admin (2026-10-31)
 
-Goal: an overview leaderboard of the ten most popular commissions over the last year, with link clicks and
+Goal: an overview leaderboard of the ten most popular commissions in the current calendar year, with link clicks and
 "want this" votes side by side.
 
 ## Rulings
@@ -9,7 +9,7 @@ Goal: an overview leaderboard of the ten most popular commissions over the last 
   the site at any moment and differ in unit (repeatable clicks vs one vote per browser), so a sum would drown votes.
   Rank by clicks, then votes, then newest. "Most wanted" stays as the unpublished-only view.
 - Clicks come from Rybbit's automatic outbound tracking (`GET /api/sites/3/events/outbound`, top 1000 URLs by
-  count), window = the last 365 days in UTC. The worker proxies the raw `{ url, count }` list; admin joins it to
+  count), window = the calendar year to date in UTC (owner ruling; first chosen as a rolling 365 days). The worker proxies the raw `{ url, count }` list; admin joins it to
   the bootstrap rows' `links`, like votes. A 2026-10-31 dry run matched 11404 of 14459 clicks (the rest are
   odaibako, YouTube, creator profiles and other non-commission links).
 - URL match is case-insensitive after dropping the scheme, `www.`, a trailing `/` and the fragment, with

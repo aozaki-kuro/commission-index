@@ -53,7 +53,7 @@ const interest = {
 }
 
 const linkClicks = {
-  since: '2025-10-31',
+  since: '2026-01-01',
   until: '2026-10-31',
   clicks: [
     { url: 'http://www.Example.com/work/3/', count: 40 },
@@ -149,7 +149,7 @@ test('popular this year ranks link clicks with votes beside them', async ({ page
   await page.goto('/')
   const section = page.getByRole('region', { name: 'Popular this year' })
   const items = section.getByRole('listitem')
-  await expect(section).toContainText('Link clicks since 2025-10-31')
+  await expect(section).toContainText('Link clicks since 2026-01-01')
   // Clicks first; votes-only works follow by votes, then newest.
   await expect(items).toHaveCount(4)
   await expect(items.nth(0)).toContainText('2026-07-01 · Artist 3')

@@ -275,7 +275,7 @@ const fixtureInterest = {
 }
 
 const fixtureLinkClicks = {
-  since: '2025-10-31',
+  since: '2026-01-01',
   until: '2026-10-31',
   clicks: [
     { url: 'https://example.com/work/1', count: 42 },

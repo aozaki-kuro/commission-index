@@ -2,7 +2,6 @@ const RYBBIT_ORIGIN = 'https://sight.aozaki.cc'
 const RYBBIT_SITE_ID = 3
 // The web began reporting `commission` (publicId) on this day; older events only carry `sub_event`.
 export const INTEREST_SINCE = '2026-10-31'
-const LINK_CLICK_WINDOW_DAYS = 365
 
 type RybbitRows
   = | { ok: true, rows: Array<Record<string, unknown> | null> }
@@ -83,7 +82,8 @@ export async function loadInterestCounts(apiKey: string, now = new Date()): Prom
 /** Raw outbound-click counts per URL; admin owns matching them to commission links. */
 export async function loadLinkClicks(apiKey: string, now = new Date()): Promise<LinkClicksResult> {
   const until = toUtcDate(now)
-  const since = toUtcDate(new Date(now.getTime() - LINK_CLICK_WINDOW_DAYS * 86_400_000))
+  // Calendar year to date, matching the overview's "this year"; early January is thin by design.
+  const since = `${until.slice(0, 4)}-01-01`
   const result = await fetchRybbitRows('/events/outbound', new URLSearchParams({
     start_date: since,
     end_date: until,

@@ -18,7 +18,7 @@ Standalone admin Cloudflare Worker: API router, D1/R2 CRUD, asset serving. Produ
 - Contract docs: `docs/api-reference.md`, `docs/ai-agent-guide.md` (sync rule lives in root `AGENTS.md`).
 - Missing `DB` / `IMAGES` bindings return 503 via `createMissingBindingResponses` in `adminApi.ts`.
 - `GET /api/admin/interest` (`adminInterest.ts`) proxies Rybbit vote counts by `commission` publicId; it is matched before any D1/R2 access, needs only the `RYBBIT_API_KEY` secret (503 if missing, 502 on Rybbit failure, single attempt) and must never echo the key. `GET /api/admin/link-clicks` follows the same contract and returns
-  raw outbound `{ url, count }` for the last 365 days; matching URLs to commissions is admin's job.
+  raw outbound `{ url, count }` for the calendar year to date (UTC); matching URLs to commissions is admin's job.
 - CORS: same-origin, or an `Origin` host of `localhost`, `*.localhost`, or `127.0.0.1` (see `isLocalHostname` in `src/index.ts`).
 - Create/PATCH take `commissionDate` + `creatorName`; `workGroupId` and `partNumber` are given together or both `null`, and `workGroupId: "new"` creates a group.
 - Commission `links` must be absolute `http(s)` URLs (`validateCommissionFields`); they render into public `href`s.
