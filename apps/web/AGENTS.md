@@ -59,6 +59,8 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   Link rows size from `--menu-rows` (utilities + active characters): they shrink from 28px toward ~22px so the default
   view fits one screen, then scroll. Change the panel padding or section labels and the `18.5rem` in its scoped CSS
   must follow.
+  The Active/Archived lists collapse with `data-collapsed` (grid row 0fr plus `visibility: hidden`), not `hidden`, so
+  they can animate; a test or script must read that attribute.
   `STYLES.floatingButton`/`backdrop` are shared with the language menu; only `listItem` belongs to this menu.
 - **Menu material and motion:** every floating menu (browse and help popovers, suggestion list, language menu) uses the
   `menu-glass` utility in `globals.css`; do not restate its classes. A breakpoint or variant utility layered on top
