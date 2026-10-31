@@ -525,11 +525,14 @@ export function initSearchController(root: HTMLElement) {
 
   // ==================== Popular keyword interaction ====================
 
-  function applyPopularKeyword(keyword: string, from: 'row' | 'all') {
+  function applyPopularKeyword(keyword: string, from: 'row' | 'all', scope?: string) {
     if (!keyword)
       return
 
-    const nextQuery = applySuggestionToQuery('', keyword)
+    // A scoped term (a co-appearance) ANDs the scope in front, e.g. `Lucia "Kanaut Nishe" `.
+    const nextQuery = `${scope
+      ? applySuggestionToQuery('', scope)
+      : ''}${applySuggestionToQuery('', keyword)}`
     if (!nextQuery.trim())
       return
 
@@ -697,12 +700,13 @@ export function initSearchController(root: HTMLElement) {
 
   if (browsePopoverEl) {
     browsePopoverEl.addEventListener('click', (event) => {
-      const term = (event.target as Element).closest<HTMLElement>('[data-browse-term]')?.dataset.browseTerm
+      const termEl = (event.target as Element).closest<HTMLElement>('[data-browse-term]')
+      const term = termEl?.dataset.browseTerm
       if (!term)
         return
       // Hide first: closing the popover returns focus to its trigger, which would steal it back from the input.
       browsePopoverEl.hidePopover()
-      applyPopularKeyword(term, 'all')
+      applyPopularKeyword(term, 'all', termEl.dataset.browseScope)
     })
   }
 

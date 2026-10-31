@@ -284,6 +284,32 @@ describe('initSearchController', () => {
       cleanup?.()
     })
 
+    it('searches a co-appearance together with its character', async () => {
+      const root = mountSearchRoot()
+      root.insertAdjacentHTML('beforeend', `
+        <div id="search-browse-popover" popover>
+          <button type="button" data-browse-term="Kanaut Nishe" data-browse-scope="Lucia"><span>×</span> Kanaut Nishe</button>
+        </div>
+      `)
+      const popover = document.getElementById('search-browse-popover')!
+      popover.hidePopover = vi.fn()
+      const cleanup = initSearchController(root)
+
+      popover.querySelector('span')!.click()
+
+      expect(document.querySelector<HTMLInputElement>('#commission-search-input')?.value).toBe('Lucia "Kanaut Nishe" ')
+      expect(trackedEvents('popular_keyword_clicked')).toEqual([
+        { keyword: 'Kanaut Nishe', from: 'all' },
+      ])
+      await vi.waitFor(() => {
+        expect(trackedEvents('search_used')).toEqual([
+          { source: 'keyword' },
+        ])
+      })
+
+      cleanup?.()
+    })
+
     it('reports a typed search as input and a deep link as url_query', async () => {
       window.history.replaceState(null, '', '/?q=beta')
       const cleanup = initSearchController(mountSearchRoot())

@@ -95,27 +95,31 @@ const suggestionAliasGroups = [
   })),
 ]
 
-// Sidebar order and sections: active characters first, then archived.
-function toKeywordBrowseGroups(items: typeof payload.characterStatus.active) {
-  return buildKeywordBrowseGroups(
-    items.flatMap((item) => {
-      const character = commissionMap.get(item.DisplayName)
-      return character
+// Sidebar order and sections: active characters first, then archived. Built in one pass so a co-appearance tag
+// can name a character from either section.
+const keywordBrowseGroups = buildKeywordBrowseGroups(
+  [
+...payload.characterStatus.active,
+...payload.characterStatus.archived,
+].flatMap((item) => {
+    const character = commissionMap.get(item.DisplayName)
+    return character
 ? [character]
 : []
-    }),
-    keywordAliases,
-  )
-}
+  }),
+  keywordAliases,
+  characterAliases,
+)
+const activeCharacterNames = new Set(payload.characterStatus.active.map(item => item.DisplayName))
 const keywordBrowseSections = [
   {
-label: messages.controls.activeCharacters,
-groups: toKeywordBrowseGroups(payload.characterStatus.active),
-},
+    label: messages.controls.activeCharacters,
+    groups: keywordBrowseGroups.filter(group => activeCharacterNames.has(group.character)),
+  },
   {
-label: messages.controls.archivedCharacters,
-groups: toKeywordBrowseGroups(payload.characterStatus.archived),
-},
+    label: messages.controls.archivedCharacters,
+    groups: keywordBrowseGroups.filter(group => !activeCharacterNames.has(group.character)),
+  },
 ].filter(section => section.groups.length > 0)
 
 const commissions = payload.commissionData.flatMap(character => character.Commissions)
