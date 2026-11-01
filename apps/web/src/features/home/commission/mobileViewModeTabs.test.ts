@@ -13,7 +13,7 @@ function renderMobileTabsRoot() {
         aria-pressed="true"
         class="text-gray-700 dark:text-gray-300"
       >
-        <span data-mobile-view-mode-indicator class="w-full opacity-100"></span>
+        <span data-mobile-view-mode-indicator class="scale-x-100 opacity-100"></span>
       </button>
       <button
         type="button"
@@ -22,7 +22,7 @@ function renderMobileTabsRoot() {
         aria-pressed="false"
         class="text-gray-500 dark:text-gray-400"
       >
-        <span data-mobile-view-mode-indicator class="w-0 opacity-0"></span>
+        <span data-mobile-view-mode-indicator class="scale-x-0 opacity-0"></span>
       </button>
     </div>
   `

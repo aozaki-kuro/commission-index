@@ -56,15 +56,15 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
 - **Mobile hamburger menu:** a full-screen frosted panel styled after apple.com's mobile menu (every link one
   28px/600 tier in the page's heading ink `gray-800`/`gray-100`, hovered only by the site link opacity via
   `data-link-style` — no color hover or `transition-colors`, which would stack on it; group labels are the quiet `text-sm` gray-500/400 sentence-case label shared with the browse panel and never hover-recolor, rows staggered in via `--i` on `[data-mobile-hamburger-row]`). The panel is
-  `z-[65]`, below the toggle's `z-[70]` inside the root's stacking context, so the X stays clickable on top of it.
+  `z-65`, below the toggle's `z-70` inside the root's stacking context, so the X stays clickable on top of it.
   Link rows size from `--menu-rows` (utilities + active characters): they shrink from 28px toward ~22px so the default
   view fits one screen, then scroll. Change the panel padding or section labels and the `18.5rem` in its scoped CSS
   must follow.
   The Active/Archived lists collapse with `data-collapsed` (grid row 0fr plus `visibility: hidden`), not `hidden`, so
   they can animate; a test or script must read that attribute.
-  `STYLES.floatingButton`/`backdrop` are shared with the language menu, the mobile browse panel's X and the desktop
-  back-to-top button (every 40px round button, icons `size-5`, dark surface `gray-900/80` like the menus); only
-  `listItem` belongs to this menu.
+  `STYLES.floatingButton` (blur included; no inline `backdrop-filter`) is shared with the language menu, the mobile
+  browse panel's X and the desktop back-to-top button (every 40px round button, icons `size-5`, dark surface
+  `gray-900/80` like the menus); only `listItem` belongs to this menu.
 - **Desktop sidebars:** every link and toggle is one ink, `gray-700`/`gray-200` (the selected view toggle
   `gray-900`/white, kept in sync by `sidebarNavEnhancer.ts`), hovered only by the site link opacity; same no-color-hover
   rule as the hamburger. The ink sits on each `li` (or wrapper), because the base `p, li` rule beats an inherited
@@ -72,7 +72,8 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   parent's ink on an `<a>`.
 - **Hover:** two kinds only. Text links, labels, toggles and icon buttons fade by the site link opacity (`hover:opacity-70`,
   or `data-link-style`); rows and buttons inside a `menu-glass` surface take one background, `gray-900/6` (dark
-  `white/10`), like the selected suggestion. No color hovers on text. Keyword chips and the floating buttons keep
+  `white/10`), like the selected suggestion. Those rows share one geometry, `rounded-sm px-3 py-2` (36px touch
+  height at `text-sm`). No color hovers on text. Keyword chips and the floating buttons keep
   their own surface hovers.
 - **Focus:** one style, `focus-visible:outline-2 outline-offset-2 outline-gray-500` with `dark:` `outline-gray-400`;
   no rings. Never pair it with `outline-none`: Tailwind 4 `outline-none` sets `--tw-outline-style: none`, which the
@@ -82,6 +83,10 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   `backdrop-saturate-*` on frosted surfaces, and no other hue family (`stone`, `zinc`, `slate`) for neutral UI. Image
   placeholders share one fill, `gray-100`/`gray-800`; the loading one adds only `animate-pulse`. Light-mode screenshots cannot see palette drift (it is under the
   pixel threshold); check dark mode by eye.
+- **Type and stacking tokens:** 11px text is `text-2xs` (`--text-2xs` in `globals.css` `@theme`, font size only, so
+  line-height still comes from the element); do not write `text-[11px]`. z-index uses bare Tailwind steps (`z-70`), never
+  `z-[70]`; current layers: page 10–30 (image overlay, suggestion list, sidebars, back-to-top), image notice 50,
+  hamburger backdrop/panel/toggle 60/65/70, age gate 80, floating button roots 90, language menu panel 95.
 - **Menu material and motion:** every floating menu (browse and help popovers, suggestion list, language menu) uses the
   `menu-glass` utility in `globals.css`; do not restate its classes. A breakpoint or variant utility layered on top
   wins over its `dark:` tint, so put per-breakpoint tints in scoped CSS with a dark override (the mobile browse panel does).

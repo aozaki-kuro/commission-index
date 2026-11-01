@@ -19,7 +19,6 @@ import {
 } from '@features/home/search/commissionSearchDeferred'
 import { createDomSyncRefs, syncDom } from '@features/home/search/commissionSearchDomSync'
 import { getDropdownItemCount, renderDropdown } from '@features/home/search/commissionSearchDropdownRenderer'
-import { renderHelpContent } from '@features/home/search/commissionSearchHelpRenderer'
 import { createListboxController } from '@features/home/search/commissionSearchKeyboard'
 import {
   computeSearchModel,
@@ -121,7 +120,6 @@ export function initSearchController(root: HTMLElement) {
   const suggestionListEl = root.querySelector<HTMLElement>('#search-suggestion-list')
   const liveEl = root.querySelector<HTMLElement>('#search-live-region')
   const helpTriggerEl = root.querySelector<HTMLElement>('#search-help-trigger')
-  const helpPopoverEl = root.querySelector<HTMLElement>('#search-help-popover')
   const copyUrlBtn = root.querySelector<HTMLElement>('#search-copy-url')
   const clearBtn = root.querySelector<HTMLElement>('#search-clear')
   const keywordListEl = root.querySelector<HTMLElement>('#search-keyword-list')
@@ -616,22 +614,13 @@ export function initSearchController(root: HTMLElement) {
       (checkIcon as HTMLElement).classList.toggle('hidden', copyState !== 'success')
   }
 
-  // Help trigger/popover
+  // Help trigger (the popover content is server-rendered)
   if (helpTriggerEl) {
     helpTriggerEl.addEventListener('pointerdown', () => {
       isIndexReady = true
     })
     helpTriggerEl.addEventListener('focus', () => {
       isIndexReady = true
-    })
-  }
-
-  if (helpPopoverEl) {
-    helpPopoverEl.addEventListener('toggle', (event) => {
-      const toggleEvent = event as ToggleEvent
-      if (toggleEvent.newState === 'open') {
-        renderHelpContent(helpPopoverEl, controls)
-      }
     })
   }
 

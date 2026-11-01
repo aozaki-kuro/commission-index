@@ -39,9 +39,10 @@ function resolveOperatorBadge(
   return null
 }
 
+// Inherits the sans face: the badge sits on one line with the sans search term.
 const BADGE_CLASS = [
   'shrink-0 rounded-sm border border-gray-300/90',
-  'bg-gray-100/85 px-1 py-0.5 font-mono text-[10px] leading-none',
+  'bg-gray-100/85 px-1 py-0.5 text-[10px] leading-none',
   'tracking-[0.06em] text-gray-600',
   'dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300',
 ].join(' ')
@@ -53,8 +54,8 @@ const SUGGESTION_ITEM_CLASS = [
   'text-sm outline-none select-none',
   'data-[disabled=true]:pointer-events-none',
   'data-[disabled=true]:opacity-50',
-  // suggestion-specific overrides
-  'px-3 py-1.5 text-gray-700',
+  // suggestion-specific overrides; same row geometry as the language menu rows (36px touch height)
+  'px-3 py-2 text-gray-700',
   'data-[selected=true]:bg-gray-900/6',
   'data-[selected=true]:text-gray-900',
   'dark:text-gray-300',
@@ -117,7 +118,7 @@ function createSuggestionItem(
 
   if (vm.relatedTerms.length > 0) {
     const related = document.createElement('span')
-    related.className = 'truncate text-[11px]/4 text-gray-500 dark:text-gray-400'
+    related.className = 'truncate text-2xs/4 text-gray-500 dark:text-gray-400'
     related.textContent = `(${vm.relatedTerms.join(' / ')})`
     termGroup.appendChild(related)
   }
@@ -127,13 +128,13 @@ function createSuggestionItem(
 
   // row 1-2 right: match count
   const countSpan = document.createElement('span')
-  countSpan.className = 'col-start-2 row-span-2 self-center text-right text-[11px]/4 text-gray-500 tabular-nums dark:text-gray-400'
+  countSpan.className = 'col-start-2 row-span-2 self-center text-right text-2xs/4 text-gray-500 tabular-nums dark:text-gray-400'
   countSpan.textContent = vm.matchCountLabel
   grid.appendChild(countSpan)
 
   // row 2 left: source label
   const sourceSpan = document.createElement('span')
-  sourceSpan.className = 'truncate text-[11px]/4 text-gray-500 dark:text-gray-400'
+  sourceSpan.className = 'truncate text-2xs/4 text-gray-500 dark:text-gray-400'
   sourceSpan.textContent = `${sourcePrefix} ${vm.sourcesLabel}`
   grid.appendChild(sourceSpan)
 
@@ -169,7 +170,7 @@ function createArchivedNoticeItem(
   msgP.textContent = message
 
   const statusP = document.createElement('p')
-  statusP.className = 'mt-0.5 text-[11px]/4 text-gray-500 dark:text-gray-400'
+  statusP.className = 'mt-0.5 text-2xs/4 text-gray-500 dark:text-gray-400'
   statusP.textContent = statusMessage
 
   content.appendChild(msgP)
@@ -178,7 +179,7 @@ function createArchivedNoticeItem(
 
   // right label
   const labelSpan = document.createElement('span')
-  labelSpan.className = 'shrink-0 text-[11px]/4 text-gray-500 dark:text-gray-400'
+  labelSpan.className = 'shrink-0 text-2xs/4 text-gray-500 dark:text-gray-400'
   labelSpan.textContent = label
   item.appendChild(labelSpan)
 

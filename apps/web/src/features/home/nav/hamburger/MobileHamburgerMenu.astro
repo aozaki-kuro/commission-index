@@ -19,10 +19,6 @@ interface MobileHamburgerMenuProps {
 const { active, archived, monthNavItems, controls } = Astro.props as MobileHamburgerMenuProps
 const activeNavItems = buildCharacterNavItems(active)
 const archivedNavItems = buildCharacterNavItems(archived)
-const backdropStyle = {
-  WebkitBackdropFilter: STYLES.backdrop,
-  backdropFilter: STYLES.backdrop,
-}
 
 // Type follows apple.com's mobile menu: every link is one 28px/600 row in one ink; only group labels are smaller.
 // The ink is the site's heading color (gray-800/100), not apple.com's lighter #333336: rows this size read as headings.
@@ -63,7 +59,6 @@ const archivedToggleRow = 4 + activeNavItems.length
   <button
     type="button"
     data-mobile-hamburger-toggle="true"
-    style={backdropStyle}
     class={STYLES.floatingButton}
     aria-expanded="false"
     aria-controls="mobile-character-menu"
@@ -90,7 +85,7 @@ const archivedToggleRow = 4 + activeNavItems.length
     aria-hidden="true"
     style={`--menu-rows: ${3 + activeNavItems.length}`}
     class="
-      pointer-events-none fixed inset-0 z-[65] hidden overflow-y-auto overscroll-contain
+      pointer-events-none fixed inset-0 z-65 hidden overflow-y-auto overscroll-contain
       bg-white/90 px-12 pt-16 pb-28 opacity-0 backdrop-blur-[20px]
       transition-opacity duration-220 ease-out
       focus:outline-hidden
