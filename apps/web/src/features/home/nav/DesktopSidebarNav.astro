@@ -27,16 +27,16 @@ const sidebarLeadSlotClass = 'flex h-5 w-4 shrink-0 items-center justify-center'
 const sidebarIconClass = 'h-3.5 w-3.5'
 const sidebarLeadOffsetStyle = '--sidebar-lead-offset:1.125rem;'
 // Sidebar links and toggles share one ink and hover only through the site link opacity (`a`/`data-link-style`); a
-// color hover or transition-colors on them would stack on that fade. Anchors set their ink themselves because the
-// link rule's dark:text-white beats an inherited color. The sidebar stays a step lighter than body text: it sits
-// beside the listing the whole time, unlike the full-screen hamburger panel.
-const sidebarLinkInkClass = 'text-gray-700 dark:text-gray-200'
+// color hover or transition-colors on them would stack on that fade. Anchors inherit the ink from their `li` or
+// wrapper (the link rule only inherits color), and the `li` sets it because the base `p, li` rule would win otherwise.
+// The sidebar stays a step lighter than body text: it sits beside the listing the whole time, unlike the full-screen
+// hamburger panel.
 const sidebarLabelClass = 'text-sm leading-5 font-bold no-underline'
 const localeLabelClass = 'text-sm leading-5 font-bold no-underline'
 const sidebarNavLinkClass
-  = `flex items-center gap-2 text-sm no-underline ${sidebarLinkInkClass} mb-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 rounded-sm`
+  = `flex items-center gap-2 text-sm no-underline mb-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 rounded-sm`
 const localeLinkClass
-  = `flex items-center gap-2 text-sm no-underline ${sidebarLinkInkClass} mb-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 rounded-sm`
+  = `flex items-center gap-2 text-sm no-underline mb-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 rounded-sm`
 ---
 
 <aside
@@ -62,7 +62,7 @@ const localeLinkClass
         <a
           href="#commission-search"
           data-sidebar-search-link="true"
-          class={`${sidebarLabelClass} ${sidebarLinkInkClass}`}
+          class={sidebarLabelClass}
         >
           {controls.search}
         </a>

@@ -65,8 +65,9 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   `STYLES.floatingButton`/`backdrop` are shared with the language menu and the mobile browse panel's X; only `listItem` belongs to this menu.
 - **Desktop sidebars:** every link and toggle is one ink, `gray-700`/`gray-200` (the selected view toggle
   `gray-900`/white, kept in sync by `sidebarNavEnhancer.ts`), hovered only by the site link opacity; same no-color-hover
-  rule as the hamburger. Anchors carry the ink themselves: the link rule's `dark:text-white` beats a color inherited
-  from the `li`, which made dark-mode links white while the toggles stayed gray.
+  rule as the hamburger. The ink sits on each `li` (or wrapper), because the base `p, li` rule beats an inherited
+  color; anchors inherit it. The base link rule sets no color of its own (`dark:text-inherit`), so never restate a
+  parent's ink on an `<a>`.
 - **Palette:** `gray-*` is aliased to Tailwind's achromatic neutral scale in `globals.css` `@theme` so it matches
   the `#171717` page. Write `gray-*`; never reintroduce blue-tinted grays, Apple system greys (`rgb(29 29 31)`) or
   `backdrop-saturate-*` on frosted surfaces. Light-mode screenshots cannot see palette drift (it is under the
