@@ -162,7 +162,7 @@ export function ImageCropDialog({
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-white/45 bg-white/92 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl dark:border-white/10 dark:bg-[#1c1c1e]/92 sm:px-6 sm:pt-4">
+        <div className="shrink-0 border-t border-white/45 bg-white px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-white/10 dark:bg-[#1c1c1e] sm:px-6 sm:pt-4">
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"

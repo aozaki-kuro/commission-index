@@ -28,7 +28,7 @@ function BootstrapError({ errorMessage, isLoading, hasPayload, onRetry }: AdminB
         <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-offset-2">
           {hasPayload ? 'Refresh failed. Showing saved data.' : 'Admin data could not be loaded.'}
         </summary>
-        <p className="mt-2 whitespace-pre-wrap text-xs">{errorMessage}</p>
+        <p className="mt-2 whitespace-pre-wrap text-xs text-inherit">{errorMessage}</p>
       </details>
       <button
         type="button"

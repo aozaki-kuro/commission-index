@@ -56,7 +56,7 @@ const dialogContentBase = {
   // crop：移动端全屏、桌面端大尺寸工作区；不做 scale 动画，避免破坏裁剪器测量。
   crop: `
     fixed inset-0 z-70 flex flex-col overflow-hidden border-white/45
-    bg-white/[0.96] backdrop-blur-xl dark:border-white/12 dark:bg-[#1c1c1e]/[0.96]
+    bg-white dark:border-white/12 dark:bg-[#1c1c1e]
     motion-safe:data-[state=open]:animate-[dialog-crop-content-in_200ms_ease-out]
     motion-safe:data-[state=closed]:animate-[dialog-crop-content-out_150ms_ease-in]
     sm:inset-auto sm:top-1/2 sm:left-1/2 sm:h-[min(90dvh,52rem)]

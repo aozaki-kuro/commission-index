@@ -51,7 +51,7 @@ export function DuplicateCommissionNotice({ hints }: DuplicateCommissionNoticePr
             : 'entries'}`}
           <span className="ml-2 text-xs underline underline-offset-2">Review</span>
         </summary>
-        <p className="mt-2 text-xs">Compare these records before saving.</p>
+        <p className="mt-2 text-xs text-inherit">Compare these records before saving.</p>
         <DuplicateDetails hints={hints} />
       </details>
     </FloatingNotice>

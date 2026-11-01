@@ -35,7 +35,7 @@ export function FloatingRebuildButton() {
         : 'warning'}
     >
       <div className="flex min-w-0 items-center justify-between gap-4">
-        <p className="min-w-0 text-xs">
+        <p className="min-w-0 text-xs text-inherit">
           {rebuild.message ?? (status === 'error'
             ? 'Rebuild could not be queued.'
             : status === 'success'

@@ -478,14 +478,14 @@ export function CommissionManager({
       )}
       {selectionError && !hasAppliedSearchQuery && (
         <FloatingNotice tone="error" onDismiss={() => setSelectionError(null)}>
-          <p>Could not load the latest commission. Try again before editing.</p>
+          <p className="text-inherit">Could not load the latest commission. Try again before editing.</p>
           <button type="button" onClick={() => handleSearchResultSelect(selectionError.commissionId, selectionError.characterId)} className="mt-2 font-medium underline underline-offset-2">Retry opening commission</button>
         </FloatingNotice>
       )}
       {refreshError && (
         <FloatingNotice tone="error" onDismiss={() => setRefreshError(null)}>
-          <p>Could not refresh commissions. Showing saved data.</p>
-          <p className="mt-1 text-xs">{refreshError}</p>
+          <p className="text-inherit">Could not refresh commissions. Showing saved data.</p>
+          <p className="mt-1 text-xs text-inherit">{refreshError}</p>
           <button type="button" onClick={() => refreshLoadedGroups()} className="mt-2 font-medium underline underline-offset-2">Try again</button>
         </FloatingNotice>
       )}

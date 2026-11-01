@@ -56,7 +56,7 @@ function FormNotice({
                 {errorFallback}
                 <span className="ml-1 text-xs underline underline-offset-2">Details</span>
               </summary>
-              <p className="mt-2 whitespace-pre-wrap text-xs">{message ?? errorFallback}</p>
+              <p className="mt-2 whitespace-pre-wrap text-xs text-inherit">{message ?? errorFallback}</p>
             </details>
           )
         : (

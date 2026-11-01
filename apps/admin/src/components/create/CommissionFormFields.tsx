@@ -352,12 +352,12 @@ function CommissionDatePicker({ value, onSelect }: CommissionDatePickerProps) {
           aria-haspopup="dialog"
           className="
             inline-flex min-h-11 shrink-0 items-center justify-center
-            pointer-coarse:min-w-11 rounded-r-lg border border-gray-200 bg-white/80 px-3
+            admin-input pointer-coarse:min-w-11 rounded-r-md border border-gray-300 px-3
             text-gray-500 transition hover:bg-gray-100
             focus-visible:z-10 focus-visible:outline-none
             focus-visible:ring-2 focus-visible:ring-gray-500
             focus-visible:ring-offset-2 focus-visible:ring-offset-white
-            dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-300
+            dark:border-gray-700 dark:text-gray-300
             dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-900
           "
         >
