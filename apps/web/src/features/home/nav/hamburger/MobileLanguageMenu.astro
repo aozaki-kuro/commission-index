@@ -10,10 +10,6 @@ interface MobileLanguageMenuProps {
 }
 
 const { locale, localeOptions, localeSwitcherLabel } = Astro.props as MobileLanguageMenuProps
-const backdropStyle = {
-  WebkitBackdropFilter: STYLES.backdrop,
-  backdropFilter: STYLES.backdrop,
-}
 ---
 
 <div
@@ -33,7 +29,6 @@ const backdropStyle = {
   >
     <details data-mobile-language-menu="true" class="group relative">
       <summary
-        style={backdropStyle}
         aria-label={localeSwitcherLabel}
         class={`
           ${STYLES.floatingButton}
@@ -60,7 +55,7 @@ const backdropStyle = {
                 <a
                   href={option.href}
                   aria-current={isActive ? 'page' : undefined}
-                  class={`group flex w-full items-center justify-between rounded-lg px-4 py-1 text-sm no-underline transition-colors duration-150 ${
+                  class={`group flex w-full items-center justify-between rounded-sm px-3 py-2 text-sm no-underline transition-colors duration-150 ${
                     isActive
                       ? 'text-gray-900 dark:text-white'
                       : 'text-gray-700 hover:bg-gray-900/6 dark:text-gray-200 dark:hover:bg-white/10'

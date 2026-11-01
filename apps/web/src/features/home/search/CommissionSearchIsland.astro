@@ -30,10 +30,6 @@ const browseTermClass = `
 `
 // One tone below the character name; set on the button because the li base rule sets color.
 const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
-const floatingButtonBackdropStyle = {
-  WebkitBackdropFilter: STYLES.backdrop,
-  backdropFilter: STYLES.backdrop,
-}
 ---
 
 <section
@@ -189,7 +185,7 @@ const floatingButtonBackdropStyle = {
                     <tr class="align-top">
                       <td class="w-20 px-3 py-2.5">
                         <code class="
-                          rounded-sm bg-gray-100 px-1.5 py-0.5 font-mono text-[11px]
+                          rounded-sm bg-gray-100 px-1.5 py-0.5 font-mono text-2xs
                           text-gray-700
                           md:text-xs
                           dark:bg-gray-800 dark:text-gray-200
@@ -199,7 +195,7 @@ const floatingButtonBackdropStyle = {
                         </code>
                       </td>
                       <td class="
-                        px-3 py-2.5 text-[11px]
+                        px-3 py-2.5 text-2xs
                         sm:text-xs
                         md:text-sm
                       "
@@ -214,7 +210,7 @@ const floatingButtonBackdropStyle = {
                           {' '}
                           <code class="
                             rounded-sm bg-gray-100 px-1.5 py-0.5 font-mono
-                            text-[11px] text-gray-600
+                            text-2xs text-gray-600
                             md:text-xs
                             dark:bg-gray-800 dark:text-gray-300
                           "
@@ -230,7 +226,7 @@ const floatingButtonBackdropStyle = {
             </div>
 
             <p class="
-              text-[11px] wrap-break-word text-gray-500
+              text-2xs wrap-break-word text-gray-500
               sm:text-xs
               md:text-sm
               dark:text-gray-400
@@ -239,7 +235,7 @@ const floatingButtonBackdropStyle = {
               {controls.searchHelpCombinedExampleLabel}:
               {' '}
               <code class="
-                rounded-sm bg-gray-100 px-1.5 py-0.5 font-mono text-[11px]
+                rounded-sm bg-gray-100 px-1.5 py-0.5 font-mono text-2xs
                 text-gray-600
                 md:text-xs
                 dark:bg-gray-800 dark:text-gray-300
@@ -249,7 +245,7 @@ const floatingButtonBackdropStyle = {
               </code>
             </p>
             <p class="
-              text-[11px] wrap-break-word text-gray-500
+              text-2xs wrap-break-word text-gray-500
               sm:text-xs
               md:text-sm
               dark:text-gray-400
@@ -396,7 +392,7 @@ const floatingButtonBackdropStyle = {
                       type="button"
                       data-browse-term={group.character}
                       data-link-style="true"
-                      class={`${browseTermClass} group text-[17px]/tight font-semibold tracking-tight text-gray-900 dark:text-gray-100`}
+                      class={`${browseTermClass} group text-[17px]/tight font-semibold text-gray-900 dark:text-gray-100`}
                     >
                       {group.character}
                       {/* Slides in on hover: the name searches everything of the character, like a "more" link */}
@@ -461,7 +457,6 @@ const floatingButtonBackdropStyle = {
           popovertarget="search-browse-popover"
           popovertargetaction="hide"
           aria-label={controls.searchHelpClose}
-          style={floatingButtonBackdropStyle}
           class={STYLES.floatingButton}
         >
           <Icon name="tabler:x" class="size-5" aria-hidden="true" />
