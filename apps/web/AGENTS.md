@@ -74,6 +74,9 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   or `data-link-style`); rows and buttons inside a `menu-glass` surface take one background, `gray-900/6` (dark
   `white/10`), like the selected suggestion. No color hovers on text. Keyword chips and the floating buttons keep
   their own surface hovers.
+- **Focus:** one style, `focus-visible:outline-2 outline-offset-2 outline-gray-500` with `dark:` `outline-gray-400`;
+  no rings. Never pair it with `outline-none`: Tailwind 4 `outline-none` sets `--tw-outline-style: none`, which the
+  `outline-2` variant reads, so the focus outline never draws.
 - **Palette:** `gray-*` is aliased to Tailwind's achromatic neutral scale in `globals.css` `@theme` so it matches
   the `#171717` page. Write `gray-*`; never reintroduce blue-tinted grays, Apple system greys (`rgb(29 29 31)`) or
   `backdrop-saturate-*` on frosted surfaces. Light-mode screenshots cannot see palette drift (it is under the

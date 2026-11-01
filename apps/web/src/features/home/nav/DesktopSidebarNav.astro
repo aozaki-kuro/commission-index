@@ -35,9 +35,9 @@ const sidebarLeadOffsetStyle = '--sidebar-lead-offset:1.125rem;'
 const sidebarLabelClass = 'text-sm leading-5 font-bold no-underline'
 const localeLabelClass = 'text-sm leading-5 font-bold no-underline'
 const sidebarNavLinkClass
-  = `flex items-center gap-2 text-sm no-underline mb-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 rounded-sm`
+  = `flex items-center gap-2 text-sm no-underline mb-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:focus-visible:outline-gray-400 rounded-sm`
 const localeLinkClass
-  = `flex items-center gap-2 text-sm no-underline mb-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 rounded-sm`
+  = `flex items-center gap-2 text-sm no-underline mb-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:focus-visible:outline-gray-400 rounded-sm`
 ---
 
 <aside
@@ -63,7 +63,7 @@ const localeLinkClass
         <a
           href="#commission-search"
           data-sidebar-search-link="true"
-          class={sidebarLabelClass}
+          class={`${sidebarLabelClass} rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:focus-visible:outline-gray-400`}
         >
           {controls.search}
         </a>

@@ -113,7 +113,7 @@ export function renderHelpContent(
   const btnWrap = el('div', 'flex justify-end')
   const btn = el(
     'button',
-    'rounded-md border border-gray-300/80 bg-white/85 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-900/6 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:border-gray-600 dark:bg-gray-900/80 dark:text-gray-200 dark:hover:bg-white/10 dark:focus-visible:outline-gray-300',
+    'rounded-md border border-gray-300/80 bg-white/85 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-900/6 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:border-gray-600 dark:bg-gray-900/80 dark:text-gray-200 dark:hover:bg-white/10 dark:focus-visible:outline-gray-400',
     controls.searchHelpClose,
   )
   btn.setAttribute('type', 'button')

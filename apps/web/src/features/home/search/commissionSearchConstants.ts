@@ -7,7 +7,7 @@ export const KEYWORD_CHIP_SURFACE_CLASS = [
   'transition-colors',
   'hover:border-gray-400 hover:text-gray-900',
   'focus-visible:outline-2 focus-visible:outline-offset-2',
-  'focus-visible:outline-gray-500',
+  'focus-visible:outline-gray-500 dark:focus-visible:outline-gray-400',
   'dark:border-gray-700 dark:bg-black/40 dark:text-gray-300',
   'dark:hover:border-gray-500 dark:hover:text-gray-100',
 ].join(' ')
