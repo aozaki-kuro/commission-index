@@ -14,8 +14,9 @@
   --color-gray-900: #171717;
   --color-gray-950: #0a0a0a;
 
-  /* Between text-xs (12px) and the 14px body; replaces ad-hoc text-[11px]. */
-  --text-2xs: 0.6875rem;
+  /* Between text-xs (12px) and the 14px body; replaces ad-hoc text-[11px]. Kept in px, not rem: the mobile section nav
+     only fits 320px at 200% root text because its labels do not scale. */
+  --text-2xs: 11px;
 }
 
 @keyframes tabFade {
