@@ -19,7 +19,10 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
   Hierarchy is type size and tone only (no chips, dividers or icons): uppercase 12px section label, 17px/600
   character in gray-900/100, 14px keywords one tone lower (gray-600/400, set on the buttons: the `li` base rule and
   the link rule both set color, so a tone on the `ul` never applies). Below `48rem` it is a full-height bottom sheet, the only state that dims and frosts the
-  page; wider screens get an anchored popover with no page curtain, so the search row stays crisp. It sits outside `#search-popular-keywords`, because that row is `invisible` until populated and
+  page; wider screens get an anchored popover with no page curtain, so the search row stays crisp. The sheet locks
+  page scroll with `html:has(#search-browse-popover:popover-open)` (a popover never does, and a drag on the backdrop
+  strip or out of a short list scrolls the listing), needs `height: auto` (the UA popover height is `fit-content`)
+  and carries its own sticky close button, since its backdrop is too thin to find. It sits outside `#search-popular-keywords`, because that row is `invisible` until populated and
   visibility inherits into a popover. A term click hides the popover before applying the query, so focus does not
   return to the trigger.
 - Help and browse popovers: native `popover` does not position or animate itself. Their anchor positioning, 8px gap, collision fallbacks and transitions live together in the scoped CSS of `CommissionSearchIsland.astro`. Without CSS anchor support, keep the centered `m-auto` fallback.
