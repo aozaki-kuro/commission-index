@@ -72,7 +72,8 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   parent's ink on an `<a>`.
 - **Hover:** two kinds only. Text links, labels, toggles and icon buttons fade by the site link opacity (`hover:opacity-70`,
   or `data-link-style`); rows and buttons inside a `menu-glass` surface take one background, `gray-900/6` (dark
-  `white/10`), like the selected suggestion. No color hovers on text. Keyword chips and the floating buttons keep
+  `white/10`), like the selected suggestion. Those rows share one geometry, `rounded-sm px-3 py-2` (36px touch
+  height at `text-sm`). No color hovers on text. Keyword chips and the floating buttons keep
   their own surface hovers.
 - **Focus:** one style, `focus-visible:outline-2 outline-offset-2 outline-gray-500` with `dark:` `outline-gray-400`;
   no rings. Never pair it with `outline-none`: Tailwind 4 `outline-none` sets `--tw-outline-style: none`, which the
