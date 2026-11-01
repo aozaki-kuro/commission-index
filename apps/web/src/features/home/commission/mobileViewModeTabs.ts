@@ -18,9 +18,9 @@ function syncToggleButtonState(button: HTMLButtonElement, active: boolean) {
   if (!indicator)
     return
 
-  indicator.classList.toggle('w-full', active)
+  indicator.classList.toggle('scale-x-100', active)
   indicator.classList.toggle('opacity-100', active)
-  indicator.classList.toggle('w-0', !active)
+  indicator.classList.toggle('scale-x-0', !active)
   indicator.classList.toggle('opacity-0', !active)
 }
 
