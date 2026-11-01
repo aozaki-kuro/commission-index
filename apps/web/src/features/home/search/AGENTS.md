@@ -12,21 +12,30 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
 - Keep search box, dropdown and stale hint DOM structure and classNames stable to avoid layout jumps.
 - Keyword row: the admin-curated featured keywords (the entry-derived pool only when none are set) plus a fixed
   "All" trigger for the browse popover; there is no rotation. The browse popover is server-rendered from
-  `buildKeywordBrowseGroups` (`@lib/home/keywordBrowseGroups`): an Active and an Archived section, characters in
-  sidebar order, each with its keywords (aliases collapsed). A keyword naming another listed character (or its
+  `buildKeywordBrowseGroups` (`@lib/home/keywordBrowseGroups`): characters in sidebar order (active, then archived),
+  each with its keywords (aliases collapsed). A keyword naming another listed character (or its
   character alias) is a co-appearance: it renders first as `w/ Name` with `data-browse-scope` and searches both
   characters (`Lucia "Kanaut Nishe"`), because the bare name would return everything of the other character.
-  Hierarchy is type size and tone only (no chips, dividers or icons): 14px sentence-case section label in gray-500/400 (the same label as the hamburger's Active/Archived toggles; no
-  uppercase or tracking), 17px/600
-  character in gray-900/100, 14px keywords one tone lower (gray-600/400, set on the buttons: the `li` base rule sets
-  color, so a tone on the `ul` never applies). That hierarchy is the desktop popover only. Below `48rem` the same DOM
-  is one field of pill chips in sidebar order (scoped CSS; owner ruled mobile-only): the hamburger already lists
-  characters to jump to, and two big-text character lists read as duplicates. A mobile-only 28px "Tags" title
-  (`browseKeywordsTitle`, `aria-hidden`: the dialog's `aria-label` names it) heads the field. The section labels go `sr-only`, the
-  sections merge, a character with terms takes a full row led by its tinted name chip, and name-only characters
-  (`data-browse-name-only`, set server-side) share rows. Every row must stay all tinted, one tinted plus outlined, or all
-  outlined, so the tinted/outlined contrast must stay obvious in both themes. Below `48rem` it is a full-screen panel (not a bottom sheet:
-  a sheet promises swipe-down to dismiss, which is not built), fading in like the hamburger menu, with no backdrop or
+  Artists (`buildCreatorBrowseTerms`) close the field: creators across all characters by work count, part suffixes
+  folded, each searching its bare name.
+  At every width it is one field of chips (scoped CSS; owner ruled 2026-11-01, reversing the earlier mobile-only chip
+  field and the desktop type-only hierarchy): the sidebar and the hamburger already list characters to jump to, so the
+  panel is filters. A character with terms takes a full row led by its tinted name chip, name-only characters
+  (`data-browse-name-only`, set server-side) share rows, and Artists leads its group with a non-interactive tinted
+  category chip (quieter type, default cursor, so it does not pass for a character filter). Every row must stay all tinted, one tinted plus outlined, or all outlined, so the tinted/outlined
+  contrast must stay obvious in both themes. The Active/Archived labels are `sr-only`; archived characters stay in the
+  field. Outlined chips hover like the featured row's chips (`KEYWORD_CHIP_SURFACE_CLASS`); character chips darken their
+  tint (the link opacity fade barely shows on a tinted chip, and owner read them as unclickable).
+  At `48rem` and up the field splits into two `[data-browse-column]`s, characters | artists at `3fr 2fr`, with 12px
+  chips (between the row's 11px and the panel's 14px; owner found both too small and too large there) and `0.75rem`
+  rows. The popover spans the page column (`anchor(--search-column)` on `#commission-search`) plus `1.5rem` a side:
+  owner ruled a flush edge unattractive and wider covering the sidebars, and the overhang clears both at 1280px
+  (61px left, 41px right). At 1280x800 the field is 416px against the `min(70dvh, 34rem)` cap, so it does not scroll;
+  if it outgrows the cap, rebalance the column ratio before widening. It stays an anchored popover, not a modal: it
+  filters the listing under it and is opened repeatedly, so the page stays visible.
+  Below `48rem` it is a full-screen panel headed by a 28px "Tags" title (`browseKeywordsTitle`, `aria-hidden`: the
+  dialog's `aria-label` names it), not a bottom sheet
+  (a sheet promises swipe-down to dismiss, which is not built), fading in like the hamburger menu, with no backdrop or
   page curtain; wider screens get an anchored popover, so the search row stays crisp. The panel locks page scroll
   with `html:has(#search-browse-popover:popover-open)` (a popover never does, and a drag out of a short list scrolls
   the listing), needs `height: auto` (the UA popover height is `fit-content`) and closes from an X in the hamburger
@@ -41,9 +50,8 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
 - Help and browse popovers: native `popover` does not position or animate itself. Their anchor positioning, 8px gap, collision fallbacks and transitions live together in the scoped CSS of `CommissionSearchIsland.astro`. Without CSS anchor support, keep the centered `m-auto` fallback.
   No per-row entrance stagger on the browse popover: it is opened repeatedly while picking tags, so a cascade reads
   as lag (apple.com also cascades only on a cold open). The mobile hamburger menu keeps its stagger.
-- Browse popover terms carry `data-link-style` plus `no-underline`: the site's opacity hover without the prose
-  underline. The character header also slides in a chevron on hover. A color-hover or `transition-colors` utility on
-  these buttons overrides the base rule and must stay off. The popover never auto-opens while typing: the suggestion
+- Browse popover chip looks and hovers live in the scoped CSS; a color-hover or `transition-colors` utility on these
+  buttons overrides it and must stay off. The popover never auto-opens while typing: the suggestion
   list is the type-to-narrow surface.
 - Any suggestion, stale or timeline interaction change needs regression test updates.
 - Lifecycle: ClientRouter soft navigation never fires `pagehide` and runs bundled module scripts only once. Mount

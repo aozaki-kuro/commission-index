@@ -11,6 +11,7 @@ interface Props {
   featuredKeywords?: string[]
   suggestionAliasGroups?: SearchSuggestionAliasGroup[]
   keywordBrowseSections?: { label: string, groups: KeywordBrowseGroup[] }[]
+  keywordBrowseArtists?: { label: string, creators: string[] }
 }
 
 const {
@@ -18,18 +19,15 @@ const {
   featuredKeywords = [],
   suggestionAliasGroups = [],
   keywordBrowseSections = [],
+  keywordBrowseArtists,
 } = Astro.props
 
 const controls = resolveHomeSearchControls(locale)
-// Terms carry data-link-style for the site's link hover (opacity) without its underline; a color hover or transition
-// utility here would beat that base rule.
+// Chip looks and hovers live in the scoped CSS; a color hover or transition utility here would beat those rules.
 const browseTermClass = `
-  rounded-sm text-left no-underline
   focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500
   dark:focus-visible:outline-gray-400
 `
-// One tone below the character name; set on the button because the li base rule sets color.
-const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
 ---
 
 <section
@@ -360,7 +358,7 @@ const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
       role="dialog"
       aria-label={controls.browseKeywordsLabel}
       class="
-        m-auto max-h-[min(70dvh,34rem)] w-[min(calc(100vw-1rem),36rem)]
+        m-auto max-h-[min(70dvh,34rem)] w-(--search-browse-width)
         menu-glass flex-col overflow-hidden p-0
         open:flex
       "
@@ -368,15 +366,13 @@ const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
       {/* The list scrolls inside, not the popover: menu-glass's backdrop-filter makes the popover the containing block
           of the close button, which would scroll away with the list if the popover itself scrolled. */}
       <div class="min-h-0 flex-1 overflow-auto overscroll-contain">
-        {/* Desktop hierarchy comes from type size and tone alone, like apple.com's nav flyout: no dividers, chips or
-            icons. Below 48rem the scoped CSS turns it into one field of chips instead (see there). */}
+        {/* One field of chips at every width, styled in the scoped CSS (see there) */}
         <div
           data-browse-sections="true"
           class="
-            grid gap-x-8 gap-y-10 px-6 pt-5
+            px-6 pt-4
             pb-[max(1rem,env(safe-area-inset-bottom))]
             max-md:px-12 max-md:pt-16 max-md:pb-28
-            md:grid-cols-2
           "
         >
           {/* The full-screen panel names itself at the hamburger rows' size; the dialog's aria-label already does for
@@ -392,16 +388,10 @@ const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
           >
             {controls.browseKeywordsTitle}
           </p>
+          <div data-browse-column="true">
           {keywordBrowseSections.map(section => (
             <section>
-              <h2 class="
-                mb-3.5 text-sm font-normal text-gray-500
-                max-md:sr-only
-                dark:text-gray-400
-              "
-              >
-                {section.label}
-              </h2>
+              <h2 class="sr-only">{section.label}</h2>
               <ul class="space-y-5">
                 {section.groups.map(group => (
                   <li
@@ -412,28 +402,12 @@ const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
                       type="button"
                       data-browse-term={group.character}
                       data-browse-name="true"
-                      data-link-style="true"
-                      class={`${browseTermClass} group text-[17px]/tight font-semibold text-gray-900 dark:text-gray-100`}
+                      class={browseTermClass}
                     >
                       {group.character}
-                      {/* Slides in on hover: the name searches everything of the character, like a "more" link */}
-                      <Icon
-                        name="tabler:chevron-right"
-                        class="
-                          ml-1 inline-block size-4 -translate-x-1 align-[-0.125em] opacity-0
-                          transition-[opacity,translate] duration-200 ease-out
-                          group-hover:translate-x-0 group-hover:opacity-100
-                          group-focus-visible:translate-x-0 group-focus-visible:opacity-100
-                          max-md:hidden
-                        "
-                        aria-hidden="true"
-                      />
                     </button>
                     {(group.coCharacters.length > 0 || group.keywords.length > 0) && (
-                      <ul class="
-                        mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-sm/6
-                      "
-                      >
+                      <ul>
                         {/* A co-appearance ("w/ Name") searches both characters, so it finds the shared works instead of everything of the other */}
                         {group.coCharacters.map(coCharacter => (
                           <li>
@@ -443,8 +417,7 @@ const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
                               data-browse-scope={group.character}
                               aria-label={`${group.character} ${coCharacter}`}
                               data-browse-keyword="true"
-                              data-link-style="true"
-                              class={browseKeywordClass}
+                              class={browseTermClass}
                             >
                               <span aria-hidden="true">w/</span>
                               {' '}
@@ -454,7 +427,7 @@ const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
                         ))}
                         {group.keywords.map(keyword => (
                           <li>
-                            <button type="button" data-browse-term={keyword} data-browse-keyword="true" data-link-style="true" class={browseKeywordClass}>
+                            <button type="button" data-browse-term={keyword} data-browse-keyword="true" class={browseTermClass}>
                               {keyword}
                             </button>
                           </li>
@@ -466,6 +439,24 @@ const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
               </ul>
             </section>
           ))}
+          </div>
+          {/* A category leads its row like a character: a tinted, non-interactive name chip, then its terms */}
+          {keywordBrowseArtists && keywordBrowseArtists.creators.length > 0 && (
+            <div data-browse-column="true">
+            <div data-browse-group="true">
+              <h2 data-browse-name="true">{keywordBrowseArtists.label}</h2>
+              <ul>
+                {keywordBrowseArtists.creators.map(creator => (
+                  <li>
+                    <button type="button" data-browse-term={creator} data-browse-keyword="true" class={browseTermClass}>
+                      {creator}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            </div>
+          )}
         </div>
       </div>
       {/* Full screen has no backdrop to tap, so the sheet carries its own X, in the hamburger toggle's spot and style:
@@ -499,7 +490,8 @@ const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
   }
 
   #search-browse-popover {
-    --search-browse-width: min(calc(100vw - 1rem), 36rem);
+    /* The page column plus the 1.5rem overhang on each side (fallback width without anchor positioning). */
+    --search-browse-width: min(calc(100vw - 1rem), calc(var(--container-2xl) + 3rem));
   }
 
   #search-help-popover,
@@ -556,12 +548,21 @@ const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
       anchor-name: --search-browse;
     }
 
+    #commission-search {
+      anchor-name: --search-column;
+    }
+
     #search-browse-popover {
       position-anchor: --search-browse;
       inset: auto;
       top: calc(anchor(bottom) + 0.5rem);
-      right: clamp(0.5rem, anchor(right), calc(100vw - var(--search-browse-width) - 0.5rem));
+      /* Overhangs the page column by 1.5rem a side: two columns of chips need the width, and a layer that overhangs
+         the control that opened it reads as a layer, not as part of the column. That still clears both sidebars. */
+      right: calc(anchor(--search-column right) - 1.5rem);
+      left: calc(anchor(--search-column left) - 1.5rem);
+      width: auto;
       margin: 0;
+      transform-origin: top center;
       position-try-fallbacks: flip-block;
     }
   }
@@ -631,21 +632,43 @@ const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
         rotate: -90deg;
       }
     }
+  }
 
-    /* The hamburger already lists characters to jump to, so here the panel is one field of chips (filters), sections
-       merged in sidebar order: a character with terms takes a full row led by its tinted name chip, and consecutive
-       name-only characters share rows. Each row is therefore all tinted (names), one tinted chip plus outlined ones (a
-       character and its terms) or all outlined (their wrap). The surface matches KEYWORD_CHIP_SURFACE_CLASS. */
-    [data-browse-sections] {
-      display: flex;
-      flex-wrap: wrap;
-      align-content: flex-start;
-      gap: 1rem 0.5rem;
-    }
+  /* The sidebar and the hamburger already list characters to jump to, so at every width the panel is one field of
+     chips (filters), sections merged in sidebar order: a character with terms takes a full row led by its tinted name
+     chip, consecutive name-only characters share rows, and Artists closes the field the same way with a non-interactive
+     category chip. Each row is therefore all tinted (names), one tinted chip plus outlined ones (a character and its
+     terms) or all outlined (their wrap). The surface matches KEYWORD_CHIP_SURFACE_CLASS. */
+  [data-browse-sections],
+  [data-browse-column] {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 1rem 0.5rem;
+  }
 
-    [data-browse-sections] > section,
-    [data-browse-sections] > section > ul,
-    [data-browse-group] > ul {
+  [data-browse-column] > section,
+  [data-browse-column] > section > ul,
+  [data-browse-group] > ul {
+    display: contents;
+  }
+
+  [data-browse-group] {
+    display: flex;
+    flex-wrap: wrap;
+    flex-basis: 100%;
+    gap: 0.5rem;
+    margin: 0;
+  }
+
+  [data-browse-group][data-browse-name-only] {
+    flex-basis: auto;
+  }
+
+  /* Full screen, the columns merge into one field; the popover sets characters and artists side by side and tightens
+     the rows, because it has a height cap the panel lacks. */
+  @media (width < 48rem) {
+    [data-browse-column] {
       display: contents;
     }
 
@@ -653,61 +676,115 @@ const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
       flex-basis: 100%;
       margin-bottom: 0.5rem;
     }
+  }
 
-    [data-browse-group] {
-      display: flex;
-      flex-wrap: wrap;
-      flex-basis: 100%;
-      gap: 0.5rem;
-      margin: 0;
+  @media (width >= 48rem) {
+    [data-browse-sections] {
+      display: grid;
+      grid-template-columns: 3fr 2fr;
+      align-items: start;
+      column-gap: 2rem;
     }
 
-    [data-browse-group][data-browse-name-only] {
-      flex-basis: auto;
+    [data-browse-column] {
+      row-gap: 0.75rem;
     }
+  }
 
+  [data-browse-name],
+  [data-browse-keyword] {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 0.3125rem 0.875rem;
+    border: 1px solid color-mix(in oklab, var(--color-gray-300) 80%, transparent);
+    border-radius: 9999px;
+    background-color: rgb(255 255 255 / 0.75);
+    font-size: 0.875rem;
+    line-height: 1.5rem;
+    letter-spacing: normal;
+    color: var(--color-gray-700);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  [data-browse-name] {
+    border-color: transparent;
+    background-color: color-mix(in oklab, var(--color-gray-300) 70%, white);
+    font-weight: 600;
+    color: var(--color-gray-900);
+  }
+
+  /* Character chips darken their tint on hover: the link opacity fade barely shows on a tinted chip. */
+  button[data-browse-name] {
+    transition-property: background-color;
+    transition-duration: var(--default-transition-duration);
+    transition-timing-function: var(--default-transition-timing-function);
+  }
+
+  button[data-browse-name]:hover {
+    background-color: var(--color-gray-300);
+  }
+
+  /* The Artists category chip is a heading, not a filter: same tint, quieter type and no pointer. */
+  h2[data-browse-name] {
+    cursor: default;
+    font-weight: 500;
+    color: var(--color-gray-600);
+  }
+
+  /* Outlined chips hover like the featured row's chips (KEYWORD_CHIP_SURFACE_CLASS): they are the same control. */
+  [data-browse-keyword] {
+    transition-property: color, border-color;
+    transition-duration: var(--default-transition-duration);
+    transition-timing-function: var(--default-transition-timing-function);
+  }
+
+  [data-browse-keyword]:hover {
+    border-color: var(--color-gray-400);
+    color: var(--color-gray-900);
+  }
+
+  /* "w/" one tone lower, so the co-appearing name reads first. */
+  [data-browse-keyword] > span {
+    color: var(--color-gray-500);
+  }
+
+  @media (prefers-color-scheme: dark) {
     [data-browse-name],
     [data-browse-keyword] {
-      display: inline-block;
-      max-width: 100%;
-      overflow: hidden;
-      padding: 0.3125rem 0.875rem;
-      border: 1px solid color-mix(in oklab, var(--color-gray-300) 80%, transparent);
-      border-radius: 9999px;
-      background-color: rgb(255 255 255 / 0.75);
-      font-size: 0.875rem;
-      line-height: 1.5rem;
-      letter-spacing: normal;
-      color: var(--color-gray-700);
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      border-color: var(--color-gray-700);
+      background-color: rgb(0 0 0 / 0.4);
+      color: var(--color-gray-300);
     }
 
     [data-browse-name] {
       border-color: transparent;
-      background-color: var(--color-gray-200);
-      font-weight: 600;
-      color: var(--color-gray-900);
+      background-color: rgb(255 255 255 / 0.14);
+      color: var(--color-gray-100);
     }
 
-    /* "w/" one tone lower, so the co-appearing name reads first. */
-    [data-browse-keyword] > span {
-      color: var(--color-gray-500);
+    button[data-browse-name]:hover {
+      background-color: rgb(255 255 255 / 0.22);
     }
 
-    @media (prefers-color-scheme: dark) {
-      [data-browse-name],
-      [data-browse-keyword] {
-        border-color: var(--color-gray-700);
-        background-color: rgb(0 0 0 / 0.4);
-        color: var(--color-gray-300);
-      }
+    h2[data-browse-name] {
+      color: var(--color-gray-300);
+    }
 
-      [data-browse-name] {
-        border-color: transparent;
-        background-color: rgb(255 255 255 / 0.14);
-        color: var(--color-gray-100);
-      }
+    [data-browse-keyword]:hover {
+      border-color: var(--color-gray-500);
+      color: var(--color-gray-100);
+    }
+  }
+
+  /* Between the featured row's 11px chips and the panel's 14px touch chips; it must follow the base chip rule. */
+  @media (width >= 48rem) {
+    [data-browse-name],
+    [data-browse-keyword] {
+      padding: 0.25rem 0.75rem;
+      font-size: 0.75rem;
+      line-height: 1.125rem;
     }
   }
 

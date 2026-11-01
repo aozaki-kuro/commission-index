@@ -1,5 +1,10 @@
 import type { CharacterAliasEntry, CharacterCommissions, KeywordAliasEntry } from '@commission-index/domain'
-import { normalizeCharacterAliasKey, normalizeKeywordAliasKey, splitKeywordTerms } from '@commission-index/domain'
+import {
+  normalizeCharacterAliasKey,
+  normalizeCreatorName,
+  normalizeKeywordAliasKey,
+  splitKeywordTerms,
+} from '@commission-index/domain'
 
 export interface KeywordBrowseGroup {
   character: string
@@ -96,4 +101,20 @@ export function buildKeywordBrowseGroups(
       keywords: rankTerms(keywordCounts),
     }
   })
+}
+
+/**
+ * Lists the creators of the given works, ranked by work count, then name. Multi-part names (`Name (part 2)`) count
+ * under the base name, the same term the search suggestions offer.
+ */
+export function buildCreatorBrowseTerms(characters: CharacterCommissions[]): string[] {
+  const creatorCounts: TermCounts = new Map()
+  for (const character of characters) {
+    for (const commission of character.Commissions) {
+      const creator = normalizeCreatorName(commission.creatorName ?? '')
+      if (creator)
+        countTerm(creatorCounts, creator, creator)
+    }
+  }
+  return rankTerms(creatorCounts)
 }

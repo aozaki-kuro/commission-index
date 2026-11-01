@@ -1,6 +1,6 @@
 import type { CharacterCommissions, Commission } from '@commission-index/domain'
 import { describe, expect, it } from 'vitest'
-import { buildKeywordBrowseGroups } from './keywordBrowseGroups'
+import { buildCreatorBrowseTerms, buildKeywordBrowseGroups } from './keywordBrowseGroups'
 
 function character(name: string, keywords: Array<string | undefined>): CharacterCommissions {
   return {
@@ -92,5 +92,23 @@ describe('buildKeywordBrowseGroups', () => {
         keywords: [],
       },
     ])
+  })
+})
+
+describe('buildCreatorBrowseTerms', () => {
+  it('ranks creators across characters by work count, folding part suffixes and skipping unknown creators', () => {
+    const works = (creators: Array<string | null>) =>
+      creators.map((creatorName, index) => ({ id: index, creatorName }) as Commission)
+
+    expect(buildCreatorBrowseTerms([
+      {
+        Character: 'Lucia',
+        Commissions: works(['Bee', 'Ann (part 1)', null]),
+      },
+      {
+        Character: 'Kanaut Nishe',
+        Commissions: works(['Ann (part 2)', 'Cid', ' ']),
+      },
+    ])).toEqual(['Ann', 'Bee', 'Cid'])
   })
 })
