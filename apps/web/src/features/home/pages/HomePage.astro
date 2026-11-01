@@ -20,7 +20,7 @@ import {
 } from '@features/home/i18n/homeLocale'
 import DesktopSidebarNav from '@features/home/nav/DesktopSidebarNav.astro'
 import MobileHamburgerMenu from '@features/home/nav/hamburger/MobileHamburgerMenu.astro'
-import MobileLanguageMenu from '@features/home/nav/hamburger/MobileLanguageMenu.astro'
+import MobileKeywordButton from '@features/home/nav/hamburger/MobileKeywordButton.astro'
 import CommissionSearchIsland from '@features/home/search/CommissionSearchIsland.astro'
 import StaticCommissionSections from '@features/home/server/StaticCommissionSections.astro'
 import {
@@ -265,12 +265,11 @@ catch {
         archived={payload.characterStatus.archived}
         monthNavItems={payload.monthNavItems}
         controls={messages.controls}
-      />
-      <MobileLanguageMenu
         locale={resolvedLocale}
         localeOptions={localeOptions}
         localeSwitcherLabel={messages.localeSwitcherLabel}
       />
+      <MobileKeywordButton label={messages.controls.browseKeywordsButton} />
       <MobileViewModeTabs
         byCharacterLabel={messages.controls.byCharacter}
         byDateLabel={messages.controls.byDate}

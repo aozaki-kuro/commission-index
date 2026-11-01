@@ -73,6 +73,7 @@ export interface HomeLocaleMessages {
     searchCommissions: string
     searchHelp: string
     browseKeywordsLabel: string
+    browseKeywordsButton: string
     clearSearch: string
     copySearchUrl: string
     searchUrlCopied: string
@@ -176,6 +177,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       searchCommissions: 'Search commissions',
       searchHelp: 'Search help',
       browseKeywordsLabel: 'All',
+      browseKeywordsButton: 'Browse keywords',
       clearSearch: 'Clear search',
       copySearchUrl: 'Copy search URL',
       searchUrlCopied: 'Search URL copied',
@@ -304,6 +306,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       searchCommissions: '搜尋委託',
       searchHelp: '搜尋說明',
       browseKeywordsLabel: '全部',
+      browseKeywordsButton: '瀏覽關鍵字',
       clearSearch: '清除搜尋',
       copySearchUrl: '複製搜尋網址',
       searchUrlCopied: '已複製搜尋網址',
@@ -422,6 +425,7 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       searchCommissions: 'コミッションを検索',
       searchHelp: '検索ヘルプ',
       browseKeywordsLabel: 'すべて',
+      browseKeywordsButton: 'キーワード一覧',
       clearSearch: '検索をクリア',
       copySearchUrl: '検索URLをコピー',
       searchUrlCopied: '検索URLをコピーしました',

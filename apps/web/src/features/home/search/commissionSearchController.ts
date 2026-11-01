@@ -629,6 +629,8 @@ export function initSearchController(root: HTMLElement) {
     browseTriggerEl.addEventListener('pointerdown', prepareSearchInteraction)
     browseTriggerEl.addEventListener('focus', prepareSearchInteraction)
   }
+  // Covers every opener, including the mobile floating keyword button outside this island.
+  browsePopoverEl?.addEventListener('beforetoggle', prepareSearchInteraction)
 
   if (browsePopoverEl) {
     browsePopoverEl.addEventListener('click', (event) => {

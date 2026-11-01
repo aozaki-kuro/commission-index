@@ -1,5 +1,5 @@
 ---
-import type { HomeLocaleMessages } from '@features/home/i18n/homeLocale'
+import type { HomeLocaleMessages, HomeLocaleOption } from '@features/home/i18n/homeLocale'
 import type { CharacterNavItem } from '@lib/characters/nav'
 import { STYLES } from '@features/home/nav/hamburger/constants'
 import { buildCharacterNavItems } from '@lib/characters/nav'
@@ -14,9 +14,12 @@ interface MobileHamburgerMenuProps {
   archived: CharacterDisplay[]
   monthNavItems: CharacterNavItem[]
   controls: HomeLocaleMessages['controls']
+  locale: string
+  localeOptions: HomeLocaleOption[]
+  localeSwitcherLabel: string
 }
 
-const { active, archived, monthNavItems, controls } = Astro.props as MobileHamburgerMenuProps
+const { active, archived, monthNavItems, controls, locale, localeOptions, localeSwitcherLabel } = Astro.props as MobileHamburgerMenuProps
 const activeNavItems = buildCharacterNavItems(active)
 const archivedNavItems = buildCharacterNavItems(archived)
 
@@ -27,7 +30,7 @@ const utilityActionButtonClassName
   = 'inline-flex items-center gap-3 py-(--menu-pad) text-gray-800 dark:text-gray-100'
 const utilityActionTextClassName = 'text-(length:--menu-font) leading-[1.15] font-semibold tracking-[0.007em] no-underline'
 // Group labels are the quiet sentence-case label shared with the browse panel; they stay unhovered like other labels.
-const sectionToggleClassName = 'mt-8 mb-1 flex items-center gap-1.5 text-left text-sm font-normal text-gray-500 dark:text-gray-400'
+const sectionToggleClassName = 'mt-(--menu-gap) mb-1 flex items-center gap-1.5 text-left text-sm font-normal text-gray-500 dark:text-gray-400'
 // Rows fade in top to bottom on open; `--i` drives the stagger delay in the scoped CSS below.
 const rowStyle = (index: number) => `--i: ${index}`
 const archivedToggleRow = 4 + activeNavItems.length
@@ -242,7 +245,7 @@ const archivedToggleRow = 4 + activeNavItems.length
           </section>
         </div>
 
-        <div data-mobile-hamburger-nav-panel="timeline" class="mt-8 hidden">
+        <div data-mobile-hamburger-nav-panel="timeline" class="mt-(--menu-gap) hidden">
           <ul>
             {
               monthNavItems.map((item, index) => (
@@ -262,16 +265,47 @@ const archivedToggleRow = 4 + activeNavItems.length
         </div>
       </div>
     </div>
+
+    {/* Language is used in ~1% of mobile sessions, so it closes the menu in the quiet group-label style. */}
+    <div class="mt-(--menu-gap)" data-mobile-hamburger-row style={rowStyle(12)}>
+      <p class="mb-1 text-sm text-gray-500 dark:text-gray-400">{localeSwitcherLabel}</p>
+      {/* The current language is marked by ink and weight alone: a trailing mark would shift the row when it moves. */}
+      <ul class="flex flex-wrap gap-x-5">
+        {
+          localeOptions.map((option) => {
+            const isActive = option.locale === locale
+            return (
+              <li>
+                <a
+                  href={option.href}
+                  aria-current={isActive ? 'page' : undefined}
+                  data-link-style="true"
+                  class={`inline-flex min-h-11 items-center text-base no-underline ${
+                    isActive
+                      ? 'font-semibold text-gray-800 dark:text-gray-100'
+                      : 'font-normal text-gray-500 dark:text-gray-400'
+                  }`}
+                >
+                  {option.label}
+                </a>
+              </li>
+            )
+          })
+        }
+      </ul>
+    </div>
   </div>
 </div>
 
 <style>
   /* apple.com's menu motion: rows fade and drop in, staggered, with its cubic-bezier(0.4, 0, 0.6, 1). Closing is flat. */
-  /* Rows shrink from Apple's ~52px toward 40px so the default view (three utilities plus the active characters)
-     fits one screen; past that floor, or with archived or the timeline open, the panel scrolls.
-     18.375rem is the panel's vertical padding plus both section labels. */
+  /* Rows shrink from Apple's ~52px toward 32px so the default view (three utilities, the active characters and the
+     language row) fits one screen; past that floor, or with archived or the timeline open, the panel scrolls. The three
+     group gaps shrink with the rows (0.6 row each, hence the + 1.8). 18.25rem is the panel's vertical padding, both
+     section labels and the language label and links. */
   [data-mobile-hamburger-panel] {
-    --menu-row: clamp(2.5rem, (100dvh - 18.375rem) / var(--menu-rows), 3.25rem);
+    --menu-row: clamp(2rem, (100dvh - 18.25rem) / (var(--menu-rows) + 1.8), 3.25rem);
+    --menu-gap: calc(var(--menu-row) * 0.6);
     --menu-font: calc(var(--menu-row) * 0.54);
     --menu-pad: calc((var(--menu-row) - var(--menu-font) * 1.15) / 2);
   }
