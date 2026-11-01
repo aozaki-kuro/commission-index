@@ -16,7 +16,8 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
   sidebar order, each with its keywords (aliases collapsed). A keyword naming another listed character (or its
   character alias) is a co-appearance: it renders first as `w/ Name` with `data-browse-scope` and searches both
   characters (`Lucia "Kanaut Nishe"`), because the bare name would return everything of the other character.
-  Hierarchy is type size and tone only (no chips, dividers or icons): uppercase 12px section label, 17px/600
+  Hierarchy is type size and tone only (no chips, dividers or icons): 14px sentence-case section label in gray-500/400 (the same label as the hamburger's Active/Archived toggles; no
+  uppercase or tracking), 17px/600
   character in gray-900/100, 14px keywords one tone lower (gray-600/400, set on the buttons: the `li` base rule sets
   color, so a tone on the `ul` never applies). Below `48rem` it is a full-screen panel (not a bottom sheet:
   a sheet promises swipe-down to dismiss, which is not built), fading in like the hamburger menu, with no backdrop or

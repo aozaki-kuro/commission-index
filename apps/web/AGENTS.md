@@ -55,7 +55,7 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
 - **Floating buttons auto-hide:** below `lg` the hamburger and language roots get `data-floating-hidden` (one controller, `nav/hamburger/floatingButtonsAutoHide.ts`, mounted from `homePageClient.ts`) while scrolling down; never hidden near the top/bottom, while a menu is open, keyboard focus is inside, or the age gate is open. CSS-only hide (no `aria-hidden`/`inert`).
 - **Mobile hamburger menu:** a full-screen frosted panel styled after apple.com's mobile menu (every link one
   28px/600 tier in the page's heading ink `gray-800`/`gray-100`, hovered only by the site link opacity via
-  `data-link-style` — no color hover or `transition-colors`, which would stack on it; group labels 17px gray, rows staggered in via `--i` on `[data-mobile-hamburger-row]`). The panel is
+  `data-link-style` — no color hover or `transition-colors`, which would stack on it; group labels are the quiet `text-sm` gray-500/400 sentence-case label shared with the browse panel and never hover-recolor, rows staggered in via `--i` on `[data-mobile-hamburger-row]`). The panel is
   `z-[65]`, below the toggle's `z-[70]` inside the root's stacking context, so the X stays clickable on top of it.
   Link rows size from `--menu-rows` (utilities + active characters): they shrink from 28px toward ~22px so the default
   view fits one screen, then scroll. Change the panel padding or section labels and the `18.5rem` in its scoped CSS
@@ -70,6 +70,10 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   rule as the hamburger. The ink sits on each `li` (or wrapper), because the base `p, li` rule beats an inherited
   color; anchors inherit it. The base link rule sets no color of its own (`dark:text-inherit`), so never restate a
   parent's ink on an `<a>`.
+- **Hover:** two kinds only. Text links, labels, toggles and icon buttons fade by the site link opacity (`hover:opacity-70`,
+  or `data-link-style`); rows and buttons inside a `menu-glass` surface take one background, `gray-900/6` (dark
+  `white/10`), like the selected suggestion. No color hovers on text. Keyword chips and the floating buttons keep
+  their own surface hovers.
 - **Palette:** `gray-*` is aliased to Tailwind's achromatic neutral scale in `globals.css` `@theme` so it matches
   the `#171717` page. Write `gray-*`; never reintroduce blue-tinted grays, Apple system greys (`rgb(29 29 31)`) or
   `backdrop-saturate-*` on frosted surfaces. Light-mode screenshots cannot see palette drift (it is under the
