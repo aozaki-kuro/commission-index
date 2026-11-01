@@ -5,7 +5,7 @@ const NOTICE_FADE_MS = 180
 const NOTICE_HIDE_MS = 2200
 const NOTICE_NODE_SELECTOR = '[data-commission-image-notice="true"]'
 const NOTICE_BASE_CLASS
-  = 'fixed z-50 max-w-84 rounded-xl bg-white/80 px-3 py-2 text-xs text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 backdrop-blur-md transition-opacity duration-180 dark:bg-black/80 dark:text-white dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] dark:ring-white/10'
+  = 'fixed z-50 max-w-84 rounded-xl bg-white/80 px-3 py-2 text-xs text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.08)] ring-1 ring-black/5 backdrop-blur-md transition-opacity duration-180 dark:bg-gray-900/80 dark:text-white dark:shadow-[0_2px_8px_rgba(0,0,0,0.2)] dark:ring-white/10'
 
 function findOrCreateNoticeElement(doc: Document) {
   const existing = doc.querySelector<HTMLDivElement>(NOTICE_NODE_SELECTOR)

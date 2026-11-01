@@ -1,6 +1,7 @@
 ---
 import type { HomeLocaleMessages, HomeLocaleOption } from '@features/home/i18n/homeLocale'
 import type { CharacterNavItem } from '@lib/characters/nav'
+import { STYLES } from '@features/home/nav/hamburger/constants'
 import { buildCharacterNavItems } from '@lib/characters/nav'
 import { Icon } from 'astro-icon/components'
 
@@ -345,18 +346,7 @@ const localeLinkClass
         data-sidebar-back-to-top-button="true"
         aria-label={controls.backToTop}
         title={controls.backToTop}
-        class="
-          pointer-events-none inline-flex size-10 translate-y-1 items-center
-          justify-center rounded-full border border-white/20 bg-white/80
-          text-gray-500 opacity-0 shadow-[0_8px_30px_rgb(0,0,0,0.12)]
-          backdrop-blur-md transition-[opacity,transform,color,background-color]
-          duration-220 ease-out
-          hover:bg-white/90 hover:text-gray-900
-          focus-visible:ring-2 focus-visible:ring-gray-400/70
-          focus-visible:outline-hidden
-          dark:border-white/10 dark:bg-black/80 dark:text-gray-300
-          dark:hover:bg-black/90 dark:hover:text-white
-        "
+        class={`${STYLES.floatingButton} pointer-events-none translate-y-1 opacity-0`}
       >
         <Icon name="tabler:chevron-up" class="size-5" aria-hidden="true" />
         <span class="sr-only">{controls.backToTop}</span>
@@ -366,6 +356,17 @@ const localeLinkClass
 </aside>
 
 <style>
+  /* The shared floating-button recipe only transitions its hover; the show/hide toggled by sidebarNavEnhancer.ts needs
+     opacity and `translate` (what Tailwind 4's translate-y-* sets, not `transform`). Unlayered, so it beats the
+     recipe's transition utilities instead of racing them on class order. */
+  [data-sidebar-back-to-top-button] {
+    transition:
+      opacity 220ms ease-out,
+      translate 220ms ease-out,
+      background-color 300ms,
+      box-shadow 300ms;
+  }
+
   /* Both sidebar disclosures grow and fade both ways, so the locale list eases the view toggles below it down instead
      of shoving them. A 0fr to 1fr grid row animates the auto height in every engine (interpolate-size is
      Chromium-only); the list's top gap sits on its first item, inside the clip, because padding would survive a 0fr row. content-visibility is
