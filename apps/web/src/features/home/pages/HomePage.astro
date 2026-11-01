@@ -113,12 +113,10 @@ const keywordBrowseGroups = buildKeywordBrowseGroups(
 const activeCharacterNames = new Set(payload.characterStatus.active.map(item => item.DisplayName))
 const keywordBrowseSections = [
   {
-    key: 'active' as const,
     label: messages.controls.activeCharacters,
     groups: keywordBrowseGroups.filter(group => activeCharacterNames.has(group.character)),
   },
   {
-    key: 'archived' as const,
     label: messages.controls.archivedCharacters,
     groups: keywordBrowseGroups.filter(group => !activeCharacterNames.has(group.character)),
   },

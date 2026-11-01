@@ -150,4 +150,17 @@ test.describe('home mobile floating menus', () => {
 
     await expectUnionToMatchSnapshot(page, 'mobile-hamburger-open.png', [toggle, panel])
   })
+
+  // Guards the chip field's row rule: tinted name rows, a name chip leading its outlined terms, and their wraps.
+  test('mobile keyword browse panel stays visually stable when open', async ({ page }) => {
+    await page.goto('/')
+    const trigger = page.locator('[data-mobile-keyword-button-root="true"] button')
+    const panel = page.locator('#search-browse-popover')
+    await trigger.waitFor()
+    await prepareStablePage(page)
+    await trigger.click()
+    await expect(panel).toBeVisible()
+
+    await expectUnionToMatchSnapshot(page, 'mobile-browse-open.png', [panel])
+  })
 })
