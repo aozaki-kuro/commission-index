@@ -404,6 +404,31 @@ const browseRowOffsets = keywordBrowseSections.map((_, index) =>
         dark:border-gray-800 dark:bg-[rgb(29_29_31/0.8)]
       "
     >
+      {/* The sheet covers the page and its backdrop is only a thin strip, so it needs a visible way out (iOS sheets' X).
+          Zero-height sticky row: the button floats over the list and stays put while it scrolls. */}
+      <div class="
+        sticky top-0 z-10 flex h-0 justify-end
+        md:hidden
+      "
+      >
+        <button
+          type="button"
+          popovertarget="search-browse-popover"
+          popovertargetaction="hide"
+          aria-label={controls.searchHelpClose}
+          class="
+            mt-3 mr-3 inline-flex size-8 shrink-0 items-center justify-center rounded-full
+            bg-gray-200/80 text-gray-600 backdrop-blur-md transition-colors
+            hover:bg-gray-300/80 hover:text-gray-900
+            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500
+            dark:bg-gray-700/80 dark:text-gray-300
+            dark:hover:bg-gray-600/80 dark:hover:text-white
+            dark:focus-visible:outline-gray-300
+          "
+        >
+          <Icon name="tabler:x" class="size-4.5" aria-hidden="true" />
+        </button>
+      </div>
       {/* Hierarchy comes from type size and tone alone, like apple.com's nav flyout: no dividers, chips or icons */}
       <div class="
         grid gap-x-8 gap-y-10 px-6 pt-5
@@ -557,6 +582,8 @@ const browseRowOffsets = keywordBrowseSections.map((_, index) =>
     #search-browse-popover {
       inset: 2.5rem 0 0;
       width: 100%;
+      /* The UA popover height is fit-content, which leaves a short list hanging from the top instead of reaching the bottom. */
+      height: auto;
       max-height: none;
       margin: 0;
       border-width: 1px 0 0;
@@ -568,6 +595,14 @@ const browseRowOffsets = keywordBrowseSections.map((_, index) =>
 
     #search-browse-popover:popover-open {
       transform: translateY(0);
+    }
+
+    /* A popover does not lock page scroll: a drag on the backdrop strip, or one that chains out of a sheet whose list
+       fits, would scroll the listing behind it. Same lock as the hamburger menu, keyed on the open state so every
+       close path (light dismiss, Esc, the X, a term click) releases it. */
+    :global(html:has(#search-browse-popover:popover-open)) {
+      overflow: hidden;
+      touch-action: none;
     }
 
     @starting-style {
