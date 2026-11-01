@@ -95,11 +95,7 @@ function TabButton({ activeTab, count, label, onSelect, tab }: TabButtonProps) {
       className={`
         relative inline-flex min-h-11 min-w-0 items-center justify-center gap-1 rounded-md px-2 py-2 text-xs font-medium sm:gap-2 sm:px-4 sm:text-sm
         transition
-        focus-visible:outline-none
-        focus-visible:ring-2 focus-visible:ring-gray-400
-        focus-visible:ring-offset-2 focus-visible:ring-offset-white
-        focus-visible:rounded-sm
-        dark:focus-visible:ring-offset-neutral-900
+        focus-visible:outline-2 focus-visible:outline-offset-2
         ${isActive
       ? `bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100`
       : `text-gray-500 hover:text-gray-700
@@ -220,7 +216,6 @@ export function AdminAliasesDashboard({
           role="tabpanel"
           aria-labelledby="aliases-tab-character"
           hidden={activeTab !== 'character'}
-          className="motion-safe:animate-[tabFade_200ms_ease-out]"
         >
           <AliasPanel
             rows={characterRows}
@@ -244,7 +239,6 @@ export function AdminAliasesDashboard({
           role="tabpanel"
           aria-labelledby="aliases-tab-creator"
           hidden={activeTab !== 'creator'}
-          className="motion-safe:animate-[tabFade_200ms_ease-out]"
         >
           <AliasPanel
             rows={creatorRows}
@@ -267,7 +261,6 @@ export function AdminAliasesDashboard({
           role="tabpanel"
           aria-labelledby="aliases-tab-keyword"
           hidden={activeTab !== 'keyword'}
-          className="motion-safe:animate-[tabFade_200ms_ease-out]"
         >
           <AliasPanel
             rows={keywordRows}

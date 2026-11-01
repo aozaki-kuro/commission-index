@@ -1,6 +1,7 @@
 import * as SelectPrimitive from '@radix-ui/react-select'
 import { IconCheck, IconChevronDown } from '@tabler/icons-react'
 import * as React from 'react'
+import { formControlStyles } from '../../app/ui'
 import { cn } from '../../lib/cn'
 
 const Select = SelectPrimitive.Root
@@ -19,17 +20,12 @@ function SelectTrigger({
     <SelectPrimitive.Trigger
       ref={ref}
       className={cn(
+        formControlStyles,
         `
-          admin-input flex w-full items-center justify-between rounded-md border
-          border-gray-300 px-3 py-2.5 text-sm text-gray-900 transition
+          flex items-center justify-between text-left
           enabled:hover:border-gray-400
-          focus:outline-none
-          focus-visible:ring-2 focus-visible:ring-gray-500
-          focus-visible:ring-offset-2 focus-visible:ring-offset-white
           disabled:cursor-not-allowed disabled:opacity-70
-          dark:border-gray-700 dark:text-gray-100
           dark:enabled:hover:border-gray-600
-          dark:focus-visible:ring-offset-gray-900
           data-placeholder:text-gray-500 dark:data-placeholder:text-gray-400
         `,
         className,
@@ -60,10 +56,10 @@ function SelectContent({
         ref={ref}
         className={cn(
           `
-            relative z-[80] min-w-32 overflow-hidden rounded-lg border
-            border-gray-200 bg-white/90 p-1 text-gray-900 shadow-lg
-            backdrop-blur-md ring-1 ring-black/5
-            dark:border-gray-700 dark:bg-gray-900/85 dark:text-gray-100
+            admin-surface relative z-[80] min-w-32 overflow-hidden rounded-xl border
+            border-gray-200 p-1 text-gray-900 shadow-xl
+            ring-1 ring-black/5
+            dark:border-gray-800 dark:text-gray-100
             dark:ring-white/10
           `,
           className,
@@ -151,7 +147,7 @@ function SelectSeparator({
     <SelectPrimitive.Separator
       ref={ref}
       className={cn(
-        `-mx-1 my-1 h-px bg-gray-200 dark:bg-gray-700`,
+        `-mx-1 my-1 h-px bg-gray-200 dark:bg-gray-800`,
         className,
       )}
       {...props}

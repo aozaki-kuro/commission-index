@@ -1,4 +1,5 @@
 import type { RefObject } from 'react'
+import { buttonStyles } from '../../app/ui'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '../ui/dialog'
 
 interface CharacterDeleteDialogProps {
@@ -95,19 +96,7 @@ export function CharacterDeleteDialog({
             type="button"
             onClick={closeDialog}
             disabled={isDeletePending}
-            className="
-              inline-flex h-10 items-center justify-center rounded-md border
-              pointer-coarse:h-11 motion-safe:enabled:active:scale-[0.98]
-              border-gray-300 px-4 text-sm font-medium text-gray-700 transition
-              hover:bg-gray-50
-              focus-visible:ring-2 focus-visible:ring-gray-400
-              focus-visible:ring-offset-2 focus-visible:ring-offset-white
-              focus-visible:outline-none
-              disabled:cursor-not-allowed disabled:opacity-60
-              dark:border-gray-700 dark:text-gray-200
-              dark:hover:bg-gray-900/40
-              dark:focus-visible:ring-offset-gray-900
-            "
+            className={buttonStyles.secondary}
           >
             Cancel
           </button>
@@ -115,17 +104,7 @@ export function CharacterDeleteDialog({
             type="button"
             onClick={onConfirm}
             disabled={isDeletePending}
-            className="
-              inline-flex h-10 items-center justify-center rounded-md bg-red-600
-              pointer-coarse:h-11 motion-safe:enabled:active:scale-[0.98]
-              px-4 text-sm font-semibold text-white transition
-              hover:bg-red-500
-              focus-visible:ring-2 focus-visible:ring-red-400
-              focus-visible:ring-offset-2 focus-visible:ring-offset-white
-              focus-visible:outline-none
-              disabled:cursor-not-allowed disabled:opacity-60
-              dark:focus-visible:ring-offset-gray-900
-            "
+            className={buttonStyles.danger}
           >
             Delete
           </button>

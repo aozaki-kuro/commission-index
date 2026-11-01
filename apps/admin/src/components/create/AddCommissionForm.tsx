@@ -285,8 +285,8 @@ export function AddCommissionForm({
       <DuplicateCommissionNotice hints={duplicateHints} />
 
       <div className="
-        mt-2 flex min-w-0 flex-wrap items-center gap-4 border-t border-gray-200/60 pt-6
-        dark:border-gray-700/60
+        mt-2 flex min-w-0 flex-wrap items-center gap-4 border-t border-gray-200 pt-6
+        dark:border-gray-800
       "
       >
         <div className="flex min-w-0 flex-wrap items-center gap-3">

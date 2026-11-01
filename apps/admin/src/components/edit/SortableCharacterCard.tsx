@@ -5,10 +5,10 @@ import type {
 import type { KeyboardEvent } from 'react'
 import type { DragHandleProps } from '../../hooks/useNativeDragReorder'
 import { IconArchiveFilled, IconArrowDown, IconArrowUp, IconChevronRight, IconDeviceFloppy, IconGripHorizontal, IconPencil, IconTrash, IconX } from '@tabler/icons-react'
+import { buttonStyles, formControlStyles } from '../../app/ui'
 import { CommissionThumbnailGrid, CommissionThumbnailGridSkeleton } from './CommissionThumbnailGrid'
 
-const inlineEditStyles
-  = 'h-11 w-full min-w-0 rounded-md border border-gray-300 bg-white px-2 text-base font-medium text-gray-900 outline-none focus-visible:ring-2 focus-visible:ring-gray-500 dark:border-gray-600 dark:bg-gray-950 dark:text-gray-100'
+const inlineEditStyles = `${formControlStyles} min-w-0 font-medium`
 
 const characterHeaderStyles = 'grid min-h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-1 px-2 py-2 @min-[16rem]/thumbnails:flex sm:gap-2 sm:px-3'
 const characterIdentityStyles = 'col-span-2 flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3'
@@ -103,8 +103,8 @@ export function SortableCharacterCard({
       className={isDragging ? 'opacity-55' : ''}
     >
       <div className="
-        @container/thumbnails overflow-hidden rounded-xl border border-gray-200 bg-white transition
-        dark:border-gray-800 dark:bg-gray-900
+        @container/thumbnails admin-surface overflow-hidden rounded-xl border border-gray-200 transition
+        dark:border-gray-800
       "
       >
         <div className={characterHeaderStyles}>
@@ -117,22 +117,7 @@ export function SortableCharacterCard({
             aria-label={disableDrag
               ? `Drag disabled while search is applied for ${character.name}`
               : `Drag ${character.name}`}
-            className={`
-              hidden sm:inline-flex size-11 shrink-0 items-center justify-center rounded-lg
-              border border-transparent text-gray-400 transition
-              focus-visible:ring-2 focus-visible:ring-gray-400
-              focus-visible:ring-offset-2 focus-visible:ring-offset-white
-              focus-visible:outline-none
-              dark:focus-visible:ring-offset-gray-900
-              ${disableDrag || isDeleting
-      ? 'cursor-not-allowed opacity-50'
-      : `
-        cursor-grab
-        hover:text-gray-600
-        active:cursor-grabbing
-        dark:hover:text-gray-200
-      `}
-            `}
+            className={`${buttonStyles.icon} size-11 enabled:cursor-grab enabled:active:cursor-grabbing max-sm:hidden`}
           >
             <IconGripHorizontal className="size-5" stroke={2} aria-hidden="true" />
           </button>
@@ -176,13 +161,10 @@ export function SortableCharacterCard({
                     aria-describedby={statusId}
                     onClick={onToggle}
                     className="
-              flex min-h-11 w-full min-w-0 flex-1 items-center gap-2 rounded-lg text-left
+              flex min-h-11 w-full min-w-0 flex-1 items-center gap-2 rounded-md text-left
               hover:bg-gray-50
-              focus-visible:ring-2 focus-visible:ring-gray-400
-              focus-visible:ring-offset-2
-              focus-visible:ring-offset-white focus-visible:outline-none
+              focus-visible:outline-2 focus-visible:outline-offset-2
               dark:hover:bg-gray-800/50
-              dark:focus-visible:ring-offset-gray-900
             "
                   >
                     <IconChevronRight aria-hidden="true" stroke={1.8} className={`size-4 shrink-0 text-gray-500 motion-safe:transition-transform ${isOpen ? 'rotate-90' : ''}`} />
@@ -262,20 +244,7 @@ export function SortableCharacterCard({
                 : isEditing
                   ? `Save name for ${character.name}`
                   : `Rename ${character.name}`}
-              className={`
-                inline-flex size-11 shrink-0 items-center justify-center
-                rounded-lg border border-transparent text-gray-400
-                transition
-                hover:text-gray-600
-                focus-visible:ring-2 focus-visible:ring-gray-400
-                focus-visible:ring-offset-2
-                focus-visible:ring-offset-white
-                focus-visible:outline-none
-                disabled:cursor-not-allowed disabled:text-gray-300
-                dark:hover:text-gray-200
-                dark:focus-visible:ring-offset-gray-900
-                dark:disabled:text-gray-600
-              `}
+              className={`${buttonStyles.icon} size-11`}
             >
               {isReorderMode
                 ? <IconArrowUp className="size-4" stroke={2} aria-hidden="true" />
@@ -311,30 +280,14 @@ export function SortableCharacterCard({
                 : isEditing
                   ? `Cancel renaming ${character.name}`
                   : `Remove ${character.name}`}
-              className={`
-                inline-flex size-11 shrink-0 items-center justify-center
-                rounded-lg border border-transparent text-gray-400
-                transition
-                focus-visible:ring-2 focus-visible:ring-offset-2
-                focus-visible:ring-offset-white focus-visible:outline-none
-                disabled:cursor-not-allowed disabled:text-gray-300
-                dark:focus-visible:ring-offset-gray-900
-                dark:disabled:text-gray-600
-                ${isReorderMode
-      ? `hover:text-gray-600 focus-visible:ring-gray-400
-         dark:hover:text-gray-200`
-      : isEditing
-        ? `hover:text-gray-600 focus-visible:ring-gray-400
-           dark:hover:text-gray-200`
-        : `hover:text-red-500 focus-visible:ring-red-400
-           dark:hover:text-red-300`}
-              `}
+              className={`${buttonStyles.icon} group size-11`}
             >
               {isReorderMode
                 ? <IconArrowDown className="size-4" stroke={2} aria-hidden="true" />
                 : isEditing
                   ? <IconX className="size-4" stroke={2} aria-hidden="true" />
-                  : <IconTrash className="size-4" stroke={2} aria-hidden="true" />}
+                  // Danger hover lives on the glyph so it does not fight the shared icon tone.
+                  : <IconTrash className="size-4 group-enabled:group-hover:text-red-600 dark:group-enabled:group-hover:text-red-400" stroke={2} aria-hidden="true" />}
             </button>
           </div>
         </div>
@@ -349,7 +302,7 @@ export function SortableCharacterCard({
             <div
               aria-hidden={!isOpen}
               className={`
-                border-t border-gray-100 px-3
+                border-t border-gray-200 px-3
                 sm:px-5
                 dark:border-gray-800
                 motion-safe:transition-[translate,opacity] motion-safe:duration-200 motion-safe:ease-out

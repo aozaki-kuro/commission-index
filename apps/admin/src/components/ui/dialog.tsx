@@ -1,6 +1,7 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { IconX } from '@tabler/icons-react'
 import * as React from 'react'
+import { buttonStyles } from '../../app/ui'
 import { cn } from '../../lib/cn'
 import { FloatingNoticeProvider } from '../FloatingNotice'
 
@@ -48,9 +49,9 @@ const dialogContentBase = {
   // alert：沿用旧删除确认框的尺寸与入场动画；Radix 负责焦点与键盘行为。
   alert: `
     fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md
-    -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white shadow-xl
+    -translate-x-1/2 -translate-y-1/2 rounded-2xl admin-surface shadow-xl
     p-6
-    ring-1 ring-gray-900/10 dark:bg-gray-950 dark:ring-white/10
+    ring-1 ring-gray-900/10 dark:ring-white/10
     motion-safe:animate-[dialogEnter_240ms_cubic-bezier(0.25,1,0.5,1)]
   `,
   // crop：移动端全屏、桌面端大尺寸工作区；不做 scale 动画，避免破坏裁剪器测量。
@@ -69,22 +70,20 @@ const dialogContentBase = {
   default: `
     fixed top-1/2 left-1/2 z-70 flex max-h-[85dvh] w-full max-w-2xl
     -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden
-    rounded-2xl bg-white shadow-2xl ring-1 ring-black/10
-    dark:bg-gray-950 dark:ring-white/10
+    rounded-2xl admin-surface shadow-xl ring-1 ring-black/10
+    dark:ring-white/10
     motion-safe:data-[state=open]:animate-[dialog-content-in_200ms_ease-out]
     motion-safe:data-[state=closed]:animate-[dialog-content-out_150ms_ease-in]
   `,
   // sheet：移动端全屏，>=sm 退化为居中浮层；避免 vaul 那种 fixed+transform 触发的键盘异常。
   // 详情保持聚焦工作区，宽度独立于页面的侧栏与内容网格。
   sheet: `
-    fixed inset-0 z-70 flex flex-col overflow-hidden bg-white
-    dark:bg-gray-950
+    fixed inset-0 z-70 flex flex-col overflow-hidden admin-surface
     motion-safe:data-[state=open]:animate-[dialog-content-in_200ms_ease-out]
     motion-safe:data-[state=closed]:animate-[dialog-content-out_150ms_ease-in]
     sm:inset-auto sm:top-1/2 sm:left-1/2 sm:max-h-[85dvh] sm:w-full sm:max-w-3xl
     sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl
-    sm:bg-gray-50 sm:shadow-[0_24px_64px_-12px_rgb(0_0_0_/_0.35)]
-    dark:sm:bg-gray-900
+    sm:shadow-xl
   `,
 } as const satisfies Record<DialogContentVariant, string>
 
@@ -167,20 +166,7 @@ function DialogCloseButton({ className, disabled }: { className?: string, disabl
       <button
         type="button"
         disabled={disabled}
-        className={cn(
-          `
-            ml-3 inline-flex size-11 shrink-0 items-center justify-center rounded-lg
-            bg-gray-100 text-gray-600 transition disabled:cursor-not-allowed disabled:opacity-50
-            hover:bg-gray-200 hover:text-gray-900
-            focus-visible:outline-none focus-visible:ring-2
-            focus-visible:ring-gray-400 focus-visible:ring-offset-2
-            focus-visible:ring-offset-white
-            dark:bg-gray-800 dark:text-gray-300
-            dark:hover:bg-gray-700 dark:hover:text-gray-100
-            dark:focus-visible:ring-offset-gray-950
-          `,
-          className,
-        )}
+        className={cn(buttonStyles.icon, 'ml-3 size-11', className)}
         aria-label="Close"
       >
         <IconX className="size-4" stroke={2} aria-hidden="true" />

@@ -460,7 +460,8 @@ test('edit aligns field edges, preserves grouped values and floats persistent er
   expect(boxes[0].x).toBe(boxes[1].x)
   expect(boxes[1].x).toBe(boxes[3].x)
   expect(boxes[2].x + boxes[2].width).toBeCloseTo(boxes[1].x + boxes[1].width, 1)
-  await expect(dialog.locator('label[for="create-commission-character"]')).toHaveCSS('padding-left', '4px')
+  // Labels align with the control border, not an indented inset.
+  expect((await relativeBox(dialog.locator('label[for="create-commission-character"]'))).x).toBe(boxes[0].x)
   const checkbox = dialog.getByRole('checkbox', { name: 'Part of a multi-part work' })
   await expect(checkbox).toBeChecked()
   await checkbox.uncheck()
@@ -538,7 +539,7 @@ test('normal motion retains page, disclosure and dialog animations', async ({ pa
   await mockApi(page)
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await page.goto('/create')
-  await expect(page.locator('form').locator('..')).toHaveCSS('animation-name', 'tabFade')
+  await expect(page.locator('#admin-content > div')).toHaveCSS('animation-name', 'tabFade')
   await page.getByRole('link', { name: 'Edit', exact: true }).click()
   const first = page.locator('[data-character-section]').first()
   await first.locator('button[aria-expanded]').click()

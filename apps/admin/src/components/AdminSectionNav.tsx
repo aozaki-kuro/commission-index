@@ -11,7 +11,7 @@ function LiveBuildVersion() {
     return null
 
   return (
-    <p className="mt-2 px-3 text-[11px]/4 text-gray-500 dark:text-gray-400" title={`Revision ${info.dataRevision}\nBuilt ${info.builtAt}`}>
+    <p className="mt-2 px-3 text-[11px]/4 tabular-nums text-gray-500 dark:text-gray-400" title={`Revision ${info.dataRevision}\nBuilt ${info.builtAt}`}>
       Live
       {' '}
       {info.dataRevision.slice(0, 7)}

@@ -6,6 +6,7 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 - Product context is `PRODUCT.md`; design tokens, shell width, glass and motion rules live in `.impeccable.md` and `src/styles/globals.css`. Follow them rather than restating them here.
 - Every in-app link uses client-side history navigation, including in-page entries (quick actions, list tail links); a native full-page `<a href>` loses state.
 - Keep shadcn/Radix primitives; do not downgrade to native controls.
+- Buttons use `buttonStyles` (`src/app/ui.ts`: primary/secondary/danger/ghost/icon) and inputs/selects use `formControlStyles`; call sites add layout only (`cn` is a plain join, no tailwind-merge), size by `min-w-*`. Focus is `focus-visible:outline-2 outline-offset-2` coloured by the global `:where(:focus-visible)` rule; never ring/ring-offset (halo on the `#000` canvas) and never leave `outline-none` beside it (it zeroes `--tw-outline-style`). Cards, popovers and dialogs use `admin-surface`, not `bg-white`/`gray-9xx`; hairlines `gray-200/800`, control borders `gray-300/700`. Only the shell (`AdminLayout`) animates page entry.
 - API contracts (identity fields, `publicId` vs `id`, metadata-only PATCH, replacement semantics, retry rules): `apps/admin-worker/AGENTS.md`, `docs/api-reference.md`, `docs/ai-agent-guide.md`. Read before touching fetch logic or form actions.
 
 ## Key Structure

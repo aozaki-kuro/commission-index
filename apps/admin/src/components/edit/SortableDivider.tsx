@@ -12,7 +12,7 @@ export function SortableDivider({
     >
       <div className="
         flex-1 border-t border-gray-200
-        dark:border-gray-600
+        dark:border-gray-800
       "
       />
       <span className="
@@ -26,7 +26,7 @@ export function SortableDivider({
       </span>
       <div className="
         flex-1 border-t border-gray-200
-        dark:border-gray-600
+        dark:border-gray-800
       "
       />
     </div>

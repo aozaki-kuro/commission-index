@@ -290,7 +290,7 @@ export function CommissionThumbnailGridSkeleton({ count }: { count: number }) {
   return (
     <div className={gridStyles}>
       {Array.from({ length: count }, (_, i) => (
-        <div key={i} className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+        <div key={i} className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800">
           <div className="
             aspect-1280/525 w-full motion-safe:animate-pulse bg-gray-200/80
             dark:bg-gray-800

@@ -47,7 +47,7 @@ export function AdminCreateDashboard({
         hasPayload={hasPayload}
         onRetry={onRetry}
       />
-      <div className="motion-safe:animate-[tabFade_300ms_cubic-bezier(0.25,1,0.5,1)_both]">
+      <div>
         <AddCommissionForm
           characters={characters}
           commissionSearchRows={commissionSearchRows}

@@ -7,7 +7,7 @@ import { cn } from '../lib/cn'
 const NoticeViewportContext = createContext<HTMLDivElement | null>(null)
 
 const toneClasses = {
-  neutral: 'border-gray-200 text-gray-700 dark:border-gray-700 dark:text-gray-200',
+  neutral: 'border-gray-200 text-gray-700 dark:border-gray-800 dark:text-gray-200',
   success: 'border-emerald-200 text-emerald-700 dark:border-emerald-900 dark:text-emerald-300',
   error: 'border-red-200 text-red-700 dark:border-red-900 dark:text-red-300',
   warning: 'border-amber-200 text-amber-800 dark:border-amber-900 dark:text-amber-200',
@@ -57,7 +57,7 @@ export function FloatingNotice({
       aria-live="polite"
       aria-atomic="true"
       className={cn(
-        'admin-glass pointer-events-auto flex min-h-0 items-start gap-3 overflow-y-auto rounded-xl border px-4 py-3 text-sm shadow-lg',
+        'admin-glass pointer-events-auto flex min-h-0 items-start gap-3 overflow-y-auto rounded-xl border px-4 py-3 text-sm shadow-xl',
         toneClasses[tone],
       )}
     >
