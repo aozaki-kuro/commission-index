@@ -48,14 +48,14 @@ export function FloatingRebuildButton() {
           type="button"
           onClick={() => void queueWebsiteRebuild()}
           disabled={status === 'pending'}
+          // Compact tone-coloured action sized to the notice text, so it stays outside buttonStyles.
           className={`
-        shrink-0 rounded-lg border bg-white/90 px-3 py-1.5 pointer-coarse:min-h-11
-        text-xs font-medium shadow-sm backdrop-blur-sm
+        admin-surface shrink-0 rounded-md border px-3 py-1.5 pointer-coarse:min-h-11
+        text-xs font-medium
         transition
         motion-safe:enabled:active:scale-[0.98]
-        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2
+        focus-visible:outline-2 focus-visible:outline-offset-2
         disabled:cursor-not-allowed disabled:opacity-50
-        dark:bg-gray-900/80
         ${toneStyles}
       `}
         >

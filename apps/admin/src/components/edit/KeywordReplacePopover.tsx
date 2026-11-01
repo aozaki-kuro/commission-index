@@ -1,7 +1,7 @@
 import type { AdminCommissionSearchRow } from '@commission-index/domain'
 import { IconReplace } from '@tabler/icons-react'
 import { useCallback, useMemo, useState, useTransition } from 'react'
-import { fieldLabelStyles, formControlStyles } from '../../app/ui'
+import { buttonStyles, fieldLabelStyles, formControlStyles } from '../../app/ui'
 import { getAdminApiUrl } from '../../lib/adminApi'
 import {
   getCommissionAccessibleLabel,
@@ -200,7 +200,7 @@ export function KeywordReplacePopover({
         <button
           type="button"
           aria-label="Replace keywords"
-          className="inline-flex min-h-11 max-w-full min-w-0 shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white/80 px-3 text-sm font-medium text-gray-600 transition hover:border-gray-300 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:border-gray-700 dark:bg-gray-900/60 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-gray-100"
+          className={`${buttonStyles.secondary} max-w-full min-w-0 shrink-0`}
         >
           <IconReplace className="size-4 shrink-0" stroke={1.8} aria-hidden="true" />
           <span className="min-w-0 text-left break-words">Replace keywords</span>
@@ -230,7 +230,7 @@ export function KeywordReplacePopover({
                   }}
                   disabled={isPending}
                   placeholder="e.g. yukata"
-                  className={`${formControlStyles} min-h-11 px-4`}
+                  className={formControlStyles}
                 />
               </div>
               <div className="min-w-0 space-y-2">
@@ -246,13 +246,13 @@ export function KeywordReplacePopover({
                   }}
                   disabled={isPending}
                   placeholder="e.g. kimono"
-                  className={`${formControlStyles} min-h-11 px-4`}
+                  className={formControlStyles}
                 />
               </div>
             </div>
           </div>
           <section aria-label="Replacement preview" className="min-h-24 flex-1 space-y-3 overflow-y-auto border-t border-gray-200 px-5 py-5 dark:border-gray-800">
-            <p className="pl-1 text-sm font-medium text-gray-700 dark:text-gray-200" aria-live="polite">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-200" aria-live="polite">
               {!findTerm.trim()
                 ? 'Enter text to preview the affected commissions.'
                 : matchesWithPreview.length === 0
@@ -293,7 +293,7 @@ export function KeywordReplacePopover({
             <button
               type="button"
               disabled={isPending}
-              className="inline-flex min-h-11 w-20 shrink-0 items-center justify-center rounded-lg border border-gray-300 text-sm font-medium text-gray-700 transition hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-900"
+              className={`${buttonStyles.secondary} min-w-20 shrink-0`}
             >
               Cancel
             </button>
@@ -302,7 +302,7 @@ export function KeywordReplacePopover({
             type="button"
             onClick={handleReplaceAll}
             disabled={isPending || matchesWithPreview.length === 0 || !replaceTerm.trim()}
-            className="inline-flex min-h-11 w-36 shrink-0 items-center justify-center rounded-lg bg-gray-900 px-3 text-sm font-semibold text-white transition hover:bg-gray-700 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200"
+            className={`${buttonStyles.primary} min-w-36 shrink-0 tabular-nums`}
           >
             {isPending
               ? `Saving ${progress?.current ?? 0}/${progress?.total ?? matchesWithPreview.length}`

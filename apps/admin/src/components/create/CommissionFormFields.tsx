@@ -4,7 +4,7 @@ import { isFutureCommissionDate } from '@commission-index/domain'
 import * as Popover from '@radix-ui/react-popover'
 import { IconCalendar, IconChevronLeft, IconChevronRight } from '@tabler/icons-react'
 import { useRef, useState } from 'react'
-import { fieldLabelStyles, formControlStyles } from '../../app/ui'
+import { buttonStyles, fieldLabelStyles, formControlStyles } from '../../app/ui'
 import { getDefaultPartNumber } from '../../lib/commissionWorkGroups'
 import {
   Select,
@@ -14,9 +14,8 @@ import {
   SelectValue,
 } from '../ui/select'
 
-const fieldDescriptionStyles = 'pl-1 text-xs leading-4 text-gray-500 dark:text-gray-400'
+const fieldDescriptionStyles = 'text-xs leading-4 text-gray-500 dark:text-gray-400'
 const alignedFieldStyles = 'min-w-0 space-y-2'
-const metadataControlStyles = `${formControlStyles} min-h-11 px-4`
 
 const weekdayLabels = [
   'Mon',
@@ -178,7 +177,6 @@ export function CommissionCharacterField({
           id="create-commission-character"
           aria-label="Character"
           aria-busy={dataState === 'loading'}
-          className="min-h-11 px-4 text-base sm:text-sm"
         >
           <SelectValue placeholder="Select character" />
         </SelectTrigger>
@@ -298,7 +296,7 @@ export function CommissionDateField({
               getCommissionDateValidityMessage(event.currentTarget.value),
             )
           }}
-          className={`${metadataControlStyles} min-w-0 rounded-r-none border-r-0`}
+          className={`${formControlStyles} min-w-0 rounded-r-none border-r-0`}
           aria-describedby="create-commission-date-hint"
         />
         <CommissionDatePicker
@@ -322,7 +320,7 @@ interface CommissionDatePickerProps {
 }
 
 const monthNavigationButtonStyles
-  = 'inline-flex size-9 pointer-coarse:size-11 items-center justify-center rounded-lg text-gray-600 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 dark:text-gray-300 dark:hover:bg-gray-800'
+  = `${buttonStyles.icon} size-9 pointer-coarse:size-11`
 
 function CommissionDatePicker({ value, onSelect }: CommissionDatePickerProps) {
   const selectedDate = parseIsoDate(value)
@@ -354,11 +352,9 @@ function CommissionDatePicker({ value, onSelect }: CommissionDatePickerProps) {
             inline-flex min-h-11 shrink-0 items-center justify-center
             admin-input pointer-coarse:min-w-11 rounded-r-md border border-gray-300 px-3
             text-gray-500 transition hover:bg-gray-100
-            focus-visible:z-10 focus-visible:outline-none
-            focus-visible:ring-2 focus-visible:ring-gray-500
-            focus-visible:ring-offset-2 focus-visible:ring-offset-white
+            focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-offset-2
             dark:border-gray-700 dark:text-gray-300
-            dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-900
+            dark:hover:bg-gray-800
           "
         >
           <IconCalendar className="size-4" stroke={1.8} aria-hidden="true" />
@@ -380,8 +376,8 @@ function CommissionDatePicker({ value, onSelect }: CommissionDatePickerProps) {
           }}
           className="
             z-[90] w-[min(20rem,calc(100vw-2rem))] rounded-xl border
-            border-gray-200 bg-white p-4 text-gray-900 shadow-xl
-            ring-1 ring-black/5 dark:border-gray-700 dark:bg-gray-950
+            admin-surface border-gray-200 p-4 text-gray-900 shadow-xl
+            ring-1 ring-black/5 dark:border-gray-800
             dark:text-gray-100 dark:ring-white/10
           "
         >
@@ -426,7 +422,7 @@ function CommissionDatePicker({ value, onSelect }: CommissionDatePickerProps) {
               })
             }}
           />
-          <div className="mt-3 flex justify-end border-t border-gray-100 pt-3 dark:border-gray-800">
+          <div className="mt-3 flex justify-end border-t border-gray-200 pt-3 dark:border-gray-800">
             <button
               type="button"
               aria-label="Select today"
@@ -434,7 +430,7 @@ function CommissionDatePicker({ value, onSelect }: CommissionDatePickerProps) {
                 onSelect(getLocalIsoDate())
                 setIsOpen(false)
               }}
-              className="min-h-9 pointer-coarse:min-h-11 rounded-lg px-3 text-sm font-medium text-gray-700 transition hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 dark:text-gray-200 dark:hover:bg-gray-800"
+              className={buttonStyles.ghost}
             >
               Today
             </button>
@@ -470,7 +466,7 @@ function CommissionCalendarGrid({
             key={day}
             role="columnheader"
             aria-label={day}
-            className="py-1 text-center text-[0.65rem] font-medium uppercase text-gray-400"
+            className="py-1 text-center text-[0.65rem] font-medium text-gray-400"
           >
             {day.slice(0, 1)}
           </div>
@@ -546,8 +542,8 @@ function CalendarDay({
           : -1}
         className={`
           mx-auto flex size-9 items-center justify-center rounded-full
-          text-sm transition hover:bg-gray-100 focus-visible:outline-none
-          focus-visible:ring-2 focus-visible:ring-gray-500 dark:hover:bg-gray-800
+          text-sm transition hover:bg-gray-100 focus-visible:outline-2
+          focus-visible:outline-offset-2 dark:hover:bg-gray-800
           ${isCurrentMonth ? 'text-gray-800 dark:text-gray-100' : 'text-gray-400 dark:text-gray-600'}
           ${isSelected ? 'bg-gray-900 font-semibold text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-200' : ''}
         `}
@@ -570,7 +566,7 @@ export function CommissionCreatorField({ value, onChange }: CommissionCreatorFie
         name="creatorName"
         autoComplete="off"
         placeholder="Artist or studio"
-        className={metadataControlStyles}
+        className={formControlStyles}
         {...(bindInputValue(value, onChange) ?? {})}
       />
       <p className={fieldDescriptionStyles}>
@@ -596,7 +592,7 @@ export function CommissionWorkGroupField({
     <div className="min-w-0">
       <input type="hidden" name="workGroupId" value={value} />
       <div className="flex flex-wrap items-center gap-x-6 gap-y-1">
-        <label className="flex min-h-9 pointer-coarse:min-h-11 items-center gap-3 pl-1 text-sm font-medium text-gray-700 dark:text-gray-200">
+        <label className="flex min-h-9 pointer-coarse:min-h-11 items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
           <input
             type="checkbox"
             checked={isGrouped}
@@ -640,7 +636,7 @@ export function CommissionWorkGroupField({
                   <SelectTrigger
                     id="create-commission-work-group"
                     aria-label="Part grouping"
-                    className="min-h-11 min-w-0 px-4 text-base sm:text-sm"
+                    className="min-w-0"
                   >
                     <SelectValue />
                   </SelectTrigger>
@@ -670,7 +666,7 @@ export function CommissionWorkGroupField({
                   required
                   value={partNumber}
                   onChange={event => onPartNumberChange(event.target.value)}
-                  className={metadataControlStyles}
+                  className={formControlStyles}
                   aria-label="Part number"
                 />
                 <p className={fieldDescriptionStyles}>
@@ -707,7 +703,7 @@ export function CommissionLinksField({
         name="links"
         rows={rows}
         placeholder="https://example.com"
-        className={metadataControlStyles}
+        className={formControlStyles}
         {...(bindTextareaValue(value, onChange) ?? {})}
       />
       <p className={fieldDescriptionStyles}>
@@ -749,7 +745,7 @@ export function CommissionDesignDescriptionFields({
           type="text"
           name="design"
           placeholder={designPlaceholder}
-          className={metadataControlStyles}
+          className={formControlStyles}
           {...(bindInputValue(designValue, onDesignChange) ?? {})}
         />
       </div>
@@ -763,7 +759,7 @@ export function CommissionDesignDescriptionFields({
           type="text"
           name="description"
           placeholder={descriptionPlaceholder}
-          className={metadataControlStyles}
+          className={formControlStyles}
           {...(bindInputValue(descriptionValue, onDescriptionChange) ?? {})}
         />
       </div>
@@ -787,7 +783,7 @@ export function CommissionKeywordField({ value, onChange }: CommissionKeywordFie
         type="text"
         name="keyword"
         placeholder="e.g. studio k, skeb, private tag"
-        className={metadataControlStyles}
+        className={formControlStyles}
         {...(bindInputValue(value, onChange) ?? {})}
       />
       <p className={fieldDescriptionStyles}>
@@ -807,7 +803,7 @@ export function CommissionHiddenSwitch({
   onChange,
 }: CommissionHiddenSwitchProps) {
   return (
-    <label className="flex min-h-9 pointer-coarse:min-h-11 items-center gap-3 pl-1 text-sm font-medium text-gray-700 dark:text-gray-200">
+    <label className="flex min-h-9 pointer-coarse:min-h-11 items-center gap-3 text-sm font-medium text-gray-700 dark:text-gray-200">
       <input
         id="commission-hidden"
         type="checkbox"

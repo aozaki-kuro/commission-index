@@ -1,7 +1,7 @@
 import type { DragHandleProps } from '../hooks/useNativeDragReorder'
 import { IconArrowDown, IconArrowUp, IconGripHorizontal, IconX } from '@tabler/icons-react'
 import { useActionState, useCallback, useMemo, useState } from 'react'
-import { adminSurfaceStyles, formControlStyles } from '../app/ui'
+import { adminSurfaceStyles, buttonStyles, formControlStyles } from '../app/ui'
 import { arrayMove, useNativeDragReorder } from '../hooks/useNativeDragReorder'
 import { saveHomeFeaturedKeywordsAction } from '../lib/adminActions'
 import { writeCachedAdminJson } from '../lib/adminApi'
@@ -20,8 +20,7 @@ interface AdminSuggestionDashboardProps {
 }
 
 const MAX_FEATURED_KEYWORDS = 6
-const labelStyles = 'block pl-1 text-sm font-semibold text-gray-900 dark:text-gray-100'
-const iconButtonStyles = 'inline-flex size-11 shrink-0 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-30 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-gray-100'
+const labelStyles = 'block text-sm font-semibold text-gray-900 dark:text-gray-100'
 
 interface KeywordItemProps {
   dragHandleProps: DragHandleProps
@@ -36,17 +35,17 @@ interface KeywordItemProps {
 function KeywordItem({ dragHandleProps, isDragging, keyword, index, count, onRemove, onReorder }: KeywordItemProps) {
   return (
     <div className={`flex min-w-0 items-center gap-1 py-1 ${isDragging ? 'opacity-55' : ''}`}>
-      <button type="button" className={`${iconButtonStyles} cursor-grab active:cursor-grabbing max-sm:hidden`} aria-label={`Drag ${keyword}`} {...dragHandleProps}>
+      <button type="button" className={`${buttonStyles.icon} size-11 cursor-grab active:cursor-grabbing max-sm:hidden`} aria-label={`Drag ${keyword}`} {...dragHandleProps}>
         <IconGripHorizontal className="size-4" aria-hidden="true" />
       </button>
       <span className="min-w-0 flex-1 truncate text-sm text-gray-800 dark:text-gray-200" title={keyword}>{keyword}</span>
-      <button type="button" className={iconButtonStyles} disabled={index === 0} aria-label={`Move ${keyword} up`} onClick={() => onReorder(index, index - 1)}>
+      <button type="button" className={`${buttonStyles.icon} size-11`} disabled={index === 0} aria-label={`Move ${keyword} up`} onClick={() => onReorder(index, index - 1)}>
         <IconArrowUp className="size-4" aria-hidden="true" />
       </button>
-      <button type="button" className={iconButtonStyles} disabled={index === count - 1} aria-label={`Move ${keyword} down`} onClick={() => onReorder(index, index + 1)}>
+      <button type="button" className={`${buttonStyles.icon} size-11`} disabled={index === count - 1} aria-label={`Move ${keyword} down`} onClick={() => onReorder(index, index + 1)}>
         <IconArrowDown className="size-4" aria-hidden="true" />
       </button>
-      <button type="button" className={iconButtonStyles} aria-label={`Remove ${keyword}`} onClick={() => onRemove(keyword)}>
+      <button type="button" className={`${buttonStyles.icon} size-11`} aria-label={`Remove ${keyword}`} onClick={() => onRemove(keyword)}>
         <IconX className="size-4" aria-hidden="true" />
       </button>
     </div>
@@ -132,10 +131,10 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
   }
 
   return (
-    <form action={formAction} className={`${adminSurfaceStyles} min-w-0 motion-safe:animate-[tabFade_300ms_cubic-bezier(0.25,1,0.5,1)_both]`}>
+    <form action={formAction} className={`${adminSurfaceStyles} min-w-0`}>
       <input type="hidden" name="keywordsJson" value={JSON.stringify(selectedKeywords)} />
-      <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-200/80 pb-5 dark:border-gray-700/80">
-        <p className="max-w-xl text-sm text-gray-600 dark:text-gray-300">Choose up to six keywords to help visitors explore the home page.</p>
+      <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-200 pb-5 dark:border-gray-800">
+        <p className="max-w-xl text-sm text-gray-500 dark:text-gray-400">Choose up to six keywords to help visitors explore the home page.</p>
         <span className="tabular-nums text-xs text-gray-500 dark:text-gray-400">
           {isReady
             ? `${selectedKeywords.length} / ${MAX_FEATURED_KEYWORDS} selected`
@@ -149,13 +148,13 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
               <h3 id="suggestion-order-title" className={labelStyles}>Display order</h3>
               <span className="text-xs text-gray-500 dark:text-gray-400">First to last</span>
             </div>
-            <div className="h-80 overflow-y-auto border-y border-gray-200/80 dark:border-gray-700/80">
+            <div className="h-80 overflow-y-auto border-y border-gray-200 dark:border-gray-800">
               {!isReady
                 ? <p className="p-3 text-sm text-gray-500 dark:text-gray-400">{isLoading ? 'Loading featured keywords…' : 'Featured keywords are unavailable.'}</p>
                 : selectedKeywords.length === 0
                   ? <p className="p-3 text-sm text-gray-500 dark:text-gray-400">No featured keywords. Choose from the keyword pool or add your own below.</p>
                   : (
-                      <div role="list" aria-label="Featured keyword order" className="divide-y divide-gray-200/70 dark:divide-gray-700/70" {...containerProps}>
+                      <div role="list" aria-label="Featured keyword order" className="divide-y divide-gray-200 dark:divide-gray-800" {...containerProps}>
                         {selectedKeywords.map((keyword, index) => (
                           <div key={keyword} role="listitem" className="relative" {...dragItemAttr(index)}>
                             {dropIndicatorIndex === index && <DropIndicator offsetClass="-top-1.5" />}
@@ -166,12 +165,12 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
                       </div>
                     )}
             </div>
-            <p className="pl-1 text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               <span className="hidden sm:inline">Drag to reorder, or use the arrow buttons.</span>
               <span className="sm:hidden">Use the arrow buttons to reorder.</span>
             </p>
           </section>
-          <section className="min-w-0 space-y-3 @min-[48rem]/workspace:border-l @min-[48rem]/workspace:border-gray-200/80 @min-[48rem]/workspace:pl-8 @min-[48rem]/workspace:dark:border-gray-700/80" aria-labelledby="suggestion-pool-title">
+          <section className="min-w-0 space-y-3 @min-[48rem]/workspace:border-l @min-[48rem]/workspace:border-gray-200 @min-[48rem]/workspace:pl-8 @min-[48rem]/workspace:dark:border-gray-800" aria-labelledby="suggestion-pool-title">
             <h3 id="suggestion-pool-title" className={labelStyles}>Keyword pool</h3>
             <div className="flex min-w-0 flex-col gap-4">
               <input
@@ -204,7 +203,7 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
                                   ? removeKeyword(keyword)
                                   : addKeyword(keyword)}
                                 disabled={!isSelected && !canAddMore}
-                                className={`max-w-full rounded-md border px-3 py-2 text-left text-sm break-words transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40 ${isSelected ? 'border-gray-900 bg-gray-900 text-white dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900' : 'border-gray-200 bg-transparent text-gray-600 hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:text-gray-100'}`}
+                                className={`max-w-full rounded-md border px-3 py-2 text-left text-sm break-words transition focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${isSelected ? 'border-gray-900 bg-gray-900 text-white dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900' : 'border-gray-300 bg-transparent text-gray-600 hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:text-gray-100'}`}
                               >
                                 {keyword}
                               </button>
@@ -214,8 +213,8 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
                       )}
               </div>
             </div>
-            <p className="pl-1 text-xs text-gray-500 dark:text-gray-400">Select to add; select again to remove.</p>
-            <div className="space-y-2 border-t border-gray-200/80 pt-5 dark:border-gray-700/80">
+            <p className="text-xs text-gray-500 dark:text-gray-400">Select to add; select again to remove.</p>
+            <div className="space-y-2 border-t border-gray-200 pt-5 dark:border-gray-800">
               <label htmlFor="suggestion-manual" className={labelStyles}>Add a keyword</label>
               <div className="flex min-w-0 gap-3">
                 <input
@@ -232,13 +231,13 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
                   className={`${formControlStyles} min-w-0 flex-1`}
                   placeholder="Enter a keyword"
                 />
-                <button type="button" onClick={addManual} disabled={!canAddManual} className="h-11 shrink-0 rounded-lg border border-gray-300 px-4 text-sm font-medium transition hover:bg-gray-100 focus-visible:outline-2 focus-visible:outline-offset-2 motion-safe:enabled:active:scale-[0.98] disabled:opacity-40 dark:border-gray-700 dark:hover:bg-gray-800">Add</button>
+                <button type="button" onClick={addManual} disabled={!canAddManual} className={`${buttonStyles.secondary} shrink-0`}>Add</button>
               </div>
             </div>
           </section>
         </div>
       </fieldset>
-      <footer className="flex flex-wrap items-center justify-between gap-4 border-t border-gray-200/80 pt-5 dark:border-gray-700/80">
+      <footer className="flex flex-wrap items-center justify-between gap-4 border-t border-gray-200 pt-5 dark:border-gray-800">
         <div className="space-y-1">
           <p className="text-sm font-medium text-gray-700 dark:text-gray-200" aria-live="polite">{selection.dirty ? 'Unsaved changes' : 'Saved selection'}</p>
           <p className="text-xs text-gray-500 dark:text-gray-400">Save, then publish to update the home page.</p>

@@ -104,8 +104,8 @@ export function AddCharacterForm({ onSaved, onPendingChange }: { onSaved: () => 
       </div>
 
       <div className="
-        flex flex-wrap items-center gap-3 border-t border-gray-200/60 pt-5
-        dark:border-gray-700/60
+        flex flex-wrap items-center gap-3 border-t border-gray-200 pt-5
+        dark:border-gray-800
       "
       >
         <div className="flex min-w-0 flex-wrap items-center gap-3">

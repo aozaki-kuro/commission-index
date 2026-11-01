@@ -39,7 +39,7 @@ export function AdminPageShell({
       <main id="admin-content" tabIndex={-1} className="@container/workspace mx-auto max-w-[1600px] px-4 pt-6 pb-28 outline-none sm:px-8 sm:pt-8 lg:px-10">
         <header className="mb-6 border-b border-gray-200 pb-5 dark:border-gray-800">
           <h1 className="mb-2 text-[1.75rem]/9 font-medium tracking-tight text-gray-900 dark:text-gray-100">{title}</h1>
-          <p className="max-w-2xl text-sm leading-[1.375rem] text-gray-600 dark:text-gray-400">{description}</p>
+          <p className="max-w-2xl text-sm leading-[1.375rem] text-gray-500 dark:text-gray-400">{description}</p>
         </header>
         <div key={current} className="space-y-8 motion-safe:animate-[tabFade_240ms_ease-out]">
           {children}

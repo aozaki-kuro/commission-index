@@ -66,7 +66,7 @@ describe('character delete dialog accessibility', () => {
     expect(dialog.className).toContain('w-[calc(100%-2rem)]')
     expect(dialog.className).toContain('max-w-md')
     expect(dialog.className).toContain('rounded-2xl')
-    expect(dialog.className).toContain('bg-white')
+    expect(dialog.className).toContain('admin-surface')
     expect(dialog.className).toContain('shadow-xl')
     expect(dialog.className).toContain('p-6')
     expect(dialog.className).toContain('dialogEnter_240ms_cubic-bezier(0.25,1,0.5,1)')

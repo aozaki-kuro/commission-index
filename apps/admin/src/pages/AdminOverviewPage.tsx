@@ -1,7 +1,7 @@
 import type { AdminCommissionSearchRow } from '@commission-index/domain'
 import type { AdminOverviewPayload } from '../lib/adminApi'
 import { useCallback, useEffect, useReducer, useState, useSyncExternalStore } from 'react'
-import { adminActionLinkStyles } from '../app/ui'
+import { adminActionLinkStyles, buttonStyles } from '../app/ui'
 import { AdminBootstrapStatus } from '../components/AdminBootstrapStatus'
 import { AdminInternalLink } from '../components/AdminInternalLink'
 import { FloatingNotice } from '../components/FloatingNotice'
@@ -97,7 +97,6 @@ function useAnalyticsFeed<T>(pathname: string, load: (signal: AbortSignal) => Pr
 
 const placeholderStyles = 'rounded-lg border border-dashed border-gray-300 px-4 py-8 text-sm leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400'
 const secondaryLinkStyles = 'rounded-md py-1 text-sm text-gray-600 underline underline-offset-4 transition hover:text-gray-950 focus-visible:outline-2 focus-visible:outline-offset-4 dark:text-gray-300 dark:hover:text-white'
-const utilityButtonStyles = 'inline-flex h-10 pointer-coarse:h-11 shrink-0 items-center justify-center rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-700 transition motion-safe:enabled:active:scale-[0.98] hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800'
 
 export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) => void }) {
   const [state, dispatch] = useReducer(overviewReducer, undefined, createInitialOverviewState)
@@ -182,10 +181,10 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
         </FloatingNotice>
       )}
 
-      <section aria-labelledby="overview-actions" className="min-w-0 space-y-4 motion-safe:animate-[tabFade_300ms_ease-out] @min-[50rem]/workspace:col-start-1 @min-[50rem]/workspace:row-start-1">
+      <section aria-labelledby="overview-actions" className="min-w-0 space-y-4 @min-[50rem]/workspace:col-start-1 @min-[50rem]/workspace:row-start-1">
         <h2 id="overview-actions" className="text-base font-semibold text-gray-900 dark:text-gray-100">Manage content</h2>
         <div className="grid min-w-0 gap-3 @min-[35rem]/workspace:grid-cols-2">
-          <AdminInternalLink href="/create" onNavigate={onNavigate} className="inline-flex min-h-12 items-center justify-between gap-3 rounded-lg bg-gray-900 px-4 py-3 text-sm font-medium text-white no-underline transition hover:bg-gray-700 focus-visible:outline-2 focus-visible:outline-offset-4 dark:bg-gray-100 dark:text-gray-950 dark:hover:bg-white">
+          <AdminInternalLink href="/create" onNavigate={onNavigate} className="inline-flex min-h-12 items-center justify-between gap-3 rounded-md bg-gray-900 px-4 py-3 text-sm font-medium text-white no-underline transition hover:bg-gray-700 focus-visible:outline-2 focus-visible:outline-offset-4 dark:bg-gray-100 dark:text-gray-950 dark:hover:bg-white">
             Create commissions
             {' '}
             <span aria-hidden="true">→</span>
@@ -213,7 +212,7 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
                   role={rebuild.status === 'error' || rebuild.status === 'unconfirmed'
                     ? 'alert'
                     : 'status'}
-                  className="text-xs text-gray-600 dark:text-gray-400"
+                  className="text-xs text-gray-500 dark:text-gray-400"
                 >
                   {rebuild.message ?? (rebuild.status === 'pending'
                     ? 'Waiting for the public site to confirm the update.'
@@ -221,15 +220,15 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
                 </p>
               )}
             </div>
-            <button type="button" onClick={() => void queueWebsiteRebuild()} disabled={isDispatching} className={`${utilityButtonStyles} w-full`}>
+            <button type="button" onClick={() => void queueWebsiteRebuild()} disabled={isDispatching} className={`${buttonStyles.secondary} w-full`}>
               {isDispatching ? 'Queueing…' : 'Rebuild website'}
             </button>
           </div>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4 text-xs dark:border-gray-700">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4 text-xs dark:border-gray-800">
             <p className={hasPending ? 'text-amber-700 dark:text-amber-300' : 'text-gray-500 dark:text-gray-400'}>{hasPending ? 'Saved changes are waiting to be published.' : 'You can rebuild at any time.'}</p>
             <details className="group w-full">
               <summary className="cursor-pointer rounded text-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-gray-400">Connection details</summary>
-              <dl className="mt-3 space-y-2 break-words text-gray-600 dark:text-gray-300">
+              <dl className="mt-3 space-y-2 break-words text-gray-500 dark:text-gray-400">
                 <div className="flex flex-wrap gap-x-2">
                   <dt>Connection:</dt>
                   <dd>
@@ -259,7 +258,7 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
                   </div>
                 )}
               </dl>
-              <button type="button" onClick={reload} disabled={state.isLoading} className={`${utilityButtonStyles} mt-3 w-28`}>{state.isLoading ? 'Checking…' : 'Refresh data'}</button>
+              <button type="button" onClick={reload} disabled={state.isLoading} className={`${buttonStyles.secondary} mt-3 min-w-28`}>{state.isLoading ? 'Checking…' : 'Refresh data'}</button>
             </details>
           </div>
         </section>
@@ -364,7 +363,7 @@ function AnalyticsPlaceholder({ status, hasOverview, overviewLoading, noun, onRe
     return (
       <div role="alert" className={`${placeholderStyles} flex flex-wrap items-center justify-between gap-3`}>
         <p>{`Could not load visitor ${noun}.`}</p>
-        <button type="button" onClick={onRetry} className={`${utilityButtonStyles} min-w-28`}>Try again</button>
+        <button type="button" onClick={onRetry} className={`${buttonStyles.secondary} min-w-28`}>Try again</button>
       </div>
     )
   }

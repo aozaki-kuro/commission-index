@@ -20,7 +20,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import { formControlStyles } from '../../app/ui'
+import { buttonStyles, formControlStyles } from '../../app/ui'
 import { useCommissionManager } from '../../hooks/useCommissionManager'
 import { useNativeDragReorder } from '../../hooks/useNativeDragReorder'
 import { fetchCharacterCommissionsAction } from '../../lib/adminActions'
@@ -509,7 +509,7 @@ export function CommissionManager({
               placeholder="Search commissions"
               className={`
                 ${formControlStyles}
-                min-h-11 pr-20 pl-9 [&::-webkit-search-cancel-button]:hidden
+                pr-20 pl-9 [&::-webkit-search-cancel-button]:hidden
               `}
             />
             {searchQuery
@@ -518,17 +518,7 @@ export function CommissionManager({
                     type="button"
                     onClick={() => handleSearchChange('')}
                     aria-label="Clear search"
-                    className="
-                      absolute top-1/2 right-0 inline-flex size-11 -translate-y-1/2
-                      items-center justify-center rounded-full text-gray-400
-                      transition
-                      hover:bg-gray-100 hover:text-gray-600
-                      focus-visible:ring-2 focus-visible:ring-gray-400
-                      focus-visible:ring-offset-2 focus-visible:ring-offset-white
-                      focus-visible:outline-none
-                      dark:hover:bg-gray-800 dark:hover:text-gray-200
-                      dark:focus-visible:ring-offset-gray-900
-                    "
+                    className={`${buttonStyles.icon} absolute top-1/2 right-0 size-11 -translate-y-1/2`}
                   >
                     <IconX className="size-3.5" stroke={2} aria-hidden="true" />
                   </button>
@@ -547,26 +537,7 @@ export function CommissionManager({
             disabled={hasAppliedSearchQuery}
             aria-pressed={isReorderMode}
             aria-label={isReorderMode ? 'Exit reorder mode' : 'Enter reorder mode'}
-            className={`
-              inline-flex min-h-11 shrink-0 items-center justify-center gap-2 px-3
-              rounded-lg border text-sm font-medium transition
-              focus-visible:ring-2 focus-visible:ring-gray-400
-              focus-visible:ring-offset-2 focus-visible:ring-offset-white
-              focus-visible:outline-none
-              dark:focus-visible:ring-offset-gray-900
-              disabled:pointer-events-none disabled:opacity-50
-              ${isReorderMode
-      ? `
-                  border-gray-900 bg-gray-900 text-white
-                  dark:border-gray-100 dark:bg-gray-100 dark:text-gray-900
-                `
-      : `
-                  border-gray-200 bg-white text-gray-500
-                  hover:bg-gray-50 hover:text-gray-700
-                  dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400
-                  dark:hover:bg-gray-800 dark:hover:text-gray-200
-                `}
-            `}
+            className={`${isReorderMode ? buttonStyles.primary : buttonStyles.secondary} shrink-0`}
           >
             <IconArrowsSort className="size-4.5" stroke={2} aria-hidden="true" />
             <span>{isReorderMode ? 'Done' : 'Reorder'}</span>
@@ -599,7 +570,7 @@ export function CommissionManager({
                   aria-label={`${row.characterName} · ${getCommissionAccessibleLabel(row)}`}
                   aria-busy={pendingCommissionId === row.id && loadingCharacterIds.has(row.characterId)}
                   onClick={() => handleSearchResultSelect(row.id, row.characterId)}
-                  className="group flex min-h-16 w-full min-w-0 items-center gap-3 rounded-xl border border-gray-200 bg-white p-2 text-left transition hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:border-gray-700 dark:bg-gray-900/40 dark:hover:bg-gray-800"
+                  className="group flex min-h-16 w-full min-w-0 items-center gap-3 admin-surface rounded-xl border border-gray-200 p-2 text-left transition hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 dark:border-gray-800 dark:hover:bg-gray-800"
                 >
                   <span className="w-28 shrink-0 overflow-hidden rounded-md sm:w-40">
                     <CommissionThumbnail
@@ -616,7 +587,7 @@ export function CommissionManager({
                       {' · '}
                       {row.creatorName?.trim() || 'Anon'}
                     </span>
-                    <span className="w-full truncate text-xs text-gray-500 dark:text-gray-400">
+                    <span className="w-full truncate text-xs tabular-nums text-gray-500 dark:text-gray-400">
                       {pendingCommissionId === row.id && loadingCharacterIds.has(row.characterId)
                         ? 'Loading commission…'
                         : pendingCommissionId === row.id && loadErrors.has(row.characterId)
@@ -641,12 +612,12 @@ export function CommissionManager({
             )
           : isInitialError
             ? (
-                <div className="flex min-h-60 items-center justify-center rounded-2xl border border-dashed border-gray-300 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                <div className="flex min-h-60 items-center justify-center rounded-lg border border-dashed border-gray-300 text-sm text-gray-500 dark:border-gray-700 dark:text-gray-400">
                   Commission list is unavailable.
                 </div>
               )
             : (
-                <div className="motion-safe:animate-[tabFade_260ms_ease-out] space-y-4">
+                <div className="space-y-4">
                   <div className="space-y-4" {...dragContainerProps}>
                     {list.map((item, index) => {
                       if (item.type === 'divider') {

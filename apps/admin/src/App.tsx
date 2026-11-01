@@ -1,7 +1,7 @@
 import type { ErrorInfo, ReactNode } from 'react'
 import { Component, lazy, startTransition, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { adminSections, getAdminSectionForPath, normalizeAdminPath } from './app/sections'
-import { adminActionLinkStyles, adminSurfaceStyles } from './app/ui'
+import { adminActionLinkStyles, adminSurfaceStyles, buttonStyles } from './app/ui'
 import { AdminInternalLink } from './components/AdminInternalLink'
 import { AdminPageShell, AdminRootLayout } from './components/AdminLayout'
 import { FloatingNotice } from './components/FloatingNotice'
@@ -59,7 +59,7 @@ export class RouteLoadBoundary extends Component<RouteLoadBoundaryProps, RouteLo
       return (
         <section
           role="alert"
-          className="mx-auto max-w-5xl space-y-4 rounded-2xl border border-red-200 bg-white p-6 dark:border-red-900 dark:bg-gray-950"
+          className="mx-auto max-w-5xl space-y-4 admin-surface rounded-2xl border border-red-200 p-6 dark:border-red-900"
         >
           <div className="space-y-1">
             <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -72,7 +72,7 @@ export class RouteLoadBoundary extends Component<RouteLoadBoundaryProps, RouteLo
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:outline-none dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-900"
+            className={buttonStyles.secondary}
           >
             Reload admin
           </button>

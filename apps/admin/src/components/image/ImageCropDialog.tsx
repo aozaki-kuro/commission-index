@@ -7,6 +7,7 @@ import {
   IconRotateClockwise2,
 } from '@tabler/icons-react'
 import { useEffect, useRef, useState } from 'react'
+import { buttonStyles } from '../../app/ui'
 import {
   exportCroppedImage,
   getCropUpscaleFactor,
@@ -28,15 +29,6 @@ interface ImageCropDialogProps {
   onCancel: () => void
   onConfirm: (file: File) => void
 }
-
-const toolButtonClass = `
-  inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3
-  text-sm font-medium text-gray-700 transition
-  hover:bg-black/6 hover:text-gray-950
-  focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:outline-none
-  disabled:pointer-events-none disabled:opacity-45
-  dark:text-gray-200 dark:hover:bg-white/9 dark:hover:text-white
-`
 
 export function ImageCropDialog({
   file,
@@ -170,7 +162,7 @@ export function ImageCropDialog({
               disabled={!snapshot || isProcessing}
               aria-label="Rotate image left 90 degrees"
               title="Rotate left 90°"
-              className={toolButtonClass}
+              className={buttonStyles.ghost}
             >
               <IconRotate2 className="size-4" stroke={1.8} aria-hidden="true" />
               <span className="hidden sm:inline">−90°</span>
@@ -181,7 +173,7 @@ export function ImageCropDialog({
               disabled={!snapshot || isProcessing}
               aria-label="Rotate image right 90 degrees"
               title="Rotate right 90°"
-              className={toolButtonClass}
+              className={buttonStyles.ghost}
             >
               <IconRotateClockwise2 className="size-4" stroke={1.8} aria-hidden="true" />
               <span className="hidden sm:inline">+90°</span>
@@ -190,7 +182,7 @@ export function ImageCropDialog({
               type="button"
               onClick={() => workspaceRef.current?.fitCrop()}
               disabled={!snapshot || isProcessing}
-              className={toolButtonClass}
+              className={buttonStyles.ghost}
             >
               <IconCrop className="size-4" stroke={1.8} aria-hidden="true" />
               Fit
@@ -199,7 +191,7 @@ export function ImageCropDialog({
               type="button"
               onClick={() => workspaceRef.current?.reset()}
               disabled={!snapshot || isProcessing}
-              className={toolButtonClass}
+              className={buttonStyles.ghost}
             >
               <IconRefresh className="size-4" stroke={1.8} aria-hidden="true" />
               Reset
@@ -218,7 +210,7 @@ export function ImageCropDialog({
                 type="button"
                 onClick={handleCancel}
                 disabled={isProcessing}
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-700 transition hover:bg-white/70 focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-white/8"
+                className={buttonStyles.secondary}
               >
                 Cancel
               </button>
@@ -226,7 +218,7 @@ export function ImageCropDialog({
                 type="button"
                 onClick={handleSave}
                 disabled={!canSave}
-                className="inline-flex min-h-11 min-w-28 items-center justify-center rounded-lg bg-gray-900 px-4 text-sm font-semibold text-white transition hover:bg-gray-700 focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200"
+                className={`${buttonStyles.primary} min-w-28`}
               >
                 {isProcessing ? 'Processing…' : 'Use image'}
               </button>

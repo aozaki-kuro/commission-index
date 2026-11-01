@@ -106,8 +106,8 @@ export function CommissionSharedFields({
       </div>
 
       <div className="
-        space-y-5 border-t border-gray-200/60 pt-5
-        dark:border-gray-700/60
+        space-y-5 border-t border-gray-200 pt-5
+        dark:border-gray-800
       "
       >
         <CommissionLinksField

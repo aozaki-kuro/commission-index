@@ -5,7 +5,7 @@ import { notifyDataUpdate } from '../lib/dataUpdateSignal'
 import { INITIAL_FORM_STATE } from '../lib/formState'
 import { markPendingRebuild } from '../lib/pendingRebuildSignal'
 import { FormStatusIndicator } from './FormStatusIndicator'
-import { SaveButton } from './SaveButton'
+import { SubmitButton } from './SubmitButton'
 
 export interface AliasRow {
   key: string
@@ -112,7 +112,7 @@ export function AliasPanel({
       <input type="hidden" name="rowsJson" value={buildPayload(changedRows, values)} />
       <header>
         <h2 className="sr-only">{title}</h2>
-        <p className="max-w-2xl text-sm leading-relaxed text-gray-600 dark:text-gray-300">{description}</p>
+        <p className="max-w-2xl text-sm leading-relaxed text-gray-500 dark:text-gray-400">{description}</p>
       </header>
       <div className="space-y-2">
         <label htmlFor={`${id}-filter`} className="sr-only">
@@ -120,15 +120,15 @@ export function AliasPanel({
         </label>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <input id={`${id}-filter`} type="search" value={query} onChange={event => setQuery(event.target.value)} disabled={isLoading || isUnavailable} placeholder={`Search ${columnHeader.toLowerCase()} or alias`} className={`${formControlStyles} min-w-0 md:max-w-md`} />
-          <span className="pl-1 tabular-nums text-xs text-gray-500 dark:text-gray-400" aria-live="polite">
+          <span className="tabular-nums text-xs text-gray-500 dark:text-gray-400" aria-live="polite">
             {isLoading || isUnavailable
               ? '— entries'
               : `${visibleRows.length} of ${rows.length} entries`}
           </span>
         </div>
-        <p className="pl-1 text-xs leading-relaxed text-gray-500 dark:text-gray-400">Separate aliases with commas. Clear a field to remove its aliases.</p>
+        <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">Separate aliases with commas. Clear a field to remove its aliases.</p>
       </div>
-      <div className="admin-glass sticky top-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 px-4 py-3 shadow-sm dark:border-gray-700">
+      <div className="admin-glass sticky top-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 px-4 py-3 shadow-sm dark:border-gray-800">
         <div className="space-y-1">
           <p className="text-sm font-medium text-gray-700 dark:text-gray-200" aria-live="polite">
             {changedRows.length > 0
@@ -140,21 +140,21 @@ export function AliasPanel({
           <p className="text-xs text-gray-500 dark:text-gray-400">Only changed rows in this section are saved.</p>
         </div>
         <fieldset disabled={pending || isLoading || isUnavailable || changedRows.length === 0} className="min-w-0">
-          <SaveButton label={saveLabel} />
+          <SubmitButton>{saveLabel}</SubmitButton>
         </fieldset>
       </div>
       <div>
-        <div className={`hidden gap-6 border-y border-gray-200 py-3 text-xs font-medium text-gray-500 md:grid dark:border-gray-700 dark:text-gray-400 ${aliasGridTemplate}`}>
-          <span className="pl-1">{columnHeader}</span>
-          <span className="pl-1">Aliases</span>
+        <div className={`hidden gap-6 border-y border-gray-200 py-3 text-xs font-medium text-gray-500 md:grid dark:border-gray-800 dark:text-gray-400 ${aliasGridTemplate}`}>
+          <span>{columnHeader}</span>
+          <span>Aliases</span>
         </div>
         {isLoading
           ? <div aria-hidden="true" className="space-y-4 py-4">{[0, 1, 2].map(index => <div key={index} className="h-16 rounded-lg bg-gray-100 motion-safe:animate-pulse dark:bg-gray-800" />)}</div>
           : isUnavailable
-            ? <p className="py-4 pl-1 text-sm text-gray-500 dark:text-gray-400">Alias data is unavailable. Use the retry notice to load it.</p>
+            ? <p className="py-4 text-sm text-gray-500 dark:text-gray-400">Alias data is unavailable. Use the retry notice to load it.</p>
             : visibleRows.length === 0
               ? (
-                  <p className="py-4 pl-1 text-sm text-gray-500 dark:text-gray-400">
+                  <p className="py-4 text-sm text-gray-500 dark:text-gray-400">
                     {rows.length === 0
                       ? emptyMessage
                       : 'No aliases match this filter.'}
@@ -163,8 +163,8 @@ export function AliasPanel({
               : visibleRows.map((row) => {
                   const inputId = `${id}-${encodeURIComponent(row.key)}`
                   return (
-                    <div key={row.key} className={`grid min-w-0 scroll-mt-48 gap-2 border-b border-gray-200/80 py-3 last:border-0 md:scroll-mt-28 md:items-center md:gap-6 dark:border-gray-700/80 ${aliasGridTemplate}`}>
-                      <div className="min-w-0 space-y-1 pl-1">
+                    <div key={row.key} className={`grid min-w-0 scroll-mt-48 gap-2 border-b border-gray-200 py-3 last:border-0 md:scroll-mt-28 md:items-center md:gap-6 dark:border-gray-800 ${aliasGridTemplate}`}>
+                      <div className="min-w-0 space-y-1">
                         <label htmlFor={inputId} className="block text-sm font-medium break-words text-gray-900 dark:text-gray-100">
                           {row.key}
                           <span className="sr-only"> aliases</span>

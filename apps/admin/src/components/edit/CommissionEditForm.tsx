@@ -14,6 +14,7 @@ import {
   useState,
   useTransition,
 } from 'react'
+import { buttonStyles } from '../../app/ui'
 import { useCommissionEditState } from '../../hooks/useCommissionEditState'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import {
@@ -413,12 +414,10 @@ export function CommissionEditForm({
           className="
             absolute right-3 bottom-3 inline-flex size-11 items-center
             justify-center rounded-full border border-white/20 bg-black/55
-            text-white shadow-[0_8px_18px_-8px_rgba(0,0,0,0.75)]
-            backdrop-blur-sm transition
+            text-white transition
             hover:bg-black/70
-            focus-visible:ring-2 focus-visible:ring-white/90
-            focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900
-            focus-visible:outline-none
+            focus-visible:outline-2 focus-visible:outline-offset-2
+            focus-visible:outline-white
             disabled:cursor-not-allowed disabled:opacity-50
           "
         >
@@ -473,8 +472,8 @@ export function CommissionEditForm({
       <DuplicateCommissionNotice hints={duplicateHints} />
 
       <div className="
-        mt-6 flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-gray-200/60 pt-6
-        dark:border-gray-700/60
+        mt-6 flex min-w-0 flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-6
+        dark:border-gray-800
         sm:gap-4
       "
       >
@@ -497,20 +496,7 @@ export function CommissionEditForm({
                 <button
                   type="button"
                   onClick={() => setIsDeleteArmed(false)}
-                  className="
-                    inline-flex h-9 items-center justify-center rounded-md
-                    pointer-coarse:h-11 motion-safe:active:scale-[0.98]
-                    border border-gray-300/80 px-3 text-sm font-medium
-                    text-gray-600 transition
-                    hover:bg-gray-50
-                    focus-visible:ring-2 focus-visible:ring-gray-400
-                    focus-visible:ring-offset-2 focus-visible:ring-offset-white
-                    focus-visible:outline-none
-                    sm:h-10 sm:px-4
-                    dark:border-gray-700 dark:text-gray-300
-                    dark:hover:bg-gray-900/40
-                    dark:focus-visible:ring-offset-gray-900
-                  "
+                  className={buttonStyles.secondary}
                 >
                   Cancel
                 </button>
@@ -521,33 +507,14 @@ export function CommissionEditForm({
             type="button"
             onClick={handleDelete}
             disabled={isDeleting || isUploading || isSaving}
-            className={`
-              inline-flex h-9 items-center justify-center rounded-md border px-3
-              pointer-coarse:h-11 motion-safe:enabled:active:scale-[0.98]
-              text-sm font-medium transition
-              focus-visible:ring-2 focus-visible:ring-red-400
-              focus-visible:ring-offset-2 focus-visible:ring-offset-white
-              focus-visible:outline-none
-              disabled:cursor-not-allowed disabled:opacity-60
-              sm:h-10 sm:px-4
-              dark:focus-visible:ring-offset-gray-900
-              ${isDeleteArmed
-      ? `
-                border-red-600 bg-red-600 text-white
-                hover:bg-red-700
-                dark:border-red-500 dark:bg-red-600 dark:hover:bg-red-500
-              `
-      : `
-                border-red-200/70 text-red-600
-                hover:bg-red-50
-                dark:border-red-500/40 dark:text-red-300
-                dark:hover:bg-red-500/10
-              `}
-            `}
+            className={isDeleteArmed ? buttonStyles.danger : buttonStyles.secondary}
           >
             {isDeleting
               ? 'Deleting…'
-              : isDeleteArmed ? 'Confirm delete' : 'Delete'}
+              : isDeleteArmed
+                ? 'Confirm delete'
+                // The red label keeps the destructive cue on the first step without a separate outline-danger variant.
+                : <span className="text-red-600 dark:text-red-400">Delete</span>}
           </button>
         </div>
       </div>
