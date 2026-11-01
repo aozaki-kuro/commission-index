@@ -33,8 +33,9 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
   (61px left, 41px right). At 1280x800 the field is 416px against the `min(70dvh, 34rem)` cap, so it does not scroll;
   if it outgrows the cap, rebalance the column ratio before widening. It stays an anchored popover, not a modal: it
   filters the listing under it and is opened repeatedly, so the page stays visible.
-  Below `48rem` it is a full-screen panel (not a bottom sheet:
-  a sheet promises swipe-down to dismiss, which is not built), fading in like the hamburger menu, with no backdrop or
+  Below `48rem` it is a full-screen panel headed by a 28px "Tags" title (`browseKeywordsTitle`, `aria-hidden`: the
+  dialog's `aria-label` names it), not a bottom sheet
+  (a sheet promises swipe-down to dismiss, which is not built), fading in like the hamburger menu, with no backdrop or
   page curtain; wider screens get an anchored popover, so the search row stays crisp. The panel locks page scroll
   with `html:has(#search-browse-popover:popover-open)` (a popover never does, and a drag out of a short list scrolls
   the listing), needs `height: auto` (the UA popover height is `fit-content`) and closes from an X in the hamburger

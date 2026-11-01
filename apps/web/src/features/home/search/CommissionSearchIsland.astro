@@ -375,6 +375,19 @@ const browseTermClass = `
             max-md:px-12 max-md:pt-16 max-md:pb-28
           "
         >
+          {/* The full-screen panel names itself at the hamburger rows' size; the dialog's aria-label already does for
+              assistive tech. */}
+          <p
+            data-browse-title="true"
+            aria-hidden="true"
+            class="
+              text-[28px]/tight font-semibold tracking-[0.007em] text-gray-800
+              md:hidden
+              dark:text-gray-100
+            "
+          >
+            {controls.browseKeywordsTitle}
+          </p>
           <div data-browse-column="true">
           {keywordBrowseSections.map(section => (
             <section>
@@ -657,6 +670,11 @@ const browseTermClass = `
   @media (width < 48rem) {
     [data-browse-column] {
       display: contents;
+    }
+
+    [data-browse-title] {
+      flex-basis: 100%;
+      margin-bottom: 0.5rem;
     }
   }
 
