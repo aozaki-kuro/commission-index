@@ -63,6 +63,10 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   The Active/Archived lists collapse with `data-collapsed` (grid row 0fr plus `visibility: hidden`), not `hidden`, so
   they can animate; a test or script must read that attribute.
   `STYLES.floatingButton`/`backdrop` are shared with the language menu and the mobile browse panel's X; only `listItem` belongs to this menu.
+- **Desktop sidebars:** every link and toggle is one ink, `gray-700`/`gray-200` (the selected view toggle
+  `gray-900`/white, kept in sync by `sidebarNavEnhancer.ts`), hovered only by the site link opacity; same no-color-hover
+  rule as the hamburger. Anchors carry the ink themselves: the link rule's `dark:text-white` beats a color inherited
+  from the `li`, which made dark-mode links white while the toggles stayed gray.
 - **Menu material and motion:** every floating menu (browse and help popovers, suggestion list, language menu) uses the
   `menu-glass` utility in `globals.css`; do not restate its classes. A breakpoint or variant utility layered on top
   wins over its `dark:` tint, so put per-breakpoint tints in scoped CSS with a dark override (the mobile browse panel does).
