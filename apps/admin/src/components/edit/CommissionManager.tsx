@@ -520,7 +520,7 @@ export function CommissionManager({
                     aria-label="Clear search"
                     className={`${buttonStyles.icon} absolute top-1/2 right-0 size-11 -translate-y-1/2`}
                   >
-                    <IconX className="size-3.5" stroke={2} aria-hidden="true" />
+                    <IconX className="size-3.5" stroke={1.8} aria-hidden="true" />
                   </button>
                 )
               : null}
@@ -539,7 +539,7 @@ export function CommissionManager({
             aria-label={isReorderMode ? 'Exit reorder mode' : 'Enter reorder mode'}
             className={`${isReorderMode ? buttonStyles.primary : buttonStyles.secondary} shrink-0`}
           >
-            <IconArrowsSort className="size-4.5" stroke={2} aria-hidden="true" />
+            <IconArrowsSort className="size-4.5" stroke={1.8} aria-hidden="true" />
             <span>{isReorderMode ? 'Done' : 'Reorder'}</span>
           </button>
           <KeywordReplacePopover

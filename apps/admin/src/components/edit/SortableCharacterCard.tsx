@@ -119,7 +119,7 @@ export function SortableCharacterCard({
               : `Drag ${character.name}`}
             className={`${buttonStyles.icon} size-11 enabled:cursor-grab enabled:active:cursor-grabbing max-sm:hidden`}
           >
-            <IconGripHorizontal className="size-5" stroke={2} aria-hidden="true" />
+            <IconGripHorizontal className="size-5" stroke={1.8} aria-hidden="true" />
           </button>
 
           {/* 输入框和展开按钮互斥，避免交互控件嵌套。 */}
@@ -247,10 +247,10 @@ export function SortableCharacterCard({
               className={`${buttonStyles.icon} size-11`}
             >
               {isReorderMode
-                ? <IconArrowUp className="size-4" stroke={2} aria-hidden="true" />
+                ? <IconArrowUp className="size-4" stroke={1.8} aria-hidden="true" />
                 : isEditing
-                  ? <IconDeviceFloppy className="size-4" stroke={2} aria-hidden="true" />
-                  : <IconPencil className="size-4" stroke={2} aria-hidden="true" />}
+                  ? <IconDeviceFloppy className="size-4" stroke={1.8} aria-hidden="true" />
+                  : <IconPencil className="size-4" stroke={1.8} aria-hidden="true" />}
             </button>
 
             <button
@@ -283,11 +283,11 @@ export function SortableCharacterCard({
               className={`${buttonStyles.icon} group size-11`}
             >
               {isReorderMode
-                ? <IconArrowDown className="size-4" stroke={2} aria-hidden="true" />
+                ? <IconArrowDown className="size-4" stroke={1.8} aria-hidden="true" />
                 : isEditing
-                  ? <IconX className="size-4" stroke={2} aria-hidden="true" />
+                  ? <IconX className="size-4" stroke={1.8} aria-hidden="true" />
                   // Danger hover lives on the glyph so it does not fight the shared icon tone.
-                  : <IconTrash className="size-4 group-enabled:group-hover:text-red-600 dark:group-enabled:group-hover:text-red-400" stroke={2} aria-hidden="true" />}
+                  : <IconTrash className="size-4 group-enabled:group-hover:text-red-600 dark:group-enabled:group-hover:text-red-400" stroke={1.8} aria-hidden="true" />}
             </button>
           </div>
         </div>

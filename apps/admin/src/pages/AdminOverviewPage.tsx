@@ -202,7 +202,7 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
       </section>
 
       <div className="min-w-0 space-y-7 @min-[50rem]/workspace:col-start-2 @min-[50rem]/workspace:row-span-2 @min-[50rem]/workspace:row-start-1">
-        <section aria-labelledby="overview-publish" className="admin-surface min-w-0 space-y-4 rounded-xl border border-gray-200 p-5 dark:border-gray-800">
+        <section aria-labelledby="overview-publish" className="admin-surface min-w-0 space-y-4 rounded-xl border border-gray-200 p-4 sm:p-6 dark:border-gray-800">
           <div className="flex min-w-0 flex-col items-start gap-4">
             <div className="min-w-0 flex-1 space-y-1">
               <h2 id="overview-publish" className="text-base font-semibold text-gray-900 dark:text-gray-100">Publish website</h2>

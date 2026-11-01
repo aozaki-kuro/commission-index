@@ -26,7 +26,7 @@ function DialogOverlay({
       className={cn(
         'fixed inset-0',
         variant === 'alert'
-          ? 'z-50 data-[state=closed]:animate-none motion-safe:animate-[overlayFadeIn_200ms_ease-out]'
+          ? 'z-50 data-[state=closed]:animate-none motion-safe:animate-[dialog-overlay-in_200ms_ease-out]'
           : variant === 'crop'
             ? 'z-60 motion-safe:data-[state=open]:animate-[dialog-overlay-in_150ms_ease-out] motion-safe:data-[state=closed]:animate-[dialog-crop-content-out_150ms_ease-in]'
             : 'z-60 data-[state=open]:animate-[dialog-overlay-in_150ms_ease-out] data-[state=closed]:animate-[dialog-overlay-in_150ms_ease-in_reverse] motion-reduce:animate-none',
@@ -169,7 +169,7 @@ function DialogCloseButton({ className, disabled }: { className?: string, disabl
         className={cn(buttonStyles.icon, 'ml-3 size-11', className)}
         aria-label="Close"
       >
-        <IconX className="size-4" stroke={2} aria-hidden="true" />
+        <IconX className="size-4" stroke={1.8} aria-hidden="true" />
       </button>
     </DialogClose>
   )

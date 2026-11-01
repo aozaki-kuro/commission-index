@@ -22,11 +22,11 @@ function DuplicateDetails({ hints }: DuplicateCommissionNoticeProps) {
             >
               {hint.displayLabel}
             </span>
-            <span className="shrink-0 text-[11px] text-gray-500 dark:text-gray-300">
+            <span className="shrink-0 text-2xs text-gray-500 dark:text-gray-300">
               {hint.characterName}
             </span>
           </div>
-          <p className="mt-1 break-words text-[11px] text-amber-900/80 dark:text-amber-100/80">
+          <p className="mt-1 break-words text-2xs text-amber-900/80 dark:text-amber-100/80">
             {hint.reasons.join(' · ')}
           </p>
         </li>

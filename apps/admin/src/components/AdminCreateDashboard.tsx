@@ -66,7 +66,7 @@ export function AdminCreateDashboard({
       >
         <DialogContent className="w-[calc(100%-2rem)]" aria-describedby={undefined}>
           <DialogHeader>
-            <DialogTitle className="text-lg font-semibold">New character</DialogTitle>
+            <DialogTitle className="text-lg font-semibold text-gray-800 dark:text-gray-100">New character</DialogTitle>
             <DialogCloseButton disabled={isSavingCharacter} />
           </DialogHeader>
           <div className="min-h-0 overflow-y-auto">

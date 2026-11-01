@@ -105,7 +105,7 @@ function TabButton({ activeTab, count, label, onSelect, tab }: TabButtonProps) {
       {label}
       <span className={`
         inline-flex min-w-5 items-center justify-center
-        tabular-nums text-[11px] leading-none
+        tabular-nums text-2xs leading-none
         ${isActive
       ? `text-gray-600 dark:text-gray-300`
       : `text-gray-500 dark:text-gray-400`}

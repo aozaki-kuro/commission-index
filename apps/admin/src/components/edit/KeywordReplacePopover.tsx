@@ -251,7 +251,7 @@ export function KeywordReplacePopover({
               </div>
             </div>
           </div>
-          <section aria-label="Replacement preview" className="min-h-24 flex-1 space-y-3 overflow-y-auto border-t border-gray-200 px-5 py-5 dark:border-gray-800">
+          <section aria-label="Replacement preview" className="min-h-24 flex-1 space-y-3 border-t border-gray-200 px-5 py-5 dark:border-gray-800">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-200" aria-live="polite">
               {!findTerm.trim()
                 ? 'Enter text to preview the affected commissions.'

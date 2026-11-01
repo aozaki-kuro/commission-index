@@ -13,6 +13,10 @@
   --color-gray-800: #262626;
   --color-gray-900: #171717;
   --color-gray-950: #0a0a0a;
+
+  /* Between text-xs (12px) and the 14px body; replaces ad-hoc text-[11px]. Kept in px, not rem: the mobile section nav
+     only fits 320px at 200% root text because its labels do not scale. */
+  --text-2xs: 11px;
 }
 
 @keyframes tabFade {
@@ -23,26 +27,6 @@
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes slideInUp {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes overlayFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
   }
 }
 
@@ -106,24 +90,6 @@
   }
 }
 
-@keyframes drawerSlideIn {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes drawerSlideOut {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(100%);
-  }
-}
-
 @layer base {
   /* Zero-specificity default so outline-* utilities without a colour stay visible on dark fills. */
   :where(:focus-visible) {
@@ -150,7 +116,6 @@
   :root {
     --font-ibm-plex-sans: 'IBM Plex Sans';
     --font-sans: var(--font-ibm-plex-sans), sans-serif;
-    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
     --crop-frame: rgb(255 255 255 / 0.96);
     --crop-frame-shadow: rgb(0 0 0 / 0.28);
     --crop-grid: rgb(255 255 255 / 0.52);
@@ -197,23 +162,12 @@
     border-color: var(--color-gray-200, currentColor);
   }
 
-  h1 {
-    margin-bottom: 0.4em;
-    @apply text-[1.6em] font-bold text-gray-800 dark:text-gray-100;
-  }
-
-  h2 {
-    font: bold;
-    @apply text-[1.4em] font-bold text-gray-800 md:text-[1.5em] dark:text-gray-100;
-  }
-
   p,
   li {
     @apply text-gray-800 dark:text-gray-300;
   }
 
-  a,
-  [data-link-style='true'] {
+  a {
     text-underline-position: from-font;
     text-decoration-skip-ink: all;
     @apply font-medium underline decoration-gray-400 decoration-1 underline-offset-1 transition-opacity hover:opacity-70 dark:text-white dark:decoration-gray-600;

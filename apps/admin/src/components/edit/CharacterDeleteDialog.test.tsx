@@ -72,7 +72,7 @@ describe('character delete dialog accessibility', () => {
     expect(dialog.className).toContain('dialogEnter_240ms_cubic-bezier(0.25,1,0.5,1)')
     expect(overlay.className).toContain('bg-black/40')
     expect(overlay.className).toContain('backdrop-blur-[2px]')
-    expect(overlay.className).toContain('overlayFadeIn_200ms_ease-out')
+    expect(overlay.className).toContain('dialog-overlay-in_200ms_ease-out')
     expect(dialog.querySelector('button:last-child')?.textContent).toBe('Delete')
     expect(labelledBy).toBeTruthy()
     expect(dialog.querySelector(`#${labelledBy}`)?.textContent).toBe('Delete character?')
