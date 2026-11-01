@@ -32,7 +32,7 @@ import {
 import AgeGateScript from '@features/home/warning/AgeGateScript.astro'
 import BaseLayout from '@layouts/BaseLayout.astro'
 import { buildSitePayload } from '@lib/home/buildSitePayload'
-import { buildKeywordBrowseGroups } from '@lib/home/keywordBrowseGroups'
+import { buildCreatorBrowseTerms, buildKeywordBrowseGroups } from '@lib/home/keywordBrowseGroups'
 import { buildHomeUpdateSummary } from '@lib/home/updateSummary'
 import { listMissingSourceImages, resolveSourceImageByCommissionId } from '@lib/images/sourceImageRegistry'
 import { buildCommissionDataMap, buildCreatorAliasesMap } from '@lib/sitePayload'
@@ -121,6 +121,10 @@ const keywordBrowseSections = [
     groups: keywordBrowseGroups.filter(group => !activeCharacterNames.has(group.character)),
   },
 ].filter(section => section.groups.length > 0)
+const keywordBrowseArtists = {
+  label: messages.controls.browseArtists,
+  creators: buildCreatorBrowseTerms(payload.commissionData),
+}
 
 const commissions = payload.commissionData.flatMap(character => character.Commissions)
 const missingSourceImages = listMissingSourceImages(commissions)
@@ -259,6 +263,7 @@ catch {
         featuredKeywords={featuredSearchKeywords}
         suggestionAliasGroups={suggestionAliasGroups}
         keywordBrowseSections={keywordBrowseSections}
+        keywordBrowseArtists={keywordBrowseArtists}
       />
       <MobileHamburgerMenu
         active={payload.characterStatus.active}

@@ -55,7 +55,7 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
 - **Floating buttons auto-hide:** below `lg` the hamburger and keyword-button roots get `data-floating-hidden` (one controller, `nav/hamburger/floatingButtonsAutoHide.ts`, mounted from `homePageClient.ts`) while scrolling down; never hidden near the top/bottom, while a menu is open, keyboard focus is inside, or the age gate is open. CSS-only hide (no `aria-hidden`/`inert`).
 - **Mobile hamburger menu:** a full-screen frosted panel styled after apple.com's mobile menu (every link one
   28px/600 tier in the page's heading ink `gray-800`/`gray-100`, hovered only by the site link opacity via
-  `data-link-style` — no color hover or `transition-colors`, which would stack on it; group labels are the quiet `text-sm` gray-500/400 sentence-case label shared with the browse panel and never hover-recolor, rows staggered in via `--i` on `[data-mobile-hamburger-row]`). The panel is
+  `data-link-style` — no color hover or `transition-colors`, which would stack on it; group labels are the quiet `text-sm` gray-500/400 sentence-case label and never hover-recolor, rows staggered in via `--i` on `[data-mobile-hamburger-row]`). The panel is
   `z-65`, below the toggle's `z-70` inside the root's stacking context, so the X stays clickable on top of it.
   Link rows size from `--menu-rows` (utilities + active characters): rows and the three group gaps (`--menu-gap`, 0.6
   row) shrink together from 28px toward ~17px so the default view, language row included, fits one screen, then

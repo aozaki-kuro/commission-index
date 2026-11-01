@@ -118,6 +118,19 @@ test.describe('home desktop shells', () => {
       },
     )
   })
+
+  // Guards the two-column chip field: 12px chips, characters | artists, and the overhang past the page column.
+  test('desktop keyword browse popover stays visually stable when open', async ({ page }) => {
+    await page.goto('/')
+    const trigger = page.locator('#search-browse-trigger')
+    const panel = page.locator('#search-browse-popover')
+    await trigger.waitFor()
+    await prepareStablePage(page)
+    await trigger.click()
+    await expect(panel).toBeVisible()
+
+    await expectUnionToMatchSnapshot(page, 'desktop-browse-open.png', [panel])
+  })
 })
 
 test.describe('home mobile floating menus', () => {
