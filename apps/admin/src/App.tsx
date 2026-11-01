@@ -59,7 +59,7 @@ export class RouteLoadBoundary extends Component<RouteLoadBoundaryProps, RouteLo
       return (
         <section
           role="alert"
-          className="mx-auto max-w-5xl space-y-4 admin-surface rounded-2xl border border-red-200 p-6 dark:border-red-900"
+          className="space-y-4 admin-surface rounded-2xl border border-red-200 p-6 dark:border-red-900"
         >
           <div className="space-y-1">
             <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
@@ -208,9 +208,9 @@ export function App() {
       <AdminRootLayout>
         <RouteContentReady onReady={handlePageReady} />
         <div className="
-          mx-auto max-w-5xl space-y-6 pt-6 pb-10
-          md:px-4
-          lg:px-0
+          mx-auto max-w-[1600px] space-y-6 px-4 pt-6 pb-10
+          sm:px-8
+          lg:px-10
         "
         >
           <header className="space-y-2">

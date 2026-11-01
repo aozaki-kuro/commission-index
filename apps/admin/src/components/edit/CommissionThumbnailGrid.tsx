@@ -140,10 +140,7 @@ export function CommissionThumbnail({
                 decoding="async"
                 width={thumbnailImageWidth}
                 height={thumbnailImageHeight}
-                className="
-                  size-full object-contain transition
-                  motion-safe:group-hover:scale-[1.02]
-                "
+                className="size-full object-contain"
                 onError={handleImageError}
               />
             )

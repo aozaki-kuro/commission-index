@@ -53,7 +53,6 @@ export function FloatingRebuildButton() {
         admin-surface shrink-0 rounded-md border px-3 py-1.5 pointer-coarse:min-h-11
         text-xs font-medium
         transition
-        motion-safe:enabled:active:scale-[0.98]
         focus-visible:outline-2 focus-visible:outline-offset-2
         disabled:cursor-not-allowed disabled:opacity-50
         ${toneStyles}
