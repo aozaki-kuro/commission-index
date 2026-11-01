@@ -1,5 +1,21 @@
 @import 'tailwindcss';
 
+/* The page is neutral-900; Tailwind's default gray is blue-tinted (hue ~260), so every gray-* surface, border and
+   text drifted cool against it. Aliasing gray to the neutral scale keeps one achromatic palette site-wide. */
+@theme {
+  --color-gray-50: oklch(98.5% 0 0);
+  --color-gray-100: oklch(97% 0 0);
+  --color-gray-200: oklch(92.2% 0 0);
+  --color-gray-300: oklch(87% 0 0);
+  --color-gray-400: oklch(70.8% 0 0);
+  --color-gray-500: oklch(55.6% 0 0);
+  --color-gray-600: oklch(43.9% 0 0);
+  --color-gray-700: oklch(37.1% 0 0);
+  --color-gray-800: oklch(26.9% 0 0);
+  --color-gray-900: oklch(20.5% 0 0);
+  --color-gray-950: oklch(14.5% 0 0);
+}
+
 /*
   The default border color has changed to `currentColor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still
@@ -245,7 +261,7 @@
 /* One frosted material for every floating menu (browse/help popovers, suggestion list, language menu), so they
    cannot drift apart again. The full-screen hamburger panel keeps its own denser tint. */
 @utility menu-glass {
-  @apply rounded-xl border border-gray-200/80 bg-white/80 shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-xl backdrop-saturate-180 dark:border-gray-800 dark:bg-[rgb(29_29_31/0.8)];
+  @apply rounded-xl border border-gray-200/80 bg-white/80 shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-xl dark:border-gray-800 dark:bg-gray-900/80;
 }
 
 /* ============================= */
