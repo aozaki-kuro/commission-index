@@ -79,7 +79,8 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   `outline-2` variant reads, so the focus outline never draws.
 - **Palette:** `gray-*` is aliased to Tailwind's achromatic neutral scale in `globals.css` `@theme` so it matches
   the `#171717` page. Write `gray-*`; never reintroduce blue-tinted grays, Apple system greys (`rgb(29 29 31)`) or
-  `backdrop-saturate-*` on frosted surfaces. Light-mode screenshots cannot see palette drift (it is under the
+  `backdrop-saturate-*` on frosted surfaces, and no other hue family (`stone`, `zinc`, `slate`) for neutral UI. Image
+  placeholders share one fill, `gray-100`/`gray-800`; the loading one adds only `animate-pulse`. Light-mode screenshots cannot see palette drift (it is under the
   pixel threshold); check dark mode by eye.
 - **Menu material and motion:** every floating menu (browse and help popovers, suggestion list, language menu) uses the
   `menu-glass` utility in `globals.css`; do not restate its classes. A breakpoint or variant utility layered on top
