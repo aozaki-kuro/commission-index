@@ -6,7 +6,7 @@ import {
   requestArchivedCharactersVisibility,
 } from '@features/home/commission/archivedCharactersState'
 import { resolveHomeSearchControls } from '@features/home/i18n/homeSearchControls'
-import { LOAD_ARCHIVED_COMMAND_VALUE } from '@features/home/search/commissionSearchConstants'
+import { KEYWORD_CHIP_SURFACE_CLASS, LOAD_ARCHIVED_COMMAND_VALUE } from '@features/home/search/commissionSearchConstants'
 import {
   buildPopularKeywordPoolFromEntries,
   buildSearchEntriesFromDom,
@@ -74,6 +74,11 @@ function clearSearchQueryParamInAddress() {
   dispatchSearchQueryLocationChange()
 }
 
+// The dropdown opens on the enter token and closes on the shorter exit; both pairs are swapped, not stacked, because
+// two duration/ease utilities on one element resolve by stylesheet order, not class order.
+const SUGGESTION_ENTER_MOTION = ['motion-safe:duration-180', 'motion-safe:ease-enter'] as const
+const SUGGESTION_EXIT_MOTION = ['motion-safe:duration-120', 'motion-safe:ease-exit'] as const
+
 // ==================== Popular keywords rendering ====================
 
 function renderPopularKeywords(
@@ -92,16 +97,7 @@ function renderPopularKeywords(
 
     const btn = document.createElement('button')
     btn.type = 'button'
-    btn.className = [
-      'rounded-full border border-gray-300/80 bg-white/75 px-2.5 py-1',
-      'text-[11px] text-gray-700',
-      'transition-colors',
-      'hover:border-gray-400 hover:text-gray-900',
-      'focus-visible:outline-2 focus-visible:outline-offset-2',
-      'focus-visible:outline-gray-500',
-      'dark:border-gray-700 dark:bg-black/40 dark:text-gray-300',
-      'dark:hover:border-gray-500 dark:hover:text-gray-100',
-    ].join(' ')
+    btn.className = `${KEYWORD_CHIP_SURFACE_CLASS} px-2.5 py-1`
     btn.textContent = keyword
     btn.addEventListener('pointerdown', onPointerDown)
     btn.addEventListener('click', () => onSelect(keyword))
@@ -431,14 +427,14 @@ export function initSearchController(root: HTMLElement) {
           },
         })
         // Animate open: remove collapsed state, enable pointer events
-        suggestionList.classList.remove('opacity-0', 'scale-y-[0.96]', 'pointer-events-none')
-        suggestionList.classList.add('opacity-100', 'scale-y-100', 'pointer-events-auto')
+        suggestionList.classList.remove('opacity-0', 'scale-y-[0.96]', 'pointer-events-none', ...SUGGESTION_EXIT_MOTION)
+        suggestionList.classList.add('opacity-100', 'scale-y-100', 'pointer-events-auto', ...SUGGESTION_ENTER_MOTION)
         listboxCtrl.reset()
       }
       else {
         // Animate close: collapse and disable pointer events
-        suggestionList.classList.add('opacity-0', 'scale-y-[0.96]', 'pointer-events-none')
-        suggestionList.classList.remove('opacity-100', 'scale-y-100', 'pointer-events-auto')
+        suggestionList.classList.add('opacity-0', 'scale-y-[0.96]', 'pointer-events-none', ...SUGGESTION_EXIT_MOTION)
+        suggestionList.classList.remove('opacity-100', 'scale-y-100', 'pointer-events-auto', ...SUGGESTION_ENTER_MOTION)
         // Clear content after transition
         const onEnd = () => {
           if (suggestionList.classList.contains('opacity-0')) {

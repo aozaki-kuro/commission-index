@@ -16,6 +16,14 @@
   --color-gray-950: oklch(14.5% 0 0);
 }
 
+/* Motion tokens for menus, popovers and disclosures: enter decelerates (180ms popovers, 240ms disclosures), exit is a
+   short 120ms ease-in. `static` keeps them emitted for scoped component CSS that only reads them through var(). The
+   mobile hamburger panel keeps its own apple.com curve and stagger. */
+@theme static {
+  --ease-enter: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-exit: ease-in;
+}
+
 /*
   The default border color has changed to `currentColor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still
@@ -109,7 +117,7 @@
   [data-link-style='true'] {
     text-underline-position: from-font;
     text-decoration-skip-ink: all;
-    @apply underline decoration-gray-400 decoration-1 underline-offset-1 transition-opacity hover:opacity-70 dark:text-white dark:decoration-gray-600;
+    @apply underline decoration-gray-400 decoration-1 underline-offset-1 transition-opacity hover:opacity-70 dark:text-inherit dark:decoration-gray-600;
   }
 
   /*=========================*/

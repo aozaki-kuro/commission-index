@@ -55,26 +55,42 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
 - **Floating buttons auto-hide:** below `lg` the hamburger and language roots get `data-floating-hidden` (one controller, `nav/hamburger/floatingButtonsAutoHide.ts`, mounted from `homePageClient.ts`) while scrolling down; never hidden near the top/bottom, while a menu is open, keyboard focus is inside, or the age gate is open. CSS-only hide (no `aria-hidden`/`inert`).
 - **Mobile hamburger menu:** a full-screen frosted panel styled after apple.com's mobile menu (every link one
   28px/600 tier in the page's heading ink `gray-800`/`gray-100`, hovered only by the site link opacity via
-  `data-link-style` — no color hover or `transition-colors`, which would stack on it; group labels 17px gray, rows staggered in via `--i` on `[data-mobile-hamburger-row]`). The panel is
+  `data-link-style` — no color hover or `transition-colors`, which would stack on it; group labels are the quiet `text-sm` gray-500/400 sentence-case label shared with the browse panel and never hover-recolor, rows staggered in via `--i` on `[data-mobile-hamburger-row]`). The panel is
   `z-[65]`, below the toggle's `z-[70]` inside the root's stacking context, so the X stays clickable on top of it.
   Link rows size from `--menu-rows` (utilities + active characters): they shrink from 28px toward ~22px so the default
   view fits one screen, then scroll. Change the panel padding or section labels and the `18.5rem` in its scoped CSS
   must follow.
   The Active/Archived lists collapse with `data-collapsed` (grid row 0fr plus `visibility: hidden`), not `hidden`, so
   they can animate; a test or script must read that attribute.
-  `STYLES.floatingButton`/`backdrop` are shared with the language menu and the mobile browse panel's X; only `listItem` belongs to this menu.
+  `STYLES.floatingButton`/`backdrop` are shared with the language menu, the mobile browse panel's X and the desktop
+  back-to-top button (every 40px round button, icons `size-5`, dark surface `gray-900/80` like the menus); only
+  `listItem` belongs to this menu.
 - **Desktop sidebars:** every link and toggle is one ink, `gray-700`/`gray-200` (the selected view toggle
   `gray-900`/white, kept in sync by `sidebarNavEnhancer.ts`), hovered only by the site link opacity; same no-color-hover
-  rule as the hamburger. Anchors carry the ink themselves: the link rule's `dark:text-white` beats a color inherited
-  from the `li`, which made dark-mode links white while the toggles stayed gray.
+  rule as the hamburger. The ink sits on each `li` (or wrapper), because the base `p, li` rule beats an inherited
+  color; anchors inherit it. The base link rule sets no color of its own (`dark:text-inherit`), so never restate a
+  parent's ink on an `<a>`.
+- **Hover:** two kinds only. Text links, labels, toggles and icon buttons fade by the site link opacity (`hover:opacity-70`,
+  or `data-link-style`); rows and buttons inside a `menu-glass` surface take one background, `gray-900/6` (dark
+  `white/10`), like the selected suggestion. No color hovers on text. Keyword chips and the floating buttons keep
+  their own surface hovers.
+- **Focus:** one style, `focus-visible:outline-2 outline-offset-2 outline-gray-500` with `dark:` `outline-gray-400`;
+  no rings. Never pair it with `outline-none`: Tailwind 4 `outline-none` sets `--tw-outline-style: none`, which the
+  `outline-2` variant reads, so the focus outline never draws.
 - **Palette:** `gray-*` is aliased to Tailwind's achromatic neutral scale in `globals.css` `@theme` so it matches
   the `#171717` page. Write `gray-*`; never reintroduce blue-tinted grays, Apple system greys (`rgb(29 29 31)`) or
-  `backdrop-saturate-*` on frosted surfaces. Light-mode screenshots cannot see palette drift (it is under the
+  `backdrop-saturate-*` on frosted surfaces, and no other hue family (`stone`, `zinc`, `slate`) for neutral UI. Image
+  placeholders share one fill, `gray-100`/`gray-800`; the loading one adds only `animate-pulse`. Light-mode screenshots cannot see palette drift (it is under the
   pixel threshold); check dark mode by eye.
 - **Menu material and motion:** every floating menu (browse and help popovers, suggestion list, language menu) uses the
   `menu-glass` utility in `globals.css`; do not restate its classes. A breakpoint or variant utility layered on top
   wins over its `dark:` tint, so put per-breakpoint tints in scoped CSS with a dark override (the mobile browse panel does).
-  Popovers open in 180ms expo-out and close in 120ms ease-in. `<details>` menus (language, sidebar locale and
+  Motion uses the two `@theme static` tokens in `globals.css`: `--ease-enter` (`cubic-bezier(0.22,1,0.36,1)`) and
+  `--ease-exit` (`ease-in`). Popovers, the language menu and the suggestion list open in 180ms enter and close in
+  120ms exit; sidebar disclosures open in 240ms enter and close in 120ms exit. The suggestion list swaps its
+  duration/ease utility pairs in the controller instead of stacking them (two same-property utilities resolve by
+  stylesheet order). The mobile hamburger panel and rows are excluded: they keep apple.com's curve and stagger.
+  `<details>` menus (language, sidebar locale and
   archived) fade through `::details-content` with `content-visibility` held during the close; their content is
   skipped while closed, so an entry transition needs `@starting-style`. Tailwind 4 `scale-*`/`translate-*` set the
   `scale`/`translate` properties: transition those, not `transform`.

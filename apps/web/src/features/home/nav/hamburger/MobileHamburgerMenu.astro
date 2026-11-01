@@ -30,7 +30,8 @@ const backdropStyle = {
 const utilityActionButtonClassName
   = 'inline-flex items-center gap-3 py-(--menu-pad) text-gray-800 dark:text-gray-100'
 const utilityActionTextClassName = 'text-(length:--menu-font) leading-[1.15] font-semibold tracking-[0.007em] no-underline'
-const sectionToggleClassName = 'mt-8 mb-1 flex items-center gap-1.5 text-left text-[17px]/[21px] font-normal text-gray-500 transition-colors duration-150 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+// Group labels are the quiet sentence-case label shared with the browse panel; they stay unhovered like other labels.
+const sectionToggleClassName = 'mt-8 mb-1 flex items-center gap-1.5 text-left text-sm font-normal text-gray-500 dark:text-gray-400'
 // Rows fade in top to bottom on open; `--i` drives the stagger delay in the scoped CSS below.
 const rowStyle = (index: number) => `--i: ${index}`
 const archivedToggleRow = 4 + activeNavItems.length
@@ -273,9 +274,9 @@ const archivedToggleRow = 4 + activeNavItems.length
   /* apple.com's menu motion: rows fade and drop in, staggered, with its cubic-bezier(0.4, 0, 0.6, 1). Closing is flat. */
   /* Rows shrink from Apple's ~52px toward 40px so the default view (three utilities plus the active characters)
      fits one screen; past that floor, or with archived or the timeline open, the panel scrolls.
-     18.5rem is the panel's vertical padding plus both section labels. */
+     18.375rem is the panel's vertical padding plus both section labels. */
   [data-mobile-hamburger-panel] {
-    --menu-row: clamp(2.5rem, (100dvh - 18.5rem) / var(--menu-rows), 3.25rem);
+    --menu-row: clamp(2.5rem, (100dvh - 18.375rem) / var(--menu-rows), 3.25rem);
     --menu-font: calc(var(--menu-row) * 0.54);
     --menu-pad: calc((var(--menu-row) - var(--menu-font) * 1.15) / 2);
   }

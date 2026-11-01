@@ -1,6 +1,7 @@
 ---
 import type { HomeLocaleMessages, HomeLocaleOption } from '@features/home/i18n/homeLocale'
 import type { CharacterNavItem } from '@lib/characters/nav'
+import { STYLES } from '@features/home/nav/hamburger/constants'
 import { buildCharacterNavItems } from '@lib/characters/nav'
 import { Icon } from 'astro-icon/components'
 
@@ -27,16 +28,16 @@ const sidebarLeadSlotClass = 'flex h-5 w-4 shrink-0 items-center justify-center'
 const sidebarIconClass = 'h-3.5 w-3.5'
 const sidebarLeadOffsetStyle = '--sidebar-lead-offset:1.125rem;'
 // Sidebar links and toggles share one ink and hover only through the site link opacity (`a`/`data-link-style`); a
-// color hover or transition-colors on them would stack on that fade. Anchors set their ink themselves because the
-// link rule's dark:text-white beats an inherited color. The sidebar stays a step lighter than body text: it sits
-// beside the listing the whole time, unlike the full-screen hamburger panel.
-const sidebarLinkInkClass = 'text-gray-700 dark:text-gray-200'
+// color hover or transition-colors on them would stack on that fade. Anchors inherit the ink from their `li` or
+// wrapper (the link rule only inherits color), and the `li` sets it because the base `p, li` rule would win otherwise.
+// The sidebar stays a step lighter than body text: it sits beside the listing the whole time, unlike the full-screen
+// hamburger panel.
 const sidebarLabelClass = 'text-sm leading-5 font-bold no-underline'
 const localeLabelClass = 'text-sm leading-5 font-bold no-underline'
 const sidebarNavLinkClass
-  = `flex items-center gap-2 text-sm no-underline ${sidebarLinkInkClass} mb-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 rounded-sm`
+  = `flex items-center gap-2 text-sm no-underline mb-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:focus-visible:outline-gray-400 rounded-sm`
 const localeLinkClass
-  = `flex items-center gap-2 text-sm no-underline ${sidebarLinkInkClass} mb-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-400 rounded-sm`
+  = `flex items-center gap-2 text-sm no-underline mb-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:focus-visible:outline-gray-400 rounded-sm`
 ---
 
 <aside
@@ -62,7 +63,7 @@ const localeLinkClass
         <a
           href="#commission-search"
           data-sidebar-search-link="true"
-          class={`${sidebarLabelClass} ${sidebarLinkInkClass}`}
+          class={`${sidebarLabelClass} rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:focus-visible:outline-gray-400`}
         >
           {controls.search}
         </a>
@@ -345,18 +346,7 @@ const localeLinkClass
         data-sidebar-back-to-top-button="true"
         aria-label={controls.backToTop}
         title={controls.backToTop}
-        class="
-          pointer-events-none inline-flex size-10 translate-y-1 items-center
-          justify-center rounded-full border border-white/20 bg-white/80
-          text-gray-500 opacity-0 shadow-[0_8px_30px_rgb(0,0,0,0.12)]
-          backdrop-blur-md transition-[opacity,transform,color,background-color]
-          duration-220 ease-out
-          hover:bg-white/90 hover:text-gray-900
-          focus-visible:ring-2 focus-visible:ring-gray-400/70
-          focus-visible:outline-hidden
-          dark:border-white/10 dark:bg-black/80 dark:text-gray-300
-          dark:hover:bg-black/90 dark:hover:text-white
-        "
+        class={`${STYLES.floatingButton} pointer-events-none translate-y-1 opacity-0`}
       >
         <Icon name="tabler:chevron-up" class="size-5" aria-hidden="true" />
         <span class="sr-only">{controls.backToTop}</span>
@@ -366,23 +356,36 @@ const localeLinkClass
 </aside>
 
 <style>
+  /* The shared floating-button recipe only transitions its hover; the show/hide toggled by sidebarNavEnhancer.ts needs
+     opacity and `translate` (what Tailwind 4's translate-y-* sets, not `transform`). Unlayered, so it beats the
+     recipe's transition utilities instead of racing them on class order. */
+  [data-sidebar-back-to-top-button] {
+    transition:
+      opacity 220ms ease-out,
+      translate 220ms ease-out,
+      background-color 300ms,
+      box-shadow 300ms;
+  }
+
   /* Both sidebar disclosures grow and fade both ways, so the locale list eases the view toggles below it down instead
      of shoving them. A 0fr to 1fr grid row animates the auto height in every engine (interpolate-size is
      Chromium-only); the list's top gap sits on its first item, inside the clip, because padding would survive a 0fr row. content-visibility is
-     held so the close animates instead of snapping. */
+     held for exactly the close duration so the close animates instead of snapping. Open uses the 240ms enter token. */
   details::details-content {
     display: grid;
     grid-template-rows: 0fr;
     opacity: 0;
     transition:
-      grid-template-rows 240ms cubic-bezier(0.4, 0, 0.2, 1),
-      opacity 200ms ease-out,
-      content-visibility 240ms allow-discrete;
+      grid-template-rows 120ms var(--ease-exit),
+      opacity 120ms var(--ease-exit),
+      content-visibility 120ms allow-discrete;
   }
 
   details[open]::details-content {
     grid-template-rows: 1fr;
     opacity: 1;
+    transition-duration: 240ms;
+    transition-timing-function: var(--ease-enter);
   }
 
   @starting-style {

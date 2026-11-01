@@ -42,7 +42,7 @@ const backdropStyle = {
         `}
       >
         <span class="sr-only">{localeSwitcherLabel}</span>
-        <Icon name="tabler:language" class="size-6" aria-hidden="true" />
+        <Icon name="tabler:language" class="size-5" aria-hidden="true" />
       </summary>
 
       <ul
@@ -63,7 +63,7 @@ const backdropStyle = {
                   class={`group flex w-full items-center justify-between rounded-lg px-4 py-1 text-sm no-underline transition-colors duration-150 ${
                     isActive
                       ? 'text-gray-900 dark:text-white'
-                      : 'text-gray-700 hover:bg-white/70 dark:text-gray-200 dark:hover:bg-white/10'
+                      : 'text-gray-700 hover:bg-gray-900/6 dark:text-gray-200 dark:hover:bg-white/10'
                   }`.trim()}
                 >
                   <span>{option.label}</span>
@@ -89,17 +89,17 @@ const backdropStyle = {
 </div>
 
 <style>
-  /* Same timing as the search popovers: a quick expo-out open and a shorter ease-in close. */
+  /* Same timing as the search popovers: the 180ms enter token on open, the 120ms exit token on close. */
   [data-mobile-language-menu-panel] {
     transition:
-      opacity 120ms ease-in,
-      translate 120ms ease-in,
-      scale 120ms ease-in;
+      opacity 120ms var(--ease-exit),
+      translate 120ms var(--ease-exit),
+      scale 120ms var(--ease-exit);
   }
 
   [data-mobile-language-menu][open] [data-mobile-language-menu-panel] {
     transition-duration: 180ms;
-    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+    transition-timing-function: var(--ease-enter);
   }
 
   /* Content of a closed <details> is skipped, so the panel has no style to transition from when it opens. */
