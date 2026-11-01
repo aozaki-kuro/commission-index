@@ -134,7 +134,7 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
     <form action={formAction} className={`${adminSurfaceStyles} min-w-0`}>
       <input type="hidden" name="keywordsJson" value={JSON.stringify(selectedKeywords)} />
       <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-gray-200 pb-5 dark:border-gray-800">
-        <p className="max-w-xl text-sm text-gray-500 dark:text-gray-400">Choose up to six keywords to help visitors explore the home page.</p>
+        <p className="max-w-xl text-sm text-gray-600 dark:text-gray-300">Choose up to six keywords to help visitors explore the home page.</p>
         <span className="tabular-nums text-xs text-gray-500 dark:text-gray-400">
           {isReady
             ? `${selectedKeywords.length} / ${MAX_FEATURED_KEYWORDS} selected`

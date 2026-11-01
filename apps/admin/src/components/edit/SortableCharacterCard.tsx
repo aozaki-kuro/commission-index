@@ -199,7 +199,7 @@ export function SortableCharacterCard({
 
           <span className="
             shrink-0 text-right text-xs tabular-nums font-normal text-gray-500
-            dark:text-gray-400
+            dark:text-gray-300
           "
           >
             {totalCommissions}

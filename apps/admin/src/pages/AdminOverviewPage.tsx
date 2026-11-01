@@ -212,7 +212,7 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
                   role={rebuild.status === 'error' || rebuild.status === 'unconfirmed'
                     ? 'alert'
                     : 'status'}
-                  className="text-xs text-gray-500 dark:text-gray-400"
+                  className="text-xs text-gray-600 dark:text-gray-400"
                 >
                   {rebuild.message ?? (rebuild.status === 'pending'
                     ? 'Waiting for the public site to confirm the update.'
@@ -228,7 +228,7 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
             <p className={hasPending ? 'text-amber-700 dark:text-amber-300' : 'text-gray-500 dark:text-gray-400'}>{hasPending ? 'Saved changes are waiting to be published.' : 'You can rebuild at any time.'}</p>
             <details className="group w-full">
               <summary className="cursor-pointer rounded text-gray-500 focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-gray-400">Connection details</summary>
-              <dl className="mt-3 space-y-2 break-words text-gray-500 dark:text-gray-400">
+              <dl className="mt-3 space-y-2 break-words text-gray-600 dark:text-gray-300">
                 <div className="flex flex-wrap gap-x-2">
                   <dt>Connection:</dt>
                   <dd>

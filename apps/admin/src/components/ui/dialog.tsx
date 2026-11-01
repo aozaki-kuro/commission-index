@@ -153,7 +153,7 @@ function DialogDescription({
 }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>) {
   return (
     <DialogPrimitive.Description
-      className={cn('text-sm text-gray-500 dark:text-gray-400', className)}
+      className={cn('text-sm text-gray-600 dark:text-gray-300', className)}
       {...props}
     />
   )

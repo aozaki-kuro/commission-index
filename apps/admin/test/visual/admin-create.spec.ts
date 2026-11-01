@@ -86,18 +86,15 @@ test('commission metadata fields align and the date picker fits desktop and mobi
     ] as const
 
     for (const [label, control] of fieldPairs) {
-      const labelText = await label.evaluate((element) => {
+      // Labels sit flush with the control's border edge, not indented toward its text.
+      const labelTextX = await label.evaluate((element) => {
         const range = document.createRange()
         range.selectNodeContents(element)
-        return {
-          x: range.getBoundingClientRect().x,
-          inset: Number.parseFloat(getComputedStyle(element).paddingLeft),
-        }
+        return range.getBoundingClientRect().x
       })
       const controlBox = await control.boundingBox()
       expect(controlBox, `control should render at ${width}px`).not.toBeNull()
-      expect(labelText.inset).toBeGreaterThan(0)
-      expect(Math.abs(labelText.x - controlBox!.x - labelText.inset)).toBeLessThanOrEqual(1)
+      expect(Math.abs(labelTextX - controlBox!.x)).toBeLessThanOrEqual(1)
     }
 
     await page.getByRole('button', { name: 'Choose delivery date' }).click()

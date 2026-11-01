@@ -112,7 +112,7 @@ export function AliasPanel({
       <input type="hidden" name="rowsJson" value={buildPayload(changedRows, values)} />
       <header>
         <h2 className="sr-only">{title}</h2>
-        <p className="max-w-2xl text-sm leading-relaxed text-gray-500 dark:text-gray-400">{description}</p>
+        <p className="max-w-2xl text-sm leading-relaxed text-gray-600 dark:text-gray-300">{description}</p>
       </header>
       <div className="space-y-2">
         <label htmlFor={`${id}-filter`} className="sr-only">
