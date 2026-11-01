@@ -2,6 +2,7 @@
 import type { SearchSuggestionAliasGroup } from '@features/home/search/commissionSearchIndex'
 import type { KeywordBrowseGroup } from '@lib/home/keywordBrowseGroups'
 import { resolveHomeSearchControls } from '@features/home/i18n/homeSearchControls'
+import { STYLES } from '@features/home/nav/hamburger/constants'
 import { Icon } from 'astro-icon/components'
 
 interface Props {
@@ -28,6 +29,10 @@ const browseTermClass = `
 `
 // One tone below the character name; set on the button because the li base rule and the link rule both set color.
 const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
+const floatingButtonBackdropStyle = {
+  WebkitBackdropFilter: STYLES.backdrop,
+  backdropFilter: STYLES.backdrop,
+}
 ---
 
 <section
@@ -373,13 +378,94 @@ const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
       aria-label={controls.browseKeywordsLabel}
       class="
         m-auto max-h-[min(70dvh,34rem)] w-[min(calc(100vw-1rem),36rem)]
-        menu-glass overflow-auto overscroll-contain p-0
+        menu-glass flex-col overflow-hidden p-0
+        open:flex
       "
     >
-      {/* The sheet covers the page and its backdrop is only a thin strip, so it needs a visible way out (iOS sheets' X).
-          Zero-height sticky row: the button floats over the list and stays put while it scrolls. */}
+      {/* The list scrolls inside, not the popover: menu-glass's backdrop-filter makes the popover the containing block
+          of the close button, which would scroll away with the list if the popover itself scrolled. */}
+      <div class="min-h-0 flex-1 overflow-auto overscroll-contain">
+        {/* Hierarchy comes from type size and tone alone, like apple.com's nav flyout: no dividers, chips or icons */}
+        <div class="
+          grid gap-x-8 gap-y-10 px-6 pt-5
+          pb-[max(1rem,env(safe-area-inset-bottom))]
+          max-md:pt-16 max-md:pb-28
+          md:grid-cols-2
+        "
+        >
+          {keywordBrowseSections.map(section => (
+            <section>
+              <h2 class="
+                mb-3.5 text-xs font-normal tracking-wider text-gray-500 uppercase
+                dark:text-gray-500
+              "
+              >
+                {section.label}
+              </h2>
+              <ul class="space-y-5">
+                {section.groups.map(group => (
+                  <li>
+                    <button
+                      type="button"
+                      data-browse-term={group.character}
+                      data-link-style="true"
+                      class={`${browseTermClass} group text-[17px]/tight font-semibold tracking-tight text-gray-900 dark:text-gray-100`}
+                    >
+                      {group.character}
+                      {/* Slides in on hover: the name searches everything of the character, like a "more" link */}
+                      <Icon
+                        name="tabler:chevron-right"
+                        class="
+                          ml-1 inline-block size-4 -translate-x-1 align-[-0.125em] opacity-0
+                          transition-[opacity,translate] duration-200 ease-out
+                          group-hover:translate-x-0 group-hover:opacity-100
+                          group-focus-visible:translate-x-0 group-focus-visible:opacity-100
+                        "
+                        aria-hidden="true"
+                      />
+                    </button>
+                    {(group.coCharacters.length > 0 || group.keywords.length > 0) && (
+                      <ul class="
+                        mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-sm/6
+                      "
+                      >
+                        {/* A co-appearance ("w/ Name") searches both characters, so it finds the shared works instead of everything of the other */}
+                        {group.coCharacters.map(coCharacter => (
+                          <li>
+                            <button
+                              type="button"
+                              data-browse-term={coCharacter}
+                              data-browse-scope={group.character}
+                              aria-label={`${group.character} ${coCharacter}`}
+                              data-link-style="true"
+                              class={browseKeywordClass}
+                            >
+                              <span aria-hidden="true">w/</span>
+                              {' '}
+                              {coCharacter}
+                            </button>
+                          </li>
+                        ))}
+                        {group.keywords.map(keyword => (
+                          <li>
+                            <button type="button" data-browse-term={keyword} data-link-style="true" class={browseKeywordClass}>
+                              {keyword}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </div>
+      </div>
+      {/* Full screen has no backdrop to tap, so the sheet carries its own X, in the hamburger toggle's spot and style:
+          one place closes every full-screen panel, within thumb reach. */}
       <div class="
-        sticky top-0 z-10 flex h-0 justify-end
+        absolute right-8 bottom-8
         md:hidden
       "
       >
@@ -388,93 +474,11 @@ const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
           popovertarget="search-browse-popover"
           popovertargetaction="hide"
           aria-label={controls.searchHelpClose}
-          class="
-            mt-3 mr-3 inline-flex size-8 shrink-0 items-center justify-center rounded-full
-            bg-gray-200/80 text-gray-600 backdrop-blur-md transition-colors
-            hover:bg-gray-300/80 hover:text-gray-900
-            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500
-            dark:bg-gray-700/80 dark:text-gray-300
-            dark:hover:bg-gray-600/80 dark:hover:text-white
-            dark:focus-visible:outline-gray-300
-          "
+          style={floatingButtonBackdropStyle}
+          class={STYLES.floatingButton}
         >
-          <Icon name="tabler:x" class="size-4.5" aria-hidden="true" />
+          <Icon name="tabler:x" class="size-5" aria-hidden="true" />
         </button>
-      </div>
-      {/* Hierarchy comes from type size and tone alone, like apple.com's nav flyout: no dividers, chips or icons */}
-      <div class="
-        grid gap-x-8 gap-y-10 px-6 pt-5
-        pb-[max(1rem,env(safe-area-inset-bottom))]
-        md:grid-cols-2
-      "
-      >
-        {keywordBrowseSections.map(section => (
-          <section>
-            <h2 class="
-              mb-3.5 text-xs font-normal tracking-wider text-gray-500 uppercase
-              dark:text-gray-500
-            "
-            >
-              {section.label}
-            </h2>
-            <ul class="space-y-5">
-              {section.groups.map(group => (
-                <li>
-                  <button
-                    type="button"
-                    data-browse-term={group.character}
-                    data-link-style="true"
-                    class={`${browseTermClass} group text-[17px]/tight font-semibold tracking-tight text-gray-900 dark:text-gray-100`}
-                  >
-                    {group.character}
-                    {/* Slides in on hover: the name searches everything of the character, like a "more" link */}
-                    <Icon
-                      name="tabler:chevron-right"
-                      class="
-                        ml-1 inline-block size-4 -translate-x-1 align-[-0.125em] opacity-0
-                        transition-[opacity,translate] duration-200 ease-out
-                        group-hover:translate-x-0 group-hover:opacity-100
-                        group-focus-visible:translate-x-0 group-focus-visible:opacity-100
-                      "
-                      aria-hidden="true"
-                    />
-                  </button>
-                  {(group.coCharacters.length > 0 || group.keywords.length > 0) && (
-                    <ul class="
-                      mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-sm/6
-                    "
-                    >
-                      {/* A co-appearance ("w/ Name") searches both characters, so it finds the shared works instead of everything of the other */}
-                      {group.coCharacters.map(coCharacter => (
-                        <li>
-                          <button
-                            type="button"
-                            data-browse-term={coCharacter}
-                            data-browse-scope={group.character}
-                            aria-label={`${group.character} ${coCharacter}`}
-                            data-link-style="true"
-                            class={browseKeywordClass}
-                          >
-                            <span aria-hidden="true">w/</span>
-                            {' '}
-                            {coCharacter}
-                          </button>
-                        </li>
-                      ))}
-                      {group.keywords.map(keyword => (
-                        <li>
-                          <button type="button" data-browse-term={keyword} data-link-style="true" class={browseKeywordClass}>
-                            {keyword}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
       </div>
     </div>
   )}
@@ -557,20 +561,19 @@ const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
     }
   }
 
-  /* Narrow screens get a bottom sheet instead of an anchored popover (Apple HIG: no popovers in compact width). */
+  /* Narrow screens get a full-screen panel instead of an anchored popover (Apple HIG: no popovers in compact width).
+     Not a bottom sheet: a sheet promises swipe-down to dismiss, and its sliver of page is too thin to tap or read.
+     It matches the hamburger menu and apple.com's mobile nav submenus, which are full screen too. */
   @media (width < 48rem) {
-    /* A full-height sheet (iOS large detent) with the hamburger menu's material, so both mobile surfaces match. */
     #search-browse-popover {
-      inset: 2.5rem 0 0;
+      inset: 0;
       width: 100%;
       /* The UA popover height is fit-content, which leaves a short list hanging from the top instead of reaching the bottom. */
       height: auto;
       max-height: none;
       margin: 0;
-      border-width: 1px 0 0;
-      border-radius: 1rem 1rem 0 0;
-      transform: translateY(100%);
-      opacity: 1;
+      border-width: 0;
+      border-radius: 0;
       position-try-fallbacks: none;
       /* Denser light tint over a full page of content; kept here because a breakpoint utility would also beat
          the dark tint from menu-glass. */
@@ -583,53 +586,24 @@ const browseKeywordClass = `${browseTermClass} text-gray-600 dark:text-gray-400`
       }
     }
 
+    /* Fade only, like the hamburger panel: a full-screen scale would read as the page zooming. */
+    #search-browse-popover,
     #search-browse-popover:popover-open {
-      transform: translateY(0);
-    }
-
-    /* A popover does not lock page scroll: a drag on the backdrop strip, or one that chains out of a sheet whose list
-       fits, would scroll the listing behind it. Same lock as the hamburger menu, keyed on the open state so every
-       close path (light dismiss, Esc, the X, a term click) releases it. */
-    :global(html:has(#search-browse-popover:popover-open)) {
-      overflow: hidden;
-      touch-action: none;
+      transform: none;
     }
 
     @starting-style {
       #search-browse-popover:popover-open {
-        transform: translateY(100%);
-        opacity: 1;
+        transform: none;
       }
     }
 
-    /* Only the sheet dims and frosts the page; on wider screens the panel is a local popover with its own material,
-       like a macOS menu, so the search row stays crisp. Values follow apple.com's nav curtain. */
-    #search-browse-popover::backdrop {
-      background: rgb(0 0 0 / 0);
-      backdrop-filter: blur(0);
-      transition:
-        background 180ms ease,
-        backdrop-filter 180ms ease,
-        display 180ms allow-discrete,
-        overlay 180ms allow-discrete;
-    }
-
-    #search-browse-popover:popover-open::backdrop {
-      background: rgb(0 0 0 / 0.15);
-      backdrop-filter: blur(20px);
-    }
-
-    @media (prefers-color-scheme: dark) {
-      #search-browse-popover:popover-open::backdrop {
-        background: rgb(0 0 0 / 0.4);
-      }
-    }
-
-    @starting-style {
-      #search-browse-popover:popover-open::backdrop {
-        background: rgb(0 0 0 / 0);
-        backdrop-filter: blur(0);
-      }
+    /* A popover does not lock page scroll: a drag that chains out of a list too short to scroll would move the
+       listing behind it. Same lock as the hamburger menu, keyed on the open state so every close path (Esc, the X,
+       a term click) releases it. */
+    :global(html:has(#search-browse-popover:popover-open)) {
+      overflow: hidden;
+      touch-action: none;
     }
   }
 </style>

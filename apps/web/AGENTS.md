@@ -61,10 +61,10 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   must follow.
   The Active/Archived lists collapse with `data-collapsed` (grid row 0fr plus `visibility: hidden`), not `hidden`, so
   they can animate; a test or script must read that attribute.
-  `STYLES.floatingButton`/`backdrop` are shared with the language menu; only `listItem` belongs to this menu.
+  `STYLES.floatingButton`/`backdrop` are shared with the language menu and the mobile browse panel's X; only `listItem` belongs to this menu.
 - **Menu material and motion:** every floating menu (browse and help popovers, suggestion list, language menu) uses the
   `menu-glass` utility in `globals.css`; do not restate its classes. A breakpoint or variant utility layered on top
-  wins over its `dark:` tint, so put per-breakpoint tints in scoped CSS with a dark override (the browse sheet does).
+  wins over its `dark:` tint, so put per-breakpoint tints in scoped CSS with a dark override (the mobile browse panel does).
   Popovers open in 180ms expo-out and close in 120ms ease-in. `<details>` menus (language, sidebar locale and
   archived) fade through `::details-content` with `content-visibility` held during the close; their content is
   skipped while closed, so an entry transition needs `@starting-style`. Tailwind 4 `scale-*`/`translate-*` set the
