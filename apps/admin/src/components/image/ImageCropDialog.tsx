@@ -149,7 +149,7 @@ export function ImageCropDialog({
             onError={setError}
           />
 
-          <div className="pointer-events-none absolute top-3 left-1/2 z-30 -translate-x-1/2 rounded-full border border-white/35 bg-black/45 px-3 py-1.5 text-center text-[11px] leading-tight text-white shadow-sm backdrop-blur-md sm:top-4">
+          <div className="pointer-events-none absolute top-3 left-1/2 z-30 -translate-x-1/2 rounded-full border border-white/35 bg-black/45 px-3 py-1.5 text-center text-2xs leading-tight text-white shadow-sm backdrop-blur-md sm:top-4">
             Drag image · pull frame edges · wheel or pinch · twist or use the rotation handle
           </div>
         </div>

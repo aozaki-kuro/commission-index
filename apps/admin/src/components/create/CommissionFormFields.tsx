@@ -388,7 +388,7 @@ function CommissionDatePicker({ value, onSelect }: CommissionDatePickerProps) {
               onClick={() => setVisibleMonth(month => addMonths(month, -1))}
               className={monthNavigationButtonStyles}
             >
-              <IconChevronLeft className="size-4" aria-hidden="true" />
+              <IconChevronLeft className="size-4" stroke={1.8} aria-hidden="true" />
             </button>
             <h3 aria-live="polite" className="text-sm font-semibold">
               {monthFormatter.format(visibleMonth)}
@@ -399,7 +399,7 @@ function CommissionDatePicker({ value, onSelect }: CommissionDatePickerProps) {
               onClick={() => setVisibleMonth(month => addMonths(month, 1))}
               className={monthNavigationButtonStyles}
             >
-              <IconChevronRight className="size-4" aria-hidden="true" />
+              <IconChevronRight className="size-4" stroke={1.8} aria-hidden="true" />
             </button>
           </header>
           <CommissionCalendarGrid

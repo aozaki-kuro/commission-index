@@ -36,17 +36,17 @@ function KeywordItem({ dragHandleProps, isDragging, keyword, index, count, onRem
   return (
     <div className={`flex min-w-0 items-center gap-1 py-1 ${isDragging ? 'opacity-55' : ''}`}>
       <button type="button" className={`${buttonStyles.icon} size-11 cursor-grab active:cursor-grabbing max-sm:hidden`} aria-label={`Drag ${keyword}`} {...dragHandleProps}>
-        <IconGripHorizontal className="size-4" aria-hidden="true" />
+        <IconGripHorizontal className="size-4" stroke={1.8} aria-hidden="true" />
       </button>
       <span className="min-w-0 flex-1 truncate text-sm text-gray-800 dark:text-gray-200" title={keyword}>{keyword}</span>
       <button type="button" className={`${buttonStyles.icon} size-11`} disabled={index === 0} aria-label={`Move ${keyword} up`} onClick={() => onReorder(index, index - 1)}>
-        <IconArrowUp className="size-4" aria-hidden="true" />
+        <IconArrowUp className="size-4" stroke={1.8} aria-hidden="true" />
       </button>
       <button type="button" className={`${buttonStyles.icon} size-11`} disabled={index === count - 1} aria-label={`Move ${keyword} down`} onClick={() => onReorder(index, index + 1)}>
-        <IconArrowDown className="size-4" aria-hidden="true" />
+        <IconArrowDown className="size-4" stroke={1.8} aria-hidden="true" />
       </button>
       <button type="button" className={`${buttonStyles.icon} size-11`} aria-label={`Remove ${keyword}`} onClick={() => onRemove(keyword)}>
-        <IconX className="size-4" aria-hidden="true" />
+        <IconX className="size-4" stroke={1.8} aria-hidden="true" />
       </button>
     </div>
   )

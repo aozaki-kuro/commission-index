@@ -11,7 +11,7 @@ function LiveBuildVersion() {
     return null
 
   return (
-    <p className="mt-2 px-3 text-[11px]/4 tabular-nums text-gray-500 dark:text-gray-400" title={`Revision ${info.dataRevision}\nBuilt ${info.builtAt}`}>
+    <p className="mt-2 px-3 text-2xs/4 tabular-nums text-gray-500 dark:text-gray-400" title={`Revision ${info.dataRevision}\nBuilt ${info.builtAt}`}>
       Live
       {' '}
       {info.dataRevision.slice(0, 7)}
@@ -50,7 +50,7 @@ export function AdminSectionNav({ current, onNavigate, publicSiteUrl }: AdminSec
         </div>
         <a href={publicSiteUrl} className="inline-flex min-h-11 items-center gap-1 text-xs no-underline lg:hidden">
           Public Site
-          <IconArrowUpRight className="size-3.5" aria-hidden="true" />
+          <IconArrowUpRight className="size-3.5" stroke={1.8} aria-hidden="true" />
         </a>
       </div>
       <div className="grid shrink-0 grid-cols-5 gap-1 lg:flex lg:flex-col lg:gap-1.5">
@@ -58,7 +58,7 @@ export function AdminSectionNav({ current, onNavigate, publicSiteUrl }: AdminSec
           const Icon = icons[item.key]
           const content = (
             <>
-              <Icon className="size-[18px] shrink-0" stroke={1.6} aria-hidden="true" />
+              <Icon className="size-[18px] shrink-0" stroke={1.8} aria-hidden="true" />
               <span>{item.label}</span>
             </>
           )
@@ -68,7 +68,7 @@ export function AdminSectionNav({ current, onNavigate, publicSiteUrl }: AdminSec
                   <span
                     key={item.key}
                     aria-current="page"
-                    className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-md bg-gray-200/65 px-1 text-[11px] font-semibold text-gray-950 sm:text-xs lg:min-h-11 lg:flex-row lg:justify-start lg:gap-3 lg:px-3 lg:text-sm dark:bg-gray-800 dark:text-gray-100"
+                    className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-md bg-gray-200/65 px-1 text-2xs font-semibold text-gray-950 sm:text-xs lg:min-h-11 lg:flex-row lg:justify-start lg:gap-3 lg:px-3 lg:text-sm dark:bg-gray-800 dark:text-gray-100"
                   >
                     {content}
                   </span>
@@ -78,7 +78,7 @@ export function AdminSectionNav({ current, onNavigate, publicSiteUrl }: AdminSec
                     key={item.key}
                     href={item.path}
                     onNavigate={onNavigate}
-                    className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-md px-1 text-[11px] font-normal text-gray-600 no-underline transition-colors hover:bg-gray-200/40 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 sm:text-xs lg:min-h-11 lg:flex-row lg:justify-start lg:gap-3 lg:px-3 lg:text-sm dark:text-gray-400 dark:hover:bg-gray-800"
+                    className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-md px-1 text-2xs font-normal text-gray-600 no-underline transition-colors hover:bg-gray-200/40 hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 sm:text-xs lg:min-h-11 lg:flex-row lg:justify-start lg:gap-3 lg:px-3 lg:text-sm dark:text-gray-400 dark:hover:bg-gray-800"
                   >
                     {content}
                   </AdminInternalLink>
@@ -91,7 +91,7 @@ export function AdminSectionNav({ current, onNavigate, publicSiteUrl }: AdminSec
         <LiveBuildVersion />
         <a href={publicSiteUrl} className="flex min-h-11 items-center justify-between px-3 text-sm text-gray-600 no-underline dark:text-gray-400">
           Public Site
-          <IconArrowUpRight className="size-4" aria-hidden="true" />
+          <IconArrowUpRight className="size-4" stroke={1.8} aria-hidden="true" />
         </a>
       </div>
     </nav>
