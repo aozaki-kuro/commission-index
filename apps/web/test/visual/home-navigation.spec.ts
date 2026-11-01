@@ -160,6 +160,17 @@ test.describe('desktop sidebar', () => {
     await expectNearTop(page.locator('h2').filter({ hasText: '枫霜 Kaede' }).first())
   })
 
+  test('back-to-top button stays inside the viewport', async ({ page }) => {
+    await page.goto('/')
+    await expectFixtureData(page)
+    const button = page.locator('[data-sidebar-back-to-top-button="true"]')
+    // A transform left on the sidebar after its entrance animation re-anchors this fixed button to the sidebar.
+    await expect.poll(async () => {
+      const box = await button.boundingBox()
+      return box !== null && box.x >= 0 && box.y >= 0 && box.x + box.width <= 1440 && box.y + box.height <= 1000
+    }).toBe(true)
+  })
+
   test('archived toggle shows and collapses', async ({ page }) => {
     await page.goto('/')
     await expectFixtureData(page)

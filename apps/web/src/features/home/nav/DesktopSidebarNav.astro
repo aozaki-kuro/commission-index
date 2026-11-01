@@ -47,7 +47,7 @@ const localeLinkClass
     md:max-w-[calc(10rem+var(--sidebar-lead-offset))]
     lg:fixed lg:z-20 lg:block
   "
-  style={`${sidebarLeadOffsetStyle} animation: reveal-up 500ms cubic-bezier(0.22, 1, 0.36, 1) both;`}
+  style={`${sidebarLeadOffsetStyle} animation: reveal-up 500ms cubic-bezier(0.22, 1, 0.36, 1) backwards;`}
 >
   <div class="sticky top-4 space-y-2">
     <div class="space-y-4 pb-2">
@@ -165,6 +165,8 @@ const localeLinkClass
   </div>
 </aside>
 
+{/* Fill `backwards`, not `both`: a retained transform makes this aside the containing block of the fixed back-to-top
+    button and pushes it off-screen. */}
 <aside
   id="Character List"
   class="
@@ -173,7 +175,7 @@ const localeLinkClass
     md:max-w-[calc(12.5rem+var(--sidebar-lead-offset))]
     lg:fixed lg:z-20 lg:block
   "
-  style={`${sidebarLeadOffsetStyle} animation: reveal-up 500ms cubic-bezier(0.22, 1, 0.36, 1) 120ms both;`}
+  style={`${sidebarLeadOffsetStyle} animation: reveal-up 500ms cubic-bezier(0.22, 1, 0.36, 1) 120ms backwards;`}
 >
   <div class="sticky top-4 space-y-2 pl-12">
     <nav>
