@@ -28,7 +28,7 @@ const backdropStyle = {
 // The ink is the site's heading color (gray-800/100), not apple.com's lighter #333336: rows this size read as headings.
 // Row size comes from --menu-font/--menu-pad (scoped CSS below), so the default view fits the screen.
 const utilityActionButtonClassName
-  = 'inline-flex items-center gap-3 py-(--menu-pad) text-gray-800 transition-colors duration-150 hover:text-gray-900 dark:text-gray-100 dark:hover:text-white'
+  = 'inline-flex items-center gap-3 py-(--menu-pad) text-gray-800 dark:text-gray-100'
 const utilityActionTextClassName = 'text-(length:--menu-font) leading-[1.15] font-semibold tracking-[0.007em] no-underline'
 const sectionToggleClassName = 'mt-8 mb-1 flex items-center gap-1.5 text-left text-[17px]/[21px] font-normal text-gray-500 transition-colors duration-150 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
 // Rows fade in top to bottom on open; `--i` drives the stagger delay in the scoped CSS below.
@@ -112,9 +112,10 @@ const archivedToggleRow = 4 + activeNavItems.length
         <button
           type="button"
           data-mobile-hamburger-view-mode-toggle="true"
+          data-link-style="true"
           data-view-mode="character"
           aria-pressed="true"
-          class={`${utilityActionButtonClassName} appearance-none border-0 bg-transparent p-0 text-left text-gray-900 dark:text-white`}
+          class={`${utilityActionButtonClassName} appearance-none border-0 bg-transparent p-0 text-left text-gray-900 no-underline dark:text-white`}
         >
           <span class={utilityActionTextClassName}>{controls.byCharacter}</span>
           <Icon data-mobile-hamburger-view-mode-indicator="true" name="tabler:arrow-badge-left-filled" class="size-5 scale-100 text-gray-400 opacity-100 transition-[opacity,scale] duration-300" aria-hidden="true" />
@@ -125,9 +126,10 @@ const archivedToggleRow = 4 + activeNavItems.length
         <button
           type="button"
           data-mobile-hamburger-view-mode-toggle="true"
+          data-link-style="true"
           data-view-mode="timeline"
           aria-pressed="false"
-          class={`${utilityActionButtonClassName} appearance-none border-0 bg-transparent p-0 text-left`}
+          class={`${utilityActionButtonClassName} appearance-none border-0 bg-transparent p-0 text-left no-underline`}
         >
           <span class={utilityActionTextClassName}>{controls.byDate}</span>
           <Icon data-mobile-hamburger-view-mode-indicator="true" name="tabler:arrow-badge-left-filled" class="size-5 scale-95 text-gray-400 opacity-0 transition-[opacity,scale] duration-300" aria-hidden="true" />
