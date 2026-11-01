@@ -370,20 +370,22 @@ const localeLinkClass
   /* Both sidebar disclosures grow and fade both ways, so the locale list eases the view toggles below it down instead
      of shoving them. A 0fr to 1fr grid row animates the auto height in every engine (interpolate-size is
      Chromium-only); the list's top gap sits on its first item, inside the clip, because padding would survive a 0fr row. content-visibility is
-     held so the close animates instead of snapping. */
+     held for exactly the close duration so the close animates instead of snapping. Open uses the 240ms enter token. */
   details::details-content {
     display: grid;
     grid-template-rows: 0fr;
     opacity: 0;
     transition:
-      grid-template-rows 240ms cubic-bezier(0.4, 0, 0.2, 1),
-      opacity 200ms ease-out,
-      content-visibility 240ms allow-discrete;
+      grid-template-rows 120ms var(--ease-exit),
+      opacity 120ms var(--ease-exit),
+      content-visibility 120ms allow-discrete;
   }
 
   details[open]::details-content {
     grid-template-rows: 1fr;
     opacity: 1;
+    transition-duration: 240ms;
+    transition-timing-function: var(--ease-enter);
   }
 
   @starting-style {

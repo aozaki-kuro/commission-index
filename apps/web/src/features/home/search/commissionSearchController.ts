@@ -74,6 +74,11 @@ function clearSearchQueryParamInAddress() {
   dispatchSearchQueryLocationChange()
 }
 
+// The dropdown opens on the enter token and closes on the shorter exit; both pairs are swapped, not stacked, because
+// two duration/ease utilities on one element resolve by stylesheet order, not class order.
+const SUGGESTION_ENTER_MOTION = ['motion-safe:duration-180', 'motion-safe:ease-enter'] as const
+const SUGGESTION_EXIT_MOTION = ['motion-safe:duration-120', 'motion-safe:ease-exit'] as const
+
 // ==================== Popular keywords rendering ====================
 
 function renderPopularKeywords(
@@ -422,14 +427,14 @@ export function initSearchController(root: HTMLElement) {
           },
         })
         // Animate open: remove collapsed state, enable pointer events
-        suggestionList.classList.remove('opacity-0', 'scale-y-[0.96]', 'pointer-events-none')
-        suggestionList.classList.add('opacity-100', 'scale-y-100', 'pointer-events-auto')
+        suggestionList.classList.remove('opacity-0', 'scale-y-[0.96]', 'pointer-events-none', ...SUGGESTION_EXIT_MOTION)
+        suggestionList.classList.add('opacity-100', 'scale-y-100', 'pointer-events-auto', ...SUGGESTION_ENTER_MOTION)
         listboxCtrl.reset()
       }
       else {
         // Animate close: collapse and disable pointer events
-        suggestionList.classList.add('opacity-0', 'scale-y-[0.96]', 'pointer-events-none')
-        suggestionList.classList.remove('opacity-100', 'scale-y-100', 'pointer-events-auto')
+        suggestionList.classList.add('opacity-0', 'scale-y-[0.96]', 'pointer-events-none', ...SUGGESTION_EXIT_MOTION)
+        suggestionList.classList.remove('opacity-100', 'scale-y-100', 'pointer-events-auto', ...SUGGESTION_ENTER_MOTION)
         // Clear content after transition
         const onEnd = () => {
           if (suggestionList.classList.contains('opacity-0')) {

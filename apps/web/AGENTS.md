@@ -81,7 +81,12 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
 - **Menu material and motion:** every floating menu (browse and help popovers, suggestion list, language menu) uses the
   `menu-glass` utility in `globals.css`; do not restate its classes. A breakpoint or variant utility layered on top
   wins over its `dark:` tint, so put per-breakpoint tints in scoped CSS with a dark override (the mobile browse panel does).
-  Popovers open in 180ms expo-out and close in 120ms ease-in. `<details>` menus (language, sidebar locale and
+  Motion uses the two `@theme static` tokens in `globals.css`: `--ease-enter` (`cubic-bezier(0.22,1,0.36,1)`) and
+  `--ease-exit` (`ease-in`). Popovers, the language menu and the suggestion list open in 180ms enter and close in
+  120ms exit; sidebar disclosures open in 240ms enter and close in 120ms exit. The suggestion list swaps its
+  duration/ease utility pairs in the controller instead of stacking them (two same-property utilities resolve by
+  stylesheet order). The mobile hamburger panel and rows are excluded: they keep apple.com's curve and stagger.
+  `<details>` menus (language, sidebar locale and
   archived) fade through `::details-content` with `content-visibility` held during the close; their content is
   skipped while closed, so an entry transition needs `@starting-style`. Tailwind 4 `scale-*`/`translate-*` set the
   `scale`/`translate` properties: transition those, not `transform`.
