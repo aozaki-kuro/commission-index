@@ -12,15 +12,15 @@ function renderRoots() {
     <div data-mobile-hamburger="true" data-mobile-hamburger-mounted="false" data-mobile-hamburger-open="false">
       <button data-mobile-hamburger-toggle="true">Menu</button>
     </div>
-    <div data-mobile-language-menu-root="true">
-      <details data-mobile-language-menu="true"><summary>Language</summary></details>
+    <div data-mobile-keyword-button-root="true">
+      <button type="button">Browse keywords</button>
     </div>
     <button id="outside">outside</button>
   `
 }
 
 const hamburger = () => document.querySelector<HTMLElement>('[data-mobile-hamburger="true"]')!
-const languageRoot = () => document.querySelector<HTMLElement>('[data-mobile-language-menu-root="true"]')!
+const keywordRoot = () => document.querySelector<HTMLElement>('[data-mobile-keyword-button-root="true"]')!
 const isHidden = (el: HTMLElement) => el.hasAttribute('data-floating-hidden')
 
 async function scrollTo(y: number) {
@@ -61,13 +61,13 @@ describe('floatingButtonsAutoHide', () => {
     await scrollTo(430)
     await vi.waitFor(() => {
       expect(isHidden(hamburger())).toBe(true)
-      expect(isHidden(languageRoot())).toBe(true)
+      expect(isHidden(keywordRoot())).toBe(true)
     })
 
     await scrollTo(410)
     await vi.waitFor(() => {
       expect(isHidden(hamburger())).toBe(false)
-      expect(isHidden(languageRoot())).toBe(false)
+      expect(isHidden(keywordRoot())).toBe(false)
     })
     dispose()
   })
@@ -99,15 +99,6 @@ describe('floatingButtonsAutoHide', () => {
   })
 
   it.each([
-    [
-      'language menu open',
-      () => {
-        document.querySelector<HTMLDetailsElement>('[data-mobile-language-menu="true"]')!.open = true
-      },
-      () => {
-        document.querySelector<HTMLDetailsElement>('[data-mobile-language-menu="true"]')!.open = false
-      },
-    ],
     [
       'hamburger mounted',
       () => {
@@ -159,14 +150,14 @@ describe('floatingButtonsAutoHide', () => {
     await scrollTo(560)
     await settle()
     expect(isHidden(hamburger())).toBe(false)
-    expect(isHidden(languageRoot())).toBe(false)
+    expect(isHidden(keywordRoot())).toBe(false)
 
     release()
     await scrollTo(620)
     await scrollTo(680)
     await vi.waitFor(() => {
       expect(isHidden(hamburger())).toBe(true)
-      expect(isHidden(languageRoot())).toBe(true)
+      expect(isHidden(keywordRoot())).toBe(true)
     })
     dispose()
   })
@@ -185,7 +176,7 @@ describe('floatingButtonsAutoHide', () => {
     await scrollTo(560)
     await vi.waitFor(() => {
       expect(isHidden(hamburger())).toBe(true)
-      expect(isHidden(languageRoot())).toBe(true)
+      expect(isHidden(keywordRoot())).toBe(true)
     })
     dispose()
   })
@@ -212,7 +203,7 @@ describe('floatingButtonsAutoHide', () => {
       }),
     )
     expect(isHidden(hamburger())).toBe(false)
-    expect(isHidden(languageRoot())).toBe(false)
+    expect(isHidden(keywordRoot())).toBe(false)
     window.dispatchEvent(
       new CustomEvent(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, {
         detail: { mounted: false },
@@ -221,9 +212,9 @@ describe('floatingButtonsAutoHide', () => {
 
     await scrollTo(500)
     await scrollTo(560)
-    await vi.waitFor(() => expect(isHidden(languageRoot())).toBe(true))
-    languageRoot().querySelector('summary')!.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
-    expect(isHidden(languageRoot())).toBe(false)
+    await vi.waitFor(() => expect(isHidden(keywordRoot())).toBe(true))
+    keywordRoot().querySelector('button')!.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+    expect(isHidden(keywordRoot())).toBe(false)
     dispose()
   })
 

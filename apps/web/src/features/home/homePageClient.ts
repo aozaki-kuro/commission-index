@@ -9,7 +9,7 @@ import { mountHomeHashTarget } from '@features/home/homeHashTarget'
 import { mountHomeScrollRestore } from '@features/home/homeScrollRestore'
 import { mountFloatingButtonsAutoHide } from '@features/home/nav/hamburger/floatingButtonsAutoHide'
 import { mountMobileHamburgerMenu } from '@features/home/nav/hamburger/mobileHamburgerMenu'
-import { mountMobileLanguageMenu } from '@features/home/nav/hamburger/mobileLanguageMenu'
+import { mountMobileKeywordButton } from '@features/home/nav/hamburger/mobileKeywordButton'
 import { mountSidebarNavEnhancer } from '@features/home/nav/sidebarNavEnhancer'
 import { ANALYTICS_EVENTS } from '@lib/analytics/events'
 import { trackRybbitEvent } from '@lib/analytics/track'
@@ -32,7 +32,7 @@ interface HomePageClientDeps {
   mountHomeScrollRestore: Mount
   mountSidebarNavEnhancer: Mount
   mountMobileHamburgerMenu: Mount
-  mountMobileLanguageMenu: Mount
+  mountMobileKeywordButton: Mount
   mountFloatingButtonsAutoHide: Mount
   mountMobileViewModeTabs: Mount
   mountImageFadeIn: Mount
@@ -53,7 +53,7 @@ const defaultDeps: HomePageClientDeps = {
   mountHomeScrollRestore: () => mountHomeScrollRestore(),
   mountSidebarNavEnhancer: () => mountSidebarNavEnhancer(),
   mountMobileHamburgerMenu: () => mountMobileHamburgerMenu(),
-  mountMobileLanguageMenu: () => mountMobileLanguageMenu(),
+  mountMobileKeywordButton: () => mountMobileKeywordButton(),
   mountFloatingButtonsAutoHide: () => mountFloatingButtonsAutoHide(),
   mountMobileViewModeTabs: () => mountMobileViewModeTabs(),
   mountImageFadeIn: () => mountImageFadeIn(),
@@ -106,7 +106,7 @@ export function mountHomePageClient({ deps: depsOverrides }: MountHomePageClient
   const deferredMounts: Mount[] = [
     deps.mountSidebarNavEnhancer,
     deps.mountMobileHamburgerMenu,
-    deps.mountMobileLanguageMenu,
+    deps.mountMobileKeywordButton,
     deps.mountMobileViewModeTabs,
     deps.mountUnpublishedInterestButtons,
     deps.mountScrollReveal,

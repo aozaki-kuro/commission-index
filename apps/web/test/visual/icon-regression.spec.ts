@@ -136,20 +136,6 @@ test.describe('home mobile floating menus', () => {
     ])
   })
 
-  test('mobile language menu stays visually stable when open', async ({ page }) => {
-    await page.goto('/')
-    const menu = page.locator('[data-mobile-language-menu="true"]')
-    const trigger = menu.locator('summary')
-    const panel = page.locator('[data-mobile-language-menu-panel="true"]')
-    await trigger.waitFor()
-    await prepareStablePage(page)
-    await trigger.click()
-    await expect(menu).toHaveJSProperty('open', true)
-    await expect(panel).toHaveClass(/opacity-100/)
-
-    await expectUnionToMatchSnapshot(page, 'mobile-language-menu-open.png', [trigger, panel])
-  })
-
   test('mobile hamburger panel stays visually stable when open', async ({ page }) => {
     await page.goto('/')
     const toggle = page.locator('[data-mobile-hamburger-toggle="true"]')

@@ -20,7 +20,7 @@ import {
 } from '@features/home/i18n/homeLocale'
 import DesktopSidebarNav from '@features/home/nav/DesktopSidebarNav.astro'
 import MobileHamburgerMenu from '@features/home/nav/hamburger/MobileHamburgerMenu.astro'
-import MobileLanguageMenu from '@features/home/nav/hamburger/MobileLanguageMenu.astro'
+import MobileKeywordButton from '@features/home/nav/hamburger/MobileKeywordButton.astro'
 import CommissionSearchIsland from '@features/home/search/CommissionSearchIsland.astro'
 import StaticCommissionSections from '@features/home/server/StaticCommissionSections.astro'
 import {
@@ -113,10 +113,12 @@ const keywordBrowseGroups = buildKeywordBrowseGroups(
 const activeCharacterNames = new Set(payload.characterStatus.active.map(item => item.DisplayName))
 const keywordBrowseSections = [
   {
+    key: 'active' as const,
     label: messages.controls.activeCharacters,
     groups: keywordBrowseGroups.filter(group => activeCharacterNames.has(group.character)),
   },
   {
+    key: 'archived' as const,
     label: messages.controls.archivedCharacters,
     groups: keywordBrowseGroups.filter(group => !activeCharacterNames.has(group.character)),
   },
@@ -265,12 +267,11 @@ catch {
         archived={payload.characterStatus.archived}
         monthNavItems={payload.monthNavItems}
         controls={messages.controls}
-      />
-      <MobileLanguageMenu
         locale={resolvedLocale}
         localeOptions={localeOptions}
         localeSwitcherLabel={messages.localeSwitcherLabel}
       />
+      <MobileKeywordButton label={messages.controls.browseKeywordsButton} />
       <MobileViewModeTabs
         byCharacterLabel={messages.controls.byCharacter}
         byDateLabel={messages.controls.byDate}

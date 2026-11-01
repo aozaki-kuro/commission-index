@@ -629,6 +629,8 @@ export function initSearchController(root: HTMLElement) {
     browseTriggerEl.addEventListener('pointerdown', prepareSearchInteraction)
     browseTriggerEl.addEventListener('focus', prepareSearchInteraction)
   }
+  // Covers every opener, including the mobile floating keyword button outside this island.
+  browsePopoverEl?.addEventListener('beforetoggle', prepareSearchInteraction)
 
   if (browsePopoverEl) {
     browsePopoverEl.addEventListener('click', (event) => {
@@ -641,6 +643,26 @@ export function initSearchController(root: HTMLElement) {
       applyPopularKeyword(term, 'all', termEl.dataset.browseScope)
     })
   }
+
+  // Archived folds only on the full-screen panel (below 48rem); the side-by-side desktop popover always shows it, so
+  // aria-expanded follows the width as well as the clicks.
+  const archivedToggleEl = browsePopoverEl?.querySelector<HTMLButtonElement>('[data-browse-section-toggle]') ?? null
+  const archivedPanelEl = browsePopoverEl?.querySelector<HTMLElement>('[data-browse-section-panel="archived"]') ?? null
+  const fullScreenBrowse = window.matchMedia?.('(width < 48rem)')
+  const setArchivedExpanded = (expanded: boolean) => {
+    if (!archivedToggleEl || !archivedPanelEl)
+      return
+    archivedToggleEl.setAttribute('aria-expanded', String(expanded))
+    archivedPanelEl.toggleAttribute('data-collapsed', !expanded)
+    archivedToggleEl.querySelector('[data-browse-section-chevron]')?.classList.toggle('rotate-180', expanded)
+  }
+  const onBrowseWidthChange = () => setArchivedExpanded(!fullScreenBrowse?.matches)
+  archivedToggleEl?.addEventListener('click', () => {
+    if (fullScreenBrowse?.matches)
+      setArchivedExpanded(archivedToggleEl.getAttribute('aria-expanded') !== 'true')
+  })
+  fullScreenBrowse?.addEventListener('change', onBrowseWidthChange)
+  onBrowseWidthChange()
 
   // 7. External subscriptions
   const unsubViewMode = subscribeViewMode((nextMode) => {
@@ -711,5 +733,6 @@ export function initSearchController(root: HTMLElement) {
     if (copyResetTimer)
       clearTimeout(copyResetTimer)
     cancelAddressSync()
+    fullScreenBrowse?.removeEventListener('change', onBrowseWidthChange)
   }
 }

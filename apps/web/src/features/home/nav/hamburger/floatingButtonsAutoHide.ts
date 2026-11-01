@@ -1,8 +1,7 @@
 import { HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from '@features/home/events'
 
 const HAMBURGER_SELECTOR = '[data-mobile-hamburger="true"]'
-const LANGUAGE_ROOT_SELECTOR = '[data-mobile-language-menu-root="true"]'
-const LANGUAGE_MENU_SELECTOR = '[data-mobile-language-menu="true"]'
+const KEYWORD_ROOT_SELECTOR = '[data-mobile-keyword-button-root="true"]'
 const AGE_GATE_ROOT_SELECTOR = '[data-age-gate-root]'
 const HIDDEN_ATTRIBUTE = 'data-floating-hidden'
 
@@ -27,12 +26,10 @@ export function mountFloatingButtonsAutoHide({
   doc = document,
 }: MountFloatingButtonsAutoHideOptions = {}) {
   const hamburger = doc.querySelector<HTMLElement>(HAMBURGER_SELECTOR)
-  const languageRoot = doc.querySelector<HTMLElement>(LANGUAGE_ROOT_SELECTOR)
-  const roots = [hamburger, languageRoot].filter((root): root is HTMLElement => root !== null)
+  const keywordRoot = doc.querySelector<HTMLElement>(KEYWORD_ROOT_SELECTOR)
+  const roots = [hamburger, keywordRoot].filter((root): root is HTMLElement => root !== null)
   if (roots.length === 0)
     return () => {}
-
-  const languageMenu = languageRoot?.querySelector<HTMLDetailsElement>(LANGUAGE_MENU_SELECTOR) ?? null
 
   let lastY = win.scrollY
   let travel = 0
@@ -51,8 +48,6 @@ export function mountFloatingButtonsAutoHide({
   // Hiding must never strand a keyboard user or cover an open surface.
   const isPinnedVisible = () => {
     if (hamburger?.dataset.mobileHamburgerMounted === 'true' || hamburger?.dataset.mobileHamburgerOpen === 'true')
-      return true
-    if (languageMenu?.open)
       return true
     const active = doc.activeElement
     // Pointer taps also focus buttons/summaries (Chrome) and scrolling never blurs them, so only
@@ -101,14 +96,12 @@ export function mountFloatingButtonsAutoHide({
   win.addEventListener(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, showNow)
   for (const root of roots)
     root.addEventListener('focusin', showNow)
-  languageMenu?.addEventListener('toggle', showNow)
 
   return () => {
     win.removeEventListener('scroll', onScroll)
     win.removeEventListener(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, showNow)
     for (const root of roots)
       root.removeEventListener('focusin', showNow)
-    languageMenu?.removeEventListener('toggle', showNow)
     if (rafId !== null)
       win.cancelAnimationFrame(rafId)
     rafId = null

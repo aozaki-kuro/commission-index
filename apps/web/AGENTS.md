@@ -52,19 +52,23 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   Client islands mount via `bindSoftNavMount` (`@lib/astro/softNavMount`) on `astro:page-load` and dispose on
   `astro:before-swap`; never mount from top-level module code
 - **Image fade-in:** `commission/imageFadeIn.ts` (mounted in `criticalMounts`) fades `[data-commission-image] > img` in on `load`. Fail open: CSS hides images only under `html[data-image-fade=on]`, which the mount sets after marking already-`complete` images `data-loaded`, so no-JS and cached reloads never flash. The LCP image (`priority`) is server-rendered with `data-loaded`: Chrome ignores `opacity: 0` paints for LCP. `load`/`error` do not bubble, so the listeners are document-level capture; `error` also marks loaded so a broken image never stays invisible. Dispose leaves the attribute; ClientRouter resets `<html>` attributes on swap and the next mount sets it again
-- **Floating buttons auto-hide:** below `lg` the hamburger and language roots get `data-floating-hidden` (one controller, `nav/hamburger/floatingButtonsAutoHide.ts`, mounted from `homePageClient.ts`) while scrolling down; never hidden near the top/bottom, while a menu is open, keyboard focus is inside, or the age gate is open. CSS-only hide (no `aria-hidden`/`inert`).
+- **Floating buttons auto-hide:** below `lg` the hamburger and keyword-button roots get `data-floating-hidden` (one controller, `nav/hamburger/floatingButtonsAutoHide.ts`, mounted from `homePageClient.ts`) while scrolling down; never hidden near the top/bottom, while a menu is open, keyboard focus is inside, or the age gate is open. CSS-only hide (no `aria-hidden`/`inert`).
 - **Mobile hamburger menu:** a full-screen frosted panel styled after apple.com's mobile menu (every link one
   28px/600 tier in the page's heading ink `gray-800`/`gray-100`, hovered only by the site link opacity via
   `data-link-style` — no color hover or `transition-colors`, which would stack on it; group labels are the quiet `text-sm` gray-500/400 sentence-case label shared with the browse panel and never hover-recolor, rows staggered in via `--i` on `[data-mobile-hamburger-row]`). The panel is
   `z-65`, below the toggle's `z-70` inside the root's stacking context, so the X stays clickable on top of it.
-  Link rows size from `--menu-rows` (utilities + active characters): they shrink from 28px toward ~22px so the default
-  view fits one screen, then scroll. Change the panel padding or section labels and the `18.5rem` in its scoped CSS
-  must follow.
+  Link rows size from `--menu-rows` (utilities + active characters): rows and the three group gaps (`--menu-gap`, 0.6
+  row) shrink together from 28px toward ~17px so the default view, language row included, fits one screen, then
+  scroll. Change the panel padding, section labels or language row and the `18.25rem` in its scoped CSS must follow.
+  Language is the last group (~1% of mobile sessions switch it): the current locale is marked by ink and weight only,
+  since a trailing mark would shift the row.
   The Active/Archived lists collapse with `data-collapsed` (grid row 0fr plus `visibility: hidden`), not `hidden`, so
   they can animate; a test or script must read that attribute.
-  `STYLES.floatingButton` (blur included; no inline `backdrop-filter`) is shared with the language menu, the mobile
-  browse panel's X and the desktop back-to-top button (every 40px round button, icons `size-5`, dark surface
-  `gray-900/80` like the menus); only `listItem` belongs to this menu.
+  `STYLES.floatingButton` (blur included; no inline `backdrop-filter`) is shared with the mobile keyword button (it
+  opens the browse popover from above the hamburger), the mobile browse panel's X and the desktop back-to-top button
+  (every 40px round button, icons `size-5`, dark surface `gray-900/80` like the menus). Its hairline ring plus a tight
+  and a wide shadow keep the buttons apart from artwork behind them; do not soften them back. Only `listItem` belongs
+  to this menu.
 - **Desktop sidebars:** every link and toggle is one ink, `gray-700`/`gray-200` (the selected view toggle
   `gray-900`/white, kept in sync by `sidebarNavEnhancer.ts`), hovered only by the site link opacity; same no-color-hover
   rule as the hamburger. The ink sits on each `li` (or wrapper), because the base `p, li` rule beats an inherited
@@ -87,16 +91,16 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   line-height still comes from the element); do not write `text-[11px]`. The token is `11px`, not rem, in both apps so
   it means one thing (admin's mobile nav relies on it not scaling). z-index uses bare Tailwind steps (`z-70`), never
   `z-[70]`; current layers: page 10–30 (image overlay, suggestion list, sidebars, back-to-top), image notice 50,
-  hamburger backdrop/panel/toggle 60/65/70, age gate 80, floating button roots 90, language menu panel 95.
-- **Menu material and motion:** every floating menu (browse and help popovers, suggestion list, language menu) uses the
+  hamburger backdrop/panel/toggle 60/65/70, age gate 80, floating button roots 90.
+- **Menu material and motion:** every floating menu (browse and help popovers, suggestion list) uses the
   `menu-glass` utility in `globals.css`; do not restate its classes. A breakpoint or variant utility layered on top
   wins over its `dark:` tint, so put per-breakpoint tints in scoped CSS with a dark override (the mobile browse panel does).
   Motion uses the two `@theme static` tokens in `globals.css`: `--ease-enter` (`cubic-bezier(0.22,1,0.36,1)`) and
-  `--ease-exit` (`ease-in`). Popovers, the language menu and the suggestion list open in 180ms enter and close in
+  `--ease-exit` (`ease-in`). Popovers and the suggestion list open in 180ms enter and close in
   120ms exit; sidebar disclosures open in 240ms enter and close in 120ms exit. The suggestion list swaps its
   duration/ease utility pairs in the controller instead of stacking them (two same-property utilities resolve by
   stylesheet order). The mobile hamburger panel and rows are excluded: they keep apple.com's curve and stagger.
-  `<details>` menus (language, sidebar locale and
+  `<details>` menus (sidebar locale and
   archived) fade through `::details-content` with `content-visibility` held during the close; their content is
   skipped while closed, so an entry transition needs `@starting-style`. Tailwind 4 `scale-*`/`translate-*` set the
   `scale`/`translate` properties: transition those, not `transform`.

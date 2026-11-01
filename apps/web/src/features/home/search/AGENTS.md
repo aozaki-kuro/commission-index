@@ -18,13 +18,18 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
   characters (`Lucia "Kanaut Nishe"`), because the bare name would return everything of the other character.
   Hierarchy is type size and tone only (no chips, dividers or icons): 14px sentence-case section label in gray-500/400 (the same label as the hamburger's Active/Archived toggles; no
   uppercase or tracking), 17px/600
-  character in gray-900/100, 14px keywords one tone lower (gray-600/400, set on the buttons: the `li` base rule sets
+  character in gray-900/100 (22px below `48rem`, near the hamburger rows), 14px keywords one tone lower (gray-600/400, set on the buttons: the `li` base rule sets
   color, so a tone on the `ul` never applies). Below `48rem` it is a full-screen panel (not a bottom sheet:
   a sheet promises swipe-down to dismiss, which is not built), fading in like the hamburger menu, with no backdrop or
   page curtain; wider screens get an anchored popover, so the search row stays crisp. The panel locks page scroll
   with `html:has(#search-browse-popover:popover-open)` (a popover never does, and a drag out of a short list scrolls
   the listing), needs `height: auto` (the UA popover height is `fit-content`) and closes from an X in the hamburger
-  toggle's spot and style (`STYLES.floatingButton`, `right-8 bottom-8`). The list scrolls in an inner div, not the
+  toggle's spot and style (`STYLES.floatingButton`, `right-8 bottom-8`); its icon turns in from -90deg like the
+  hamburger's, and the hamburger and keyword-button roots fade out while the panel is open so only that X shows. The
+  panel's Archived section starts folded (`data-browse-section-panel` + `data-collapsed`, the hamburger's grid-row
+  accordion) and expands on its toggle; the controller re-expands it at `48rem` and up, where the toggle is inert.
+  The mobile keyword button (`nav/hamburger/MobileKeywordButton.astro`) opens it from outside this island, so index
+  warm-up also runs on the popover's `beforetoggle`. The list scrolls in an inner div, not the
   popover: `menu-glass`'s `backdrop-filter` makes the popover the containing block of that X, so a scrolling popover
   would carry it away. It sits outside `#search-popular-keywords`, because that row is `invisible` until populated and
   visibility inherits into a popover. A term click hides the popover before applying the query, so focus does not
