@@ -1,9 +1,11 @@
+// No cursor class: pointer-events-none means the cursor never reads the link. The ink is keyed on aria-disabled so
+// its attribute specificity beats the link's own text color (the hamburger rows set gray-800/100 on the anchor);
+// plain color classes would resolve by stylesheet order instead.
 const DISABLED_SECTION_LINK_CLASSES = [
   'pointer-events-none',
-  'cursor-not-allowed',
   'opacity-70',
-  'text-gray-500',
-  'dark:text-gray-400',
+  'aria-disabled:text-gray-500',
+  'dark:aria-disabled:text-gray-400',
 ] as const
 
 interface SyncHiddenSectionLinkAvailabilityOptions {

@@ -14,6 +14,10 @@
   --color-gray-800: oklch(26.9% 0 0);
   --color-gray-900: oklch(20.5% 0 0);
   --color-gray-950: oklch(14.5% 0 0);
+
+  /* One step below text-xs for dense metadata (chips, suggestion counts, help table). Font size only, like the
+     11px arbitrary size it replaces, so line-height still comes from the element or its parent. */
+  --text-2xs: 0.6875rem;
 }
 
 /* Motion tokens for menus, popovers and disclosures: enter decelerates (180ms popovers, 240ms disclosures), exit is a
@@ -24,15 +28,8 @@
   --ease-exit: ease-in;
 }
 
-/*
-  The default border color has changed to `currentColor` in Tailwind CSS v4,
-  so we've added these compatibility styles to make sure everything still
-  looks the same as it did with Tailwind CSS v3.
-
-  If we ever want to remove these styles, we need to add an explicit border
-  color utility to any element that depends on these defaults.
-*/
 @layer base {
+  /* Tailwind 4 preflight leaves buttons on the default cursor; keep v3's pointer. */
   button,
   select,
   summary,
@@ -84,14 +81,6 @@
     display: none;
   }
 
-  *,
-  ::after,
-  ::before,
-  ::backdrop,
-  ::file-selector-button {
-    border-color: var(--color-gray-200, currentColor);
-  }
-
   /* Headings and Strong */
   h1 {
     margin-bottom: 0.4em;
@@ -106,10 +95,6 @@
   p,
   li {
     @apply text-gray-800 dark:text-gray-300;
-  }
-
-  hr {
-    @apply dark:border-neutral-800!;
   }
 
   /* Link Styles */
@@ -171,69 +156,6 @@
     }
   }
 
-  @keyframes fadeInOut {
-    0%,
-    100% {
-      opacity: 0;
-    }
-    30%,
-    70% {
-      opacity: 1;
-    }
-  }
-
-  .animate-fade-in-out {
-    animation: fadeInOut 2s ease-in-out;
-  }
-
-  @keyframes tabFade {
-    from {
-      opacity: 0;
-      transform: translateY(6px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  @keyframes popover-content-in {
-    from {
-      opacity: 0;
-      transform: scale(0.97);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  @keyframes popover-content-out {
-    from {
-      opacity: 1;
-      transform: scale(1);
-    }
-    to {
-      opacity: 0;
-      transform: scale(0.97);
-    }
-  }
-
-  @keyframes search-dropdown-in {
-    from {
-      opacity: 0;
-      transform: translateY(-2px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animate-search-dropdown-in {
-    animation: search-dropdown-in 180ms ease-out;
-  }
-
   @keyframes reveal-up {
     from {
       opacity: 0;
@@ -254,15 +176,6 @@
   }
   html[data-image-fade='on'] [data-commission-image]:not([data-loaded]) > img {
     opacity: 0;
-  }
-
-  @keyframes fade-in {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
   }
 }
 
