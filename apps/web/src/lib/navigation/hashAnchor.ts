@@ -4,6 +4,8 @@ const ACTIVE_VIEW_PANEL_SELECTOR
   = '[data-commission-view-panel][data-commission-view-active="true"]'
 const BACKSLASH_PATTERN = /\\/g
 const DOUBLE_QUOTE_PATTERN = /"/g
+// Absorbs subpixel offsets left by the browser's own jump to the target.
+const HASH_TOP_TOLERANCE_PX = 2
 
 function decodeHashId(value: string) {
   try {
@@ -92,8 +94,10 @@ export function clearHashIfTargetOffscreen() {
     return
   }
 
+  // A reload jumps back to the target's top edge, so the hash is stale once that edge leaves the viewport. Character
+  // sections span many screens; waiting for the whole target to leave kept the hash for the rest of the section.
   const rect = element.getBoundingClientRect()
-  const isOffscreen = rect.bottom <= 0 || rect.top >= window.innerHeight
+  const isOffscreen = rect.bottom <= 0 || rect.top >= window.innerHeight || rect.top < -HASH_TOP_TOLERANCE_PX
   if (isOffscreen)
     clearLocationHash()
 }

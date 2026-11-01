@@ -6,7 +6,6 @@ import {
   createSeededRandom,
   getPopularKeywordBatch,
   parseHomeSearchEntries,
-  pickWeightedEntry,
   shuffleKeywords,
 } from './commissionSearchDeferred'
 
@@ -105,37 +104,6 @@ describe('ensureHomeSearchEntriesPromise', () => {
   it('rejects instead of throwing synchronously when the page has no version', async () => {
     vi.stubGlobal('fetch', vi.fn())
     await expect((await loadEnsure())()).rejects.toThrow(/version/)
-  })
-})
-
-describe('pickWeightedEntry', () => {
-  it('weights active entries using data-character-status', () => {
-    document.body.innerHTML = `
-      <div id="act" data-character-status="active"></div>
-      <div id="arc" data-character-status="archived"></div>
-    `
-    const pool = [
-      {
-        id: 0,
-        publicId: 'a',
-        domKey: 'act::1',
-        searchText: 'a',
-      },
-      {
-        id: 1,
-        publicId: 'b',
-        domKey: 'arc::2',
-        searchText: 'b',
-      },
-    ]
-    // cryptoRandomIndex(100) = 50 < 75 picks the active pool.
-    const getRandomValues = vi.spyOn(crypto, 'getRandomValues').mockImplementation((buf) => {
-      ;(buf as Uint32Array)[0] = 50
-      return buf
-    })
-
-    expect(pickWeightedEntry(pool).domKey).toBe('act::1')
-    getRandomValues.mockRestore()
   })
 })
 

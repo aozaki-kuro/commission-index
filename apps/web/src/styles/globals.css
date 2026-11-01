@@ -242,13 +242,20 @@
   }
 }
 
+/* One frosted material for every floating menu (browse/help popovers, suggestion list, language menu), so they
+   cannot drift apart again. The full-screen hamburger panel keeps its own denser tint. */
+@utility menu-glass {
+  @apply rounded-xl border border-gray-200/80 bg-white/80 shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-xl backdrop-saturate-180 dark:border-gray-800 dark:bg-[rgb(29_29_31/0.8)];
+}
+
 /* ============================= */
 /*   Reduced Motion (a11y)       */
 /* ============================= */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
-  *::after {
+  *::after,
+  *::details-content {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

@@ -293,8 +293,7 @@ export function mountMobileHamburgerMenu({
     characterSections.forEach((section) => {
       const expanded = section.key === expandedCharacterSection
       section.trigger?.setAttribute('aria-expanded', String(expanded))
-      if (section.panel)
-        section.panel.hidden = !expanded
+      section.panel?.toggleAttribute('data-collapsed', !expanded)
       section.chevron?.classList.toggle('rotate-180', expanded)
     })
   }

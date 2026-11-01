@@ -44,7 +44,7 @@ function renderMenu() {
             <button data-mobile-character-section-toggle="true" data-mobile-character-section-key="archived" aria-expanded="false">
               <span data-mobile-character-section-chevron="true"></span>
             </button>
-            <div data-mobile-character-section-panel="archived" hidden>
+            <div data-mobile-character-section-panel="archived" data-collapsed>
               <a
                 href="#archived-item"
                 data-mobile-nav-link="true"
@@ -213,7 +213,7 @@ describe('mobileHamburgerMenu', () => {
 
     expect(requestArchivedVisibility).toHaveBeenCalledTimes(1)
     expect(getArchivedSectionToggle()?.getAttribute('aria-expanded')).toBe('false')
-    expect(getArchivedSectionPanel()?.hidden).toBe(true)
+    expect(getArchivedSectionPanel()?.hasAttribute('data-collapsed')).toBe(true)
 
     cleanup()
   })
