@@ -84,7 +84,8 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   placeholders share one fill, `gray-100`/`gray-800`; the loading one adds only `animate-pulse`. Light-mode screenshots cannot see palette drift (it is under the
   pixel threshold); check dark mode by eye.
 - **Type and stacking tokens:** 11px text is `text-2xs` (`--text-2xs` in `globals.css` `@theme`, font size only, so
-  line-height still comes from the element); do not write `text-[11px]`. z-index uses bare Tailwind steps (`z-70`), never
+  line-height still comes from the element); do not write `text-[11px]`. The token is `11px`, not rem, in both apps so
+  it means one thing (admin's mobile nav relies on it not scaling). z-index uses bare Tailwind steps (`z-70`), never
   `z-[70]`; current layers: page 10–30 (image overlay, suggestion list, sidebars, back-to-top), image notice 50,
   hamburger backdrop/panel/toggle 60/65/70, age gate 80, floating button roots 90, language menu panel 95.
 - **Menu material and motion:** every floating menu (browse and help popovers, suggestion list, language menu) uses the
