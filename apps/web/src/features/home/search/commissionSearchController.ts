@@ -6,7 +6,7 @@ import {
   requestArchivedCharactersVisibility,
 } from '@features/home/commission/archivedCharactersState'
 import { resolveHomeSearchControls } from '@features/home/i18n/homeSearchControls'
-import { LOAD_ARCHIVED_COMMAND_VALUE } from '@features/home/search/commissionSearchConstants'
+import { KEYWORD_CHIP_SURFACE_CLASS, LOAD_ARCHIVED_COMMAND_VALUE } from '@features/home/search/commissionSearchConstants'
 import {
   buildPopularKeywordPoolFromEntries,
   buildSearchEntriesFromDom,
@@ -92,16 +92,7 @@ function renderPopularKeywords(
 
     const btn = document.createElement('button')
     btn.type = 'button'
-    btn.className = [
-      'rounded-full border border-gray-300/80 bg-white/75 px-2.5 py-1',
-      'text-[11px] text-gray-700',
-      'transition-colors',
-      'hover:border-gray-400 hover:text-gray-900',
-      'focus-visible:outline-2 focus-visible:outline-offset-2',
-      'focus-visible:outline-gray-500',
-      'dark:border-gray-700 dark:bg-black/40 dark:text-gray-300',
-      'dark:hover:border-gray-500 dark:hover:text-gray-100',
-    ].join(' ')
+    btn.className = `${KEYWORD_CHIP_SURFACE_CLASS} px-2.5 py-1`
     btn.textContent = keyword
     btn.addEventListener('pointerdown', onPointerDown)
     btn.addEventListener('click', () => onSelect(keyword))

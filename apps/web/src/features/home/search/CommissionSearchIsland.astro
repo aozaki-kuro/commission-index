@@ -3,6 +3,7 @@ import type { SearchSuggestionAliasGroup } from '@features/home/search/commissio
 import type { KeywordBrowseGroup } from '@lib/home/keywordBrowseGroups'
 import { resolveHomeSearchControls } from '@features/home/i18n/homeSearchControls'
 import { STYLES } from '@features/home/nav/hamburger/constants'
+import { KEYWORD_CHIP_SURFACE_CLASS } from '@features/home/search/commissionSearchConstants'
 import { Icon } from 'astro-icon/components'
 
 interface Props {
@@ -349,18 +350,7 @@ const floatingButtonBackdropStyle = {
           id="search-browse-trigger"
           type="button"
           popovertarget="search-browse-popover"
-          class="
-            inline-flex h-7 shrink-0 items-center gap-0.5 rounded-full border
-            border-gray-200/80 bg-white/70 pr-2 pl-2.5 text-[11px] text-gray-600
-            shadow-[0_1px_2px_rgba(0,0,0,0.04)]
-            transition-[color,border-color,background-color,box-shadow] duration-200
-            hover:border-gray-400 hover:bg-white hover:text-gray-900
-            hover:shadow-[0_4px_14px_rgba(0,0,0,0.08)]
-            dark:border-gray-700 dark:bg-black/35 dark:text-gray-300
-            dark:hover:border-gray-500 dark:hover:bg-black/55
-            dark:hover:text-gray-100
-            dark:hover:shadow-[0_4px_14px_rgba(0,0,0,0.22)]
-          "
+          class={`${KEYWORD_CHIP_SURFACE_CLASS} inline-flex h-7 shrink-0 items-center gap-0.5 pr-2 pl-2.5`}
         >
           {controls.browseKeywordsLabel}
           <Icon name="tabler:chevron-down" class="size-3.5" aria-hidden="true" />
