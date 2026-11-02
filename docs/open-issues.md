@@ -52,7 +52,7 @@
 - **Playwright 仍单视口**：`config/playwright.config.ts` 单视口 1440×1600、无 `deviceScaleFactor`，未加移动端 project（admin `playwright.ui.config.ts` 的 `testMatch` 已改为 `*.spec.ts` + `testIgnore: 'admin-*.spec.ts'`）。
 - 未验证：读屏、320/390/768/1440 视口、200% 文字缩放、reduced motion 的完整验收；首屏体积、搜索响应等性能基线。原因：需人工或浏览器实测，仓库内无记录。
 - 未验证：真实 GitHub push/rebuild 并发下的最终 Worker revision。原因：需线上运行。
-- **WebKit 下 popover 关闭无淡出**（`CommissionSearchIsland.astro` 的 browse/help popover）：2026-11-02 Playwright WebKit（1.64）实测，`hidePopover()` 后第一帧即 `display: none`、opacity 0，`CSS.supports('overlay', 'auto')` 为 false；Chromium 按 `allow-discrete` 正常淡出。打开淡入两边都正常。iOS Safari 真机未验证（相关 WebKit bug：[299081](https://bugs.webkit.org/show_bug.cgi?id=299081) 关闭过渡中掉出 top layer）。若真机同样瞬切，修法需 JS 接管所有关闭路径（Esc/light-dismiss、X、term click 先 hide 再 apply query）。
+- **WebKit 下 popover 关闭无淡出**（help popover 与桌面 browse popover）：WebKit 不支持 `overlay`，`hidePopover()` 后第一帧即 `display: none`，Chromium 按 `allow-discrete` 正常淡出（2026-11-02 Playwright WebKit 1.64 与 iOS Simulator Safari 27.2 实测；相关 WebKit bug [299081](https://bugs.webkit.org/show_bug.cgi?id=299081)）。移动端全屏 browse 面板已由 `browsePopoverClose.ts` 接管关闭；桌面两个小弹层只有 120ms，且桌面 browse 还有 light dismiss 路径，暂不修。
 - **R3b：Linux 基线与 CI 视觉回归**：目前只有 `-darwin` 基线，CI 不跑 `test:visual`。补 `-linux` 基线并在 CI 运行 `test:visual` 需要 Playwright docker 镜像（保证字体与渲染一致）。
 
 ## 仍需 owner 决定 / 操作
