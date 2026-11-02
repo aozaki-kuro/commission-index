@@ -218,6 +218,47 @@ describe('mobileHamburgerMenu', () => {
     cleanup()
   })
 
+  it('keeps a sliding section list laid out until its close settles', async () => {
+    const pending: Array<() => void> = []
+    const animate = () => {
+      const finished = new Promise<void>(resolve => pending.push(resolve))
+      return {
+        finished,
+        cancel: vi.fn(),
+      } as unknown as Animation
+    }
+    document.querySelectorAll<HTMLElement>('[data-mobile-character-section-panel]').forEach((panel) => {
+      panel.innerHTML = `<div><ul>${panel.innerHTML}</ul></div>`
+    })
+    document.querySelectorAll<HTMLElement>('[data-mobile-hamburger="true"] *').forEach((node) => {
+      node.animate = animate
+    })
+    vi.stubGlobal('matchMedia', () => ({ matches: false }))
+    const activePanel = document.querySelector<HTMLElement>('[data-mobile-character-section-panel="active"]')!
+    const activeToggle = document.querySelector<HTMLButtonElement>('[data-mobile-character-section-key="active"]')!
+    const cleanup = mountMobileHamburgerMenu({
+      deps: {
+        requestArchivedVisibility: vi.fn(),
+      },
+    })
+
+    activeToggle.click()
+    expect(activeToggle.getAttribute('aria-expanded')).toBe('false')
+    expect(activePanel.hasAttribute('data-collapsed')).toBe(false)
+
+    // A tap mid-slide settles the running one first, so the next measurement starts from the snapped layout.
+    getArchivedSectionToggle()!.click()
+    expect(activePanel.hasAttribute('data-collapsed')).toBe(true)
+    expect(getArchivedSectionPanel()?.hasAttribute('data-collapsed')).toBe(false)
+
+    getArchivedSectionToggle()!.click()
+    expect(getArchivedSectionPanel()?.hasAttribute('data-collapsed')).toBe(false)
+    pending.forEach(resolve => resolve())
+    await vi.waitFor(() => expect(getArchivedSectionPanel()?.hasAttribute('data-collapsed')).toBe(true))
+
+    cleanup()
+  })
+
   it('reveals archived characters and jumps when an archived link is selected while collapsed', () => {
     const trackEvent = vi.fn()
     const scrollToHashWithoutWrite = vi.fn()

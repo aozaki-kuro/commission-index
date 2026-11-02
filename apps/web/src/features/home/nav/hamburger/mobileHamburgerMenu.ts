@@ -38,6 +38,11 @@ const CHARACTER_SECTION_SELECTOR = '[data-mobile-character-section]'
 const CHARACTER_SECTION_TOGGLE_SELECTOR = '[data-mobile-character-section-toggle="true"]'
 const AGE_GATE_ROOT_SELECTOR = '[data-age-gate-root]'
 const AGE_GATE_STATE_EVENT = 'age-gate-state-change'
+// apple.com's menu curve. Only transform/opacity animate: WebKit cannot hand a height or grid-row transition to Core
+// Animation, so on iPhone it laid out and repainted the full-screen panel on the main thread every frame.
+const SECTION_SLIDE_MS = 320
+const SECTION_FADE_MS = 240
+const SECTION_EASING = 'cubic-bezier(0.4, 0, 0.6, 1)'
 
 interface MobileHamburgerMenuDeps {
   trackEvent: typeof trackRybbitEvent
@@ -56,6 +61,7 @@ interface MountMobileHamburgerMenuOptions {
 type CharacterSectionKey = 'active' | 'archived'
 interface CharacterSectionNode {
   key: CharacterSectionKey
+  root: HTMLElement
   trigger: HTMLButtonElement | null
   panel: HTMLElement | null
   chevron: HTMLElement | null
@@ -161,6 +167,7 @@ export function mountMobileHamburgerMenu({
       return null
     return {
       key,
+      root: section,
       trigger: section.querySelector<HTMLButtonElement>(CHARACTER_SECTION_TOGGLE_SELECTOR),
       panel: section.querySelector<HTMLElement>(`[data-mobile-character-section-panel="${key}"]`),
       chevron: section.querySelector<HTMLElement>(
@@ -169,6 +176,13 @@ export function mountMobileHamburgerMenu({
     }
   })
     .filter((section): section is CharacterSectionNode => Boolean(section))
+  // What sits below the first section slides while a list opens or shuts. The language row is a staggered
+  // [data-mobile-hamburger-row] with its own CSS transform transition, which cancelling a WAAPI transform could
+  // restart, so its children move instead.
+  const sectionFollowers: HTMLElement[] = characterSections.slice(1).map(section => section.root)
+  for (let sibling = navRoot.nextElementSibling; sibling; sibling = sibling.nextElementSibling) {
+    sectionFollowers.push(...sibling.querySelectorAll<HTMLElement>(':scope > *'))
+  }
 
   const openNavigationLabel = root.dataset.mobileHamburgerOpenLabel ?? 'Open navigation menu'
   const closeNavigationLabel = root.dataset.mobileHamburgerCloseLabel ?? 'Close navigation menu'
@@ -181,6 +195,7 @@ export function mountMobileHamburgerMenu({
   let hasTrackedSearchUsage = false
   let didHandleSearchPointerDown = false
   let expandedCharacterSection: CharacterSectionKey | null = 'active'
+  let settleCharacterSectionSlide: (() => void) | null = null
   let ageGateOpen = readAgeGateOpen(doc)
 
   const clearCloseTimer = () => {
@@ -298,6 +313,84 @@ export function mountMobileHamburgerMenu({
     })
   }
 
+  // FLIP: measure, snap the layout, then slide everything back from where it was. A shutting list stays laid out
+  // until its slide ends, so its data-collapsed lands at the end of the close.
+  const slideCharacterSectionChange = (previous: CharacterSectionKey | null) => {
+    settleCharacterSectionSlide?.()
+    if (typeof panel.animate !== 'function' || win.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      syncCharacterSectionState()
+      return
+    }
+
+    const readTops = () => sectionFollowers.map(node => node.getBoundingClientRect().top)
+    const firstTops = readTops()
+    syncCharacterSectionState()
+    const lastTops = readTops()
+    const closing = characterSections.filter(section => section.key === previous)
+    closing.forEach(section => section.panel?.removeAttribute('data-collapsed'))
+    const slideTops = readTops()
+
+    const slide: KeyframeAnimationOptions = { duration: SECTION_SLIDE_MS, easing: SECTION_EASING, fill: 'forwards' }
+    const fade: KeyframeAnimationOptions = { duration: SECTION_FADE_MS, easing: SECTION_EASING, fill: 'forwards' }
+    const animations: Animation[] = []
+    sectionFollowers.forEach((node, index) => {
+      const from = firstTops[index] - slideTops[index]
+      const to = lastTops[index] - slideTops[index]
+      if (from === 0 && to === 0)
+        return
+      animations.push(node.animate([
+        { transform: `translateY(${from}px)` },
+        { transform: `translateY(${to}px)` },
+      ], slide))
+    })
+
+    characterSections.forEach((section) => {
+      const opening = section.key === expandedCharacterSection
+      if (!opening && section.key !== previous)
+        return
+      const clip = section.panel?.firstElementChild
+      const content = clip?.firstElementChild
+      if (!section.panel || !(clip instanceof HTMLElement) || !(content instanceof HTMLElement))
+        return
+      // The clip box moves while the content counter-moves and holds still, so the list is revealed like a growing
+      // height without laying anything out.
+      const height = clip.getBoundingClientRect().height
+      const clipFrames = [
+        { transform: `translateY(${-height}px)` },
+        { transform: 'none' },
+      ]
+      const contentFrames = [
+        { transform: `translateY(${height}px)` },
+        { transform: 'none' },
+      ]
+      const fadeFrames = [
+        { opacity: 0 },
+        { opacity: 1 },
+      ]
+      if (!opening) {
+        clipFrames.reverse()
+        contentFrames.reverse()
+        fadeFrames.reverse()
+      }
+      animations.push(
+        clip.animate(clipFrames, slide),
+        content.animate(contentFrames, slide),
+        section.panel.animate(fadeFrames, fade),
+      )
+    })
+
+    const settle = () => {
+      if (settleCharacterSectionSlide !== settle)
+        return
+      settleCharacterSectionSlide = null
+      closing.forEach(section => section.panel?.setAttribute('data-collapsed', ''))
+      animations.forEach(animation => animation.cancel())
+    }
+    settleCharacterSectionSlide = settle
+    // The finished promises resolve before the frame renders, so the collapse and the cancel paint together.
+    void Promise.all(animations.map(animation => animation.finished)).then(settle, () => {})
+  }
+
   const syncViewModeState = () => {
     const mode = readCommissionViewMode(win)
     viewModeToggles.forEach((button) => {
@@ -330,6 +423,7 @@ export function mountMobileHamburgerMenu({
   }
 
   const syncUiState = () => {
+    settleCharacterSectionSlide?.()
     syncViewModeState()
     syncCharacterSectionState()
     syncLinkAvailability()
@@ -407,10 +501,11 @@ export function mountMobileHamburgerMenu({
       const sectionKey = resolveCharacterSectionKeyFromElement(characterSectionToggle)
       if (!sectionKey)
         return
+      const previousSection = expandedCharacterSection
       expandedCharacterSection = expandedCharacterSection === sectionKey
         ? null
         : sectionKey
-      syncCharacterSectionState()
+      slideCharacterSectionChange(previousSection)
       if (expandedCharacterSection === 'archived' && !isArchivedCharactersVisible(doc)) {
         deps.requestArchivedVisibility(win, 'visible')
       }
@@ -526,6 +621,7 @@ export function mountMobileHamburgerMenu({
 
     clearCloseTimer()
     clearOpenRaf()
+    settleCharacterSectionSlide?.()
     setHtmlScrollLocked(doc, false)
     if (mounted) {
       mounted = false
