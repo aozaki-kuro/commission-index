@@ -328,7 +328,8 @@ export function initSearchController(root: HTMLElement) {
       clearBtn.classList.toggle('opacity-0', !hasQuery)
     }
     if (helpTriggerEl) {
-      helpTriggerEl.style.right = hasQuery ? '4rem' : '0'
+      // transform, not right: a `right` transition lays out every frame on WebKit's main thread.
+      helpTriggerEl.style.transform = hasQuery ? 'translateX(-4rem)' : 'none'
     }
   }
 

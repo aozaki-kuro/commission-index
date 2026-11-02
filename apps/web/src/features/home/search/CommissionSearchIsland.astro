@@ -110,7 +110,7 @@ const browseTermClass = `
           type="button"
           class="
             absolute right-0 inline-flex size-7 items-center justify-center
-            rounded-full text-gray-500 transition-[right,opacity]
+            rounded-full text-gray-500 transition-[transform,opacity]
             duration-200
             hover:opacity-70
             focus-visible:outline-2 focus-visible:outline-offset-2
@@ -370,8 +370,8 @@ const browseTermClass = `
         <div
           data-browse-sections="true"
           class="
-            px-6 pt-4
-            pb-[max(1rem,env(safe-area-inset-bottom))]
+            px-6 pt-6
+            pb-[max(1.5rem,env(safe-area-inset-bottom))]
             max-md:px-12 max-md:pt-16 max-md:pb-28
           "
         >
@@ -523,7 +523,9 @@ const browseTermClass = `
   }
 
   @supports (position-anchor: --search-help) {
-    #search-help-trigger {
+    /* An anchor only while its popover is open: WebKit keeps an anchor's transform transition on the main thread, and
+       the trigger slides aside on every first keystroke and clear. */
+    #commission-search:has(#search-help-popover:popover-open) #search-help-trigger {
       anchor-name: --search-help;
     }
 

@@ -28,9 +28,10 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
   tint (the link opacity fade barely shows on a tinted chip, and owner read them as unclickable).
   At `48rem` and up the field splits into two `[data-browse-column]`s, characters | artists at `3fr 2fr`, with 12px
   chips (between the row's 11px and the panel's 14px; owner found both too small and too large there) and `0.75rem`
-  rows. The popover spans the page column (`anchor(--search-column)` on `#commission-search`) plus `1.5rem` a side:
+  rows, inset `1.5rem` on all four sides (owner ruled 2026-11-02: a 1rem top and bottom pressed the chips against the
+  frame). The popover spans the page column (`anchor(--search-column)` on `#commission-search`) plus `1.5rem` a side:
   owner ruled a flush edge unattractive and wider covering the sidebars, and the overhang clears both at 1280px
-  (61px left, 41px right). At 1280x800 the field is 416px against the `min(70dvh, 34rem)` cap, so it does not scroll;
+  (61px left, 41px right). At 1280x800 the field is 432px against the `min(70dvh, 34rem)` cap, so it does not scroll;
   if it outgrows the cap, rebalance the column ratio before widening. It stays an anchored popover, not a modal: it
   filters the listing under it and is opened repeatedly, so the page stays visible.
   Below `48rem` it is a full-screen panel headed by a 28px "Tags" title (`browseKeywordsTitle`, `aria-hidden`: the
@@ -48,6 +49,9 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
   visibility inherits into a popover. A term click hides the popover before applying the query, so focus does not
   return to the trigger.
 - Help and browse popovers: native `popover` does not position or animate itself. Their anchor positioning, 8px gap, collision fallbacks and transitions live together in the scoped CSS of `CommissionSearchIsland.astro`. Without CSS anchor support, keep the centered `m-auto` fallback.
+  The help trigger makes room for the copy/clear buttons with `transform`, never `right` (a layout transition runs on
+  WebKit's main thread every frame), and it is an anchor only while its popover is open: WebKit also keeps an anchor
+  element's transform transition on the main thread. `anchor()` follows the transformed box in Chromium and WebKit.
   No per-row entrance stagger on the browse popover: it is opened repeatedly while picking tags, so a cascade reads
   as lag (apple.com also cascades only on a cold open). The mobile hamburger menu keeps its stagger.
 - Browse popover chip looks and hovers live in the scoped CSS; a color-hover or `transition-colors` utility on these
