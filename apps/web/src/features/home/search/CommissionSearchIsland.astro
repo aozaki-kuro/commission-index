@@ -470,6 +470,7 @@ const browseTermClass = `
           type="button"
           popovertarget="search-browse-popover"
           popovertargetaction="hide"
+          data-browse-close="true"
           aria-label={controls.searchHelpClose}
           class={STYLES.floatingButton}
         >
@@ -504,6 +505,12 @@ const browseTermClass = `
       transform 120ms var(--ease-exit),
       display 120ms allow-discrete,
       overlay 120ms allow-discrete;
+  }
+
+  /* Chromium keeps a closed popover in the top layer for its exit transition; it must not catch taps meanwhile. */
+  #search-help-popover:not(:popover-open),
+  #search-browse-popover:not(:popover-open) {
+    pointer-events: none;
   }
 
   #search-help-popover:popover-open,
@@ -603,6 +610,13 @@ const browseTermClass = `
       transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
     }
 
+    /* The exit fade runs here, while still open: WebKit cuts a closing popover to display: none on its first frame
+       (browsePopoverClose.ts hides it once this fade ends). */
+    #search-browse-popover:popover-open[data-closing] {
+      opacity: 0;
+      pointer-events: none;
+    }
+
     @starting-style {
       #search-browse-popover:popover-open {
         transform: none;
@@ -617,9 +631,10 @@ const browseTermClass = `
       touch-action: none;
     }
 
-    /* The floating buttons sit under the sheet's X; hide them so only the X's turn moves while the panel fades in. */
-    :global(html:has(#search-browse-popover:popover-open) [data-mobile-hamburger]),
-    :global(html:has(#search-browse-popover:popover-open) [data-mobile-keyword-button-root]) {
+    /* The floating buttons sit under the sheet's X; hide them so only the X's turn moves while the panel fades in, and
+       bring them back as it starts to fade out. */
+    :global(html:has(#search-browse-popover:popover-open:not([data-closing])) [data-mobile-hamburger]),
+    :global(html:has(#search-browse-popover:popover-open:not([data-closing])) [data-mobile-keyword-button-root]) {
       opacity: 0;
     }
 
@@ -628,7 +643,8 @@ const browseTermClass = `
       transition: rotate 300ms cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    #search-browse-popover:not(:popover-open) :global([data-browse-close-icon]) {
+    #search-browse-popover:not(:popover-open) :global([data-browse-close-icon]),
+    #search-browse-popover[data-closing] :global([data-browse-close-icon]) {
       rotate: -90deg;
     }
 

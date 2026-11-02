@@ -107,7 +107,8 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   120ms exit; sidebar disclosures open in 240ms enter and close in 120ms exit. The suggestion list swaps its
   duration/ease utility pairs in the controller instead of stacking them (two same-property utilities resolve by
   stylesheet order). The mobile hamburger panel and rows are excluded: they keep apple.com's curve and stagger. The
-  full-screen browse panel below `48rem` is excluded too: it fades like the hamburger panel (220ms ease-out both ways).
+  full-screen browse panel below `48rem` is excluded too: it fades like the hamburger panel (220ms ease-out both ways),
+  its close driven by `search/browsePopoverClose.ts` because WebKit cuts a closing popover.
   The `<details>` menus (sidebar locale and archived) slide through `nav/sidebarDisclosureSlide.ts`: the summary click
   is intercepted, the list in `[data-sidebar-disclosure-clip]` slides by transform/opacity and the details' following
   siblings ride along. `open` flips on the click and `data-closing` keeps a closing list rendered (via

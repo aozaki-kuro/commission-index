@@ -43,12 +43,17 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
   the listing), needs `height: auto` (the UA popover height is `fit-content`) and closes from an X in the hamburger
   toggle's spot and style (`STYLES.floatingButton`, `right-8 bottom-8`); its icon turns in from -90deg like the
   hamburger's, and the hamburger and keyword-button roots fade out while the panel is open so only that X shows.
+  Closing goes through `browsePopoverClose.ts` (the X, Esc on the document, a term click): WebKit has no `overlay`
+  and cuts a closing popover to `display: none` on its first frame (Safari 27.2), so the panel fades out while still
+  open under `data-closing` and hides when that opacity transition ends. Do not hide it directly or let the X's
+  `popovertarget` run (its click is cancelled); a native close mid-fade only resets the state. Closed popovers take
+  no pointer events, because Chromium keeps them in the top layer for the exit transition.
   The mobile keyword button (`nav/hamburger/MobileKeywordButton.astro`) opens it from outside this island, so index
   warm-up also runs on the popover's `beforetoggle`. The list scrolls in an inner div, not the
   popover: `menu-glass`'s `backdrop-filter` makes the popover the containing block of that X, so a scrolling popover
   would carry it away. It sits outside `#search-popular-keywords`, because that row is `invisible` until populated and
-  visibility inherits into a popover. A term click hides the popover before applying the query, so focus does not
-  return to the trigger.
+  visibility inherits into a popover. A term click closes the popover before applying the query: the desktop popover
+  hides at once, so focus does not return to the trigger and steal it back from the input.
 - Help and browse popovers: native `popover` does not position or animate itself. Their anchor positioning, 8px gap, collision fallbacks and transitions live together in the scoped CSS of `CommissionSearchIsland.astro`. Without CSS anchor support, keep the centered `m-auto` fallback.
   The help trigger makes room for the copy/clear buttons with `transform`, never `right` (a layout transition runs on
   WebKit's main thread every frame), and it is an anchor only while its popover is open: WebKit also keeps an anchor

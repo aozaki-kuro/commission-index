@@ -6,6 +6,7 @@ import {
   requestArchivedCharactersVisibility,
 } from '@features/home/commission/archivedCharactersState'
 import { resolveHomeSearchControls } from '@features/home/i18n/homeSearchControls'
+import { mountBrowsePopoverClose } from '@features/home/search/browsePopoverClose'
 import { KEYWORD_CHIP_SURFACE_CLASS, LOAD_ARCHIVED_COMMAND_VALUE } from '@features/home/search/commissionSearchConstants'
 import {
   buildPopularKeywordPoolFromEntries,
@@ -633,14 +634,19 @@ export function initSearchController(root: HTMLElement) {
   // Covers every opener, including the mobile floating keyword button outside this island.
   browsePopoverEl?.addEventListener('beforetoggle', prepareSearchInteraction)
 
-  if (browsePopoverEl) {
+  const browsePopoverClose = browsePopoverEl
+    ? mountBrowsePopoverClose(browsePopoverEl)
+    : null
+  if (browsePopoverEl && browsePopoverClose) {
     browsePopoverEl.addEventListener('click', (event) => {
       const termEl = (event.target as Element).closest<HTMLElement>('[data-browse-term]')
       const term = termEl?.dataset.browseTerm
       if (!term)
         return
-      // Hide first: closing the popover returns focus to its trigger, which would steal it back from the input.
-      browsePopoverEl.hidePopover()
+      // Close first: the desktop popover hides at once, and a hide while focus is still inside returns focus to its
+      // trigger, which would steal it back from the input. The full-screen panel hides after its fade, by when a
+      // focused input holds focus outside it, so nothing is returned.
+      browsePopoverClose.close()
       applyPopularKeyword(term, 'all', termEl.dataset.browseScope)
     })
   }
@@ -714,5 +720,6 @@ export function initSearchController(root: HTMLElement) {
     if (copyResetTimer)
       clearTimeout(copyResetTimer)
     cancelAddressSync()
+    browsePopoverClose?.dispose()
   }
 }
