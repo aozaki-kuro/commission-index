@@ -322,20 +322,35 @@ export function mountMobileHamburgerMenu({
       return
     }
 
-    const readTops = () => sectionFollowers.map(node => node.getBoundingClientRect().top)
+    // Tops are in scroll-content coordinates: the snapped layout can be too short for the current scroll position.
+    const readTops = () => sectionFollowers.map(node => node.getBoundingClientRect().top + panel.scrollTop)
+    const scrollTop = panel.scrollTop
     const firstTops = readTops()
     syncCharacterSectionState()
     const lastTops = readTops()
+    const settledScrollTop = panel.scrollTop
     const closing = characterSections.filter(section => section.key === previous)
     closing.forEach(section => section.panel?.removeAttribute('data-collapsed'))
+    panel.scrollTop = scrollTop
     const slideTops = readTops()
+    // The browser clamps the scroll position when a shorter layout settles; carrying the whole panel down by that much
+    // during the slide makes the clamp land invisibly. Rows keep their own CSS transform, so they are not carriers.
+    const scrollShift = scrollTop - settledScrollTop
+    const scrollCarriers = scrollShift > 0
+      ? [...panel.children].filter((node): node is HTMLElement =>
+          node instanceof HTMLElement && !node.hasAttribute('data-mobile-hamburger-row'))
+      : []
 
     const slide: KeyframeAnimationOptions = { duration: SECTION_SLIDE_MS, easing: SECTION_EASING, fill: 'forwards' }
     const fade: KeyframeAnimationOptions = { duration: SECTION_FADE_MS, easing: SECTION_EASING, fill: 'forwards' }
-    const animations: Animation[] = []
+    const animations: Animation[] = scrollCarriers.map(node => node.animate([
+      { transform: 'none' },
+      { transform: `translateY(${scrollShift}px)` },
+    ], slide))
     sectionFollowers.forEach((node, index) => {
+      const carried = scrollCarriers.some(carrier => carrier.contains(node))
       const from = firstTops[index] - slideTops[index]
-      const to = lastTops[index] - slideTops[index]
+      const to = lastTops[index] - slideTops[index] + (carried ? 0 : scrollShift)
       if (from === 0 && to === 0)
         return
       animations.push(node.animate([
