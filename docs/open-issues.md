@@ -52,7 +52,6 @@
 - **Playwright 仍单视口**：`config/playwright.config.ts` 单视口 1440×1600、无 `deviceScaleFactor`，未加移动端 project（admin `playwright.ui.config.ts` 的 `testMatch` 已改为 `*.spec.ts` + `testIgnore: 'admin-*.spec.ts'`）。
 - 未验证：读屏、320/390/768/1440 视口、200% 文字缩放、reduced motion 的完整验收；首屏体积、搜索响应等性能基线。原因：需人工或浏览器实测，仓库内无记录。
 - 未验证：真实 GitHub push/rebuild 并发下的最终 Worker revision。原因：需线上运行。
-- **桌面侧栏 `<details>` 用 `grid-template-rows` 做展开动画**（`DesktopSidebarNav.astro` 的 `::details-content`）：与已修的汉堡菜单同一机制，WebKit 在主线程逐帧排版。2026-11-02 Playwright WebKit 实测：展开 240ms 内约 22/40 帧有样式+布局，收起约 13–15 帧。仅桌面宽度、面积小、无全屏模糊，Mac 上未见卡顿，暂不修；它挂在原生 `<details>` 伪元素上，改成 transform/FLIP 需要动结构。
 - **R3b：Linux 基线与 CI 视觉回归**：目前只有 `-darwin` 基线，CI 不跑 `test:visual`。补 `-linux` 基线并在 CI 运行 `test:visual` 需要 Playwright docker 镜像（保证字体与渲染一致）。
 
 ## 仍需 owner 决定 / 操作

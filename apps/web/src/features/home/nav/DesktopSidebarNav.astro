@@ -82,36 +82,38 @@ const sidebarNavLinkClass
           <span class={sidebarLabelClass}>{localeSwitcherLabel}</span>
         </summary>
 
-        <ul class="min-h-0 space-y-2 overflow-hidden *:first:mt-3">
-          {
-            localeOptions.map((option) => {
-              const isActive = option.locale === locale
-              return (
-                <li class={`
-                  text-gray-700
-                  dark:text-gray-200
-                `}
-                >
-                  <a
-                    href={option.href}
-                    aria-current={isActive ? 'page' : undefined}
-                    class={sidebarNavLinkClass}
+        <div data-sidebar-disclosure-clip class="overflow-hidden">
+          <ul class="space-y-2 *:first:mt-3">
+            {
+              localeOptions.map((option) => {
+                const isActive = option.locale === locale
+                return (
+                  <li class={`
+                    text-gray-700
+                    dark:text-gray-200
+                  `}
                   >
-                    <span class={sidebarLeadSlotClass} aria-hidden="true">
-                      <span class={`
-                        size-1.5 rounded-full bg-gray-500/80 transition-[opacity,scale] duration-300
-                        dark:bg-gray-300/80
-                        ${isActive ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
-                      `}
-                      />
-                    </span>
-                    {option.label}
-                  </a>
-                </li>
-              )
-            })
-          }
-        </ul>
+                    <a
+                      href={option.href}
+                      aria-current={isActive ? 'page' : undefined}
+                      class={sidebarNavLinkClass}
+                    >
+                      <span class={sidebarLeadSlotClass} aria-hidden="true">
+                        <span class={`
+                          size-1.5 rounded-full bg-gray-500/80 transition-[opacity,scale] duration-300
+                          dark:bg-gray-300/80
+                          ${isActive ? 'scale-100 opacity-100' : 'scale-95 opacity-0'}
+                        `}
+                        />
+                      </span>
+                      {option.label}
+                    </a>
+                  </li>
+                )
+              })
+            }
+          </ul>
+        </div>
       </details>
 
       <div class="space-y-2">
@@ -245,37 +247,39 @@ const sidebarNavLinkClass
                   <span class="text-sm/5 font-bold">{controls.archivedCharacters}</span>
                 </summary>
 
-                <ul class="min-h-0 space-y-2 overflow-hidden *:first:mt-4">
-                  {
-                    archivedCharacterNavItems.map(({ displayName, sectionHash, titleId, sectionId }) => (
-                      <li class="
-                        text-gray-700
-                        dark:text-gray-200
-                      "
-                      >
-                        <a
-                          href={sectionHash}
-                          data-sidebar-character-link="true"
-                          data-sidebar-character-status="archived"
-                          data-sidebar-title-id={titleId}
-                          class={sidebarNavLinkClass}
-                          data-sidebar-section-id={sectionId}
+                <div data-sidebar-disclosure-clip class="overflow-hidden">
+                  <ul class="space-y-2 *:first:mt-4">
+                    {
+                      archivedCharacterNavItems.map(({ displayName, sectionHash, titleId, sectionId }) => (
+                        <li class="
+                          text-gray-700
+                          dark:text-gray-200
+                        "
                         >
-                          <span class={sidebarLeadSlotClass} aria-hidden="true">
-                            <span
-                              data-sidebar-dot-for={titleId}
-                              class="
-                                size-1.5 scale-95 rounded-full bg-gray-400
-                                opacity-0 transition-[opacity,scale] duration-300
-                              "
-                            />
-                          </span>
-                          {displayName}
-                        </a>
-                      </li>
-                    ))
-                  }
-                </ul>
+                          <a
+                            href={sectionHash}
+                            data-sidebar-character-link="true"
+                            data-sidebar-character-status="archived"
+                            data-sidebar-title-id={titleId}
+                            class={sidebarNavLinkClass}
+                            data-sidebar-section-id={sectionId}
+                          >
+                            <span class={sidebarLeadSlotClass} aria-hidden="true">
+                              <span
+                                data-sidebar-dot-for={titleId}
+                                class="
+                                  size-1.5 scale-95 rounded-full bg-gray-400
+                                  opacity-0 transition-[opacity,scale] duration-300
+                                "
+                              />
+                            </span>
+                            {displayName}
+                          </a>
+                        </li>
+                      ))
+                    }
+                  </ul>
+                </div>
               </details>
             </li>
           )
@@ -364,31 +368,10 @@ const sidebarNavLinkClass
       box-shadow 300ms;
   }
 
-  /* Both sidebar disclosures grow and fade both ways, so the locale list eases the view toggles below it down instead
-     of shoving them. A 0fr to 1fr grid row animates the auto height in every engine (interpolate-size is
-     Chromium-only); the list's top gap sits on its first item, inside the clip, because padding would survive a 0fr row. content-visibility is
-     held for exactly the close duration so the close animates instead of snapping. Open uses the 240ms enter token. */
-  details::details-content {
-    display: grid;
-    grid-template-rows: 0fr;
-    opacity: 0;
-    transition:
-      grid-template-rows 120ms var(--ease-exit),
-      opacity 120ms var(--ease-exit),
-      content-visibility 120ms allow-discrete;
-  }
-
-  details[open]::details-content {
-    grid-template-rows: 1fr;
-    opacity: 1;
-    transition-duration: 240ms;
-    transition-timing-function: var(--ease-enter);
-  }
-
-  @starting-style {
-    details[open]::details-content {
-      grid-template-rows: 0fr;
-      opacity: 0;
-    }
+  /* Both sidebar disclosures slide open and shut through sidebarDisclosureSlide.ts (transform/opacity, never a height
+     or grid-row transition, which WebKit lays out every frame). A closing list stays rendered under `data-closing`
+     until its slide settles. The list's top gap sits on its first item, inside the clip box. */
+  details[data-closing]::details-content {
+    content-visibility: visible;
   }
 </style>
