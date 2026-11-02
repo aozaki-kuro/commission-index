@@ -107,9 +107,12 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   120ms exit; sidebar disclosures open in 240ms enter and close in 120ms exit. The suggestion list swaps its
   duration/ease utility pairs in the controller instead of stacking them (two same-property utilities resolve by
   stylesheet order). The mobile hamburger panel and rows are excluded: they keep apple.com's curve and stagger.
-  `<details>` menus (sidebar locale and
-  archived) fade through `::details-content` with `content-visibility` held during the close; their content is
-  skipped while closed, so an entry transition needs `@starting-style`. Tailwind 4 `scale-*`/`translate-*` set the
+  The `<details>` menus (sidebar locale and archived) slide through `nav/sidebarDisclosureSlide.ts`: the summary click
+  is intercepted, the list in `[data-sidebar-disclosure-clip]` slides by transform/opacity and the details' following
+  siblings ride along. `open` flips on the click and `data-closing` keeps a closing list rendered (via
+  `::details-content`) until the slide settles. Never animate their height or a `grid-template-rows` row: WebKit lays
+  that out every frame, the hamburger gotcha above. Set `open` through the slide's `setOpen`, not directly (except the
+  mount snap in `sidebarNavEnhancer.ts`). Tailwind 4 `scale-*`/`translate-*` set the
   `scale`/`translate` properties: transition those, not `transform`.
 - **Hash cleanup:** a hash left in the address bar wins over the saved scroll position on reload. `clearHashIfTargetOffscreen`
   drops it once the target's top edge leaves the viewport, not when the whole target does: character sections span

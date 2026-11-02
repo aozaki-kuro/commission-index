@@ -29,6 +29,7 @@ import { jumpToCommissionSearch } from '@lib/navigation/jumpToCommissionSearch'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '@lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '@lib/navigation/syncHiddenSectionLinkAvailability'
 import { revealArchivedHomeNavTarget } from './homeNavTargetClient'
+import { mountSidebarDisclosureSlide } from './sidebarDisclosureSlide'
 
 const SIDEBAR_ROOT_ID = 'Character List'
 const SIDEBAR_CONTROLS_ROOT_ID = 'Home Controls'
@@ -37,6 +38,7 @@ const CHARACTER_LINK_SELECTOR = '[data-sidebar-character-link="true"]'
 const NAV_PANEL_SELECTOR = '[data-sidebar-nav-panel]'
 const VIEW_MODE_TOGGLE_SELECTOR = '[data-sidebar-view-mode-toggle="true"]'
 const ARCHIVED_DETAILS_SELECTOR = '[data-sidebar-archived-details="true"]'
+const LOCALE_MENU_SELECTOR = '[data-sidebar-locale-menu]'
 const ARCHIVED_LOAD_TRIGGER_SELECTOR = '[data-load-archived-characters="true"]'
 const BACK_TO_TOP_BUTTON_SELECTOR = '[data-sidebar-back-to-top-button="true"]'
 
@@ -184,6 +186,13 @@ export function mountSidebarNavEnhancer({
   ]
   const archivedDetails = navRoot.querySelector<HTMLDetailsElement>(ARCHIVED_DETAILS_SELECTOR)
   const backToTopButton = navRoot.querySelector<HTMLButtonElement>(BACK_TO_TOP_BUTTON_SELECTOR)
+  const localeMenu = controlsRoot.querySelector<HTMLDetailsElement>(LOCALE_MENU_SELECTOR)
+  const localeMenuSlide = localeMenu
+    ? mountSidebarDisclosureSlide(localeMenu, { win })
+    : null
+  const archivedSlide = archivedDetails
+    ? mountSidebarDisclosureSlide(archivedDetails, { win })
+    : null
 
   let clearHashMissingRafId: number | null = null
   let syncLinksRafId: number | null = null
@@ -432,7 +441,7 @@ export function mountSidebarNavEnhancer({
       return
     if (archivedDetails.open)
       return
-    archivedDetails.open = true
+    archivedSlide?.setOpen(true)
   }
 
   const closeArchivedDetails = () => {
@@ -440,7 +449,7 @@ export function mountSidebarNavEnhancer({
       return
     if (!archivedDetails.open)
       return
-    archivedDetails.open = false
+    archivedSlide?.setOpen(false)
   }
 
   const setArchivedDetailsVisibility = (visibility: ArchivedCharactersVisibility) => {
@@ -627,9 +636,9 @@ export function mountSidebarNavEnhancer({
   win.addEventListener('popstate', onViewModeMaybeChanged)
 
   syncAll()
-  setArchivedDetailsVisibility(isArchivedCharactersVisible(doc)
-    ? 'visible'
-    : 'hidden')
+  // Snap, not slide: the aside has its own entrance, and a slide would force layout before the first paint.
+  if (archivedDetails)
+    archivedDetails.open = isArchivedCharactersVisible(doc)
 
   return () => {
     if (disposed)
@@ -641,6 +650,8 @@ export function mountSidebarNavEnhancer({
       navRoot.removeEventListener('click', onSidebarClick)
     }
     archivedDetails?.removeEventListener('toggle', onArchivedDetailsToggle)
+    localeMenuSlide?.dispose()
+    archivedSlide?.dispose()
     win.removeEventListener('scroll', scheduleSyncActiveDots)
     win.removeEventListener('resize', scheduleSyncActiveDots)
     win.removeEventListener('scroll', scheduleClearHashIfTargetMissing)
