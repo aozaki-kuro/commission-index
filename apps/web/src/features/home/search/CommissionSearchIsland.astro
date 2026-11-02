@@ -594,10 +594,13 @@ const browseTermClass = `
       }
     }
 
-    /* Fade only, like the hamburger panel: a full-screen scale would read as the page zooming. */
+    /* Fade only, like the hamburger panel: a full-screen scale would read as the page zooming. Its 220ms ease-out both
+       ways too: the popovers' --ease-enter is a third done in the first frame, so a full screen of it reads as a cut. */
     #search-browse-popover,
     #search-browse-popover:popover-open {
       transform: none;
+      transition-duration: 220ms;
+      transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
     }
 
     @starting-style {

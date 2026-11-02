@@ -36,9 +36,10 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
   filters the listing under it and is opened repeatedly, so the page stays visible.
   Below `48rem` it is a full-screen panel headed by a 28px "Tags" title (`browseKeywordsTitle`, `aria-hidden`: the
   dialog's `aria-label` names it), not a bottom sheet
-  (a sheet promises swipe-down to dismiss, which is not built), fading in like the hamburger menu, with no backdrop or
-  page curtain; wider screens get an anchored popover, so the search row stays crisp. The panel locks page scroll
-  with `html:has(#search-browse-popover:popover-open)` (a popover never does, and a drag out of a short list scrolls
+  (a sheet promises swipe-down to dismiss, which is not built), fading like the hamburger menu (220ms ease-out both
+  ways, opacity only: `--ease-enter` is a third done in the first frame, which over a full screen reads as a cut),
+  with no backdrop or page curtain; wider screens get an anchored popover, so the search row stays crisp. The panel
+  locks page scroll with `html:has(#search-browse-popover:popover-open)` (a popover never does, and a drag out of a short list scrolls
   the listing), needs `height: auto` (the UA popover height is `fit-content`) and closes from an X in the hamburger
   toggle's spot and style (`STYLES.floatingButton`, `right-8 bottom-8`); its icon turns in from -90deg like the
   hamburger's, and the hamburger and keyword-button roots fade out while the panel is open so only that X shows.
