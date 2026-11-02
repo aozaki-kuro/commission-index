@@ -68,7 +68,9 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   tap. Never animate a layout property (height, `grid-template-rows`) in this panel: WebKit cannot hand it to Core
   Animation, so on iPhone it lays out and repaints the full-screen panel on the main thread every frame (~60Hz) and
   visibly stutters while desktop Chrome looks clean. Never put a WAAPI transform on a `[data-mobile-hamburger-row]`
-  (its CSS transform transition drives the open stagger); move its children instead.
+  (its CSS transform transition drives the open stagger); move its children instead. The panel scrolls, so FLIP
+  measures in scroll-content coordinates: snapping to a shorter layout clamps `scrollTop`, and the slide restores it and
+  carries the panel content down by the clamp so the clamp at settle does not jump.
   `STYLES.floatingButton` (blur included; no inline `backdrop-filter`) is shared with the mobile keyword button (it
   opens the browse popover from above the hamburger), the mobile browse panel's X and the desktop back-to-top button
   (every 40px round button, icons `size-5`, dark surface `gray-900/80` like the menus). Its hairline ring plus a tight
