@@ -62,8 +62,13 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   scroll. Change the panel padding, section labels or language row and the `18.25rem` in its scoped CSS must follow.
   Language is the last group (~1% of mobile sessions switch it): the current locale is marked by ink and weight only,
   since a trailing mark would shift the row.
-  The Active/Archived lists collapse with `data-collapsed` (grid row 0fr plus `visibility: hidden`), not `hidden`, so
-  they can animate; a test or script must read that attribute.
+  The Active/Archived lists collapse with `data-collapsed` (grid row 0fr plus `visibility: hidden`), not `hidden`; a
+  test or script must read that attribute. The layout snaps and `mobileHamburgerMenu.ts` slides the lists (FLIP via
+  `element.animate`, transform/opacity only), so on a close `data-collapsed` lands when the slide settles, not on the
+  tap. Never animate a layout property (height, `grid-template-rows`) in this panel: WebKit cannot hand it to Core
+  Animation, so on iPhone it lays out and repaints the full-screen panel on the main thread every frame (~60Hz) and
+  visibly stutters while desktop Chrome looks clean. Never put a WAAPI transform on a `[data-mobile-hamburger-row]`
+  (its CSS transform transition drives the open stagger); move its children instead.
   `STYLES.floatingButton` (blur included; no inline `backdrop-filter`) is shared with the mobile keyword button (it
   opens the browse popover from above the hamburger), the mobile browse panel's X and the desktop back-to-top button
   (every 40px round button, icons `size-5`, dark surface `gray-900/80` like the menus). Its hairline ring plus a tight
