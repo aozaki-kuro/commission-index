@@ -4,6 +4,7 @@ import type { KeywordBrowseGroup } from '@lib/home/keywordBrowseGroups'
 import { resolveHomeSearchControls } from '@features/home/i18n/homeSearchControls'
 import { STYLES } from '@features/home/nav/hamburger/constants'
 import { KEYWORD_CHIP_SURFACE_CLASS } from '@features/home/search/commissionSearchConstants'
+import { computeFeaturedKeywordChips } from '@features/home/search/commissionSearchIndex'
 import { Icon } from 'astro-icon/components'
 
 interface Props {
@@ -23,6 +24,9 @@ const {
 } = Astro.props
 
 const controls = resolveHomeSearchControls(locale)
+// Rendered here so the row is complete in the first frame; the controller adopts these nodes on hydration. Without
+// featured keywords the controller fills the row from the search entries and un-hides it.
+const featuredChips = computeFeaturedKeywordChips(featuredKeywords, suggestionAliasGroups)
 // Chip looks and hovers live in the scoped CSS; a color hover or transition utility here would beat those rules.
 const browseTermClass = `
   focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500
@@ -317,15 +321,19 @@ const browseTermClass = `
     </div>
   </div>
 
-  {/* Popular keywords row (invisible to reserve space, fades in when populated) */}
+  {/* Popular keywords row: server-rendered featured chips; without them it stays invisible (reserving space) until
+      the controller fills it from the search entries */}
   <div
     id="search-popular-keywords"
-    class="
-      mt-2 flex min-h-8 w-full items-center gap-2 overflow-hidden pr-2 text-xs
-      text-gray-500 invisible opacity-0
-      motion-safe:transition-[visibility,opacity] motion-safe:duration-200 motion-safe:ease-out
-      dark:text-gray-400
-    "
+    class:list={[
+      `
+        mt-2 flex min-h-8 w-full items-center gap-2 overflow-hidden pr-2 text-xs
+        text-gray-500
+        motion-safe:transition-[visibility,opacity] motion-safe:duration-200 motion-safe:ease-out
+        dark:text-gray-400
+      `,
+      featuredChips.length === 0 && 'invisible opacity-0',
+    ]}
   >
     <ul
       id="search-keyword-list"
@@ -333,7 +341,29 @@ const browseTermClass = `
         flex min-w-0 flex-1 flex-nowrap items-center gap-1.5 overflow-x-auto
         pr-0.5
       "
-    />
+    >
+      {featuredChips.map((keyword, index) => (
+        <li class={index >= 4
+? 'shrink-0 hidden lg:block'
+: 'shrink-0'}
+        >
+          <button type="button" data-keyword={keyword} class={`${KEYWORD_CHIP_SURFACE_CLASS} px-2.5 py-1`}>
+            {keyword}
+          </button>
+        </li>
+      ))}
+    </ul>
+    {/* The chips paint before `astro:page-load` mounts the island; keep a tap from that window for the mount to replay.
+        Writes after the mount are never read: the island reads this once and a soft navigation swaps the list. */}
+    <script is:inline>
+document.getElementById('search-keyword-list')?.addEventListener('click', (event) => {
+  const chip = event.target instanceof Element
+    ? event.target.closest('[data-keyword]')
+    : null
+  if (chip)
+    event.currentTarget.dataset.pendingKeyword = chip.dataset.keyword
+})
+</script>
     <div class="flex shrink-0 gap-1.5">
       {/* Opens the full character/keyword list; the row above only shows the featured few */}
       {keywordBrowseSections.length > 0 && (

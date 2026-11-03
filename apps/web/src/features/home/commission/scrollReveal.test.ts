@@ -170,4 +170,47 @@ describe('mountScrollReveal', () => {
 
     cleanup()
   })
+  it('classifies every entry before hiding any of them', () => {
+    document.body.innerHTML = `
+      <div id="above" data-commission-entry="true"></div>
+      <div id="below-1" data-commission-entry="true"></div>
+      <div id="below-2" data-commission-entry="true"></div>
+    `
+
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 })
+    vi.stubGlobal('IntersectionObserver', MockIntersectionObserver)
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: false })))
+
+    const entries = [
+      ...document.querySelectorAll<HTMLElement>('[data-commission-entry]'),
+    ]
+    // A read after a style write forces a style recalc in a real browser; record any read that sees a hidden entry.
+    let readAfterWrite = false
+    for (const entry of entries) {
+      const top = entry.id === 'above'
+        ? 0
+        : 5000
+      entry.getClientRects = () => [
+        new DOMRect(0, top, 320, 120),
+      ] as unknown as DOMRectList
+      entry.getBoundingClientRect = () => {
+        if (entries.some(other => other.style.opacity === '0'))
+          readAfterWrite = true
+        return new DOMRect(0, top, 320, 120)
+      }
+    }
+
+    const cleanup = mountScrollReveal()
+    const observer = MockIntersectionObserver.instances[0]
+
+    expect(readAfterWrite).toBe(false)
+    expect(document.getElementById('above')?.hasAttribute('data-revealed')).toBe(true)
+    for (const id of ['below-1', 'below-2']) {
+      const entry = document.getElementById(id)!
+      expect(entry.style.opacity).toBe('0')
+      expect(observer?.observed.has(entry)).toBe(true)
+    }
+
+    cleanup()
+  })
 })

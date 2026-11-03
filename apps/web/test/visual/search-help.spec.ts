@@ -127,3 +127,64 @@ test('help remains usable with reduced motion', async ({ page }) => {
   await page.keyboard.press('Escape')
   await expect(popover).toBeHidden()
 })
+
+test('featured chips are present before the search controller loads', async ({ page }) => {
+  // The controller is loaded lazily; aborting it proves the chip row is complete server-side markup.
+  let abortedController = false
+  await page.route(/commissionSearchController/, (route) => {
+    abortedController = true
+    return route.abort()
+  })
+  await page.goto('/')
+  await expectFixtureData(page)
+
+  await expect(page.locator('#search-popular-keywords')).not.toHaveClass(/invisible/)
+  await expect(page.locator('#search-keyword-list [data-keyword]')).toHaveCount(5)
+  await expect.poll(() => abortedController).toBe(true)
+})
+
+test('a chip tapped before the search controller loads still runs its search', async ({ page }) => {
+  let releaseController = () => {}
+  const controllerHeld = new Promise<void>((resolve) => {
+    releaseController = resolve
+  })
+  await page.route(/commissionSearchController/, async (route) => {
+    await controllerHeld
+    await route.continue()
+  })
+  await page.goto('/')
+  await expectFixtureData(page)
+
+  const chip = page.locator('#search-keyword-list [data-keyword]').first()
+  const keyword = await chip.getAttribute('data-keyword')
+  await chip.click()
+  releaseController()
+
+  await expect(page).toHaveURL(/[?&]q=/)
+  await expect(page.locator('#commission-search-input')).toHaveValue(new RegExp(keyword!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+})
+
+test('a chip tapped before the search island mounts still runs its search', async ({ page }) => {
+  // Holding the island module also holds astro:page-load, which waits for module scripts: the chips are painted but
+  // nothing has mounted yet.
+  let releaseIsland = () => {}
+  const islandHeld = new Promise<void>((resolve) => {
+    releaseIsland = resolve
+  })
+  // A cold dev server re-optimizes dependencies on first load and reloads the page, which would drop the held tap.
+  await page.goto('/')
+  await expectFixtureData(page)
+  await page.route(/CommissionSearchIsland\.astro\?astro&type=script/, async (route) => {
+    await islandHeld
+    await route.continue()
+  })
+  await page.goto('/', { waitUntil: 'commit' })
+
+  const chip = page.locator('#search-keyword-list [data-keyword]').first()
+  const keyword = await chip.getAttribute('data-keyword')
+  await chip.click()
+  releaseIsland()
+
+  await expect(page).toHaveURL(/[?&]q=/)
+  await expect(page.locator('#commission-search-input')).toHaveValue(new RegExp(keyword!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+})

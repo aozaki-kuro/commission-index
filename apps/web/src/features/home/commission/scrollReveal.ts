@@ -88,15 +88,20 @@ export function mountScrollReveal(): () => void {
   )
 
   // Mark entries already visible as revealed (no animation) and only
-  // observe entries below the fold.
+  // observe entries below the fold. All geometry is read before any entry is hidden: a read after a style write
+  // forces a style recalc, once per entry across the whole listing.
   const observeAll = (root: ParentNode = document) => {
-    const elements = root.querySelectorAll<HTMLElement>(`[${REVEAL_ATTR}]`)
-    for (const el of elements) {
-      if (el.hasAttribute(REVEALED_ATTR))
-        continue
-      if (!isRenderable(el))
-        continue
-      if (isInOrAboveViewport(el)) {
+    const elements = [
+      ...root.querySelectorAll<HTMLElement>(`[${REVEAL_ATTR}]`),
+    ]
+    const pending = elements
+      .filter(el => !el.hasAttribute(REVEALED_ATTR) && isRenderable(el))
+      .map(el => ({
+        el,
+        aboveFold: isInOrAboveViewport(el),
+      }))
+    for (const { el, aboveFold } of pending) {
+      if (aboveFold) {
         el.setAttribute(REVEALED_ATTR, '')
         continue
       }
