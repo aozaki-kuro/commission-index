@@ -15,11 +15,11 @@ import {
   ensureHomeSearchEntriesPromise,
   getCachedHomeSearchEntries,
   getPopularKeywordBatch,
-  MAX_FEATURED_KEYWORDS,
   MAX_VISIBLE_POPULAR_KEYWORDS,
 } from '@features/home/search/commissionSearchDeferred'
 import { createDomSyncRefs, syncDom } from '@features/home/search/commissionSearchDomSync'
 import { getDropdownItemCount, renderDropdown } from '@features/home/search/commissionSearchDropdownRenderer'
+import { computeFeaturedKeywordChips } from '@features/home/search/commissionSearchIndex'
 import { createListboxController } from '@features/home/search/commissionSearchKeyboard'
 import {
   computeSearchModel,
@@ -41,7 +41,6 @@ import {
   normalizeQuery,
   normalizeQuotedTokenBoundary,
 } from '@lib/search/index'
-import { dedupeKeywords } from '@lib/search/popularKeywords'
 
 // ==================== Helpers ====================
 
@@ -174,14 +173,9 @@ export function initSearchController(root: HTMLElement) {
   // ==================== Derived keyword computation ====================
 
   function computePopularKeywords(): string[] {
-    const dedupedFeatured = dedupeKeywords(featuredKeywords, MAX_FEATURED_KEYWORDS)
-    const featuredBatch = collapseAliasKeywordVariants(
-      dedupedFeatured,
-      suggestionAliasGroups,
-      0x9E3779B9,
-    )
+    const featuredBatch = computeFeaturedKeywordChips(featuredKeywords, suggestionAliasGroups)
     if (featuredBatch.length > 0)
-      return featuredBatch.slice(0, MAX_VISIBLE_POPULAR_KEYWORDS)
+      return featuredBatch
 
     const collapsed = collapseAliasKeywordVariants(popularKeywordPool, suggestionAliasGroups, 0)
     return getPopularKeywordBatch(collapsed, 0, MAX_VISIBLE_POPULAR_KEYWORDS)

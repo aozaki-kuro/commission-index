@@ -1,6 +1,12 @@
 import type { SearchEntryLike, SearchIndexLike, Suggestion, SuggestionEntryLike } from '@lib/search/index'
 import { ARCHIVED_CONTAINER_SELECTOR } from '@features/home/commission/archivedCharactersState'
 import {
+  collapseAliasKeywordVariants,
+  dedupeKeywords,
+  MAX_FEATURED_KEYWORDS,
+  MAX_VISIBLE_POPULAR_KEYWORDS,
+} from '@features/home/search/commissionSearchDeferred'
+import {
   collectSuggestions,
   createSearchIndex,
   parseSuggestionRows,
@@ -17,6 +23,13 @@ export type Entry = SearchEntryLike
 export interface SearchSuggestionAliasGroup {
   term: string
   aliases: string[]
+}
+
+// The island renders these chips at build time and the controller recomputes them on hydration; one function with a
+// fixed seed keeps the two lists identical, so hydration adopts the server markup instead of rebuilding it.
+export function computeFeaturedKeywordChips(featured: string[], aliasGroups: SearchSuggestionAliasGroup[]): string[] {
+  const deduped = dedupeKeywords(featured, MAX_FEATURED_KEYWORDS)
+  return collapseAliasKeywordVariants(deduped, aliasGroups, 0x9E3779B9).slice(0, MAX_VISIBLE_POPULAR_KEYWORDS)
 }
 
 export interface Section {

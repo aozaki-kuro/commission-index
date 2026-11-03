@@ -3,7 +3,7 @@ import type { CommissionSearchEntrySource } from './commissionSearchIndex'
 import { buildCommissionSearchMetadata } from '@commission-index/domain'
 import { getMatchedEntryIds } from '@lib/search/index'
 import { describe, expect, it } from 'vitest'
-import { buildSearchIndex } from './commissionSearchIndex'
+import { buildSearchIndex, computeFeaturedKeywordChips } from './commissionSearchIndex'
 
 function buildEntry({
   id,
@@ -177,5 +177,39 @@ describe('commissionSearchIndex strict term matching across scripts', () => {
   it('excludes a katakana creator term in strict negation', () => {
     const matched = getMatchedEntryIds('"Kanaut Nishe" !ナナシ', buildIndex())
     expect(matched).toEqual(new Set([1, 2]))
+  })
+})
+
+describe('computeFeaturedKeywordChips', () => {
+  const aliasGroups = [
+    {
+      term: 'sailor uniform',
+      aliases: ['水手服'],
+    },
+  ]
+
+  it('returns [] for an empty featured list', () => {
+    expect(computeFeaturedKeywordChips([], aliasGroups)).toEqual([])
+  })
+
+  it('collapses alias variants like the controller did', () => {
+    const featured = [
+      'sailor uniform',
+      'rooftop',
+      '水手服',
+      'orchard',
+    ]
+    const chips = computeFeaturedKeywordChips(featured, aliasGroups)
+
+    expect(chips).toHaveLength(3)
+    expect(chips).toContain('rooftop')
+    expect(chips).toContain('orchard')
+    expect(chips.filter(chip => chip === 'sailor uniform' || chip === '水手服')).toHaveLength(1)
+    expect(computeFeaturedKeywordChips(featured, aliasGroups)).toEqual(chips)
+  })
+
+  it('caps at MAX_VISIBLE_POPULAR_KEYWORDS', () => {
+    const featured = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+    expect(computeFeaturedKeywordChips(featured, [])).toHaveLength(6)
   })
 })
