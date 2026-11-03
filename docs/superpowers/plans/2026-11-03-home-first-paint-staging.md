@@ -228,6 +228,8 @@ the shared class.
 
 **Result (2026-11-03):** B. The owner could not view the preview and delegated the pick to the advisor: the stagger was
 the perceived stutter, and B keeps a short arrival. Cost if wrong: one CSS timing revert.
+**Superseded the same day by C:** with B the intro paragraph became the LCP element at the end of its fade (PSI
+mobile LCP 1.1 s → 2.0–3.8 s, element render delay 570 ms); with no fade it paints with the page.
 
 ### Task 5: Ship the picked hero fade (fill in after Task 4)
 
