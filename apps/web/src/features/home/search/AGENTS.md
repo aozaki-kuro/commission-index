@@ -11,7 +11,12 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
 - Locale labels resolve from `../i18n/homeSearchControls.ts`.
 - Keep search box, dropdown and stale hint DOM structure and classNames stable to avoid layout jumps.
 - Keyword row: the admin-curated featured keywords (the entry-derived pool only when none are set) plus a fixed
-  "All" trigger for the browse popover; there is no rotation. The browse popover is server-rendered from
+  "All" trigger for the browse popover; there is no rotation. Featured chips are server-rendered from
+  `computeFeaturedKeywordChips` (`commissionSearchIndex.ts`), the same function the controller runs, so hydration
+  seeds its last-rendered key from the chips' `data-keyword` and keeps the nodes; chip clicks are delegated on
+  `#search-keyword-list`. A chip tapped before the controller chunk loads is queued by `commissionSearchIsland.ts`,
+  which loads the controller at once and passes it `pendingKeyword` (still `from: 'row'`). Only the entry-pool
+  fallback is client-rendered, and only then does the row stay `invisible` until filled. The browse popover is server-rendered from
   `buildKeywordBrowseGroups` (`@lib/home/keywordBrowseGroups`): characters in sidebar order (active, then archived),
   each with its keywords (aliases collapsed). A keyword naming another listed character (or its
   character alias) is a co-appearance: it renders first as `w/ Name` with `data-browse-scope` and searches both
@@ -51,7 +56,7 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
   The mobile keyword button (`nav/hamburger/MobileKeywordButton.astro`) opens it from outside this island, so index
   warm-up also runs on the popover's `beforetoggle`. The list scrolls in an inner div, not the
   popover: `menu-glass`'s `backdrop-filter` makes the popover the containing block of that X, so a scrolling popover
-  would carry it away. It sits outside `#search-popular-keywords`, because that row is `invisible` until populated and
+  would carry it away. It sits outside `#search-popular-keywords`, because that row is `invisible` until populated in the entry-pool fallback and
   visibility inherits into a popover. A term click closes the popover before applying the query: the desktop popover
   hides at once, so focus does not return to the trigger and steal it back from the input.
 - Help and browse popovers: native `popover` does not position or animate itself. Their anchor positioning, 8px gap, collision fallbacks and transitions live together in the scoped CSS of `CommissionSearchIsland.astro`. Without CSS anchor support, keep the centered `m-auto` fallback.

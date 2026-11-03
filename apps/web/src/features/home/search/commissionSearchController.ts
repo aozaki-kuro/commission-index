@@ -80,12 +80,9 @@ const SUGGESTION_EXIT_MOTION = ['motion-safe:duration-120', 'motion-safe:ease-ex
 
 // ==================== Popular keywords rendering ====================
 
-function renderPopularKeywords(
-  listEl: HTMLElement,
-  keywords: string[],
-  onPointerDown: () => void,
-  onSelect: (keyword: string) => void,
-) {
+// Same markup as the island's server-rendered chips: hydration compares `data-keyword` values to decide whether the
+// server list can be kept. Clicks are delegated on the list, so the buttons carry no listeners.
+function renderPopularKeywords(listEl: HTMLElement, keywords: string[]) {
   listEl.textContent = ''
 
   keywords.forEach((keyword, index) => {
@@ -97,9 +94,8 @@ function renderPopularKeywords(
     const btn = document.createElement('button')
     btn.type = 'button'
     btn.className = `${KEYWORD_CHIP_SURFACE_CLASS} px-2.5 py-1`
+    btn.dataset.keyword = keyword
     btn.textContent = keyword
-    btn.addEventListener('pointerdown', onPointerDown)
-    btn.addEventListener('click', () => onSelect(keyword))
 
     li.appendChild(btn)
     listEl.appendChild(li)
@@ -108,7 +104,13 @@ function renderPopularKeywords(
 
 // ==================== Controller ====================
 
-export function initSearchController(root: HTMLElement) {
+function readChipKeyword(target: EventTarget | null): string | null {
+  return target instanceof Element
+    ? target.closest<HTMLElement>('[data-keyword]')?.dataset.keyword ?? null
+    : null
+}
+
+export function initSearchController(root: HTMLElement, options?: { pendingKeyword?: string }) {
   // 1. Parse props from data attributes
   const locale = root.dataset.locale ?? undefined
   const featuredKeywords: string[] = JSON.parse(root.dataset.featuredKeywords ?? '[]')
@@ -309,7 +311,12 @@ export function initSearchController(root: HTMLElement) {
   let recomputeRafId = 0
   let recomputeTimerId = 0
   let prevSuggestionKey = ''
-  let prevPopularKeywordsKey = ''
+  // Seeded from the server-rendered chips, so the first recompute keeps them when it derives the same list.
+  let prevPopularKeywordsKey = keywordListEl
+    ? [
+        ...keywordListEl.querySelectorAll<HTMLElement>('[data-keyword]'),
+      ].map(chip => chip.dataset.keyword).join('\0')
+    : ''
 
   /** Cheap UI updates that should run immediately on every frame */
   function updateButtonVisibility() {
@@ -451,12 +458,7 @@ export function initSearchController(root: HTMLElement) {
     if (popularKeywordsKey !== prevPopularKeywordsKey) {
       prevPopularKeywordsKey = popularKeywordsKey
       if (keywordListEl) {
-        renderPopularKeywords(
-          keywordListEl,
-          popularKeywords,
-          prepareSearchInteraction,
-          keyword => applyPopularKeyword(keyword, 'row'),
-        )
+        renderPopularKeywords(keywordListEl, popularKeywords)
       }
       if (popularKeywordsEl) {
         const shouldShow = popularKeywords.length > 0
@@ -526,6 +528,18 @@ export function initSearchController(root: HTMLElement) {
   }
 
   // ==================== Bind event listeners ====================
+
+  const onChipPointerDown = (event: PointerEvent) => {
+    if (readChipKeyword(event.target))
+      prepareSearchInteraction()
+  }
+  const onChipClick = (event: MouseEvent) => {
+    const keyword = readChipKeyword(event.target)
+    if (keyword)
+      applyPopularKeyword(keyword, 'row')
+  }
+  keywordListEl?.addEventListener('pointerdown', onChipPointerDown)
+  keywordListEl?.addEventListener('click', onChipClick)
 
   // Input: pointerdown → prepare, focus → prepare + show suggestions, input → update query
   input.addEventListener('pointerdown', prepareSearchInteraction)
@@ -699,9 +713,15 @@ export function initSearchController(root: HTMLElement) {
   // Initial recompute (immediate — first render)
   scheduleRecompute({ immediate: true })
 
+  // A chip tapped before this chunk loaded (queued by the island mount)
+  if (options?.pendingKeyword)
+    applyPopularKeyword(options.pendingKeyword, 'row')
+
   // Return cleanup function
   return () => {
     setFuseHydrationCallback(null)
+    keywordListEl?.removeEventListener('pointerdown', onChipPointerDown)
+    keywordListEl?.removeEventListener('click', onChipClick)
     unsubViewMode()
     unsubPanelState()
     unsubUrlQuery()

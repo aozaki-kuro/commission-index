@@ -10,8 +10,8 @@ async function primeStableUiState(page: Page) {
   }, AGE_CONFIRM_KEY)
 }
 
-// The keyword chip row is filled and un-hidden by the search controller after hydration; screenshots taken
-// before that miss the chips.
+// Featured chips are server-rendered; the wait still covers the entry-pool fallback, which the search controller
+// fills and un-hides after hydration.
 async function waitForKeywordChips(page: Page) {
   await expect(page.locator('#search-popular-keywords')).not.toHaveClass(/invisible/)
   await expect(page.locator('#search-keyword-list > li').first()).toBeVisible()

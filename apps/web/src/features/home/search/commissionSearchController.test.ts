@@ -48,10 +48,19 @@ vi.mock('@features/home/search/commissionSearchPanelState', () => ({
   subscribePanelState: () => () => {},
 }))
 
+// Mirrors the island's server-rendered chip markup.
+function renderServerChips(keywords: string[]) {
+  return keywords
+    .map(keyword => `<li class="shrink-0"><button type="button" data-keyword="${keyword}">${keyword}</button></li>`)
+    .join('')
+}
+
 function mountSearchRoot({
   featuredKeywords = [],
+  serverChips = [],
 }: {
   featuredKeywords?: string[]
+  serverChips?: string[]
 } = {}) {
   document.body.innerHTML = `
     <section
@@ -67,7 +76,7 @@ function mountSearchRoot({
       <button id="search-copy-url"></button>
       <button id="search-clear"></button>
       <div id="search-popular-keywords"></div>
-      <ul id="search-keyword-list"></ul>
+      <ul id="search-keyword-list">${renderServerChips(serverChips)}</ul>
       <p id="search-live-region"></p>
     </section>
   `
@@ -233,6 +242,43 @@ describe('initSearchController', () => {
 
     afterEach(() => {
       delete (Element.prototype as Partial<Element>).scrollIntoView
+    })
+
+    it('adopts server-rendered chips without rebuilding them', async () => {
+      const cleanup = initSearchController(mountSearchRoot({
+        featuredKeywords: ['alpha', 'beta'],
+        serverChips: ['alpha', 'beta'],
+      }))
+      const firstButton = document.querySelector<HTMLButtonElement>('#search-keyword-list button')!
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      expect(document.querySelector('#search-keyword-list button')).toBe(firstButton)
+      firstButton.click()
+      expect(trackedEvents('popular_keyword_clicked')).toEqual([
+        { keyword: 'alpha', from: 'row' },
+      ])
+
+      cleanup?.()
+    })
+
+    it('applies a pending keyword passed at init', async () => {
+      const cleanup = initSearchController(mountSearchRoot({
+        featuredKeywords: ['alpha'],
+        serverChips: ['alpha'],
+      }), { pendingKeyword: 'alpha' })
+
+      await vi.waitFor(() => {
+        expect(trackedEvents('popular_keyword_clicked')).toEqual([
+          { keyword: 'alpha', from: 'row' },
+        ])
+      })
+      await vi.waitFor(() => {
+        expect(trackedEvents('search_used')).toEqual([
+          { source: 'keyword' },
+        ])
+      })
+
+      cleanup?.()
     })
 
     it('reports a featured chip click as from row and the search as keyword-sourced', async () => {

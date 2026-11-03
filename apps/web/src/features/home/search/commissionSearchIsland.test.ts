@@ -80,4 +80,26 @@ describe('mountCommissionSearchIsland', () => {
 
     expect(controllerCleanup).toHaveBeenCalledTimes(1)
   })
+  it('a chip click before hydration imports the controller now and hands it the keyword', async () => {
+    const root = document.getElementById('commission-search')!
+    root.innerHTML = '<ul id="search-keyword-list"><li><button type="button" data-keyword="alpha">alpha</button></li></ul>'
+    mountCommissionSearchIsland()
+
+    root.querySelector<HTMLButtonElement>('[data-keyword]')!.click()
+
+    expect(cancelIdleCallback).toHaveBeenCalledWith(1)
+    await vi.waitFor(() => expect(initSearchController).toHaveBeenCalledWith(root, { pendingKeyword: 'alpha' }))
+  })
+
+  it('teardown before the import resolves drops the pending keyword', async () => {
+    const root = document.getElementById('commission-search')!
+    root.innerHTML = '<ul id="search-keyword-list"><li><button type="button" data-keyword="alpha">alpha</button></li></ul>'
+    const teardown = mountCommissionSearchIsland()
+
+    root.querySelector<HTMLButtonElement>('[data-keyword]')!.click()
+    teardown()
+    await new Promise(resolve => setTimeout(resolve, 0))
+
+    expect(initSearchController).not.toHaveBeenCalled()
+  })
 })
