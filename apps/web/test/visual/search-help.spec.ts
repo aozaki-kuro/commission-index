@@ -163,3 +163,28 @@ test('a chip tapped before the search controller loads still runs its search', a
   await expect(page).toHaveURL(/[?&]q=/)
   await expect(page.locator('#commission-search-input')).toHaveValue(new RegExp(keyword!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
 })
+
+test('a chip tapped before the search island mounts still runs its search', async ({ page }) => {
+  // Holding the island module also holds astro:page-load, which waits for module scripts: the chips are painted but
+  // nothing has mounted yet.
+  let releaseIsland = () => {}
+  const islandHeld = new Promise<void>((resolve) => {
+    releaseIsland = resolve
+  })
+  // A cold dev server re-optimizes dependencies on first load and reloads the page, which would drop the held tap.
+  await page.goto('/')
+  await expectFixtureData(page)
+  await page.route(/CommissionSearchIsland\.astro\?astro&type=script/, async (route) => {
+    await islandHeld
+    await route.continue()
+  })
+  await page.goto('/', { waitUntil: 'commit' })
+
+  const chip = page.locator('#search-keyword-list [data-keyword]').first()
+  const keyword = await chip.getAttribute('data-keyword')
+  await chip.click()
+  releaseIsland()
+
+  await expect(page).toHaveURL(/[?&]q=/)
+  await expect(page.locator('#commission-search-input')).toHaveValue(new RegExp(keyword!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')))
+})

@@ -102,4 +102,13 @@ describe('mountCommissionSearchIsland', () => {
 
     expect(initSearchController).not.toHaveBeenCalled()
   })
+  it('adopts a chip tap the inline script caught before the island mounted', async () => {
+    const root = document.getElementById('commission-search')!
+    root.innerHTML = '<ul id="search-keyword-list" data-pending-keyword="alpha"><li><button type="button" data-keyword="alpha">alpha</button></li></ul>'
+    mountCommissionSearchIsland()
+
+    expect(requestIdleCallback).not.toHaveBeenCalled()
+    expect(root.querySelector<HTMLElement>('#search-keyword-list')!.dataset.pendingKeyword).toBeUndefined()
+    await vi.waitFor(() => expect(initSearchController).toHaveBeenCalledWith(root, { pendingKeyword: 'alpha' }))
+  })
 })

@@ -15,7 +15,9 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
   `computeFeaturedKeywordChips` (`commissionSearchIndex.ts`), the same function the controller runs, so hydration
   seeds its last-rendered key from the chips' `data-keyword` and keeps the nodes; chip clicks are delegated on
   `#search-keyword-list`. A chip tapped before the controller chunk loads is queued by `commissionSearchIsland.ts`,
-  which loads the controller at once and passes it `pendingKeyword` (still `from: 'row'`). Only the entry-pool
+  which loads the controller at once and passes it `pendingKeyword` (still `from: 'row'`). The chips paint before
+  `astro:page-load` mounts the island, so an inline script after the list stores an earlier tap in
+  `data-pending-keyword`, which the mount adopts instead of scheduling idle. Only the entry-pool
   fallback is client-rendered, and only then does the row stay `invisible` until filled. The browse popover is server-rendered from
   `buildKeywordBrowseGroups` (`@lib/home/keywordBrowseGroups`): characters in sidebar order (active, then archived),
   each with its keywords (aliases collapsed). A keyword naming another listed character (or its

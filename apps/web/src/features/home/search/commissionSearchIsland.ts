@@ -53,7 +53,17 @@ export function mountCommissionSearchIsland(): () => void {
   }
 
   keywordList?.addEventListener('click', onEarlyChipClick)
-  cancelIdle = scheduleIdle(loadController)
+  // A tap that landed before this mount (the chips paint while the document is still parsing) was stored on the list
+  // by the inline script in CommissionSearchIsland.astro.
+  const caughtKeyword = keywordList?.dataset.pendingKeyword
+  if (caughtKeyword) {
+    delete keywordList.dataset.pendingKeyword
+    pendingKeyword = caughtKeyword
+    loadController()
+  }
+  else {
+    cancelIdle = scheduleIdle(loadController)
+  }
 
   return () => {
     disposed = true

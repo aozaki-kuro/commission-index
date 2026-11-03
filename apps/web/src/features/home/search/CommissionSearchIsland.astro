@@ -353,6 +353,17 @@ const browseTermClass = `
         </li>
       ))}
     </ul>
+    {/* The chips paint before `astro:page-load` mounts the island; keep a tap from that window for the mount to replay.
+        Writes after the mount are never read: the island reads this once and a soft navigation swaps the list. */}
+    <script is:inline>
+document.getElementById('search-keyword-list')?.addEventListener('click', (event) => {
+  const chip = event.target instanceof Element
+    ? event.target.closest('[data-keyword]')
+    : null
+  if (chip)
+    event.currentTarget.dataset.pendingKeyword = chip.dataset.keyword
+})
+</script>
     <div class="flex shrink-0 gap-1.5">
       {/* Opens the full character/keyword list; the row above only shows the featured few */}
       {keywordBrowseSections.length > 0 && (
