@@ -226,6 +226,9 @@ the shared class.
 - [ ] **Step 2:** Show the owner the three strips plus a live toggle in the browser pane; recommend B (keeps a sense of
       arrival, collapses four staged arrivals into one ≤200 ms beat). Record the owner's pick and the date.
 
+**Result (2026-11-03):** B. The owner could not view the preview and delegated the pick to the advisor: the stagger was
+the perceived stutter, and B keeps a short arrival. Cost if wrong: one CSS timing revert.
+
 ### Task 5: Ship the picked hero fade (fill in after Task 4)
 
 **Files:**

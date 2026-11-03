@@ -44,8 +44,9 @@ const sidebarNavLinkClass
     md:top-52 md:right-[calc(50%+22rem)] md:bottom-0 md:w-full
     md:max-w-[calc(10rem+var(--sidebar-lead-offset))]
     lg:fixed lg:z-20 lg:block
+    animate-hero-reveal
   "
-  style={`${sidebarLeadOffsetStyle} animation: reveal-up 500ms cubic-bezier(0.22, 1, 0.36, 1) backwards;`}
+  style={sidebarLeadOffsetStyle}
 >
   <div class="sticky top-4 space-y-2">
     <div class="space-y-4 pb-2">
@@ -174,8 +175,9 @@ const sidebarNavLinkClass
     md:top-52 md:left-[calc(50%+22rem)] md:bottom-0 md:w-full
     md:max-w-[calc(12.5rem+var(--sidebar-lead-offset))]
     lg:fixed lg:z-20 lg:block
+    animate-hero-reveal
   "
-  style={`${sidebarLeadOffsetStyle} animation: reveal-up 500ms cubic-bezier(0.22, 1, 0.36, 1) 120ms backwards;`}
+  style={sidebarLeadOffsetStyle}
 >
   <div class="sticky top-4 space-y-2 pl-12">
     <nav>

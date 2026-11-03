@@ -21,7 +21,7 @@ const introductionTitleId = getCharacterTitleId(introductionTitle)
 const introductionSectionHash = getCharacterSectionHash(introductionTitle)
 ---
 
-<div id="--------Description--------" class="animate-reveal-up">
+<div id="--------Description--------" class="animate-hero-reveal">
   <h1 class="
     pb-0
     md:pb-2
@@ -68,8 +68,7 @@ const introductionSectionHash = getCharacterSectionHash(introductionTitle)
     <a href="mailto:contact@crystallize.cc">{messages.description.emailLinkLabel}</a>
     {messages.description.contactTextAfterEmail}
   </p>
-  {/* Inline longhand: the utility's `animation` shorthand would reset a class-based delay. */}
-  <div class="animate-reveal-up" style="animation-delay: 200ms">
+  <div>
     <Update
       locale={resolvedLocale}
       commissionData={commissionData}
