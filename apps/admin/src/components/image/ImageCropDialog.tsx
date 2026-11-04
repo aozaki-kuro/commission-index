@@ -1,3 +1,4 @@
+import type { CropEditorState } from '../../lib/imageCrop'
 import type { ImageCropSnapshot, ImageCropWorkspaceHandle } from './ImageCropWorkspace'
 import {
   IconAlertTriangle,
@@ -26,12 +27,14 @@ import { ImageCropWorkspace } from './ImageCropWorkspace'
 
 interface ImageCropDialogProps {
   file: File
+  initialEditorState?: CropEditorState
   onCancel: () => void
-  onConfirm: (file: File) => void
+  onConfirm: (file: File, editorState: CropEditorState | null) => void
 }
 
 export function ImageCropDialog({
   file,
+  initialEditorState,
   onCancel,
   onConfirm,
 }: ImageCropDialogProps) {
@@ -83,6 +86,7 @@ export function ImageCropDialog({
 
     setError(null)
     setIsProcessing(true)
+    const editorState = workspaceRef.current?.getEditorState() ?? null
 
     try {
       const output = await exportCroppedImage({
@@ -92,7 +96,7 @@ export function ImageCropDialog({
         mediaSize: snapshot.mediaSize,
         transform: snapshot.transform,
       })
-      closeWithAction(() => onConfirm(output))
+      closeWithAction(() => onConfirm(output, editorState))
     }
     catch (caughtError) {
       setError(caughtError instanceof Error
@@ -142,6 +146,7 @@ export function ImageCropDialog({
           <ImageCropWorkspace
             ref={workspaceRef}
             imageUrl={imageUrl}
+            initialState={initialEditorState}
             onChange={(nextSnapshot) => {
               setError(null)
               setSnapshot(nextSnapshot)

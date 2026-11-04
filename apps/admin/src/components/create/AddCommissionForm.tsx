@@ -3,6 +3,7 @@ import type {
   CharacterStatus,
 } from '@commission-index/domain'
 import type { ChangeEvent, DragEvent, ReactNode } from 'react'
+import type { CropEditorState } from '../../lib/imageCrop'
 import { IconCrop } from '@tabler/icons-react'
 import { useActionState, useEffect, useMemo, useRef, useState } from 'react'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
@@ -96,6 +97,8 @@ export function AddCommissionForm({
   const [pendingCropFile, setPendingCropFile] = useState<File | null>(null)
   // The original pick, kept so the crop can be redone without re-cropping the lossy 1280×525 output.
   const [sourceFile, setSourceFile] = useState<File | null>(null)
+  // The frame confirmed for sourceFile, so "Edit image" reopens where the last crop left off.
+  const [sourceCropState, setSourceCropState] = useState<CropEditorState | null>(null)
   const [isDropTarget, setIsDropTarget] = useState(false)
   // dragenter/dragleave fire for every child element; only the outermost pair toggles the highlight.
   const dragDepthRef = useRef(0)
@@ -229,7 +232,7 @@ export function AddCommissionForm({
     input.value = ''
   }
 
-  const handleCropConfirm = (output: File) => {
+  const handleCropConfirm = (output: File, editorState: CropEditorState | null) => {
     const input = sourceImageInputRef.current
     if (!input || !pendingCropFile) {
       return
@@ -251,6 +254,7 @@ export function AddCommissionForm({
     const isRecrop = pendingCropFile === sourceFile
     setCroppedImage(output)
     setSourceFile(pendingCropFile)
+    setSourceCropState(editorState)
     setPendingCropFile(null)
 
     if (isRecrop) {
@@ -294,6 +298,7 @@ export function AddCommissionForm({
         else {
           setCroppedImage(null)
           setSourceFile(null)
+          setSourceCropState(null)
           setHasTextDraft(false)
           setSavedDraft(controlledDraft)
         }
@@ -412,6 +417,9 @@ export function AddCommissionForm({
             <LazyImageCropDialog
               key={`${pendingCropFile.name}:${pendingCropFile.lastModified}`}
               file={pendingCropFile}
+              initialEditorState={pendingCropFile === sourceFile
+                ? sourceCropState ?? undefined
+                : undefined}
               onCancel={restoreCroppedImageSelection}
               onConfirm={handleCropConfirm}
             />

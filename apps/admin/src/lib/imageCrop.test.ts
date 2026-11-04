@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  captureCropEditorState,
   constrainCropSelectionChange,
   getMaximumCropSelectionWidth,
   isCropSelectionCovered,
   normalizeCropImageMatrix,
   resizeCropEditorState,
+  restoreCropEditorState,
   SOURCE_IMAGE_ASPECT,
   toCropTransform,
 } from './imageCrop'
@@ -200,6 +202,62 @@ describe('image crop geometry', () => {
       .toBeCloseTo(currentTransform.crop.x / selection.width, 10)
     expect(nextTransform.crop.y / resized.selection.height)
       .toBeCloseTo(currentTransform.crop.y / selection.height, 10)
+  })
+  it('restores a confirmed crop in a new session with a different layout origin and canvas', () => {
+    const selection = {
+      height: 210,
+      width: 512,
+      x: 194,
+      y: 135,
+    }
+    const angle = 37 * Math.PI / 180
+    const sourceImage = {
+      baseCenter: { x: 800, y: 450 },
+      matrix: [
+        Math.cos(angle) * 0.6,
+        Math.sin(angle) * 0.6,
+        -Math.sin(angle) * 0.6,
+        Math.cos(angle) * 0.6,
+        -360,
+        -220,
+      ] as [number, number, number, number, number, number],
+      size: { height: 900, width: 1600 },
+    }
+    const image = {
+      ...sourceImage,
+      matrix: normalizeCropImageMatrix(sourceImage, selection),
+    }
+    const canvasSize = { height: 480, width: 900 }
+    const state = captureCropEditorState({
+      canvasSize,
+      image,
+      preferredWidth: 600,
+      selection,
+    })
+    const confirmed = toCropTransform(image, selection)
+    // The next session's element sits at a different offset before any transform is applied.
+    const nextImage = {
+      ...sourceImage,
+      baseCenter: { x: 812, y: 401 },
+      matrix: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
+    }
+
+    const same = restoreCropEditorState(state, nextImage, canvasSize)
+    const sameTransform = toCropTransform(same.image, same.selection)
+    expect(same.selection).toEqual(selection)
+    expect(sameTransform.crop.x).toBeCloseTo(confirmed.crop.x, 10)
+    expect(sameTransform.crop.y).toBeCloseTo(confirmed.crop.y, 10)
+    expect(sameTransform.zoom).toBeCloseTo(confirmed.zoom, 10)
+    expect(same.preferredWidth).toBe(600)
+
+    const nextCanvasSize = { height: 300, width: 390 }
+    const resized = restoreCropEditorState(state, nextImage, nextCanvasSize)
+    const transform = toCropTransform(resized.image, resized.selection)
+    expectSelectionCovered(resized.selection, resized.image, nextCanvasSize)
+    expect(transform.rotation).toBeCloseTo(confirmed.rotation, 10)
+    expect(transform.zoom / resized.selection.width).toBeCloseTo(confirmed.zoom / selection.width, 10)
+    expect(transform.crop.x / resized.selection.width).toBeCloseTo(confirmed.crop.x / selection.width, 10)
+    expect(resized.preferredWidth).toBeCloseTo(600 * resized.scale, 10)
   })
 })
 
