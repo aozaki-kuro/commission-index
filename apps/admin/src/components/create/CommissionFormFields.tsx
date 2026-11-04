@@ -254,7 +254,7 @@ export function CommissionSourceImageField({
         `}
       />
       <p className={fieldDescriptionStyles}>
-        JPG or PNG. Crop to 1280×525 before uploading.
+        Choose or drop a JPG or PNG. Crop to 1280×525 before uploading.
       </p>
     </div>
   )
