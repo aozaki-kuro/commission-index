@@ -181,6 +181,8 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
   const initializedSizeRef = useRef({ height: 0, width: 0 })
   const applyingRef = useRef(false)
   const userEditedRef = useRef(false)
+  // Until <cropper-image> loads it has no size, so geometry read before $ready() is meaningless.
+  const imageReadyRef = useRef(false)
   const preferredWidthRef = useRef(Number.POSITIVE_INFINITY)
   const restoreStateRef = useRef(initialState ?? null)
   const onChangeRef = useRef(onChange)
@@ -342,7 +344,7 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
 
   const syncEditorSize = useCallback(() => {
     const elements = elementsRef.current
-    if (!elements)
+    if (!elements || !imageReadyRef.current)
       return
 
     const nextSize = getCanvasSize(elements.canvas)
@@ -439,8 +441,9 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
       handle.setAttribute('theme-color', 'var(--crop-frame)')
     })
 
+    // Cropper's own load-time fit runs before $ready(); let it through and replace it on init.
     const handleSelectionChange = (event: Event) => {
-      if (applyingRef.current)
+      if (applyingRef.current || !imageReadyRef.current)
         return
 
       userEditedRef.current = true
@@ -461,7 +464,7 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
     }
 
     const handleImageTransform = (event: Event) => {
-      if (applyingRef.current)
+      if (applyingRef.current || !imageReadyRef.current)
         return
 
       userEditedRef.current = true
@@ -522,11 +525,24 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
     })
     resizeObserver.observe(host)
 
+    let disposed = false
+    let readyFrame = 0
     image.$ready()
-      .then(() => window.requestAnimationFrame(syncEditorSize))
-      .catch(() => onErrorRef.current('The selected image could not be decoded.'))
+      .then(() => {
+        if (disposed)
+          return
+        imageReadyRef.current = true
+        readyFrame = window.requestAnimationFrame(syncEditorSize)
+      })
+      .catch(() => {
+        if (!disposed)
+          onErrorRef.current('The selected image could not be decoded.')
+      })
 
     return () => {
+      disposed = true
+      imageReadyRef.current = false
+      window.cancelAnimationFrame(readyFrame)
       window.cancelAnimationFrame(resizeFrame)
       resizeObserver.disconnect()
       selection.removeEventListener('change', handleSelectionChange)

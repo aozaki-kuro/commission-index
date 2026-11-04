@@ -40,7 +40,7 @@ async function confirmCrop(page: Page) {
   await expect(dialog).toBeHidden()
 }
 
-test('dropped artwork is cropped, attached and can be re-cropped before saving', async ({ page }) => {
+async function dropCropAndRecrop(page: Page) {
   await mockAdminApi(page)
   await page.goto('/create')
   await page.getByRole('heading', { name: 'Entry details' }).waitFor()
@@ -76,6 +76,8 @@ test('dropped artwork is cropped, attached and can be re-cropped before saving',
   await page.mouse.move(handle.x - 60, handle.y - 24, { steps: 6 })
   await page.mouse.up()
   await expect.poll(async () => (await frame.boundingBox())?.width ?? 0).toBeLessThan(fittedFrame.width)
+  const rotation = dialog.getByRole('status', { name: 'Image rotation' })
+  await expect(rotation).toHaveText('90°')
   const confirmedFrame = await frame.boundingBox()
   await confirmCrop(page)
 
@@ -92,7 +94,6 @@ test('dropped artwork is cropped, attached and can be re-cropped before saving',
 
   // The re-crop reopens on the confirmed frame; Reset returns to a fresh fit.
   await page.getByRole('button', { name: 'Edit image' }).click()
-  const rotation = dialog.getByRole('status', { name: 'Image rotation' })
   await expect(rotation).toHaveText('90°')
   const reopenedFrame = await frame.boundingBox()
   for (const key of ['x', 'y', 'width', 'height'] as const)
@@ -118,4 +119,31 @@ test('dropped artwork is cropped, attached and can be re-cropped before saving',
   await expect(page.getByText('Choose a valid JPG or PNG image.')).toBeVisible()
   await expect(dialog).toHaveCount(0)
   expect(await readAttachedImage(page)).toEqual(recropped)
+}
+
+// Hold <cropper-image> in a genuine loading state (incomplete, 0×0) past the first ResizeObserver frame,
+// the order slower CI runners hit; locally the blob usually decodes first.
+async function holdCropperImageLoad(page: Page) {
+  await page.route('**/__hold-image', () => new Promise(() => {}))
+  await page.addInitScript(() => {
+    const setAttribute = Element.prototype.setAttribute
+    Element.prototype.setAttribute = function (name: string, value: string) {
+      if (this instanceof HTMLImageElement && name === 'src' && value.startsWith('blob:') && !this.isConnected && !this.dataset.held) {
+        this.dataset.held = '1'
+        setAttribute.call(this, name, '/__hold-image')
+        setTimeout(() => setAttribute.call(this, name, value), 300)
+        return
+      }
+      setAttribute.call(this, name, value)
+    }
+  })
+}
+
+test('dropped artwork is cropped, attached and can be re-cropped before saving', async ({ page }) => {
+  await dropCropAndRecrop(page)
+})
+
+test('the cropper fits and restores frames only after the image has loaded', async ({ page }) => {
+  await holdCropperImageLoad(page)
+  await dropCropAndRecrop(page)
 })
