@@ -5,6 +5,7 @@ import type {
 } from 'cropperjs'
 import type { PointerEvent as ReactPointerEvent, Ref } from 'react'
 import type {
+  CropEditorState,
   CropImageGeometry,
   CropMatrix,
   CropMediaSize,
@@ -21,10 +22,12 @@ import {
   useState,
 } from 'react'
 import {
+  captureCropEditorState,
   constrainCropSelectionChange,
   getMaximumCropSelectionWidth,
   normalizeCropImageMatrix,
   resizeCropEditorState,
+  restoreCropEditorState,
   SOURCE_IMAGE_ASPECT,
   toCropTransform,
 } from '../../lib/imageCrop'
@@ -60,12 +63,15 @@ export interface ImageCropSnapshot {
 
 export interface ImageCropWorkspaceHandle {
   fitCrop: () => void
+  getEditorState: () => CropEditorState | null
   reset: () => void
   rotateBy: (degrees: number) => void
 }
 
 interface ImageCropWorkspaceProps {
   imageUrl: string
+  // A previously confirmed crop of the same image; replaces the opening fit until the first edit or Reset.
+  initialState?: CropEditorState
   onChange: (snapshot: ImageCropSnapshot) => void
   onError: (message: string) => void
   ref?: Ref<ImageCropWorkspaceHandle>
@@ -168,14 +174,17 @@ function rotateMatrixAround(
   ]
 }
 
-export function ImageCropWorkspace({ imageUrl, onChange, onError, ref }: ImageCropWorkspaceProps) {
+export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, ref }: ImageCropWorkspaceProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const editorHostRef = useRef<HTMLDivElement>(null)
   const elementsRef = useRef<CropperElements | null>(null)
   const initializedSizeRef = useRef({ height: 0, width: 0 })
   const applyingRef = useRef(false)
   const userEditedRef = useRef(false)
+  // Until <cropper-image> loads it has no size, so geometry read before $ready() is meaningless.
+  const imageReadyRef = useRef(false)
   const preferredWidthRef = useRef(Number.POSITIVE_INFINITY)
+  const restoreStateRef = useRef(initialState ?? null)
   const onChangeRef = useRef(onChange)
   const onErrorRef = useRef(onError)
   const rotateGestureRef = useRef<{
@@ -309,6 +318,15 @@ export function ImageCropWorkspace({ imageUrl, onChange, onError, ref }: ImageCr
     elements.image.$resetTransform().$center('contain')
     applyingRef.current = false
     const canvasSize = getCanvasSize(elements.canvas)
+    const restoreState = restoreStateRef.current
+    if (restoreState) {
+      const restored = restoreCropEditorState(restoreState, getImageGeometry(elements.image), canvasSize)
+      preferredWidthRef.current = restored.preferredWidth
+      initializedSizeRef.current = canvasSize
+      applyEditorState(restored.selection, restored.image.matrix)
+      userEditedRef.current = false
+      return
+    }
     const width = Math.min(canvasSize.width * 0.86, canvasSize.height * 0.66 * SOURCE_IMAGE_ASPECT)
     const selection = {
       height: width / SOURCE_IMAGE_ASPECT,
@@ -326,7 +344,7 @@ export function ImageCropWorkspace({ imageUrl, onChange, onError, ref }: ImageCr
 
   const syncEditorSize = useCallback(() => {
     const elements = elementsRef.current
-    if (!elements)
+    if (!elements || !imageReadyRef.current)
       return
 
     const nextSize = getCanvasSize(elements.canvas)
@@ -368,7 +386,21 @@ export function ImageCropWorkspace({ imageUrl, onChange, onError, ref }: ImageCr
       preferredWidthRef.current = Number.POSITIVE_INFINITY
       fitCrop()
     },
-    reset: initializeEditor,
+    getEditorState: () => {
+      const elements = elementsRef.current
+      if (!elements)
+        return null
+      return captureCropEditorState({
+        canvasSize: getCanvasSize(elements.canvas),
+        image: getImageGeometry(elements.image),
+        preferredWidth: preferredWidthRef.current,
+        selection: getSelection(elements.selection),
+      })
+    },
+    reset: () => {
+      restoreStateRef.current = null
+      initializeEditor()
+    },
     rotateBy,
   }), [fitCrop, initializeEditor, rotateBy])
 
@@ -409,8 +441,9 @@ export function ImageCropWorkspace({ imageUrl, onChange, onError, ref }: ImageCr
       handle.setAttribute('theme-color', 'var(--crop-frame)')
     })
 
+    // Cropper's own load-time fit runs before $ready(); let it through and replace it on init.
     const handleSelectionChange = (event: Event) => {
-      if (applyingRef.current)
+      if (applyingRef.current || !imageReadyRef.current)
         return
 
       userEditedRef.current = true
@@ -431,7 +464,7 @@ export function ImageCropWorkspace({ imageUrl, onChange, onError, ref }: ImageCr
     }
 
     const handleImageTransform = (event: Event) => {
-      if (applyingRef.current)
+      if (applyingRef.current || !imageReadyRef.current)
         return
 
       userEditedRef.current = true
@@ -492,11 +525,24 @@ export function ImageCropWorkspace({ imageUrl, onChange, onError, ref }: ImageCr
     })
     resizeObserver.observe(host)
 
+    let disposed = false
+    let readyFrame = 0
     image.$ready()
-      .then(() => window.requestAnimationFrame(syncEditorSize))
-      .catch(() => onErrorRef.current('The selected image could not be decoded.'))
+      .then(() => {
+        if (disposed)
+          return
+        imageReadyRef.current = true
+        readyFrame = window.requestAnimationFrame(syncEditorSize)
+      })
+      .catch(() => {
+        if (!disposed)
+          onErrorRef.current('The selected image could not be decoded.')
+      })
 
     return () => {
+      disposed = true
+      imageReadyRef.current = false
+      window.cancelAnimationFrame(readyFrame)
       window.cancelAnimationFrame(resizeFrame)
       resizeObserver.disconnect()
       selection.removeEventListener('change', handleSelectionChange)

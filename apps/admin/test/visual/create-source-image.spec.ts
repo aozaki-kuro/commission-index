@@ -40,7 +40,7 @@ async function confirmCrop(page: Page) {
   await expect(dialog).toBeHidden()
 }
 
-test('dropped artwork is cropped, attached and can be re-cropped before saving', async ({ page }) => {
+async function dropCropAndRecrop(page: Page) {
   await mockAdminApi(page)
   await page.goto('/create')
   await page.getByRole('heading', { name: 'Entry details' }).waitFor()
@@ -66,6 +66,19 @@ test('dropped artwork is cropped, attached and can be re-cropped before saving',
   const dialog = page.getByRole('dialog', { name: 'Crop source image' })
   await expect(dialog.getByRole('button', { name: 'Use image' })).toBeEnabled()
   await dialog.getByRole('button', { name: 'Rotate image right 90 degrees' }).click()
+  const frame = dialog.locator('cropper-selection')
+  const fittedFrame = await frame.boundingBox()
+  const handle = await dialog.locator('cropper-handle[action="se-resize"]').boundingBox()
+  if (!fittedFrame || !handle)
+    throw new Error('Crop frame resize controls did not render')
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(handle.x - 60, handle.y - 24, { steps: 6 })
+  await page.mouse.up()
+  await expect.poll(async () => (await frame.boundingBox())?.width ?? 0).toBeLessThan(fittedFrame.width)
+  const rotation = dialog.getByRole('status', { name: 'Image rotation' })
+  await expect(rotation).toHaveText('90°')
+  const confirmedFrame = await frame.boundingBox()
   await confirmCrop(page)
 
   const recropped = await readAttachedImage(page)
@@ -79,8 +92,20 @@ test('dropped artwork is cropped, attached and can be re-cropped before saving',
   await expect(dateInput).toHaveValue('2024-01-01')
   await expect(page.getByText('Image updated (1280×525 JPG).')).toBeVisible()
 
-  // Cancelling a re-crop keeps the confirmed image.
+  // The re-crop reopens on the confirmed frame; Reset returns to a fresh fit.
   await page.getByRole('button', { name: 'Edit image' }).click()
+  await expect(rotation).toHaveText('90°')
+  const reopenedFrame = await frame.boundingBox()
+  for (const key of ['x', 'y', 'width', 'height'] as const)
+    expect(Math.abs((reopenedFrame?.[key] ?? 0) - (confirmedFrame?.[key] ?? 0))).toBeLessThan(1)
+  await dialog.getByRole('button', { name: 'Reset' }).click()
+  await expect(rotation).toHaveText('0°')
+
+  // Cancelling a re-crop keeps the confirmed image, and its frame for the next re-crop.
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(dialog).toBeHidden()
+  await page.getByRole('button', { name: 'Edit image' }).click()
+  await expect(rotation).toHaveText('90°')
   await dialog.getByRole('button', { name: 'Cancel' }).click()
   await expect(dialog).toBeHidden()
   expect(await readAttachedImage(page)).toEqual(recropped)
@@ -94,4 +119,31 @@ test('dropped artwork is cropped, attached and can be re-cropped before saving',
   await expect(page.getByText('Choose a valid JPG or PNG image.')).toBeVisible()
   await expect(dialog).toHaveCount(0)
   expect(await readAttachedImage(page)).toEqual(recropped)
+}
+
+// Hold <cropper-image> in a genuine loading state (incomplete, 0×0) past the first ResizeObserver frame,
+// the order slower CI runners hit; locally the blob usually decodes first.
+async function holdCropperImageLoad(page: Page) {
+  await page.route('**/__hold-image', () => new Promise(() => {}))
+  await page.addInitScript(() => {
+    const setAttribute = Element.prototype.setAttribute
+    Element.prototype.setAttribute = function (name: string, value: string) {
+      if (this instanceof HTMLImageElement && name === 'src' && value.startsWith('blob:') && !this.isConnected && !this.dataset.held) {
+        this.dataset.held = '1'
+        setAttribute.call(this, name, '/__hold-image')
+        setTimeout(() => setAttribute.call(this, name, value), 300)
+        return
+      }
+      setAttribute.call(this, name, value)
+    }
+  })
+}
+
+test('dropped artwork is cropped, attached and can be re-cropped before saving', async ({ page }) => {
+  await dropCropAndRecrop(page)
+})
+
+test('the cropper fits and restores frames only after the image has loaded', async ({ page }) => {
+  await holdCropperImageLoad(page)
+  await dropCropAndRecrop(page)
 })

@@ -304,6 +304,65 @@ export function resizeCropEditorState({
   }
 }
 
+// A confirmed crop, stored independently of the image element's layout origin so it can be
+// re-applied in a later editor session whose canvas (and element offset) may differ.
+export interface CropEditorState {
+  canvasSize: CropSize
+  imageCenter: CropPoint
+  linear: [number, number, number, number]
+  preferredWidth: number
+  selection: CropSelection
+}
+
+export function captureCropEditorState({
+  canvasSize,
+  image,
+  preferredWidth,
+  selection,
+}: {
+  canvasSize: CropSize
+  image: CropImageGeometry
+  preferredWidth: number
+  selection: CropSelection
+}): CropEditorState {
+  const [a, b, c, d] = image.matrix
+  return {
+    canvasSize,
+    imageCenter: getMatrixTransform(image).center,
+    linear: [a, b, c, d],
+    preferredWidth,
+    selection,
+  }
+}
+
+export function restoreCropEditorState(
+  state: CropEditorState,
+  image: CropImageGeometry,
+  canvasSize: CropSize,
+) {
+  const [a, b, c, d] = state.linear
+  const restored = resizeCropEditorState({
+    currentCanvasSize: state.canvasSize,
+    image: {
+      ...image,
+      matrix: [
+        a,
+        b,
+        c,
+        d,
+        state.imageCenter.x - image.baseCenter.x,
+        state.imageCenter.y - image.baseCenter.y,
+      ],
+    },
+    nextCanvasSize: canvasSize,
+    selection: state.selection,
+  })
+  return {
+    ...restored,
+    preferredWidth: state.preferredWidth * restored.scale,
+  }
+}
+
 export function getCropUpscaleFactor(
   mediaSize: CropMediaSize,
   cropSize: CropSize,
