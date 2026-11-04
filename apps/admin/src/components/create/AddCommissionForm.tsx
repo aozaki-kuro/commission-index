@@ -2,7 +2,8 @@ import type {
   AdminCommissionSearchRow,
   CharacterStatus,
 } from '@commission-index/domain'
-import type { ChangeEvent } from 'react'
+import type { ChangeEvent, DragEvent, ReactNode } from 'react'
+import { IconCrop } from '@tabler/icons-react'
 import { useActionState, useEffect, useMemo, useRef, useState } from 'react'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { addCommissionAction } from '../../lib/adminActions'
@@ -40,7 +41,11 @@ type SourceImageHintTone = 'default' | 'success' | 'error'
 const UNCONTROLLED_DRAFT_FIELDS = ['links', 'design', 'description']
 const EMPTY_DRAFT = JSON.stringify([null, false, '', '', '', '', ''])
 
-function SourceImagePreview({ file }: { file: File | null }) {
+function hasDraggedFiles(event: DragEvent) {
+  return event.dataTransfer.types.includes('Files')
+}
+
+function SourceImagePreview({ file, isDropTarget, children }: { file: File | null, isDropTarget: boolean, children?: ReactNode }) {
   const imageRef = useRef<HTMLImageElement>(null)
   useEffect(() => {
     if (!file || !imageRef.current)
@@ -51,10 +56,22 @@ function SourceImagePreview({ file }: { file: File | null }) {
   }, [file])
 
   return (
-    <div className="flex aspect-1280/525 items-center justify-center overflow-hidden rounded-md bg-gray-100 dark:bg-gray-800">
+    <div
+      className={`
+        relative flex aspect-1280/525 items-center justify-center overflow-hidden rounded-md
+        ${isDropTarget
+      ? 'bg-gray-200 outline-2 -outline-offset-2 outline-gray-400 outline-dashed dark:bg-gray-700 dark:outline-gray-500'
+      : 'bg-gray-100 dark:bg-gray-800'}
+      `}
+    >
       {file
         ? <img ref={imageRef} alt="Cropped artwork ready to upload" className="size-full object-contain" />
-        : <span className="text-xs text-gray-500 dark:text-gray-400">Artwork preview · 1280 × 525</span>}
+        : (
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {isDropTarget ? 'Drop to crop' : 'Drop artwork here · 1280 × 525'}
+            </span>
+          )}
+      {children}
     </div>
   )
 }
@@ -77,6 +94,11 @@ export function AddCommissionForm({
   const [sourceImageHintTone, setSourceImageHintTone] = useState<SourceImageHintTone>('default')
   const [croppedImage, setCroppedImage] = useState<File | null>(null)
   const [pendingCropFile, setPendingCropFile] = useState<File | null>(null)
+  // The original pick, kept so the crop can be redone without re-cropping the lossy 1280×525 output.
+  const [sourceFile, setSourceFile] = useState<File | null>(null)
+  const [isDropTarget, setIsDropTarget] = useState(false)
+  // dragenter/dragleave fire for every child element; only the outermost pair toggles the highlight.
+  const dragDepthRef = useRef(0)
   const sourceImageInputRef = useRef<HTMLInputElement | null>(null)
   const [hasTextDraft, setHasTextDraft] = useState(false)
   const [savedDraft, setSavedDraft] = useState(EMPTY_DRAFT)
@@ -128,6 +150,11 @@ export function AddCommissionForm({
     ],
   )
 
+  const rejectUnsupportedSourceImage = () => {
+    setSourceImageHint('Choose a valid JPG or PNG image.')
+    setSourceImageHintTone('error')
+  }
+
   const handleSourceImageChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) {
@@ -139,11 +166,51 @@ export function AddCommissionForm({
         setFileInputValue(event.currentTarget, croppedImage)
       else
         event.currentTarget.value = ''
-      setSourceImageHint('Choose a valid JPG or PNG image.')
-      setSourceImageHintTone('error')
+      rejectUnsupportedSourceImage()
       return
     }
 
+    setPendingCropFile(file)
+  }
+
+  const handleArtworkDragEnter = (event: DragEvent<HTMLElement>) => {
+    if (!hasDraggedFiles(event))
+      return
+    event.preventDefault()
+    dragDepthRef.current += 1
+    setIsDropTarget(true)
+  }
+
+  const handleArtworkDragOver = (event: DragEvent<HTMLElement>) => {
+    if (!hasDraggedFiles(event))
+      return
+    // Without preventDefault the browser navigates to the dropped file and drops the draft.
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'copy'
+  }
+
+  const handleArtworkDragLeave = (event: DragEvent<HTMLElement>) => {
+    if (!hasDraggedFiles(event))
+      return
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
+    if (dragDepthRef.current === 0)
+      setIsDropTarget(false)
+  }
+
+  // A drop bypasses the file input: the input only ever holds the confirmed crop output.
+  const handleArtworkDrop = (event: DragEvent<HTMLElement>) => {
+    if (!hasDraggedFiles(event))
+      return
+    event.preventDefault()
+    dragDepthRef.current = 0
+    setIsDropTarget(false)
+    const file = event.dataTransfer.files[0]
+    if (!file || pendingCropFile)
+      return
+    if (!isSupportedSourceImage(file)) {
+      rejectUnsupportedSourceImage()
+      return
+    }
     setPendingCropFile(file)
   }
 
@@ -180,8 +247,17 @@ export function AddCommissionForm({
     }
 
     const originalFileName = pendingCropFile.name
+    // Re-cropping the retained source must not overwrite details typed since the first crop.
+    const isRecrop = pendingCropFile === sourceFile
     setCroppedImage(output)
+    setSourceFile(pendingCropFile)
     setPendingCropFile(null)
+
+    if (isRecrop) {
+      setSourceImageHint('Image updated (1280×525 JPG).')
+      setSourceImageHintTone('success')
+      return
+    }
 
     const detectedDetails = extractCommissionDetails(originalFileName)
     if (detectedDetails) {
@@ -217,6 +293,7 @@ export function AddCommissionForm({
         }
         else {
           setCroppedImage(null)
+          setSourceFile(null)
           setHasTextDraft(false)
           setSavedDraft(controlledDraft)
         }
@@ -226,8 +303,38 @@ export function AddCommissionForm({
         border-gray-200 p-4 sm:p-6 dark:border-gray-800
       "
     >
-      <section aria-label="Artwork" className="grid min-w-0 items-center gap-5 border-b border-gray-200 pb-6 @min-[40rem]/workspace:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] dark:border-gray-800">
-        <SourceImagePreview file={croppedImage} />
+      <section
+        aria-label="Artwork"
+        onDragEnter={handleArtworkDragEnter}
+        onDragOver={handleArtworkDragOver}
+        onDragLeave={handleArtworkDragLeave}
+        onDrop={handleArtworkDrop}
+        className="grid min-w-0 items-center gap-5 border-b border-gray-200 pb-6 @min-[40rem]/workspace:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] dark:border-gray-800"
+      >
+        <SourceImagePreview file={croppedImage} isDropTarget={isDropTarget}>
+          {croppedImage && sourceFile
+            ? (
+                <button
+                  type="button"
+                  onClick={() => setPendingCropFile(sourceFile)}
+                  disabled={pendingCropFile !== null}
+                  aria-label="Edit image"
+                  title="Edit image"
+                  className="
+                    absolute right-3 bottom-3 inline-flex size-11 items-center
+                    justify-center rounded-full border border-white/20 bg-black/55
+                    text-white transition
+                    hover:bg-black/70
+                    focus-visible:outline-2 focus-visible:outline-offset-2
+                    focus-visible:outline-white
+                    disabled:cursor-not-allowed disabled:opacity-50
+                  "
+                >
+                  <IconCrop className="size-4" stroke={1.8} aria-hidden="true" />
+                </button>
+              )
+            : null}
+        </SourceImagePreview>
         <div className="min-w-0">
           <CommissionSourceImageField
             required
