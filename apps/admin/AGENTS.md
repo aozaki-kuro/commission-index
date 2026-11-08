@@ -43,6 +43,10 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 - Create and edit forms register a `beforeunload` prompt (`useUnsavedChangesGuard`) only while dirty. Dirty is measured against the last saved values, not the initial ones: create's controlled fields survive a successful reset, and its uncontrolled links/design/description are read from the form on `input`. No in-app route blocker.
 - Create form auto-reset applies only on business success; failures keep file and field drafts, and an invalid file never replaces a previously confirmed image.
 - Create's Artwork section is also a drop target: a dropped file goes straight to `pendingCropFile`, never into the file input; the input receives only the confirmed crop output. Create keeps the original pick (`sourceFile`) until a successful reset so "Edit image" re-crops from it, not from the lossy 1280×525 output; filename detail suggestion runs only when a new source is confirmed, never on a re-crop, so it cannot overwrite details typed since. The re-crop reopens on the confirmed frame (`sourceCropState`); a cancelled re-crop keeps it.
+- Filename suggestion (`src/lib/commissionFileDetails.ts`) accepts `YYYYMMDD_<creator>[ (part N)]` and
+  `<character>_<keyword>_<creator>_YYYYMMDD[_NN]`; the trailing `_NN` is a per-day sequence, never a part number. The
+  character token resolves against loaded characters by full name or unique last word (`K` → `Studio K`); an
+  ambiguous token selects nothing. Character and keyword fill only empty fields.
 - New character uses a secondary Dialog with the commission form kept mounted. After saving, refresh bootstrap explicitly: `notifyDataUpdate` ignores the current tab. The create API returns no new ID, so do not guess-select the character by name.
 
 ## Layout Stability

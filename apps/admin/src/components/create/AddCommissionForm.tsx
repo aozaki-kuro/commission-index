@@ -8,7 +8,7 @@ import { IconCrop } from '@tabler/icons-react'
 import { useActionState, useEffect, useMemo, useRef, useState } from 'react'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { addCommissionAction } from '../../lib/adminActions'
-import { extractCommissionDetails } from '../../lib/commissionFileDetails'
+import { extractCommissionDetails, resolveCharacterToken } from '../../lib/commissionFileDetails'
 import { notifyDataUpdate } from '../../lib/dataUpdateSignal'
 import { findDuplicateCommissionHints } from '../../lib/duplicateCommissionHints'
 import { INITIAL_FORM_STATE } from '../../lib/formState'
@@ -267,6 +267,16 @@ export function AddCommissionForm({
     if (detectedDetails) {
       setCommissionDate(detectedDetails.commissionDate)
       setCreatorName(detectedDetails.creatorName)
+      const detectedCharacter = detectedDetails.characterToken
+        ? resolveCharacterToken(detectedDetails.characterToken, options)
+        : null
+      if (detectedCharacter)
+        setCharacterId(current => current ?? detectedCharacter.id)
+      if (detectedDetails.keyword) {
+        setKeywordValue(current => current.trim()
+          ? current
+          : detectedDetails.keyword!)
+      }
       if (!workGroupId) {
         setPartNumber(current => current || detectedDetails.partNumber?.toString() || '')
       }
