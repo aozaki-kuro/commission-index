@@ -2,6 +2,8 @@ import type { CropEditorState } from '../../lib/imageCrop'
 import type { ImageCropSnapshot, ImageCropWorkspaceHandle } from './ImageCropWorkspace'
 import {
   IconAlertTriangle,
+  IconArrowsHorizontal,
+  IconBucketDroplet,
   IconCrop,
   IconRefresh,
   IconRotate2,
@@ -10,8 +12,11 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { buttonStyles } from '../../app/ui'
 import {
+  DEFAULT_CROP_FILL_COLOR,
   exportCroppedImage,
+  getCropOverflowAxis,
   getCropUpscaleFactor,
+  sampleOverflowFillColor,
   SOURCE_IMAGE_HEIGHT,
   SOURCE_IMAGE_JPEG_QUALITY,
   SOURCE_IMAGE_WIDTH,
@@ -46,6 +51,14 @@ export function ImageCropDialog({
   const [imageUrl] = useState(() => URL.createObjectURL(file))
   const [isProcessing, setIsProcessing] = useState(false)
   const [snapshot, setSnapshot] = useState<ImageCropSnapshot | null>(null)
+  const [allowOverflow, setAllowOverflow] = useState(initialEditorState?.allowOverflow ?? false)
+  const [matchedFill, setMatchedFill] = useState(initialEditorState?.fillColor ?? DEFAULT_CROP_FILL_COLOR)
+  const [isSamplingFill, setIsSamplingFill] = useState(false)
+  // Without overflow the frame never shows empty area, so only transparent pixels see the fill: keep them white.
+  const fillColor = allowOverflow
+    ? matchedFill
+    : DEFAULT_CROP_FILL_COLOR
+  const isFillMatched = fillColor !== DEFAULT_CROP_FILL_COLOR
 
   useEffect(() => {
     if (revokeTimerRef.current !== null) {
@@ -92,6 +105,7 @@ export function ImageCropDialog({
       const output = await exportCroppedImage({
         cropSize: snapshot.cropSize,
         fileName: file.name,
+        fillColor,
         imageUrl,
         mediaSize: snapshot.mediaSize,
         transform: snapshot.transform,
@@ -105,6 +119,30 @@ export function ImageCropDialog({
     }
     finally {
       setIsProcessing(false)
+    }
+  }
+
+  const toggleMatchedFill = async () => {
+    if (!snapshot)
+      return
+    if (isFillMatched) {
+      setMatchedFill(DEFAULT_CROP_FILL_COLOR)
+      return
+    }
+
+    setIsSamplingFill(true)
+    try {
+      const { mediaSize, rotation } = snapshot
+      const axis = getCropOverflowAxis({ height: mediaSize.height, width: mediaSize.width }, rotation * Math.PI / 180)
+      setMatchedFill(await sampleOverflowFillColor(imageUrl, axis))
+    }
+    catch (caughtError) {
+      setError(caughtError instanceof Error
+        ? caughtError.message
+        : 'Unable to sample the image background.')
+    }
+    finally {
+      setIsSamplingFill(false)
     }
   }
 
@@ -145,6 +183,8 @@ export function ImageCropDialog({
         <div className="relative min-h-0 flex-1 overflow-hidden bg-[var(--crop-workspace)]">
           <ImageCropWorkspace
             ref={workspaceRef}
+            allowOverflow={allowOverflow}
+            fillColor={fillColor}
             imageUrl={imageUrl}
             initialState={initialEditorState}
             onChange={(nextSnapshot) => {
@@ -196,16 +236,56 @@ export function ImageCropDialog({
               type="button"
               onClick={() => workspaceRef.current?.reset()}
               disabled={!snapshot || isProcessing}
+              aria-label="Reset"
+              title="Reset crop"
               className={buttonStyles.ghost}
             >
               <IconRefresh className="size-4" stroke={1.8} aria-hidden="true" />
-              Reset
+              {/* Icon-only on narrow screens so the toolbar keeps two rows at 200% text. */}
+              <span className="hidden sm:inline">Reset</span>
             </button>
+
+            <button
+              type="button"
+              aria-pressed={allowOverflow}
+              onClick={() => setAllowOverflow(current => !current)}
+              disabled={!snapshot || isProcessing}
+              aria-label="Extend frame past image"
+              title="Let the frame extend past the image"
+              className={buttonStyles.ghostToggle}
+            >
+              <IconArrowsHorizontal className="size-4" stroke={1.8} aria-hidden="true" />
+              <span className="hidden sm:inline">Extend</span>
+            </button>
+            {allowOverflow
+              ? (
+                  <button
+                    type="button"
+                    aria-pressed={isFillMatched}
+                    onClick={toggleMatchedFill}
+                    disabled={!snapshot || isProcessing || isSamplingFill}
+                    aria-label="Fill empty area with the image's edge colour"
+                    title="Fill the empty area with the colour along the image edges"
+                    className={buttonStyles.ghostToggle}
+                  >
+                    {/* The swatch badges the icon instead of sitting beside it, so the narrow toolbar keeps its width. */}
+                    <span className="relative inline-flex">
+                      <IconBucketDroplet className="size-4" stroke={1.8} aria-hidden="true" />
+                      <span
+                        aria-hidden="true"
+                        className="absolute -right-1 -bottom-1 size-2 rounded-full border border-gray-400 dark:border-gray-500"
+                        style={{ backgroundColor: fillColor }}
+                      />
+                    </span>
+                    <span className="hidden sm:inline">Match edges</span>
+                  </button>
+                )
+              : null}
 
             <output
               aria-label="Image rotation"
               aria-live="polite"
-              className="ml-1 rounded-md bg-black/5 px-2 py-1 text-xs tabular-nums text-gray-500 dark:bg-white/8 dark:text-gray-400"
+              className="rounded-md bg-black/5 px-2 py-1 text-xs tabular-nums text-gray-500 dark:bg-white/8 dark:text-gray-400"
             >
               {`${Math.round(snapshot?.rotation ?? 0)}°`}
             </output>
@@ -242,7 +322,11 @@ export function ImageCropDialog({
                   )
                 : (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      The frame keeps its output ratio and never extends beyond the rotated image.
+                      {allowOverflow
+                        ? `The frame may pass the image edge; empty area exports ${isFillMatched
+                          ? 'in the edge colour'
+                          : 'white'}.`
+                        : 'The frame keeps its output ratio and never extends beyond the rotated image.'}
                     </p>
                   )}
           </div>

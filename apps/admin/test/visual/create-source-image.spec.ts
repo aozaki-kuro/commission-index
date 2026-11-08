@@ -147,3 +147,87 @@ test('the cropper fits and restores frames only after the image has loaded', asy
   await holdCropperImageLoad(page)
   await dropCropAndRecrop(page)
 })
+
+function readAttachedPixels(page: Page, points: Array<{ x: number, y: number }>) {
+  return page.getByLabel('Source image').evaluate(async (input: HTMLInputElement, points) => {
+    const file = input.files?.[0]
+    if (!file)
+      return []
+    const bitmap = await createImageBitmap(file)
+    const canvas = document.createElement('canvas')
+    canvas.width = bitmap.width
+    canvas.height = bitmap.height
+    const context = canvas.getContext('2d')!
+    context.drawImage(bitmap, 0, 0)
+    bitmap.close()
+    return points.map(({ x, y }) => Array.from(context.getImageData(x, y, 1, 1).data.slice(0, 3)))
+  }, points)
+}
+
+test('overflow mode lets the frame take the full image height and fills the sides', async ({ page }) => {
+  await mockAdminApi(page)
+  await page.goto('/create')
+  await page.getByRole('heading', { name: 'Entry details' }).waitFor()
+
+  // Same proportions as a 4093×2894 artwork, which is narrower than the 1280×525 frame.
+  const base64 = (await createTestSourceImage(page, { height: 1447, width: 2046 })).toString('base64')
+  await dropFile(page, { base64, name: 'wide.png', type: 'image/png' })
+  const dialog = page.getByRole('dialog', { name: 'Crop source image' })
+  await expect(dialog.getByRole('button', { name: 'Use image' })).toBeEnabled()
+  const frame = dialog.locator('cropper-selection')
+  const image = dialog.locator('cropper-image')
+  const overflow = dialog.getByRole('button', { name: 'Extend frame past image' })
+  const matchFill = dialog.getByRole('button', { name: 'Fill empty area with the image\'s edge colour' })
+
+  await dialog.getByRole('button', { name: 'Fit' }).click()
+  const containedFrame = await frame.boundingBox()
+  await expect(matchFill).toHaveCount(0)
+  await overflow.click()
+  await expect(overflow).toHaveAttribute('aria-pressed', 'true')
+  await dialog.getByRole('button', { name: 'Fit' }).click()
+  await expect.poll(async () => (await frame.boundingBox())?.width ?? 0).toBeGreaterThan(containedFrame!.width + 1)
+  const overflowFrame = (await frame.boundingBox())!
+  const imageBox = (await image.boundingBox())!
+  expect(overflowFrame.width).toBeGreaterThan(imageBox.width)
+  // The kept axis still carries the 2px-of-1280 bleed on each side.
+  expect(Math.abs(overflowFrame.height - imageBox.height)).toBeLessThan(imageBox.height * 0.02)
+  expect(overflowFrame.y).toBeGreaterThanOrEqual(imageBox.y - 0.5)
+  await confirmCrop(page)
+
+  const [left, center, right] = await readAttachedPixels(page, [
+    { x: 4, y: 262 },
+    { x: 640, y: 262 },
+    { x: 1275, y: 262 },
+  ])
+  for (const side of [left, right]) {
+    for (const channel of side!)
+      expect(channel).toBeGreaterThan(245)
+  }
+  expect(center![0]).toBeLessThan(60)
+
+  // The re-crop reopens in overflow mode on the same frame; matching the edges fills the sides with their colour.
+  await page.getByRole('button', { name: 'Edit image' }).click()
+  await expect(overflow).toHaveAttribute('aria-pressed', 'true')
+  await expect.poll(async () => Math.round((await frame.boundingBox())?.width ?? 0)).toBe(Math.round(overflowFrame.width))
+  await matchFill.click()
+  await expect(matchFill).toHaveAttribute('aria-pressed', 'true')
+  await confirmCrop(page)
+  const [matchedLeft, matchedRight] = await readAttachedPixels(page, [
+    { x: 4, y: 262 },
+    { x: 1275, y: 262 },
+  ])
+  for (const side of [matchedLeft, matchedRight]) {
+    // createTestSourceImage paints its outer band #9d3757.
+    for (const [index, channel] of side!.entries())
+      expect(Math.abs(channel - [0x9D, 0x37, 0x57][index])).toBeLessThan(8)
+  }
+
+  // Both choices survive a re-crop; switching overflow off pulls the frame back inside the image.
+  await page.getByRole('button', { name: 'Edit image' }).click()
+  await expect(matchFill).toHaveAttribute('aria-pressed', 'true')
+  await overflow.click()
+  await expect(matchFill).toHaveCount(0)
+  await expect.poll(async () => (await frame.boundingBox())?.width ?? 0).toBeLessThanOrEqual(imageBox.width)
+  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await expect(dialog).toBeHidden()
+})

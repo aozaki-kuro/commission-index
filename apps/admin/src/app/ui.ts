@@ -22,6 +22,9 @@ export const buttonStyles = {
   secondary: `${buttonBase} border border-gray-300 px-4 font-medium text-gray-700 enabled:hover:bg-gray-100 enabled:hover:text-gray-900 dark:border-gray-700 dark:text-gray-200 dark:enabled:hover:bg-gray-800 dark:enabled:hover:text-gray-100`,
   danger: `${buttonBase} bg-red-600 px-4 font-semibold text-white enabled:hover:bg-red-700`,
   ghost: `${buttonBase} px-3 font-medium text-gray-700 enabled:hover:bg-gray-100 enabled:hover:text-gray-900 dark:text-gray-200 dark:enabled:hover:bg-gray-800 dark:enabled:hover:text-gray-100`,
+  // A ghost button that stays filled while aria-pressed is true. Narrower below sm, where it is icon-only and
+  // shares a toolbar row with the crop controls at 200% text.
+  ghostToggle: `${buttonBase} px-2.5 font-medium sm:px-3 text-gray-700 enabled:hover:bg-gray-100 enabled:hover:text-gray-900 aria-pressed:bg-gray-200 aria-pressed:text-gray-950 dark:text-gray-200 dark:enabled:hover:bg-gray-800 dark:enabled:hover:text-gray-100 dark:aria-pressed:bg-gray-700 dark:aria-pressed:text-white`,
   // No size here: pair with size-11, or size-9 pointer-coarse:size-11 inside dense popovers.
   icon: 'inline-flex shrink-0 items-center justify-center rounded-md text-gray-500 transition enabled:hover:bg-gray-100 enabled:hover:text-gray-900 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-400 dark:enabled:hover:bg-gray-800 dark:enabled:hover:text-gray-100',
 } as const

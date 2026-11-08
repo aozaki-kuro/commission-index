@@ -224,6 +224,12 @@ test('source image cropper keeps controls available on a narrow screen', async (
   await expect(page.getByRole('button', { name: 'Use image' })).toBeInViewport()
   await expect(page.getByRole('button', { name: 'Rotate image freely' })).toBeInViewport()
   await expect(page.getByRole('button', { name: 'Rotate image right 90 degrees' })).toBeInViewport()
+
+  // Overflow mode adds the edge-fill toggle; the toolbar must still leave room for the workspace.
+  await page.getByRole('button', { name: 'Extend frame past image' }).click()
+  await expect(page.getByRole('button', { name: 'Fill empty area with the image\'s edge colour' })).toBeInViewport()
+  await expect(page.getByRole('button', { name: 'Use image' })).toBeInViewport()
+  await expect(page.getByRole('button', { name: 'Rotate image freely' })).toBeInViewport()
 })
 
 test('source image cropper supports touch transform gestures', async ({ page }, testInfo) => {

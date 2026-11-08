@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   captureCropEditorState,
   constrainCropSelectionChange,
+  getCropOverflowAxis,
+  getEdgeMedianColor,
   getMaximumCropSelectionWidth,
   isCropSelectionCovered,
   normalizeCropImageMatrix,
@@ -9,6 +11,7 @@ import {
   restoreCropEditorState,
   SOURCE_IMAGE_ASPECT,
   toCropTransform,
+  zoomImageToFitOverflowFrame,
 } from './imageCrop'
 
 function createRandom(seed: number) {
@@ -229,7 +232,9 @@ describe('image crop geometry', () => {
     }
     const canvasSize = { height: 480, width: 900 }
     const state = captureCropEditorState({
+      allowOverflow: false,
       canvasSize,
+      fillColor: '#ffffff',
       image,
       preferredWidth: 600,
       selection,
@@ -258,6 +263,224 @@ describe('image crop geometry', () => {
     expect(transform.zoom / resized.selection.width).toBeCloseTo(confirmed.zoom / selection.width, 10)
     expect(transform.crop.x / resized.selection.width).toBeCloseTo(confirmed.crop.x / selection.width, 10)
     expect(resized.preferredWidth).toBeCloseTo(600 * resized.scale, 10)
+  })
+
+  describe('overflow mode', () => {
+    // A 4093×2894 artwork shown at 0.2 scale, centred in a wide canvas.
+    const canvasSize = { height: 700, width: 1800 }
+    const size = { height: 2894, width: 4093 }
+    const rotated = (degrees: number, scale = 0.2, offset = { x: 0, y: 0 }) => {
+      const angle = degrees * Math.PI / 180
+      return {
+        baseCenter: { x: 900, y: 350 },
+        matrix: [
+          Math.cos(angle) * scale,
+          Math.sin(angle) * scale,
+          -Math.sin(angle) * scale,
+          Math.cos(angle) * scale,
+          offset.x,
+          offset.y,
+        ] as [number, number, number, number, number, number],
+        size,
+      }
+    }
+
+    it('relaxes the image axis that lets the frame grow at the current rotation', () => {
+      expect(getCropOverflowAxis(size, 0)).toBe('x')
+      expect(getCropOverflowAxis(size, Math.PI / 2)).toBe('y')
+      expect(getCropOverflowAxis({ height: 500, width: 4000 }, 0)).toBe('y')
+    })
+
+    it('lets the frame take the full image height at 0°, padding the sides', () => {
+      const image = rotated(0)
+      const center = { x: 900, y: 350 }
+      const contained = getMaximumCropSelectionWidth({
+        aspectRatio: SOURCE_IMAGE_ASPECT,
+        canvasSize,
+        center,
+        image,
+      })
+      const width = getMaximumCropSelectionWidth({
+        allowOverflow: true,
+        aspectRatio: SOURCE_IMAGE_ASPECT,
+        canvasSize,
+        center,
+        image,
+      })
+      // Each side keeps the 2px-of-1280 output bleed.
+      const bleedRate = 2 / 1280
+
+      expect(contained).toBeCloseTo(4093 * 0.2 / (1 + 2 * bleedRate), 6)
+      expect(width / SOURCE_IMAGE_ASPECT).toBeCloseTo(2894 * 0.2 / (1 + 2 * bleedRate * SOURCE_IMAGE_ASPECT), 6)
+      expect(width).toBeGreaterThan(4093 * 0.2)
+      const selection = {
+        height: width / SOURCE_IMAGE_ASPECT,
+        width,
+        x: center.x - width / 2,
+        y: center.y - width / SOURCE_IMAGE_ASPECT / 2,
+      }
+      expect(isCropSelectionCovered(selection, image, canvasSize, true)).toBe(true)
+      expect(isCropSelectionCovered(selection, image, canvasSize)).toBe(false)
+    })
+
+    it('keeps the kept axis exactly covered at arbitrary rotations while the relaxed axis may overflow', () => {
+      const random = createRandom(0xC0FFEE)
+      let overflowed = 0
+
+      for (let index = 0; index < 2000; index += 1) {
+        const degrees = -180 + random() * 360
+        const image = rotated(degrees, 0.08 + random() * 0.25, { x: (random() - 0.5) * 200, y: (random() - 0.5) * 120 })
+        const center = { x: 300 + random() * 1200, y: 150 + random() * 400 }
+        const width = getMaximumCropSelectionWidth({
+          allowOverflow: true,
+          aspectRatio: SOURCE_IMAGE_ASPECT,
+          canvasSize,
+          center,
+          image,
+        })
+        if (width <= 0)
+          continue
+        const selection = {
+          height: width / SOURCE_IMAGE_ASPECT,
+          width,
+          x: center.x - width / 2,
+          y: center.y - width / SOURCE_IMAGE_ASPECT / 2,
+        }
+        expect(isCropSelectionCovered(selection, image, canvasSize, true)).toBe(true)
+
+        const angle = degrees * Math.PI / 180
+        const scale = Math.hypot(image.matrix[0], image.matrix[1])
+        const cos = Math.cos(angle)
+        const sin = Math.sin(angle)
+        const corners = [
+          [-1, -1],
+          [1, -1],
+          [1, 1],
+          [-1, 1],
+        ].map(([sx, sy]) => {
+          const dx = center.x + sx * width / 2 - (image.baseCenter.x + image.matrix[4])
+          const dy = center.y + sy * selection.height / 2 - (image.baseCenter.y + image.matrix[5])
+          return { x: cos * dx + sin * dy, y: -sin * dx + cos * dy }
+        })
+        const keptX = getCropOverflowAxis(size, angle) === 'y'
+        for (const corner of corners) {
+          if (keptX)
+            expect(Math.abs(corner.x)).toBeLessThanOrEqual(size.width * scale / 2 + 1e-6)
+          else
+            expect(Math.abs(corner.y)).toBeLessThanOrEqual(size.height * scale / 2 + 1e-6)
+        }
+        if (!isCropSelectionCovered(selection, image, canvasSize))
+          overflowed += 1
+      }
+
+      expect(overflowed).toBeGreaterThan(0)
+    })
+
+    it('zooms the image out on Fit until the full-height overflow frame fits the canvas', () => {
+      const image = rotated(0, 0.4)
+      const center = { x: 900, y: 350 }
+      const matrix = zoomImageToFitOverflowFrame({
+        aspectRatio: SOURCE_IMAGE_ASPECT,
+        canvasSize,
+        center,
+        image,
+      })
+      const zoomed = { ...image, matrix }
+      const width = getMaximumCropSelectionWidth({
+        allowOverflow: true,
+        aspectRatio: SOURCE_IMAGE_ASPECT,
+        canvasSize,
+        center,
+        image: zoomed,
+      })
+      const scale = Math.hypot(matrix[0], matrix[1])
+
+      expect(scale).toBeLessThan(0.4)
+      expect(width).toBeCloseTo(Math.min(canvasSize.width, canvasSize.height * SOURCE_IMAGE_ASPECT), 6)
+      expect(width / SOURCE_IMAGE_ASPECT).toBeCloseTo(2894 * scale / (1 + 2 * 2 / 1280 * SOURCE_IMAGE_ASPECT), 6)
+      expect(zoomImageToFitOverflowFrame({
+        aspectRatio: SOURCE_IMAGE_ASPECT,
+        canvasSize,
+        center,
+        image: rotated(0, 0.1),
+      }))
+        .toEqual(rotated(0, 0.1).matrix)
+    })
+
+    it('fills with the per-channel median of the strips bordering the overflow area', () => {
+      const width = 100
+      const height = 40
+      const data = new Uint8ClampedArray(width * height * 4)
+      for (let y = 0; y < height; y += 1) {
+        for (let x = 0; x < width; x += 1) {
+          // Blue body, a two-column green edge on each side, and one red outlier row (a signature) in the edge.
+          const color = y === 5
+            ? [255, 0, 0]
+            : x < 2 || x >= width - 2
+              ? [10, 200, 30]
+              : [0, 0, 255]
+          data.set([...color, 255], (y * width + x) * 4)
+        }
+      }
+
+      expect(getEdgeMedianColor(data, width, height, 'x')).toBe('#0ac81e')
+      // The top/bottom strips are the blue body.
+      expect(getEdgeMedianColor(data, width, height, 'y')).toBe('#0000ff')
+    })
+
+    it('stops the frame centre from leaving the image on the relaxed axis', () => {
+      const image = rotated(0)
+      const height = 2894 * 0.2 * 0.5
+      const width = height * SOURCE_IMAGE_ASPECT
+      const atEdge = {
+        height,
+        width,
+        x: 900 + 4093 * 0.1 - width / 2,
+        y: 350 - height / 2,
+      }
+      const beyond = { ...atEdge, x: atEdge.x + 5 }
+
+      expect(isCropSelectionCovered(atEdge, image, undefined, true)).toBe(true)
+      expect(isCropSelectionCovered(beyond, image, undefined, true)).toBe(false)
+      const matrix = normalizeCropImageMatrix(image, beyond, true)
+      expect(isCropSelectionCovered(beyond, { ...image, matrix }, undefined, true)).toBe(true)
+      expect(matrix[0]).toBeCloseTo(0.2, 10)
+    })
+
+    it('round-trips an overflowing frame through capture and restore', () => {
+      const image = rotated(0)
+      const width = 1300
+      const selection = {
+        height: width / SOURCE_IMAGE_ASPECT,
+        width,
+        x: 250,
+        y: 350 - width / SOURCE_IMAGE_ASPECT / 2,
+      }
+      const normalized = {
+        ...image,
+        matrix: normalizeCropImageMatrix(image, selection, true),
+      }
+      const confirmed = toCropTransform(normalized, selection)
+      const state = captureCropEditorState({
+        allowOverflow: true,
+        canvasSize,
+        fillColor: '#123456',
+        image: normalized,
+        preferredWidth: width,
+        selection,
+      })
+      const restored = restoreCropEditorState(state, {
+        ...image,
+        matrix: [1, 0, 0, 1, 0, 0],
+      }, canvasSize)
+      const transform = toCropTransform(restored.image, restored.selection)
+
+      expect(restored.selection).toEqual(selection)
+      expect(state.fillColor).toBe('#123456')
+      expect(transform.zoom).toBeCloseTo(confirmed.zoom, 10)
+      expect(transform.crop.x).toBeCloseTo(confirmed.crop.x, 10)
+      expect(isCropSelectionCovered(restored.selection, restored.image, canvasSize)).toBe(false)
+    })
   })
 })
 

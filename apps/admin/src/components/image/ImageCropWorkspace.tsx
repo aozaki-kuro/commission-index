@@ -25,11 +25,13 @@ import {
   captureCropEditorState,
   constrainCropSelectionChange,
   getMaximumCropSelectionWidth,
+  isCropSelectionCovered,
   normalizeCropImageMatrix,
   resizeCropEditorState,
   restoreCropEditorState,
   SOURCE_IMAGE_ASPECT,
   toCropTransform,
+  zoomImageToFitOverflowFrame,
 } from '../../lib/imageCrop'
 
 const MINIMUM_CROP_WIDTH = 96
@@ -69,6 +71,9 @@ export interface ImageCropWorkspaceHandle {
 }
 
 interface ImageCropWorkspaceProps {
+  // Lets the frame extend past the image on one axis; the empty area exports as fillColor.
+  allowOverflow: boolean
+  fillColor: string
   imageUrl: string
   // A previously confirmed crop of the same image; replaces the opening fit until the first edit or Reset.
   initialState?: CropEditorState
@@ -174,7 +179,7 @@ function rotateMatrixAround(
   ]
 }
 
-export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, ref }: ImageCropWorkspaceProps) {
+export function ImageCropWorkspace({ allowOverflow, fillColor, imageUrl, initialState, onChange, onError, ref }: ImageCropWorkspaceProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const editorHostRef = useRef<HTMLDivElement>(null)
   const elementsRef = useRef<CropperElements | null>(null)
@@ -185,6 +190,8 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
   const imageReadyRef = useRef(false)
   const preferredWidthRef = useRef(Number.POSITIVE_INFINITY)
   const restoreStateRef = useRef(initialState ?? null)
+  const allowOverflowRef = useRef(allowOverflow)
+  const fillColorRef = useRef(fillColor)
   const onChangeRef = useRef(onChange)
   const onErrorRef = useRef(onError)
   const rotateGestureRef = useRef<{
@@ -253,10 +260,24 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
       x: selection.x + selection.width / 2,
       y: selection.y + selection.height / 2,
     }
-    const geometry = getImageGeometry(elements.image)
+    const canvasSize = getCanvasSize(elements.canvas)
+    const currentGeometry = getImageGeometry(elements.image)
+    // An explicit Fit in overflow mode zooms out so the full kept axis fits; a constrained re-fit keeps the zoom.
+    const geometry = allowOverflowRef.current && !Number.isFinite(preferredWidth)
+      ? {
+          ...currentGeometry,
+          matrix: zoomImageToFitOverflowFrame({
+            aspectRatio: SOURCE_IMAGE_ASPECT,
+            canvasSize,
+            center,
+            image: currentGeometry,
+          }),
+        }
+      : currentGeometry
     const maximumWidth = getMaximumCropSelectionWidth({
+      allowOverflow: allowOverflowRef.current,
       aspectRatio: SOURCE_IMAGE_ASPECT,
-      canvasSize: getCanvasSize(elements.canvas),
+      canvasSize,
       center,
       image: geometry,
     })
@@ -269,7 +290,7 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
           y: center.y - width / SOURCE_IMAGE_ASPECT / 2,
         }
       : selection
-    const matrix = normalizeCropImageMatrix(geometry, nextSelection)
+    const matrix = normalizeCropImageMatrix(geometry, nextSelection, allowOverflowRef.current)
 
     applyEditorState(nextSelection, matrix)
   }, [applyEditorState])
@@ -289,6 +310,7 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
     const rotatedMatrix = rotateMatrixAround(currentGeometry, center, degrees)
     const rotatedGeometry = { ...currentGeometry, matrix: rotatedMatrix }
     const maximumWidth = getMaximumCropSelectionWidth({
+      allowOverflow: allowOverflowRef.current,
       aspectRatio: SOURCE_IMAGE_ASPECT,
       canvasSize: getCanvasSize(elements.canvas),
       center,
@@ -304,7 +326,7 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
       x: center.x - width / 2,
       y: center.y - width / SOURCE_IMAGE_ASPECT / 2,
     }
-    const matrix = normalizeCropImageMatrix(rotatedGeometry, nextSelection)
+    const matrix = normalizeCropImageMatrix(rotatedGeometry, nextSelection, allowOverflowRef.current)
 
     applyEditorState(nextSelection, matrix)
   }, [applyEditorState])
@@ -334,7 +356,7 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
       x: (canvasSize.width - width) / 2,
       y: (canvasSize.height - width / SOURCE_IMAGE_ASPECT) / 2,
     }
-    const matrix = normalizeCropImageMatrix(getImageGeometry(elements.image), selection)
+    const matrix = normalizeCropImageMatrix(getImageGeometry(elements.image), selection, allowOverflowRef.current)
 
     preferredWidthRef.current = Number.POSITIVE_INFINITY
     initializedSizeRef.current = canvasSize
@@ -369,6 +391,7 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
     }
 
     const resized = resizeCropEditorState({
+      allowOverflow: allowOverflowRef.current,
       currentCanvasSize: currentSize,
       image: getImageGeometry(elements.image),
       nextCanvasSize: nextSize,
@@ -391,7 +414,9 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
       if (!elements)
         return null
       return captureCropEditorState({
+        allowOverflow: allowOverflowRef.current,
         canvasSize: getCanvasSize(elements.canvas),
+        fillColor: fillColorRef.current,
         image: getImageGeometry(elements.image),
         preferredWidth: preferredWidthRef.current,
         selection: getSelection(elements.selection),
@@ -403,6 +428,27 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
     },
     rotateBy,
   }), [fitCrop, initializeEditor, rotateBy])
+
+  // Turning overflow on changes nothing until the next edit; turning it off must pull an overflowing frame back inside.
+  useEffect(() => {
+    if (allowOverflowRef.current === allowOverflow)
+      return
+    allowOverflowRef.current = allowOverflow
+    const elements = elementsRef.current
+    if (allowOverflow || !elements || !imageReadyRef.current)
+      return
+    const selection = getSelection(elements.selection)
+    if (!isCropSelectionCovered(selection, getImageGeometry(elements.image), getCanvasSize(elements.canvas)))
+      fitCrop(selection.width)
+  }, [allowOverflow, fitCrop])
+
+  // The canvas shows the export fill behind the image, so overflow previews what the JPEG will contain.
+  useEffect(() => {
+    fillColorRef.current = fillColor
+    const canvas = elementsRef.current?.canvas
+    if (canvas)
+      canvas.style.backgroundColor = allowOverflow ? fillColor : ''
+  }, [allowOverflow, fillColor])
 
   useEffect(() => {
     const host = hostRef.current
@@ -428,6 +474,9 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
     }
 
     canvas.scaleStep = 0.04
+    canvas.style.backgroundColor = allowOverflowRef.current
+      ? fillColorRef.current
+      : ''
     selection.aspectRatio = SOURCE_IMAGE_ASPECT
     selection.resizable = true
     selection.precise = true
@@ -452,6 +501,7 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
       const requested = customEvent.detail
       customEvent.preventDefault()
       const constrained = constrainCropSelectionChange({
+        allowOverflow: allowOverflowRef.current,
         canvasSize: getCanvasSize(canvas),
         current,
         image: getImageGeometry(image),
@@ -460,7 +510,7 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
       })
 
       preferredWidthRef.current = constrained.width
-      applyEditorState(constrained, normalizeCropImageMatrix(getImageGeometry(image), constrained))
+      applyEditorState(constrained, normalizeCropImageMatrix(getImageGeometry(image), constrained, allowOverflowRef.current))
     }
 
     const handleImageTransform = (event: Event) => {
@@ -486,6 +536,7 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
           y: currentSelection.y + currentSelection.height / 2,
         }
         const maximumWidth = getMaximumCropSelectionWidth({
+          allowOverflow: allowOverflowRef.current,
           aspectRatio: SOURCE_IMAGE_ASPECT,
           canvasSize: getCanvasSize(canvas),
           center,
@@ -504,14 +555,14 @@ export function ImageCropWorkspace({ imageUrl, initialState, onChange, onError, 
 
         applyEditorState(
           nextSelection,
-          normalizeCropImageMatrix(requestedGeometry, nextSelection),
+          normalizeCropImageMatrix(requestedGeometry, nextSelection, allowOverflowRef.current),
         )
         return
       }
 
       applyEditorState(
         currentSelection,
-        normalizeCropImageMatrix(requestedGeometry, currentSelection),
+        normalizeCropImageMatrix(requestedGeometry, currentSelection, allowOverflowRef.current),
       )
     }
 
