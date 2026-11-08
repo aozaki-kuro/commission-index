@@ -110,6 +110,7 @@ export function AdminCreatePage() {
         status: character.status,
       })) ?? []}
       commissionSearchRows={state.payload?.commissionSearchRows ?? []}
+      creatorAliases={state.payload?.creatorAliases ?? []}
       errorMessage={state.errorMessage}
       isLoading={state.isLoading}
       hasPayload={state.payload !== null}

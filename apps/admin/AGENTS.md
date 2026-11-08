@@ -44,11 +44,14 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 - Create form auto-reset applies only on business success; failures keep file and field drafts, and an invalid file never replaces a previously confirmed image.
 - Create's Artwork section is also a drop target: a dropped file goes straight to `pendingCropFile`, never into the file input; the input receives only the confirmed crop output. Create keeps the original pick (`sourceFile`) until a successful reset so "Edit image" re-crops from it, not from the lossy 1280×525 output; filename detail suggestion runs only when a new source is confirmed, never on a re-crop, so it cannot overwrite details typed since. The re-crop reopens on the confirmed frame (`sourceCropState`); a cancelled re-crop keeps it.
 - Filename suggestion (`src/lib/commissionFileDetails.ts`) accepts `YYYYMMDD_<creator>[ (part N)]` and
-  `<character>_[<keyword>_]<creator>_YYYYMMDD[_NN]` (the keyword segment is the Studio K convention, `K_isj_…`); the
-  trailing `_NN` is a per-day sequence, never a part number. The character token resolves against loaded characters by
-  full name, then by one word of it, ignoring case/spacing/punctuation, with `*` in masked names (`K*toha`) matching
-  one character (`Kotoha`, `K` → `Studio K`); an ambiguous token selects nothing. Character and keyword fill only
-  empty fields.
+  `<character>_<segments…>_YYYYMMDD[ex][_NN[ex]]`; `_NN` is a per-day sequence, never a part number, and `ex` is a
+  local variant marker, both ignored. Segment order is not fixed (`K_isj_ICHIZEN-RYUU`, `Lucia_Nanashi_TKS`), so
+  `classifyFileNameSegments` classifies by data, never position: an existing keyword fills keywords, an existing
+  creator name or alias (or one word of an alias) resolves to the stored creator name (`Nanashi` → `七市`). With no
+  known creator the first unknown segment that is not a sort code (`SC02`) becomes the creator; other unknowns are
+  dropped, not guessed into keywords. The character token resolves by full name, then one word of it, ignoring
+  case/spacing/punctuation, with `*` in masked names (`K*toha`) matching one character; an ambiguous token selects
+  nothing. Character and keyword fill only empty fields.
 - New character uses a secondary Dialog with the commission form kept mounted. After saving, refresh bootstrap explicitly: `notifyDataUpdate` ignores the current tab. The create API returns no new ID, so do not guess-select the character by name.
 
 ## Layout Stability

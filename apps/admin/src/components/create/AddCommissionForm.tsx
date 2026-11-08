@@ -1,6 +1,7 @@
 import type {
   AdminCommissionSearchRow,
   CharacterStatus,
+  CreatorAliasRow,
 } from '@commission-index/domain'
 import type { ChangeEvent, DragEvent, ReactNode } from 'react'
 import type { CropEditorState } from '../../lib/imageCrop'
@@ -8,7 +9,12 @@ import { IconCrop } from '@tabler/icons-react'
 import { useActionState, useEffect, useMemo, useRef, useState } from 'react'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { addCommissionAction } from '../../lib/adminActions'
-import { extractCommissionDetails, resolveCharacterToken } from '../../lib/commissionFileDetails'
+import {
+  buildFileNameSegmentContext,
+  classifyFileNameSegments,
+  extractCommissionDetails,
+  resolveCharacterToken,
+} from '../../lib/commissionFileDetails'
 import { notifyDataUpdate } from '../../lib/dataUpdateSignal'
 import { findDuplicateCommissionHints } from '../../lib/duplicateCommissionHints'
 import { INITIAL_FORM_STATE } from '../../lib/formState'
@@ -32,6 +38,7 @@ interface CharacterOption {
 interface AddCommissionFormProps {
   characters: CharacterOption[]
   commissionSearchRows: AdminCommissionSearchRow[]
+  creatorAliases: CreatorAliasRow[]
   bootstrapState: 'loading' | 'ready' | 'unavailable'
   onAddCharacter: () => void
 }
@@ -80,6 +87,7 @@ function SourceImagePreview({ file, isDropTarget, children }: { file: File | nul
 export function AddCommissionForm({
   characters,
   commissionSearchRows,
+  creatorAliases,
   bootstrapState,
   onAddCharacter,
 }: AddCommissionFormProps) {
@@ -265,17 +273,23 @@ export function AddCommissionForm({
 
     const detectedDetails = extractCommissionDetails(originalFileName)
     if (detectedDetails) {
+      const classified = detectedDetails.segments.length > 0
+        ? classifyFileNameSegments(
+            detectedDetails.segments,
+            buildFileNameSegmentContext(commissionSearchRows, creatorAliases),
+          )
+        : { creatorName: detectedDetails.creatorName, keyword: '' }
       setCommissionDate(detectedDetails.commissionDate)
-      setCreatorName(detectedDetails.creatorName)
+      setCreatorName(classified.creatorName)
       const detectedCharacter = detectedDetails.characterToken
         ? resolveCharacterToken(detectedDetails.characterToken, options)
         : null
       if (detectedCharacter)
         setCharacterId(current => current ?? detectedCharacter.id)
-      if (detectedDetails.keyword) {
+      if (classified.keyword) {
         setKeywordValue(current => current.trim()
           ? current
-          : detectedDetails.keyword!)
+          : classified.keyword)
       }
       if (!workGroupId) {
         setPartNumber(current => current || detectedDetails.partNumber?.toString() || '')
