@@ -78,7 +78,8 @@ export function ImageCropDialog({
     ? getCropUpscaleFactor(snapshot.mediaSize, snapshot.cropSize, snapshot.transform.zoom)
     : 1
   const isUpscaling = upscaleFactor > 1.005
-  const canSave = Boolean(snapshot && !error && !isProcessing && isOpen)
+  // Saving mid-sample would export the previous fill.
+  const canSave = Boolean(snapshot && !error && !isProcessing && !isSamplingFill && isOpen)
 
   // 先让 Radix 完成退场，再通知父组件清理文件和卸载对话框。
   const closeWithAction = (action: () => void) => {
