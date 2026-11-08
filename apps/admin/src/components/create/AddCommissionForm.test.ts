@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { extractCommissionDetails, resolveCharacterToken } from '../../lib/commissionFileDetails'
+import {
+  buildFileNameSegmentContext,
+  classifyFileNameSegments,
+  extractCommissionDetails,
+  resolveCharacterToken,
+} from '../../lib/commissionFileDetails'
 
 describe('extractCommissionDetails', () => {
   it('recognizes a strict part suffix and keeps its creator name clean', () => {
@@ -9,7 +14,7 @@ describe('extractCommissionDetails', () => {
       workGroupId: 'new',
       partNumber: 2,
       characterToken: null,
-      keyword: null,
+      segments: [],
     })
   })
 
@@ -31,30 +36,34 @@ describe('extractCommissionDetails', () => {
     })
   })
 
-  it('reads character, keyword, creator and date from a prefixed name', () => {
+  it('splits a character-prefixed name into its date and unordered segments', () => {
     expect(extractCommissionDetails('K_isj_ICHIZEN-RYUU_20261108_01.png')).toEqual({
       commissionDate: '2026-11-08',
-      creatorName: 'ICHIZEN-RYUU',
+      creatorName: '',
       workGroupId: '',
       partNumber: null,
       characterToken: 'K',
-      keyword: 'isj',
+      segments: ['isj', 'ICHIZEN-RYUU'],
     })
-    expect(extractCommissionDetails('K_isj_Some_Artist_20261108.jpg')).toMatchObject({
-      creatorName: 'Some_Artist',
-      characterToken: 'K',
-      keyword: 'isj',
+    expect(extractCommissionDetails('Lucia_Ryoku_20230617_01.jpg')).toMatchObject({
+      characterToken: 'Lucia',
+      segments: ['Ryoku'],
     })
   })
 
-  it('reads a character-prefixed name without a keyword segment', () => {
-    expect(extractCommissionDetails('Kotoha_ICHIZEN-RYUU_20261108_02.jpg')).toMatchObject({
-      commissionDate: '2026-11-08',
-      creatorName: 'ICHIZEN-RYUU',
-      partNumber: null,
-      characterToken: 'Kotoha',
-      keyword: null,
-    })
+  it('ignores the per-day sequence and the ex variant marker', () => {
+    for (const name of [
+      'Lucia_Nanashi_SC02_20230706_03ex.jpg',
+      'Lucia_Nanashi_SC02_20230706ex.jpg',
+      'Lucia_Nanashi_SC02_20230706_01.jpg',
+      'Lucia_Nanashi_SC02_20230706.jpg',
+    ]) {
+      expect(extractCommissionDetails(name)).toMatchObject({
+        commissionDate: '2023-07-06',
+        partNumber: null,
+        segments: ['Nanashi', 'SC02'],
+      })
+    }
   })
 
   it('rejects prefixed names with an impossible date or missing segments', () => {
@@ -62,6 +71,50 @@ describe('extractCommissionDetails', () => {
     expect(extractCommissionDetails('K_isj_ICHIZEN-RYUU_01.jpg')).toBeNull()
     expect(extractCommissionDetails('K_20261108_01.jpg')).toBeNull()
     expect(extractCommissionDetails('K__ICHIZEN-RYUU_20261108.jpg')).toBeNull()
+  })
+})
+
+describe('classifyFileNameSegments', () => {
+  const context = buildFileNameSegmentContext(
+    [
+      { creatorName: '七市', keyword: 'TKS' },
+      { creatorName: '月', keyword: 'isj, Sekai' },
+      { creatorName: 'EyeRune', keyword: 'tks' },
+      { creatorName: null, keyword: null },
+    ],
+    [
+      {
+        creatorName: '七市',
+        aliases: ['Nanashi'],
+      },
+      {
+        creatorName: '温野りょく',
+        aliases: ['UnoRyoku'],
+      },
+    ],
+  )
+
+  it('classifies segments by the data, whatever their order', () => {
+    expect(classifyFileNameSegments(['isj', 'ICHIZEN-RYUU'], context))
+      .toEqual({ creatorName: 'ICHIZEN-RYUU', keyword: 'isj' })
+    expect(classifyFileNameSegments(['Nanashi', 'TKS'], context))
+      .toEqual({ creatorName: '七市', keyword: 'TKS' })
+    expect(classifyFileNameSegments(['tks', 'sekai', 'EyeRune'], context))
+      .toEqual({ creatorName: 'EyeRune', keyword: 'TKS, Sekai' })
+  })
+
+  it('resolves a creator alias, or one word of it, to the stored creator name', () => {
+    expect(classifyFileNameSegments(['Ryoku'], context).creatorName).toBe('温野りょく')
+    expect(classifyFileNameSegments(['uno-ryoku'], context).creatorName).toBe('温野りょく')
+  })
+
+  it('never takes a sort code as the creator and drops unrecognised extras', () => {
+    expect(classifyFileNameSegments(['Nanashi', 'SC02'], context))
+      .toEqual({ creatorName: '七市', keyword: '' })
+    expect(classifyFileNameSegments(['NewArtist', 'SC02', 'Mystery'], context))
+      .toEqual({ creatorName: 'NewArtist', keyword: '' })
+    expect(classifyFileNameSegments(['SC02'], context))
+      .toEqual({ creatorName: '', keyword: '' })
   })
 })
 

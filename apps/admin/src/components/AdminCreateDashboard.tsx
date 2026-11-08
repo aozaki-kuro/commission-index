@@ -1,6 +1,7 @@
 import type {
   AdminCommissionSearchRow,
   CharacterStatus,
+  CreatorAliasRow,
 } from '@commission-index/domain'
 import { useCallback, useState } from 'react'
 import { AdminBootstrapStatus } from './AdminBootstrapStatus'
@@ -18,6 +19,7 @@ interface CharacterOption {
 interface AdminCreateDashboardProps {
   characters: CharacterOption[]
   commissionSearchRows: AdminCommissionSearchRow[]
+  creatorAliases: CreatorAliasRow[]
   errorMessage: string | null
   isLoading: boolean
   hasPayload: boolean
@@ -27,6 +29,7 @@ interface AdminCreateDashboardProps {
 export function AdminCreateDashboard({
   characters,
   commissionSearchRows,
+  creatorAliases,
   errorMessage,
   isLoading,
   hasPayload,
@@ -51,6 +54,7 @@ export function AdminCreateDashboard({
         <AddCommissionForm
           characters={characters}
           commissionSearchRows={commissionSearchRows}
+          creatorAliases={creatorAliases}
           bootstrapState={hasPayload
             ? 'ready'
             : isLoading ? 'loading' : 'unavailable'}
