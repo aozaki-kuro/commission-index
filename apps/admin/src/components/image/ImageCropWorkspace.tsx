@@ -27,6 +27,7 @@ import {
   getCenteredCropSelection,
   getMaximumCropSelectionWidth,
   getSelectionCenter,
+  getSourceImagePixelCountError,
   isCropSelectionCovered,
   normalizeCropImageMatrix,
   refitCropSelectionAfterRotation,
@@ -540,6 +541,12 @@ export function ImageCropWorkspace({ allowOverflow, fillColor, imageUrl, initial
       .then(() => {
         if (disposed)
           return
+        // Leaving imageReadyRef false keeps every geometry/snapshot path idle, so no snapshot clears this error.
+        const sizeError = getSourceImagePixelCountError(image.$image.naturalWidth, image.$image.naturalHeight)
+        if (sizeError) {
+          onErrorRef.current(sizeError)
+          return
+        }
         imageReadyRef.current = true
         readyFrame = window.requestAnimationFrame(syncEditorSize)
       })

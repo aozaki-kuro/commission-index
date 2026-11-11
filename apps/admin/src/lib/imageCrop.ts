@@ -548,11 +548,37 @@ function getJpegFileName(fileName: string) {
   return `${stem || 'source-image'}.jpg`
 }
 
+// The picked original is decoded on the main thread (Cropper preview, then canvas export/sampling), so a huge
+// file can freeze or crash the tab. These caps only bound the original: the upload is always the small
+// 1280×525 JPEG, which is why the worker's 10 MiB source-image limit does not apply here. 100 MP is far beyond
+// any real artwork scan yet keeps a decoded RGBA bitmap around 400 MB.
+export const MAX_SOURCE_IMAGE_FILE_BYTES = 100 * 1024 * 1024
+export const MAX_SOURCE_IMAGE_PIXELS = 100_000_000
+
+export function getSourceImageFileSizeError(file: Pick<File, 'size'>) {
+  return file.size > MAX_SOURCE_IMAGE_FILE_BYTES
+    ? 'This image is too large to edit (over 100 MB). Choose a smaller file.'
+    : null
+}
+
+export function getSourceImagePixelCountError(naturalWidth: number, naturalHeight: number) {
+  return naturalWidth * naturalHeight > MAX_SOURCE_IMAGE_PIXELS
+    ? 'This image is too large to edit (over 100 megapixels). Resize it and try again.'
+    : null
+}
+
 function loadImage(imageUrl: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image()
     image.decoding = 'async'
-    image.onload = () => resolve(image)
+    image.onload = () => {
+      // Checked before any canvas work: drawImage is what forces the full decode.
+      const sizeError = getSourceImagePixelCountError(image.naturalWidth, image.naturalHeight)
+      if (sizeError)
+        reject(new Error(sizeError))
+      else
+        resolve(image)
+    }
     image.onerror = () => reject(new Error('The selected image could not be decoded.'))
     image.src = imageUrl
   })

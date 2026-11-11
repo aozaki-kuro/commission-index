@@ -7,6 +7,7 @@ import { CommissionManager } from '../components/edit/CommissionManager'
 import { FloatingNotice } from '../components/FloatingNotice'
 import { fetchAdminJsonWithRetry, readCachedAdminJson } from '../lib/adminApi'
 import { subscribeToDataUpdates } from '../lib/dataUpdateSignal'
+import { getWindowScrollTop } from '../lib/navigation'
 import { claimReloadRestore, isReloadRestoreAvailable } from '../lib/reloadRestoreClaim'
 import { safeStorageSet } from '../lib/storageHelper'
 
@@ -49,12 +50,8 @@ function createInitialEditState(): EditState {
   }
 }
 
-function getCurrentScrollTop() {
-  return Math.max(window.scrollY, window.pageYOffset, 0)
-}
-
 function isReloadOfCurrentRoute() {
-  if (typeof window === 'undefined' || typeof performance === 'undefined') {
+  if (typeof performance === 'undefined') {
     return false
   }
 
@@ -72,7 +69,7 @@ function isReloadOfCurrentRoute() {
 }
 
 function readStoredScrollState(): StoredScrollState | null {
-  if (typeof window === 'undefined' || !isReloadRestoreAvailable() || !isReloadOfCurrentRoute()) {
+  if (!isReloadRestoreAvailable() || !isReloadOfCurrentRoute()) {
     return null
   }
 
@@ -109,10 +106,6 @@ function readStoredScrollState(): StoredScrollState | null {
 }
 
 function writeStoredScrollTop(onQuotaExceeded?: () => void) {
-  if (typeof window === 'undefined') {
-    return
-  }
-
   const visibleAnchor = (selector: string) => [
     ...document.querySelectorAll<HTMLElement>(selector),
   ]
@@ -131,7 +124,7 @@ function writeStoredScrollTop(onQuotaExceeded?: () => void) {
         }
       : undefined,
     timestamp: Date.now(),
-    top: getCurrentScrollTop(),
+    top: getWindowScrollTop(),
   }
   safeStorageSet(window.sessionStorage, scrollStorageKey, JSON.stringify(state), onQuotaExceeded)
 }
@@ -272,7 +265,7 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
   }, [reloadToken])
 
   useEffect(() => {
-    if (typeof window === 'undefined' || (pendingScrollState && !hasRestoredScroll)) {
+    if (pendingScrollState && !hasRestoredScroll) {
       return
     }
 
@@ -329,9 +322,6 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
   }, [handleStorageQuotaExceeded, hasRestoredScroll, pendingScrollState])
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
     if (!pendingScrollState || hasRestoredScroll || !state.payload || !areOpenGroupsLoaded) {
       return
     }
@@ -349,7 +339,7 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
       if (target && anchor) {
         window.scrollTo({
           behavior: 'auto',
-          top: getCurrentScrollTop() + target.getBoundingClientRect().top - anchor.offset,
+          top: getWindowScrollTop() + target.getBoundingClientRect().top - anchor.offset,
         })
       }
       else {

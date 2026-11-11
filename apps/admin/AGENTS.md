@@ -14,6 +14,10 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 
 - `src/lib/websiteRebuild.ts` — shared rebuild request/pending state; `src/lib/pendingRebuildSignal.ts` — pending flag + revision
 - `src/hooks/useAdminResource.ts` — fetch-with-cache state (`[state, reload]`) shared by the Create, Aliases and Suggestion pages
+- `src/hooks/useCharacterCommissionGroups.ts` — Edit's versioned per-character commission loader (stale/in-flight tracking, scoped refresh)
+- `src/hooks/useAdminCommissionSearch.ts` — Edit search: bootstrap rows plus the local save/delete overlay, hydrated index, matches
+- `src/hooks/useAutoClearSuccess.ts` — shared `StatusMessage` type and the success-notice auto-dismiss timer
+- `src/lib/sourceImagePreview.ts` — admin source-image URL and the per-tab preview cache-bust version (sessionStorage + event)
 - `src/components/FloatingNotice.tsx` — Portal notices kept out of form flow
 - `src/components/image/ImageCropDialog.tsx`, `ImageCropWorkspace.tsx` (Cropper.js bridge), `src/lib/imageCrop.ts` (geometry authority)
 - `src/components/image/LazyImageCropDialog.tsx` — the only entry point forms may use for the crop dialog (loads the cropper chunk on first pick)
@@ -25,6 +29,7 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 - Create and replacement uploads share `ImageCropDialog`; keep both entry points aligned.
 - Heavy dialogs such as the cropper stay lazy: forms import `LazyImageCropDialog`, never `ImageCropDialog` directly. A static import drags cropperjs into the create/edit chunk. Its failures are shown as a dismissable error notice, and failed loads are not cached so the next pick retries.
 - Output is a single `1280×525 image/jpeg` (transparent pixels flattened onto the fill, white unless overflow mode matched another colour; warn on upscaling). The frame ratio is fixed but its edges are resizable; rotation is continuous, not 90° steps.
+- The cropper refuses originals over `MAX_SOURCE_IMAGE_FILE_BYTES` (100 MiB, before the workspace mounts) or `MAX_SOURCE_IMAGE_PIXELS` (100 MP, from natural size after load, before any geometry or canvas work). These bound the main-thread decode of the original, not the upload, which is always the 1280×525 output.
 - `imageCrop.ts`, not Cropper.js bounding boxes, decides whether a rotated image covers every crop corner (including the 2px bleed).
 - Overflow mode ("Extend") keeps exact containment on one image-local axis and relaxes the other; the relaxed axis is the one that allows the larger frame at the current rotation (`getCropOverflowAxis`), never chosen from screen axes or position, so the valid set stays convex for the handle bisection. On the relaxed axis only the frame centre must stay over the image. Explicit Fit in this mode zooms the image out until the full kept axis fits the canvas. "Match edges" fills the empty area with the per-channel median of the 2% strips bordering it; the canvas background previews the fill. Both choices round-trip in `CropEditorState`; switching overflow off refits only a frame that is no longer covered.
 - The crop toolbar must stay two rows at 390px with 200% text, including overflow mode (`admin-create.spec.ts` asserts it): new controls there are icon-only below `sm`.

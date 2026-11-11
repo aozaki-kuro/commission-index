@@ -16,6 +16,7 @@ import {
   exportCroppedImage,
   getCropOverflowAxis,
   getCropUpscaleFactor,
+  getSourceImageFileSizeError,
   sampleOverflowFillColor,
   SOURCE_IMAGE_HEIGHT,
   SOURCE_IMAGE_JPEG_QUALITY,
@@ -47,7 +48,9 @@ export function ImageCropDialog({
   const [isOpen, setIsOpen] = useState(true)
   const revokeTimerRef = useRef<number | null>(null)
   const workspaceRef = useRef<ImageCropWorkspaceHandle>(null)
-  const [error, setError] = useState<string | null>(null)
+  // Checked once before the workspace mounts, so an oversized original is never handed to the decoder.
+  const [fileSizeError] = useState(() => getSourceImageFileSizeError(file))
+  const [error, setError] = useState<string | null>(fileSizeError)
   const [imageUrl] = useState(() => URL.createObjectURL(file))
   const [isProcessing, setIsProcessing] = useState(false)
   const [snapshot, setSnapshot] = useState<ImageCropSnapshot | null>(null)
@@ -182,18 +185,22 @@ export function ImageCropDialog({
         </DialogHeader>
 
         <div className="relative min-h-0 flex-1 overflow-hidden bg-[var(--crop-workspace)]">
-          <ImageCropWorkspace
-            ref={workspaceRef}
-            allowOverflow={allowOverflow}
-            fillColor={fillColor}
-            imageUrl={imageUrl}
-            initialState={initialEditorState}
-            onChange={(nextSnapshot) => {
-              setError(null)
-              setSnapshot(nextSnapshot)
-            }}
-            onError={setError}
-          />
+          {fileSizeError
+            ? null
+            : (
+                <ImageCropWorkspace
+                  ref={workspaceRef}
+                  allowOverflow={allowOverflow}
+                  fillColor={fillColor}
+                  imageUrl={imageUrl}
+                  initialState={initialEditorState}
+                  onChange={(nextSnapshot) => {
+                    setError(null)
+                    setSnapshot(nextSnapshot)
+                  }}
+                  onError={setError}
+                />
+              )}
 
           <div className="pointer-events-none absolute top-3 left-1/2 z-30 -translate-x-1/2 rounded-full border border-white/35 bg-black/45 px-3 py-1.5 text-center text-2xs leading-tight text-white shadow-sm backdrop-blur-md sm:top-4">
             Drag image · pull frame edges · wheel or pinch · twist or use the rotation handle

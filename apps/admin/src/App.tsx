@@ -7,6 +7,7 @@ import { AdminPageShell, AdminRootLayout } from './components/AdminLayout'
 import { FloatingNotice } from './components/FloatingNotice'
 import { FloatingRebuildButton } from './components/FloatingRebuildButton'
 import { fetchLiveBuildInfo } from './lib/liveBuildInfo'
+import { getWindowScrollTop } from './lib/navigation'
 import { getPublicSiteUrl } from './lib/publicSiteUrl'
 
 const AdminOverviewPage = lazy(() => import('./pages/AdminOverviewPage').then(m => ({ default: m.AdminOverviewPage })))
@@ -14,10 +15,6 @@ const AdminCreatePage = lazy(() => import('./pages/AdminCreatePage').then(m => (
 const AdminEditPage = lazy(() => import('./pages/AdminEditPage').then(m => ({ default: m.AdminEditPage })))
 const AdminAliasesPage = lazy(() => import('./pages/AdminAliasesPage').then(m => ({ default: m.AdminAliasesPage })))
 const AdminSuggestionPage = lazy(() => import('./pages/AdminSuggestionPage').then(m => ({ default: m.AdminSuggestionPage })))
-
-function getWindowScrollTop() {
-  return Math.max(window.scrollY, window.pageYOffset, 0)
-}
 
 function RouteLoadingNotice() {
   const [visible, setVisible] = useState(false)
@@ -85,9 +82,7 @@ export class RouteLoadBoundary extends Component<RouteLoadBoundaryProps, RouteLo
 }
 
 export function App() {
-  const [currentPath, setCurrentPath] = useState(() => typeof window === 'undefined'
-    ? '/'
-    : normalizeAdminPath(window.location.pathname))
+  const [currentPath, setCurrentPath] = useState(() => normalizeAdminPath(window.location.pathname))
   const scrollPositionByPathRef = useRef(new Map<string, number>())
   const currentPathRef = useRef(currentPath)
   const pendingScrollRef = useRef<{ path: string, top: number } | null>(null)
@@ -117,10 +112,6 @@ export function App() {
   }, [currentSection])
 
   const navigateTo = useCallback((nextPath: string, historyMode: 'push' | 'replace' = 'push') => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
     const previousPath = currentPathRef.current
     const normalizedPath = normalizeAdminPath(nextPath)
     if (normalizedPath === previousPath) {
@@ -157,10 +148,6 @@ export function App() {
   }, [currentSection?.key])
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return
-    }
-
     const handlePopState = () => {
       scrollPositionByPathRef.current.set(currentPathRef.current, getWindowScrollTop())
 

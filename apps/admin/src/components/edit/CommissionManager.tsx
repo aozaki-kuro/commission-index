@@ -3,15 +3,8 @@ import type {
   CharacterRow,
   CommissionRow,
   CreatorAliasRow,
-  SearchIndexLike,
 } from '@commission-index/domain'
-import type { AdminCommissionSearchEntry } from '../../lib/search/adminCommissionSearch'
 import type { DiscardGuard } from './CommissionEditDrawer'
-import {
-  createSearchIndex,
-  getMatchedEntryIds,
-  hydrateSearchIndexFuse,
-} from '@commission-index/domain'
 import { IconArrowsSort, IconSearch, IconX } from '@tabler/icons-react'
 import {
   useCallback,
@@ -23,17 +16,15 @@ import {
   useState,
 } from 'react'
 import { buttonStyles, formControlStyles } from '../../app/ui'
+import { useAdminCommissionSearch } from '../../hooks/useAdminCommissionSearch'
+import { useCharacterCommissionGroups } from '../../hooks/useCharacterCommissionGroups'
 import { useCommissionManager } from '../../hooks/useCommissionManager'
 import { arrayMove, useNativeDragReorder } from '../../hooks/useNativeDragReorder'
-import { fetchCharacterCommissionsAction } from '../../lib/adminActions'
 import { compareCommissionsByDate, formatCommissionPublicId, getCommissionAccessibleLabel } from '../../lib/commissionPresentation'
 import { notifyDataUpdate } from '../../lib/dataUpdateSignal'
 import { consumeCommissionEditRequest } from '../../lib/editIntent'
 import { markPendingRebuild } from '../../lib/pendingRebuildSignal'
-import {
-  buildAdminCommissionSearchEntries,
-  normalizeAdminSearchQuery,
-} from '../../lib/search/adminCommissionSearch'
+import { normalizeAdminSearchQuery } from '../../lib/search/adminCommissionSearch'
 import { DropIndicator } from '../DropIndicator'
 import { FloatingNotice } from '../FloatingNotice'
 import { CharacterDeleteDialog } from './CharacterDeleteDialog'
@@ -67,15 +58,23 @@ export function CommissionManager({
   onRefresh,
   refreshScope,
 }: CommissionManagerProps) {
-  const [loadedCommissions, setLoadedCommissions] = useState<CommissionRow[]>([])
-  const [loadingCharacterIds, setLoadingCharacterIds] = useState<Set<number>>(() => new Set())
-  const [loadedCharacterIds, setLoadedCharacterIds] = useState<Set<number>>(() => new Set())
-  const [loadErrors, setLoadErrors] = useState<Map<number, string>>(() => new Map())
-  const [refreshError, setRefreshError] = useState<string | null>(null)
-  const [searchUpdates, setSearchUpdates] = useState<{ base: AdminCommissionSearchRow[], rows: Map<number, CommissionRow | null> }>(() => ({
-    base: commissionSearchRows,
-    rows: new Map(),
-  }))
+  const {
+    dismissRefreshError,
+    hasInFlightLoad,
+    invalidateAllGroups,
+    invalidateCharacterLoad,
+    isCharacterStale,
+    loadCharacterCommissions,
+    loadedCharacterIds,
+    loadedCommissions,
+    loadErrors,
+    loadingCharacterIds,
+    markCharacterLoadFailed,
+    refreshError,
+    refreshLoadedGroups,
+    removeLoadedCommission,
+    replaceLoadedCommission,
+  } = useCharacterCommissionGroups({ characters, commissionSearchRows, refreshScope })
   const [selectedCommission, setSelectedCommission] = useState<CommissionRow | null>(null)
   const [pendingCommissionId, setPendingCommissionId] = useState<number | null>(null)
   const [selectionError, setSelectionError] = useState<{ commissionId: number, characterId: number } | null>(null)
@@ -83,13 +82,6 @@ export function CommissionManager({
   const [searchQuery, setSearchQuery] = useState('')
   const [isReorderMode, setIsReorderMode] = useState(false)
   const deferredSearchQuery = useDeferredValue(searchQuery)
-  const loadedCharacterIdsRef = useRef<Set<number>>(new Set())
-  const inFlightLoadPromisesRef = useRef<Map<number, Promise<CommissionRow[] | null>>>(new Map())
-  const latestLoadPromisesRef = useRef(new Map<number, { version: number, promise: Promise<CommissionRow[] | null> }>())
-  const staleCharacterIdsRef = useRef(new Set<number>())
-  const loadVersionsRef = useRef(new Map<number, number>())
-  const previousSearchRowsRef = useRef(commissionSearchRows)
-  const commissionSearchRowsRef = useRef(commissionSearchRows)
   const cancelDeleteButtonRef = useRef<HTMLButtonElement | null>(null)
   const deleteReturnFocusRef = useRef<HTMLElement | null>(null)
   const drawerDiscardGuardRef = useRef<DiscardGuard | null>(null)
@@ -122,58 +114,13 @@ export function CommissionManager({
     onDataChanged: onRefresh,
   })
 
-  const normalizedQuery = useMemo(
-    () => normalizeAdminSearchQuery(deferredSearchQuery),
-    [deferredSearchQuery],
-  )
-  const hasAppliedSearchQuery = normalizedQuery.length > 0
-  const currentSearchRows = useMemo(() => commissionSearchRows.flatMap((row) => {
-    if (searchUpdates.base !== commissionSearchRows || !searchUpdates.rows.has(row.id)) {
-      return [row]
-    }
-    const update = searchUpdates.rows.get(row.id)
-    return update
-      ? [
-          {
-            ...update,
-            // Same raw D1 JSON string as bootstrap rows, so every reader parses one format.
-            links: JSON.stringify(update.links),
-          },
-        ]
-      : []
-  }), [commissionSearchRows, searchUpdates])
-  const searchEntries = useMemo(
-    () => buildAdminCommissionSearchEntries(currentSearchRows, creatorAliases),
-    [currentSearchRows, creatorAliases],
-  )
-  const baseSearchIndex = useMemo(
-    () => createSearchIndex(searchEntries),
-    [searchEntries],
-  )
-  const [hydratedIndex, setHydratedIndex] = useState<{ base: SearchIndexLike<AdminCommissionSearchEntry>, index: SearchIndexLike<AdminCommissionSearchEntry> } | null>(null)
-  useEffect(() => {
-    let cancelled = false
-    hydrateSearchIndexFuse(baseSearchIndex).then((hydrated) => {
-      if (!cancelled)
-        setHydratedIndex({ base: baseSearchIndex, index: hydrated })
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [baseSearchIndex])
-  const searchIndex = (hydratedIndex?.base === baseSearchIndex)
-    ? hydratedIndex.index
-    : baseSearchIndex
-  const matchedCommissionIds = useMemo(
-    () => getMatchedEntryIds(deferredSearchQuery, searchIndex),
-    [searchIndex, deferredSearchQuery],
-  )
-  const matchedSearchRows = useMemo(
-    () => hasAppliedSearchQuery
-      ? currentSearchRows.filter(row => matchedCommissionIds.has(row.id))
-      : [],
-    [currentSearchRows, matchedCommissionIds, hasAppliedSearchQuery],
-  )
+  const {
+    currentSearchRows,
+    hasAppliedSearchQuery,
+    matchedCommissionIds,
+    matchedSearchRows,
+    updateSearchRow,
+  } = useAdminCommissionSearch({ commissionSearchRows, creatorAliases, query: deferredSearchQuery })
   const sortedLoadedCommissionsByCharacter = useMemo(() => {
     const next = new Map<number, CommissionRow[]>()
     for (const [characterId, rows] of commissionMap) {
@@ -228,111 +175,6 @@ export function CommissionManager({
     target?.focus()
   }, [lastMove])
 
-  const loadCharacterCommissions = useCallback((characterId: number, force = false): Promise<CommissionRow[] | null> => {
-    const inFlight = inFlightLoadPromisesRef.current.get(characterId)
-    if (inFlight && !force) {
-      return inFlight
-    }
-    if (!force && loadedCharacterIdsRef.current.has(characterId) && !staleCharacterIdsRef.current.has(characterId)) {
-      return Promise.resolve(null)
-    }
-
-    staleCharacterIdsRef.current.add(characterId)
-
-    const version = (loadVersionsRef.current.get(characterId) ?? 0) + 1
-    loadVersionsRef.current.set(characterId, version)
-    const isCurrent = () => loadVersionsRef.current.get(characterId) === version
-
-    setLoadingCharacterIds(previous => new Set(previous).add(characterId))
-    setLoadErrors((previous) => {
-      const next = new Map(previous)
-      next.delete(characterId)
-      return next
-    })
-
-    // 刷新取代旧请求时，等待旧请求的选中操作必须接续最新响应。
-    const latestResult = (): Promise<CommissionRow[] | null> | null => {
-      const latest = latestLoadPromisesRef.current.get(characterId)
-      return latest && latest.version !== version
-        ? latest.promise
-        : null
-    }
-    const request: Promise<CommissionRow[] | null> = fetchCharacterCommissionsAction(characterId)
-      .then((commissions) => {
-        if (!isCurrent()) {
-          return latestResult()
-        }
-        staleCharacterIdsRef.current.delete(characterId)
-        setLoadedCommissions(previous => [
-          ...previous.filter(commission => commission.characterId !== characterId),
-          ...commissions,
-        ])
-        loadedCharacterIdsRef.current.add(characterId)
-        setLoadedCharacterIds(previous => new Set(previous).add(characterId))
-        return commissions
-      })
-      .catch((error) => {
-        if (!isCurrent()) {
-          return latestResult()
-        }
-        const message = error instanceof Error
-          ? error.message
-          : 'Failed to load commissions.'
-        setLoadErrors(previous => new Map(previous).set(characterId, message))
-        if (loadedCharacterIdsRef.current.has(characterId)) {
-          setRefreshError(message)
-        }
-        return null
-      })
-      .finally(() => {
-        if (inFlightLoadPromisesRef.current.get(characterId) === request) {
-          setLoadingCharacterIds((previous) => {
-            const next = new Set(previous)
-            next.delete(characterId)
-            return next
-          })
-          inFlightLoadPromisesRef.current.delete(characterId)
-        }
-      })
-
-    inFlightLoadPromisesRef.current.set(characterId, request)
-    latestLoadPromisesRef.current.set(characterId, { version, promise: request })
-    return request
-  }, [])
-
-  const refreshLoadedGroups = useCallback((scope?: ReadonlySet<number> | null) => {
-    const currentCharacterIds = new Set(characters.map(character => character.id))
-    const currentIds = [...loadedCharacterIdsRef.current].filter(id => currentCharacterIds.has(id) && (!scope || scope.has(id)))
-    void Promise.all(currentIds.map(characterId => loadCharacterCommissions(characterId, true))).then((results) => {
-      // A scoped pass says nothing about the groups it skipped, so it must not clear their refresh error.
-      if (!scope && results.every(Boolean)) {
-        setRefreshError(null)
-      }
-    })
-  }, [characters, loadCharacterCommissions])
-
-  const refreshScopeRef = useRef(refreshScope)
-  refreshScopeRef.current = refreshScope
-
-  useEffect(() => {
-    commissionSearchRowsRef.current = commissionSearchRows
-    if (previousSearchRowsRef.current !== commissionSearchRows) {
-      previousSearchRowsRef.current = commissionSearchRows
-      refreshLoadedGroups(refreshScopeRef.current)
-    }
-  }, [commissionSearchRows, refreshLoadedGroups])
-
-  const updateSearchRow = useCallback((id: number, row: CommissionRow | null) => {
-    // Save callbacks can outlive the render that created them; bind the overlay to the latest rows.
-    const base = commissionSearchRowsRef.current
-    setSearchUpdates(previous => ({
-      base,
-      rows: new Map(previous.base === base
-        ? previous.rows
-        : []).set(id, row),
-    }))
-  }, [])
-
   const handleToggle = useCallback((characterId: number) => {
     const isOpening = !openIds.has(characterId)
     if (isOpening) {
@@ -380,10 +222,6 @@ export function CommissionManager({
     openIds,
   ])
 
-  const invalidateCharacterLoad = useCallback((characterId: number) => {
-    loadVersionsRef.current.set(characterId, (loadVersionsRef.current.get(characterId) ?? 0) + 1)
-  }, [])
-
   // 保存后立即更新作品和搜索；后台同步只刷新已加载的角色组。
   const handleCommissionSaved = useCallback((updated: CommissionRow) => {
     const previous = loadedCommissions.find(commission => commission.id === updated.id)
@@ -391,31 +229,28 @@ export function CommissionManager({
     if (previous && previous.characterId !== updated.characterId) {
       invalidateCharacterLoad(previous.characterId)
     }
-    setLoadedCommissions(previous =>
-      previous.map(commission => commission.id === updated.id
-        ? updated
-        : commission),
-    )
+    replaceLoadedCommission(updated)
     updateSearchRow(updated.id, updated)
     onRefresh?.()
   }, [
     invalidateCharacterLoad,
     loadedCommissions,
     onRefresh,
+    replaceLoadedCommission,
     updateSearchRow,
   ])
 
   const handleSearchResultSelect = useCallback((commissionId: number, characterId: number) => {
     const cached = loadedCommissions.find(commission => commission.id === commissionId)
     setSelectionError(null)
-    if (cached && !staleCharacterIdsRef.current.has(characterId) && !inFlightLoadPromisesRef.current.has(characterId)) {
+    if (cached && !isCharacterStale(characterId) && !hasInFlightLoad(characterId)) {
       clearPendingSelection()
       setSelectedCommission(cached)
       return
     }
     pendingCommissionIdRef.current = commissionId
     setPendingCommissionId(commissionId)
-    void loadCharacterCommissions(characterId, !cached && !inFlightLoadPromisesRef.current.has(characterId)).then((commissions) => {
+    void loadCharacterCommissions(characterId, !cached && !hasInFlightLoad(characterId)).then((commissions) => {
       if (pendingCommissionIdRef.current !== commissionId) {
         return
       }
@@ -425,14 +260,20 @@ export function CommissionManager({
         clearPendingSelection()
       }
       else {
-        staleCharacterIdsRef.current.add(characterId)
         setSelectionError({ commissionId, characterId })
-        setLoadErrors(previous => new Map(previous).set(characterId, commissions
+        markCharacterLoadFailed(characterId, previous => commissions
           ? 'Entry no longer available'
-          : previous.get(characterId) ?? 'Current details are unavailable'))
+          : previous ?? 'Current details are unavailable')
       }
     })
-  }, [clearPendingSelection, loadCharacterCommissions, loadedCommissions])
+  }, [
+    clearPendingSelection,
+    hasInFlightLoad,
+    isCharacterStale,
+    loadCharacterCommissions,
+    loadedCommissions,
+    markCharacterLoadFailed,
+  ])
 
   // Overview's Edit buttons hand over a commission to open once this page has data.
   useEffect(() => {
@@ -468,26 +309,17 @@ export function CommissionManager({
   }, [clearPendingSelection])
 
   const handleKeywordReplaceComplete = useCallback(() => {
-    // 旧网格可保留展示，但批量变更后的记录必须刷新后才能编辑。
-    for (const characterId of new Set([
-      ...loadedCharacterIdsRef.current,
-      ...inFlightLoadPromisesRef.current.keys(),
-    ])) {
-      staleCharacterIdsRef.current.add(characterId)
-      invalidateCharacterLoad(characterId)
-    }
+    invalidateAllGroups()
     notifyDataUpdate()
     markPendingRebuild()
     onRefresh?.()
-  }, [invalidateCharacterLoad, onRefresh])
+  }, [invalidateAllGroups, onRefresh])
 
   const handleDrawerDelete = useCallback(() => {
     if (!selectedCommission)
       return
     invalidateCharacterLoad(selectedCommission.characterId)
-    setLoadedCommissions(previous =>
-      previous.filter(c => c.id !== selectedCommission.id),
-    )
+    removeLoadedCommission(selectedCommission.id)
     handleDeleteCommission(
       selectedCommission.characterId,
       selectedCommission.id,
@@ -499,6 +331,7 @@ export function CommissionManager({
     handleDeleteCommission,
     invalidateCharacterLoad,
     onRefresh,
+    removeLoadedCommission,
     selectedCommission,
     updateSearchRow,
   ])
@@ -545,7 +378,7 @@ export function CommissionManager({
         </FloatingNotice>
       )}
       {refreshError && (
-        <FloatingNotice tone="error" onDismiss={() => setRefreshError(null)}>
+        <FloatingNotice tone="error" onDismiss={dismissRefreshError}>
           <p className="text-inherit">Could not refresh commissions. Showing saved data.</p>
           <p className="mt-1 text-xs text-inherit">{refreshError}</p>
           <button type="button" onClick={() => refreshLoadedGroups()} className="mt-2 font-medium underline underline-offset-2">Try again</button>

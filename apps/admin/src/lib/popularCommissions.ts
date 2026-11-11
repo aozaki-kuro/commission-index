@@ -1,4 +1,5 @@
 import type { AdminCommissionSearchRow } from '@commission-index/domain'
+import { parseCommissionLinksJson } from '@commission-index/domain'
 import { compareCommissionsByDate } from './commissionPresentation'
 
 export interface LinkClickCount {
@@ -12,17 +13,9 @@ export interface PopularCommissionRow {
   votes: number
 }
 
-// D1 stores links as a JSON array string ('[]' when empty); legacy/null rows arrive as ''.
+// Trimmed, blank-free links: they become click-count match keys.
 export function parseCommissionLinks(links: string): string[] {
-  try {
-    const parsed = JSON.parse(links) as unknown
-    return Array.isArray(parsed)
-      ? parsed.map(link => String(link).trim()).filter(Boolean)
-      : []
-  }
-  catch {
-    return []
-  }
+  return parseCommissionLinksJson(links, { dropBlank: true })
 }
 
 // Clicks are recorded under whatever href the site rendered at the time, so a link edited from twitter.com to x.com
