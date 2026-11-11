@@ -98,10 +98,10 @@ function useAnalyticsFeed<T>(pathname: string, load: (signal: AbortSignal) => Pr
 }
 
 const placeholderStyles = 'rounded-lg border border-dashed border-gray-300 px-4 py-8 text-sm leading-relaxed text-gray-500 dark:border-gray-700 dark:text-gray-400'
-const listStyles = 'divide-y divide-gray-200 dark:divide-gray-800'
 const galleryStyles = 'grid gap-x-5 gap-y-6 @min-[34rem]/workspace:grid-cols-2 @min-[62rem]/workspace:grid-cols-3'
+// Six cards fill the one-, two- and three-column grids evenly.
+const rankingLimit = 6
 
-type OverviewLayout = 'list' | 'gallery'
 type RankingKey = 'latest' | 'wanted' | 'popular'
 
 const rankingTabs: Array<{ key: RankingKey, label: string }> = [
@@ -119,10 +119,6 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
   const reload = useCallback(() => setReloadToken(value => value + 1), [])
   const [activeRanking, setActiveRanking] = useState<RankingKey>('latest')
   const tablistRef = useRef<HTMLDivElement>(null)
-  // TODO(preview): temporary switch so both layouts can be compared; removed once the owner picks one.
-  const layout: OverviewLayout = new URLSearchParams(window.location.search).get('layout') === 'gallery'
-    ? 'gallery'
-    : 'list'
   const [interest, retryInterest] = useAnalyticsFeed('/api/admin/interest', fetchAdminInterest, reloadToken)
   const [linkClicks, retryLinkClicks] = useAnalyticsFeed('/api/admin/link-clicks', fetchAdminLinkClicks, reloadToken)
 
@@ -168,9 +164,8 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
       value: payload
         ? String(payload.aliases.characterAliases.length + payload.aliases.creatorAliases.length + payload.aliases.keywordAliases.length)
         : '—',
-      detail: payload
-        ? `${payload.aliases.characterAliases.length} character · ${payload.aliases.creatorAliases.length} creator · ${payload.aliases.keywordAliases.length} keyword`
-        : 'Character, creator & keyword',
+      // A fixed caption: one that changed length when data arrived would move the Publish card below it.
+      detail: 'Character, creator & keyword',
     },
     {
       label: 'Featured keywords',
@@ -178,16 +173,12 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
       detail: 'Shown as search suggestions',
     },
   ]
-  // A gallery row holds three cards, so nine fill it evenly; the list shows ten.
-  const limit = layout === 'gallery'
-    ? 9
-    : 10
-  const latest = payload?.bootstrap.commissionSearchRows.toSorted(compareCommissionsByDate).slice(0, limit) ?? []
+  const latest = payload?.bootstrap.commissionSearchRows.toSorted(compareCommissionsByDate).slice(0, rankingLimit) ?? []
   const mostWanted = payload && interest.payload
-    ? rankUnpublishedInterest(payload.bootstrap.commissionSearchRows, interest.payload.counts, limit)
+    ? rankUnpublishedInterest(payload.bootstrap.commissionSearchRows, interest.payload.counts, rankingLimit)
     : []
   const popular = payload && linkClicks.payload
-    ? rankPopularCommissions(payload.bootstrap.commissionSearchRows, linkClicks.payload.clicks, interest.payload?.counts ?? {}, limit)
+    ? rankPopularCommissions(payload.bootstrap.commissionSearchRows, linkClicks.payload.clicks, interest.payload?.counts ?? {}, rankingLimit)
     : []
   const overviewLoading = !payload && state.isLoading
   const openInEdit = (item: AdminCommissionSearchRow) => {
@@ -195,12 +186,9 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
     onNavigate('/edit')
   }
   const renderItems = (items: Array<{ row: AdminCommissionSearchRow, metrics?: ListMetric[] }>) => (
-    <ol className={layout === 'gallery'
-      ? galleryStyles
-      : listStyles}
-    >
+    <ol className={galleryStyles}>
       {items.map(({ row, metrics: itemMetrics }) => (
-        <CommissionItem key={row.id} item={row} layout={layout} metrics={itemMetrics} onEdit={openInEdit} />
+        <CommissionCard key={row.id} item={row} metrics={itemMetrics} onEdit={openInEdit} />
       ))}
     </ol>
   )
@@ -443,80 +431,50 @@ interface ListMetric {
   value: number | null
 }
 
-function CommissionItem({ item, layout, metrics = [], onEdit }: {
+// The whole card opens the commission in the edit drawer; the pencil only marks it as editable.
+function CommissionCard({ item, metrics = [], onEdit }: {
   item: AdminCommissionSearchRow
-  layout: OverviewLayout
   metrics?: ListMetric[]
   onEdit: (item: AdminCommissionSearchRow) => void
 }) {
   const title = getCommissionTitle(item)
-  const image = (
-    <img
-      src={getAdminApiUrl(`/api/admin/commissions/${item.id}/source-image`)}
-      alt=""
-      loading="lazy"
-      width={1280}
-      height={525}
-      className={layout === 'gallery'
-        ? 'aspect-1280/525 w-full rounded-md bg-gray-100 object-cover dark:bg-gray-800'
-        : 'h-10 w-16 shrink-0 rounded-md bg-gray-100 object-cover sm:h-11 sm:w-20 dark:bg-gray-800'}
-    />
-  )
-  const meta = (
-    <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-      <span className="min-w-0 truncate">{item.characterName}</span>
-      {/* The short ID stays flush right in every list; metrics sit to its left. */}
-      <span className="ml-auto flex shrink-0 items-center gap-3 tabular-nums">
-        {metrics.map(metric => (
-          <span key={metric.label}>
-            <span className="font-medium text-gray-900 dark:text-gray-100">{metric.value ?? '—'}</span>
-            {` ${metric.value === 1
-              ? metric.label
-              : `${metric.label}s`}`}
-          </span>
-        ))}
-        <span title={item.publicId}>
-          #
-          {formatCommissionPublicId(item.publicId)}
-        </span>
-      </span>
-    </div>
-  )
-  const editButton = (
-    <button
-      type="button"
-      onClick={() => onEdit(item)}
-      aria-label={`Edit ${getCommissionAccessibleLabel(item)}`}
-      title="Edit"
-      className={`${buttonStyles.icon} size-9 pointer-coarse:size-11`}
-    >
-      <IconPencil className="size-4" stroke={1.8} aria-hidden="true" />
-    </button>
-  )
-  const text = (
-    <div className="min-w-0 flex-1 space-y-1">
-      <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-100" title={title}>{title}</p>
-      {meta}
-    </div>
-  )
-
-  if (layout === 'gallery') {
-    return (
-      <li className="min-w-0 space-y-2.5">
-        {image}
-        <div className="flex min-w-0 items-center gap-2">
-          {text}
-          {editButton}
-        </div>
-      </li>
-    )
-  }
 
   return (
-    <li className="flex min-w-0 items-center gap-3 py-2">
-      {image}
-      {text}
-      {editButton}
+    <li className="min-w-0">
+      <button
+        type="button"
+        onClick={() => onEdit(item)}
+        aria-label={`Edit ${getCommissionAccessibleLabel(item)}`}
+        className="group block w-full min-w-0 rounded-md text-left focus-visible:outline-2 focus-visible:outline-offset-4"
+      >
+        <img
+          src={getAdminApiUrl(`/api/admin/commissions/${item.id}/source-image`)}
+          alt=""
+          loading="lazy"
+          width={1280}
+          height={525}
+          className="aspect-1280/525 w-full rounded-md bg-gray-100 object-cover dark:bg-gray-800"
+        />
+        <span className="mt-2.5 flex min-w-0 items-center justify-between gap-3">
+          <span className="min-w-0 truncate text-sm font-medium text-gray-800 dark:text-gray-100" title={title}>{title}</span>
+          <IconPencil className="size-4 shrink-0 text-gray-400 transition group-hover:text-gray-900 dark:text-gray-500 dark:group-hover:text-gray-100" stroke={1.8} aria-hidden="true" />
+        </span>
+        <span className="mt-1 flex min-w-0 items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
+          <span className="min-w-0 truncate">{item.characterName}</span>
+          {/* The short ID stays flush right on every card; metrics sit to its left. */}
+          <span className="flex shrink-0 items-center gap-3 tabular-nums">
+            {metrics.map(metric => (
+              <span key={metric.label}>
+                <span className="font-medium text-gray-900 dark:text-gray-100">{metric.value ?? '—'}</span>
+                {` ${metric.value === 1
+                  ? metric.label
+                  : `${metric.label}s`}`}
+              </span>
+            ))}
+            <span title={item.publicId}>{`#${formatCommissionPublicId(item.publicId)}`}</span>
+          </span>
+        </span>
+      </button>
     </li>
   )
 }
