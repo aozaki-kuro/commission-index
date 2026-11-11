@@ -3,6 +3,7 @@ import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { FloatingNoticeProvider } from '../components/FloatingNotice'
+import { resetReloadRestoreClaim } from '../lib/reloadRestoreClaim'
 import { AdminEditPage } from './AdminEditPage'
 
 const api = vi.hoisted(() => ({
@@ -121,7 +122,11 @@ describe('admin edit page cached refresh recovery', () => {
 
   it.each([false, true])('waits for groups before restoring once; user cancellation=%s', async (cancel) => {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
-    class ReloadNavigation { type = 'reload' }
+    resetReloadRestoreClaim()
+    class ReloadNavigation {
+      type = 'reload'
+      name = window.location.href
+    }
     Object.assign(globalThis, { PerformanceNavigationTiming: ReloadNavigation })
     vi.spyOn(performance, 'getEntriesByType').mockReturnValue([
       new ReloadNavigation() as unknown as PerformanceEntry,
@@ -160,5 +165,53 @@ describe('admin edit page cached refresh recovery', () => {
     if (!cancel) {
       expect(scroll).toHaveBeenCalledWith({ behavior: 'auto', top: 420 })
     }
+  })
+
+  it.each([
+    [
+      'a later mount in the same document',
+      (href: string) => href,
+      true,
+    ],
+    [
+      'a document reloaded on another route',
+      (href: string) => new URL('/create', href).href,
+      false,
+    ],
+  ])('does not restore from storage for %s', async (_label, entryName, mountTwice) => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+    resetReloadRestoreClaim()
+    class ReloadNavigation {
+      type = 'reload'
+      name = entryName(window.location.href)
+    }
+    Object.assign(globalThis, { PerformanceNavigationTiming: ReloadNavigation })
+    vi.spyOn(performance, 'getEntriesByType').mockReturnValue([
+      new ReloadNavigation() as unknown as PerformanceEntry,
+    ])
+    window.sessionStorage.setItem('admin-dashboard-scroll', JSON.stringify({
+      top: 420,
+      timestamp: Date.now(),
+    }))
+    const scroll = vi.spyOn(window, 'scrollTo').mockImplementation(() => {})
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
+      callback(0)
+      return 1
+    })
+    api.readCachedAdminJson.mockReturnValue(cachedPayload)
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+    await act(async () => root.render(createElement(AdminEditPage)))
+    if (mountTwice) {
+      // The first mount owns the reload restore; drop its scroll and mount again as an SPA visit would.
+      await act(async () => api.groupsLoaded!())
+      scroll.mockClear()
+      await act(async () => root.unmount())
+      root = createRoot(container)
+      await act(async () => root.render(createElement(AdminEditPage)))
+    }
+    await act(async () => api.groupsLoaded!())
+    expect(scroll).not.toHaveBeenCalled()
   })
 })

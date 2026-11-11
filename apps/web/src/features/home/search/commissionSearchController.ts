@@ -258,6 +258,42 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
   function prepareSearchInteraction() {
     isIndexReady = true
     shouldWarmFuse = true
+    requestSearchIndex()
+  }
+
+  // The index is fetched on the first search interaction (or at init when a query or the entry-pool fallback
+  // needs it), not on every visit. Until it arrives, a query is held rather than run against the index-less DOM,
+  // which would hide every entry and announce "no results" for one round trip.
+  let indexStatus: 'idle' | 'loading' | 'ready' | 'failed' = externalEntries
+    ? 'ready'
+    : 'idle'
+
+  function requestSearchIndex() {
+    if (disposed || indexStatus === 'loading' || indexStatus === 'ready')
+      return
+    indexStatus = 'loading'
+    // ensureHomeSearchEntriesPromise drops a rejected promise, so a later interaction retries after a failure.
+    void ensureHomeSearchEntriesPromise()
+      .then((entries) => {
+        if (disposed)
+          return
+        indexStatus = 'ready'
+        externalEntries = entries
+        popularKeywordPool = buildPopularKeywordPoolFromEntries(entries)
+        scheduleRecompute({ immediate: true })
+      })
+      .catch((error) => {
+        if (disposed)
+          return
+        console.error(error)
+        // Fall back to the DOM-only index instead of holding the query forever.
+        indexStatus = 'failed'
+        scheduleRecompute({ immediate: true })
+      })
+  }
+
+  function isQueryWaitingForIndex() {
+    return indexStatus === 'loading' && !externalEntries && Boolean(normalizeQuery(query))
   }
 
   // An archived-only match reveals archived instead of filtering the viewport down to nothing; this pass
@@ -363,6 +399,11 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
         autoJumpRafId = 0
         jumpToCommissionSearch({ focusMode: 'none' })
       })
+    }
+
+    if (isQueryWaitingForIndex()) {
+      updateButtonVisibility()
+      return
     }
 
     scheduleAddressSync()
@@ -734,6 +775,9 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
     // Back/forward landed on a different ?q=: the address wins over what was typed.
     // A hash-only popstate (fragment navigation) leaves typed text and the pending write alone.
     const addressQuery = getUrlQuerySnapshot()
+    // Back/forward onto a `?q=` is a search the reader did not type; it needs the index too.
+    if (addressQuery)
+      requestSearchIndex()
     if (addressQuery !== lastAddressQuery) {
       lastAddressQuery = addressQuery
       if (addressQuery !== query) {
@@ -755,18 +799,10 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
     }
   }
 
-  // Fetch external search index
-  void ensureHomeSearchEntriesPromise()
-    .then((entries) => {
-      if (disposed)
-        return
-      externalEntries = entries
-      popularKeywordPool = buildPopularKeywordPoolFromEntries(entries)
-      scheduleRecompute({ immediate: true })
-    })
-    .catch((error) => {
-      console.error(error)
-    })
+  // Fetch the index now only when the page needs it before any interaction: a `?q=` load, or no featured
+  // keywords, where the keyword row is built from the index's entry pool.
+  if (initialUrlQuery || computeFeaturedKeywordChips(featuredKeywords, suggestionAliasGroups).length === 0)
+    requestSearchIndex()
 
   // Initial recompute (immediate — first render)
   scheduleRecompute({ immediate: true })

@@ -3,13 +3,17 @@
 // fires after the swap would bind to a detached DOM.
 type CancelScheduled = () => void
 
+// Same fallback delay as the home page's deferred mounts (homePageClient.ts): a 1 ms timeout ran the controller
+// chunk right after mount, competing with first paint.
+export const SEARCH_ISLAND_IDLE_FALLBACK_DELAY_MS = 180
+
 function scheduleIdle(task: () => void): CancelScheduled {
   // Safari lacks requestIdleCallback; the timeout keeps the same deferred contract there.
   if ('requestIdleCallback' in window) {
     const id = window.requestIdleCallback(task)
     return () => window.cancelIdleCallback(id)
   }
-  const id = setTimeout(task, 1)
+  const id = setTimeout(task, SEARCH_ISLAND_IDLE_FALLBACK_DELAY_MS)
   return () => clearTimeout(id)
 }
 

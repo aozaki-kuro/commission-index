@@ -9,6 +9,59 @@ const ENTRY_HEIGHT = 400
 let scrollY = 0
 let isDesktop = false
 
+// Recomputes intersections from the stubbed layout whenever the test scrolls, notifying only changed targets like
+// the real observer. It honours the top rootMargin, which is what lets targets above the viewport count.
+const observers = new Set<FakeIntersectionObserver>()
+
+class FakeIntersectionObserver {
+  private readonly targets = new Map<Element, boolean | null>()
+  private readonly marginTop: number
+
+  constructor(private readonly callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+    this.marginTop = Number.parseFloat(options?.rootMargin ?? '0') || 0
+    observers.add(this)
+  }
+
+  observe(element: Element) {
+    this.targets.set(element, null)
+    queueMicrotask(flushIntersections)
+  }
+
+  unobserve(element: Element) {
+    this.targets.delete(element)
+  }
+
+  disconnect() {
+    this.targets.clear()
+    observers.delete(this)
+  }
+
+  takeRecords() {
+    return []
+  }
+
+  flush() {
+    const records: IntersectionObserverEntry[] = []
+    for (const [element, previous] of this.targets) {
+      const rect = element.getBoundingClientRect()
+      const isIntersecting = element.getClientRects().length > 0
+        && rect.top < window.innerHeight
+        && rect.bottom > -this.marginTop
+      if (previous === isIntersecting)
+        continue
+      this.targets.set(element, isIntersecting)
+      records.push({ target: element, isIntersecting } as IntersectionObserverEntry)
+    }
+    if (records.length > 0)
+      this.callback(records, this as unknown as IntersectionObserver)
+  }
+}
+
+function flushIntersections() {
+  for (const observer of [...observers])
+    observer.flush()
+}
+
 function renderPanels({ characterTotal = 8, timelineTotal = 4 } = {}) {
   const activeEntries = Array.from({ length: 4 }, (_, i) => `<div data-commission-entry="true" data-index="${i}"></div>`).join('')
   const archivedEntries = Array.from({ length: 4 }, (_, i) => `<div data-commission-entry="true" data-index="${i + 4}"></div>`).join('')
@@ -43,7 +96,7 @@ function stubLayout() {
   })
   vi.spyOn(HTMLElement.prototype, 'getClientRects').mockImplementation(function (this: HTMLElement) {
     const panel = this.closest<HTMLElement>('[data-commission-view-panel]')
-    const visible = panel?.dataset.commissionViewActive === 'true'
+    const visible = panel?.dataset.commissionViewActive === 'true' && !this.classList.contains('hidden')
     return (visible
       ? [{}]
       : []) as unknown as DOMRectList
@@ -53,10 +106,12 @@ function stubLayout() {
 async function scrollTo(y: number) {
   scrollY = y
   window.dispatchEvent(new Event('scroll'))
+  flushIntersections()
   await new Promise(resolve => requestAnimationFrame(() => resolve(null)))
 }
 
 function setActivePanel(name: 'character' | 'timeline') {
+  // The real toggle also flips `hidden`; the stubbed layout reads only this attribute.
   for (const panel of document.querySelectorAll<HTMLElement>('[data-commission-view-panel]')) {
     panel.dataset.commissionViewActive = panel.dataset.commissionViewPanel === name
       ? 'true'
@@ -78,6 +133,8 @@ describe('scrollDepthTracker', () => {
       configurable: true,
       value: (query: string) => ({ matches: query === '(min-width: 64rem)' && isDesktop }),
     })
+    observers.clear()
+    vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver)
     renderPanels()
     stubLayout()
   })
@@ -85,6 +142,42 @@ describe('scrollDepthTracker', () => {
   afterEach(() => {
     vi.restoreAllMocks()
     document.body.innerHTML = ''
+  })
+
+  it('reports nothing before the reader scrolls, then what the first screen already reached', async () => {
+    const trackEvent = vi.fn<(properties: ScrollDepthEventProperties) => void>()
+    const dispose = mountScrollDepthTracker({ trackEvent })
+
+    await Promise.resolve()
+    flushIntersections()
+    expect(trackEvent).not.toHaveBeenCalled()
+
+    await scrollTo(0)
+    await vi.waitFor(() => {
+      expect(trackEvent.mock.calls.map(([properties]) => properties.depth)).toEqual([5, 10, 25])
+    })
+
+    dispose()
+  })
+
+  it('stays silent while search has hidden entries but not yet written ?q=', async () => {
+    const trackEvent = vi.fn<(properties: ScrollDepthEventProperties) => void>()
+    const dispose = mountScrollDepthTracker({ trackEvent })
+    // Entry 3 carries the 50% milestone of 8.
+    const filtered = document.querySelector<HTMLElement>('[data-character-status="active"] [data-index="3"]')!
+    filtered.classList.add('hidden')
+
+    await scrollTo(1000)
+    expect(trackEvent).not.toHaveBeenCalled()
+
+    // Cleared: unhiding relayouts the entry, and that observer callback reports everything reached.
+    filtered.classList.remove('hidden')
+    await scrollTo(1001)
+    await vi.waitFor(() => {
+      expect(trackEvent.mock.calls.map(([properties]) => properties.depth)).toEqual([5, 10, 25, 50])
+    })
+
+    dispose()
   })
 
   it('reports each crossed milestone once, as a share of the view total', async () => {

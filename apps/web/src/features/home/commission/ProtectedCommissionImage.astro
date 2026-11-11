@@ -14,6 +14,8 @@ interface ProtectedCommissionImageProps {
 }
 
 const { altText, sourceImage, priority = false } = Astro.props as ProtectedCommissionImageProps
+// The skeleton pulses only until imageFadeIn marks the wrapper `data-loaded`; an unconditional pulse kept ~90
+// infinite animations running behind loaded images. Class strings stay on one line: this markup repeats per entry.
 
 ---
 
@@ -21,12 +23,7 @@ const { altText, sourceImage, priority = false } = Astro.props as ProtectedCommi
   data-commission-image="true"
   data-commission-alt={altText}
   data-loaded={priority ? '' : undefined}
-  class="
-    relative
-    before:pointer-events-none before:absolute before:inset-0
-    before:animate-pulse before:bg-gray-100 before:content-['']
-    dark:before:bg-gray-800
-  "
+  class="relative before:pointer-events-none before:absolute before:inset-0 not-data-loaded:before:animate-pulse before:bg-gray-100 before:content-[''] dark:before:bg-gray-800"
 >
   <Image
     src={sourceImage}
@@ -37,6 +34,7 @@ const { altText, sourceImage, priority = false } = Astro.props as ProtectedCommi
     sizes={COMMISSION_IMAGE_SIZES}
     class="pointer-events-none relative z-10 block w-full select-none"
     loading={priority ? 'eager' : 'lazy'}
+    fetchpriority={priority ? 'high' : undefined}
     style="height:auto"
   />
 </div>

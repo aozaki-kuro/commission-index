@@ -56,6 +56,11 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   `astro:before-swap`; never mount from top-level module code
 - **Hero fade-in:** the intro block and both desktop sidebars share `.animate-hero-reveal` (200ms, no delays, `backwards` fill), separate from the `.animate-reveal-up` that `scrollReveal.ts` uses for entries. Their old staggered 500ms reveals (0/120/200ms) read as the page stuttering in; owner delegated the A/B pick to the advisor on 2026-11-03, who picked this over keeping it or dropping the fade. Do not reintroduce per-piece delays. The intro paragraph is the LCP element when no image beats it (the age gate and fixture runs), and Chrome counts text fading in from opacity 0 only once the fade ends, so this fade puts PSI mobile LCP at 2.0–3.8 s against 1.1 s before; owner accepted that lab cost for the feel on 2026-11-03. A `both` fill never ends and hides the paragraph from LCP entirely; that is metric hiding, not a fix
 - **Image fade-in:** `commission/imageFadeIn.ts` (mounted in `criticalMounts`) fades `[data-commission-image] > img` in on `load`. Fail open: CSS hides images only under `html[data-image-fade=on]`, which the mount sets after marking already-`complete` images `data-loaded`, so no-JS and cached reloads never flash. The LCP image (`priority`) is server-rendered with `data-loaded`: Chrome ignores `opacity: 0` paints for LCP. `load`/`error` do not bubble, so the listeners are document-level capture; `error` also marks loaded so a broken image never stays invisible. Dispose leaves the attribute; ClientRouter resets `<html>` attributes on swap and the next mount sets it again
+- **Deferred mounts:** `homePageClient.ts` mounts the critical group statically and loads every other mount
+  (sidebar, hamburger, keyword button, mobile tabs, interest buttons, scroll reveal, floating-button auto-hide,
+  scroll depth) from `homePageDeferredMounts.ts` through one `import()` at idle, so they stay out of the eager entry
+  chunk. A teardown before the chunk resolves skips the mounts; order lives in `DEFERRED_MOUNT_ORDER`. Do not import
+  a deferred module statically from a critical one, or the chunk split is lost.
 - **Floating buttons auto-hide:** below `lg` the hamburger and keyword-button roots get `data-floating-hidden` (one controller, `nav/hamburger/floatingButtonsAutoHide.ts`, mounted from `homePageClient.ts`) while scrolling down; never hidden near the top/bottom, while a menu is open, keyboard focus is inside, or the age gate is open. CSS-only hide (no `aria-hidden`/`inert`).
   They stay hidden while the reader pauses and return on ~8px of upward travel, like iOS Safari's toolbar (owner ruled
   2026-11-02): a pause is when the reader is looking at the artwork under them, and scroll-pause-scroll reading would
@@ -102,7 +107,9 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
 - **Palette:** `gray-*` is aliased to Tailwind's achromatic neutral scale in `globals.css` `@theme` so it matches
   the `#171717` page. Write `gray-*`; never reintroduce blue-tinted grays, Apple system greys (`rgb(29 29 31)`) or
   `backdrop-saturate-*` on frosted surfaces, and no other hue family (`stone`, `zinc`, `slate`) for neutral UI. Image
-  placeholders share one fill, `gray-100`/`gray-800`; the loading one adds only `animate-pulse`. Light-mode screenshots cannot see palette drift (it is under the
+  placeholders share one fill, `gray-100`/`gray-800`; the loading one adds only `animate-pulse`, as
+  `not-data-loaded:before:animate-pulse` so it stops once `imageFadeIn.ts` marks the wrapper (an unconditional pulse
+  kept ~90 infinite animations running behind loaded images). Light-mode screenshots cannot see palette drift (it is under the
   pixel threshold); check dark mode by eye.
 - **Type and stacking tokens:** 11px text is `text-2xs` (`--text-2xs` in `globals.css` `@theme`, font size only, so
   line-height still comes from the element); do not write `text-[11px]`. The token is `11px`, not rem, in both apps so
@@ -137,7 +144,11 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   character view (archived stays out), every entry for the timeline. Keep that count equal to what the panel
   renders statically. Silent while `?q=` filters the list. `reached_by` turns `jump` for the rest of the mount once
   a nav character link or a deep-linked hash moved the reader (`markScrollJump`); a new jump path must call
-  `markScrollJump` too.
+  `markScrollJump` too. It observes one target per milestone (the `ceil(total × pct / 100)`-th entry of each panel)
+  with an IntersectionObserver whose root extends far upward, so "reached" means the entry's top entered the
+  viewport even when a jump carried it straight past; a viewport-sized root would miss jumped milestones. Nothing
+  reports before the first scroll, and nothing while any entry in the active panel has search's `hidden` class
+  (search filters ~300 ms before it writes `?q=`). Do not go back to a per-frame scan of every entry.
 - **Analytics events are decision-driven:** `@lib/analytics/events.ts` keeps only events a pending question or a
   standing signal reads (depth funnel, first-screen actions, nav jumps that inflate depth, `age_gate`
   `shown`/`confirmed`, unpublished interest). Drop an event once its question is answered instead of keeping it
@@ -179,6 +190,11 @@ JSON / HTML, or the archived toggle / hash navigation contract change.
 
 - Search UI must be layout-stable on first paint — no shell-to-content swaps
 - Production search index: `/search/home-search-entries.<v>.json` (not DOM metadata), `v` from the root `data-search-index-version` attribute (`#--------Commissions--------`); a 404 retries once with `v` from `/search/home-search-version.json` (`no-cache`); no unversioned index route exists
+- The index is fetched only when needed: at controller init for a `?q=` load or when there are no featured keywords
+  (the keyword row is built from the entry pool), otherwise on the first search interaction
+  (`prepareSearchInteraction`: input focus/pointerdown/typing, chip, browse popover) or a `popstate` onto `?q=`. A
+  query applied while the index is in flight is held, not run against the index-less DOM (that would hide every
+  entry and announce no results); a failed load falls back to the DOM index and retries on the next interaction
 - Search locale labels resolve from `homeSearchControls.ts` (not the full `homeLocale` graph)
 - `?q=` mirrors the applied query: written via `replaceState(history.state, …)` ~300 ms after it is applied (never `pushState`; `null` state would wipe ClientRouter's), removed on clear; a self-write fires no location-change event; a `popstate` that changes `?q=` makes the address win over typed text, a hash-only one keeps it
 - Link-click interceptors (sidebar, hamburger, hash) must bail on `!isUnmodifiedPrimaryClick(event)` (`lib/navigation/hashAnchor.ts`) so modified/middle clicks open normally

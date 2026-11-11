@@ -8,7 +8,7 @@ vi.mock('@features/home/search/commissionSearchController', () => ({
   initSearchController,
 }))
 
-const { mountCommissionSearchIsland } = await import('./commissionSearchIsland')
+const { mountCommissionSearchIsland, SEARCH_ISLAND_IDLE_FALLBACK_DELAY_MS } = await import('./commissionSearchIsland')
 
 describe('mountCommissionSearchIsland', () => {
   let idleCallbacks: Map<number, () => void>
@@ -49,6 +49,25 @@ describe('mountCommissionSearchIsland', () => {
       callback()
     }
   }
+
+  it('falls back to a delayed timeout, not the next task, without requestIdleCallback', async () => {
+    Reflect.deleteProperty(window, 'requestIdleCallback')
+    Reflect.deleteProperty(window, 'cancelIdleCallback')
+    vi.useFakeTimers()
+    try {
+      const dispose = mountCommissionSearchIsland()
+
+      await vi.advanceTimersByTimeAsync(SEARCH_ISLAND_IDLE_FALLBACK_DELAY_MS - 1)
+      expect(initSearchController).not.toHaveBeenCalled()
+
+      await vi.advanceTimersByTimeAsync(1)
+      await vi.waitFor(() => expect(initSearchController).toHaveBeenCalledTimes(1))
+      dispose()
+    }
+    finally {
+      vi.useRealTimers()
+    }
+  })
 
   it('defers the controller to an idle callback instead of mounting synchronously', async () => {
     mountCommissionSearchIsland()
