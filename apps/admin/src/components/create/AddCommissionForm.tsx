@@ -41,6 +41,8 @@ interface AddCommissionFormProps {
   creatorAliases: CreatorAliasRow[]
   bootstrapState: 'loading' | 'ready' | 'unavailable'
   onAddCharacter: () => void
+  // notifyDataUpdate ignores the current tab, so the page must refresh its own bootstrap data.
+  onCreated?: () => void
 }
 
 type SourceImageHintTone = 'default' | 'success' | 'error'
@@ -90,6 +92,7 @@ export function AddCommissionForm({
   creatorAliases,
   bootstrapState,
   onAddCharacter,
+  onCreated,
 }: AddCommissionFormProps) {
   const [state, formAction] = useActionState(addCommissionAction, INITIAL_FORM_STATE)
   const [characterId, setCharacterId] = useState<number | null>(null)
@@ -125,10 +128,17 @@ export function AddCommissionForm({
   ])
   useUnsavedChangesGuard(controlledDraft !== savedDraft || hasTextDraft || croppedImage !== null || pendingCropFile !== null)
 
+  // Latest callback via ref so a new identity while still in 'success' cannot re-fire the effect.
+  const onCreatedRef = useRef(onCreated)
+  useEffect(() => {
+    onCreatedRef.current = onCreated
+  })
+
   useEffect(() => {
     if (state.status === 'success') {
       notifyDataUpdate()
       markPendingRebuild()
+      onCreatedRef.current?.()
     }
   }, [state])
 

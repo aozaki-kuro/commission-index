@@ -21,7 +21,10 @@ const rows: AdminCommissionSearchRow[] = [1, 2].map(id => ({
     : null,
   keyword: 'old',
   hidden: false,
-  links: 'https://example.com',
+  // The raw D1 JSON string, as bootstrap search rows carry it.
+  links: id === 1
+    ? '["https://example.com/a","https://example.com/b"]'
+    : '[]',
 }))
 
 describe('keyword replacement metadata contract', () => {
@@ -71,11 +74,21 @@ describe('keyword replacement metadata contract', () => {
         commissionDate: row.commissionDate,
         creatorName: row.creatorName,
         hidden: row.hidden,
-        links: row.links,
+        links: (JSON.parse(row.links) as string[]).join('\n'),
         keyword: 'old-new',
       })
     }
     expect(onComplete).toHaveBeenCalledTimes(1)
+  })
+
+  it('writes the replacement text literally, without $ pattern expansion', async () => {
+    await act(async () => {
+      const input = document.getElementById('keyword-replace-with')!
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '$&x$$tag')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    await replace()
+    expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toMatchObject({ keyword: '$&x$$tag' })
   })
 
   it('refreshes partial success, preserves failure feedback and retries only unfinished rows', async () => {
