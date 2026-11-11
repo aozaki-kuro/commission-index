@@ -5,13 +5,11 @@ import { buttonStyles } from '../app/ui'
 interface SubmitButtonProps {
   children: ReactNode
   disabled?: boolean
-  pendingLabel?: string
 }
 
 export function SubmitButton({
   children,
   disabled = false,
-  pendingLabel = 'Saving...',
 }: SubmitButtonProps) {
   const { pending } = useFormStatus()
 
@@ -21,7 +19,7 @@ export function SubmitButton({
       disabled={pending || disabled}
       className={`${buttonStyles.primary} min-w-[150px] shrink-0 whitespace-nowrap`}
     >
-      {pending ? pendingLabel : children}
+      {pending ? 'Saving...' : children}
     </button>
   )
 }

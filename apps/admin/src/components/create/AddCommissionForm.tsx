@@ -371,7 +371,6 @@ export function AddCommissionForm({
         </SourceImagePreview>
         <div className="min-w-0">
           <CommissionSourceImageField
-            required
             inputRef={sourceImageInputRef}
             onChange={handleSourceImageChange}
           />
@@ -410,7 +409,6 @@ export function AddCommissionForm({
         onCommissionDateChange={setCommissionDate}
         creatorName={creatorName}
         onCreatorNameChange={setCreatorName}
-        linksRows={3}
         designPlaceholder="Design reference"
         descriptionPlaceholder="Short description"
         keywordValue={keywordValue}

@@ -9,7 +9,6 @@ interface FormStatusIndicatorProps {
   message?: string
   successLabel?: string
   errorFallback?: string
-  hideDelay?: number
 }
 
 export function FormStatusIndicator({ status, message, ...props }: FormStatusIndicatorProps) {
@@ -26,7 +25,6 @@ function FormNotice({
   message,
   successLabel = 'Saved',
   errorFallback = 'Unable to save.',
-  hideDelay = 2500,
 }: FormStatusIndicatorProps) {
   const [dismissed, setDismissed] = useState(false)
 
@@ -34,9 +32,9 @@ function FormNotice({
     if (status !== 'success') {
       return
     }
-    const timer = setTimeout(setDismissed, hideDelay, true)
+    const timer = setTimeout(setDismissed, 2500, true)
     return () => clearTimeout(timer)
-  }, [status, hideDelay])
+  }, [status])
 
   if (dismissed) {
     return null

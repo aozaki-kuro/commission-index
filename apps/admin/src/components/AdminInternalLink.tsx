@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { useCallback } from 'react'
 import { shouldHandleInternalNavigation } from '../lib/navigation'
 
 interface AdminInternalLinkProps {
@@ -15,17 +14,14 @@ export function AdminInternalLink({
   className,
   children,
 }: AdminInternalLinkProps) {
-  const handleClick = useCallback(
-    (event: React.MouseEvent<HTMLAnchorElement>) => {
-      if (!shouldHandleInternalNavigation(event)) {
-        return
-      }
+  const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!shouldHandleInternalNavigation(event)) {
+      return
+    }
 
-      event.preventDefault()
-      onNavigate(href)
-    },
-    [href, onNavigate],
-  )
+    event.preventDefault()
+    onNavigate(href)
+  }
 
   return (
     <a href={href} className={className} onClick={handleClick}>

@@ -10,7 +10,7 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 8000
 const TRAILING_SLASH_PATTERN = /\/+$/
 const adminJsonCache = new Map<string, unknown>()
 
-export interface AdminHealthPayload {
+interface AdminHealthPayload {
   status: string
   message?: string
 }
@@ -23,9 +23,6 @@ export interface AdminOverviewPayload {
 }
 
 interface FetchAdminJsonOptions {
-  attempts?: number
-  baseDelayMs?: number
-  requestTimeoutMs?: number
   signal?: AbortSignal
 }
 
@@ -125,21 +122,18 @@ export async function fetchAdminJsonWithRetry<TPayload>(
   pathname: string,
   options: FetchAdminJsonOptions = {},
 ): Promise<TPayload> {
-  const attempts = Math.max(1, options.attempts ?? DEFAULT_ATTEMPTS)
-  const baseDelayMs = Math.max(0, options.baseDelayMs ?? DEFAULT_BASE_DELAY_MS)
-  const requestTimeoutMs = Math.max(1000, options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS)
   const signal = options.signal
   const url = getAdminApiUrl(pathname)
 
   let lastError: unknown = null
 
-  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+  for (let attempt = 1; attempt <= DEFAULT_ATTEMPTS; attempt += 1) {
     const { controller, cleanup } = createAbortController(signal)
     let didTimeout = false
     const timeoutId = setTimeout(() => {
       didTimeout = true
       controller.abort()
-    }, requestTimeoutMs)
+    }, DEFAULT_REQUEST_TIMEOUT_MS)
 
     try {
       const response = await fetch(url, {
@@ -162,11 +156,11 @@ export async function fetchAdminJsonWithRetry<TPayload>(
       }
 
       lastError = didTimeout
-        ? new Error(`Failed to load ${pathname}: request timeout (${requestTimeoutMs}ms)`)
+        ? new Error(`Failed to load ${pathname}: request timeout (${DEFAULT_REQUEST_TIMEOUT_MS}ms)`)
         : error
 
-      if (attempt < attempts) {
-        await sleep(baseDelayMs * attempt, signal)
+      if (attempt < DEFAULT_ATTEMPTS) {
+        await sleep(DEFAULT_BASE_DELAY_MS * attempt, signal)
       }
     }
     finally {
@@ -180,11 +174,10 @@ export async function fetchAdminJsonWithRetry<TPayload>(
     : new Error(`Failed to load ${pathname}.`)
 }
 
-export async function triggerRebuildDeploy(signal?: AbortSignal): Promise<{ status: string, message: string, dispatchedAt: string }> {
+export async function triggerRebuildDeploy(): Promise<{ status: string, message: string, dispatchedAt: string }> {
   const url = getAdminApiUrl('/api/admin/rebuild')
   const response = await fetch(url, {
     method: 'POST',
-    signal,
     cache: 'no-store',
   })
   // An HTML 5xx page or a login interstitial is not JSON; do not let the parse error mask the status.
@@ -197,12 +190,12 @@ export async function triggerRebuildDeploy(signal?: AbortSignal): Promise<{ stat
   return data
 }
 
-export interface AdminInterestPayload {
+interface AdminInterestPayload {
   since: string
   counts: Record<string, number>
 }
 
-export interface AdminLinkClicksPayload {
+interface AdminLinkClicksPayload {
   since: string
   until: string
   clicks: Array<{ url: string, count: number }>

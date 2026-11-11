@@ -40,7 +40,6 @@ export type CharacterItem = Extract<ListItem, { type: 'character' }>
 export type FormFeedback = { text: string, type: 'success' | 'error' } | null
 
 type EditingState = { id: number, value: string } | null
-type DeletingState = number | null
 
 interface StoredOpenState {
   ids: number[]
@@ -59,8 +58,7 @@ interface CharacterOrderSaveQueueOptions {
 }
 
 type OpenIdsAction
-  = | { type: 'clear' }
-    | { characterId: number, type: 'toggle' }
+  = | { characterId: number, type: 'toggle' }
     | { type: 'reconcile', validIds: Set<number> }
 
 type CommissionMapAction
@@ -152,23 +150,18 @@ function readOpenIdsFromStorage(): Set<number> {
       return new Set()
     }
 
-    const parsed = JSON.parse(stored) as StoredOpenState | { id?: number, timestamp?: number }
+    const parsed = JSON.parse(stored) as StoredOpenState
     const timestamp = Number(parsed.timestamp)
     if (!Number.isFinite(timestamp) || Date.now() - timestamp > expiryMs) {
       window.localStorage.removeItem(disclosureStorageKey)
       return new Set()
     }
 
-    if ('ids' in parsed && Array.isArray(parsed.ids)) {
+    if (Array.isArray(parsed.ids)) {
       return new Set(parsed.ids.filter((value): value is number => Number.isInteger(value) && value > 0))
     }
 
-    const legacyId = 'id' in parsed
-      ? parsed.id
-      : undefined
-    return typeof legacyId === 'number' && legacyId > 0
-      ? new Set([legacyId])
-      : new Set()
+    return new Set()
   }
   catch {
     return new Set()
@@ -198,12 +191,6 @@ function saveOpenIdsToStorage(openIds: Set<number>, onQuotaExceeded?: () => void
 }
 
 function openIdsReducer(state: Set<number>, action: OpenIdsAction): Set<number> {
-  if (action.type === 'clear') {
-    return state.size === 0
-      ? state
-      : new Set()
-  }
-
   if (action.type === 'toggle') {
     const next = new Set(state)
     if (next.has(action.characterId)) {
@@ -348,7 +335,6 @@ export function useCommissionManager({
   const pendingOrderRef = useRef(false)
   const onDataChangedRef = useRef(onDataChanged)
   const [, startRenameTransition] = useTransition()
-  const [deletingId, setDeletingId] = useState<DeletingState>(null)
   const [isDeletePending, setIsDeletePending] = useState(false)
   const [confirmingCharacter, setConfirmingCharacter] = useState<CharacterRow | null>(null)
   const [openIds, dispatchOpenIds] = useReducer(openIdsReducer, undefined, readOpenIdsFromStorage)
@@ -612,7 +598,7 @@ export function useCommissionManager({
   ])
 
   const performDeleteCharacter = useCallback((character: CharacterRow) => {
-    if (activeDeleteRequestIdRef.current !== null || isDeletePending || deletingId !== null) {
+    if (activeDeleteRequestIdRef.current !== null) {
       return
     }
 
@@ -620,7 +606,6 @@ export function useCommissionManager({
     activeDeleteRequestIdRef.current = requestId
     setIsDeletePending(true)
     setFeedback({ text: 'Deleting…', type: 'success' })
-    setDeletingId(character.id)
     setEditing(current => (current?.id === character.id
       ? null
       : current))
@@ -646,11 +631,10 @@ export function useCommissionManager({
         if (activeDeleteRequestIdRef.current === requestId) {
           activeDeleteRequestIdRef.current = null
           setConfirmingCharacter(null)
-          setDeletingId(null)
           setIsDeletePending(false)
         }
       })
-  }, [deletingId, isDeletePending, toFeedback])
+  }, [toFeedback])
 
   const orderedCharacters = useMemo(
     () => list.filter((item): item is CharacterItem => item.type === 'character').map(item => item.data),
@@ -671,16 +655,10 @@ export function useCommissionManager({
     })
   }, [])
 
-  const closeAllCharacterOpen = useCallback(() => {
-    dispatchOpenIds({ type: 'clear' })
-  }, [])
-
   return {
     activeCount,
     cancelEditing,
-    closeAllCharacterOpen,
     confirmingCharacter,
-    deletingId,
     editing,
     feedback,
     dismissFeedback: () => setFeedback(null),

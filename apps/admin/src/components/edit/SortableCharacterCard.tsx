@@ -2,7 +2,6 @@ import type {
   CharacterRow,
   CommissionRow,
 } from '@commission-index/domain'
-import type { KeyboardEvent } from 'react'
 import type { DragHandleProps } from '../../hooks/useNativeDragReorder'
 import { IconArchiveFilled, IconArrowDown, IconArrowUp, IconChevronRight, IconDeviceFloppy, IconGripHorizontal, IconPencil, IconTrash, IconX } from '@tabler/icons-react'
 import { buttonStyles, formControlStyles } from '../../app/ui'
@@ -34,7 +33,6 @@ export function CharacterCardSkeleton() {
 interface SortableCharacterCardProps {
   character: CharacterRow
   commissionList: CommissionRow[]
-  disableDrag?: boolean
   dragHandleProps: DragHandleProps
   editingValue: string
   isActive: boolean
@@ -57,13 +55,11 @@ interface SortableCharacterCardProps {
   onSubmitRename: () => void
   onToggle: () => void
   selectedCommissionId: number | null
-  totalCommissions: number
 }
 
 export function SortableCharacterCard({
   character,
   commissionList,
-  disableDrag = false,
   dragHandleProps,
   editingValue,
   isActive,
@@ -86,8 +82,8 @@ export function SortableCharacterCard({
   onSubmitRename,
   onToggle,
   selectedCommissionId,
-  totalCommissions,
 }: SortableCharacterCardProps) {
+  const totalCommissions = character.commissionCount
   const sectionId = `admin-character-${character.id}`
   const panelId = `${sectionId}-panel`
   const statusId = `${sectionId}-status`
@@ -112,11 +108,9 @@ export function SortableCharacterCard({
           <button
             type="button"
             {...dragHandleProps}
-            disabled={isDeleting || disableDrag}
+            disabled={isDeleting}
             onClick={event => event.stopPropagation()}
-            aria-label={disableDrag
-              ? `Drag disabled while search is applied for ${character.name}`
-              : `Drag ${character.name}`}
+            aria-label={`Drag ${character.name}`}
             className={`${buttonStyles.icon} size-11 enabled:cursor-grab enabled:active:cursor-grabbing max-sm:hidden`}
           >
             <IconGripHorizontal className="size-5" stroke={1.8} aria-hidden="true" />
@@ -139,7 +133,7 @@ export function SortableCharacterCard({
                         if (!event.relatedTarget?.hasAttribute('data-rename-action'))
                           onSubmitRename()
                       }}
-                      onKeyDown={(event: KeyboardEvent<HTMLInputElement>) => {
+                      onKeyDown={(event) => {
                         if (event.key === 'Enter') {
                           event.preventDefault()
                           onSubmitRename()

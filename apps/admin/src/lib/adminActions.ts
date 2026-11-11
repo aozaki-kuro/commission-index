@@ -2,13 +2,9 @@ import type { CharacterStatus, CommissionRow } from '@commission-index/domain'
 import type { FormState } from './formState'
 import { getAdminApiUrl } from './adminApi'
 
-export interface AdminApiResponse {
+interface AdminApiResponse {
   status: 'success' | 'error'
   message: string
-}
-
-interface BatchSavePayload {
-  rows: unknown[]
 }
 
 function toErrorState(error: unknown, fallback: string): FormState {
@@ -63,18 +59,6 @@ async function parseResponse(response: Response): Promise<FormState> {
   }
 }
 
-async function postAdminJson(pathname: string, payload: unknown) {
-  const response = await fetch(getAdminApiUrl(pathname), {
-    method: 'POST',
-    body: JSON.stringify(payload),
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  })
-
-  return parseResponse(response)
-}
-
 async function sendAdminJson(
   pathname: string,
   method: 'PATCH' | 'POST' | 'PUT',
@@ -91,7 +75,7 @@ async function sendAdminJson(
   return parseResponse(response)
 }
 
-async function sendAdminRequest(pathname: string, method: 'DELETE' | 'POST') {
+async function sendAdminRequest(pathname: string, method: 'DELETE') {
   const response = await fetch(getAdminApiUrl(pathname), {
     method,
   })
@@ -105,8 +89,8 @@ async function saveAliasesBatchAction(
   formData: FormData,
 ): Promise<FormState> {
   try {
-    return await postAdminJson(pathname, {
-      rows: parseJsonFormField<BatchSavePayload['rows']>(formData, 'rowsJson', []),
+    return await sendAdminJson(pathname, 'POST', {
+      rows: parseJsonFormField<unknown[]>(formData, 'rowsJson', []),
     })
   }
   catch (error) {
@@ -121,7 +105,7 @@ export async function addCharacterAction(
   void _prevState
 
   try {
-    return await postAdminJson('/api/admin/characters', {
+    return await sendAdminJson('/api/admin/characters', 'POST', {
       name: formData.get('name')?.toString() ?? '',
       status: formData.get('status')?.toString() ?? 'active',
     })
@@ -296,7 +280,7 @@ export async function saveHomeFeaturedKeywordsAction(
   void _prevState
 
   try {
-    return await postAdminJson('/api/admin/suggestion', {
+    return await sendAdminJson('/api/admin/suggestion', 'POST', {
       keywords: parseJsonFormField(formData, 'keywordsJson', []),
     })
   }
