@@ -57,20 +57,20 @@
 
 ### web
 
-| ID   | 严重度 | 位置                                                                     | 问题                                                                                                                                            | 状态                                                                 |
-| ---- | ------ | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| F-1  | M      | `features/home/search/commissionSearchController.ts`                     | teardown 不取消 rAF / timer / 索引 promise（旧 WEB-7）：慢网下切语言，旧页的查询会过滤新页的条目，并把 `?q=` 写到新地址上。                     | 已修                                                                 |
-| F-2  | M      | `features/home/homeScrollRestore.ts`                                     | `sessionStorage` 未包 try，且属于关键挂载：禁用站点存储的浏览器里整个首页运行时不挂载（导航、归档开关、视图切换全失效）。                       | 已修                                                                 |
-| F-3  | M      | `commission/commissionViewModeDomSync.ts`                                | 150ms 内连切两次视图，前一次过渡的定时器会把面板切回去，URL 与面板不一致。                                                                      | 已修                                                                 |
-| F-4  | M      | `server/StaticCommissionSections.astro` 首帧脚本                         | 首帧脚本与挂载代码用的 class 不同（`w-0` 对 `scale-x-0`，`gray-700` 对 `gray-800`）：`/?view=timeline` 进入后移动端「按角色」下划线永不再出现。 | 已修                                                                 |
-| F-5  | M      | `lib/utils/strings.ts`、`lib/characters/nav.ts`                          | 全 CJK 角色名 slug 为空串、仅标点或大小写不同的名字 id 相撞：侧栏链接失效，搜索时该分区被隐藏。读取边界不校验。                                 | 已修                                                                 |
-| F-6  | M      | `search/commissionSearchIsland.ts`                                       | 动态 `import()` 无 catch：跨部署留着的标签页拿不到旧 chunk 时搜索静默失效。                                                                     | 已修                                                                 |
-| F-7  | L-M    | `commission/linkDisplay.ts`                                              | 不匹配已知站点的链接被丢弃（已发布作品仍显示「想看」按钮）；`includes('x.com')` 会把 `dropbox.com` 标成 Twitter。                               | 已修                                                                 |
-| F-8  | L-M    | `nav/hamburger/mobileHamburgerMenu.ts`                                   | 旧 WEB-10：开合不管理焦点、无 `inert`；搜索动作绑在 `pointerdown`，滚动手势会误触。                                                             | 已修                                                                 |
-| F-9  | L      | `search/commissionSearchKeyboard.ts`、controller                         | 旧 WEB-8（关闭后 `activeIndex` 不复位，Enter 被吞）、WEB-13（同帧重复 recompute）、`requestedArchivedForSearch` 收起后不复位。                  | 已修                                                                 |
-| F-10 | L      | `IllustratorInfo.astro`、`Footer.astro`、搜索岛                          | `<time>` 内容不合法；combobox/listbox 语义是 ARIA 1.0 写法且 `ul` 里放 `div`；ja / zh-tw 页面硬编码英文 `Anon` / `Part n`。                     | 部分（`<time>` 与多语言已修；combobox 语义未动）                     |
-| F-11 | L      | RSS、favicon、页脚                                                       | 旧 BLD-2/3/5/6/7/8 均未修（RSS author 与链接缺 `/`、footer 在 `main` 内、`id` 含空格、图片 alt 全是版权串、tile 路径 404、年份构建期固定）。    | 部分（RSS、id、favicon 已修；footer 地标、图片 alt、构建期年份未动） |
-| F-12 | M      | `commission/TimelineView.astro`、`server/StaticCommissionSections.astro` | 时间线视图没有把 `locale` 传给 `CommissionEntries`：ja / zh-tw 页面的时间线条目里「设计稿」「想看」「图片缺失」等文案回退成英文。               | 已修                                                                 |
+| ID   | 严重度 | 位置                                                                     | 问题                                                                                                                                            | 状态                                                                        |
+| ---- | ------ | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| F-1  | M      | `features/home/search/commissionSearchController.ts`                     | teardown 不取消 rAF / timer / 索引 promise（旧 WEB-7）：慢网下切语言，旧页的查询会过滤新页的条目，并把 `?q=` 写到新地址上。                     | 已修                                                                        |
+| F-2  | M      | `features/home/homeScrollRestore.ts`                                     | `sessionStorage` 未包 try，且属于关键挂载：禁用站点存储的浏览器里整个首页运行时不挂载（导航、归档开关、视图切换全失效）。                       | 已修                                                                        |
+| F-3  | M      | `commission/commissionViewModeDomSync.ts`                                | 150ms 内连切两次视图，前一次过渡的定时器会把面板切回去，URL 与面板不一致。                                                                      | 已修                                                                        |
+| F-4  | M      | `server/StaticCommissionSections.astro` 首帧脚本                         | 首帧脚本与挂载代码用的 class 不同（`w-0` 对 `scale-x-0`，`gray-700` 对 `gray-800`）：`/?view=timeline` 进入后移动端「按角色」下划线永不再出现。 | 已修                                                                        |
+| F-5  | M      | `lib/utils/strings.ts`、`lib/characters/nav.ts`                          | 全 CJK 角色名 slug 为空串、仅标点或大小写不同的名字 id 相撞：侧栏链接失效，搜索时该分区被隐藏。读取边界不校验。                                 | 已修                                                                        |
+| F-6  | M      | `search/commissionSearchIsland.ts`                                       | 动态 `import()` 无 catch：跨部署留着的标签页拿不到旧 chunk 时搜索静默失效。                                                                     | 已修                                                                        |
+| F-7  | L-M    | `commission/linkDisplay.ts`                                              | 不匹配已知站点的链接被丢弃（已发布作品仍显示「想看」按钮）；`includes('x.com')` 会把 `dropbox.com` 标成 Twitter。                               | 已修                                                                        |
+| F-8  | L-M    | `nav/hamburger/mobileHamburgerMenu.ts`                                   | 旧 WEB-10：开合不管理焦点、无 `inert`；搜索动作绑在 `pointerdown`，滚动手势会误触。                                                             | 已修                                                                        |
+| F-9  | L      | `search/commissionSearchKeyboard.ts`、controller                         | 旧 WEB-8（关闭后 `activeIndex` 不复位，Enter 被吞）、WEB-13（同帧重复 recompute）、`requestedArchivedForSearch` 收起后不复位。                  | 已修                                                                        |
+| F-10 | L      | `IllustratorInfo.astro`、`Footer.astro`、搜索岛                          | `<time>` 内容不合法；combobox/listbox 语义是 ARIA 1.0 写法且 `ul` 里放 `div`；ja / zh-tw 页面硬编码英文 `Anon` / `Part n`。                     | 已修                                                                        |
+| F-11 | L      | RSS、favicon、页脚                                                       | 旧 BLD-2/3/5/6/7/8 均未修（RSS author 与链接缺 `/`、footer 在 `main` 内、`id` 含空格、图片 alt 全是版权串、tile 路径 404、年份构建期固定）。    | 部分（footer 地标评估后不改：移出 `main` 会改变外边距折叠；构建期年份保留） |
+| F-12 | M      | `commission/TimelineView.astro`、`server/StaticCommissionSections.astro` | 时间线视图没有把 `locale` 传给 `CommissionEntries`：ja / zh-tw 页面的时间线条目里「设计稿」「想看」「图片缺失」等文案回退成英文。               | 已修                                                                        |
 
 ## 2. 安全
 
@@ -118,23 +118,28 @@ protection（旧 CI-9）。
   递归；`CommissionEntries` / `IllustratorInfo` 无人传入的 props 与死分支；搜索模型里 React/cmdk 移植残留的常量输入、
   无人读取的输出与 skip-DOM 路径；locale 归一、map 构建、`CharacterNavItem` 的重复副本；过时注释。
 
+### 第二批已清理
+
+- **收回 domain**：关键词归一与去重、热门关键词池、D1 `links` JSON 解析、日期排序、UUID 校验各只留一份实现，四处应用改为导入。
+  web 与 worker 的 UUID 规则本来就不同（web 接受版本 1–8），按两个具名常量保留。
+- **worker**：日期与 work-group 校验收进 `commissionValidation.ts`，API 层与持久化层共用；三个别名批量保存改为一套固定配置
+  驱动；三个脚本共用 `scripts/lib/wrangler.ts` 与 `scripts/lib/concurrency.ts`；运行时 `source_images` DDL 与迁移 0002 + 0004
+  对齐。
+- **admin**：`CommissionManager.tsx` 拆出 `useCharacterCommissionGroups` 与 `useAdminCommissionSearch`（776 → 609 行，竞态逻辑有
+  独立测试）；源图 URL 与预览版本收进 `lib/sourceImagePreview.ts`；「成功状态自动清除」收成 `useAutoClearSuccess`；裁剪手柄的
+  coarse 偏移规则改用一个 CSS 变量；删除浏览器专用代码里永不成立的 `typeof window` 判断。
+- **web**：`data/cachedOutsideDev.ts` 取代四处手写的 dev 缓存；侧栏与汉堡菜单的视图切换、角色链接点击、追踪收进
+  `nav/homeNavClick.ts`；侧栏四套 rAF 调度样板收成 `frameTask`；`HomePage.astro` 的别名 map 去重；`HomeClientScript.astro` 改用
+  `bindSoftNavMount`；三个 locale 页面不再重复传 `canonicalPath`。
+
 ### 仍待清理
 
-- **分叉在 domain 之外的逻辑**：`buildPopularKeywordPoolFromSuggestTexts`（web 与 worker 各一份，属产品契约：后台 Suggestion
-  选项与前台回退池必须同序）；`dedupeKeywords` / `normalizeKeyword` 仍有四份（web、admin、worker、导出脚本）；D1 `links`
-  JSON 解析三份；UUID 正则四份；`sortCommissionsByDate` 在 web 有一份 domain 私有函数的副本。
-- **worker**：运行时 DDL（`ensure*Table` 在写路径前执行 `CREATE TABLE IF NOT EXISTS`，其中 `source_images` 的 DDL 停留在
-  迁移 0002、缺 `commission_id`，与「假定全部迁移已应用」的规则矛盾，且每次写入多一次 D1 往返；删除前需确认远端 schema，
-  owner）；三个只差配置的别名批量保存；日期与 work-group 校验在 API 层和持久化层各写一遍；wrangler 调用与下载重试在三个
-  脚本里各写一份。
-- **admin**：源图 URL / 预览版本读写在三个文件里；「成功状态自动清除」effect 三份；`globals.css` 里 coarse 指针的裁剪手柄
-  偏移规则写了两遍（动它需要跑视觉回归）；永远不成立的 `typeof window` 判断。
-- **web**：`apps/web/data/*` 把同一段「dev 每次重读、生产缓存」写了 9 遍；单订阅者的「订阅中心」
-  （`commissionSearchPanelState.ts`、`search/commissionViewMode.ts`），归档可见性一次收起广播两遍；侧栏与汉堡菜单的视图
-  切换、角色链接点击、`sidebarNavUsed` 追踪各实现一遍；选中态由 JS 切 class 三份（改成 `aria-pressed` 驱动 CSS 可同时消掉
-  F-4）；侧栏 4 套 rAF 调度样板；`HomePage.astro` 两段相同的别名 map；条目锚点 id 拼了四处；`HomeClientScript.astro` 重写了
-  一遍 `bindSoftNavMount`；`data-search-text` 只在 dev 输出，生产环境里 DOM 回退索引是空文本；首页三个 locale 页面重复传
-  `canonicalPath`。
+- **worker**：运行时 DDL 的删除（需 owner 确认远端 schema；仍缺迁移 0004 的部分唯一索引）；`src/` 用相对路径导入 domain
+  （改成包名需先确认 Wrangler 打包）；路由表化。
+- **web**：单订阅者的「订阅中心」（`commissionSearchPanelState.ts`、`search/commissionViewMode.ts`）与归档可见性的重复广播；
+  选中态由 JS 切 class（改成 `aria-pressed` 驱动 CSS 有像素风险）；`MobileViewModeTabs.astro` 里硬编码的初始指示器 class 是
+  class 表的第二份副本；`data-search-text` 只在 dev 输出。
+- **admin**：featured 关键词上限常量在 worker 与 web 各一份（值相同）。
 
 ## 4. 架构与 CI
 
@@ -154,7 +159,8 @@ protection（旧 CI-9）。
 fixture 加占位图跑 `astro build` 并检查产物不含提交 SHA（CI-3）；`typecheck:tools` 覆盖 `config/`、`scripts/` 与 admin 的
 Playwright 配置（CI-10）；Renovate 去掉弃用字段与无对应依赖的规则，并改为按摘要固定 action（CI-12、CI-2）；源图缓存只保留公开
 作品的图片（S-4）。导出入口与「只读绑定」的说法已在根 `AGENTS.md` 改为与实际一致；`HANDOFF.md` 已并入 `open-issues.md` 后删除。
-仍未做：`CommissionManager.tsx` 的 hook 拆分、worker 路由表、token 拆分（CI-1，平台设置）、`listR2Orphans` 之外的脚本测试。
+之后又补上：PR 的 fixture 构建断言 Hidden 作品的图片与 publicId 不进产物（CI-4）；验证跳过判断不再受 pipefail 误伤
+（CI-13）；浏览器安装在软件源不可达时回退为只装 Chromium。仍未做：worker 路由表、token 拆分（CI-1，平台设置）。
 
 ## 5. 前台性能
 
@@ -201,11 +207,11 @@ transform / opacity；`content-visibility` 已在 10-25 的计划里被否决，
 
 ## 7. 10-12 审计条目现状
 
-- **已修**：PRIV-1；ADM-1 … ADM-7、ADM-10；WRK-1 / 2 / 3 / 5 / 6 / 7 / 8 / 9 / 10 / 11 / 12 / 13 / 14；
-  WEB-1 / 2 / 3 / 5 / 6 / 7 / 8 / 9 / 10 / 11 / 12 / 13 / 15 / 16 / 17；BLD-1 / 2 / 3 / 7；CI-2 / 3 / 5 / 6 / 7 / 10 / 12。
-- **部分**：WEB-4（关键挂载的 storage 已保护；延迟挂载的隔离此前已做）；BLD-5（`id` 已修，footer 仍在 `main` 内）；
-  CI-11（`listR2Orphans` 与 `syncMissingSourceImages` 已有测试，其余脚本没有）。
-- **作为契约接受**：ADM-8（UI 上不可达）、ADM-11（30 秒时钟容差）、WRK-4（上传先于角色校验）。
-- **仍未修**：ADM-9（大图主线程解码、无尺寸上限）；BLD-4（年龄门首帧 `aria-hidden` 与 inert）、BLD-6（图片 alt）、
-  BLD-8（构建期年份）；CI-1、CI-9（平台设置）、CI-4（Hidden 原图防泄漏仍只靠 Vite 插件，PR 的 fixture 构建未对它做断言）、
-  CI-13；PRIV-2。
+- **已修**：PRIV-1；ADM-1 … ADM-7、ADM-9、ADM-10；WRK-1 / 2 / 3 / 5 / 6 / 7 / 8 / 9 / 10 / 11 / 12 / 13 / 14；
+  WEB-1 / 2 / 3 / 5 / 6 / 7 / 8 / 9 / 10 / 11 / 12 / 13 / 15 / 16 / 17；BLD-1 / 2 / 3 / 4 / 6 / 7；
+  CI-2 / 3 / 4 / 5 / 6 / 7 / 10 / 12 / 13。
+- **部分**：WEB-4（关键挂载的 storage 已保护；延迟挂载的隔离此前已做）；CI-11（`listR2Orphans` 与
+  `syncMissingSourceImages` 已有测试，其余脚本没有）。
+- **作为契约接受或评估后不改**：ADM-8（UI 上不可达）、ADM-11（30 秒时钟容差）、WRK-4（上传先于角色校验）、
+  BLD-5（footer 留在 `main` 内，`id` 已修）、BLD-8（构建期年份）。
+- **仍未修**：CI-1、CI-9（平台设置）；PRIV-2（owner 决定）。

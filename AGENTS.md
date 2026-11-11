@@ -62,6 +62,10 @@ scripts/            Repo-level dev scripts (devAdminRemote.ts backs dev:admin; t
 test/visual/        Committed cross-workspace Playwright baselines
 ```
 
+Shared rules live once in `packages/domain`: keyword normalisation and dedupe (`keywordAliases.ts`), the popular-keyword
+pool (`popularKeywords.ts`), D1 `links` JSON parsing (`commissionLinks.ts`), date sorting and UUID checks. Import them;
+do not re-implement them in an app.
+
 Dependency boundaries: `apps/web` imports from `packages/*` only; `packages/domain` is runtime-light pure
 logic and never imports from `apps/*`; `apps/admin` reaches data only through `apps/admin-worker`.
 Admin features go in `apps/admin` + `apps/admin-worker`, never `apps/web`.
