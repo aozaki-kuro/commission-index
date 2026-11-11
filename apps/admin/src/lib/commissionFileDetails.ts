@@ -1,7 +1,6 @@
 export interface CommissionFileDetails {
   commissionDate: string
   creatorName: string
-  workGroupId: string
   partNumber: number | null
   // Only the `<character>_<segments…>_<YYYYMMDD>[_NN]` form carries these; classifyFileNameSegments decides
   // which segment is the creator and which are keywords.
@@ -37,7 +36,6 @@ function extractPrefixedDetails(stem: string): CommissionFileDetails | null {
   return {
     commissionDate,
     creatorName: '',
-    workGroupId: '',
     partNumber: null,
     characterToken: match[1].trim(),
     segments,
@@ -58,18 +56,16 @@ export function extractCommissionDetails(fileName: string): CommissionFileDetail
 
   const creatorName = match[2]?.trim() ?? ''
   const suffix = creatorName.match(/\s+\(part ([1-9]\d*)\)$/i)
-  const partNumber = suffix
-    ? Number(suffix[1])
-    : null
-  const hasValidPartNumber = partNumber !== null && Number.isSafeInteger(partNumber)
+  // NaN without a suffix; an absurdly long number is not a part either.
+  const partNumber = Number(suffix?.[1])
+  const hasPartNumber = Number.isSafeInteger(partNumber)
 
   return {
     commissionDate,
-    creatorName: hasValidPartNumber
-      ? creatorName.slice(0, -suffix![0].length).trim()
+    creatorName: hasPartNumber
+      ? creatorName.slice(0, suffix?.index).trim()
       : creatorName,
-    workGroupId: hasValidPartNumber ? 'new' : '',
-    partNumber: hasValidPartNumber ? partNumber : null,
+    partNumber: hasPartNumber ? partNumber : null,
     characterToken: null,
     segments: [],
   }

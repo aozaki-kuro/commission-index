@@ -80,6 +80,7 @@ export function ImageCropDialog({
   const isUpscaling = upscaleFactor > 1.005
   // Saving mid-sample would export the previous fill.
   const canSave = Boolean(snapshot && !error && !isProcessing && !isSamplingFill && isOpen)
+  const isToolbarDisabled = !snapshot || isProcessing
 
   // 先让 Radix 完成退场，再通知父组件清理文件和卸载对话框。
   const closeWithAction = (action: () => void) => {
@@ -133,8 +134,7 @@ export function ImageCropDialog({
 
     setIsSamplingFill(true)
     try {
-      const { mediaSize, rotation } = snapshot
-      const axis = getCropOverflowAxis({ height: mediaSize.height, width: mediaSize.width }, rotation * Math.PI / 180)
+      const axis = getCropOverflowAxis(snapshot.mediaSize, snapshot.rotation * Math.PI / 180)
       setMatchedFill(await sampleOverflowFillColor(imageUrl, axis))
     }
     catch (caughtError) {
@@ -205,7 +205,7 @@ export function ImageCropDialog({
             <button
               type="button"
               onClick={() => workspaceRef.current?.rotateBy(-90)}
-              disabled={!snapshot || isProcessing}
+              disabled={isToolbarDisabled}
               aria-label="Rotate image left 90 degrees"
               title="Rotate left 90°"
               className={buttonStyles.ghost}
@@ -216,7 +216,7 @@ export function ImageCropDialog({
             <button
               type="button"
               onClick={() => workspaceRef.current?.rotateBy(90)}
-              disabled={!snapshot || isProcessing}
+              disabled={isToolbarDisabled}
               aria-label="Rotate image right 90 degrees"
               title="Rotate right 90°"
               className={buttonStyles.ghost}
@@ -227,7 +227,7 @@ export function ImageCropDialog({
             <button
               type="button"
               onClick={() => workspaceRef.current?.fitCrop()}
-              disabled={!snapshot || isProcessing}
+              disabled={isToolbarDisabled}
               className={buttonStyles.ghost}
             >
               <IconCrop className="size-4" stroke={1.8} aria-hidden="true" />
@@ -236,7 +236,7 @@ export function ImageCropDialog({
             <button
               type="button"
               onClick={() => workspaceRef.current?.reset()}
-              disabled={!snapshot || isProcessing}
+              disabled={isToolbarDisabled}
               aria-label="Reset"
               title="Reset crop"
               className={buttonStyles.ghost}
@@ -250,7 +250,7 @@ export function ImageCropDialog({
               type="button"
               aria-pressed={allowOverflow}
               onClick={() => setAllowOverflow(current => !current)}
-              disabled={!snapshot || isProcessing}
+              disabled={isToolbarDisabled}
               aria-label="Extend frame past image"
               title="Let the frame extend past the image"
               className={buttonStyles.ghostToggle}
@@ -264,7 +264,7 @@ export function ImageCropDialog({
                     type="button"
                     aria-pressed={isFillMatched}
                     onClick={toggleMatchedFill}
-                    disabled={!snapshot || isProcessing || isSamplingFill}
+                    disabled={isToolbarDisabled || isSamplingFill}
                     aria-label="Fill empty area with the image's edge colour"
                     title="Fill the empty area with the colour along the image edges"
                     className={buttonStyles.ghostToggle}

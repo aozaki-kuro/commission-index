@@ -43,6 +43,8 @@ export const SOURCE_IMAGE_JPEG_QUALITY = 0.95
 export const SOURCE_IMAGE_WIDTH = 1280
 
 const OUTPUT_EDGE_BLEED = 2
+// Slack for accumulated float error in coverage comparisons, in canvas pixels.
+const COVERAGE_TOLERANCE = 1e-7
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png'])
 const SUPPORTED_IMAGE_EXTENSION_PATTERN = /\.(?:jpe?g|png)$/i
 
@@ -50,11 +52,45 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
 
-function getSelectionCenter(selection: CropSelection) {
+export function getSelectionCenter(selection: CropSelection): CropPoint {
   return {
     x: selection.x + selection.width / 2,
     y: selection.y + selection.height / 2,
   }
+}
+
+// The output-ratio frame of the given width centred on a point.
+export function getCenteredCropSelection(center: CropPoint, width: number): CropSelection {
+  const height = width / SOURCE_IMAGE_ASPECT
+  return {
+    height,
+    width,
+    x: center.x - width / 2,
+    y: center.y - height / 2,
+  }
+}
+
+// A canvas point expressed along the image's own (rotated) axes, relative to the image centre.
+function toImageLocal(point: CropPoint, imageCenter: CropPoint, rotation: number): CropPoint {
+  const cos = Math.cos(rotation)
+  const sin = Math.sin(rotation)
+  const deltaX = point.x - imageCenter.x
+  const deltaY = point.y - imageCenter.y
+  return {
+    x: cos * deltaX + sin * deltaY,
+    y: -sin * deltaX + cos * deltaY,
+  }
+}
+
+function scaleMatrix(matrix: CropMatrix, factor: number, translate: CropPoint): CropMatrix {
+  return [
+    matrix[0] * factor,
+    matrix[1] * factor,
+    matrix[2] * factor,
+    matrix[3] * factor,
+    translate.x,
+    translate.y,
+  ]
 }
 
 function getMatrixTransform({ baseCenter, matrix }: CropImageGeometry) {
@@ -88,6 +124,12 @@ export function getCropOverflowAxis(size: CropSize, rotation: number): CropAxis 
     : 'y'
 }
 
+function getRelaxedAxis(size: CropSize, rotation: number, allowOverflow: boolean) {
+  return allowOverflow
+    ? getCropOverflowAxis(size, rotation)
+    : null
+}
+
 function getSelectionExtents(selection: CropSize, rotation: number) {
   const cos = Math.abs(Math.cos(rotation))
   const sin = Math.abs(Math.sin(rotation))
@@ -108,9 +150,7 @@ function getLocalOffsetLimits(
   allowOverflow: boolean,
 ) {
   const extents = getSelectionExtents(selection, rotation)
-  const relaxed = allowOverflow
-    ? getCropOverflowAxis(image.size, rotation)
-    : null
+  const relaxed = getRelaxedAxis(image.size, rotation, allowOverflow)
   const halfWidth = image.size.width * scale / 2
   const halfHeight = image.size.height * scale / 2
 
@@ -134,27 +174,21 @@ export function isCropSelectionCovered(
     selection.width <= 0
     || selection.height <= 0
     || (canvasSize && (
-      selection.x < -1e-7
-      || selection.y < -1e-7
-      || selection.x + selection.width > canvasSize.width + 1e-7
-      || selection.y + selection.height > canvasSize.height + 1e-7
+      selection.x < -COVERAGE_TOLERANCE
+      || selection.y < -COVERAGE_TOLERANCE
+      || selection.x + selection.width > canvasSize.width + COVERAGE_TOLERANCE
+      || selection.y + selection.height > canvasSize.height + COVERAGE_TOLERANCE
     ))
   ) {
     return false
   }
 
-  const frameCenter = getSelectionCenter(selection)
   const { center, rotation, scale } = getMatrixTransform(image)
-  const cos = Math.cos(rotation)
-  const sin = Math.sin(rotation)
-  const deltaX = frameCenter.x - center.x
-  const deltaY = frameCenter.y - center.y
-  const localX = cos * deltaX + sin * deltaY
-  const localY = -sin * deltaX + cos * deltaY
+  const local = toImageLocal(getSelectionCenter(selection), center, rotation)
   const limits = getLocalOffsetLimits(image, selection, rotation, scale, allowOverflow)
 
-  return Math.abs(localX) <= limits.x + 1e-7
-    && Math.abs(localY) <= limits.y + 1e-7
+  return Math.abs(local.x) <= limits.x + COVERAGE_TOLERANCE
+    && Math.abs(local.y) <= limits.y + COVERAGE_TOLERANCE
 }
 
 export function normalizeCropImageMatrix(
@@ -167,9 +201,7 @@ export function normalizeCropImageMatrix(
   const cos = Math.cos(rotation)
   const sin = Math.sin(rotation)
   const extents = getSelectionExtents(selection, rotation)
-  const relaxed = allowOverflow
-    ? getCropOverflowAxis(image.size, rotation)
-    : null
+  const relaxed = getRelaxedAxis(image.size, rotation, allowOverflow)
   const scale = Math.max(
     requestedScale,
     relaxed === 'x'
@@ -179,15 +211,13 @@ export function normalizeCropImageMatrix(
       ? 0
       : 2 * (extents.y + extents.bleed) / image.size.height,
   )
-  const deltaX = frameCenter.x - center.x
-  const deltaY = frameCenter.y - center.y
-  const localX = cos * deltaX + sin * deltaY
-  const localY = -sin * deltaX + cos * deltaY
+  const local = toImageLocal(frameCenter, center, rotation)
+  // Limits come from the raised scale, so the frame is covered after the zoom-in, not before it.
   const limits = getLocalOffsetLimits(image, selection, rotation, scale, allowOverflow)
   const limitX = Math.max(0, limits.x)
   const limitY = Math.max(0, limits.y)
-  const constrainedX = clamp(localX, -limitX, limitX)
-  const constrainedY = clamp(localY, -limitY, limitY)
+  const constrainedX = clamp(local.x, -limitX, limitX)
+  const constrainedY = clamp(local.y, -limitY, limitY)
   const imageCenter = {
     x: frameCenter.x - (cos * constrainedX - sin * constrainedY),
     y: frameCenter.y - (sin * constrainedX + cos * constrainedY),
@@ -217,22 +247,17 @@ function getImageBoundSelectionWidth({
   image,
 }: CropWidthOptions) {
   const { center: imageCenter, rotation, scale } = getMatrixTransform(image)
-  const cos = Math.cos(rotation)
-  const sin = Math.sin(rotation)
-  const deltaX = center.x - imageCenter.x
-  const deltaY = center.y - imageCenter.y
-  const localX = Math.abs(cos * deltaX + sin * deltaY)
-  const localY = Math.abs(-sin * deltaX + cos * deltaY)
+  const cos = Math.abs(Math.cos(rotation))
+  const sin = Math.abs(Math.sin(rotation))
+  const local = toImageLocal(center, imageCenter, rotation)
   const bleedRate = OUTPUT_EDGE_BLEED / SOURCE_IMAGE_WIDTH
-  const xRate = (Math.abs(cos) + Math.abs(sin) / aspectRatio) / 2 + bleedRate
-  const yRate = (Math.abs(sin) + Math.abs(cos) / aspectRatio) / 2 + bleedRate
-  const availableX = image.size.width * scale / 2 - localX
-  const availableY = image.size.height * scale / 2 - localY
-  const relaxed = allowOverflow
-    ? getCropOverflowAxis(image.size, rotation)
-    : null
+  const xRate = (cos + sin / aspectRatio) / 2 + bleedRate
+  const yRate = (sin + cos / aspectRatio) / 2 + bleedRate
+  const availableX = image.size.width * scale / 2 - Math.abs(local.x)
+  const availableY = image.size.height * scale / 2 - Math.abs(local.y)
+  const relaxed = getRelaxedAxis(image.size, rotation, allowOverflow)
   // A relaxed axis never limits the width, as long as the frame centre is still over the image.
-  const relaxedLimit = (available: number) => available >= -1e-7
+  const relaxedLimit = (available: number) => available >= -COVERAGE_TOLERANCE
     ? Number.POSITIVE_INFINITY
     : 0
 
@@ -260,6 +285,37 @@ export function getMaximumCropSelectionWidth(options: CropWidthOptions & { canva
   )
 }
 
+// After the image rotates, the frame keeps its centre and takes the preferred width the new angle still allows.
+// A frame already below the minimum is never forced to grow.
+export function refitCropSelectionAfterRotation({
+  allowOverflow,
+  canvasSize,
+  image,
+  minimumWidth,
+  preferredWidth,
+  selection,
+}: {
+  allowOverflow: boolean
+  canvasSize: CropSize
+  image: CropImageGeometry
+  minimumWidth: number
+  preferredWidth: number
+  selection: CropSelection
+}) {
+  const center = getSelectionCenter(selection)
+  const maximumWidth = getMaximumCropSelectionWidth({
+    allowOverflow,
+    aspectRatio: SOURCE_IMAGE_ASPECT,
+    canvasSize,
+    center,
+    image,
+  })
+  return getCenteredCropSelection(center, Math.max(
+    Math.min(preferredWidth, maximumWidth),
+    Math.min(minimumWidth, selection.width),
+  ))
+}
+
 // An overflowing frame can be wider than the canvas at the current zoom; shrink the image around the frame
 // centre until its largest overflow frame fits the canvas. Both bounds scale linearly with that zoom.
 export function zoomImageToFitOverflowFrame(options: CropWidthOptions & { canvasSize: CropSize }): CropMatrix {
@@ -270,16 +326,11 @@ export function zoomImageToFitOverflowFrame(options: CropWidthOptions & { canvas
     return image.matrix
 
   const factor = canvasBound / imageBound
-  const [a, b, c, d, e, f] = image.matrix
-  const imageCenter = { x: image.baseCenter.x + e, y: image.baseCenter.y + f }
-  return [
-    a * factor,
-    b * factor,
-    c * factor,
-    d * factor,
-    center.x + (imageCenter.x - center.x) * factor - image.baseCenter.x,
-    center.y + (imageCenter.y - center.y) * factor - image.baseCenter.y,
-  ]
+  const imageCenter = getMatrixTransform(image).center
+  return scaleMatrix(image.matrix, factor, {
+    x: center.x + (imageCenter.x - center.x) * factor - image.baseCenter.x,
+    y: center.y + (imageCenter.y - center.y) * factor - image.baseCenter.y,
+  })
 }
 
 export function constrainCropSelectionChange({
@@ -380,20 +431,13 @@ export function resizeCropEditorState({
     x: selectionCenter.x - width / 2,
     y: selectionCenter.y - height / 2,
   }
-  const imageCenter = resizePoint({
-    x: image.baseCenter.x + image.matrix[4],
-    y: image.baseCenter.y + image.matrix[5],
-  })
+  const imageCenter = resizePoint(getMatrixTransform(image).center)
   const nextImage = {
     ...image,
-    matrix: [
-      image.matrix[0] * scale,
-      image.matrix[1] * scale,
-      image.matrix[2] * scale,
-      image.matrix[3] * scale,
-      imageCenter.x - image.baseCenter.x,
-      imageCenter.y - image.baseCenter.y,
-    ] as CropMatrix,
+    matrix: scaleMatrix(image.matrix, scale, {
+      x: imageCenter.x - image.baseCenter.x,
+      y: imageCenter.y - image.baseCenter.y,
+    }),
   }
 
   return {

@@ -24,9 +24,12 @@ import {
 import {
   captureCropEditorState,
   constrainCropSelectionChange,
+  getCenteredCropSelection,
   getMaximumCropSelectionWidth,
+  getSelectionCenter,
   isCropSelectionCovered,
   normalizeCropImageMatrix,
+  refitCropSelectionAfterRotation,
   resizeCropEditorState,
   restoreCropEditorState,
   SOURCE_IMAGE_ASPECT,
@@ -147,7 +150,7 @@ function getAngleDelta(current: number, previous: number) {
 
 function rotateMatrixAround(
   geometry: CropImageGeometry,
-  center: { x: number, y: number },
+  center: CropPoint,
   degrees: number,
 ): CropMatrix {
   const radians = degrees * Math.PI / 180
@@ -256,10 +259,7 @@ export function ImageCropWorkspace({ allowOverflow, fillColor, imageUrl, initial
 
     userEditedRef.current = true
     const selection = getSelection(elements.selection)
-    const center = {
-      x: selection.x + selection.width / 2,
-      y: selection.y + selection.height / 2,
-    }
+    const center = getSelectionCenter(selection)
     const canvasSize = getCanvasSize(elements.canvas)
     const currentGeometry = getImageGeometry(elements.image)
     // An explicit Fit in overflow mode zooms out so the full kept axis fits; a constrained re-fit keeps the zoom.
@@ -283,16 +283,27 @@ export function ImageCropWorkspace({ allowOverflow, fillColor, imageUrl, initial
     })
     const width = Math.min(preferredWidth, maximumWidth)
     const nextSelection = width >= MINIMUM_CROP_WIDTH
-      ? {
-          height: width / SOURCE_IMAGE_ASPECT,
-          width,
-          x: center.x - width / 2,
-          y: center.y - width / SOURCE_IMAGE_ASPECT / 2,
-        }
+      ? getCenteredCropSelection(center, width)
       : selection
-    const matrix = normalizeCropImageMatrix(geometry, nextSelection, allowOverflowRef.current)
 
-    applyEditorState(nextSelection, matrix)
+    applyEditorState(nextSelection, normalizeCropImageMatrix(geometry, nextSelection, allowOverflowRef.current))
+  }, [applyEditorState])
+
+  // Shared by the rotate controls and Cropper's own twist gesture.
+  const applyRotatedGeometry = useCallback((geometry: CropImageGeometry) => {
+    const elements = elementsRef.current
+    if (!elements)
+      return
+
+    const nextSelection = refitCropSelectionAfterRotation({
+      allowOverflow: allowOverflowRef.current,
+      canvasSize: getCanvasSize(elements.canvas),
+      image: geometry,
+      minimumWidth: MINIMUM_CROP_WIDTH,
+      preferredWidth: preferredWidthRef.current,
+      selection: getSelection(elements.selection),
+    })
+    applyEditorState(nextSelection, normalizeCropImageMatrix(geometry, nextSelection, allowOverflowRef.current))
   }, [applyEditorState])
 
   const rotateBy = useCallback((degrees: number) => {
@@ -301,35 +312,13 @@ export function ImageCropWorkspace({ allowOverflow, fillColor, imageUrl, initial
       return
 
     userEditedRef.current = true
-    const selection = getSelection(elements.selection)
-    const center = {
-      x: selection.x + selection.width / 2,
-      y: selection.y + selection.height / 2,
-    }
-    const currentGeometry = getImageGeometry(elements.image)
-    const rotatedMatrix = rotateMatrixAround(currentGeometry, center, degrees)
-    const rotatedGeometry = { ...currentGeometry, matrix: rotatedMatrix }
-    const maximumWidth = getMaximumCropSelectionWidth({
-      allowOverflow: allowOverflowRef.current,
-      aspectRatio: SOURCE_IMAGE_ASPECT,
-      canvasSize: getCanvasSize(elements.canvas),
-      center,
-      image: rotatedGeometry,
+    const geometry = getImageGeometry(elements.image)
+    const center = getSelectionCenter(getSelection(elements.selection))
+    applyRotatedGeometry({
+      ...geometry,
+      matrix: rotateMatrixAround(geometry, center, degrees),
     })
-    const width = Math.max(
-      Math.min(preferredWidthRef.current, maximumWidth),
-      Math.min(MINIMUM_CROP_WIDTH, selection.width),
-    )
-    const nextSelection = {
-      height: width / SOURCE_IMAGE_ASPECT,
-      width,
-      x: center.x - width / 2,
-      y: center.y - width / SOURCE_IMAGE_ASPECT / 2,
-    }
-    const matrix = normalizeCropImageMatrix(rotatedGeometry, nextSelection, allowOverflowRef.current)
-
-    applyEditorState(nextSelection, matrix)
-  }, [applyEditorState])
+  }, [applyRotatedGeometry])
 
   const initializeEditor = useCallback(() => {
     const elements = elementsRef.current
@@ -349,13 +338,10 @@ export function ImageCropWorkspace({ allowOverflow, fillColor, imageUrl, initial
       userEditedRef.current = false
       return
     }
-    const width = Math.min(canvasSize.width * 0.86, canvasSize.height * 0.66 * SOURCE_IMAGE_ASPECT)
-    const selection = {
-      height: width / SOURCE_IMAGE_ASPECT,
-      width,
-      x: (canvasSize.width - width) / 2,
-      y: (canvasSize.height - width / SOURCE_IMAGE_ASPECT) / 2,
-    }
+    const selection = getCenteredCropSelection(
+      { x: canvasSize.width / 2, y: canvasSize.height / 2 },
+      Math.min(canvasSize.width * 0.86, canvasSize.height * 0.66 * SOURCE_IMAGE_ASPECT),
+    )
     const matrix = normalizeCropImageMatrix(getImageGeometry(elements.image), selection, allowOverflowRef.current)
 
     preferredWidthRef.current = Number.POSITIVE_INFINITY
@@ -527,36 +513,8 @@ export function ImageCropWorkspace({ allowOverflow, fillColor, imageUrl, initial
         matrix: toMatrix(customEvent.detail.matrix),
       }
       const oldRotation = getRotation(toMatrix(customEvent.detail.oldMatrix))
-      const nextRotation = getRotation(requestedGeometry.matrix)
-      const rotationChanged = Math.abs(nextRotation - oldRotation) > ROTATION_EPSILON
-
-      if (rotationChanged) {
-        const center = {
-          x: currentSelection.x + currentSelection.width / 2,
-          y: currentSelection.y + currentSelection.height / 2,
-        }
-        const maximumWidth = getMaximumCropSelectionWidth({
-          allowOverflow: allowOverflowRef.current,
-          aspectRatio: SOURCE_IMAGE_ASPECT,
-          canvasSize: getCanvasSize(canvas),
-          center,
-          image: requestedGeometry,
-        })
-        const width = Math.max(
-          Math.min(preferredWidthRef.current, maximumWidth),
-          Math.min(MINIMUM_CROP_WIDTH, currentSelection.width),
-        )
-        const nextSelection = {
-          height: width / SOURCE_IMAGE_ASPECT,
-          width,
-          x: center.x - width / 2,
-          y: center.y - width / SOURCE_IMAGE_ASPECT / 2,
-        }
-
-        applyEditorState(
-          nextSelection,
-          normalizeCropImageMatrix(requestedGeometry, nextSelection, allowOverflowRef.current),
-        )
+      if (Math.abs(getRotation(requestedGeometry.matrix) - oldRotation) > ROTATION_EPSILON) {
+        applyRotatedGeometry(requestedGeometry)
         return
       }
 
@@ -602,7 +560,12 @@ export function ImageCropWorkspace({ allowOverflow, fillColor, imageUrl, initial
       cropper.destroy()
       source.remove()
     }
-  }, [applyEditorState, imageUrl, syncEditorSize])
+  }, [
+    applyEditorState,
+    applyRotatedGeometry,
+    imageUrl,
+    syncEditorSize,
+  ])
 
   const handleRotatePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     if (!view)
@@ -612,11 +575,11 @@ export function ImageCropWorkspace({ allowOverflow, fillColor, imageUrl, initial
       return
 
     const rect = host.getBoundingClientRect()
-    const centerX = rect.left + view.selection.x + view.selection.width / 2
-    const centerY = rect.top + view.selection.y + view.selection.height / 2
+    const frameCenter = getSelectionCenter(view.selection)
+    const center = { x: rect.left + frameCenter.x, y: rect.top + frameCenter.y }
     rotateGestureRef.current = {
-      angle: Math.atan2(event.clientY - centerY, event.clientX - centerX),
-      center: { x: centerX, y: centerY },
+      angle: Math.atan2(event.clientY - center.y, event.clientX - center.x),
+      center,
       pointerId: event.pointerId,
     }
     event.currentTarget.setPointerCapture(event.pointerId)

@@ -45,7 +45,10 @@ interface AddCommissionFormProps {
   onCreated?: () => void
 }
 
-type SourceImageHintTone = 'default' | 'success' | 'error'
+interface SourceImageNotice {
+  tone: 'success' | 'error'
+  message: string
+}
 
 // links/design/description are uncontrolled, so they are read from the form instead of state.
 const UNCONTROLLED_DRAFT_FIELDS = ['links', 'design', 'description']
@@ -102,8 +105,7 @@ export function AddCommissionForm({
   const [workGroupId, setWorkGroupId] = useState('')
   const [partNumber, setPartNumber] = useState('')
   const [keywordValue, setKeywordValue] = useState('')
-  const [sourceImageHint, setSourceImageHint] = useState('')
-  const [sourceImageHintTone, setSourceImageHintTone] = useState<SourceImageHintTone>('default')
+  const [sourceImageNotice, setSourceImageNotice] = useState<SourceImageNotice | null>(null)
   const [croppedImage, setCroppedImage] = useState<File | null>(null)
   const [pendingCropFile, setPendingCropFile] = useState<File | null>(null)
   // The original pick, kept so the crop can be redone without re-cropping the lossy 1280×525 output.
@@ -172,8 +174,15 @@ export function AddCommissionForm({
   )
 
   const rejectUnsupportedSourceImage = () => {
-    setSourceImageHint('Choose a valid JPG or PNG image.')
-    setSourceImageHintTone('error')
+    setSourceImageNotice({ tone: 'error', message: 'Choose a valid JPG or PNG image.' })
+  }
+
+  // The file input only ever holds the confirmed crop output; anything else picked is put back.
+  const restoreFileInput = (input: HTMLInputElement) => {
+    if (croppedImage)
+      setFileInputValue(input, croppedImage)
+    else
+      input.value = ''
   }
 
   const handleSourceImageChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -183,10 +192,7 @@ export function AddCommissionForm({
     }
 
     if (!isSupportedSourceImage(file)) {
-      if (croppedImage)
-        setFileInputValue(event.currentTarget, croppedImage)
-      else
-        event.currentTarget.value = ''
+      restoreFileInput(event.currentTarget)
       rejectUnsupportedSourceImage()
       return
     }
@@ -237,84 +243,73 @@ export function AddCommissionForm({
 
   const restoreCroppedImageSelection = () => {
     setPendingCropFile(null)
-    const input = sourceImageInputRef.current
-    if (!input) {
-      return
-    }
-
-    if (croppedImage) {
-      setFileInputValue(input, croppedImage)
-      return
-    }
-
-    input.value = ''
+    if (sourceImageInputRef.current)
+      restoreFileInput(sourceImageInputRef.current)
   }
 
   const handleCropConfirm = (output: File, editorState: CropEditorState | null) => {
     const input = sourceImageInputRef.current
-    if (!input || !pendingCropFile) {
+    const source = pendingCropFile
+    if (!input || !source) {
       return
     }
 
+    setPendingCropFile(null)
     try {
       setFileInputValue(input, output)
     }
     catch {
       input.value = ''
-      setSourceImageHint('This browser could not attach the processed image to the form.')
-      setSourceImageHintTone('error')
-      setPendingCropFile(null)
+      setSourceImageNotice({
+        tone: 'error',
+        message: 'This browser could not attach the processed image to the form.',
+      })
       return
     }
 
-    const originalFileName = pendingCropFile.name
-    // Re-cropping the retained source must not overwrite details typed since the first crop.
-    const isRecrop = pendingCropFile === sourceFile
     setCroppedImage(output)
-    setSourceFile(pendingCropFile)
+    setSourceFile(source)
     setSourceCropState(editorState)
-    setPendingCropFile(null)
 
-    if (isRecrop) {
-      setSourceImageHint('Image updated (1280×525 JPG).')
-      setSourceImageHintTone('success')
+    // Re-cropping the retained source must not overwrite details typed since the first crop.
+    if (source === sourceFile) {
+      setSourceImageNotice({ tone: 'success', message: 'Image updated (1280×525 JPG).' })
       return
     }
 
-    const detectedDetails = extractCommissionDetails(originalFileName)
-    if (detectedDetails) {
-      const classified = detectedDetails.segments.length > 0
-        ? classifyFileNameSegments(
-            detectedDetails.segments,
-            buildFileNameSegmentContext(commissionSearchRows, creatorAliases),
-          )
-        : { creatorName: detectedDetails.creatorName, keyword: '' }
-      setCommissionDate(detectedDetails.commissionDate)
-      setCreatorName(classified.creatorName)
-      const detectedCharacter = detectedDetails.characterToken
-        ? resolveCharacterToken(detectedDetails.characterToken, options)
-        : null
-      if (detectedCharacter)
-        setCharacterId(current => current ?? detectedCharacter.id)
-      if (classified.keyword) {
-        setKeywordValue(current => current.trim()
-          ? current
-          : classified.keyword)
-      }
-      if (!workGroupId) {
-        setPartNumber(current => current || detectedDetails.partNumber?.toString() || '')
-      }
-      setSourceImageHint(
-        detectedDetails.partNumber
-          ? `Image ready (1280×525 JPG). Details were suggested; enable part grouping to use part ${detectedDetails.partNumber}.`
-          : 'Image ready (1280×525 JPG). Delivery details were suggested from the image name.',
-      )
-      setSourceImageHintTone('success')
+    const details = extractCommissionDetails(source.name)
+    if (!details) {
+      setSourceImageNotice({
+        tone: 'success',
+        message: `Ready: ${output.name} (1280×525 JPG). Add delivery details if known.`,
+      })
       return
     }
 
-    setSourceImageHint(`Ready: ${output.name} (1280×525 JPG). Add delivery details if known.`)
-    setSourceImageHintTone('success')
+    const classified = details.segments.length > 0
+      ? classifyFileNameSegments(details.segments, buildFileNameSegmentContext(commissionSearchRows, creatorAliases))
+      : { creatorName: details.creatorName, keyword: '' }
+    const character = details.characterToken
+      ? resolveCharacterToken(details.characterToken, options)
+      : null
+    setCommissionDate(details.commissionDate)
+    setCreatorName(classified.creatorName)
+    // Character, keyword and part only fill fields that are still empty.
+    if (character)
+      setCharacterId(current => current ?? character.id)
+    if (classified.keyword) {
+      setKeywordValue(current => current.trim()
+        ? current
+        : classified.keyword)
+    }
+    if (!workGroupId)
+      setPartNumber(current => current || details.partNumber?.toString() || '')
+    setSourceImageNotice({
+      tone: 'success',
+      message: details.partNumber
+        ? `Image ready (1280×525 JPG). Details were suggested; enable part grouping to use part ${details.partNumber}.`
+        : 'Image ready (1280×525 JPG). Delivery details were suggested from the image name.',
+    })
   }
 
   return (
@@ -393,15 +388,10 @@ export function AddCommissionForm({
         </button>
       </div>
 
-      {sourceImageHint
+      {sourceImageNotice
         ? (
-            <FloatingNotice
-              tone={sourceImageHintTone === 'error'
-                ? 'error'
-                : 'success'}
-              onDismiss={() => setSourceImageHint('')}
-            >
-              {sourceImageHint}
+            <FloatingNotice tone={sourceImageNotice.tone} onDismiss={() => setSourceImageNotice(null)}>
+              {sourceImageNotice.message}
             </FloatingNotice>
           )
         : null}
@@ -430,20 +420,13 @@ export function AddCommissionForm({
 
       <DuplicateCommissionNotice hints={duplicateHints} />
 
-      <div className="
-        mt-2 flex min-w-0 flex-wrap items-center gap-4 border-t border-gray-200 pt-6
-        dark:border-gray-800
-      "
-      >
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-          <SubmitButton disabled={bootstrapState !== 'ready'}>Save commission</SubmitButton>
-          <FormStatusIndicator
-            status={state.status}
-            message={state.message}
-            errorFallback="Unable to save commission."
-          />
-        </div>
-
+      <div className="mt-2 flex min-w-0 border-t border-gray-200 pt-6 dark:border-gray-800">
+        <SubmitButton disabled={bootstrapState !== 'ready'}>Save commission</SubmitButton>
+        <FormStatusIndicator
+          status={state.status}
+          message={state.message}
+          errorFallback="Unable to save commission."
+        />
       </div>
 
       {pendingCropFile
