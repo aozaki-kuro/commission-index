@@ -10,6 +10,10 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
 - Do not duplicate the filter algorithm here; use `@lib/search`.
 - Locale labels resolve from `../i18n/homeSearchControls.ts`.
 - Keep search box, dropdown and stale hint DOM structure and classNames stable to avoid layout jumps.
+- Combobox is the ARIA 1.2 pattern: `role="combobox"`, `aria-expanded`, `aria-controls`, `aria-autocomplete` and
+  `aria-activedescendant` sit on `#commission-search-input` (the wrapper div only positions). Suggestions are
+  `<li role="option">` direct children of `#search-suggestion-list`; the load-archived option sits in a
+  `<li role="presentation">` divider wrapper. Code finds options by `[role="option"]`, never by tag or child index.
 - Keyword row: the admin-curated featured keywords (the entry-derived pool only when none are set) plus a fixed
   "All" trigger for the browse popover; there is no rotation. Featured chips are server-rendered from
   `computeFeaturedKeywordChips` (`commissionSearchIndex.ts`), the same function the controller runs, so hydration

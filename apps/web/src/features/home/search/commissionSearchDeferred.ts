@@ -1,4 +1,5 @@
 import type { CommissionSearchEntrySource, SearchSuggestionAliasGroup } from '@features/home/search/commissionSearchIndex'
+import { CANONICAL_UUID_PATTERN } from '@commission-index/domain'
 import {
   buildPopularKeywordPoolFromSuggestTexts,
   dedupeKeywords,
@@ -52,7 +53,7 @@ interface HomeSearchEntryPayload {
   searchSuggest?: string
 }
 
-const PUBLIC_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+const PUBLIC_ID_PATTERN = CANONICAL_UUID_PATTERN
 
 export function parseHomeSearchEntries(value: unknown): CommissionSearchEntrySource[] {
   if (!Array.isArray(value)) {

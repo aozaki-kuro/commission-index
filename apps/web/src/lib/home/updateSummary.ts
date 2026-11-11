@@ -1,5 +1,5 @@
 import type { Props } from '@data/types'
-import { getCharacterSectionId } from '@lib/characters/nav'
+import { getCommissionEntryAnchorId } from '@lib/characters/nav'
 import {
   collectUniqueCommissions,
   flattenCommissions,
@@ -34,7 +34,7 @@ export function buildHomeUpdateSummary(commissionData: Props, activeCharacters: 
     return {
       key: commission.publicId,
       character: commission.character,
-      href: `#${getCharacterSectionId(commission.character)}-commission-${commission.publicId}`,
+      href: `#${getCommissionEntryAnchorId(commission.character, commission.publicId)}`,
       dateLabel: compactDate
         ? parseAndFormatDate(compactDate, 'yyyy/MM/dd')
         : '',

@@ -38,13 +38,13 @@ import { listMissingSourceImages, resolveSourceImageByCommissionId } from '@lib/
 import { buildCommissionDataMap, buildCreatorAliasesMap } from '@lib/sitePayload'
 import { getImage } from 'astro:assets'
 import { getRelativeLocaleUrl } from 'astro:i18n'
+import { DEFAULT_WEB_LOCALE } from '../../../config/locales'
 
 interface HomePageProps {
   locale?: string
-  canonicalPath?: string
 }
 
-const { locale, canonicalPath } = Astro.props as HomePageProps
+const { locale } = Astro.props as HomePageProps
 const resolvedLocale = normalizeHomeLocale(locale)
 const messages = getHomeLocaleMessages(resolvedLocale)
 const localeOptions = HOME_LOCALE_SWITCH_ITEMS.map(item => ({
@@ -60,26 +60,17 @@ const characterAliases = getCharacterAliases()
 const keywordAliases = getKeywordAliases()
 const commissionMap = buildCommissionDataMap(payload.commissionData)
 const creatorAliasesMap = buildCreatorAliasesMap(payload.creatorAliases)
-const characterAliasesMap = new Map(
-  characterAliases
-    .map((row) => {
-      const key = normalizeCharacterAliasKey(row.characterName)
-      if (!key)
-return null
-      return [key, row.aliases] as const
-    })
-    .filter((entry): entry is readonly [string, string[]] => Boolean(entry)),
-)
-const keywordAliasesMap = new Map(
-  keywordAliases
-    .map((row) => {
-      const key = normalizeKeywordAliasKey(row.baseKeyword)
-      if (!key)
-return null
-      return [key, row.aliases] as const
-    })
-    .filter((entry): entry is readonly [string, string[]] => Boolean(entry)),
-)
+function buildAliasesMap<T extends { aliases: string[] }>(rows: T[], keyOf: (row: T) => string | null) {
+  const map = new Map<string, string[]>()
+  for (const row of rows) {
+    const key = keyOf(row)
+    if (key)
+      map.set(key, row.aliases)
+  }
+  return map
+}
+const characterAliasesMap = buildAliasesMap(characterAliases, row => normalizeCharacterAliasKey(row.characterName))
+const keywordAliasesMap = buildAliasesMap(keywordAliases, row => normalizeKeywordAliasKey(row.baseKeyword))
 const suggestionAliasGroups = [
   ...characterAliases.map(row => ({
     term: row.characterName,
@@ -150,24 +141,22 @@ const firstSourceImage = firstCommission
   : null
 
 const priorityImage = firstSourceImage
-  ? (() =>
-      getImage({
-        src: firstSourceImage,
-        widths: COMMISSION_INLINE_IMAGE_WIDTHS,
-        width: COMMISSION_IMAGE_WIDTH,
-        format: 'webp',
-        sizes: COMMISSION_IMAGE_SIZES,
-      }).then(image => ({
-        src: image.src,
-        srcSet: image.srcSet.attribute,
-        sizes: COMMISSION_IMAGE_SIZES,
-      })))()
+  ? getImage({
+      src: firstSourceImage,
+      widths: COMMISSION_INLINE_IMAGE_WIDTHS,
+      width: COMMISSION_IMAGE_WIDTH,
+      format: 'webp',
+      sizes: COMMISSION_IMAGE_SIZES,
+    }).then(image => ({
+      src: image.src,
+      srcSet: image.srcSet.attribute,
+      sizes: COMMISSION_IMAGE_SIZES,
+    }))
   : undefined
 
-const resolvedCanonicalPath
-  = canonicalPath ?? (resolvedLocale === 'en'
-? '/'
-: `/${resolvedLocale}/`)
+const resolvedCanonicalPath = resolvedLocale === DEFAULT_WEB_LOCALE
+  ? '/'
+  : `/${resolvedLocale}/`
 ---
 
 <BaseLayout

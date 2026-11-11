@@ -1,24 +1,20 @@
 import type { ArchivedCharactersVisibility } from '@features/home/commission/archivedCharactersState'
-import type { CommissionViewMode } from '@features/home/commission/CommissionViewModeSearch'
 import {
   ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT,
   isArchivedCharactersVisible,
   requestArchivedCharactersVisibility,
 } from '@features/home/commission/archivedCharactersState'
-import { markScrollJump } from '@features/home/commission/scrollDepthTracker'
 import {
   readCommissionViewMode,
-  replaceCommissionViewModeInAddress,
   resolveCommissionViewModeFromElement,
 } from '@features/home/commission/viewModeState'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT, HAMBURGER_MENU_MOUNTED_CHANGE_EVENT } from '@features/home/events'
-import { ANALYTICS_EVENTS } from '@lib/analytics/events'
 import { trackRybbitEvent } from '@lib/analytics/track'
 import { isUnmodifiedPrimaryClick, scrollToHashTargetFromHrefWithoutHash } from '@lib/navigation/hashAnchor'
 import { jumpToCommissionSearch } from '@lib/navigation/jumpToCommissionSearch'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '@lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '@lib/navigation/syncHiddenSectionLinkAvailability'
-import { revealArchivedHomeNavTarget } from '../homeNavTargetClient'
+import { handleHomeNavCharacterLinkClick, handleViewModeToggleClick, trackHomeNavUsed } from '../homeNavClick'
 import { applyViewModeToggleClasses, HAMBURGER_VIEW_MODE_TOGGLE_CLASSES } from '../viewModeToggleClasses'
 import { MENU_TRANSITION_MS } from './constants'
 
@@ -77,25 +73,9 @@ const defaultDeps: MobileHamburgerMenuDeps = {
   requestArchivedVisibility: requestArchivedCharactersVisibility,
 }
 
-function resolveCharacterSectionKeyFromElement(target: Element | null): CharacterSectionKey | null {
-  if (!target)
-    return null
-  const key = target.getAttribute('data-mobile-character-section-key')
-  if (key === 'active' || key === 'archived')
-    return key
-  return null
-}
-
-function resolveCharacterSectionKeyFromValue(value: string | undefined): CharacterSectionKey | null {
+function resolveCharacterSectionKey(value: string | null | undefined): CharacterSectionKey | null {
   if (value === 'active' || value === 'archived')
     return value
-  return null
-}
-
-function resolveViewModeFromPanel(panel: HTMLElement): CommissionViewMode | null {
-  const mode = panel.dataset.mobileHamburgerNavPanel
-  if (mode === 'character' || mode === 'timeline')
-    return mode
   return null
 }
 
@@ -144,15 +124,8 @@ export function mountMobileHamburgerMenu({
   const navPanels = [
     ...root.querySelectorAll<HTMLElement>(NAV_PANEL_SELECTOR),
   ]
-  const navPanelByMode = new Map<CommissionViewMode, HTMLElement>()
-  navPanels.forEach((panelNode) => {
-    const mode = resolveViewModeFromPanel(panelNode)
-    if (!mode)
-      return
-    navPanelByMode.set(mode, panelNode)
-  })
   const characterSections: CharacterSectionNode[] = Array.from(root.querySelectorAll<HTMLElement>(CHARACTER_SECTION_SELECTOR), (section) => {
-    const key = resolveCharacterSectionKeyFromValue(section.dataset.mobileCharacterSection)
+    const key = resolveCharacterSectionKey(section.dataset.mobileCharacterSection)
     if (!key)
       return null
     return {
@@ -210,8 +183,6 @@ export function mountMobileHamburgerMenu({
   }
 
   const syncOpenState = () => {
-    const isVisible = mounted
-
     root.classList.toggle('invisible', ageGateOpen)
     root.classList.toggle('opacity-0', ageGateOpen)
     root.classList.toggle('pointer-events-none', ageGateOpen)
@@ -219,7 +190,7 @@ export function mountMobileHamburgerMenu({
     toggle.disabled = ageGateOpen
     toggle.setAttribute('aria-hidden', String(ageGateOpen))
 
-    root.dataset.mobileHamburgerMounted = isVisible ? 'true' : 'false'
+    root.dataset.mobileHamburgerMounted = mounted ? 'true' : 'false'
     root.dataset.mobileHamburgerOpen = open ? 'true' : 'false'
     toggle.setAttribute('aria-expanded', String(open))
     toggle.setAttribute('aria-label', open ? closeNavigationLabel : openNavigationLabel)
@@ -228,8 +199,8 @@ export function mountMobileHamburgerMenu({
     // Closed and closing alike: links must leave the tab order the moment the panel stops being the menu.
     panel.toggleAttribute('inert', !open)
 
-    backdrop.classList.toggle('hidden', !isVisible)
-    panel.classList.toggle('hidden', !isVisible)
+    backdrop.classList.toggle('hidden', !mounted)
+    panel.classList.toggle('hidden', !mounted)
 
     backdrop.classList.toggle('pointer-events-auto', open)
     backdrop.classList.toggle('opacity-100', open)
@@ -237,7 +208,6 @@ export function mountMobileHamburgerMenu({
     backdrop.classList.toggle('opacity-0', !open)
 
     panel.classList.toggle('pointer-events-auto', open)
-    panel.classList.toggle('translate-y-0', open)
     panel.classList.toggle('opacity-100', open)
     panel.classList.toggle('pointer-events-none', !open)
     panel.classList.toggle('opacity-0', !open)
@@ -430,7 +400,7 @@ export function mountMobileHamburgerMenu({
 
   const resolveLinkAvailabilityRoot = (): ParentNode => {
     const mode = readCommissionViewMode(win)
-    const currentPanel = navPanelByMode.get(mode)
+    const currentPanel = navPanels.find(node => node.dataset.mobileHamburgerNavPanel === mode)
     if (!currentPanel)
       return navRoot
 
@@ -454,23 +424,10 @@ export function mountMobileHamburgerMenu({
     syncLinkAvailability()
   }
 
-  const trackCharacterNavClick = () => {
-    markScrollJump(win)
-    deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
-      source: 'character_link',
-      layout: 'mobile',
-      view_mode: readCommissionViewMode(win),
-    })
-  }
-
   const runSearchAction = () => {
     if (!hasTrackedSearchUsage) {
       hasTrackedSearchUsage = true
-      deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
-        source: 'search_link',
-        layout: 'mobile',
-        view_mode: readCommissionViewMode(win),
-      })
+      trackHomeNavUsed(win, deps.trackEvent, 'search_link', 'mobile')
     }
 
     setHtmlScrollLocked(doc, false)
@@ -499,17 +456,7 @@ export function mountMobileHamburgerMenu({
 
     const viewModeToggle = target.closest<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR)
     if (viewModeToggle) {
-      const currentMode = readCommissionViewMode(win)
-      const nextMode = resolveCommissionViewModeFromElement(viewModeToggle)
-      if (!nextMode)
-        return
-
-      if (currentMode !== nextMode) {
-        replaceCommissionViewModeInAddress(win, nextMode)
-      }
-      else {
-        syncUiState()
-      }
+      handleViewModeToggleClick(win, viewModeToggle, syncUiState)
       return
     }
 
@@ -517,7 +464,7 @@ export function mountMobileHamburgerMenu({
       CHARACTER_SECTION_TOGGLE_SELECTOR,
     )
     if (characterSectionToggle) {
-      const sectionKey = resolveCharacterSectionKeyFromElement(characterSectionToggle)
+      const sectionKey = resolveCharacterSectionKey(characterSectionToggle.getAttribute('data-mobile-character-section-key'))
       if (!sectionKey)
         return
       const previousSection = expandedCharacterSection
@@ -541,57 +488,24 @@ export function mountMobileHamburgerMenu({
     if (!navLink || !isUnmodifiedPrimaryClick(event))
       return
 
-    const mode = readCommissionViewMode(win)
-    const href = navLink.getAttribute('href')
-    const isArchivedLink = navLink.dataset.mobileNavCharacterStatus === 'archived'
-    if (isArchivedLink && !isArchivedCharactersVisible(doc)) {
-      event.preventDefault()
-      revealArchivedHomeNavTarget({
-        onVisible: () => {
-          deps.scrollToHashWithoutWrite(href)
-          syncLinkAvailability()
-        },
-        requestArchivedVisibility: deps.requestArchivedVisibility,
-        win,
-      })
-      trackCharacterNavClick()
+    const outcome = handleHomeNavCharacterLinkClick({
+      event,
+      link: navLink,
+      isArchivedLink: navLink.dataset.mobileNavCharacterStatus === 'archived',
+      layout: 'mobile',
+      win,
+      doc,
+      deps,
+      onArchivedVisible: syncLinkAvailability,
+    })
+    if (outcome !== 'disabled')
       closeMenu()
-      return
-    }
-    if (navLink.getAttribute('aria-disabled') === 'true') {
-      event.preventDefault()
-      return
-    }
-
-    if (mode === 'timeline') {
-      event.preventDefault()
-      deps.scrollToHashWithoutWrite(navLink.getAttribute('href'))
-    }
-
-    trackCharacterNavClick()
-    closeMenu()
-  }
-
-  const onBackdropClick = () => {
-    closeMenu()
   }
 
   const onDocumentKeyDown = (event: KeyboardEvent) => {
     if (event.key !== 'Escape')
       return
     closeMenu()
-  }
-
-  const onViewModeChanged = () => {
-    syncUiState()
-  }
-
-  const onLinkAvailabilityRelatedStateChanged = () => {
-    syncLinkAvailability()
-  }
-
-  const onPopState = () => {
-    syncUiState()
   }
 
   const onAgeGateStateChanged = (event: Event) => {
@@ -618,12 +532,12 @@ export function mountMobileHamburgerMenu({
 
   root.addEventListener('pointerdown', onRootPointerDown)
   root.addEventListener('click', onRootClick)
-  backdrop.addEventListener('click', onBackdropClick)
+  backdrop.addEventListener('click', closeMenu)
   doc.addEventListener('keydown', onDocumentKeyDown)
-  win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onViewModeChanged)
-  win.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, onLinkAvailabilityRelatedStateChanged)
-  win.addEventListener(ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, onLinkAvailabilityRelatedStateChanged)
-  win.addEventListener('popstate', onPopState)
+  win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, syncUiState)
+  win.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, syncLinkAvailability)
+  win.addEventListener(ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, syncLinkAvailability)
+  win.addEventListener('popstate', syncUiState)
   win.addEventListener(AGE_GATE_STATE_EVENT, onAgeGateStateChanged)
 
   syncUiState()
@@ -645,15 +559,15 @@ export function mountMobileHamburgerMenu({
 
     root.removeEventListener('pointerdown', onRootPointerDown)
     root.removeEventListener('click', onRootClick)
-    backdrop.removeEventListener('click', onBackdropClick)
+    backdrop.removeEventListener('click', closeMenu)
     doc.removeEventListener('keydown', onDocumentKeyDown)
-    win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onViewModeChanged)
-    win.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, onLinkAvailabilityRelatedStateChanged)
+    win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, syncUiState)
+    win.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, syncLinkAvailability)
     win.removeEventListener(
       ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT,
-      onLinkAvailabilityRelatedStateChanged,
+      syncLinkAvailability,
     )
-    win.removeEventListener('popstate', onPopState)
+    win.removeEventListener('popstate', syncUiState)
     win.removeEventListener(AGE_GATE_STATE_EVENT, onAgeGateStateChanged)
   }
 }

@@ -56,6 +56,11 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   `astro:before-swap`; never mount from top-level module code
 - **Hero fade-in:** the intro block and both desktop sidebars share `.animate-hero-reveal` (200ms, no delays, `backwards` fill), separate from the `.animate-reveal-up` that `scrollReveal.ts` uses for entries. Their old staggered 500ms reveals (0/120/200ms) read as the page stuttering in; owner delegated the A/B pick to the advisor on 2026-11-03, who picked this over keeping it or dropping the fade. Do not reintroduce per-piece delays. The intro paragraph is the LCP element when no image beats it (the age gate and fixture runs), and Chrome counts text fading in from opacity 0 only once the fade ends, so this fade puts PSI mobile LCP at 2.0–3.8 s against 1.1 s before; owner accepted that lab cost for the feel on 2026-11-03. A `both` fill never ends and hides the paragraph from LCP entirely; that is metric hiding, not a fix
 - **Image fade-in:** `commission/imageFadeIn.ts` (mounted in `criticalMounts`) fades `[data-commission-image] > img` in on `load`. Fail open: CSS hides images only under `html[data-image-fade=on]`, which the mount sets after marking already-`complete` images `data-loaded`, so no-JS and cached reloads never flash. The LCP image (`priority`) is server-rendered with `data-loaded`: Chrome ignores `opacity: 0` paints for LCP. `load`/`error` do not bubble, so the listeners are document-level capture; `error` also marks loaded so a broken image never stays invisible. Dispose leaves the attribute; ClientRouter resets `<html>` attributes on swap and the next mount sets it again
+- **Shared nav clicks:** the sidebar and the hamburger share the view-mode toggle, the character-link click (archived
+  reveal, `aria-disabled`, timeline intercept) and `sidebar_nav_used` tracking through `nav/homeNavClick.ts`; only the
+  hash-clear frame (sidebar) and `closeMenu()` (hamburger) stay at the call sites.
+- **Generated-data getters:** `data/cachedOutsideDev.ts` is the one "re-read in dev, cache in a build" wrapper; use it
+  for a plain getter and keep bespoke caches (per-limit, path/mtime keyed) as they are.
 - **Deferred mounts:** `homePageClient.ts` mounts the critical group statically and loads every other mount
   (sidebar, hamburger, keyword button, mobile tabs, interest buttons, scroll reveal, floating-button auto-hide,
   scroll depth) from `homePageDeferredMounts.ts` through one `import()` at idle, so they stay out of the eager entry
@@ -169,10 +174,13 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   2026-11-01. Typed search was ~0.5% of sessions over Aug–Oct 2026, versus ~2.4% for keyword chips; invest in click
   entry points, not query syntax. The shuffle ("I feel lucky") button was removed on 2026-11-01 after
   `shuffle_clicked` reached 0.28% of sessions over the same window.
+- **Commission image alt:** the `<img>` alt is the character, creator (or the localised anonymous label), date and
+  part shown beside it (`commission/commissionImageAlt.ts`). The copyright line lives only in `data-commission-alt`,
+  which the image notice reads; as alt it made screen readers repeat "©… & Crystallize" for every entry.
 - **Unpublished interest:** the "want this" button keys its localStorage flag and `i_want_to_see_it { commission }`
   on `commission.publicId`; admin joins vote counts on that id (`GET /api/admin/interest`). Never key it on
   character name or date — same-day works collided and renames orphaned the votes.
-- **Age gate first frame:** an inline head script in `HomePage.astro` sets `html[data-age-gate-initial=open]` (and `data-age-gate-open`) before paint when `warning/ageGate.ts` says the gate must show; CSS in `AgeGateScript.astro` renders it opaque with no animation. `mountAgeGate` removes the attribute and suppresses the entrance animation inline until the next state change. ClientRouter's `swapRootAttributes` resets `<html>` attributes from the server HTML on every swap, so the attribute cannot go stale
+- **Age gate first frame:** an inline head script in `HomePage.astro` sets `html[data-age-gate-initial=open]` (and `data-age-gate-open`) before paint when `warning/ageGate.ts` says the gate must show; CSS in `AgeGateScript.astro` renders it opaque with no animation. `mountAgeGate` removes the attribute and suppresses the entrance animation inline until the next state change. ClientRouter's `swapRootAttributes` resets `<html>` attributes from the server HTML on every swap, so the attribute cannot go stale. The root is server-rendered without `aria-hidden` (closed it is `display: none`, which already hides it from assistive tech), so a gate the pre-paint script shows is never aria-hidden; `mountAgeGate` (`warning/ageGateMount.ts`) owns `aria-hidden` afterwards. While open it sets `inert` on every sibling along the gate's ancestor chain up to `<body>` (the gate sits inside `<main>`, so no single container works), skips elements that were already inert, and removes only its own on close and teardown, alongside the Tab trap
 - **Age gate persistence is best-effort:** unreadable or unwritable `localStorage` shows the gate on every full load (the inline head script and the module agree). A confirmation that cannot be persisted is remembered in memory via the `window[CONFIRMED_IN_MEMORY_FLAG]` flag (`warning/ageGate.ts`), which survives ClientRouter soft navigations (language switches) and resets on a full load. ClientRouter does not re-run an identical inline head script on swap, and the flag keeps the first frame closed even if it did
 - **Hidden DOM + observers:** sections rendered with `display: none` must not be marked "entered viewport"
   by reveal/lazy observers; toggling visibility must re-scan. A scan that hides entries reads every entry's geometry first and
@@ -201,6 +209,9 @@ JSON / HTML, or the archived toggle / hash navigation contract change.
 - Matcher rules (CJK/kana vs JS `\b`) live in the root `AGENTS.md`
 
 ## Production `/admin` verification
+
+CI runs these checks after every web deploy (the smoke step in `.github/actions/deploy-web-snapshot`), together with
+`/api/admin/health` and a `build-info.json` revision match; the manual check below is for ad-hoc verification.
 
 The public deployment is static-only. `/admin` and `/api/admin/*` must return 404 via
 `assets.not_found_handling = "404-page"` (`public/_redirects` holds only public redirects). After

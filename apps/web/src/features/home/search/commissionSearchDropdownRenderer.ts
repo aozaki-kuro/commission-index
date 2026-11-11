@@ -84,8 +84,10 @@ function createSuggestionItem(
   badgeText: string | null,
   sourcePrefix: string,
   onSelect: (term: string) => void,
-): HTMLDivElement {
-  const item = document.createElement('div')
+): HTMLLIElement {
+  // An li straight under the listbox: ARIA 1.2 wants options owned directly by it. Preflight's
+  // `ul { list-style: none }` plus the `flex` display leave no marker, so the box matches the old div.
+  const item = document.createElement('li')
   item.role = 'option'
   item.id = `search-suggestion-${index}`
   item.dataset.value = vm.term
@@ -148,9 +150,12 @@ function createArchivedNoticeItem(
   statusMessage: string,
   label: string,
   onLoad: () => void,
-): HTMLDivElement {
-  // outer divider wrapper
-  const wrapper = document.createElement('div')
+): HTMLLIElement {
+  // Divider wrapper: a presentational li keeps `ul > li` valid HTML and drops out of the accessibility tree,
+  // so the listbox still owns only options. Its border and padding cannot sit on the option, whose
+  // selected background would cover them.
+  const wrapper = document.createElement('li')
+  wrapper.role = 'presentation'
   wrapper.className = 'mt-1 border-t border-gray-200/80 pt-1 dark:border-gray-700/80'
 
   const item = document.createElement('div')

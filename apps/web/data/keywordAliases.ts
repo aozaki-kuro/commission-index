@@ -1,14 +1,11 @@
 import type { KeywordAliasEntry } from '@commission-index/domain'
-import process from 'node:process'
 import {
   normalizeKeywordAliases,
   normalizeKeywordAliasKey,
   parseKeywordAliasesJson,
 } from '@commission-index/domain'
+import { cachedOutsideDev } from './cachedOutsideDev'
 import { getGeneratedFactSourceContent } from './generatedFactSource'
-
-const isDevelopment = process.env.NODE_ENV === 'development'
-let cachedKeywordAliases: KeywordAliasEntry[] | null = null
 
 function loadKeywordAliases(): KeywordAliasEntry[] {
   const aliasMap = new Map<string, { baseKeyword: string, aliases: string[] }>()
@@ -38,19 +35,7 @@ function loadKeywordAliases(): KeywordAliasEntry[] {
     a.baseKeyword.localeCompare(b.baseKeyword, 'ja'))
 }
 
-export function getKeywordAliases(): KeywordAliasEntry[] {
-  if (!isDevelopment && cachedKeywordAliases) {
-    return cachedKeywordAliases
-  }
-
-  const result = loadKeywordAliases()
-
-  if (!isDevelopment) {
-    cachedKeywordAliases = result
-  }
-
-  return result
-}
+export const getKeywordAliases: () => KeywordAliasEntry[] = cachedOutsideDev(loadKeywordAliases)
 
 export function getKeywordAliasesMap() {
   return new Map(

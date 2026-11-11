@@ -28,5 +28,4 @@ export function getCharacterRecords(): CharacterRecord[] {
     : staticCharacterRecords
 }
 
-export { staticCharacterRecords as characterRecords }
 export type { CharacterRecord, CharacterStatus } from '@commission-index/domain'

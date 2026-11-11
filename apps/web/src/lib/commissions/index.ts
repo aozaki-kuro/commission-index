@@ -1,4 +1,7 @@
 import type { CharacterCommissions, Commission, Props } from '@data/types'
+import { sortCommissionsByDate } from '@commission-index/domain'
+
+export { sortCommissionsByDate }
 
 export type CommissionWithCharacter = Commission & { character: string }
 
@@ -69,14 +72,6 @@ function selectLegacySeriesWinner<T extends Commission>(series: T[]) {
       ? commission
       : winner
   })
-}
-
-/**
- * Sort commissions by date (desc).
- */
-export function sortCommissionsByDate<T extends Commission>(a: T, b: T): number {
-  const dateOrder = (b.commissionDate ?? '').localeCompare(a.commissionDate ?? '')
-  return dateOrder || b.id - a.id
 }
 
 /**

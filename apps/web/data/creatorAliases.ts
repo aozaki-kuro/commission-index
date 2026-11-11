@@ -1,10 +1,7 @@
 import type { CreatorAliasEntry } from '@commission-index/domain'
-import process from 'node:process'
 import { normalizeCreatorName, parseAliasesJson } from '@commission-index/domain'
+import { cachedOutsideDev } from './cachedOutsideDev'
 import { getGeneratedFactSourceContent } from './generatedFactSource'
-
-const isDevelopment = process.env.NODE_ENV === 'development'
-let cachedCreatorAliases: CreatorAliasEntry[] | null = null
 
 function loadCreatorAliases(): CreatorAliasEntry[] {
   const aliasMap = new Map<string, string[]>()
@@ -28,18 +25,6 @@ function loadCreatorAliases(): CreatorAliasEntry[] {
   return Array.from(aliasMap.entries(), ([creatorName, aliases]) => ({ creatorName, aliases }))
 }
 
-export function getCreatorAliases(): CreatorAliasEntry[] {
-  if (!isDevelopment && cachedCreatorAliases) {
-    return cachedCreatorAliases
-  }
-
-  const result = loadCreatorAliases()
-
-  if (!isDevelopment) {
-    cachedCreatorAliases = result
-  }
-
-  return result
-}
+export const getCreatorAliases: () => CreatorAliasEntry[] = cachedOutsideDev(loadCreatorAliases)
 
 export const normalizeCreatorSearchName = (value: string) => normalizeCreatorName(value)
