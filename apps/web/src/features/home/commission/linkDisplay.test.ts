@@ -37,6 +37,20 @@ describe('linkDisplay', () => {
     expect(result.designLink).toBe('https://x.com/example/status/2')
   })
 
+  it('never turns a non-http(s) value into a link', () => {
+    const result = selectDisplayLinks({
+      links: ['javascript:alert(1)//x.com', 'x.com/no-scheme', 'https://x.com/example/status/1'],
+      designLink: 'Summer outfit',
+    })
+
+    expect(result.mainLinks).toEqual([
+      { type: 'Twitter', url: 'https://x.com/example/status/1' },
+    ])
+    expect(result.designLink).toBeNull()
+    expect(result.hasDesign).toBe(false)
+    expect(selectDisplayLinks({ links: [], designLink: 'javascript:alert(1)' }).designLink).toBeNull()
+  })
+
   it('reports whether any displayable link exists', () => {
     expect(hasDisplayableLinks({ links: [] })).toBe(false)
     expect(hasDisplayableLinks({

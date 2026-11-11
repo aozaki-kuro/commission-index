@@ -187,10 +187,13 @@ export async function triggerRebuildDeploy(signal?: AbortSignal): Promise<{ stat
     signal,
     cache: 'no-store',
   })
-  const data = await response.json() as { status: string, message: string, dispatchedAt: string }
+  // An HTML 5xx page or a login interstitial is not JSON; do not let the parse error mask the status.
+  const data = await response.json().catch(() => null) as { status: string, message: string, dispatchedAt: string } | null
   if (!response.ok) {
-    throw new Error(data.message || `Rebuild failed: HTTP ${response.status}`)
+    throw new Error(data?.message || `Rebuild request failed (HTTP ${response.status}).`)
   }
+  if (!data)
+    throw new Error('Rebuild request returned an unreadable response.')
   return data
 }
 

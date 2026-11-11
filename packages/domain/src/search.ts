@@ -67,9 +67,10 @@ interface ParsedSuggestionInputState {
 const normalize = (s: string) => s.trim().toLowerCase()
 const ESCAPE_REGEXP_PATTERN = /[.*+?^${}()|[\]\\]/g
 const SUGGESTION_MATCH_TOKEN_PATTERN = /[\s"'`]+/g
-const TOKENIZE_QUERY_PATTERN = /"[^"]*"|\S+/g
+const TOKENIZE_QUERY_PATTERN = /!?"[^"]*"|\S+/g
 const TRAILING_TOKEN_SEPARATOR_PATTERN = /[\s|!]$/
 const TRAILING_WHITESPACE_PATTERN = /\s+$/
+const WHITESPACE_CHAR_PATTERN = /\s/
 const SEARCH_TEXT_TERM_PATTERN = /[a-z0-9_]+/g
 const NORMALIZE_PIPE_PATTERN = /\s*\|\s*/g
 const NORMALIZE_NEGATION_PATTERN = /\s*!\s*/g
@@ -252,7 +253,7 @@ function getSuggestionTokenTailStart(rawQuery: string) {
   for (let i = 0; i < rawQuery.length; i += 1) {
     const char = rawQuery[i]
 
-    if (!inQuote && (char === ' ' || char === '|' || char === '!')) {
+    if (!inQuote && (WHITESPACE_CHAR_PATTERN.test(char) || char === '|' || char === '!')) {
       tokenStart = null
       continue
     }

@@ -47,15 +47,24 @@ const LINK_PRIORITY: Array<{ type: string, patterns: string[] }> = [
   },
 ]
 
+// Both fields end up in href. The worker validates links on write, but design is free text and rows written
+// before that validation are never re-checked, so anything that is not an absolute http(s) URL is not a link.
+function isWebUrl(value: string) {
+  return URL.canParse(value) && ['http:', 'https:'].includes(new URL(value).protocol)
+}
+
 export function selectDisplayLinks({
   links,
-  designLink,
+  designLink: rawDesignLink,
 }: DisplayLinksInput): DisplayLinksSelection {
-  const hasDesign = Boolean(designLink)
+  const designLink = rawDesignLink && isWebUrl(rawDesignLink)
+    ? rawDesignLink
+    : null
+  const hasDesign = designLink !== null
   const maxLinks = hasDesign ? 2 : 3
 
   const buckets: Record<string, string[]> = {}
-  for (const url of links) {
+  for (const url of links.filter(isWebUrl)) {
     for (const { type, patterns } of LINK_PRIORITY) {
       if (patterns.some(pattern => url.includes(pattern))) {
         if (!buckets[type])
@@ -84,7 +93,7 @@ export function selectDisplayLinks({
   return {
     hasDesign,
     mainLinks: flat.slice(0, maxLinks),
-    designLink: hasDesign ? designLink! : null,
+    designLink,
   }
 }
 

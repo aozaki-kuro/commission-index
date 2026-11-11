@@ -412,6 +412,22 @@ describe('事实源快照导出', () => {
     expect(readFileSync(path.join(directory, 'fact-source/source-images-manifest.json'), 'utf8')).toBe(oldManifest)
   })
 
+  it('surfaces the spawn error instead of truncated stdout when the D1 snapshot read fails', async () => {
+    const directory = temporaryDirectory()
+    const spawnError = Object.assign(new Error('spawnSync wrangler ENOBUFS'), { code: 'ENOBUFS' })
+    vi.mocked(spawnSync).mockReturnValue({
+      status: null,
+      stdout: '[{"results":[{"table0":"[{\\"id\\":1,',
+      stderr: '',
+      pid: 0,
+      signal: 'SIGTERM',
+      output: [],
+      error: spawnError,
+    })
+    await expect(main(['--output-root', directory])).rejects.toThrow('spawnSync wrangler ENOBUFS')
+    expect(vi.mocked(spawnSync).mock.calls[0][2]).toMatchObject({ maxBuffer: 64 * 1024 * 1024 })
+  })
+
   it('部分图片下载成功后另一张失败，旧快照及其全部图片仍可用', async () => {
     const directory = temporaryDirectory()
     const imagesDirectory = path.join(directory, 'source-images')

@@ -20,6 +20,8 @@ Standalone admin Cloudflare Worker: API router, D1/R2 CRUD, asset serving. Produ
 - `GET /api/admin/interest` (`adminInterest.ts`) proxies Rybbit vote counts by `commission` publicId; it is matched before any D1/R2 access, needs only the `RYBBIT_API_KEY` secret (503 if missing, 502 on Rybbit failure, single attempt) and must never echo the key. `GET /api/admin/link-clicks` follows the same contract and returns
   raw outbound `{ url, count }` for the calendar year to date (UTC); matching URLs to commissions is admin's job.
 - CORS: same-origin, or an `Origin` host of `localhost`, `*.localhost`, or `127.0.0.1` (see `isLocalHostname` in `src/index.ts`).
+- Writes are origin-checked in `src/index.ts` (`isForgedWrite`): a non-GET `/api/admin/*` request with an `Origin` other than the worker's own gets 403 (Zero Trust is cookie auth and simple POSTs skip preflight). No `Origin` passes. Local origins pass only with `ALLOW_LOCAL_ORIGINS=1`, injected by the `dev` script's `--var`; never add it to `wrangler.jsonc`. Do not infer "local" from `request.url`: `wrangler dev` reports the route host there.
+- The entry also catches anything a handler throws: malformed JSON → 400, other faults → logged 500, both as the JSON envelope with CORS headers.
 - Create/PATCH take `commissionDate` + `creatorName`; `workGroupId` and `partNumber` are given together or both `null`, and `workGroupId: "new"` creates a group.
 - Commission `links` must be absolute `http(s)` URLs (`validateCommissionFields`); they render into public `href`s.
 - Source-image uploads are typed by magic bytes only (JPEG/PNG; MIME and file name ignored) and capped at 10 MiB

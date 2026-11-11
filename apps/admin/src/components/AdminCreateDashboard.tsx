@@ -59,6 +59,7 @@ export function AdminCreateDashboard({
             ? 'ready'
             : isLoading ? 'loading' : 'unavailable'}
           onAddCharacter={() => setIsCharacterDialogOpen(true)}
+          onCreated={onRetry}
         />
       </div>
       <Dialog

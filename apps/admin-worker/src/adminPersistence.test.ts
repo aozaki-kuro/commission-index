@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createSQLiteD1 } from '../test/sqliteD1'
-import { createCommission, deleteCharacter, saveHomeFeaturedSearchKeywords, updateCharacter, updateCharacterOrder } from './adminPersistence'
+import { createCommission, deleteCharacter, saveHomeFeaturedSearchKeywords, saveSourceImageMetadata, updateCharacter, updateCharacterOrder } from './adminPersistence'
 
 describe('d1 batch persistence', () => {
   it('stores explicit identity fields and binds source-image metadata to the new commission id', async () => {
@@ -284,5 +284,48 @@ describe('character rename and aliases', () => {
     expect(aliasRows(database)).toEqual([
       { character_name: 'Old Name', aliases: '["Alpha"]' },
     ])
+  })
+})
+
+describe('source-image metadata replacement', () => {
+  const metadata = (commissionFileName: string, objectKey: string) => ({
+    commissionFileName,
+    objectKey,
+    mimeType: 'image/png',
+    byteSize: 34,
+    sha256: 'new-hash',
+  })
+
+  it('upserts the row for an existing commission', async () => {
+    const { database, db } = createSQLiteD1()
+    database.exec(`
+      INSERT INTO characters (id, name, status, sort_order) VALUES (1, 'Fixture', 'active', 1);
+      INSERT INTO commissions (id, character_id, file_name, commission_date, creator_name, links) VALUES (7, 1, 'kept', '2025-03-02', 'Creator', '[]');
+      INSERT INTO source_images (commission_file_name, commission_id, object_key, mime_type, byte_size, sha256)
+        VALUES ('kept', 7, 'source-images/old.jpg', 'image/jpeg', 12, 'old-hash');
+    `)
+
+    await saveSourceImageMetadata(db, metadata('kept', 'source-images/new.png'))
+
+    expect(database.prepare('SELECT commission_file_name, commission_id, object_key, mime_type, byte_size, sha256 FROM source_images').all())
+      .toEqual([
+        {
+          commission_file_name: 'kept',
+          commission_id: 7,
+          object_key: 'source-images/new.png',
+          mime_type: 'image/png',
+          byte_size: 34,
+          sha256: 'new-hash',
+        },
+      ])
+  })
+
+  it('rejects a commission deleted before the write and stores no orphan row', async () => {
+    const { database, db } = createSQLiteD1()
+
+    await expect(saveSourceImageMetadata(db, metadata('gone', 'source-images/new.png')))
+      .rejects
+      .toThrow('Commission not found.')
+    expect(database.prepare('SELECT * FROM source_images').all()).toEqual([])
   })
 })

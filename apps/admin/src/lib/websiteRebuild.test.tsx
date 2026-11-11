@@ -115,6 +115,19 @@ describe('shared website rebuild lifecycle', () => {
     expect(isPendingRebuild()).toBe(true)
   })
 
+  it('treats a hung build-info request as a failed poll and still reaches unconfirmed', async () => {
+    api.fetchBuildInfo.mockImplementation((signal?: AbortSignal) => new Promise((_resolve, reject) => {
+      signal?.addEventListener('abort', () => reject(new Error('timed out')))
+    }))
+    markPendingRebuild()
+    const request = queueWebsiteRebuild()
+    await vi.advanceTimersByTimeAsync(websiteRebuildPollTimeoutMs + 60000)
+    await request
+    expect(getWebsiteRebuildState().status).toBe('unconfirmed')
+    expect(getWebsiteRebuildState().message).toContain('Last check failed: timed out')
+    expect(isPendingRebuild()).toBe(true)
+  })
+
   it('retains the pending revision when dispatch fails and allows a successful retry', async () => {
     markPendingRebuild()
     api.trigger.mockRejectedValueOnce(new Error('Offline'))

@@ -1142,6 +1142,33 @@ describe('admin worker CRUD contract routing', () => {
     ])
   })
 
+  it('releases the uploaded object when the commission is deleted during a replacement', async () => {
+    const { database, db } = createSQLiteD1()
+    insertCharacter(database, 1, 'Alice')
+    insertCommission(database, { id: 19, characterId: 1, fileName: '20250301_alice-maker' })
+    const { bucket, put, deleteObject } = createImagesBucketRecorder()
+    // The commission disappears after its file name was read, while the upload is in flight.
+    put.mockImplementation(async () => {
+      database.prepare('DELETE FROM commissions WHERE id = 19').run()
+      return {}
+    })
+    const formData = new FormData()
+    formData.set('sourceImage', new File([
+      imageBytes('png', 'bytes'),
+    ], 'sample.png', { type: 'image/png' }))
+
+    const response = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/commissions/19/source-image`, { method: 'POST', body: formData }),
+      { DB: db, IMAGES: bucket },
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({ message: 'Commission not found.' })
+    expect(database.prepare('SELECT count(*) AS n FROM source_images').get()).toEqual({ n: 0 })
+    expect(deleteObject).toHaveBeenCalledTimes(1)
+    expect(deleteObject).toHaveBeenCalledWith(put.mock.calls[0]![0])
+  })
+
   it('loads bootstrap data natively when DB binding exists', async () => {
     const { database, db } = createSQLiteD1()
     seedAdminReadFixture(database)

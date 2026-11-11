@@ -75,6 +75,17 @@ describe('search strict matching', () => {
     expect(sortedIds(getMatchedEntryIds('"red dragon"', index))).toEqual([2])
   })
 
+  it('excludes a negated quoted phrase as one term', () => {
+    const phraseIndex = buildStrictIndex([
+      ...entries,
+      { id: 5, searchText: 'dragon blue' },
+    ])
+    expect(sortedIds(getMatchedEntryIds('!"blue dragon"', phraseIndex))).toEqual([2, 3, 4, 5])
+    expect(sortedIds(getMatchedEntryIds('lucia !"blue dragon"', phraseIndex))).toEqual([2])
+    expect(sortedIds(getMatchedEntryIds('"blue dragon"', phraseIndex))).toEqual([1])
+    expect(sortedIds(getMatchedEntryIds('!blue', phraseIndex))).toEqual([2, 3, 4])
+  })
+
   it('normalizes case and date-like tokens before matching', () => {
     expect(sortedIds(getMatchedEntryIds('LUCIA', index))).toEqual([1, 2])
     expect(sortedIds(getMatchedEntryIds('2024/02', index))).toEqual([4])
@@ -213,6 +224,15 @@ describe('parseSuggestionInputState', () => {
     expect(parseSuggestionInputState('lucia "red dragon"').suggestionQuery).toBe('red dragon')
   })
 
+  it('treats a full-width space as a token delimiter', () => {
+    expect(parseSuggestionInputState('アリア　ク')).toEqual({
+      suggestionQuery: 'ク',
+      suggestionContextQuery: 'アリア',
+      suggestionOperator: 'and',
+      suggestionIsExclusion: false,
+    })
+  })
+
   it('returns an empty token state for empty, trailing-separator, or separator-only input', () => {
     expect(parseSuggestionInputState('')).toEqual({
       suggestionQuery: '',
@@ -249,6 +269,17 @@ describe('suggestion rows and text helpers', () => {
   it('replaces a partial trailing token when applying a suggestion', () => {
     expect(applySuggestionToQuery('lucia b', 'blue')).toBe('lucia blue ')
     expect(applySuggestionToQuery('lucia b', 'blue dragon')).toBe('lucia "blue dragon" ')
+    expect(applySuggestionToQuery('アリア　ク', 'クレア')).toBe('アリア　クレア ')
+  })
+
+  it('round-trips a completed negated phrase into a phrase exclusion', () => {
+    const completed = applySuggestionToQuery('lucia !"blue dr', 'blue dragon')
+    expect(completed).toBe('lucia !"blue dragon" ')
+    const index = buildStrictIndex([
+      { id: 1, searchText: 'lucia blue dragon' },
+      { id: 2, searchText: 'lucia dragon blue' },
+    ])
+    expect(sortedIds(getMatchedEntryIds(completed, index))).toEqual([2])
   })
 })
 

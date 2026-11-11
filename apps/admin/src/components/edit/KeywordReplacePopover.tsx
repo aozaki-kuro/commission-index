@@ -7,6 +7,7 @@ import {
   getCommissionAccessibleLabel,
   getCommissionDisplayLabel,
 } from '../../lib/commissionPresentation'
+import { parseCommissionLinks } from '../../lib/popularCommissions'
 import { FloatingNotice } from '../FloatingNotice'
 import { Dialog, DialogClose, DialogCloseButton, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog'
 
@@ -80,7 +81,9 @@ function computeReplacement(
     findTerm.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
     'gi',
   )
-  return currentKeyword.replace(regex, replaceTerm.trim())
+  // A function replacer keeps `$&` / `$$` in the typed text literal.
+  const replacement = replaceTerm.trim()
+  return currentKeyword.replace(regex, () => replacement)
 }
 
 export function KeywordReplacePopover({
@@ -147,7 +150,8 @@ export function KeywordReplacePopover({
                 creatorName: match.creatorName,
                 workGroupId: match.workGroupId,
                 partNumber: match.partNumber,
-                links: match.links,
+                // Search rows carry the raw D1 JSON string; the PATCH contract is one URL per line.
+                links: parseCommissionLinks(match.links).join('\n'),
                 design: match.design ?? '',
                 description: match.description ?? '',
                 keyword: match.newKeyword,

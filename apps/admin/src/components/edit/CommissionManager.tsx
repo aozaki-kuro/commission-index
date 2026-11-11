@@ -129,7 +129,8 @@ export function CommissionManager({
       ? [
           {
             ...update,
-            links: update.links.join('\n'),
+            // Same raw D1 JSON string as bootstrap rows, so every reader parses one format.
+            links: JSON.stringify(update.links),
           },
         ]
       : []
