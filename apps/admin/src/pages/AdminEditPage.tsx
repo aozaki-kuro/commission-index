@@ -1,11 +1,13 @@
 import type { AdminBootstrapData } from '@commission-index/domain'
 import type { DataUpdateScope } from '../lib/dataUpdateSignal'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { normalizeAdminPath } from '../app/sections'
 import { AdminBootstrapStatus } from '../components/AdminBootstrapStatus'
 import { CommissionManager } from '../components/edit/CommissionManager'
 import { FloatingNotice } from '../components/FloatingNotice'
 import { fetchAdminJsonWithRetry, readCachedAdminJson } from '../lib/adminApi'
 import { subscribeToDataUpdates } from '../lib/dataUpdateSignal'
+import { claimReloadRestore, isReloadRestoreAvailable } from '../lib/reloadRestoreClaim'
 import { safeStorageSet } from '../lib/storageHelper'
 
 const scrollStorageKey = 'admin-dashboard-scroll'
@@ -51,19 +53,26 @@ function getCurrentScrollTop() {
   return Math.max(window.scrollY, window.pageYOffset, 0)
 }
 
-function isReloadNavigation() {
+function isReloadOfCurrentRoute() {
   if (typeof window === 'undefined' || typeof performance === 'undefined') {
     return false
   }
 
   const navigationEntry = performance.getEntriesByType('navigation')[0]
-  return navigationEntry instanceof PerformanceNavigationTiming
-    ? navigationEntry.type === 'reload'
-    : false
+  if (!(navigationEntry instanceof PerformanceNavigationTiming) || navigationEntry.type !== 'reload') {
+    return false
+  }
+  // A reload on another route followed by an SPA visit here must not restore Edit's stored anchor.
+  try {
+    return normalizeAdminPath(new URL(navigationEntry.name).pathname) === normalizeAdminPath(window.location.pathname)
+  }
+  catch {
+    return false
+  }
 }
 
 function readStoredScrollState(): StoredScrollState | null {
-  if (typeof window === 'undefined' || !isReloadNavigation()) {
+  if (typeof window === 'undefined' || !isReloadRestoreAvailable() || !isReloadOfCurrentRoute()) {
     return null
   }
 
@@ -155,6 +164,9 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
   const [state, dispatch] = useReducer(editReducer, undefined, createInitialEditState)
   const [reloadToken, setReloadToken] = useState(0)
   const [pendingScrollState] = useState<StoredScrollState | null>(() => readStoredScrollState())
+  useEffect(() => {
+    claimReloadRestore()
+  }, [])
   const [hasRestoredScroll, setHasRestoredScroll] = useState(false)
   const cancelledScrollRestoreRef = useRef(false)
   const [areOpenGroupsLoaded, setAreOpenGroupsLoaded] = useState(false)
