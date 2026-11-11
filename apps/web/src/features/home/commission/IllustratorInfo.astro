@@ -43,10 +43,7 @@ const rootClass = `flex w-full flex-wrap items-center gap-y-2 font-mono text-xs 
   <div class="flex items-center">
     <a
       href={linkId}
-      class="
-        mr-6 no-underline select-none
-        md:mr-10
-      "
+      class="mr-6 no-underline select-none md:mr-10"
     >
       {formattedDate
 ? <time datetime={isoDate}>{formattedDate}</time>
@@ -70,11 +67,7 @@ const rootClass = `flex w-full flex-wrap items-center gap-y-2 font-mono text-xs 
       hasDescription
 ? (
         <>
-          <span class="
-            mx-2 select-none
-            md:mx-4
-          "
-          >|</span>
+          <span class="mx-2 select-none md:mx-4">|</span>
           <span>{quotedDescription}</span>
         </>
       )
@@ -82,11 +75,7 @@ const rootClass = `flex w-full flex-wrap items-center gap-y-2 font-mono text-xs 
     }
   </div>
 
-  <div class="
-    ml-auto flex grow justify-end gap-2
-    md:gap-3
-  "
-  >
+  <div class="ml-auto flex grow justify-end gap-2 md:gap-3">
     {
       displayLinks.mainLinks.map(link => (
         <a href={link.url} class={COMMISSION_LINK_TEXT_CLASS} target="_blank">
@@ -110,12 +99,7 @@ const rootClass = `flex w-full flex-wrap items-center gap-y-2 font-mono text-xs 
           type="button"
           aria-pressed="false"
           data-link-style="true"
-          class={`
-                  ${COMMISSION_LINK_TEXT_CLASS}
-                  inline-flex appearance-none items-center gap-2
-                  border-0 bg-transparent p-0
-                  disabled:cursor-default disabled:no-underline
-                `}
+          class={`${COMMISSION_LINK_TEXT_CLASS} inline-flex appearance-none items-center gap-2 border-0 bg-transparent p-0 disabled:cursor-default disabled:no-underline`}
           title={messages.listing.wantThisTitle}
           data-commission-interest-key={commission.publicId}
           data-commission-interest-recorded-label={messages.listing.wantThisRecorded}

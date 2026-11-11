@@ -56,7 +56,7 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
   `popovertarget` run (its click is cancelled); a native close mid-fade only resets the state. Closed popovers take
   no pointer events, because Chromium keeps them in the top layer for the exit transition.
   The mobile keyword button (`nav/hamburger/MobileKeywordButton.astro`) opens it from outside this island, so index
-  warm-up also runs on the popover's `beforetoggle`. The list scrolls in an inner div, not the
+  warm-up (which also starts the index fetch) runs on the popover's `beforetoggle`. The list scrolls in an inner div, not the
   popover: `menu-glass`'s `backdrop-filter` makes the popover the containing block of that X, so a scrolling popover
   would carry it away. It sits outside `#search-popular-keywords`, because that row is `invisible` until populated in the entry-pool fallback and
   visibility inherits into a popover. A term click closes the popover before applying the query: the desktop popover
@@ -78,7 +78,8 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
   The controller keeps every rAF/timer id and cancels them on teardown, and its index `.then`, recompute and
   schedulers check `disposed`: a pass that outlived a soft navigation would filter the next page and `replaceState`
   `?q=` onto it. A failed controller-chunk import resets the island's `loading` and retries on the next chip tap or
-  focus inside the search root.
+  focus inside the search root. Without `requestIdleCallback` the island waits 180 ms (the home deferred-mount
+  fallback), not 1 ms, so the controller chunk does not compete with first paint.
 - Recompute: immediate requests collapse to one rAF per frame. A request made while a pass runs (a synchronous
   archived reveal notifies the panel-state subscriber mid-pass) reruns it once in the same frame, which is what keeps
   an archived-only keyword filtered on its first painted frame; do not reintroduce a second scheduling call for it.

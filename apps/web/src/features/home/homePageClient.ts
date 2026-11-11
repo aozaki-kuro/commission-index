@@ -1,18 +1,9 @@
+import type { DeferredMounts } from '@features/home/homePageDeferredMounts'
 import { mountArchivedCharactersToggle } from '@features/home/commission/archivedCharactersToggle'
 import { mountCommissionViewModeDomSync } from '@features/home/commission/commissionViewModeDomSync'
 import { mountImageFadeIn } from '@features/home/commission/imageFadeIn'
-import { mountMobileViewModeTabs } from '@features/home/commission/mobileViewModeTabs'
-import { mountScrollDepthTracker } from '@features/home/commission/scrollDepthTracker'
-import { mountScrollReveal } from '@features/home/commission/scrollReveal'
-import { mountUnpublishedInterestButtons } from '@features/home/commission/unpublishedInterestClient'
 import { mountHomeHashTarget } from '@features/home/homeHashTarget'
 import { mountHomeScrollRestore, revealRestoringShell } from '@features/home/homeScrollRestore'
-import { mountFloatingButtonsAutoHide } from '@features/home/nav/hamburger/floatingButtonsAutoHide'
-import { mountMobileHamburgerMenu } from '@features/home/nav/hamburger/mobileHamburgerMenu'
-import { mountMobileKeywordButton } from '@features/home/nav/hamburger/mobileKeywordButton'
-import { mountSidebarNavEnhancer } from '@features/home/nav/sidebarNavEnhancer'
-import { ANALYTICS_EVENTS } from '@lib/analytics/events'
-import { trackRybbitEvent } from '@lib/analytics/track'
 
 type Cleanup = () => void
 type Mount = () => Cleanup
@@ -25,25 +16,32 @@ type IdleWindow = Window & {
 const HOME_DEFERRED_MOUNT_TIMEOUT_MS = 1200
 const HOME_DEFERRED_MOUNT_FALLBACK_DELAY_MS = 180
 
+type DeferredMountName = keyof DeferredMounts
+
+const DEFERRED_MOUNT_ORDER: readonly DeferredMountName[] = [
+  'mountSidebarNavEnhancer',
+  'mountMobileHamburgerMenu',
+  'mountMobileKeywordButton',
+  'mountMobileViewModeTabs',
+  'mountUnpublishedInterestButtons',
+  'mountScrollReveal',
+  'mountFloatingButtonsAutoHide',
+  'mountScrollDepthTracker',
+]
+
 interface HomePageClientDeps {
   mountCommissionViewModeDomSync: Mount
   mountArchivedCharactersToggle: Mount
   mountHomeHashTarget: Mount
   mountHomeScrollRestore: Mount
-  mountSidebarNavEnhancer: Mount
-  mountMobileHamburgerMenu: Mount
-  mountMobileKeywordButton: Mount
-  mountFloatingButtonsAutoHide: Mount
-  mountMobileViewModeTabs: Mount
   mountImageFadeIn: Mount
-  mountScrollReveal: Mount
-  mountScrollDepthTracker: Mount
-  mountUnpublishedInterestButtons: Mount
+  // The deferred group is one dynamic chunk, kept out of the eager entry; a dep given per mount overrides it.
+  loadDeferredMounts: () => Promise<Record<DeferredMountName, Mount>>
   scheduleDeferredMount: (task: () => void) => Cleanup
 }
 
 interface MountHomePageClientOptions {
-  deps?: Partial<HomePageClientDeps>
+  deps?: Partial<HomePageClientDeps & Record<DeferredMountName, Mount>>
 }
 
 const defaultDeps: HomePageClientDeps = {
@@ -51,27 +49,8 @@ const defaultDeps: HomePageClientDeps = {
   mountArchivedCharactersToggle: () => mountArchivedCharactersToggle(),
   mountHomeHashTarget: () => mountHomeHashTarget(),
   mountHomeScrollRestore: () => mountHomeScrollRestore(),
-  mountSidebarNavEnhancer: () => mountSidebarNavEnhancer(),
-  mountMobileHamburgerMenu: () => mountMobileHamburgerMenu(),
-  mountMobileKeywordButton: () => mountMobileKeywordButton(),
-  mountFloatingButtonsAutoHide: () => mountFloatingButtonsAutoHide(),
-  mountMobileViewModeTabs: () => mountMobileViewModeTabs(),
   mountImageFadeIn: () => mountImageFadeIn(),
-  mountScrollReveal: () => mountScrollReveal(),
-  mountScrollDepthTracker: () =>
-    mountScrollDepthTracker({
-      trackEvent: (properties) => {
-        trackRybbitEvent(ANALYTICS_EVENTS.scrollDepthReached, { ...properties })
-      },
-    }),
-  mountUnpublishedInterestButtons: () =>
-    mountUnpublishedInterestButtons({
-      trackEvent: (properties) => {
-        trackRybbitEvent(ANALYTICS_EVENTS.iWantToSeeIt, {
-          commission: properties.commission,
-        })
-      },
-    }),
+  loadDeferredMounts: () => import('@features/home/homePageDeferredMounts').then(module => module.deferredMounts),
   scheduleDeferredMount: (task) => {
     const idleWindow = window as IdleWindow
     if (typeof idleWindow.requestIdleCallback === 'function') {
@@ -103,16 +82,6 @@ export function mountHomePageClient({ deps: depsOverrides }: MountHomePageClient
     deps.mountHomeScrollRestore,
     deps.mountImageFadeIn,
   ]
-  const deferredMounts: Mount[] = [
-    deps.mountSidebarNavEnhancer,
-    deps.mountMobileHamburgerMenu,
-    deps.mountMobileKeywordButton,
-    deps.mountMobileViewModeTabs,
-    deps.mountUnpublishedInterestButtons,
-    deps.mountScrollReveal,
-    deps.mountFloatingButtonsAutoHide,
-    deps.mountScrollDepthTracker,
-  ]
   const cleanups: Cleanup[] = []
   let cancelDeferredMount: Cleanup | null = null
   let disposed = false
@@ -132,15 +101,22 @@ export function mountHomePageClient({ deps: depsOverrides }: MountHomePageClient
       cancelDeferredMount = null
       if (disposed)
         return
-      // Deferred features are independent; one failing must not tear down the critical mounts.
-      for (const mount of deferredMounts) {
-        try {
-          cleanups.push(mount())
+      deps.loadDeferredMounts().then((loaded) => {
+        // A soft navigation can tear down while the chunk loads; mounting now would bind to the next page.
+        if (disposed)
+          return
+        // Deferred features are independent; one failing must not tear down the critical mounts.
+        for (const name of DEFERRED_MOUNT_ORDER) {
+          try {
+            cleanups.push((depsOverrides?.[name] ?? loaded[name])())
+          }
+          catch (error) {
+            console.error('[home] deferred mount failed', error)
+          }
         }
-        catch (error) {
-          console.error('[home] deferred mount failed', error)
-        }
-      }
+      }, (error: unknown) => {
+        console.error('[home] deferred mounts failed to load', error)
+      })
     })
   }
   catch (error) {

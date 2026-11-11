@@ -15,10 +15,14 @@ const archivedCharactersMock = vi.hoisted(() => ({
 
 interface MockSearchEntry { id: number, domKey: string, searchText: string, searchSuggest?: string }
 
-const searchEntriesMock = vi.hoisted(() => ({
-  entries: [] as MockSearchEntry[],
-  promise: null as Promise<MockSearchEntry[]> | null,
-}))
+const searchEntriesMock = vi.hoisted(() => {
+  const mock = {
+    entries: [] as MockSearchEntry[],
+    promise: null as Promise<MockSearchEntry[]> | null,
+    ensure: vi.fn((): Promise<MockSearchEntry[]> => mock.promise ?? Promise.resolve(mock.entries)),
+  }
+  return mock
+})
 
 const panelStateMock = vi.hoisted(() => ({
   state: {
@@ -42,7 +46,7 @@ vi.mock('@features/home/search/commissionSearchDeferred', async (importOriginal)
     ...actual,
     buildPopularKeywordPoolFromEntries: () => [],
     buildSearchEntriesFromDom: () => [],
-    ensureHomeSearchEntriesPromise: () => searchEntriesMock.promise ?? Promise.resolve(searchEntriesMock.entries),
+    ensureHomeSearchEntriesPromise: searchEntriesMock.ensure,
     getCachedHomeSearchEntries: () => null,
   }
 })
@@ -391,6 +395,146 @@ describe('initSearchController', () => {
     })
   })
 
+  describe('search index loading', () => {
+    function renderSearchListing(featuredKeywords: string[]) {
+      document.body.innerHTML = `
+        <main>
+          <section
+            id="commission-search"
+            data-featured-keywords='${JSON.stringify(featuredKeywords)}'
+            data-suggestion-alias-groups="[]"
+          >
+            <div role="combobox">
+              <input id="commission-search-input" value="" />
+              <ul id="search-suggestion-list"></ul>
+            </div>
+            <button id="search-help-trigger"></button>
+            <button id="search-copy-url"></button>
+            <button id="search-clear"></button>
+            <div id="search-popular-keywords"></div>
+            <ul id="search-keyword-list"></ul>
+            <p id="search-live-region"></p>
+          </section>
+          <section id="character-alpha" data-character-section="true" data-character-status="active">
+            <article
+              data-commission-entry="true"
+              data-character-section-id="character-alpha"
+              data-commission-search-key="character-alpha::alpha"
+            ></article>
+          </section>
+          <section id="character-beta" data-character-section="true" data-character-status="active">
+            <article
+              data-commission-entry="true"
+              data-character-section-id="character-beta"
+              data-commission-search-key="character-beta::beta"
+            ></article>
+          </section>
+        </main>
+      `
+      return document.getElementById('commission-search')!
+    }
+
+    const tick = (ms = 0) => new Promise(resolve => setTimeout(resolve, ms))
+
+    function typeInto(value: string) {
+      const input = document.querySelector<HTMLInputElement>('#commission-search-input')!
+      input.value = value
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+
+    it('waits for a search interaction before fetching the index', async () => {
+      const cleanup = initSearchController(mountSearchRoot({
+        featuredKeywords: ['alpha'],
+      }))
+      await tick()
+      expect(searchEntriesMock.ensure).not.toHaveBeenCalled()
+
+      const input = document.querySelector<HTMLInputElement>('#commission-search-input')!
+      input.dispatchEvent(new Event('focus'))
+      input.dispatchEvent(new Event('pointerdown'))
+      await tick()
+      expect(searchEntriesMock.ensure).toHaveBeenCalledTimes(1)
+
+      cleanup?.()
+    })
+
+    it('fetches the index at init for a ?q= load', async () => {
+      window.history.replaceState(null, '', '/?q=alpha')
+      const cleanup = initSearchController(mountSearchRoot({
+        featuredKeywords: ['alpha'],
+      }))
+      expect(searchEntriesMock.ensure).toHaveBeenCalledTimes(1)
+      cleanup?.()
+    })
+
+    it('fetches the index at init when the keyword row needs the entry pool', async () => {
+      const cleanup = initSearchController(mountSearchRoot())
+      expect(searchEntriesMock.ensure).toHaveBeenCalledTimes(1)
+      cleanup?.()
+    })
+
+    it('fetches the index when back/forward lands on a ?q=', async () => {
+      const cleanup = initSearchController(mountSearchRoot({
+        featuredKeywords: ['alpha'],
+      }))
+      await tick()
+      expect(searchEntriesMock.ensure).not.toHaveBeenCalled()
+
+      window.history.replaceState(null, '', '/?q=alpha')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+      expect(searchEntriesMock.ensure).toHaveBeenCalledTimes(1)
+
+      cleanup?.()
+    })
+
+    it('holds a query typed on a cold cache until the index arrives, then filters it', async () => {
+      searchEntriesMock.entries = [
+        { id: 0, domKey: 'character-alpha::alpha', searchText: 'alpha' },
+        { id: 1, domKey: 'character-beta::beta', searchText: 'beta' },
+      ]
+      let resolveIndex!: (entries: MockSearchEntry[]) => void
+      searchEntriesMock.promise = new Promise((resolve) => {
+        resolveIndex = resolve
+      })
+      const cleanup = initSearchController(renderSearchListing(['alpha']))
+      await tick()
+
+      typeInto('beta')
+      // Past the recompute debounce: without the index the DOM-only index matches nothing and would hide everything.
+      await tick(150)
+      expect(searchEntriesMock.ensure).toHaveBeenCalledTimes(1)
+      expect(document.getElementById('character-alpha')?.classList.contains('hidden')).toBe(false)
+      expect(document.getElementById('character-beta')?.classList.contains('hidden')).toBe(false)
+
+      resolveIndex(searchEntriesMock.entries)
+      await vi.waitFor(() => {
+        expect(document.getElementById('character-alpha')?.classList.contains('hidden')).toBe(true)
+      })
+      expect(document.getElementById('character-beta')?.classList.contains('hidden')).toBe(false)
+
+      cleanup?.()
+    })
+
+    it('retries a failed index load on the next interaction', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+      searchEntriesMock.promise = Promise.reject(new Error('offline'))
+      const cleanup = initSearchController(mountSearchRoot({
+        featuredKeywords: ['alpha'],
+      }))
+      const input = document.querySelector<HTMLInputElement>('#commission-search-input')!
+
+      input.dispatchEvent(new Event('focus'))
+      await vi.waitFor(() => {
+        expect(consoleError).toHaveBeenCalled()
+      })
+      searchEntriesMock.promise = null
+      input.dispatchEvent(new Event('focus'))
+      expect(searchEntriesMock.ensure).toHaveBeenCalledTimes(2)
+
+      cleanup?.()
+    })
+  })
+
   it('search filters without requesting loads', async () => {
     const fetchSpy = vi.fn(() => Promise.reject(new Error('unexpected fetch')))
     vi.stubGlobal('fetch', fetchSpy)
@@ -671,6 +815,8 @@ describe('initSearchController', () => {
       })
       root.insertAdjacentHTML('afterend', renderListing())
       const cleanup = initSearchController(root)
+      // A real tap's pointerdown starts the index fetch before its click; this test is about the warm frame.
+      root.querySelector('[data-keyword="alpha"]')!.dispatchEvent(new Event('pointerdown', { bubbles: true }))
       await settle()
       const combobox = root.querySelector('[role="combobox"]')!
       const setAttributeSpy = vi.spyOn(combobox, 'setAttribute')
@@ -706,6 +852,7 @@ describe('initSearchController', () => {
       })
       root.insertAdjacentHTML('afterend', renderListing({ archived: true }))
       const cleanup = initSearchController(root)
+      root.querySelector('[data-keyword="Blue Archive"]')!.dispatchEvent(new Event('pointerdown', { bubbles: true }))
       await settle()
 
       root.querySelector<HTMLButtonElement>('[data-keyword="Blue Archive"]')!.click()
