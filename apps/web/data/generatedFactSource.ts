@@ -5,7 +5,7 @@ import type {
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { GENERATED_FACT_SOURCE_SCHEMA_VERSION } from '@commission-index/domain'
+import { CANONICAL_UUID_PATTERN, GENERATED_FACT_SOURCE_SCHEMA_VERSION } from '@commission-index/domain'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
 const generatedDirectoryName = 'generated'
@@ -112,8 +112,6 @@ function isCommissionDate(value: unknown): value is string | null {
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
-
-const CANONICAL_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 
 export function validateGeneratedFactSourceSnapshot(
   contentValue: unknown,

@@ -7,3 +7,7 @@ export function shouldHandleInternalNavigation(event: MouseEvent<HTMLAnchorEleme
     && !event.shiftKey
     && !event.altKey
 }
+
+export function getWindowScrollTop() {
+  return Math.max(window.scrollY, 0)
+}

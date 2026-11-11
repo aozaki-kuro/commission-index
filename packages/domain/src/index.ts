@@ -23,6 +23,7 @@ export {
   parseCharacterAliasesJson,
 } from './characterAliases'
 export { isFutureCommissionDate } from './commissionDate'
+export { parseCommissionLinksJson } from './commissionLinks'
 export {
   buildCommissionSearchDomKey,
   buildCommissionSearchMetadata,
@@ -54,13 +55,17 @@ export type {
   GeneratedSourceImageManifestMissing,
 } from './factSource'
 export {
+  dedupeKeywords,
+  normalizeKeyword,
   normalizeKeywordAliases,
   normalizeKeywordAliasKey,
   normalizeKeywordBaseTerm,
+  normalizeKeywordKey,
   parseKeywordAliasesJson,
   splitKeywordTerms,
 } from './keywordAliases'
 export type { CharacterNavItem } from './navigation'
+export { buildPopularKeywordPoolFromSuggestTexts } from './popularKeywords'
 export type {
   FilteredSuggestion,
   SearchEntryLike,
@@ -88,4 +93,5 @@ export {
   resolveSuggestionContextMatchedIds,
 } from './search'
 export type { TimelineYearGroup } from './timeline'
-export { buildCommissionTimeline } from './timeline'
+export { buildCommissionTimeline, sortCommissionsByDate } from './timeline'
+export { CANONICAL_UUID_PATTERN, isUuidV4, UUID_V4_PATTERN } from './uuid'

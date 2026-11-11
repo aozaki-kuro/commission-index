@@ -1,11 +1,15 @@
 import type { CommissionRow } from '@commission-index/domain'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { getAdminApiUrl } from '../../lib/adminApi'
 import {
   formatCommissionPublicId,
   getCommissionAccessibleLabel,
   getCommissionTitle,
 } from '../../lib/commissionPresentation'
+import {
+  getCommissionSourceImageUrl,
+  readPreviewImageVersion,
+  subscribePreviewImageVersion,
+} from '../../lib/sourceImagePreview'
 
 const gridStyles = 'grid grid-cols-2 gap-3 @min-[40rem]/thumbnails:grid-cols-3 @min-[62rem]/thumbnails:grid-cols-4 @min-[78rem]/thumbnails:grid-cols-5'
 
@@ -20,10 +24,6 @@ interface CommissionThumbnailGridProps {
   selectedCommissionId: number | null
   onSelect: (commission: CommissionRow) => void
   isExpanded: boolean
-}
-
-function buildThumbnailSrc(commissionId: number) {
-  return getAdminApiUrl(`/api/admin/commissions/${commissionId}/source-image`)
 }
 
 // Do not render an image or its src while collapsed or far from the viewport.
@@ -69,37 +69,17 @@ export function CommissionThumbnail({
   retryKey?: unknown
 }) {
   const [errorSrc, setErrorSrc] = useState<string | null>(null)
-  const imageSrc = useMemo(() => buildThumbnailSrc(commissionId), [commissionId])
+  const imageSrc = useMemo(() => getCommissionSourceImageUrl(commissionId), [commissionId])
   const [cardRef, isNearViewport] = useNearViewport<HTMLDivElement>(isEnabled)
 
-  const [imageVersion, setImageVersion] = useState(() => {
-    if (typeof window === 'undefined') {
-      return 0
-    }
+  const [imageVersion, setImageVersion] = useState(() => readPreviewImageVersion(commissionId))
 
-    const stored = window.sessionStorage.getItem(`admin-preview-image-version:${commissionId}`)
-    const parsed = Number(stored)
-    return Number.isFinite(parsed) && parsed > 0
-      ? parsed
-      : 0
-  })
+  useEffect(() => subscribePreviewImageVersion(commissionId, (version) => {
+    setErrorSrc(null)
+    setImageVersion(version)
+  }), [commissionId])
 
-  useEffect(() => {
-    const handlePreviewVersion = (event: Event) => {
-      const detail = (event as CustomEvent<{ commissionId: number, version: number }>).detail
-      if (detail?.commissionId === commissionId) {
-        setErrorSrc(null)
-        setImageVersion(detail.version)
-      }
-    }
-
-    window.addEventListener('admin-preview-image-version', handlePreviewVersion)
-    return () => window.removeEventListener('admin-preview-image-version', handlePreviewVersion)
-  }, [commissionId])
-
-  const previewSrc = imageVersion > 0
-    ? `${imageSrc}?v=${imageVersion}`
-    : imageSrc
+  const previewSrc = getCommissionSourceImageUrl(commissionId, imageVersion)
 
   // Retry the same URL once by remounting the image, then show the fallback.
   const [retriedSrc, setRetriedSrc] = useState<string | null>(null)

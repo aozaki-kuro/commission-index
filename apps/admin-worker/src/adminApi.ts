@@ -1,6 +1,5 @@
 import type { CharacterStatus } from '../../../packages/domain/src/index'
 import type { D1DatabaseLike } from './adminPersistence'
-import { isFutureCommissionDate } from '../../../packages/domain/src/index'
 import { failure, failureFrom, handleAdminReadRequest, json, parseIdFromPath, success } from './adminData'
 import { INTEREST_SINCE, loadInterestCounts, loadLinkClicks } from './adminInterest'
 import {
@@ -26,6 +25,7 @@ import {
   saveSourceImageToBucket,
   UPLOAD_TOO_LARGE_MESSAGE,
 } from './adminSourceImages'
+import { validateCommissionDate, validateCommissionWorkGroup } from './commissionValidation'
 
 // R2 bulk delete rejects calls with more than 1000 keys.
 const R2_DELETE_BATCH_LIMIT = 1000
@@ -228,16 +228,9 @@ function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' |
     return 'Character selection is required.'
   }
 
-  const date = fields.commissionDate
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return 'Commission date must use YYYY-MM-DD format.'
-  }
-  const parsedDate = new Date(`${date}T00:00:00Z`)
-  if (Number.isNaN(parsedDate.valueOf()) || parsedDate.toISOString().slice(0, 10) !== date) {
-    return 'Commission date must be a real calendar date.'
-  }
-  if (isFutureCommissionDate(date, new Date())) {
-    return 'Commission date cannot be in the future.'
+  const dateError = validateCommissionDate(fields.commissionDate)
+  if (dateError) {
+    return dateError
   }
 
   if (fields.creatorName && [...fields.creatorName].some(character => character.charCodeAt(0) <= 0x1F)) {
@@ -254,18 +247,7 @@ function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' |
     return `Design "${fields.design}" must be an http(s) URL.`
   }
 
-  const uuidV4Pattern = /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/
-  if ((fields.workGroupId === null) !== (fields.partNumber === null)) {
-    return 'Work group and part number must be set together.'
-  }
-  if (fields.workGroupId && fields.workGroupId !== 'new' && !uuidV4Pattern.test(fields.workGroupId)) {
-    return 'Work group must be a lowercase UUID v4.'
-  }
-  if (fields.partNumber !== null && (!Number.isSafeInteger(fields.partNumber) || fields.partNumber <= 0)) {
-    return 'Part number must be a positive integer.'
-  }
-
-  return null
+  return validateCommissionWorkGroup(fields.workGroupId, fields.partNumber)
 }
 
 // Allowance for the other form fields and multipart framing around the image part.

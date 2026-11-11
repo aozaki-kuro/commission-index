@@ -4,6 +4,7 @@ import type {
   CommissionRow,
 } from '@commission-index/domain'
 import type { ChangeEvent } from 'react'
+import type { StatusMessage } from '../../hooks/useAutoClearSuccess'
 import type { FormState } from '../../lib/formState'
 import { IconUpload } from '@tabler/icons-react'
 import {
@@ -15,6 +16,7 @@ import {
   useTransition,
 } from 'react'
 import { buttonStyles } from '../../app/ui'
+import { useAutoClearSuccess } from '../../hooks/useAutoClearSuccess'
 import { useCommissionEditState } from '../../hooks/useCommissionEditState'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import {
@@ -28,6 +30,11 @@ import { findDuplicateCommissionHints } from '../../lib/duplicateCommissionHints
 import { INITIAL_FORM_STATE } from '../../lib/formState'
 import { isSupportedSourceImage } from '../../lib/imageCrop'
 import { markPendingRebuild } from '../../lib/pendingRebuildSignal'
+import {
+  getCommissionSourceImageUrl,
+  publishPreviewImageVersion,
+  readPreviewImageVersion,
+} from '../../lib/sourceImagePreview'
 import { CommissionHiddenSwitch } from '../create/CommissionFormFields'
 import { CommissionSharedFields } from '../create/CommissionSharedFields'
 import { DuplicateCommissionNotice } from '../create/DuplicateCommissionNotice'
@@ -43,11 +50,6 @@ interface CommissionEditFormProps {
   onDelete?: () => void
   onDirtyChange?: (isDirty: boolean) => void
   onSaveSuccess?: (updated: CommissionRow) => void
-}
-
-interface OperationStatus {
-  text: string
-  type: 'success' | 'error'
 }
 
 // Normalised like saveCommission's payload so a saved draft compares equal to its baseline.
@@ -81,10 +83,6 @@ function buildDraftSnapshot(draft: {
   ])
 }
 
-function buildPreviewVersionStorageKey(commissionId: number) {
-  return `admin-preview-image-version:${commissionId}`
-}
-
 export function CommissionEditForm({
   characters,
   commission,
@@ -96,23 +94,13 @@ export function CommissionEditForm({
   const [state, formAction, isSaving] = useActionState(saveCommission, INITIAL_FORM_STATE)
   const [isDeleting, startDelete] = useTransition()
   const [isUploading, startUpload] = useTransition()
-  const [uploadStatus, setUploadStatus] = useState<OperationStatus | null>(null)
+  const [uploadStatus, setUploadStatus] = useState<StatusMessage | null>(null)
   const [isDeleteArmed, setIsDeleteArmed] = useState(false)
   const [workGroupId, setWorkGroupId] = useState(commission.workGroupId ?? '')
   const [partNumber, setPartNumber] = useState(commission.partNumber?.toString() ?? '')
   const [pendingCropFile, setPendingCropFile] = useState<File | null>(null)
   const sourceImageInputRef = useRef<HTMLInputElement | null>(null)
-  const [imageVersion, setImageVersion] = useState(() => {
-    if (typeof window === 'undefined') {
-      return 0
-    }
-
-    const stored = window.sessionStorage.getItem(buildPreviewVersionStorageKey(commission.id))
-    const parsed = Number(stored)
-    return Number.isFinite(parsed) && parsed > 0
-      ? parsed
-      : 0
-  })
+  const [imageVersion, setImageVersion] = useState(() => readPreviewImageVersion(commission.id))
   const {
     commissionDate,
     creatorName,
@@ -160,9 +148,7 @@ export function CommissionEditForm({
     onDirtyChange?.(isDirty)
     return () => onDirtyChange?.(false)
   }, [isDirty, onDirtyChange])
-  const previewImageSrc = imageVersion > 0
-    ? `${imageSrc}?v=${imageVersion}`
-    : imageSrc
+  const previewImageSrc = getCommissionSourceImageUrl(commission.id, imageVersion)
   const accessibleLabel = getCommissionAccessibleLabel(commission)
   const duplicateHints = useMemo(
     () => findDuplicateCommissionHints({
@@ -247,17 +233,7 @@ export function CommissionEditForm({
     return result
   }
 
-  useEffect(() => {
-    if (!uploadStatus || uploadStatus.type === 'error') {
-      return
-    }
-
-    const timer = window.setTimeout(() => {
-      setUploadStatus(null)
-    }, 2400)
-
-    return () => window.clearTimeout(timer)
-  }, [uploadStatus])
+  useAutoClearSuccess(uploadStatus, () => setUploadStatus(null), 2400)
 
   const handleDelete = () => {
     if (!isDeleteArmed) {
@@ -334,15 +310,7 @@ export function CommissionEditForm({
             })
             setErrorSrc(null)
             setImageVersion(nextVersion)
-            if (typeof window !== 'undefined') {
-              window.sessionStorage.setItem(
-                buildPreviewVersionStorageKey(commission.id),
-                String(nextVersion),
-              )
-              window.dispatchEvent(new CustomEvent('admin-preview-image-version', {
-                detail: { commissionId: commission.id, version: nextVersion },
-              }))
-            }
+            publishPreviewImageVersion(commission.id, nextVersion)
             return
           }
 

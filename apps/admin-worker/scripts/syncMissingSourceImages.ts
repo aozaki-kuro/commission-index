@@ -7,16 +7,16 @@ import type {
   GeneratedSourceImageManifest,
   GeneratedSourceImageManifestFile,
 } from '@commission-index/domain'
-import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { mapWithConcurrency, resolveDownloadConcurrency } from './lib/concurrency'
+import { downloadR2Object } from './lib/wrangler'
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url))
 const adminWorkerRoot = path.resolve(scriptDir, '..')
-const repoRoot = path.resolve(adminWorkerRoot, '../..')
 const configuredWranglerConfigPath = process.env.FACT_SOURCE_WRANGLER_CONFIG?.trim()
 const wranglerConfigPath = path.resolve(
   adminWorkerRoot,
@@ -24,147 +24,27 @@ const wranglerConfigPath = path.resolve(
     ? configuredWranglerConfigPath
     : './wrangler.jsonc',
 )
-const localWranglerBinPath = path.resolve(repoRoot, 'node_modules/.bin/wrangler')
-const localWranglerCmdBinPath = path.resolve(repoRoot, 'node_modules/.bin/wrangler.cmd')
 const defaultBucketName
   = process.env.FACT_SOURCE_IMAGES_BUCKET?.trim()
     || process.env.ADMIN_WORKER_IMAGES_BUCKET?.trim()
     || 'commission-index-images'
 const defaultGeneratedRoot = path.resolve(adminWorkerRoot, '../web/generated')
-const maxDownloadAttempts = 3
-const downloadFileWaitAttempts = 5
-const downloadFileWaitMilliseconds = 50
-const defaultDownloadConcurrency = 8
-const maxDownloadConcurrency = 16
-const missingObjectPattern = /NoSuchKey|The specified key does not exist|not found/i
-
-function getWranglerCommand() {
-  return existsSync(localWranglerBinPath)
-    ? localWranglerBinPath
-    : (existsSync(localWranglerCmdBinPath)
-        ? localWranglerCmdBinPath
-        : 'wrangler')
-}
-
-function runWranglerAsync(args: string[]) {
-  return new Promise<{ status: number | null, stdout: string, stderr: string }>((resolve, reject) => {
-    const child = spawn(getWranglerCommand(), args, {
-      cwd: adminWorkerRoot,
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-
-    let stdout = ''
-    let stderr = ''
-
-    child.stdout?.setEncoding('utf8')
-    child.stderr?.setEncoding('utf8')
-    child.stdout?.on('data', (chunk) => {
-      stdout += chunk
-    })
-    child.stderr?.on('data', (chunk) => {
-      stderr += chunk
-    })
-    child.on('error', reject)
-    child.on('close', (status) => {
-      resolve({ status, stdout, stderr })
-    })
-  })
-}
-
-function sleep(milliseconds: number) {
-  return new Promise(resolve => setTimeout(resolve, milliseconds))
-}
-
-async function waitForFile(filePath: string) {
-  for (let attempt = 0; attempt < downloadFileWaitAttempts; attempt += 1) {
-    if (existsSync(filePath)) {
-      return true
-    }
-
-    await sleep(downloadFileWaitMilliseconds)
-  }
-
-  return false
-}
-
-function resolveDownloadConcurrency() {
-  const rawValue = process.env.FACT_SOURCE_DOWNLOAD_CONCURRENCY?.trim()
-  const parsedValue = rawValue
-    ? Number.parseInt(rawValue, 10)
-    : Number.NaN
-
-  if (!Number.isInteger(parsedValue) || parsedValue < 1) {
-    return defaultDownloadConcurrency
-  }
-
-  return Math.min(parsedValue, maxDownloadConcurrency)
-}
-
-async function mapWithConcurrency<TItem, TResult>(
-  items: readonly TItem[],
-  concurrency: number,
-  worker: (item: TItem, index: number) => Promise<TResult>,
-) {
-  const results: TResult[] = []
-  let nextIndex = 0
-
-  async function runWorker() {
-    while (true) {
-      const currentIndex = nextIndex
-      if (currentIndex >= items.length) {
-        return
-      }
-
-      nextIndex += 1
-      results[currentIndex] = await worker(items[currentIndex], currentIndex)
-    }
-  }
-
-  const workerCount = Math.min(Math.max(1, concurrency), items.length)
-  const workerSlots = Array.from({ length: workerCount }, (_, index) => index)
-  await Promise.all(workerSlots.map(() => runWorker()))
-  return results
-}
 
 async function downloadImage(bucketName: string, objectKey: string, outputPath: string) {
-  for (let attempt = 1; attempt <= maxDownloadAttempts; attempt++) {
-    const result = await runWranglerAsync([
-      'r2',
-      'object',
-      'get',
-      `${bucketName}/${objectKey}`,
-      '--config',
-      wranglerConfigPath,
-      '--file',
-      outputPath,
-      '--remote',
-    ])
-
-    if (result.status === 0 && await waitForFile(outputPath)) {
-      return { message: '', ok: true }
-    }
-
-    const message = result.status === 0
-      ? `Downloaded ${bucketName}/${objectKey} but file was not written to ${outputPath}.`
-      : (result.stderr || result.stdout || '').trim()
-    rmSync(outputPath, { force: true })
-
-    // Wrangler echoes the key and path, and real keys carry digits such as `20240421`; only its own wording counts.
-    const ownText = [`${bucketName}/${objectKey}`, objectKey, outputPath]
-      .reduce((text, value) => text.replaceAll(value, ''), message)
-    if (result.status !== 0 && missingObjectPattern.test(ownText)) {
-      return { message, missing: true, ok: false }
-    }
-
-    if (attempt < maxDownloadAttempts) {
-      console.error(`  Retry ${attempt}/${maxDownloadAttempts} for ${objectKey}: ${message}`)
-    }
-    else {
-      console.error(`  ✗ Download failed after ${maxDownloadAttempts} attempts: ${objectKey}\n    ${message}`)
-    }
-  }
-
-  return { message: '', missing: false, ok: false }
+  return downloadR2Object({
+    bucketName,
+    objectKey,
+    outputPath,
+    wranglerConfigPath,
+    onFailedAttempt: (attempt, maxAttempts, message) => {
+      if (attempt < maxAttempts) {
+        console.error(`  Retry ${attempt}/${maxAttempts} for ${objectKey}: ${message}`)
+      }
+      else {
+        console.error(`  ✗ Download failed after ${maxAttempts} attempts: ${objectKey}\n    ${message}`)
+      }
+    },
+  })
 }
 
 function hashFile(filePath: string) {

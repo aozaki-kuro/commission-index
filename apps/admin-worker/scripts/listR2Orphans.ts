@@ -1,8 +1,7 @@
-import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { runWranglerOrThrow } from './lib/wrangler'
 
 // Offline inventory of R2 source-image objects that no D1 source_images row references.
 // Dry-run by default; deletion needs --delete, which only removes keys proven unreferenced and older than a day.
@@ -33,8 +32,6 @@ interface R2ListResponse {
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url))
 const adminWorkerRoot = path.resolve(scriptDir, '..')
-const repoRoot = path.resolve(adminWorkerRoot, '../..')
-const localWranglerBinPath = path.resolve(repoRoot, 'node_modules/.bin/wrangler')
 const wranglerConfigPath = path.resolve(adminWorkerRoot, './wrangler.jsonc')
 const sourceImagePrefix = 'source-images/'
 const cloudflareApiBase = 'https://api.cloudflare.com/client/v4'
@@ -194,19 +191,7 @@ function listReferencedObjectKeys(databaseBinding: string, usePreview: boolean) 
     args.splice(6, 0, '--preview')
   }
 
-  const wranglerBin = existsSync(localWranglerBinPath)
-    ? localWranglerBinPath
-    : 'wrangler'
-  const result = spawnSync(wranglerBin, args, {
-    cwd: adminWorkerRoot,
-    encoding: 'utf8',
-    env: { ...process.env, CI: 'true' },
-  })
-  if (result.status !== 0) {
-    throw new Error(result.stderr || result.stdout || 'D1 query failed.')
-  }
-
-  return parseReferencedObjectKeys(JSON.parse(result.stdout))
+  return parseReferencedObjectKeys(JSON.parse(runWranglerOrThrow(args, 'query D1 source_images')))
 }
 
 async function deleteR2Object(bucketName: string, key: string, accountId: string, token: string) {

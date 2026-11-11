@@ -219,6 +219,8 @@
   }
 
   .crop-workspace {
+    /* Half the handle size, so each grab area straddles the frame edge; coarse pointers override it below. */
+    --crop-handle-offset: -14px;
     background: var(--crop-workspace);
     overscroll-behavior: none;
   }
@@ -252,11 +254,11 @@
   }
 
   .crop-workspace cropper-handle[action='n-resize'] {
-    top: -14px !important;
+    top: var(--crop-handle-offset) !important;
   }
 
   .crop-workspace cropper-handle[action='s-resize'] {
-    bottom: -14px !important;
+    bottom: var(--crop-handle-offset) !important;
   }
 
   .crop-workspace cropper-handle[action='e-resize'],
@@ -266,31 +268,31 @@
   }
 
   .crop-workspace cropper-handle[action='e-resize'] {
-    right: -14px !important;
+    right: var(--crop-handle-offset) !important;
   }
 
   .crop-workspace cropper-handle[action='w-resize'] {
-    left: -14px !important;
+    left: var(--crop-handle-offset) !important;
   }
 
   .crop-workspace cropper-handle[action='ne-resize'],
   .crop-workspace cropper-handle[action='nw-resize'] {
-    top: -14px !important;
+    top: var(--crop-handle-offset) !important;
   }
 
   .crop-workspace cropper-handle[action='se-resize'],
   .crop-workspace cropper-handle[action='sw-resize'] {
-    bottom: -14px !important;
+    bottom: var(--crop-handle-offset) !important;
   }
 
   .crop-workspace cropper-handle[action='ne-resize'],
   .crop-workspace cropper-handle[action='se-resize'] {
-    right: -14px !important;
+    right: var(--crop-handle-offset) !important;
   }
 
   .crop-workspace cropper-handle[action='nw-resize'],
   .crop-workspace cropper-handle[action='sw-resize'] {
-    left: -14px !important;
+    left: var(--crop-handle-offset) !important;
   }
 
   .crop-rotation-handle {
@@ -338,40 +340,8 @@
       width: 44px !important;
     }
 
-    .crop-workspace cropper-handle[action='n-resize'] {
-      top: -22px !important;
-    }
-
-    .crop-workspace cropper-handle[action='s-resize'] {
-      bottom: -22px !important;
-    }
-
-    .crop-workspace cropper-handle[action='e-resize'] {
-      right: -22px !important;
-    }
-
-    .crop-workspace cropper-handle[action='w-resize'] {
-      left: -22px !important;
-    }
-
-    .crop-workspace cropper-handle[action='ne-resize'],
-    .crop-workspace cropper-handle[action='nw-resize'] {
-      top: -22px !important;
-    }
-
-    .crop-workspace cropper-handle[action='se-resize'],
-    .crop-workspace cropper-handle[action='sw-resize'] {
-      bottom: -22px !important;
-    }
-
-    .crop-workspace cropper-handle[action='ne-resize'],
-    .crop-workspace cropper-handle[action='se-resize'] {
-      right: -22px !important;
-    }
-
-    .crop-workspace cropper-handle[action='nw-resize'],
-    .crop-workspace cropper-handle[action='sw-resize'] {
-      left: -22px !important;
+    .crop-workspace {
+      --crop-handle-offset: -22px;
     }
   }
 }

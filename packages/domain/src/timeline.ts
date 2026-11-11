@@ -35,8 +35,11 @@ export function buildTimelineYearNavItem(yearKey: string): CharacterNavItem {
 
 type DatedCommission = Commission & { commissionDate: string }
 
-function sortCommissionsByDate(a: DatedCommission, b: DatedCommission): number {
-  const dateOrder = b.commissionDate.localeCompare(a.commissionDate)
+/**
+ * Newest date first, then higher id; a null date sorts after every dated commission.
+ */
+export function sortCommissionsByDate(a: Pick<Commission, 'commissionDate' | 'id'>, b: Pick<Commission, 'commissionDate' | 'id'>): number {
+  const dateOrder = (b.commissionDate ?? '').localeCompare(a.commissionDate ?? '')
   return dateOrder || b.id - a.id
 }
 

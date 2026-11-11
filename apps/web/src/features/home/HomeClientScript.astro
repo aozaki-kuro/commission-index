@@ -1,23 +1,10 @@
 <script>
   import { mountHomePageClient } from '@features/home/homePageClient'
+  import { bindSoftNavMount } from '@lib/astro/softNavMount'
 
-  let cleanup: (() => void) | null = null
-
-  function boot() {
-    cleanup?.()
-    cleanup = null
-    // Only mount on home pages — the shell element only exists there
-    if (document.querySelector('[data-home-scroll-restore-shell]')) {
-      cleanup = mountHomePageClient()
-    }
-  }
-
-  function teardown() {
-    cleanup?.()
-    cleanup = null
-  }
-
-  // Initial load + re-mount after client-side navigation (ClientRouter)
-  document.addEventListener('astro:page-load', boot)
-  document.addEventListener('astro:before-swap', teardown)
+  // Only mount on home pages — the shell element only exists there
+  bindSoftNavMount(() =>
+    document.querySelector('[data-home-scroll-restore-shell]')
+      ? mountHomePageClient()
+      : null)
 </script>

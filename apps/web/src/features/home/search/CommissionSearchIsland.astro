@@ -66,14 +66,8 @@ const browseTermClass = `
         absolute inset-y-0 right-2 left-8 flex items-center gap-2
       "
       >
-        {/* Combobox wrapper */}
-        <div
-          role="combobox"
-          aria-expanded="false"
-          aria-haspopup="listbox"
-          aria-owns="search-suggestion-list"
-          class="relative size-full overflow-visible bg-transparent"
-        >
+        {/* Positioning wrapper for the input and its listbox; the combobox role lives on the input (ARIA 1.2) */}
+        <div class="relative size-full overflow-visible bg-transparent">
           <label for="commission-search-input" class="sr-only">
             {controls.searchCommissions}
           </label>
@@ -84,6 +78,10 @@ const browseTermClass = `
             value=""
             placeholder={controls.searchPlaceholder}
             autocomplete="off"
+            role="combobox"
+            aria-expanded="false"
+            aria-controls="search-suggestion-list"
+            aria-autocomplete="list"
             aria-label={controls.searchCommissions}
             class="
               peer m-0 flex h-10 w-[calc(100%/0.875)] origin-left

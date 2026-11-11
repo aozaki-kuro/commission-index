@@ -4,9 +4,11 @@ import {
   buildCommissionSearchDomKey,
   buildCommissionSearchMetadata,
 } from '@commission-index/domain'
+import { buildCommissionImageAlt } from '@features/home/commission/commissionImageAlt'
 import IllustratorInfo from '@features/home/commission/IllustratorInfo.astro'
 import ProtectedCommissionImage from '@features/home/commission/ProtectedCommissionImage.astro'
 import { getHomeLocaleMessages, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
+import { parseAndFormatDate } from '@lib/date/format'
 import { resolveSourceImageByCommissionId } from '@lib/images/sourceImageRegistry'
 
 export interface CommissionRenderEntry {
@@ -51,6 +53,17 @@ const legacyAnchorIds = new Set<string>()
     const altText = year
       ? `© ${year} ${copyrightCreator} & Crystallize`
       : `${copyrightCreator} & Crystallize`
+    // Same labels IllustratorInfo renders under the image; the copyright line above feeds only the notice.
+    const imageAlt = buildCommissionImageAlt({
+      characterName: character,
+      creatorLabel: creator || messages.listing.anonymousCreator,
+      dateLabel: compactDate
+? parseAndFormatDate(compactDate, 'yyyy/MM/dd')
+: '',
+      partLabel: commission.partNumber == null
+? null
+: messages.listing.formatPartLabel(commission.partNumber),
+    })
     const sourceImage = resolveSourceImageByCommissionId(commission.id)
     const elementId = `${entryAnchorPrefix}-commission-${commission.publicId}`
     const searchKey = buildCommissionSearchDomKey(entryAnchorPrefix, commission.publicId)
@@ -99,7 +112,7 @@ const legacyAnchorIds = new Set<string>()
         {
           sourceImage
 ? (
-            <ProtectedCommissionImage altText={altText} sourceImage={sourceImage} priority={priorityFirstImage && entryIndex === 0} />
+            <ProtectedCommissionImage altText={altText} imageAlt={imageAlt} sourceImage={sourceImage} priority={priorityFirstImage && entryIndex === 0} />
           )
 : (
             <div

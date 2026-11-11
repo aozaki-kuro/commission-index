@@ -82,6 +82,26 @@ jobs:
               exit 1
             fi
           done
+      # Hidden commissions must leave no trace in the static output: neither their image nor their public ID.
+      - name: Check web output for hidden commissions
+        if: github.event_name == 'pull_request'
+        run: |
+          content=apps/web/generated-fixture/fact-source/content.json
+          hidden="$(jq -r '[.. | objects | select(has("fileName") and .Hidden == true)] | .[] | "\(.fileName) \(.publicId)"' "$content")"
+          visible="$(jq -r '[.. | objects | select(has("fileName") and .Hidden != true)] | .[0].fileName' "$content")"
+          # Guard against a vacuous pass: the fixture must hold a hidden commission, and visible images must be emitted.
+          [ -n "$hidden" ] || { echo "::error::The fixture has no hidden commission to check."; exit 1; }
+          compgen -G "apps/web/dist/_astro/${visible}.*" > /dev/null || { echo "::error::No built image for visible commission ${visible}."; exit 1; }
+          while read -r file_name public_id; do
+            if compgen -G "apps/web/dist/_astro/${file_name}.*" > /dev/null; then
+              echo "::error::apps/web/dist/_astro contains an image of hidden commission ${file_name}."
+              exit 1
+            fi
+            if grep -rlF "$public_id" apps/web/dist; then
+              echo "::error::apps/web/dist mentions hidden commission ${public_id} (files listed above)."
+              exit 1
+            fi
+          done <<< "$hidden"
       - name: Build admin
         run: pnpm run build:admin
 

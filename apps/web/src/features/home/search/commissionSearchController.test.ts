@@ -79,9 +79,9 @@ function mountSearchRoot({
       data-featured-keywords='${JSON.stringify(featuredKeywords)}'
       data-suggestion-alias-groups="[]"
     >
-      <div role="combobox">
-        <input id="commission-search-input" value="" />
-        <ul id="search-suggestion-list"></ul>
+      <div>
+        <input id="commission-search-input" role="combobox" aria-controls="search-suggestion-list" value="" />
+        <ul id="search-suggestion-list" role="listbox"></ul>
       </div>
       <button id="search-help-trigger"></button>
       <button id="search-copy-url"></button>
@@ -404,9 +404,9 @@ describe('initSearchController', () => {
             data-featured-keywords='${JSON.stringify(featuredKeywords)}'
             data-suggestion-alias-groups="[]"
           >
-            <div role="combobox">
-              <input id="commission-search-input" value="" />
-              <ul id="search-suggestion-list"></ul>
+            <div>
+              <input id="commission-search-input" role="combobox" aria-controls="search-suggestion-list" value="" />
+              <ul id="search-suggestion-list" role="listbox"></ul>
             </div>
             <button id="search-help-trigger"></button>
             <button id="search-copy-url"></button>
@@ -560,9 +560,9 @@ describe('initSearchController', () => {
           data-featured-keywords='["alpha"]'
           data-suggestion-alias-groups="[]"
         >
-          <div role="combobox">
-            <input id="commission-search-input" value="" />
-            <ul id="search-suggestion-list"></ul>
+          <div>
+            <input id="commission-search-input" role="combobox" aria-controls="search-suggestion-list" value="" />
+            <ul id="search-suggestion-list" role="listbox"></ul>
           </div>
           <button id="search-help-trigger"></button>
           <button id="search-copy-url"></button>
@@ -630,9 +630,9 @@ describe('initSearchController', () => {
           data-featured-keywords='["Blue Archive"]'
           data-suggestion-alias-groups="[]"
         >
-          <div role="combobox">
-            <input id="commission-search-input" value="" />
-            <ul id="search-suggestion-list"></ul>
+          <div>
+            <input id="commission-search-input" role="combobox" aria-controls="search-suggestion-list" value="" />
+            <ul id="search-suggestion-list" role="listbox"></ul>
           </div>
           <button id="search-help-trigger"></button>
           <button id="search-copy-url"></button>
@@ -818,7 +818,7 @@ describe('initSearchController', () => {
       // A real tap's pointerdown starts the index fetch before its click; this test is about the warm frame.
       root.querySelector('[data-keyword="alpha"]')!.dispatchEvent(new Event('pointerdown', { bubbles: true }))
       await settle()
-      const combobox = root.querySelector('[role="combobox"]')!
+      const combobox = root.querySelector('#commission-search-input')!
       const setAttributeSpy = vi.spyOn(combobox, 'setAttribute')
 
       root.querySelector<HTMLButtonElement>('[data-keyword="alpha"]')!.click()
@@ -900,6 +900,36 @@ describe('initSearchController', () => {
       await settle()
       expect(visibleRequestCount()).toBe(2)
       expect(panelStateMock.state.archivedVisible).toBe(true)
+      cleanup?.()
+    })
+
+    it('keeps the ARIA 1.2 combobox state on the input itself', async () => {
+      searchEntriesMock.entries = [
+        {
+          id: 0,
+          domKey: 'character-alpha::alpha',
+          searchText: 'alpha',
+          searchSuggest: 'Keyword\talpha',
+        },
+      ]
+      const root = mountSearchRoot()
+      root.insertAdjacentHTML('afterend', renderListing())
+      const cleanup = initSearchController(root)
+      await settle()
+      const input = root.querySelector<HTMLInputElement>('#commission-search-input')!
+      const list = root.querySelector<HTMLElement>('#search-suggestion-list')!
+
+      input.focus()
+      typeQuery('al')
+      await settle()
+      expect(input.getAttribute('aria-expanded')).toBe('true')
+      const active = document.getElementById(input.getAttribute('aria-activedescendant')!)!
+      expect(active.tagName).toBe('LI')
+      expect(active.parentElement).toBe(list)
+
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      await settle()
+      expect(input.getAttribute('aria-expanded')).toBe('false')
       cleanup?.()
     })
 

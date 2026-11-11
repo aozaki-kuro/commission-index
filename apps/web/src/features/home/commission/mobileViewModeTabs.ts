@@ -1,9 +1,9 @@
 import {
   readCommissionViewMode,
-  replaceCommissionViewModeInAddress,
   resolveCommissionViewModeFromElement,
 } from '@features/home/commission/viewModeState'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '@features/home/events'
+import { handleViewModeToggleClick } from '@features/home/nav/homeNavClick'
 import { applyViewModeToggleClasses, MOBILE_VIEW_MODE_TAB_CLASSES } from '@features/home/nav/viewModeToggleClasses'
 
 const TOGGLE_SELECTOR = MOBILE_VIEW_MODE_TAB_CLASSES.toggleSelector
@@ -44,17 +44,7 @@ export function mountMobileViewModeTabs({
     if (!button)
       return
 
-    const nextMode = resolveCommissionViewModeFromElement(button)
-    if (!nextMode)
-      return
-
-    const currentMode = readCommissionViewMode(win)
-    if (nextMode !== currentMode) {
-      replaceCommissionViewModeInAddress(win, nextMode)
-      return
-    }
-
-    syncByUrl()
+    handleViewModeToggleClick(win, button, syncByUrl)
   }
 
   root.addEventListener('click', onClick)

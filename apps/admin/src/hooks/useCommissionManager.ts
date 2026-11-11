@@ -4,6 +4,7 @@ import type {
   CommissionRow,
 } from '@commission-index/domain'
 import type { FormState } from '../lib/formState'
+import type { StatusMessage } from './useAutoClearSuccess'
 import {
   useCallback,
   useEffect,
@@ -22,6 +23,7 @@ import {
 import { notifyDataUpdate } from '../lib/dataUpdateSignal'
 import { markPendingRebuild } from '../lib/pendingRebuildSignal'
 import { safeStorageSet } from '../lib/storageHelper'
+import { useAutoClearSuccess } from './useAutoClearSuccess'
 import { arrayMove } from './useNativeDragReorder'
 
 const disclosureStorageKey = 'admin-existing-open'
@@ -37,7 +39,7 @@ export type ListItem
     | { id: typeof DIVIDER_ID, type: 'divider' }
 
 export type CharacterItem = Extract<ListItem, { type: 'character' }>
-export type FormFeedback = { text: string, type: 'success' | 'error' } | null
+export type FormFeedback = StatusMessage | null
 
 type EditingState = { id: number, value: string } | null
 
@@ -392,17 +394,7 @@ export function useCommissionManager({
     replaceList(initialList)
   }, [initialList, replaceList])
 
-  useEffect(() => {
-    if (!feedback || feedback.type === 'error') {
-      return
-    }
-
-    const timer = window.setTimeout(() => {
-      setFeedback(null)
-    }, 2000)
-
-    return () => window.clearTimeout(timer)
-  }, [feedback])
+  useAutoClearSuccess(feedback, () => setFeedback(null), 2000)
 
   useEffect(() => {
     const orderSaveQueue = createLatestCharacterOrderSaveQueue({

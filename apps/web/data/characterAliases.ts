@@ -1,15 +1,12 @@
 import type { CharacterAliasEntry } from '@commission-index/domain'
-import process from 'node:process'
 import {
   normalizeCharacterAliases,
   normalizeCharacterAliasKey,
   normalizeCharacterAliasName,
   parseCharacterAliasesJson,
 } from '@commission-index/domain'
+import { cachedOutsideDev } from './cachedOutsideDev'
 import { getGeneratedFactSourceContent } from './generatedFactSource'
-
-const isDevelopment = process.env.NODE_ENV === 'development'
-let cachedCharacterAliases: CharacterAliasEntry[] | null = null
 
 function loadCharacterAliases(): CharacterAliasEntry[] {
   const aliasMap = new Map<string, { characterName: string, aliases: string[] }>()
@@ -39,19 +36,7 @@ function loadCharacterAliases(): CharacterAliasEntry[] {
     a.characterName.localeCompare(b.characterName, 'ja'))
 }
 
-export function getCharacterAliases(): CharacterAliasEntry[] {
-  if (!isDevelopment && cachedCharacterAliases) {
-    return cachedCharacterAliases
-  }
-
-  const result = loadCharacterAliases()
-
-  if (!isDevelopment) {
-    cachedCharacterAliases = result
-  }
-
-  return result
-}
+export const getCharacterAliases: () => CharacterAliasEntry[] = cachedOutsideDev(loadCharacterAliases)
 
 export function getCharacterAliasesMap() {
   return new Map(

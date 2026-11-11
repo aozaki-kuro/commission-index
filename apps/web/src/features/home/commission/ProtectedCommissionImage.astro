@@ -8,12 +8,15 @@ import {
 import { Image } from 'astro:assets'
 
 interface ProtectedCommissionImageProps {
+  /** Copyright line shown by the image notice (`data-commission-alt`). */
   altText: string
+  /** Descriptive alt for the `<img>`. */
+  imageAlt: string
   sourceImage: ImageMetadata
   priority?: boolean
 }
 
-const { altText, sourceImage, priority = false } = Astro.props as ProtectedCommissionImageProps
+const { altText, imageAlt, sourceImage, priority = false } = Astro.props as ProtectedCommissionImageProps
 // The skeleton pulses only until imageFadeIn marks the wrapper `data-loaded`; an unconditional pulse kept ~90
 // infinite animations running behind loaded images. Class strings stay on one line: this markup repeats per entry.
 
@@ -27,7 +30,7 @@ const { altText, sourceImage, priority = false } = Astro.props as ProtectedCommi
 >
   <Image
     src={sourceImage}
-    alt={altText}
+    alt={imageAlt}
     widths={COMMISSION_INLINE_IMAGE_WIDTHS}
     width={COMMISSION_IMAGE_WIDTH}
     format="webp"

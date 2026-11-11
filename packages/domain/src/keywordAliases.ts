@@ -1,9 +1,17 @@
 const KEYWORD_SPLIT_PATTERN = /[,\n，、;；]/
 const NORMALIZE_SPACES_PATTERN = /\s+/g
 
+// Trims and collapses whitespace runs; '' (not null) for a blank value.
+export function normalizeKeyword(value: string): string {
+  return value.trim().replace(NORMALIZE_SPACES_PATTERN, ' ')
+}
+
+export function normalizeKeywordKey(value: string): string {
+  return normalizeKeyword(value).toLowerCase()
+}
+
 export function normalizeKeywordBaseTerm(value: string): string | null {
-  const normalized = value.trim().replace(NORMALIZE_SPACES_PATTERN, ' ')
-  return normalized || null
+  return normalizeKeyword(value) || null
 }
 
 export function normalizeKeywordAliasKey(value: string): string | null {
@@ -52,4 +60,31 @@ export function parseKeywordAliasesJson(value: string): string[] {
   }
 
   return normalizeKeywordAliases(value)
+}
+
+// Case-insensitive dedupe that keeps the first spelling and order; blank entries are dropped before counting.
+export function dedupeKeywords(keywords: Iterable<string>, maxCount = Number.POSITIVE_INFINITY): string[] {
+  const uniqueKeywords: string[] = []
+  const seen = new Set<string>()
+
+  for (const keyword of keywords) {
+    const normalized = normalizeKeyword(keyword)
+    if (!normalized) {
+      continue
+    }
+
+    const key = normalized.toLowerCase()
+    if (seen.has(key)) {
+      continue
+    }
+
+    seen.add(key)
+    uniqueKeywords.push(normalized)
+
+    if (uniqueKeywords.length >= maxCount) {
+      break
+    }
+  }
+
+  return uniqueKeywords
 }

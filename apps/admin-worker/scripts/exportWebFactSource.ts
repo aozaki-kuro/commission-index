@@ -9,14 +9,13 @@ import type {
   GeneratedSourceImageManifestMissing,
   KeywordAliasEntry,
 } from '@commission-index/domain'
-import type { SpawnSyncReturns } from 'node:child_process'
-import { spawn, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import {
+  dedupeKeywords,
   GENERATED_FACT_SOURCE_SCHEMA_VERSION,
   GENERATED_FACT_SOURCE_SOURCE,
   normalizeAliases,
@@ -29,9 +28,12 @@ import {
   normalizeKeywordBaseTerm,
   parseAliasesJson,
   parseCharacterAliasesJson,
+  parseCommissionLinksJson,
   parseKeywordAliasesJson,
 } from '@commission-index/domain'
 import { getSourceImageMimeType } from '../src/adminSourceImages'
+import { mapWithConcurrency, resolveDownloadConcurrency } from './lib/concurrency'
+import { downloadR2Object, runWranglerOrThrow } from './lib/wrangler'
 
 interface ParsedArgs {
   outputRoot: string
@@ -118,7 +120,6 @@ interface ExportSourceImageTaskResult {
 const invocationCwd = process.cwd()
 const scriptDir = path.dirname(fileURLToPath(import.meta.url))
 const adminWorkerRoot = path.resolve(scriptDir, '..')
-const repoRoot = path.resolve(adminWorkerRoot, '../..')
 const configuredWranglerConfigPath = process.env.FACT_SOURCE_WRANGLER_CONFIG?.trim()
 const wranglerConfigPath = path.resolve(
   adminWorkerRoot,
@@ -126,8 +127,6 @@ const wranglerConfigPath = path.resolve(
     ? configuredWranglerConfigPath
     : './wrangler.jsonc',
 )
-const localWranglerBinPath = path.resolve(repoRoot, 'node_modules/.bin/wrangler')
-const localWranglerCmdBinPath = path.resolve(repoRoot, 'node_modules/.bin/wrangler.cmd')
 const defaultOutputRoot = path.resolve(adminWorkerRoot, '../web/generated')
 const defaultDatabaseBinding
   = process.env.FACT_SOURCE_DB_BINDING?.trim()
@@ -139,13 +138,6 @@ const defaultBucketName
     || 'commission-index-images'
 const imageOutputDirectoryName = 'source-images'
 const factSourceDirectoryName = 'fact-source'
-const normalizeSpacesPattern = /\s+/g
-const missingObjectPattern = /NoSuchKey|The specified key does not exist|not found/i
-const maxDownloadAttempts = 3
-const downloadFileWaitAttempts = 5
-const downloadFileWaitMilliseconds = 50
-const defaultDownloadConcurrency = 8
-const maxDownloadConcurrency = 16
 
 function printHelp() {
   console.log(`
@@ -192,62 +184,6 @@ function parseArgs(argv: string[]): ParsedArgs {
   return { outputRoot, usePreview }
 }
 
-function getWranglerCommand() {
-  return existsSync(localWranglerBinPath)
-    ? localWranglerBinPath
-    : (existsSync(localWranglerCmdBinPath)
-        ? localWranglerCmdBinPath
-        : 'wrangler')
-}
-
-function runWrangler(args: string[]): SpawnSyncReturns<string> {
-  return spawnSync(getWranglerCommand(), args, {
-    cwd: adminWorkerRoot,
-    encoding: 'utf8',
-    env: { ...process.env, CI: 'true' },
-    // The whole D1 snapshot arrives on stdout as one JSON row; the 1 MiB default would truncate it.
-    maxBuffer: 64 * 1024 * 1024,
-  })
-}
-
-function runWranglerAsync(args: string[]) {
-  return new Promise<{ status: number | null, stdout: string, stderr: string }>((resolve, reject) => {
-    const child = spawn(getWranglerCommand(), args, {
-      cwd: adminWorkerRoot,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, CI: 'true' },
-    })
-
-    let stdout = ''
-    let stderr = ''
-
-    child.stdout?.setEncoding('utf8')
-    child.stderr?.setEncoding('utf8')
-    child.stdout?.on('data', (chunk) => {
-      stdout += chunk
-    })
-    child.stderr?.on('data', (chunk) => {
-      stderr += chunk
-    })
-    child.on('error', reject)
-    child.on('close', (status) => {
-      resolve({ status, stdout, stderr })
-    })
-  })
-}
-
-function runWranglerOrThrow(args: string[], label: string): string {
-  const result = runWrangler(args)
-  if (result.error) {
-    throw result.error
-  }
-  if (result.status !== 0) {
-    throw new Error(result.stderr || result.stdout || `Failed to ${label}.`)
-  }
-
-  return result.stdout
-}
-
 function executeRemoteStatements(statements: string[], {
   databaseBinding,
   usePreview,
@@ -282,19 +218,9 @@ function executeRemoteStatements(statements: string[], {
 }
 
 function parseLinks(rawValue: unknown): string[] {
-  if (!rawValue) {
-    return []
-  }
-
-  try {
-    const parsed = JSON.parse(String(rawValue)) as unknown
-    return Array.isArray(parsed)
-      ? parsed.map(link => String(link))
-      : []
-  }
-  catch {
-    return []
-  }
+  return parseCommissionLinksJson(rawValue
+    ? String(rawValue)
+    : null)
 }
 
 function getLegacySeriesKey(fileName: string) {
@@ -465,37 +391,8 @@ function buildKeywordAliases(rows: KeywordAliasRow[]): KeywordAliasEntry[] {
     left.baseKeyword.localeCompare(right.baseKeyword, 'ja'))
 }
 
-function dedupeKeywords(keywords: Iterable<unknown>): string[] {
-  const uniqueKeywords: string[] = []
-  const seen = new Set<string>()
-
-  for (const keyword of keywords) {
-    const normalized = String(keyword).trim().replace(normalizeSpacesPattern, ' ')
-    if (!normalized) {
-      continue
-    }
-
-    const key = normalized.toLowerCase()
-    if (seen.has(key)) {
-      continue
-    }
-
-    seen.add(key)
-    uniqueKeywords.push(normalized)
-  }
-
-  return uniqueKeywords
-}
-
 function buildFeaturedSearchKeywords(rows: FeaturedKeywordRow[]): string[] {
-  return dedupeKeywords(rows.map(row => row.keyword))
-}
-
-// Wrangler echoes the object key and output path, and real keys carry digits such as `20240421`; strip them so only
-// wrangler's own not-found wording can classify a failure as a missing object (a bare `404` is never matched).
-function looksLikeMissingObject(message: string, echoedValues: string[] = []): boolean {
-  const ownText = echoedValues.filter(Boolean).reduce((text, value) => text.replaceAll(value, ''), message)
-  return missingObjectPattern.test(ownText)
+  return dedupeKeywords(rows.map(row => String(row.keyword)))
 }
 
 function ensureOutputImagePath(outputImagesDir: string, fileName: string): string {
@@ -570,69 +467,10 @@ export function verifyExistingSnapshot(outputRoot: string, expectedRevision?: st
     const localName = getLocalImageName(file.commissionFileName, file.objectKey)
     const expectedPath = path.posix.join(imageOutputDirectoryName, localName)
     if (file.relativePath !== expectedPath || hashFile(path.join(outputRoot, expectedPath)) !== file.sha256) {
-      throw new Error(`事实源图片校验失败：${file.commissionFileName}`)
+      throw new Error(`事实源图片校验失败：作品 #${file.commissionId}`)
     }
   }
   return revision
-}
-
-function sleep(milliseconds: number) {
-  return new Promise(resolve => setTimeout(resolve, milliseconds))
-}
-
-async function waitForFile(filePath: string) {
-  for (let attempt = 0; attempt < downloadFileWaitAttempts; attempt += 1) {
-    if (existsSync(filePath)) {
-      return true
-    }
-
-    await sleep(downloadFileWaitMilliseconds)
-  }
-
-  return false
-}
-
-function resolveDownloadConcurrency() {
-  const rawValue = process.env.FACT_SOURCE_DOWNLOAD_CONCURRENCY?.trim()
-  const parsedValue = rawValue
-    ? Number.parseInt(rawValue, 10)
-    : Number.NaN
-
-  if (!Number.isInteger(parsedValue) || parsedValue < 1) {
-    return defaultDownloadConcurrency
-  }
-
-  return Math.min(parsedValue, maxDownloadConcurrency)
-}
-
-async function mapWithConcurrency<TItem, TResult>(
-  items: readonly TItem[],
-  concurrency: number,
-  worker: (item: TItem, index: number) => Promise<TResult>,
-) {
-  const results: TResult[] = []
-  let nextIndex = 0
-
-  async function runWorker() {
-    while (true) {
-      const currentIndex = nextIndex
-      if (currentIndex >= items.length) {
-        return
-      }
-
-      nextIndex += 1
-      results[currentIndex] = await worker(items[currentIndex], currentIndex)
-    }
-  }
-
-  const workerCount = Math.min(Math.max(1, concurrency), items.length)
-  const workerSlots = Array.from({ length: workerCount }, (_, index) => index)
-  const outcomes = await Promise.allSettled(workerSlots.map(() => runWorker()))
-  const rejected = outcomes.find(outcome => outcome.status === 'rejected')
-  if (rejected?.status === 'rejected') {
-    throw rejected.reason
-  }
-  return results
 }
 
 function writeJsonFile(filePath: string, payload: unknown) {
@@ -687,11 +525,13 @@ function assertSourceImageMetadataComplete(
   expectedImages: ExpectedSourceImage[],
   sourceImageRowMap: Map<number, SourceImageRow>,
 ) {
-  const missingFileNames = expectedImages
+  // Logs of a public repository are public: name works by their integer id, never by the internal asset name,
+  // which can carry a date and a creator, including for hidden works.
+  const missingIds = expectedImages
     .filter(image => !sourceImageRowMap.has(image.commissionId))
-    .map(image => image.commissionFileName)
-  if (missingFileNames.length > 0) {
-    throw new Error(`作品缺少 source_images 元数据，无法定位 R2 对象：${missingFileNames.join(', ')}`)
+    .map(image => `#${image.commissionId}`)
+  if (missingIds.length > 0) {
+    throw new Error(`作品缺少 source_images 元数据，无法定位 R2 对象：${missingIds.join(', ')}`)
   }
 }
 
@@ -798,46 +638,12 @@ async function downloadSourceImageObject(
   objectKey: string,
   outputPath: string,
 ) {
-  let result: { status: number | null, stdout: string, stderr: string } | null = null
-  let hardFailureMessage = ''
-
-  for (let attempt = 1; attempt <= maxDownloadAttempts; attempt += 1) {
-    result = await runWranglerAsync([
-      'r2',
-      'object',
-      'get',
-      `${bucketName}/${objectKey}`,
-      '--config',
-      wranglerConfigPath,
-      '--file',
-      outputPath,
-      '--remote',
-    ])
-
-    if (result.status === 0 && await waitForFile(outputPath)) {
-      return { message: '', missing: false, ok: true }
-    }
-
-    const message = result.status === 0
-      ? `Downloaded ${bucketName}/${objectKey} but file was not written to ${outputPath}.`
-      : (result.stderr || result.stdout || '').trim()
-
-    rmSync(outputPath, { force: true })
-
-    if (result.status !== 0 && looksLikeMissingObject(message, [`${bucketName}/${objectKey}`, objectKey, outputPath])) {
-      return { message, missing: true, ok: false }
-    }
-
-    if (attempt === maxDownloadAttempts) {
-      hardFailureMessage = message
-    }
-  }
-
-  return {
-    message: hardFailureMessage || (result?.stderr || result?.stdout || '').trim(),
-    missing: false,
-    ok: false,
-  }
+  return downloadR2Object({
+    bucketName,
+    objectKey,
+    outputPath,
+    wranglerConfigPath,
+  })
 }
 
 async function exportSourceImages(
@@ -884,7 +690,7 @@ async function stageSourceImages(
     expectedImages,
     downloadConcurrency,
     async ({ commissionId, commissionFileName }, index): Promise<ExportSourceImageTaskResult> => {
-      const progressLabel = `[${index + 1}/${expectedImages.length}] ${commissionFileName}`
+      const progressLabel = `[${index + 1}/${expectedImages.length}] #${commissionId}`
       const sourceImageRow = sourceImageRowMap.get(commissionId)
       // 完整性已在上方断言；这里的空值判断只为类型收窄。
       if (!sourceImageRow || sourceImageRow.commissionFileName !== commissionFileName) {
@@ -917,7 +723,7 @@ async function stageSourceImages(
           const record = buildSourceImageFileRecord(commissionFileName, objectKey, tempOutputPath, commissionId, sourceImageRow.mimeType)
           if (sourceImageRow.sha256 !== record.sha256 || sourceImageRow.byteSize !== record.byteSize) {
             rmSync(tempOutputPath, { force: true })
-            hardFailureMessage = `图片内容与读取的 D1 快照不一致：${commissionFileName}`
+            hardFailureMessage = `图片内容与读取的 D1 快照不一致：作品 #${commissionId}`
             break
           }
           rmSync(outputPath, { force: true })

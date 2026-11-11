@@ -128,7 +128,6 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
   const popularKeywordsEl = root.querySelector<HTMLElement>('#search-popular-keywords')
   const browseTriggerEl = root.querySelector<HTMLElement>('#search-browse-trigger')
   const browsePopoverEl = root.querySelector<HTMLElement>('#search-browse-popover')
-  const comboboxEl = inputEl?.closest<HTMLElement>('[role="combobox"]') ?? null
 
   if (!inputEl || !suggestionListEl || !liveEl)
     return
@@ -448,12 +447,8 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
 
     // Update button visibility + ARIA
     updateButtonVisibility()
-    if (comboboxEl) {
-      comboboxEl.setAttribute(
-        'aria-expanded',
-        String(model.shouldShowSuggestionPanel),
-      )
-    }
+    // ARIA 1.2 combobox: the input itself carries the role and its expanded state.
+    input.setAttribute('aria-expanded', String(model.shouldShowSuggestionPanel))
 
     // Render/hide suggestion dropdown (skip DOM rebuild if suggestions unchanged)
     const suggestionKey = model.shouldShowSuggestionPanel

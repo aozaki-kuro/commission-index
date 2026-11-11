@@ -1,5 +1,13 @@
 # admin-worker/scripts
 
+## lib/
+
+- `lib/wrangler.ts` — repo-local Wrangler resolution, sync runner (64 MiB `maxBuffer`, `result.error` surfaced) and async
+  runner (both `CI=true`), the missing-object classifier and `downloadR2Object` (3 attempts). Each script keeps
+  resolving its own `--config` path.
+- `lib/concurrency.ts` — `FACT_SOURCE_DOWNLOAD_CONCURRENCY` (default 8, max 16) and `mapWithConcurrency`, which lets
+  in-flight workers settle before rethrowing the first failure.
+
 ## exportWebFactSource.ts
 
 - Read-only export of remote D1/R2 to `apps/web/generated/*` (disposable build input); never writes back to D1. One D1 SELECT snapshot; local images are reused only if hash/size match it, and a mismatched download aborts the snapshot.
@@ -11,7 +19,7 @@
   aborts immediately. Still aborts after one retry.
 - "Not found" means a non-zero wrangler exit whose output, with the object key and output path removed, contains
   wrangler's not-found wording. Never match a bare `404`: keys and paths carry dates such as `20240421`.
-  `syncMissingSourceImages.ts` uses the same rule.
+  The rule lives in `lib/wrangler.ts` (`looksLikeMissingObject`), shared with `syncMissingSourceImages.ts`.
 - Manifest `mimeType` comes from the D1 row (extension only as fallback) for downloaded and reused images alike,
   so `meta.revision` never depends on the local cache.
 - `FACT_SOURCE_USE_EXISTING_SNAPSHOT=1` only validates the snapshot and image bytes, makes no Wrangler call, and requires `WEB_BUILD_CACHE_TOKEN` (if set) to equal the snapshot revision.

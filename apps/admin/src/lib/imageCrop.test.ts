@@ -1,11 +1,16 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   captureCropEditorState,
   constrainCropSelectionChange,
+  exportCroppedImage,
   getCropOverflowAxis,
   getEdgeMedianColor,
   getMaximumCropSelectionWidth,
+  getSourceImageFileSizeError,
+  getSourceImagePixelCountError,
   isCropSelectionCovered,
+  MAX_SOURCE_IMAGE_FILE_BYTES,
+  MAX_SOURCE_IMAGE_PIXELS,
   normalizeCropImageMatrix,
   refitCropSelectionAfterRotation,
   resizeCropEditorState,
@@ -536,6 +541,56 @@ describe('image crop geometry', () => {
       expect(transform.crop.x).toBeCloseTo(confirmed.crop.x, 10)
       expect(isCropSelectionCovered(restored.selection, restored.image, canvasSize)).toBe(false)
     })
+  })
+})
+
+describe('source image size limits', () => {
+  it('rejects a picked file above the byte cap before it is decoded', () => {
+    expect(getSourceImageFileSizeError({ size: MAX_SOURCE_IMAGE_FILE_BYTES })).toBeNull()
+    expect(getSourceImageFileSizeError({ size: MAX_SOURCE_IMAGE_FILE_BYTES + 1 })).toMatch(/too large.*100 MB/)
+  })
+
+  it('rejects natural dimensions above the pixel cap', () => {
+    expect(getSourceImagePixelCountError(10_000, MAX_SOURCE_IMAGE_PIXELS / 10_000)).toBeNull()
+    expect(getSourceImagePixelCountError(10_000, MAX_SOURCE_IMAGE_PIXELS / 10_000 + 1)).toMatch(/100 megapixels/)
+    expect(getSourceImagePixelCountError(0, 0)).toBeNull()
+  })
+
+  it('refuses to draw an oversized image onto a canvas during export', async () => {
+    const createElement = vi.fn()
+    vi.stubGlobal('document', { createElement })
+    vi.stubGlobal('Image', class {
+      decoding = ''
+      naturalHeight = 12_000
+      naturalWidth = 12_000
+      onerror: (() => void) | null = null
+      onload: (() => void) | null = null
+      get src() {
+        return ''
+      }
+
+      set src(_value: string) {
+        queueMicrotask(() => this.onload?.())
+      }
+    })
+
+    await expect(exportCroppedImage({
+      cropSize: { height: 525, width: 1280 },
+      fileName: 'huge.png',
+      imageUrl: 'blob:huge',
+      mediaSize: {
+        height: 100,
+        naturalHeight: 12_000,
+        naturalWidth: 12_000,
+        width: 100,
+      },
+      transform: {
+        crop: { x: 0, y: 0 },
+        rotation: 0,
+        zoom: 1,
+      },
+    })).rejects.toThrow(/megapixels/)
+    expect(createElement).not.toHaveBeenCalled()
   })
 })
 

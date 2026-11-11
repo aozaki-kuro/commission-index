@@ -5,14 +5,11 @@ import {
   isArchivedCharactersVisible,
   requestArchivedCharactersVisibility,
 } from '@features/home/commission/archivedCharactersState'
-import { markScrollJump } from '@features/home/commission/scrollDepthTracker'
 import {
   readCommissionViewMode,
-  replaceCommissionViewModeInAddress,
   resolveCommissionViewModeFromElement,
 } from '@features/home/commission/viewModeState'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '@features/home/events'
-import { ANALYTICS_EVENTS } from '@lib/analytics/events'
 import { trackRybbitEvent } from '@lib/analytics/track'
 import {
   getActiveSectionId,
@@ -28,7 +25,7 @@ import {
 import { jumpToCommissionSearch } from '@lib/navigation/jumpToCommissionSearch'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '@lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '@lib/navigation/syncHiddenSectionLinkAvailability'
-import { revealArchivedHomeNavTarget } from './homeNavTargetClient'
+import { handleHomeNavCharacterLinkClick, handleViewModeToggleClick, trackHomeNavUsed } from './homeNavClick'
 import { mountSidebarDisclosureSlide } from './sidebarDisclosureSlide'
 import { applyViewModeToggleClasses, SIDEBAR_VIEW_MODE_TOGGLE_CLASSES } from './viewModeToggleClasses'
 
@@ -79,7 +76,32 @@ const defaultDeps: SidebarNavEnhancerDeps = {
   requestArchivedVisibility: requestArchivedCharactersVisibility,
 }
 
-const getCurrentMode = (win: Window): CommissionViewMode => readCommissionViewMode(win)
+/** Coalesces repeated schedules into one animation frame; `cancel` drops a pending frame on dispose. */
+function frameTask(win: Window, run: () => void) {
+  let rafId: number | null = null
+  return {
+    schedule: () => {
+      if (rafId !== null)
+        return
+
+      let ranSynchronously = false
+      const frameId = win.requestAnimationFrame(() => {
+        ranSynchronously = true
+        rafId = null
+        run()
+      })
+      // A synchronous rAF (the tests' mock) already ran; keeping its id would block every later schedule.
+      if (!ranSynchronously)
+        rafId = frameId
+    },
+    cancel: () => {
+      if (rafId === null)
+        return
+      win.cancelAnimationFrame(rafId)
+      rafId = null
+    },
+  }
+}
 
 function getVisibleNavPanel(root: HTMLElement, mode: CommissionViewMode) {
   return root.querySelector<HTMLElement>(`${NAV_PANEL_SELECTOR}[data-sidebar-nav-panel="${mode}"]`)
@@ -174,9 +196,6 @@ export function mountSidebarNavEnhancer({
   const navPanels = [
     ...navRoot.querySelectorAll<HTMLElement>(NAV_PANEL_SELECTOR),
   ]
-  const allSidebarDots = [
-    ...navRoot.querySelectorAll<HTMLElement>(SIDEBAR_DOT_SELECTOR),
-  ]
   const archivedDetails = navRoot.querySelector<HTMLDetailsElement>(ARCHIVED_DETAILS_SELECTOR)
   const backToTopButton = navRoot.querySelector<HTMLButtonElement>(BACK_TO_TOP_BUTTON_SELECTOR)
   const localeMenu = controlsRoot.querySelector<HTMLDetailsElement>(LOCALE_MENU_SELECTOR)
@@ -187,49 +206,15 @@ export function mountSidebarNavEnhancer({
     ? mountSidebarDisclosureSlide(archivedDetails, { win })
     : null
 
-  let clearHashMissingRafId: number | null = null
-  let syncLinksRafId: number | null = null
-  let syncDotsRafId: number | null = null
-  let syncBackToTopRafId: number | null = null
   let activePanelSnapshot: SidebarActivePanelSnapshot | null = null
   let activeDots: HTMLElement[] = []
   const panelDotIndexCache = new WeakMap<HTMLElement, Map<string, HTMLElement[]>>()
-  let dotsInitialized = false
   let hasTrackedSidebarSearchUsage = false
   let isBackToTopVisible = false
   let disposed = false
 
   const clearActivePanelSnapshot = () => {
     activePanelSnapshot = null
-  }
-
-  const scheduleAnimationFrame = ({
-    rafId,
-    run,
-    setRafId,
-  }: {
-    rafId: number | null
-    run: () => void
-    setRafId: (nextRafId: number | null) => void
-  }) => {
-    if (rafId !== null)
-      return
-
-    let didRunSynchronously = false
-    const frameId = win.requestAnimationFrame(() => {
-      didRunSynchronously = true
-      setRafId(null)
-      run()
-    })
-    setRafId(didRunSynchronously ? null : frameId)
-  }
-
-  const resetAllDots = () => {
-    allSidebarDots.forEach((dot) => {
-      toggleDotState(dot, false)
-    })
-    activeDots = []
-    dotsInitialized = true
   }
 
   const getPanelDotIndex = (panel: HTMLElement) => {
@@ -289,7 +274,7 @@ export function mountSidebarNavEnhancer({
   }
 
   const getActivePanelSnapshot = () => {
-    const mode = getCurrentMode(win)
+    const mode = readCommissionViewMode(win)
     const panel = getVisibleNavPanel(navRoot, mode)
     if (
       activePanelSnapshot
@@ -305,7 +290,7 @@ export function mountSidebarNavEnhancer({
   }
 
   const syncViewModeControls = () => {
-    const mode = getCurrentMode(win)
+    const mode = readCommissionViewMode(win)
 
     viewModeToggles.forEach((toggle) => {
       const toggleMode = resolveCommissionViewModeFromElement(toggle)
@@ -320,7 +305,7 @@ export function mountSidebarNavEnhancer({
   }
 
   const syncCharacterLinkAvailability = () => {
-    const panel = getVisibleNavPanel(navRoot, getCurrentMode(win))
+    const panel = getVisibleNavPanel(navRoot, readCommissionViewMode(win))
     if (!panel)
       return
 
@@ -336,10 +321,6 @@ export function mountSidebarNavEnhancer({
   const syncActiveDots = () => {
     const activeSnapshot = getActivePanelSnapshot()
     const activeTitleId = resolveActiveTitleId(activeSnapshot.titleElements)
-    if (!dotsInitialized) {
-      resetAllDots()
-    }
-
     syncActiveDotSet(
       resolveActiveDots({
         panel: activeSnapshot.panel,
@@ -348,15 +329,11 @@ export function mountSidebarNavEnhancer({
     )
   }
 
-  const scheduleClearHashIfTargetMissing = () => {
-    scheduleAnimationFrame({
-      rafId: clearHashMissingRafId,
-      run: deps.clearHash,
-      setRafId: (nextRafId) => {
-        clearHashMissingRafId = nextRafId
-      },
-    })
-  }
+  const clearHashTask = frameTask(win, () => deps.clearHash())
+  const linksTask = frameTask(win, syncCharacterLinkAvailability)
+  const dotsTask = frameTask(win, syncActiveDots)
+  const scheduleClearHashIfTargetMissing = clearHashTask.schedule
+  const scheduleSyncActiveDots = dotsTask.schedule
 
   const scheduleSyncCharacterLinkAvailability = ({
     invalidateSnapshot = false,
@@ -367,23 +344,7 @@ export function mountSidebarNavEnhancer({
       clearActivePanelSnapshot()
     }
 
-    scheduleAnimationFrame({
-      rafId: syncLinksRafId,
-      run: syncCharacterLinkAvailability,
-      setRafId: (nextRafId) => {
-        syncLinksRafId = nextRafId
-      },
-    })
-  }
-
-  const scheduleSyncActiveDots = () => {
-    scheduleAnimationFrame({
-      rafId: syncDotsRafId,
-      run: syncActiveDots,
-      setRafId: (nextRafId) => {
-        syncDotsRafId = nextRafId
-      },
-    })
+    linksTask.schedule()
   }
 
   const setBackToTopButtonVisibility = (visible: boolean) => {
@@ -399,7 +360,6 @@ export function mountSidebarNavEnhancer({
   }
 
   const syncBackToTopVisibility = () => {
-    syncBackToTopRafId = null
     if (!backToTopButton)
       return
 
@@ -411,15 +371,8 @@ export function mountSidebarNavEnhancer({
     setBackToTopButtonVisibility(nextVisible)
   }
 
-  const scheduleSyncBackToTopVisibility = () => {
-    scheduleAnimationFrame({
-      rafId: syncBackToTopRafId,
-      run: syncBackToTopVisibility,
-      setRafId: (nextRafId) => {
-        syncBackToTopRafId = nextRafId
-      },
-    })
-  }
+  const backToTopTask = frameTask(win, syncBackToTopVisibility)
+  const scheduleSyncBackToTopVisibility = backToTopTask.schedule
 
   const syncAll = () => {
     clearActivePanelSnapshot()
@@ -429,41 +382,9 @@ export function mountSidebarNavEnhancer({
     scheduleClearHashIfTargetMissing()
   }
 
-  const openArchivedDetails = () => {
-    if (!archivedDetails)
-      return
-    if (archivedDetails.open)
-      return
-    archivedSlide?.setOpen(true)
-  }
-
-  const closeArchivedDetails = () => {
-    if (!archivedDetails)
-      return
-    if (!archivedDetails.open)
-      return
-    archivedSlide?.setOpen(false)
-  }
-
-  const setArchivedDetailsVisibility = (visibility: ArchivedCharactersVisibility) => {
-    if (visibility === 'visible') {
-      openArchivedDetails()
-      return
-    }
-
-    closeArchivedDetails()
-  }
-
-  const resolveVisibilityFromStateEvent = (event: Event): ArchivedCharactersVisibility => {
-    if (event instanceof CustomEvent && event.detail && typeof event.detail === 'object') {
-      const visibility = (event.detail as Partial<ArchivedCharactersState>).visibility
-      if (visibility === 'visible' || visibility === 'hidden')
-        return visibility
-    }
-
-    return isArchivedCharactersVisible(doc)
-      ? 'visible'
-      : 'hidden'
+  const setArchivedDetailsOpen = (open: boolean) => {
+    if (archivedDetails && archivedDetails.open !== open)
+      archivedSlide?.setOpen(open)
   }
 
   const onArchivedDetailsToggle = (event: Event) => {
@@ -482,20 +403,12 @@ export function mountSidebarNavEnhancer({
     deps.requestArchivedVisibility(win, nextVisibility)
   }
 
+  // Its only dispatcher (dispatchArchivedCharactersStateChange) always sets detail.
   const onArchivedStateChanged = (event: Event) => {
     clearActivePanelSnapshot()
-    setArchivedDetailsVisibility(resolveVisibilityFromStateEvent(event))
+    setArchivedDetailsOpen((event as CustomEvent<ArchivedCharactersState>).detail.visibility === 'visible')
     scheduleSyncCharacterLinkAvailability()
     scheduleSyncActiveDots()
-  }
-
-  const trackSidebarCharacterClick = () => {
-    markScrollJump(win)
-    deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
-      source: 'character_link',
-      layout: 'desktop',
-      view_mode: getCurrentMode(win),
-    })
   }
 
   const onSidebarClick = (event: MouseEvent) => {
@@ -505,17 +418,7 @@ export function mountSidebarNavEnhancer({
 
     const modeToggleButton = target.closest<HTMLButtonElement>(VIEW_MODE_TOGGLE_SELECTOR)
     if (modeToggleButton) {
-      const currentMode = getCurrentMode(win)
-      const nextMode = resolveCommissionViewModeFromElement(modeToggleButton)
-      if (!nextMode)
-        return
-
-      if (nextMode !== currentMode) {
-        replaceCommissionViewModeInAddress(win, nextMode)
-      }
-      else {
-        syncAll()
-      }
+      handleViewModeToggleClick(win, modeToggleButton, syncAll)
       return
     }
 
@@ -527,11 +430,7 @@ export function mountSidebarNavEnhancer({
 
       if (!hasTrackedSidebarSearchUsage) {
         hasTrackedSidebarSearchUsage = true
-        deps.trackEvent(ANALYTICS_EVENTS.sidebarNavUsed, {
-          source: 'search_link',
-          layout: 'desktop',
-          view_mode: getCurrentMode(win),
-        })
+        trackHomeNavUsed(win, deps.trackEvent, 'search_link', 'desktop')
       }
 
       deps.jumpToSearch()
@@ -546,7 +445,7 @@ export function mountSidebarNavEnhancer({
       && (!(archivedLoadTrigger instanceof HTMLAnchorElement) || isUnmodifiedPrimaryClick(event))
     ) {
       event.preventDefault()
-      openArchivedDetails()
+      setArchivedDetailsOpen(true)
       return
     }
 
@@ -554,51 +453,31 @@ export function mountSidebarNavEnhancer({
     if (!characterLink || !isUnmodifiedPrimaryClick(event))
       return
 
-    const mode = getCurrentMode(win)
-    const href = characterLink.getAttribute('href')
-    const isArchivedLink = characterLink.dataset.sidebarCharacterStatus === 'archived'
-    if (isArchivedLink && !isArchivedCharactersVisible(doc)) {
-      event.preventDefault()
-      revealArchivedHomeNavTarget({
-        onVisible: () => {
-          deps.scrollToHashWithoutWrite(href)
-          scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })
-          scheduleSyncActiveDots()
-        },
-        requestArchivedVisibility: deps.requestArchivedVisibility,
-        win,
-      })
-      trackSidebarCharacterClick()
-      return
-    }
-
-    if (characterLink.getAttribute('aria-disabled') === 'true') {
-      event.preventDefault()
-      return
-    }
-
-    if (mode === 'timeline') {
-      event.preventDefault()
-      const timelineHref = characterLink.getAttribute('href')
-      deps.scrollToHashWithoutWrite(timelineHref)
-    }
-
-    // 浏览器默认行为会把 hash 写入地址栏，等原生滚动完成后清除
-    win.requestAnimationFrame(() => {
-      deps.clearHashNow()
+    const outcome = handleHomeNavCharacterLinkClick({
+      event,
+      link: characterLink,
+      isArchivedLink: characterLink.dataset.sidebarCharacterStatus === 'archived',
+      layout: 'desktop',
+      win,
+      doc,
+      deps,
+      onArchivedVisible: () => {
+        scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })
+        scheduleSyncActiveDots()
+      },
     })
-
-    trackSidebarCharacterClick()
+    if (outcome === 'navigated') {
+      // 浏览器默认行为会把 hash 写入地址栏，等原生滚动完成后清除
+      win.requestAnimationFrame(() => {
+        deps.clearHashNow()
+      })
+    }
   }
 
   const onSidebarSearchState = () => {
     scheduleSyncCharacterLinkAvailability({ invalidateSnapshot: true })
     scheduleSyncActiveDots()
     scheduleClearHashIfTargetMissing()
-  }
-  const onViewModeMaybeChanged = () => {
-    clearActivePanelSnapshot()
-    syncAll()
   }
 
   const onBackToTopClick = (event: MouseEvent) => {
@@ -625,8 +504,8 @@ export function mountSidebarNavEnhancer({
   }
   win.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSidebarSearchState)
   win.addEventListener(ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, onArchivedStateChanged)
-  win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onViewModeMaybeChanged)
-  win.addEventListener('popstate', onViewModeMaybeChanged)
+  win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, syncAll)
+  win.addEventListener('popstate', syncAll)
 
   syncAll()
   // Snap, not slide: the aside has its own entrance, and a slide would force layout before the first paint.
@@ -654,24 +533,12 @@ export function mountSidebarNavEnhancer({
     }
     win.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSidebarSearchState)
     win.removeEventListener(ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, onArchivedStateChanged)
-    win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, onViewModeMaybeChanged)
-    win.removeEventListener('popstate', onViewModeMaybeChanged)
+    win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, syncAll)
+    win.removeEventListener('popstate', syncAll)
 
-    if (clearHashMissingRafId !== null) {
-      win.cancelAnimationFrame(clearHashMissingRafId)
-      clearHashMissingRafId = null
-    }
-    if (syncLinksRafId !== null) {
-      win.cancelAnimationFrame(syncLinksRafId)
-      syncLinksRafId = null
-    }
-    if (syncDotsRafId !== null) {
-      win.cancelAnimationFrame(syncDotsRafId)
-      syncDotsRafId = null
-    }
-    if (syncBackToTopRafId !== null) {
-      win.cancelAnimationFrame(syncBackToTopRafId)
-      syncBackToTopRafId = null
-    }
+    clearHashTask.cancel()
+    linksTask.cancel()
+    dotsTask.cancel()
+    backToTopTask.cancel()
   }
 }
