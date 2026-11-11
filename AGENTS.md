@@ -250,6 +250,8 @@ commit, not instructions.
 
 - `api-reference.md`, `ai-agent-guide.md` — admin API contract and integration pitfalls
 - `open-issues.md` — verified open backlog and "verified not a defect" list; re-verify before acting
+- `audit-2026-11-11-full-repo.md` — full-repo audit (IDs A/W/F/S/P): defects, security, duplication, architecture,
+  web performance and the admin overview review, with per-item status; supersedes the status of the 10-12 IDs
 - `audit-2026-10-12-full-repo.md` — full-repo audit findings (IDs PRIV/WEB/BLD/ADM/WRK/CI) and the plan order;
   re-verify line numbers before acting
 - `audit-2026-11-01-design-consistency.md` — web/admin style consistency audit (IDs DS-W/DS-A), owner decisions
