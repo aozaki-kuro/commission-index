@@ -5,8 +5,8 @@
   "private": true,
   "scripts": {
     "build:assets": "pnpm -C ../admin build",
-    "dev": "wrangler dev --config wrangler.jsonc",
-    "dev:remote": "wrangler dev --config wrangler.jsonc",
+    "dev": "wrangler dev --config wrangler.jsonc --var ALLOW_LOCAL_ORIGINS:1",
+    "dev:remote": "wrangler dev --config wrangler.jsonc --var ALLOW_LOCAL_ORIGINS:1",
     "d1:migrate": "wrangler d1 migrations apply DB --config wrangler.jsonc --remote",
     "web:fact-source:export": "tsx ./scripts/exportWebFactSource.ts",
     "web:fact-source:sync-images": "tsx ./scripts/syncMissingSourceImages.ts",

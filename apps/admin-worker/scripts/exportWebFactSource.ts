@@ -205,6 +205,8 @@ function runWrangler(args: string[]): SpawnSyncReturns<string> {
     cwd: adminWorkerRoot,
     encoding: 'utf8',
     env: { ...process.env, CI: 'true' },
+    // The whole D1 snapshot arrives on stdout as one JSON row; the 1 MiB default would truncate it.
+    maxBuffer: 64 * 1024 * 1024,
   })
 }
 
@@ -236,6 +238,9 @@ function runWranglerAsync(args: string[]) {
 
 function runWranglerOrThrow(args: string[], label: string): string {
   const result = runWrangler(args)
+  if (result.error) {
+    throw result.error
+  }
   if (result.status !== 0) {
     throw new Error(result.stderr || result.stdout || `Failed to ${label}.`)
   }

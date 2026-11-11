@@ -36,13 +36,21 @@ directly. All JSON responses send `Cache-Control: no-store`.
 | Status | Meaning                                                                                                                             |
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `400`  | Validation failure, **and** any failure inside a mutation (including D1 errors and missing rows)                                    |
+| `403`  | Non-GET request whose `Origin` header is not the worker's own origin (see below)                                                    |
 | `404`  | Unmatched route; unresolved source image                                                                                            |
-| `500`  | Failure while loading a `GET` payload (bootstrap, aliases, suggestion, character commissions, source image)                         |
+| `500`  | Failure while loading a `GET` payload (bootstrap, aliases, suggestion, character commissions, source image); uncaught worker fault  |
 | `502`  | `POST /rebuild` could not reach or was rejected by GitHub; `GET /interest` / `GET /link-clicks` could not get a valid Rybbit answer |
 | `503`  | Missing `DB` / `IMAGES` binding, or missing `GITHUB_DISPATCH_TOKEN` / `RYBBIT_API_KEY`                                              |
 
 Mutation wrappers convert every thrown error into `400` with the error message (for example a D1
-`UNIQUE` violation or `D1 write operation failed.`), so a mutation never returns `500` in practice.
+`UNIQUE` violation or `D1 write operation failed.`). A body that is not valid JSON also returns `400`
+(`Request body is not valid JSON.`); a fault outside the wrappers, such as a non-multipart body on an upload
+route, returns `500` (`Admin worker request failed.`). Both keep the JSON envelope and CORS headers.
+
+**Cross-origin writes (`403`).** Every non-GET `/api/admin/*` request that carries an `Origin` header must come
+from the worker's own origin, otherwise it is rejected with `Cross-origin writes are not allowed.` before any
+handler runs. Requests without `Origin` (curl, service-token clients) are unaffected. Local origins are accepted
+only by a worker started with `ALLOW_LOCAL_ORIGINS=1` (the `dev` script).
 See `ai-agent-guide.md` §8 for what to do with these.
 
 **Binding errors (`503`).** Messages: `Admin worker DB binding is required for this route.`,
@@ -509,7 +517,9 @@ previous object on a best-effort basis.
 - `400 Invalid commission identifier.` (ID `0`); `400 Source image is required.`; `400 Commission
 not found.`; `400 Only JPG and PNG uploads are supported.`; `400 Uploaded image must be 10 MiB or
 smaller.`
-- `400` — D1 update failed: the previous image stays active and the newly uploaded object is orphaned
+- `400` — D1 update failed, or the commission was deleted while the upload was in flight (`Commission not
+found.`): no `source_images` row is written, the previous image stays active, and the newly uploaded object
+  is deleted on a best-effort basis (an orphan only if that cleanup also fails)
 - `503` — missing `DB` or `IMAGES`
 
 If deleting the previous object fails after the D1 update, the request still returns `200` and
@@ -663,7 +673,7 @@ uploads are supported.` The stored content type follows the sniffed type.
   commission name.
 - The D1 `source_images.object_key` is opaque identity. Reads use it as stored; historical keys
   are read as-is. Do not infer keys from file names.
-- R2 and D1 share no transaction. Failures after upload (create or replace) leave an orphaned
-  object; deleting a commission, or replacing an image whose cleanup fails, also leaves orphans.
+- R2 and D1 share no transaction. A create that fails after upload leaves an orphaned object (a failed
+  replace removes its own upload when it can); deleting a commission, or replacing an image whose cleanup fails, also leaves orphans.
   `DELETE /characters/:id` deletes the character's objects after the D1 commit, but a cleanup
   failure still leaves orphans. Cleanup procedure: `r2:list-orphans` (see `ai-agent-guide.md` §7).

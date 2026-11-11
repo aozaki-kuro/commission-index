@@ -74,10 +74,12 @@ collapses whitespace, and dedupes case-insensitively. When parsing a returned `k
 Work groups: `workGroupId: "new"` creates a fresh group; sending it again on a later `PATCH` of an
 already-grouped part moves that part to yet another new group, so reuse the existing UUID to keep it.
 
-**Unhandled bad bodies.** Mutation routes outside the alias/suggestion batches parse the body
-outside any `try`. Malformed JSON or a non-multipart upload throws out of the worker handler
-instead of returning the JSON envelope (inferred from reading `adminApi.ts`; not exercised
-against a live worker). Always send well-formed bodies with the right content type.
+**Bad bodies and cross-origin writes.** The worker entry (`index.ts`) wraps every `/api/admin/*` call: a
+body that is not valid JSON returns `400` with the JSON envelope, and any other uncaught error (for example a
+non-multipart upload) returns `500` with the envelope, both with CORS headers. A non-GET request whose
+`Origin` header is not the worker's own origin returns `403` before any handler runs; requests without an
+`Origin` header (curl, service-token clients) are not affected. Local origins are accepted only when the worker
+runs with `ALLOW_LOCAL_ORIGINS=1`, which the `dev` script passes via `--var` and production never sets.
 
 ---
 

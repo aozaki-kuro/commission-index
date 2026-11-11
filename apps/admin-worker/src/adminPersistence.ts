@@ -784,7 +784,9 @@ export async function saveSourceImageMetadata(
   input: SourceImageMetadataInput,
 ) {
   await ensureSourceImagesTable(db)
-  await runStatement(
+  // INSERT ... SELECT writes nothing if the commission was deleted after the caller read its file name,
+  // so no orphan row with a NULL commission_id can appear. RETURNING detects that without `meta.changes`.
+  const written = await queryRows<{ commissionFileName: string }>(
     db,
     `
       INSERT INTO source_images (
@@ -795,7 +797,8 @@ export async function saveSourceImageMetadata(
         byte_size,
         sha256,
         updated_at
-      ) VALUES (?, (SELECT id FROM commissions WHERE file_name = ?), ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      )
+      SELECT file_name, id, ?, ?, ?, ?, CURRENT_TIMESTAMP FROM commissions WHERE file_name = ?
       ON CONFLICT(commission_file_name) DO UPDATE SET
         commission_id = excluded.commission_id,
         object_key = excluded.object_key,
@@ -803,16 +806,20 @@ export async function saveSourceImageMetadata(
         byte_size = excluded.byte_size,
         sha256 = excluded.sha256,
         updated_at = CURRENT_TIMESTAMP
+      RETURNING commission_file_name AS commissionFileName
     `,
     [
-      input.commissionFileName,
-      input.commissionFileName,
       input.objectKey,
       input.mimeType,
       input.byteSize,
       input.sha256,
+      input.commissionFileName,
     ],
   )
+
+  if (written.length === 0) {
+    throw new Error('Commission not found.')
+  }
 }
 
 export async function getSourceImageMetadata(db: D1DatabaseLike, commissionFileName: string) {

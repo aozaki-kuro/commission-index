@@ -536,6 +536,10 @@ function createNativeCrudBackend(
           await persistSourceImageMetadata(db, savedSourceImage)
         }
         catch (error) {
+          // No row points at the object just uploaded; release it instead of leaving an orphan.
+          await imagesBucket.delete(savedSourceImage.objectKey).catch((cleanupError) => {
+            console.warn('Source image metadata was not saved and the uploaded object could not be removed.', cleanupError)
+          })
           return failure(error instanceof Error
             ? error.message
             : 'Failed to update source image metadata.')
