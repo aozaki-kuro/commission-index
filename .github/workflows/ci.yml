@@ -38,7 +38,9 @@ jobs:
       # 只在 PR 上跑：master push 的合并组合由 lint/typecheck/单测覆盖，省下约 80s 发布等待。
       - name: Install Playwright Chromium
         if: github.event_name == 'pull_request'
-        run: pnpm exec playwright install --with-deps chromium
+        # --with-deps pulls font packages through apt. When the runner cannot reach the Ubuntu mirrors, install the
+        # browser alone: the image already carries Chromium's shared libraries and the admin specs use bundled web fonts.
+        run: pnpm exec playwright install --with-deps chromium || pnpm exec playwright install chromium
       - name: Admin UI tests (API fixtures)
         if: github.event_name == 'pull_request'
         run: pnpm run test:admin-ui
