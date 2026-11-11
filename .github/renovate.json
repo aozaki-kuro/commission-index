@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"],
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
   "timezone": "Asia/Shanghai",
   "dependencyDashboard": true,
   "rangeStrategy": "replace",
@@ -13,7 +13,7 @@
   "packageRules": [
     {
       "description": "Astro core stack",
-      "matchPackageNames": ["astro", "@astrojs/react", "@astrojs/check"],
+      "matchPackageNames": ["astro", "@astrojs/check"],
       "groupName": "astro stack"
     },
     {
@@ -23,7 +23,7 @@
     },
     {
       "description": "React runtime packages",
-      "matchPackageNames": ["react", "react-dom", "cmdk"],
+      "matchPackageNames": ["react", "react-dom"],
       "groupName": "react runtime"
     },
     {
@@ -33,13 +33,7 @@
     },
     {
       "description": "Tailwind and styling ecosystem",
-      "matchPackageNames": [
-        "tailwindcss",
-        "tailwind-merge",
-        "class-variance-authority",
-        "clsx",
-        "eslint-plugin-better-tailwindcss"
-      ],
+      "matchPackageNames": ["tailwindcss"],
       "groupName": "tailwind and styling"
     },
     {
@@ -73,13 +67,8 @@
     },
     {
       "description": "Radix UI components",
-      "matchPackagePrefixes": ["@radix-ui/"],
+      "matchPackageNames": ["@radix-ui/**"],
       "groupName": "radix ui"
-    },
-    {
-      "description": "DnD kit",
-      "matchPackageNames": ["@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"],
-      "groupName": "dnd-kit"
     },
     {
       "description": "Infra and deploy tooling",
@@ -110,11 +99,9 @@
       "description": "Never automerge high-risk or native/runtime-critical dependencies",
       "matchPackageNames": [
         "astro",
-        "@astrojs/react",
         "@astrojs/check",
         "react",
         "react-dom",
-        "cmdk",
         "vite",
         "wrangler",
         "sharp"

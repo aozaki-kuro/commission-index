@@ -30,7 +30,8 @@ runs:
       run: |
         current_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/master" --jq '.object.sha')
         if [ "$current_sha" != "$GITHUB_SHA" ]; then
-          echo "部署跳过：候选 ${GITHUB_SHA} 已过期，master=${current_sha}" >> "$GITHUB_STEP_SUMMARY"
+          echo "部署跳过（未部署任何内容）：候选 ${GITHUB_SHA} 已被 master ${current_sha} 取代" >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Web deploy skipped::Candidate ${GITHUB_SHA} was superseded by master ${current_sha}; nothing was deployed."
           echo 'current=false' >> "$GITHUB_OUTPUT"
         else
           echo 'current=true' >> "$GITHUB_OUTPUT"
@@ -72,9 +73,9 @@ runs:
       uses: actions/cache/restore@v6
       with:
         path: apps/web/generated/source-images
-        key: web-source-images-${{ github.run_id }}
+        key: web-source-images-v2-${{ github.run_id }}
         restore-keys: |
-          web-source-images-
+          web-source-images-v2-
     - name: Export one read-only snapshot
       if: steps.candidate.outputs.current == 'true'
       shell: bash
@@ -87,24 +88,13 @@ runs:
         echo "WEB_BUILD_CACHE_TOKEN=${revision}" >> "$GITHUB_ENV"
         echo 'FACT_SOURCE_USE_EXISTING_SNAPSHOT=1' >> "$GITHUB_ENV"
         echo "code=${GITHUB_SHA} revision=${revision}" >> "$GITHUB_STEP_SUMMARY"
-    # Keyed on the content revision: the restore step's key is the run id, so an exact match on
-    # `web-source-images-<revision>` only happens when a previous run already saved this revision.
-    # In that case the identical image set is already cached and saving again would only collide
-    # with the existing key, so skip it.
-    - name: Save cached source images
-      if: >-
-        steps.candidate.outputs.current == 'true' &&
-        steps.restore-images.outputs.cache-matched-key != format('web-source-images-{0}', env.WEB_BUILD_CACHE_TOKEN)
-      uses: actions/cache/save@v6
-      with:
-        path: apps/web/generated/source-images
-        key: web-source-images-${{ env.WEB_BUILD_CACHE_TOKEN }}
     - name: Astro check against frozen snapshot
       if: steps.candidate.outputs.current == 'true'
       shell: bash
       run: pnpm -C apps/web run check:astro
     # Wrangler 的 custom build 是唯一正式构建入口；export 依赖只校验已有快照。
     - name: Build and deploy frozen snapshot
+      id: deploy
       if: steps.candidate.outputs.current == 'true'
       shell: bash
       env:
@@ -114,8 +104,83 @@ runs:
       run: |
         current_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/master" --jq '.object.sha')
         if [ "$current_sha" != "$GITHUB_SHA" ]; then
-          echo "部署跳过：校验期间 master 已更新为 ${current_sha}" >> "$GITHUB_STEP_SUMMARY"
+          echo "部署跳过（未部署任何内容）：校验期间候选 ${GITHUB_SHA} 已被 master ${current_sha} 取代" >> "$GITHUB_STEP_SUMMARY"
+          echo "::notice title=Web deploy skipped::Candidate ${GITHUB_SHA} was superseded by master ${current_sha} during validation; nothing was deployed."
           exit 0
         fi
         pnpm run deploy:web
+        echo 'deployed=true' >> "$GITHUB_OUTPUT"
         find apps/web/dist -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum >> "$GITHUB_STEP_SUMMARY"
+    # The cache holds only images the public build renders: an allowlist of manifest files whose commission is
+    # explicitly `Hidden: false`; every other entry is removed. It runs after deploy because the frozen-snapshot
+    # check inside the build re-hashes every manifest file. A later restore re-downloads whatever is absent, so
+    # cache-hit semantics for the kept images are unchanged.
+    - name: Limit cached source images to visible commissions
+      if: >-
+        steps.candidate.outputs.current == 'true' &&
+        steps.restore-images.outputs.cache-matched-key != format('web-source-images-v2-{0}', env.WEB_BUILD_CACHE_TOKEN)
+      shell: bash
+      run: |
+        snapshot=apps/web/generated/fact-source
+        images=apps/web/generated/source-images
+        allowlist="${RUNNER_TEMP}/source-image-cache-allowlist.txt"
+        jq -r --slurpfile content "${snapshot}/content.json" '
+          [$content[0].characters[].commissions[] | select(.Hidden == false) | .id] as $visible
+          | .files[] | select(.commissionId | IN($visible[])) | .relativePath
+        ' "${snapshot}/source-images-manifest.json" > "$allowlist"
+        find "$images" -mindepth 1 -maxdepth 1 -print0 | while IFS= read -r -d '' entry; do
+          grep -qxF "source-images/${entry##*/}" "$allowlist" || rm -r -- "$entry"
+        done
+    # Keyed on the content revision: the restore step's key is the run id, so an exact match on
+    # `web-source-images-v2-<revision>` only happens when a previous run already saved this revision.
+    # In that case the identical image set is already cached and saving again would only collide
+    # with the existing key, so skip it. `v2`: the cache content rule changed.
+    - name: Save cached source images
+      if: >-
+        steps.candidate.outputs.current == 'true' &&
+        steps.restore-images.outputs.cache-matched-key != format('web-source-images-v2-{0}', env.WEB_BUILD_CACHE_TOKEN)
+      uses: actions/cache/save@v6
+      with:
+        path: apps/web/generated/source-images
+        key: web-source-images-v2-${{ env.WEB_BUILD_CACHE_TOKEN }}
+    # The public deployment must stay static-only (apps/web/AGENTS.md) and serve the snapshot this run built.
+    # The origin is the custom-domain route in apps/web/wrangler.jsonc, the one Wrangler just deployed to.
+    # Retries cover edge propagation; the total wait stays short because the release lock is held.
+    - name: Smoke-check production deployment
+      if: steps.deploy.outputs.deployed == 'true'
+      shell: bash
+      run: |
+        host=$(sed -n 's/^[[:space:]]*"pattern":[[:space:]]*"\([^"]*\)".*/\1/p' apps/web/wrangler.jsonc)
+        if [ -z "$host" ] || [ "$(printf '%s\n' "$host" | wc -l)" -ne 1 ]; then
+          echo "::error::Expected exactly one route pattern in apps/web/wrangler.jsonc, got '${host}'."
+          exit 1
+        fi
+        if [ -z "${WEB_BUILD_CACHE_TOKEN:-}" ]; then
+          echo '::error::WEB_BUILD_CACHE_TOKEN is not set; cannot verify the deployed revision.'
+          exit 1
+        fi
+        origin="https://${host}"
+        max_attempts=6
+        attempt=1
+        while :; do
+          failures=()
+          for route in /admin /admin/aliases /api/admin/bootstrap /api/admin/health; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 "${origin}${route}") || code=000
+            [ "$code" = 404 ] || failures+=("${route} answered ${code}, expected 404")
+          done
+          revision=$(curl -sS --fail --max-time 10 -H 'Cache-Control: no-cache' \
+            "${origin}/build-info.json?smoke=${GITHUB_RUN_ID}-${attempt}" | jq -r '.dataRevision // empty') || revision=''
+          [ "$revision" = "$WEB_BUILD_CACHE_TOKEN" ] \
+            || failures+=("build-info.json dataRevision '${revision}' does not match built revision '${WEB_BUILD_CACHE_TOKEN}'")
+          if [ "${#failures[@]}" -eq 0 ]; then
+            break
+          fi
+          if [ "$attempt" -ge "$max_attempts" ]; then
+            printf '::error::Smoke check failed: %s\n' "${failures[@]}"
+            exit 1
+          fi
+          printf 'attempt %s: %s\n' "$attempt" "${failures[@]}"
+          sleep $((attempt * 5))
+          attempt=$((attempt + 1))
+        done
+        echo "冒烟检查通过：/admin 与 /api/admin/* 均为 404，build-info revision=${WEB_BUILD_CACHE_TOKEN}" >> "$GITHUB_STEP_SUMMARY"

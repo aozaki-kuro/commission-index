@@ -8,14 +8,26 @@ CI and release workflows. Workspace, build-script and Cloudflare deploy rules li
    只在 PR 上跑——ruleset 不强制分支基于最新 master，master push 的 build 是合并结果的唯一校验，保留便宜的
    lint/typecheck/单测即可，Playwright 已在 PR 上验证过同一份 admin 前端
 2. 用 `writeOfflineFactSource.ts` 把与视觉测试相同的离线 fixture 写入 `FACT_SOURCE_DIR=generated-fixture`（无生产凭证），
-   Astro check 通过同一变量读取，再执行 admin build
+   Astro check 通过同一变量读取，再执行 admin build。PR 上另以 `FACT_SOURCE_PLACEHOLDER_IMAGES=1` 重写同一 fixture，
+   附带确定性占位 PNG（写入干净检出中不存在的 `apps/web/generated/source-images/`，因为 registry 只从那里 glob；
+   该目录已有其他文件时脚本拒绝写入），然后 `astro build`，再断言 `apps/web/dist` 不含 HEAD / PR head 的 commit SHA
 3. master 部署依赖上述门禁；Web 获得共享环境锁后只导出一次，记录 SHA/revision
-4. Astro check 与 Wrangler custom build 使用相同快照；部署前核对当前 master SHA，过期候选跳过
+4. Astro check 与 Wrangler custom build 使用相同快照；部署前核对当前 master SHA，过期候选跳过。跳过不算失败（job 仍为
+   success），但每处跳过（composite 的候选检查与部署前复核、`ci.yml` admin 部署）都必须写 step summary 并发
+   `::notice::`，注明候选被哪个 master SHA 取代、未部署任何内容
 5. `ci.yml` web job 与 `rebuild.yml` 的候选校验/导出/校验/Astro check/构建部署序列统一放在
    `.github/actions/deploy-web-snapshot` 复合动作中，作为 step 运行在调用方 job 内（composite 而非 reusable
    workflow），因此 job 级 `concurrency` 锁仍覆盖整个 export->deploy 窗口；`rebuild` 无上游 build job，用
    `validate-code: true` 在锁内自校验，`ci.yml` 留默认 `false`。composite 无 `secrets` 上下文，两个 Cloudflare
    secret 通过 `with:` 以 input 传入
+6. 实际部署后（`deployed=true`）冒烟检查生产 origin（取自 `apps/web/wrangler.jsonc` 的 route `pattern`，不另写域名）：
+   `/admin`、`/admin/aliases`、`/api/admin/bootstrap`、`/api/admin/health` 必须 404，`/build-info.json` 的
+   `dataRevision` 必须等于本 run 的 `WEB_BUILD_CACHE_TOKEN`；最多 6 轮、线性退避，单请求 10 s 超时（最坏约 6 分钟，
+   期间仍持有发布锁），失败即 job 失败。它排在缓存 save 之后，误报不会阻止缓存写入
+7. 每个 job 都设 `timeout-minutes`（build 20、web 30、rebuild 35、admin 10）：没有上限时卡住的 step 可占发布锁 6 小时；
+   web/rebuild 的值按冷缓存全量下载图片留余量
+8. Renovate 通过 `helpers:pinGitHubActionDigests` 把第三方 action pin 到 commit digest；不要手改 SHA。已有的
+   minor/patch/digest automerge 规则同样覆盖这些 digest 更新
 
 ## master 保护（Ruleset `protect-master`）
 
@@ -42,7 +54,10 @@ GitHub 仓库设置（Settings → Rules，id 24860148），不随代码版本�
   （如 `apps/admin-worker`）
 - Workflows sharing one `actions/cache` key must not run concurrently from the same push and each save —
   release workflows use their own cache namespace under the shared concurrency group
-- 源图片缓存（`web-source-images-*`）只放在 `deploy-web-snapshot` 里、只由发布路径存取，namespace 与其它 job 隔离；
-  restore key 是本 run id、以 `web-source-images-` 前缀命中最新 revision，save key 是内容 revision；当 restore 命中的
+- 源图片缓存（`web-source-images-v2-*`）只放在 `deploy-web-snapshot` 里、只由发布路径存取，namespace 与其它 job 隔离；
+  restore key 是本 run id、以 `web-source-images-v2-` 前缀命中最新 revision，save key 是内容 revision；当 restore 命中的
   key 已等于该 revision 时跳过 save（否则只会与已有 key 冲突）。复用的本地图片仍逐个按 D1 快照的 size/sha256 校验、
   不匹配即重下，manifest 之外的旧文件会被删除，绝不信任缓存字节
+- 缓存只存公开构建会渲染的图片：save 前按 allowlist（manifest 中所属作品显式 `Hidden: false` 的文件）删掉其余条目。
+  save 放在部署之后，因为构建内的冻结快照校验会重新哈希 manifest 里的每个文件，在那之前不能删；部署失败的 run 不写
+  缓存。改变缓存内容规则时同时升级 key 前缀，否则旧 revision key 会精确命中而跳过 save

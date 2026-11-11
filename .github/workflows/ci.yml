@@ -20,6 +20,7 @@ jobs:
   build:
     name: Validate & Build
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
@@ -54,6 +55,33 @@ jobs:
         env:
           FACT_SOURCE_DIR: generated-fixture
         run: pnpm -C apps/web run check:astro
+      # PR 上构建 web：同一 fixture 改为附带确定性的占位图（写入干净检出里不存在的 apps/web/generated/source-images，
+      # registry 只从那里 glob），无凭证、无远端访问。master 的真实构建在 web 发布 job 中进行。
+      - name: Prepare fixture placeholder images
+        if: github.event_name == 'pull_request'
+        working-directory: apps/admin-worker
+        env:
+          FACT_SOURCE_DIR: generated-fixture
+          FACT_SOURCE_PLACEHOLDER_IMAGES: '1'
+        run: node --import tsx scripts/writeOfflineFactSource.ts
+      - name: Build web with offline fixture
+        if: github.event_name == 'pull_request'
+        env:
+          FACT_SOURCE_DIR: generated-fixture
+        run: pnpm -C apps/web run build
+      # The repo is public and GitHub resolves a commit SHA to it, so the site must never carry one.
+      - name: Check web output for commit SHAs
+        if: github.event_name == 'pull_request'
+        env:
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          for sha in "$(git rev-parse HEAD)" "$PR_HEAD_SHA"; do
+            [ -n "$sha" ] || continue
+            if grep -rlF "$sha" apps/web/dist; then
+              echo "::error::apps/web/dist contains commit SHA ${sha} (files listed above)."
+              exit 1
+            fi
+          done
       - name: Build admin
         run: pnpm run build:admin
 
@@ -62,6 +90,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    # A cold image cache downloads every source image; the bound keeps a hung step from holding the lock for 6 h.
+    timeout-minutes: 30
     concurrency:
       group: release-web-production
       cancel-in-progress: false
@@ -83,6 +113,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    timeout-minutes: 10
     concurrency:
       group: release-admin-production
       cancel-in-progress: false
@@ -99,7 +130,8 @@ jobs:
         run: |
           current_sha=$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/master" --jq '.object.sha')
           if [ "$current_sha" != "$GITHUB_SHA" ]; then
-            echo "部署跳过：候选 ${GITHUB_SHA} 已过期，master=${current_sha}" >> "$GITHUB_STEP_SUMMARY"
+            echo "部署跳过（未部署任何内容）：候选 ${GITHUB_SHA} 已被 master ${current_sha} 取代" >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice title=Admin deploy skipped::Candidate ${GITHUB_SHA} was superseded by master ${current_sha}; nothing was deployed."
             exit 0
           fi
           pnpm run deploy:admin
