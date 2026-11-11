@@ -47,10 +47,11 @@ runs:
         GH_TOKEN: ${{ github.token }}
       run: |
         skip=false
-        if gh api --paginate \
-             "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs?per_page=100" \
-             --jq '.check_runs[] | select(.name == "Validate & Build") | .conclusion' \
-             | grep -qx success; then
+        # Capture first: `grep -q` closing the pipe early would fail the pipeline under pipefail.
+        conclusions="$(gh api --paginate \
+          "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs?per_page=100" \
+          --jq '.check_runs[] | select(.name == "Validate & Build") | .conclusion')"
+        if grep -qx success <<< "$conclusions"; then
           skip=true
         fi
         echo "skip=${skip}" >> "$GITHUB_OUTPUT"

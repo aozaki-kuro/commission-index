@@ -10,7 +10,7 @@ CI and release workflows. Workspace, build-script and Cloudflare deploy rules li
 2. 用 `writeOfflineFactSource.ts` 把与视觉测试相同的离线 fixture 写入 `FACT_SOURCE_DIR=generated-fixture`（无生产凭证），
    Astro check 通过同一变量读取，再执行 admin build。PR 上另以 `FACT_SOURCE_PLACEHOLDER_IMAGES=1` 重写同一 fixture，
    附带确定性占位 PNG（写入干净检出中不存在的 `apps/web/generated/source-images/`，因为 registry 只从那里 glob；
-   该目录已有其他文件时脚本拒绝写入），然后 `astro build`，再断言 `apps/web/dist` 不含 HEAD / PR head 的 commit SHA
+   该目录已有其他文件时脚本拒绝写入），然后 `astro build`，再断言 `apps/web/dist` 不含 HEAD / PR head 的 commit SHA，并断言 fixture 里 Hidden 作品的图片和 publicId 都不出现在产物中（同时要求至少一张公开图已产出，避免空过）
 3. master 部署依赖上述门禁；Web 获得共享环境锁后只导出一次，记录 SHA/revision
 4. Astro check 与 Wrangler custom build 使用相同快照；部署前核对当前 master SHA，过期候选跳过。跳过不算失败（job 仍为
    success），但每处跳过（composite 的候选检查与部署前复核、`ci.yml` admin 部署）都必须写 step summary 并发
