@@ -16,20 +16,8 @@ interface KeywordReplacePopoverProps {
   onComplete: () => void
 }
 
-interface MatchedCommission {
-  id: number
-  publicId: string
-  characterId: number
-  characterName: string
-  commissionDate: string | null
-  creatorName: string | null
-  workGroupId: string | null
-  partNumber: number | null
+type MatchedCommission = AdminCommissionSearchRow & {
   displayLabel: string
-  links: string
-  design: string | null | undefined
-  description: string | null | undefined
-  hidden: boolean
   currentKeyword: string
   newKeyword: string
 }
@@ -49,19 +37,8 @@ function findMatches(
       continue
     if (row.keyword.toLowerCase().includes(needle)) {
       matches.push({
-        id: row.id,
-        publicId: row.publicId,
-        characterId: row.characterId,
-        characterName: row.characterName,
-        commissionDate: row.commissionDate,
-        creatorName: row.creatorName,
-        workGroupId: row.workGroupId,
-        partNumber: row.partNumber,
+        ...row,
         displayLabel: getCommissionDisplayLabel(row),
-        links: row.links,
-        design: row.design,
-        description: row.description,
-        hidden: row.hidden,
         currentKeyword: row.keyword,
         newKeyword: row.keyword,
       })

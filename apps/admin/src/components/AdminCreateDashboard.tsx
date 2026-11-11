@@ -1,6 +1,6 @@
 import type {
   AdminCommissionSearchRow,
-  CharacterStatus,
+  CharacterRow,
   CreatorAliasRow,
 } from '@commission-index/domain'
 import { useCallback, useState } from 'react'
@@ -9,15 +9,8 @@ import { AddCharacterForm } from './create/AddCharacterForm'
 import { AddCommissionForm } from './create/AddCommissionForm'
 import { Dialog, DialogCloseButton, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
 
-interface CharacterOption {
-  id: number
-  name: string
-  status: CharacterStatus
-  sortOrder: number
-}
-
 interface AdminCreateDashboardProps {
-  characters: CharacterOption[]
+  characters: CharacterRow[]
   commissionSearchRows: AdminCommissionSearchRow[]
   creatorAliases: CreatorAliasRow[]
   errorMessage: string | null

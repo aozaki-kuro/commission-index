@@ -5,6 +5,14 @@ import { adminSections } from '../app/sections'
 import { getLiveBuildInfo, getServerLiveBuildInfo, subscribeToLiveBuildInfo } from '../lib/liveBuildInfo'
 import { AdminInternalLink } from './AdminInternalLink'
 
+const icons = {
+  overview: IconHome,
+  create: IconPlus,
+  edit: IconListDetails,
+  aliases: IconTags,
+  suggestion: IconSearch,
+}
+
 function LiveBuildVersion() {
   const info = useSyncExternalStore(subscribeToLiveBuildInfo, getLiveBuildInfo, getServerLiveBuildInfo)
   if (!info)
@@ -28,13 +36,6 @@ interface AdminSectionNavProps {
 }
 
 export function AdminSectionNav({ current, onNavigate, publicSiteUrl }: AdminSectionNavProps) {
-  const icons = {
-    overview: IconHome,
-    create: IconPlus,
-    edit: IconListDetails,
-    aliases: IconTags,
-    suggestion: IconSearch,
-  }
   return (
     <nav
       aria-label="Admin sections"

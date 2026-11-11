@@ -1,8 +1,4 @@
 import type { CharacterRecord } from './commissionRecords'
-import process from 'node:process'
-import { characterRecords, getCharacterRecords } from './commissionRecords'
-
-const isDevelopment = process.env.NODE_ENV === 'development'
 
 interface CharacterProps {
   DisplayName: string
@@ -27,13 +23,3 @@ export function buildCharacterStatus(records: CharacterRecord[]): CommissionStat
 
   return { active, archived }
 }
-
-const staticCharacterStatus: CommissionStatus = buildCharacterStatus(characterRecords)
-
-export function getCharacterStatus(): CommissionStatus {
-  return isDevelopment
-    ? buildCharacterStatus(getCharacterRecords())
-    : staticCharacterStatus
-}
-
-export const characterStatus: CommissionStatus = staticCharacterStatus

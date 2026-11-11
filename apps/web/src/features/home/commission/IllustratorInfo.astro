@@ -12,11 +12,10 @@ interface IllustratorInfoProps {
   locale?: string
   commission: Commission
   kebabName: string
-  showLinks?: boolean
   className?: string
 }
 
-const { locale, commission, kebabName, showLinks = true, className = '' }
+const { locale, commission, kebabName, className = '' }
   = Astro.props as IllustratorInfoProps
 const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
 const { Description: description = '', Links: links, Design: designLink } = commission
@@ -32,7 +31,6 @@ const partLabel = commission.partNumber == null
 ? null
 : `Part ${commission.partNumber}`
 const hasDescription = Boolean(description)
-const hasBoth = hasDescription
 
 const displayLinks = selectDisplayLinks({ links, designLink })
 const hasPublishedLinks = displayLinks.mainLinks.length > 0
@@ -65,7 +63,7 @@ const rootClass = `flex w-full flex-wrap items-center gap-y-2 font-mono text-xs 
     }
 
     {
-      hasBoth
+      hasDescription
 ? (
         <>
           <span class="
@@ -86,51 +84,43 @@ const rootClass = `flex w-full flex-wrap items-center gap-y-2 font-mono text-xs 
   "
   >
     {
-      showLinks
+      displayLinks.mainLinks.map(link => (
+        <a href={link.url} class={COMMISSION_LINK_TEXT_CLASS} target="_blank">
+          {link.type}
+        </a>
+      ))
+    }
+    {
+      displayLinks.designLink
 ? (
-        <>
-          {
-            displayLinks.mainLinks.map(link => (
-              <a href={link.url} class={COMMISSION_LINK_TEXT_CLASS} target="_blank">
-                {link.type}
-              </a>
-            ))
-          }
-          {
-            displayLinks.designLink
-? (
-              <a href={displayLinks.designLink} class={COMMISSION_LINK_TEXT_CLASS} target="_blank">
-                {messages.listing.designLink}
-              </a>
-            )
+        <a href={displayLinks.designLink} class={COMMISSION_LINK_TEXT_CLASS} target="_blank">
+          {messages.listing.designLink}
+        </a>
+      )
 : null
-          }
-          {
-            !hasPublishedLinks
+    }
+    {
+      !hasPublishedLinks
 ? (
-              <button
-                type="button"
-                aria-pressed="false"
-                data-link-style="true"
-                class={`
+        <button
+          type="button"
+          aria-pressed="false"
+          data-link-style="true"
+          class={`
                   ${COMMISSION_LINK_TEXT_CLASS}
                   inline-flex appearance-none items-center gap-2
                   border-0 bg-transparent p-0
                   disabled:cursor-default disabled:no-underline
                 `}
-                title={messages.listing.wantThisTitle}
-                data-commission-interest-key={commission.publicId}
-                data-commission-interest-recorded-label={messages.listing.wantThisRecorded}
-                data-commission-interest-recorded-title={messages.listing.wantThisRecordedTitle}
-              >
-                <Fragment set:html={getUnpublishedInterestIconMarkup({ state: 'default' })} />
-                <Fragment set:html={getUnpublishedInterestIconMarkup({ state: 'recorded', hidden: true })} />
-                <span data-commission-interest-label>{messages.listing.wantThis}</span>
-              </button>
-            )
-: null
-          }
-        </>
+          title={messages.listing.wantThisTitle}
+          data-commission-interest-key={commission.publicId}
+          data-commission-interest-recorded-label={messages.listing.wantThisRecorded}
+          data-commission-interest-recorded-title={messages.listing.wantThisRecordedTitle}
+        >
+          <Fragment set:html={getUnpublishedInterestIconMarkup({ state: 'default' })} />
+          <Fragment set:html={getUnpublishedInterestIconMarkup({ state: 'recorded', hidden: true })} />
+          <span data-commission-interest-label>{messages.listing.wantThis}</span>
+        </button>
       )
 : null
     }

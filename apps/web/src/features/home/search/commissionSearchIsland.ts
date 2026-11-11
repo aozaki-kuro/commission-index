@@ -33,9 +33,7 @@ export function mountCommissionSearchIsland(): () => void {
       const root = document.getElementById('commission-search')
       if (!root)
         return
-      teardownController = pendingKeyword
-        ? initSearchController(root, { pendingKeyword })
-        : initSearchController(root)
+      teardownController = initSearchController(root, { pendingKeyword })
     })
   }
 

@@ -266,7 +266,6 @@ export function CommissionEditForm({
             notifyDataUpdate({ characterIds })
             markPendingRebuild()
             setDeleteStatus({ text: 'Entry deleted.', type: 'success' })
-            setIsDeleteArmed(false)
             onDelete?.()
             return
           }
@@ -275,13 +274,18 @@ export function CommissionEditForm({
             text: result.message ?? 'Failed to delete commission.',
             type: 'error',
           })
-          setIsDeleteArmed(false)
         })
         .catch(() => {
           setDeleteStatus({ text: 'Failed to delete commission.', type: 'error' })
-          setIsDeleteArmed(false)
         })
+        .finally(() => setIsDeleteArmed(false))
     })
+  }
+
+  const clearSourceImageInput = () => {
+    if (sourceImageInputRef.current) {
+      sourceImageInputRef.current.value = ''
+    }
   }
 
   const handleSelectSourceImage = () => {
@@ -343,19 +347,13 @@ export function CommissionEditForm({
         .catch(() => {
           setUploadStatus({ text: 'Failed to replace source image.', type: 'error' })
         })
-        .finally(() => {
-          if (sourceImageInputRef.current) {
-            sourceImageInputRef.current.value = ''
-          }
-        })
+        .finally(clearSourceImageInput)
     })
   }
 
   const handleCropCancel = () => {
     setPendingCropFile(null)
-    if (sourceImageInputRef.current) {
-      sourceImageInputRef.current.value = ''
-    }
+    clearSourceImageInput()
   }
 
   const handleCropConfirm = (file: File) => {
@@ -459,7 +457,6 @@ export function CommissionEditForm({
         onCreatorNameChange={setCreatorName}
         linksValue={linksValue}
         onLinksChange={setLinksValue}
-        linksRows={3}
         designValue={designValue}
         onDesignChange={setDesignValue}
         descriptionValue={descriptionValue}

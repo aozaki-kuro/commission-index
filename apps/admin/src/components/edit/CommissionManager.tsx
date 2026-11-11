@@ -92,7 +92,6 @@ export function CommissionManager({
     closeConfirmDialog,
     commissionMap,
     confirmingCharacter,
-    deletingId,
     editing,
     feedback,
     dismissFeedback,
@@ -157,17 +156,15 @@ export function CommissionManager({
   const searchIndex = (hydratedIndex?.base === baseSearchIndex)
     ? hydratedIndex.index
     : baseSearchIndex
-  const allCommissionIds = baseSearchIndex.allIds
   const matchedCommissionIds = useMemo(
     () => getMatchedEntryIds(deferredSearchQuery, searchIndex),
     [searchIndex, deferredSearchQuery],
   )
-  const effectiveMatchedCommissionIds = hasAppliedSearchQuery ? matchedCommissionIds : allCommissionIds
   const matchedSearchRows = useMemo(
     () => hasAppliedSearchQuery
-      ? currentSearchRows.filter(row => effectiveMatchedCommissionIds.has(row.id))
+      ? currentSearchRows.filter(row => matchedCommissionIds.has(row.id))
       : [],
-    [currentSearchRows, effectiveMatchedCommissionIds, hasAppliedSearchQuery],
+    [currentSearchRows, matchedCommissionIds, hasAppliedSearchQuery],
   )
   const sortedLoadedCommissionsByCharacter = useMemo(() => {
     const next = new Map<number, CommissionRow[]>()
@@ -190,7 +187,6 @@ export function CommissionManager({
   } = useNativeDragReorder({
     itemCount: list.length,
     onReorder: handleReorder,
-    disabled: hasAppliedSearchQuery,
   })
 
   const loadCharacterCommissions = useCallback((characterId: number, force = false): Promise<CommissionRow[] | null> => {
@@ -307,10 +303,14 @@ export function CommissionManager({
     toggleCharacterOpen(characterId)
   }, [loadCharacterCommissions, openIds, toggleCharacterOpen])
 
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value)
+  const clearPendingSelection = useCallback(() => {
     pendingCommissionIdRef.current = null
     setPendingCommissionId(null)
+  }, [])
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
+    clearPendingSelection()
     setSelectionError(null)
     if (normalizeAdminSearchQuery(value)) {
       setIsReorderMode(false)
@@ -370,8 +370,7 @@ export function CommissionManager({
     const cached = loadedCommissions.find(commission => commission.id === commissionId)
     setSelectionError(null)
     if (cached && !staleCharacterIdsRef.current.has(characterId) && !inFlightLoadPromisesRef.current.has(characterId)) {
-      pendingCommissionIdRef.current = null
-      setPendingCommissionId(null)
+      clearPendingSelection()
       setSelectedCommission(cached)
       return
     }
@@ -384,8 +383,7 @@ export function CommissionManager({
       const selected = commissions?.find(commission => commission.id === commissionId)
       if (selected) {
         setSelectedCommission(selected)
-        setPendingCommissionId(null)
-        pendingCommissionIdRef.current = null
+        clearPendingSelection()
       }
       else {
         staleCharacterIdsRef.current.add(characterId)
@@ -395,18 +393,17 @@ export function CommissionManager({
           : previous.get(characterId) ?? 'Current details are unavailable'))
       }
     })
-  }, [loadCharacterCommissions, loadedCommissions])
+  }, [clearPendingSelection, loadCharacterCommissions, loadedCommissions])
 
   const handleSelectCommission = useCallback((commission: CommissionRow) => {
     handleSearchResultSelect(commission.id, commission.characterId)
   }, [handleSearchResultSelect])
 
   const handleCloseDrawer = useCallback(() => {
-    pendingCommissionIdRef.current = null
-    setPendingCommissionId(null)
+    clearPendingSelection()
     setSelectionError(null)
     setSelectedCommission(null)
-  }, [])
+  }, [clearPendingSelection])
 
   const handleKeywordReplaceComplete = useCallback(() => {
     // 旧网格可保留展示，但批量变更后的记录必须刷新后才能编辑。
@@ -642,7 +639,6 @@ export function CommissionManager({
                           <SortableCharacterCard
                             character={character}
                             isActive={isActive}
-                            totalCommissions={character.commissionCount}
                             commissionList={visibleCharacterCommissions}
                             isCommissionsLoaded={loadedCharacterIds.has(character.id)}
                             isCommissionsLoading={loadingCharacterIds.has(character.id)}
@@ -666,10 +662,9 @@ export function CommissionManager({
                                 : null
                               handleRequestDelete(character)
                             }}
-                            isDeleting={deletingId === character.id || isDeletePending}
+                            isDeleting={isDeletePending}
                             isDragging={draggingIndex === index}
                             dragHandleProps={dragHandleProps(index)}
-                            disableDrag={hasAppliedSearchQuery}
                             isReorderMode={isReorderMode}
                             onMoveUp={index === 0
                               ? undefined

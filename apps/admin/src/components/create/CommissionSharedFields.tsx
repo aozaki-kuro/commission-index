@@ -32,7 +32,6 @@ interface CommissionSharedFieldsProps {
   onCreatorNameChange?: (value: string) => void
   linksValue?: string
   onLinksChange?: (value: string) => void
-  linksRows?: number
   designValue?: string
   onDesignChange?: (value: string) => void
   descriptionValue?: string
@@ -60,7 +59,6 @@ export function CommissionSharedFields({
   onCreatorNameChange,
   linksValue,
   onLinksChange,
-  linksRows = 3,
   designValue,
   onDesignChange,
   descriptionValue,
@@ -113,7 +111,6 @@ export function CommissionSharedFields({
         <CommissionLinksField
           value={linksValue}
           onChange={onLinksChange}
-          rows={linksRows}
         />
 
         <CommissionDesignDescriptionFields

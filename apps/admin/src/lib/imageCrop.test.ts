@@ -7,6 +7,7 @@ import {
   getMaximumCropSelectionWidth,
   isCropSelectionCovered,
   normalizeCropImageMatrix,
+  refitCropSelectionAfterRotation,
   resizeCropEditorState,
   restoreCropEditorState,
   SOURCE_IMAGE_ASPECT,
@@ -263,6 +264,60 @@ describe('image crop geometry', () => {
     expect(transform.zoom / resized.selection.width).toBeCloseTo(confirmed.zoom / selection.width, 10)
     expect(transform.crop.x / resized.selection.width).toBeCloseTo(confirmed.crop.x / selection.width, 10)
     expect(resized.preferredWidth).toBeCloseTo(600 * resized.scale, 10)
+  })
+
+  it('keeps the frame centre after a rotation and never grows a frame already below the minimum', () => {
+    const canvasSize = { height: 400, width: 800 }
+    const angle = 30 * Math.PI / 180
+    const image = {
+      baseCenter: { x: 400, y: 200 },
+      matrix: [
+        Math.cos(angle),
+        Math.sin(angle),
+        -Math.sin(angle),
+        Math.cos(angle),
+        0,
+        0,
+      ] as [number, number, number, number, number, number],
+      size: { height: 300, width: 600 },
+    }
+    const selection = {
+      height: 400 / SOURCE_IMAGE_ASPECT,
+      width: 400,
+      x: 200,
+      y: 200 - 200 / SOURCE_IMAGE_ASPECT,
+    }
+    const options = {
+      allowOverflow: false,
+      canvasSize,
+      image,
+      minimumWidth: 96,
+      selection,
+    }
+    const maximumWidth = getMaximumCropSelectionWidth({
+      aspectRatio: SOURCE_IMAGE_ASPECT,
+      canvasSize,
+      center: { x: 400, y: 200 },
+      image,
+    })
+
+    const shrunk = refitCropSelectionAfterRotation({ ...options, preferredWidth: Number.POSITIVE_INFINITY })
+    expect(maximumWidth).toBeLessThan(selection.width)
+    expect(shrunk.width).toBeCloseTo(maximumWidth, 10)
+    expect(shrunk.width / shrunk.height).toBeCloseTo(SOURCE_IMAGE_ASPECT, 10)
+    expect(shrunk.x + shrunk.width / 2).toBeCloseTo(400, 10)
+    expect(shrunk.y + shrunk.height / 2).toBeCloseTo(200, 10)
+    expectSelectionCovered(shrunk, image, canvasSize)
+
+    expect(refitCropSelectionAfterRotation({ ...options, preferredWidth: 120 }).width).toBe(120)
+
+    const tiny = {
+      height: 40 / SOURCE_IMAGE_ASPECT,
+      width: 40,
+      x: 380,
+      y: 200 - 20 / SOURCE_IMAGE_ASPECT,
+    }
+    expect(refitCropSelectionAfterRotation({ ...options, preferredWidth: 10, selection: tiny }).width).toBe(40)
   })
 
   describe('overflow mode', () => {

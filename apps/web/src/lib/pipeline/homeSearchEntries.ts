@@ -5,9 +5,10 @@ import {
 import { getCharacterAliasesMap } from '../../../data/characterAliases'
 import { getCommissionDataMap } from '../../../data/commissionData'
 import { getCharacterRecords } from '../../../data/commissionRecords'
-import { getCreatorAliasesMap } from '../../../data/creatorAliases'
+import { getCreatorAliases } from '../../../data/creatorAliases'
 import { getKeywordAliasesMap } from '../../../data/keywordAliases'
 import { getCharacterSectionId } from '../characters/nav'
+import { buildCreatorAliasesMap } from '../sitePayload'
 import { contentHash } from '../utils/contentHash'
 
 export interface SearchEntry {
@@ -27,7 +28,7 @@ export function buildHomeSearchEntries(): SearchEntry[] {
   const records = getCharacterRecords()
   const commissionMap = getCommissionDataMap()
   const characterAliasesMap = getCharacterAliasesMap()
-  const creatorAliasesMap = getCreatorAliasesMap()
+  const creatorAliasesMap = buildCreatorAliasesMap(getCreatorAliases())
   const keywordAliasesMap = getKeywordAliasesMap()
   const orderedCharacters = [
     ...records.filter(record => record.status === 'active').map(record => record.name),
@@ -67,10 +68,6 @@ export function buildHomeSearchEntries(): SearchEntry[] {
 }
 
 let cachedArtifact: HomeSearchEntriesArtifact | null = null
-
-export function clearHomeSearchEntriesArtifactCacheForTests() {
-  cachedArtifact = null
-}
 
 /**
  * Entries plus their content hash. The page's data-search-index-version and the search-entries endpoint

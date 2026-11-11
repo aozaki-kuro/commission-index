@@ -2,6 +2,7 @@ import type { Props } from '@data/types'
 import type { CharacterRecord } from './commissionRecords'
 import process from 'node:process'
 import { filterHiddenCommissions, sortCommissionsByDate } from '@lib/commissions'
+import { buildCommissionDataMap } from '@lib/sitePayload'
 import { characterRecords, getCharacterRecords } from './commissionRecords'
 
 const isDevelopment = process.env.NODE_ENV === 'development'
@@ -16,12 +17,8 @@ export function buildCommissionData(records: CharacterRecord[]): Props {
   )
 }
 
-function buildCommissionMap(data: Props) {
-  return new Map(data.map(character => [character.Character, character]))
-}
-
 const staticCommissionData: Props = buildCommissionData(characterRecords)
-const staticCommissionDataMap = buildCommissionMap(staticCommissionData)
+const staticCommissionDataMap = buildCommissionDataMap(staticCommissionData)
 
 export function getCommissionData(): Props {
   return isDevelopment
@@ -32,9 +29,6 @@ export function getCommissionData(): Props {
 // 开发态每次重建映射，生产态复用缓存
 export function getCommissionDataMap() {
   return isDevelopment
-    ? buildCommissionMap(getCommissionData())
+    ? buildCommissionDataMap(getCommissionData())
     : staticCommissionDataMap
 }
-
-export const commissionData: Props = staticCommissionData
-export const commissionDataMap = staticCommissionDataMap

@@ -24,7 +24,6 @@ export interface SavedSourceImage {
   mimeType: string
   objectKey: string
   sha256: string
-  targetKey: string
 }
 
 function toHex(buffer: ArrayBuffer) {
@@ -170,10 +169,5 @@ export async function saveSourceImageToBucket(
     mimeType,
     objectKey: targetKey,
     sha256,
-    targetKey,
   }
-}
-
-export async function removeSourceImageObject(bucket: R2WriteBucketLike, key: string) {
-  await bucket.delete(key)
 }

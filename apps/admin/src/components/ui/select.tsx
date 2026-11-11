@@ -5,7 +5,6 @@ import { formControlStyles } from '../../app/ui'
 import { cn } from '../../lib/cn'
 
 const Select = SelectPrimitive.Root
-const SelectGroup = SelectPrimitive.Group
 const SelectValue = SelectPrimitive.Value
 
 function SelectTrigger({
@@ -85,23 +84,6 @@ function SelectContent({
 }
 SelectContent.displayName = SelectPrimitive.Content.displayName
 
-function SelectLabel({
-  ref,
-  className,
-  ...props
-}: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Label> & {
-  ref?: React.RefObject<React.ComponentRef<typeof SelectPrimitive.Label> | null>
-}) {
-  return (
-    <SelectPrimitive.Label
-      ref={ref}
-      className={cn('px-2 py-1.5 text-xs font-semibold text-gray-500', className)}
-      {...props}
-    />
-  )
-}
-SelectLabel.displayName = SelectPrimitive.Label.displayName
-
 function SelectItem({
   ref,
   className,
@@ -136,33 +118,10 @@ function SelectItem({
 }
 SelectItem.displayName = SelectPrimitive.Item.displayName
 
-function SelectSeparator({
-  ref,
-  className,
-  ...props
-}: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Separator> & {
-  ref?: React.RefObject<React.ComponentRef<typeof SelectPrimitive.Separator> | null>
-}) {
-  return (
-    <SelectPrimitive.Separator
-      ref={ref}
-      className={cn(
-        `-mx-1 my-1 h-px bg-gray-200 dark:bg-gray-800`,
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-SelectSeparator.displayName = SelectPrimitive.Separator.displayName
-
 export {
   Select,
   SelectContent,
-  SelectGroup,
   SelectItem,
-  SelectLabel,
-  SelectSeparator,
   SelectTrigger,
   SelectValue,
 }

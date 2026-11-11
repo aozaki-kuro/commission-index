@@ -1,4 +1,4 @@
-import type { ChangeEvent, ComponentPropsWithoutRef, ReactNode, RefObject } from 'react'
+import type { ChangeEvent, ReactNode, RefObject } from 'react'
 import type { CommissionWorkGroupOption } from '../../lib/commissionWorkGroups'
 import { isFutureCommissionDate } from '@commission-index/domain'
 import * as Popover from '@radix-ui/react-popover'
@@ -93,16 +93,12 @@ function buildCalendarDates(month: Date) {
   )))
 }
 
-function isValidIsoDate(value: string) {
-  return parseIsoDate(value) !== null
-}
-
 // Mirrors the worker rule so the error shows before submit; the worker stays authoritative.
 function getCommissionDateValidityMessage(value: string) {
   if (!value) {
     return ''
   }
-  if (!isValidIsoDate(value)) {
+  if (parseIsoDate(value) === null) {
     return 'Enter a real date in YYYY-MM-DD format.'
   }
   return isFutureCommissionDate(value, new Date())
@@ -110,27 +106,16 @@ function getCommissionDateValidityMessage(value: string) {
     : ''
 }
 
-type InputBinding = Pick<ComponentPropsWithoutRef<'input'>, 'value' | 'onChange'>
-type TextareaBinding = Pick<ComponentPropsWithoutRef<'textarea'>, 'value' | 'onChange'>
-
-function bindInputValue(value?: string, onChange?: (value: string) => void): InputBinding | undefined {
+function bindValue<T extends HTMLInputElement | HTMLTextAreaElement = HTMLInputElement>(
+  value?: string,
+  onChange?: (value: string) => void,
+) {
   if (value === undefined || !onChange) {
     return undefined
   }
 
   return {
-    onChange: (event: ChangeEvent<HTMLInputElement>) => onChange(event.target.value),
-    value,
-  }
-}
-
-function bindTextareaValue(value?: string, onChange?: (value: string) => void): TextareaBinding | undefined {
-  if (value === undefined || !onChange) {
-    return undefined
-  }
-
-  return {
-    onChange: (event: ChangeEvent<HTMLTextAreaElement>) => onChange(event.target.value),
+    onChange: (event: ChangeEvent<T>) => onChange(event.target.value),
     value,
   }
 }
@@ -197,12 +182,7 @@ export function CommissionCharacterField({
   )
 }
 
-interface CommissionDateFieldProps {
-  value?: string
-  onChange?: (value: string) => void
-}
-
-interface CommissionCreatorFieldProps {
+interface OptionalTextFieldProps {
   value?: string
   onChange?: (value: string) => void
 }
@@ -216,31 +196,29 @@ interface CommissionWorkGroupFieldProps {
   visibilityControl?: ReactNode
 }
 
+const sourceImageAccept = 'image/jpeg,image/png,.jpg,.jpeg,.png'
+
 interface CommissionSourceImageFieldProps {
-  accept?: string
-  required?: boolean
   inputRef?: RefObject<HTMLInputElement | null>
   onChange?: (event: ChangeEvent<HTMLInputElement>) => void
 }
 
 export function CommissionSourceImageField({
-  accept = 'image/jpeg,image/png,.jpg,.jpeg,.png',
-  required = false,
   inputRef,
   onChange,
 }: CommissionSourceImageFieldProps) {
   return (
     <div className={alignedFieldStyles}>
       <label className={fieldLabelStyles} htmlFor="create-commission-source-image">
-        {required ? 'Source image' : 'Source image (optional)'}
+        Source image
       </label>
       <input
         ref={inputRef}
         id="create-commission-source-image"
         type="file"
         name="sourceImage"
-        accept={accept}
-        required={required}
+        accept={sourceImageAccept}
+        required
         onChange={onChange}
         className={`
           ${formControlStyles}
@@ -263,7 +241,7 @@ export function CommissionSourceImageField({
 export function CommissionDateField({
   value,
   onChange,
-}: CommissionDateFieldProps) {
+}: OptionalTextFieldProps) {
   const dateInputRef = useRef<HTMLInputElement>(null)
 
   const handleDateInput = (event: ChangeEvent<HTMLInputElement>) => {
@@ -500,6 +478,13 @@ interface CalendarDayProps {
   onMoveFocus: (date: Date) => void
 }
 
+const arrowKeyDayOffsets: Record<string, number> = {
+  ArrowDown: 7,
+  ArrowLeft: -1,
+  ArrowRight: 1,
+  ArrowUp: -7,
+}
+
 function CalendarDay({
   date,
   month,
@@ -510,13 +495,6 @@ function CalendarDay({
 }: CalendarDayProps) {
   const dateValue = formatIsoDate(date)
   const isCurrentMonth = date.getUTCMonth() === month.getUTCMonth()
-  const offsets: Record<string, number> = {
-    ArrowDown: 7,
-    ArrowLeft: -1,
-    ArrowRight: 1,
-    ArrowUp: -7,
-  }
-
   return (
     <div role="gridcell" aria-selected={isSelected}>
       <button
@@ -526,7 +504,7 @@ function CalendarDay({
         data-calendar-date={dateValue}
         onClick={() => onSelect(date)}
         onKeyDown={(event) => {
-          const offset = offsets[event.key]
+          const offset = arrowKeyDayOffsets[event.key]
           if (offset === undefined) {
             return
           }
@@ -554,7 +532,7 @@ function CalendarDay({
   )
 }
 
-export function CommissionCreatorField({ value, onChange }: CommissionCreatorFieldProps) {
+export function CommissionCreatorField({ value, onChange }: OptionalTextFieldProps) {
   return (
     <div className={alignedFieldStyles}>
       <label className={fieldLabelStyles} htmlFor="create-commission-creator">
@@ -567,7 +545,7 @@ export function CommissionCreatorField({ value, onChange }: CommissionCreatorFie
         autoComplete="off"
         placeholder="Artist or studio"
         className={formControlStyles}
-        {...(bindInputValue(value, onChange) ?? {})}
+        {...bindValue(value, onChange)}
       />
       <p className={fieldDescriptionStyles}>
         Leave blank if unknown.
@@ -685,13 +663,11 @@ export function CommissionWorkGroupField({
 interface CommissionLinksFieldProps {
   value?: string
   onChange?: (value: string) => void
-  rows?: number
 }
 
 export function CommissionLinksField({
   value,
   onChange,
-  rows = 4,
 }: CommissionLinksFieldProps) {
   return (
     <div className={alignedFieldStyles}>
@@ -701,10 +677,10 @@ export function CommissionLinksField({
       <textarea
         id="create-commission-links"
         name="links"
-        rows={rows}
+        rows={3}
         placeholder="https://example.com"
         className={formControlStyles}
-        {...(bindTextareaValue(value, onChange) ?? {})}
+        {...bindValue<HTMLTextAreaElement>(value, onChange)}
       />
       <p className={fieldDescriptionStyles}>
         Paste each URL on a separate line, or leave blank if none.
@@ -746,7 +722,7 @@ export function CommissionDesignDescriptionFields({
           name="design"
           placeholder={designPlaceholder}
           className={formControlStyles}
-          {...(bindInputValue(designValue, onDesignChange) ?? {})}
+          {...bindValue(designValue, onDesignChange)}
         />
       </div>
 
@@ -760,19 +736,14 @@ export function CommissionDesignDescriptionFields({
           name="description"
           placeholder={descriptionPlaceholder}
           className={formControlStyles}
-          {...(bindInputValue(descriptionValue, onDescriptionChange) ?? {})}
+          {...bindValue(descriptionValue, onDescriptionChange)}
         />
       </div>
     </div>
   )
 }
 
-interface CommissionKeywordFieldProps {
-  value?: string
-  onChange?: (value: string) => void
-}
-
-export function CommissionKeywordField({ value, onChange }: CommissionKeywordFieldProps) {
+export function CommissionKeywordField({ value, onChange }: OptionalTextFieldProps) {
   return (
     <div className={alignedFieldStyles}>
       <label className={fieldLabelStyles} htmlFor="create-commission-keyword">
@@ -784,7 +755,7 @@ export function CommissionKeywordField({ value, onChange }: CommissionKeywordFie
         name="keyword"
         placeholder="e.g. studio k, skeb, private tag"
         className={formControlStyles}
-        {...(bindInputValue(value, onChange) ?? {})}
+        {...bindValue(value, onChange)}
       />
       <p className={fieldDescriptionStyles}>
         Separate keywords with commas. They are searchable but never rendered publicly.

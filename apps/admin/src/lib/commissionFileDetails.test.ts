@@ -4,14 +4,13 @@ import {
   classifyFileNameSegments,
   extractCommissionDetails,
   resolveCharacterToken,
-} from '../../lib/commissionFileDetails'
+} from './commissionFileDetails'
 
 describe('extractCommissionDetails', () => {
   it('recognizes a strict part suffix and keeps its creator name clean', () => {
     expect(extractCommissionDetails('20250302_Artist Studio (part 2).jpg')).toEqual({
       commissionDate: '2025-03-02',
       creatorName: 'Artist Studio',
-      workGroupId: 'new',
       partNumber: 2,
       characterToken: null,
       segments: [],
@@ -21,17 +20,14 @@ describe('extractCommissionDetails', () => {
   it('leaves non-part names standalone and rejects invalid part numbers', () => {
     expect(extractCommissionDetails('20250302_Artist Studio.jpg')).toMatchObject({
       creatorName: 'Artist Studio',
-      workGroupId: '',
       partNumber: null,
     })
     expect(extractCommissionDetails('20250302_Artist Studio (part 0).jpg')).toMatchObject({
       creatorName: 'Artist Studio (part 0)',
-      workGroupId: '',
       partNumber: null,
     })
     expect(extractCommissionDetails('20250302_Artist Studio (part two).jpg')).toMatchObject({
       creatorName: 'Artist Studio (part two)',
-      workGroupId: '',
       partNumber: null,
     })
   })
@@ -40,7 +36,6 @@ describe('extractCommissionDetails', () => {
     expect(extractCommissionDetails('K_isj_ICHIZEN-RYUU_20261108_01.png')).toEqual({
       commissionDate: '2026-11-08',
       creatorName: '',
-      workGroupId: '',
       partNumber: null,
       characterToken: 'K',
       segments: ['isj', 'ICHIZEN-RYUU'],

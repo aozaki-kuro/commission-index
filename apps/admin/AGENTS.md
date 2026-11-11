@@ -12,6 +12,7 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 ## Key Structure
 
 - `src/lib/websiteRebuild.ts` — shared rebuild request/pending state; `src/lib/pendingRebuildSignal.ts` — pending flag + revision
+- `src/hooks/useAdminResource.ts` — fetch-with-cache state (`[state, reload]`) shared by the Create, Aliases and Suggestion pages
 - `src/components/FloatingNotice.tsx` — Portal notices kept out of form flow
 - `src/components/image/ImageCropDialog.tsx`, `ImageCropWorkspace.tsx` (Cropper.js bridge), `src/lib/imageCrop.ts` (geometry authority)
 - `src/components/image/LazyImageCropDialog.tsx` — the only entry point forms may use for the crop dialog (loads the cropper chunk on first pick)

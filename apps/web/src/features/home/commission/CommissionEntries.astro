@@ -13,7 +13,6 @@ export interface CommissionRenderEntry {
   character: string
   commission: Commission
   sectionId: string
-  entryKey: string
   entryAnchorPrefix: string
 }
 
@@ -23,9 +22,6 @@ interface CommissionEntriesProps {
   characterAliasesMap: Map<string, string[]> | null
   creatorAliasesMap: Map<string, string[]> | null
   keywordAliasesMap: Map<string, string[]> | null
-  showCharacterLabel?: boolean
-  showImage?: boolean
-  showLinks?: boolean
   embedSearchMetadata?: boolean
   priorityFirstImage?: boolean
 }
@@ -36,9 +32,6 @@ const {
   characterAliasesMap,
   creatorAliasesMap,
   keywordAliasesMap,
-  showCharacterLabel = false,
-  showImage = true,
-  showLinks = true,
   embedSearchMetadata,
   priorityFirstImage = false,
 } = Astro.props as CommissionEntriesProps
@@ -104,78 +97,36 @@ const legacyAnchorIds = new Set<string>()
           {...searchAttributes}
         >
         {
-          showImage
+          sourceImage
 ? (
-            sourceImage
-? (
-              <ProtectedCommissionImage altText={altText} sourceImage={sourceImage} priority={priorityFirstImage && entryIndex === 0} />
-            )
+            <ProtectedCommissionImage altText={altText} sourceImage={sourceImage} priority={priorityFirstImage && entryIndex === 0} />
+          )
 : (
-              <div
-                data-commission-image="true"
-                data-commission-alt={altText}
-                class="relative"
-              >
-                <div class="
+            <div
+              data-commission-image="true"
+              data-commission-alt={altText}
+              class="relative"
+            >
+              <div class="
                   flex aspect-1280/525 items-center justify-center bg-gray-100
                   text-xs text-gray-500
                   dark:bg-gray-800 dark:text-gray-300
                 "
-                >
-                  {messages.listing.sourceImageNotFound}
-                </div>
-              </div>
-            )
-          )
-: null
-        }
-        {
-          showCharacterLabel
-? (
-            <div class={showImage
-? `
-  mt-6 mb-2
-  md:mt-8 md:mb-4
-`
-: `
-  my-2
-  md:mb-4
-`}
-            >
-              <div class="
-                mb-2 text-xs text-gray-600
-                md:text-sm
-                dark:text-gray-400
-              "
               >
-                {character}
+                {messages.listing.sourceImageNotFound}
               </div>
-              <IllustratorInfo
-                locale={resolvedLocale}
-                commission={commission}
-                kebabName={entryAnchorPrefix}
-                showLinks={showLinks}
-              />
             </div>
           )
-: (
-            <IllustratorInfo
-              locale={resolvedLocale}
-              commission={commission}
-              kebabName={entryAnchorPrefix}
-              showLinks={showLinks}
-              className={showImage
-? `
+        }
+        <IllustratorInfo
+          locale={resolvedLocale}
+          commission={commission}
+          kebabName={entryAnchorPrefix}
+          className={`
   mt-6 mb-2
   md:mt-8 md:mb-4
-`
-: `
-  my-2
-  md:mb-4
 `}
-            />
-          )
-        }
+        />
         </div>
       </>
     )

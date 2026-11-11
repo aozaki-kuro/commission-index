@@ -12,7 +12,6 @@ function createBackend() {
     headers: { 'Content-Type': 'application/json' },
   })
   const backend = {
-    getCharacterCommissions: vi.fn(async () => success()),
     createCharacter: vi.fn(async () => success()),
     updateCharacter: vi.fn(async () => success()),
     updateCharacterOrder: vi.fn(async () => success()),

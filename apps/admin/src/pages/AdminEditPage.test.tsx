@@ -20,8 +20,8 @@ vi.mock('../lib/dataUpdateSignal', () => ({
     return () => {}
   },
 }))
-vi.mock('../components/AdminEditDashboard', () => ({
-  AdminEditDashboard: ({ onOpenGroupsLoaded, refreshScope }: { onOpenGroupsLoaded: () => void, refreshScope: ReadonlySet<number> | null }) => {
+vi.mock('../components/edit/CommissionManager', () => ({
+  CommissionManager: ({ onOpenGroupsLoaded, refreshScope }: { onOpenGroupsLoaded: () => void, refreshScope: ReadonlySet<number> | null }) => {
     api.groupsLoaded = onOpenGroupsLoaded
     api.scopes.push(refreshScope && [...refreshScope].toSorted())
     return createElement('h2', null, 'Cached dashboard')

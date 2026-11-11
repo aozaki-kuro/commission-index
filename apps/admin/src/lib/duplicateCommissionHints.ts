@@ -5,10 +5,7 @@ import { getCommissionDisplayLabel } from './commissionPresentation'
 export interface DuplicateCommissionHint {
   commissionId: number
   publicId: string
-  characterId: number
   characterName: string
-  commissionDate: string | null
-  creatorName: string | null
   displayLabel: string
   reasons: string[]
   score: number
@@ -102,10 +99,7 @@ export function findDuplicateCommissionHints({
 
       return [
 {
-  characterId: candidate.characterId,
   characterName: candidate.characterName,
-  commissionDate: candidate.commissionDate,
-  creatorName: candidate.creatorName,
   commissionId: candidate.id,
   publicId: candidate.publicId,
   displayLabel: getCommissionDisplayLabel(candidate),

@@ -33,15 +33,7 @@ function writeRecordedState(commissionKey: string, storage: Pick<Storage, 'getIt
   catch {}
 }
 
-function syncButtonsForKey({
-  commissionKey,
-  doc,
-  recorded,
-}: {
-  commissionKey: string
-  doc: Document
-  recorded: boolean
-}) {
+function markButtonsRecordedForKey(commissionKey: string, doc: Document) {
   const buttons = [
     ...doc.querySelectorAll<HTMLButtonElement>(BUTTON_SELECTOR),
   ].filter(
@@ -49,44 +41,25 @@ function syncButtonsForKey({
   )
 
   for (const button of buttons) {
-    setButtonState(button, recorded)
+    markButtonRecorded(button)
   }
 }
 
-function setButtonState(button: HTMLButtonElement, recorded: boolean) {
+// Buttons are server-rendered in their unrecorded state, so only the recorded state is ever applied.
+function markButtonRecorded(button: HTMLButtonElement) {
   const label = button.querySelector<HTMLSpanElement>(LABEL_SELECTOR)
-  if (label) {
-    if (!button.dataset.commissionInterestDefaultLabel) {
-      button.dataset.commissionInterestDefaultLabel = label.textContent ?? ''
-    }
-
-    label.textContent = recorded
-      ? (button.dataset.commissionInterestRecordedLabel
-        ?? button.dataset.commissionInterestDefaultLabel)
-      : button.dataset.commissionInterestDefaultLabel
+  const recordedLabel = button.dataset.commissionInterestRecordedLabel
+  if (label && recordedLabel !== undefined) {
+    label.textContent = recordedLabel
   }
 
-  button.querySelector<HTMLElement>(DEFAULT_ICON_SELECTOR)?.classList.toggle('hidden', recorded)
-  button.querySelector<HTMLElement>(RECORDED_ICON_SELECTOR)?.classList.toggle('hidden', !recorded)
+  button.querySelector<HTMLElement>(DEFAULT_ICON_SELECTOR)?.classList.add('hidden')
+  button.querySelector<HTMLElement>(RECORDED_ICON_SELECTOR)?.classList.remove('hidden')
 
-  if (!button.dataset.commissionInterestDefaultTitle) {
-    button.dataset.commissionInterestDefaultTitle = button.title
-  }
-
-  button.disabled = recorded
-  button.setAttribute('aria-pressed', String(recorded))
-
-  if (recorded) {
-    button.removeAttribute('data-link-style')
-    button.title
-      = button.dataset.commissionInterestRecordedTitle
-        ?? button.dataset.commissionInterestDefaultTitle
-        ?? ''
-    return
-  }
-
-  button.dataset.linkStyle = 'true'
-  button.title = button.dataset.commissionInterestDefaultTitle ?? ''
+  button.disabled = true
+  button.setAttribute('aria-pressed', 'true')
+  button.removeAttribute('data-link-style')
+  button.title = button.dataset.commissionInterestRecordedTitle ?? button.title
 }
 
 function resolveInterestButton(target: EventTarget | null) {
@@ -96,20 +69,6 @@ function resolveInterestButton(target: EventTarget | null) {
     return target.closest<HTMLButtonElement>(BUTTON_SELECTOR)
   }
   return null
-}
-
-function collectInterestButtons(node: Node) {
-  if (node instanceof HTMLButtonElement && node.matches(BUTTON_SELECTOR)) {
-    return [node]
-  }
-
-  if (node instanceof Element) {
-    return [
-      ...node.querySelectorAll<HTMLButtonElement>(BUTTON_SELECTOR),
-    ]
-  }
-
-  return []
 }
 
 // Accessing `win.localStorage` throws SecurityError when storage is blocked; fall back to a
@@ -136,52 +95,27 @@ export function mountUnpublishedInterestButtons({
     ...doc.querySelectorAll<HTMLButtonElement>(BUTTON_SELECTOR),
   ]
   const storage = resolveStorage(win)
-  const hydratedButtons = new WeakSet<HTMLButtonElement>()
-
-  const hydrateButton = (button: HTMLButtonElement) => {
-    const commissionKey = button.dataset.commissionInterestKey
-    if (!commissionKey || hydratedButtons.has(button))
-      return
-
-    setButtonState(button, readRecordedState(commissionKey, storage))
-    hydratedButtons.add(button)
-  }
 
   const handleClick = (event: Event) => {
     const button = resolveInterestButton(event.target)
-    if (!button)
-      return
-
-    hydrateButton(button)
-
-    const commissionKey = button.dataset.commissionInterestKey
-    if (!commissionKey || button.disabled)
+    const commissionKey = button?.dataset.commissionInterestKey
+    if (!button || !commissionKey || button.disabled)
       return
 
     writeRecordedState(commissionKey, storage)
-    syncButtonsForKey({ commissionKey, doc, recorded: true })
+    markButtonsRecordedForKey(commissionKey, doc)
     trackEvent?.({ commission: commissionKey })
   }
 
   for (const button of buttons) {
-    hydrateButton(button)
+    const commissionKey = button.dataset.commissionInterestKey
+    if (commissionKey && readRecordedState(commissionKey, storage))
+      markButtonRecorded(button)
   }
 
-  const observer = new MutationObserver((mutations) => {
-    for (const mutation of mutations) {
-      for (const node of mutation.addedNodes) {
-        for (const button of collectInterestButtons(node)) {
-          hydrateButton(button)
-        }
-      }
-    }
-  })
-
-  observer.observe(doc.body ?? doc.documentElement, { childList: true, subtree: true })
   doc.addEventListener('click', handleClick)
 
   return () => {
-    observer.disconnect()
     doc.removeEventListener('click', handleClick)
   }
 }

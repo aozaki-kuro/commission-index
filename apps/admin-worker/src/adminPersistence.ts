@@ -1,3 +1,4 @@
+import type { CharacterStatus } from '../../../packages/domain/src/index'
 import {
   isFutureCommissionDate,
   normalizeAliases,
@@ -33,8 +34,6 @@ export interface D1DatabaseLike {
   batch?: (statements: D1PreparedStatementLike[]) => Promise<D1ResultLike[]>
   prepare: (query: string) => D1PreparedStatementLike
 }
-
-type CharacterStatus = 'active' | 'archived'
 
 interface MaxSortOrderRow {
   maxOrder?: number | null
@@ -89,7 +88,7 @@ interface SourceImageMetadataInput {
   sha256: string
 }
 
-const MAX_FEATURED_SEARCH_KEYWORDS = 6
+export const MAX_FEATURED_SEARCH_KEYWORDS = 6
 const NORMALIZE_SPACES_PATTERN = /\s+/g
 
 const CREATE_CREATOR_ALIASES_TABLE_SQL = `
@@ -200,7 +199,7 @@ function normalizeCommissionMutation(input: {
   }
 }
 
-function dedupeKeywords(keywords: Iterable<string>, maxCount = Number.POSITIVE_INFINITY) {
+export function dedupeKeywords(keywords: Iterable<string>, maxCount = Number.POSITIVE_INFINITY) {
   const uniqueKeywords: string[] = []
   const seen = new Set<string>()
 
@@ -224,6 +223,19 @@ function dedupeKeywords(keywords: Iterable<string>, maxCount = Number.POSITIVE_I
   }
 
   return uniqueKeywords
+}
+
+export function resolveD1Database(value: unknown): D1DatabaseLike | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const candidate = value as { prepare?: unknown }
+  if (typeof candidate.prepare !== 'function') {
+    return null
+  }
+
+  return value as D1DatabaseLike
 }
 
 async function runStatement(db: D1DatabaseLike, query: string, values: unknown[] = []) {
@@ -262,7 +274,7 @@ async function runStatementsAtomically(
   }
 }
 
-async function queryRows<TRow>(
+export async function queryRows<TRow>(
   db: D1DatabaseLike,
   query: string,
   values: unknown[] = [],
@@ -276,7 +288,7 @@ async function queryRows<TRow>(
     : []
 }
 
-async function queryFirstRow<TRow>(
+export async function queryFirstRow<TRow>(
   db: D1DatabaseLike,
   query: string,
   values: unknown[] = [],
@@ -751,20 +763,6 @@ export async function deleteCommission(db: D1DatabaseLike, id: number) {
   ])
 }
 
-export async function deleteCommissionByFileName(db: D1DatabaseLike, fileName: string) {
-  await ensureSourceImagesTable(db)
-  await runStatementsAtomically(db, [
-    {
-      query: 'DELETE FROM source_images WHERE commission_file_name = ?',
-      values: [fileName],
-    },
-    {
-      query: 'DELETE FROM commissions WHERE file_name = ?',
-      values: [fileName],
-    },
-  ])
-}
-
 export async function getCommissionFileName(db: D1DatabaseLike, id: number) {
   const row = await queryFirstRow<CommissionFileNameRow>(
     db,
@@ -833,28 +831,6 @@ export async function getSourceImageMetadata(db: D1DatabaseLike, commissionFileN
     db,
     'SELECT object_key as objectKey, mime_type as mimeType, byte_size as byteSize, sha256 FROM source_images WHERE commission_file_name = ? LIMIT 1',
     [commissionFileName],
-  )
-}
-
-export async function deleteSourceImageMetadata(db: D1DatabaseLike, commissionFileName: string) {
-  await ensureSourceImagesTable(db)
-  await runStatement(
-    db,
-    'DELETE FROM source_images WHERE commission_file_name = ?',
-    [commissionFileName],
-  )
-}
-
-export async function deleteSourceImageMetadataIfMatches(
-  db: D1DatabaseLike,
-  commissionFileName: string,
-  objectKey: string,
-) {
-  await ensureSourceImagesTable(db)
-  await runStatement(
-    db,
-    'DELETE FROM source_images WHERE commission_file_name = ? AND object_key = ?',
-    [commissionFileName, objectKey],
   )
 }
 

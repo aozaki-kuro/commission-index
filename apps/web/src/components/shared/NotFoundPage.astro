@@ -1,13 +1,5 @@
----
-interface Props {
-  message?: string
-}
-
-const { message = 'Page not found.' } = Astro.props as Props
----
-
 <div class="mx-auto max-w-2xl py-16 text-center">
   <h1>404</h1>
-  <p class="pb-6">{message}</p>
+  <p class="pb-6">Page not found.</p>
   <a href="/">Back to Home</a>
 </div>

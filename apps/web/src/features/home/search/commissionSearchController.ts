@@ -145,7 +145,6 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
   let isIndexReady = !!initialUrlQuery
   let shouldWarmFuse = !!initialUrlQuery
   let isSuggestionPanelDismissed = false
-  let activeCommandValue = ''
   let externalEntries = getCachedHomeSearchEntries()
   let querySource: SearchQuerySource = 'url_query'
   let popularKeywordPool: string[] = externalEntries
@@ -191,7 +190,6 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
 
   function dismissSuggestionPanel() {
     isSuggestionPanelDismissed = true
-    activeCommandValue = ''
   }
 
   function applySuggestion(suggestion: string | null) {
@@ -367,12 +365,9 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
       isIndexReady,
       shouldWarmFuse,
       isSuggestionPanelDismissed,
-      activeCommandValue,
       controls,
       suggestionAliasGroups,
       querySource,
-      disableDomFiltering: false,
-      suppressInitialSuggestionPanelAnimation: false,
     })
 
     const shouldSuspendArchivedFiltering = shouldSuspendDomFilteringForArchivedReveal(model)
@@ -387,7 +382,7 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
     // Sync DOM filtering
     syncDom({
       disableDomFiltering: shouldSuspendArchivedFiltering,
-      hasDeferredQuery: model.hasDeferredQuery,
+      hasQuery: model.hasQuery,
       hiddenArchivedMatchedCount: model.hiddenArchivedMatchedCount,
       matchedIds: model.matchedIds,
       resolvedIndex: model.resolvedIndex,
@@ -441,7 +436,6 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
           if (suggestionList.classList.contains('opacity-0')) {
             suggestionList.textContent = ''
           }
-          suggestionList.removeEventListener('transitionend', onEnd)
         }
         suggestionList.addEventListener('transitionend', onEnd, { once: true })
         // Fallback for motion-reduce (no transition fires)
@@ -524,6 +518,9 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
       preventScroll: true,
       focusInput: !shouldUseTapLikeFocus(),
     })
+    // Not redundant: this queues a second recompute in the same frame. When the first one reveals
+    // archived (suspending filtering), the panel-state listener's recompute would land a frame later,
+    // so this pass is what filters the revealed list before it paints.
     scheduleRecompute({ immediate: true })
   }
 
@@ -616,12 +613,8 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
   function updateCopyButtonIcon() {
     if (!copyUrlBtn)
       return
-    const shareIcon = copyUrlBtn.querySelector('[data-icon="share"]')
-    const checkIcon = copyUrlBtn.querySelector('[data-icon="check"]')
-    if (shareIcon)
-      (shareIcon as HTMLElement).classList.toggle('hidden', copyState === 'success')
-    if (checkIcon)
-      (checkIcon as HTMLElement).classList.toggle('hidden', copyState !== 'success')
+    copyUrlBtn.querySelector<HTMLElement>('[data-icon="share"]')?.classList.toggle('hidden', copyState === 'success')
+    copyUrlBtn.querySelector<HTMLElement>('[data-icon="check"]')?.classList.toggle('hidden', copyState !== 'success')
   }
 
   // Help trigger (the popover content is server-rendered)

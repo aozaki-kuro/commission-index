@@ -2,7 +2,7 @@ import type { AdminBootstrapData } from '@commission-index/domain'
 import type { DataUpdateScope } from '../lib/dataUpdateSignal'
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
 import { AdminBootstrapStatus } from '../components/AdminBootstrapStatus'
-import { AdminEditDashboard } from '../components/AdminEditDashboard'
+import { CommissionManager } from '../components/edit/CommissionManager'
 import { FloatingNotice } from '../components/FloatingNotice'
 import { fetchAdminJsonWithRetry, readCachedAdminJson } from '../lib/adminApi'
 import { subscribeToDataUpdates } from '../lib/dataUpdateSignal'
@@ -379,7 +379,7 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
           Browser storage is full. Scroll position and expanded groups will not persist across reloads.
         </FloatingNotice>
       )}
-      <AdminEditDashboard
+      <CommissionManager
         characters={state.payload?.characters ?? []}
         commissionSearchRows={state.payload?.commissionSearchRows ?? []}
         creatorAliases={state.payload?.creatorAliases ?? []}

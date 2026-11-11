@@ -42,9 +42,10 @@ describe('creatorAliases data access', () => {
       }),
     }))
 
-    const { getCreatorAliasesMap, normalizeCreatorSearchName } = await import('./creatorAliases')
+    const { buildCreatorAliasesMap } = await import('@lib/sitePayload')
+    const { getCreatorAliases, normalizeCreatorSearchName } = await import('./creatorAliases')
 
-    const aliasMap = getCreatorAliasesMap()
+    const aliasMap = buildCreatorAliasesMap(getCreatorAliases())
 
     expect(normalizeCreatorSearchName('Q (part 2)')).toBe('Q')
     expect(aliasMap.get('七市')).toEqual(expect.arrayContaining(['Nanashi', 'nanashi']))
