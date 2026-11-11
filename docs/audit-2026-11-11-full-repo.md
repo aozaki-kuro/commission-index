@@ -10,8 +10,9 @@
 
 - 工作区边界（web / admin / admin-worker / domain）和静态导出模型不需要调整。需要动的是局部：worker 内部以及
   worker 与 web 之间分叉出去的 domain 逻辑、worker 路由与持久化层的样板、几道缺失的 CI 闸门、与代码不符的文档。
-- 10-12 审计里 admin（ADM-1…11）、worker（WRK-4/6/7/8/11/12/13/14）、CI（CI-2…13）大部分条目仍未修；状态见 §7。
-- 本轮确认并修复的缺陷见 §1–§2 中标 **已修** 的条目（PR #476）；每条都带一个修复前失败的测试。其余条目未动。
+- 本轮分四批落地：缺陷与安全（PR #476、#479）、行为不变的整理（#477）、前台性能、CI 闸门与文档。每条修复都带一个修复前
+  失败的测试；视觉基线只因 Design 字段改为链接输入和浏览器升级各刷新过一张。
+- 仍开放的条目见各表状态列与 §3「仍待清理」。只能由真实 Actions 运行或线上环境证实的项单独标注。
 
 ## 1. 逻辑缺陷
 
@@ -21,74 +22,74 @@
 | ---- | ------ | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
 | A-1  | H      | `components/edit/KeywordReplacePopover.tsx`                             | 批量关键词替换把 bootstrap 的原始 JSON `links`（`'[]'`）直接发给 PATCH，worker 按行拆分后当成非法 URL 返回 400；自链接校验上线后对所有行失效。    | 已修 |
 | A-2  | M      | `components/create/AddCommissionForm.tsx`、`pages/AdminCreatePage.tsx`  | 创建成功后本页不刷新 bootstrap：刚建的多图组不出现在 Part group 下拉里，重复提示也看不到刚建的记录。                                              | 已修 |
-| A-3  | M      | `components/edit/CommissionEditDrawer.tsx`                              | 关闭抽屉或切换搜索结果直接丢弃未保存编辑（旧 ADM-1）。                                                                                            | 待修 |
+| A-3  | M      | `components/edit/CommissionEditDrawer.tsx`                              | 关闭抽屉或切换搜索结果直接丢弃未保存编辑（旧 ADM-1）。                                                                                            | 已修 |
 | A-4  | M      | `lib/websiteRebuild.ts`、`lib/liveBuildInfo.ts`                         | 轮询 `build-info.json` 无超时；请求挂起时发布按钮永久停在 Checking（旧 ADM-2）。                                                                  | 已修 |
-| A-5  | M      | `components/edit/CommissionManager.tsx`、`AdminSuggestionDashboard.tsx` | 键盘「下移」每次都丢焦点（React 移动的是被聚焦节点）；到端点时按钮还会被 disabled（旧 ADM-7 扩大）。                                              | 待修 |
-| A-6  | L-M    | `pages/AdminEditPage.tsx`                                               | `isReloadNavigation()` 在文档整个生命周期都为真：reload 之后任何一次 SPA 进入 /edit 都会从 storage 恢复旧锚点，与 App 的恢复竞争。                | 待修 |
-| A-7  | L-M    | `hooks/useCommissionManager.ts`                                         | 排序 v1 成功、v2 失败时 v1 不 `markPendingRebuild` 也不广播（旧 ADM-4）；Enter 后 blur 发两次重命名 PATCH（ADM-5）；删除角色绕过写队列（ADM-6）。 | 待修 |
-| A-8  | L-M    | `components/create/CommissionFormFields.tsx`                            | 日历翻到不含选中日/今天的月份后没有任何可 Tab 的格子；两者同月时有两个 Tab 停靠点。                                                               | 待修 |
-| A-9  | L      | `components/FloatingRebuildButton.tsx`                                  | 等待确认期间又有保存时，琥珀色 Rebuild 按钮旁仍显示「已确认上线」4 秒。                                                                           | 待修 |
+| A-5  | M      | `components/edit/CommissionManager.tsx`、`AdminSuggestionDashboard.tsx` | 键盘「下移」每次都丢焦点（React 移动的是被聚焦节点）；到端点时按钮还会被 disabled（旧 ADM-7 扩大）。                                              | 已修 |
+| A-6  | L-M    | `pages/AdminEditPage.tsx`                                               | `isReloadNavigation()` 在文档整个生命周期都为真：reload 之后任何一次 SPA 进入 /edit 都会从 storage 恢复旧锚点，与 App 的恢复竞争。                | 已修 |
+| A-7  | L-M    | `hooks/useCommissionManager.ts`                                         | 排序 v1 成功、v2 失败时 v1 不 `markPendingRebuild` 也不广播（旧 ADM-4）；Enter 后 blur 发两次重命名 PATCH（ADM-5）；删除角色绕过写队列（ADM-6）。 | 已修 |
+| A-8  | L-M    | `components/create/CommissionFormFields.tsx`                            | 日历翻到不含选中日/今天的月份后没有任何可 Tab 的格子；两者同月时有两个 Tab 停靠点。                                                               | 已修 |
+| A-9  | L      | `components/FloatingRebuildButton.tsx`                                  | 等待确认期间又有保存时，琥珀色 Rebuild 按钮旁仍显示「已确认上线」4 秒。                                                                           | 已修 |
 | A-10 | L      | `components/edit/KeywordReplacePopover.tsx`                             | `String.replace` 会解释替换文本里的 `$&`、`$$`。                                                                                                  | 已修 |
 | A-11 | L      | `lib/adminApi.ts` `triggerRebuildDeploy`                                | 先 `.json()` 再看 `ok`：HTML 5xx 或登录页会显示成 `Unexpected token '<'`。                                                                        | 已修 |
-| A-12 | L      | `components/edit/CommissionThumbnailGrid.tsx`                           | 缩略图重试一次失败后永久显示 No image（旧 ADM-10）。                                                                                              | 待修 |
+| A-12 | L      | `components/edit/CommissionThumbnailGrid.tsx`                           | 缩略图重试一次失败后永久显示 No image（旧 ADM-10）。                                                                                              | 已修 |
 
 测试缺口（都对应上面的条目）：关键词替换没有用真实 `links` 格式的夹具（A-1 因此长期没暴露，本轮已补）；排序队列「v1 成功 v2
 失败」；Enter 后 blur 只发一次 PATCH；创建后选项刷新；reload 后 SPA 再进入 Edit；重排后的焦点；抽屉带脏关闭。
 
 ### worker + domain
 
-| ID   | 严重度 | 位置                                                   | 问题                                                                                                                                                       | 状态                |
-| ---- | ------ | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
-| W-1  | M      | `adminPersistence.ts` 别名批量保存                     | 内存里按不分大小写的 key 合并，落库却按精确主键：`Full Body` 与 `full body` 各存一行，读出来是并集，后台无法删掉其中一行；与 `ai-agent-guide` 的描述矛盾。 | owner               |
-| W-2  | M      | `packages/domain/src/search.ts` 分词                   | 分词正则不认 `!"…"`：建议补全自己生成的 `!"blue dragon"` 被拆成两个带引号的词，「排除短语」变成「什么都不匹配」。                                          | 已修                |
-| W-3  | M      | `search.ts` Fuse 回退                                  | strict 结果为空就走模糊匹配：没有 2019 年作品时搜 `2019` 会模糊命中相邻年份的日期 token；同一查询在 Fuse 加载前后结果不同。                                | 未证实              |
-| W-4  | M      | `scripts/listR2Orphans.ts`                             | 先读 D1 引用集再列 R2：期间完成的上传会被判为孤儿，`--delete` 会删掉在用图片；返回形状不校验时引用集可能为空。                                             | 待修                |
-| W-5  | L-M    | `adminApi.ts` `POST /suggestion`                       | 键名写错（非 `keywords`/`keywordsJson`）时静默清空精选关键词并返回 200。                                                                                   | 待修                |
-| W-6  | L-M    | `search.ts` 建议 token                                 | 全角空格不切分建议 token：日文输入法下 `アリア　ク` 没有建议，选中建议时连前一个词一起被替换。                                                             | 已修                |
-| W-7  | L-M    | `search.ts` `\|` 求值                                  | strict 路径从左到右求值，Fuse 扩展语法按「段内 AND、段间 OR」，两条路径对 `blue \| wolf red` 结果不同；预期语义没有测试约束。                              | owner               |
-| W-8  | L      | `adminPersistence.ts` 排序、`adminApi.ts` 换图         | 旧 WRK-8（排序 3n+1 个绑定参数，存在性 SELECT 也绑定全部 id）、WRK-13（换图期间作品被删会写入 `commission_id = NULL` 行，且该行让 R2 对象永远不被回收）。  | 部分（WRK-13 已修） |
-| W-9  | L      | `adminData.ts` 别名计数、`creatorAliases.ts`           | 旧 WRK-11（key 冲突时计数覆盖而非累加）；`(part N)` 剥离规则两套（`Q(part 2)` 在别名里是独立作者，在建议词里被剥成 `Q`）。                                 | 待修                |
-| W-10 | L      | `scripts/exportWebFactSource.ts`                       | 旧 WRK-6（「缺失」正则含 `404`，而合成的错误消息里拼了含日期的旧文件名）、WRK-12（mimeType 来源不一致）、WRK-14（`spawnSync` 无 `maxBuffer`）。            | 部分（WRK-14 已修） |
-| W-11 | L      | `search.ts` 前缀扩展、`adminPersistence.ts` sort_order | 精确命中后不再做前缀扩展（新增关键词 `cat` 后搜 `cat` 不再出现 `catgirl`）；并发建角色会拿到相同 `sort_order`，读取端缺 `id` 次序。                        | owner               |
+| ID   | 严重度 | 位置                                                   | 问题                                                                                                                                                       | 状态                                                  |
+| ---- | ------ | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| W-1  | M      | `adminPersistence.ts` 别名批量保存                     | 内存里按不分大小写的 key 合并，落库却按精确主键：`Full Body` 与 `full body` 各存一行，读出来是并集，后台无法删掉其中一行；与 `ai-agent-guide` 的描述矛盾。 | 已修                                                  |
+| W-2  | M      | `packages/domain/src/search.ts` 分词                   | 分词正则不认 `!"…"`：建议补全自己生成的 `!"blue dragon"` 被拆成两个带引号的词，「排除短语」变成「什么都不匹配」。                                          | 已修                                                  |
+| W-3  | M      | `search.ts` Fuse 回退                                  | strict 结果为空就走模糊匹配：没有 2019 年作品时搜 `2019` 会模糊命中相邻年份的日期 token；同一查询在 Fuse 加载前后结果不同。                                | 已修                                                  |
+| W-4  | M      | `scripts/listR2Orphans.ts`                             | 先读 D1 引用集再列 R2：期间完成的上传会被判为孤儿，`--delete` 会删掉在用图片；返回形状不校验时引用集可能为空。                                             | 已修                                                  |
+| W-5  | L-M    | `adminApi.ts` `POST /suggestion`                       | 键名写错（非 `keywords`/`keywordsJson`）时静默清空精选关键词并返回 200。                                                                                   | 已修                                                  |
+| W-6  | L-M    | `search.ts` 建议 token                                 | 全角空格不切分建议 token：日文输入法下 `アリア　ク` 没有建议，选中建议时连前一个词一起被替换。                                                             | 已修                                                  |
+| W-7  | L-M    | `search.ts` `\|` 求值                                  | strict 路径从左到右求值，Fuse 扩展语法按「段内 AND、段间 OR」，两条路径对 `blue \| wolf red` 结果不同；预期语义没有测试约束。                              | 已修                                                  |
+| W-8  | L      | `adminPersistence.ts` 排序、`adminApi.ts` 换图         | 旧 WRK-8（排序 3n+1 个绑定参数，存在性 SELECT 也绑定全部 id）、WRK-13（换图期间作品被删会写入 `commission_id = NULL` 行，且该行让 R2 对象永远不被回收）。  | 已修                                                  |
+| W-9  | L      | `adminData.ts` 别名计数、`creatorAliases.ts`           | 旧 WRK-11（key 冲突时计数覆盖而非累加）；`(part N)` 剥离规则两套（`Q(part 2)` 在别名里是独立作者，在建议词里被剥成 `Q`）。                                 | 已修                                                  |
+| W-10 | L      | `scripts/exportWebFactSource.ts`                       | 旧 WRK-6（「缺失」正则含 `404`，而合成的错误消息里拼了含日期的旧文件名）、WRK-12（mimeType 来源不一致）、WRK-14（`spawnSync` 无 `maxBuffer`）。            | 已修                                                  |
+| W-11 | L      | `search.ts` 前缀扩展、`adminPersistence.ts` sort_order | 精确命中后不再做前缀扩展（新增关键词 `cat` 后搜 `cat` 不再出现 `catgirl`）；并发建角色会拿到相同 `sort_order`，读取端缺 `id` 次序。                        | 部分（sort_order 已修；精确优先为预期行为，已加测试） |
 
 文档与代码不一致：`api-reference.md` 称 `Uploaded image is empty.` 可达（实际先返回 `Source image is required…`）；
 `scripts/AGENTS.md` 称 `syncMissingSourceImages` 下载后校验，实际不校验 sha256 / 大小。
 
 ### web
 
-| ID   | 严重度 | 位置                                                                     | 问题                                                                                                                                            | 状态 |
-| ---- | ------ | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
-| F-1  | M      | `features/home/search/commissionSearchController.ts`                     | teardown 不取消 rAF / timer / 索引 promise（旧 WEB-7）：慢网下切语言，旧页的查询会过滤新页的条目，并把 `?q=` 写到新地址上。                     | 待修 |
-| F-2  | M      | `features/home/homeScrollRestore.ts`                                     | `sessionStorage` 未包 try，且属于关键挂载：禁用站点存储的浏览器里整个首页运行时不挂载（导航、归档开关、视图切换全失效）。                       | 待修 |
-| F-3  | M      | `commission/commissionViewModeDomSync.ts`                                | 150ms 内连切两次视图，前一次过渡的定时器会把面板切回去，URL 与面板不一致。                                                                      | 待修 |
-| F-4  | M      | `server/StaticCommissionSections.astro` 首帧脚本                         | 首帧脚本与挂载代码用的 class 不同（`w-0` 对 `scale-x-0`，`gray-700` 对 `gray-800`）：`/?view=timeline` 进入后移动端「按角色」下划线永不再出现。 | 待修 |
-| F-5  | M      | `lib/utils/strings.ts`、`lib/characters/nav.ts`                          | 全 CJK 角色名 slug 为空串、仅标点或大小写不同的名字 id 相撞：侧栏链接失效，搜索时该分区被隐藏。读取边界不校验。                                 | 待修 |
-| F-6  | M      | `search/commissionSearchIsland.ts`                                       | 动态 `import()` 无 catch：跨部署留着的标签页拿不到旧 chunk 时搜索静默失效。                                                                     | 待修 |
-| F-7  | L-M    | `commission/linkDisplay.ts`                                              | 不匹配已知站点的链接被丢弃（已发布作品仍显示「想看」按钮）；`includes('x.com')` 会把 `dropbox.com` 标成 Twitter。                               | 待修 |
-| F-8  | L-M    | `nav/hamburger/mobileHamburgerMenu.ts`                                   | 旧 WEB-10：开合不管理焦点、无 `inert`；搜索动作绑在 `pointerdown`，滚动手势会误触。                                                             | 待修 |
-| F-9  | L      | `search/commissionSearchKeyboard.ts`、controller                         | 旧 WEB-8（关闭后 `activeIndex` 不复位，Enter 被吞）、WEB-13（同帧重复 recompute）、`requestedArchivedForSearch` 收起后不复位。                  | 待修 |
-| F-10 | L      | `IllustratorInfo.astro`、`Footer.astro`、搜索岛                          | `<time>` 内容不合法；combobox/listbox 语义是 ARIA 1.0 写法且 `ul` 里放 `div`；ja / zh-tw 页面硬编码英文 `Anon` / `Part n`。                     | 待修 |
-| F-11 | L      | RSS、favicon、页脚                                                       | 旧 BLD-2/3/5/6/7/8 均未修（RSS author 与链接缺 `/`、footer 在 `main` 内、`id` 含空格、图片 alt 全是版权串、tile 路径 404、年份构建期固定）。    | 待修 |
-| F-12 | M      | `commission/TimelineView.astro`、`server/StaticCommissionSections.astro` | 时间线视图没有把 `locale` 传给 `CommissionEntries`：ja / zh-tw 页面的时间线条目里「设计稿」「想看」「图片缺失」等文案回退成英文。               | 待修 |
+| ID   | 严重度 | 位置                                                                     | 问题                                                                                                                                            | 状态                                                                 |
+| ---- | ------ | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| F-1  | M      | `features/home/search/commissionSearchController.ts`                     | teardown 不取消 rAF / timer / 索引 promise（旧 WEB-7）：慢网下切语言，旧页的查询会过滤新页的条目，并把 `?q=` 写到新地址上。                     | 已修                                                                 |
+| F-2  | M      | `features/home/homeScrollRestore.ts`                                     | `sessionStorage` 未包 try，且属于关键挂载：禁用站点存储的浏览器里整个首页运行时不挂载（导航、归档开关、视图切换全失效）。                       | 已修                                                                 |
+| F-3  | M      | `commission/commissionViewModeDomSync.ts`                                | 150ms 内连切两次视图，前一次过渡的定时器会把面板切回去，URL 与面板不一致。                                                                      | 已修                                                                 |
+| F-4  | M      | `server/StaticCommissionSections.astro` 首帧脚本                         | 首帧脚本与挂载代码用的 class 不同（`w-0` 对 `scale-x-0`，`gray-700` 对 `gray-800`）：`/?view=timeline` 进入后移动端「按角色」下划线永不再出现。 | 已修                                                                 |
+| F-5  | M      | `lib/utils/strings.ts`、`lib/characters/nav.ts`                          | 全 CJK 角色名 slug 为空串、仅标点或大小写不同的名字 id 相撞：侧栏链接失效，搜索时该分区被隐藏。读取边界不校验。                                 | 已修                                                                 |
+| F-6  | M      | `search/commissionSearchIsland.ts`                                       | 动态 `import()` 无 catch：跨部署留着的标签页拿不到旧 chunk 时搜索静默失效。                                                                     | 已修                                                                 |
+| F-7  | L-M    | `commission/linkDisplay.ts`                                              | 不匹配已知站点的链接被丢弃（已发布作品仍显示「想看」按钮）；`includes('x.com')` 会把 `dropbox.com` 标成 Twitter。                               | 已修                                                                 |
+| F-8  | L-M    | `nav/hamburger/mobileHamburgerMenu.ts`                                   | 旧 WEB-10：开合不管理焦点、无 `inert`；搜索动作绑在 `pointerdown`，滚动手势会误触。                                                             | 已修                                                                 |
+| F-9  | L      | `search/commissionSearchKeyboard.ts`、controller                         | 旧 WEB-8（关闭后 `activeIndex` 不复位，Enter 被吞）、WEB-13（同帧重复 recompute）、`requestedArchivedForSearch` 收起后不复位。                  | 已修                                                                 |
+| F-10 | L      | `IllustratorInfo.astro`、`Footer.astro`、搜索岛                          | `<time>` 内容不合法；combobox/listbox 语义是 ARIA 1.0 写法且 `ul` 里放 `div`；ja / zh-tw 页面硬编码英文 `Anon` / `Part n`。                     | 部分（`<time>` 与多语言已修；combobox 语义未动）                     |
+| F-11 | L      | RSS、favicon、页脚                                                       | 旧 BLD-2/3/5/6/7/8 均未修（RSS author 与链接缺 `/`、footer 在 `main` 内、`id` 含空格、图片 alt 全是版权串、tile 路径 404、年份构建期固定）。    | 部分（RSS、id、favicon 已修；footer 地标、图片 alt、构建期年份未动） |
+| F-12 | M      | `commission/TimelineView.astro`、`server/StaticCommissionSections.astro` | 时间线视图没有把 `locale` 传给 `CommissionEntries`：ja / zh-tw 页面的时间线条目里「设计稿」「想看」「图片缺失」等文案回退成英文。               | 已修                                                                 |
 
 ## 2. 安全
 
 部署前提：后台与 worker 在 Cloudflare Zero Trust 之后，worker 自身不鉴权；仓库公开。只能在平台上核实的设置单列在本节末尾。
 
-| ID  | 严重度 | 问题                                                                                                                                                                                                                                                                | 状态           |
-| --- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| S-1 | H / M  | 所有 POST 路由都接受无预检的跨站请求（旧 WRK-3）：`request.json()` 不看 Content-Type，`formData()` 接受 multipart。可创建作品、替换图片（旧对象随即删除，不可恢复）、触发发布。跨站是否带上会话 cookie 取决于 Access 的 SameSite 设置；同站脚本不受 SameSite 限制。 | 已修           |
-| S-2 | M      | `design` 字段不校验协议就进入前台 `href`；`links` 只在写入时校验，旧行渲染时不复核。配合 S-1 可形成存储型 XSS。                                                                                                                                                     | 已修（渲染侧） |
-| S-3 | M      | 格式错误的请求体在 try 之外抛出，返回不带 CORS 头的 1101 页面（旧 WRK-9）。                                                                                                                                                                                         | 已修           |
-| S-4 | M      | CI 缓存的内容范围比公开站点实际需要的大。细节不在公开文档里列出，已单独告知 owner。                                                                                                                                                                                 | owner          |
-| S-5 | M      | `dev:admin` 在本机起一个不鉴权、连着生产 D1/R2 的 worker；S-1 的修复挡住普通跨站页面，DNS rebinding 仍未覆盖。                                                                                                                                                      | 部分           |
-| S-6 | L      | 源图 GET 信任 R2 里存的 Content-Type，API 响应无 `nosniff`；后台没有 `X-Frame-Options` / `frame-ancestors`。                                                                                                                                                        | 待修           |
-| S-7 | L      | 上传大小上限在整个 multipart 读入之后才检查；文本字段无长度上限。                                                                                                                                                                                                   | 待修           |
-| S-8 | L      | 仓库内仍有可把站点关联到个人身份的字符串与日志输出（旧 PRIV-2 的延伸）。具体位置不在公开文档里列出。                                                                                                                                                                | owner          |
+| ID  | 严重度 | 问题                                                                                                                                                                                                                                                                | 状态                   |
+| --- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| S-1 | H / M  | 所有 POST 路由都接受无预检的跨站请求（旧 WRK-3）：`request.json()` 不看 Content-Type，`formData()` 接受 multipart。可创建作品、替换图片（旧对象随即删除，不可恢复）、触发发布。跨站是否带上会话 cookie 取决于 Access 的 SameSite 设置；同站脚本不受 SameSite 限制。 | 已修                   |
+| S-2 | M      | `design` 字段不校验协议就进入前台 `href`；`links` 只在写入时校验，旧行渲染时不复核。配合 S-1 可形成存储型 XSS。                                                                                                                                                     | 已修                   |
+| S-3 | M      | 格式错误的请求体在 try 之外抛出，返回不带 CORS 头的 1101 页面（旧 WRK-9）。                                                                                                                                                                                         | 已修                   |
+| S-4 | M      | CI 缓存的内容范围比公开站点实际需要的大。细节不在公开文档里列出，已单独告知 owner。                                                                                                                                                                                 | 已修（待真实运行验证） |
+| S-5 | M      | `dev:admin` 在本机起一个不鉴权、连着生产 D1/R2 的 worker；S-1 的修复挡住普通跨站页面，DNS rebinding 仍未覆盖。                                                                                                                                                      | 部分                   |
+| S-6 | L      | 源图 GET 信任 R2 里存的 Content-Type，API 响应无 `nosniff`；后台没有 `X-Frame-Options` / `frame-ancestors`。                                                                                                                                                        | 已修                   |
+| S-7 | L      | 上传大小上限在整个 multipart 读入之后才检查；文本字段无长度上限。                                                                                                                                                                                                   | 已修                   |
+| S-8 | L      | 仓库内仍有可把站点关联到个人身份的字符串与日志输出（旧 PRIV-2 的延伸）。具体位置不在公开文档里列出。                                                                                                                                                                | owner                  |
 
-S-1 的修复：worker 入口对非 GET/HEAD/OPTIONS 的 `/api/admin/*` 请求检查 `Origin`，既不是 worker 自身源、也不是「本地页面对本地
-worker」的一律 403；不带 `Origin` 的客户端（curl、service token）不受影响。S-2 目前只在前台渲染侧过滤非 http(s) 值；是否在写入时
-也拒绝，取决于 `design` 是否本来就应当是 URL（后台字段是自由文本），属 owner 裁决。
+S-1 的修复：worker 入口对非 GET/HEAD/OPTIONS 的 `/api/admin/*` 请求检查 `Origin`，不是 worker 自身源的一律 403；本地源只在 `dev`
+脚本注入 `ALLOW_LOCAL_ORIGINS=1` 时放行；不带 `Origin` 的客户端（curl、service token）不受影响。S-2：前台渲染侧只接受 http(s)，
+worker 写入时也拒绝非 http(s) 的 `design`（owner 裁决：Design 是链接）。
 
 已检查无问题：SQL 全部参数化；R2 key 服务端生成且校验路径字符；外呼地址固定；`workers_dev` / `preview_urls` 均关闭；后台无
 `dangerouslySetInnerHTML`；前台 `?q=` 不进 HTML sink；Hidden 作品在列表、RSS、搜索索引之前已过滤；工作流无 `pull_request_target`、
@@ -148,6 +149,13 @@ protection（旧 CI-9）。
 | CI             | PR 不跑 `astro build`（CI-3）；无 `timeout-minutes`（CI-6）；部署后无冒烟检查（CI-7）；过期候选静默 `exit 0`（CI-5）；action 未 pin SHA（CI-2）。                |
 | 文档漂移       | `open-issues.md` 的「最后核对」日期、UTC+14 是否 owner 认可、branch protection 是否可核验，与 `AGENTS.md` 互相矛盾；`HANDOFF.md`（10-11）应并入后删除（owner）。 |
 
+本轮已做（只能由真实 Actions 运行证实）：所有 job 加 `timeout-minutes`（CI-6）；过期候选跳过时在 summary 和 notice 里写明
+（CI-5）；web 部署后冒烟检查 `/admin`、`/api/admin/*` 为 404 且 `build-info.json` 的 revision 与本次构建一致（CI-7）；PR 用
+fixture 加占位图跑 `astro build` 并检查产物不含提交 SHA（CI-3）；`typecheck:tools` 覆盖 `config/`、`scripts/` 与 admin 的
+Playwright 配置（CI-10）；Renovate 去掉弃用字段与无对应依赖的规则，并改为按摘要固定 action（CI-12、CI-2）；源图缓存只保留公开
+作品的图片（S-4）。导出入口与「只读绑定」的说法已在根 `AGENTS.md` 改为与实际一致；`HANDOFF.md` 已并入 `open-issues.md` 后删除。
+仍未做：`CommissionManager.tsx` 的 hook 拆分、worker 路由表、token 拆分（CI-1，平台设置）、`listR2Orphans` 之外的脚本测试。
+
 ## 5. 前台性能
 
 依据 2026-11-06 的本地 `dist`（真实数据导出，web 源码此后未变）和源码；gzip 为本地 `gzip -9`，brotli 换算与各项收益均为估算，
@@ -167,6 +175,10 @@ JS 约 19 KB gz；CSS 约 11.6 KB gz；4 个预加载字体共 94 KB；图片均
 | P-9  | 每条目标记冗余：class 内的换行空白、`data-commission-search-key`、与 img alt 重复的 `data-commission-alt`。gzip 后合计约 4 KB。                              | 折叠空白最安全；删属性属于 DOM 契约变更。                                         | 低-中                                         |
 | P-10 | body 级 MutationObserver（批次加载器遗留）在每次建议渲染时触发；滚动深度统计每帧重新扫描面板。                                                               | 删除前者；后者改 IntersectionObserver。                                           | 低                                            |
 | P-11 | `/ja/`、`/zh-tw/` 不匹配 `_headers` 里的 `/` 与 `/*.html` 规则，走平台默认缓存头。                                                                           | 补两条显式 no-cache 规则；先 `curl -I` 看实际响应头。                             | 未证实                                        |
+
+本轮已做：P-1（加 1080 档）、P-2、P-3（索引改为首次交互或带 `?q=` 时才取；索引未到时不先用空文本索引过滤）、P-4、P-5、P-7、
+P-8（延迟挂载改为一次动态 `import()`）、P-9（只折叠 class 里的空白）、P-10、P-11。未做：P-6（与静态列表的裁决冲突，需先看
+时间线视图的使用占比）、P-9 里删除属性的部分（DOM 契约）。收益数字仍是估算，需按下面三项实测确认。
 
 未发现问题：统计脚本空闲注入且不阻塞；滚动监听均为 passive 且按 rAF 合并；所有图片有宽高，字体 `swap` 并带度量回退；只动画
 transform / opacity；`content-visibility` 已在 10-25 的计划里被否决，不建议。
@@ -189,8 +201,11 @@ transform / opacity；`content-visibility` 已在 10-25 的计划里被否决，
 
 ## 7. 10-12 审计条目现状
 
-- **已修**：PRIV-1；WRK-1 / 2 / 5 / 10；WRK-3、WRK-9（本轮）；WEB-9 / 11 / 5；随批次加载器删除失效的 WEB-1 / 2 / 3 / 6 / 15 / 16 / 17。
-- **部分**：WEB-4（延迟挂载已隔离，关键挂载仍有未保护的 storage，见 F-2）；BLD-5；CI-10；CI-11。
-- **仍未修**：ADM-1 … ADM-11（ADM-8 在 UI 上不可达，ADM-11 已作为契约接受）；WRK-4（已作为已知行为接受）、
-  WRK-6 / 7 / 8 / 11 / 12 / 13 / 14；WEB-7（controller 部分）/ 8 / 10 / 12 / 13；BLD-1 / 2 / 3 / 4 / 6 / 7 / 8；
-  CI-1 / 2 / 3 / 4 / 5 / 6 / 7 / 9 / 12 / 13；PRIV-2。
+- **已修**：PRIV-1；ADM-1 … ADM-7、ADM-10；WRK-1 / 2 / 3 / 5 / 6 / 7 / 8 / 9 / 10 / 11 / 12 / 13 / 14；
+  WEB-1 / 2 / 3 / 5 / 6 / 7 / 8 / 9 / 10 / 11 / 12 / 13 / 15 / 16 / 17；BLD-1 / 2 / 3 / 7；CI-2 / 3 / 5 / 6 / 7 / 10 / 12。
+- **部分**：WEB-4（关键挂载的 storage 已保护；延迟挂载的隔离此前已做）；BLD-5（`id` 已修，footer 仍在 `main` 内）；
+  CI-11（`listR2Orphans` 与 `syncMissingSourceImages` 已有测试，其余脚本没有）。
+- **作为契约接受**：ADM-8（UI 上不可达）、ADM-11（30 秒时钟容差）、WRK-4（上传先于角色校验）。
+- **仍未修**：ADM-9（大图主线程解码、无尺寸上限）；BLD-4（年龄门首帧 `aria-hidden` 与 inert）、BLD-6（图片 alt）、
+  BLD-8（构建期年份）；CI-1、CI-9（平台设置）、CI-4（Hidden 原图防泄漏仍只靠 Vite 插件，PR 的 fixture 构建未对它做断言）、
+  CI-13；PRIV-2。

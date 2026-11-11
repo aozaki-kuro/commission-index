@@ -142,8 +142,8 @@ GitHub API 返回 404 Branch not protected；质量检查已有但未强制合�
 ### 本次不做（需你决定或另开）
 
 - **P9 双渲染器收敛** — 仍延后，等技术性触发点（条目 markup 下次改动）。
-- **P10 Playwright 离线 fixture** — 部分落地：`VISUAL_OFFLINE=1` 离线 web 冒烟模式（真实数据基线会失败，仅测启动）；移动端 project 与视口/可访问性/性能验收仍未做，见 `open-issues.md`。
-- **P11 branch protection** — GitHub 仓库设置，需要你开 required checks（仓库内无法核验）。
+- **P10 Playwright 离线 fixture** — 已落地：web 视觉服务固定读取已提交的 fixture（`apps/web/generated-fixture/`），不访问远端；`VISUAL_OFFLINE=1` 只跳过 admin project。移动端 project 与视口/可访问性/性能验收仍未做，见 `open-issues.md`。
+- **P11 branch protection** — 已关闭：master 由 ruleset `protect-master` 保护（必需检查 `Validate & Build`），见 `.github/AGENTS.md`。
 - **SSR / 框架迁移** — 不建议，现有显式发布模型无立即上线需求证据。
 
 ---

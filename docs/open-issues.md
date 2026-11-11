@@ -1,6 +1,10 @@
 # 未决事项
 
-仍未关闭的问题清单，最后核对于 2026-10-11。每条动手前须重新对照代码核实；行号会漂移。
+仍未关闭的问题清单，最后核对于 2026-11-11。每条动手前须重新对照代码核实；行号会漂移。
+
+## 已于 2026-11-11 收口
+
+`audit-2026-11-11-full-repo.md` 中标 **已修** 的条目（#476 缺陷修复、#477 死代码清理、#479 剩余缺陷）不在此重复；逐条状态以该审计为准，其中待修 / owner 条目也只在该文件跟踪。
 
 ## 已于 2026-10-26 收口
 
@@ -45,22 +49,28 @@
 
 ## CI + Release
 
-- **CI 复合动作 / 缓存只能真实运行验证**：`2d0a753` 的 `deploy-web-snapshot` 复合动作与源图片缓存，其并发锁覆盖、过期候选跳过、缓存命中语义只在实际 GitHub Actions 运行中成立，仓库内无法证明。
+- **CI 复合动作 / 缓存只能真实运行验证**：`2d0a753` 的 `deploy-web-snapshot` 复合动作与源图片缓存，其并发锁覆盖、过期候选跳过、缓存命中语义只在实际 GitHub Actions 运行中成立，仓库内无法证明。同样待真实运行核验的还有 `superpowers/plans/2026-10-10-cache-and-ci.md` 的 WP-C1 / C2：触发一次 `rebuild`，确认 step summary 出现「跳过验证」，且源图缓存命中同一 revision 时跳过 save。
+- **WP-C3（`web` 与 `build` 并行）**：先量 C1 / C2 之后的真实耗时，再决定是否值得引入轮询 job 结论的复杂度。
+- **WP-D（admin dev 改用 `@cloudflare/vite-plugin`）**：未开始、未决定；收益是单进程单端口，可删掉本地 CORS 与 `scripts/devAdminRemote.ts`。当初的 spike worktree 已不存在，重启时从头做。
 
 ## Verification gaps
 
-- **Playwright 仍单视口**：`config/playwright.config.ts` 单视口 1440×1600、无 `deviceScaleFactor`，未加移动端 project（admin `playwright.ui.config.ts` 的 `testMatch` 已改为 `*.spec.ts` + `testIgnore: 'admin-*.spec.ts'`）。
-- 未验证：读屏、320/390/768/1440 视口、200% 文字缩放、reduced motion 的完整验收；首屏体积、搜索响应等性能基线。原因：需人工或浏览器实测，仓库内无记录。
+- **Playwright 无移动端 project**：`config/playwright.config.ts` 默认视口 1440×1600、无 `deviceScaleFactor`、只有 `web` / `admin` 两个 project；移动端只靠个别 spec 内 `setViewportSize`（320 / 390 等），不模拟 DPR 与触屏。
+- **web 视觉无暗色与年龄门首帧用例**：web 视觉 spec 都不切 `colorScheme`（配置固定 light），且都预写 `hasConfirmedAge` 跳过年龄门。
+- 未验证：读屏、200% 文字缩放、reduced motion 的完整验收；首屏体积、搜索响应等性能基线。原因：需人工或浏览器实测，仓库内无记录。
 - 未验证：真实 GitHub push/rebuild 并发下的最终 Worker revision。原因：需线上运行。
 - **WebKit 下 popover 关闭无淡出**（help popover 与桌面 browse popover）：WebKit 不支持 `overlay`，`hidePopover()` 后第一帧即 `display: none`，Chromium 按 `allow-discrete` 正常淡出（2026-11-02 Playwright WebKit 1.64 与 iOS Simulator Safari 27.2 实测；相关 WebKit bug [299081](https://bugs.webkit.org/show_bug.cgi?id=299081)）。移动端全屏 browse 面板已由 `browsePopoverClose.ts` 接管关闭；桌面两个小弹层只有 120ms，且桌面 browse 还有 light dismiss 路径，暂不修。
 - **R3b：Linux 基线与 CI 视觉回归**：目前只有 `-darwin` 基线，CI 不跑 `test:visual`。补 `-linux` 基线并在 CI 运行 `test:visual` 需要 Playwright docker 镜像（保证字体与渲染一致）。
 
 ## 仍需 owner 决定 / 操作
 
-- **未来日期规则（P1-5）**：已决定一律拒绝未来日期（`2909399`）。**待 owner 确认**：实现按 UTC+14（最晚时区）比较，属实现者假设，非 owner 认可；现有未来日期行在任何 PATCH 前都会失败，编辑表单预填未做客户端校验。
-- **branch protection（P11）**：master 的 required checks 需在 GitHub 设置中开启，仓库内无法核验。
-- **删除 R2 旧文件名回退探测**：保留，直到生产 D1 查询确认 `source_images` 无遗留行：`SELECT count(*) FROM source_images WHERE commission_id IS NULL` 应为 0。
+- **删除 `source_images.commission_file_name` 回退**：源图读取（`adminData.ts` 先按 `commission_id`、再按 `commission_file_name = c.file_name` 取 key）与角色级联删除（`adminPersistence.ts` 的 `OR commission_file_name IN (…)`）仍兼容旧行；按文件名探测桶已删除。保留，直到生产 D1 查询确认无遗留行：`SELECT count(*) FROM source_images WHERE commission_id IS NULL` 应为 0。
 - **R2 孤儿清点脚本首次运行**：离线脚本 `pnpm -C apps/admin-worker run r2:list-orphans`（默认 dry-run，`--delete` 才删；agent 不得运行）。owner 先在 dry-run 结果里挑一个 key 验证，再考虑 `--delete`。
+
+## 已关闭的决定
+
+- **未来日期规则（P1-5）**：一律拒绝未来日期（`2909399`），按 UTC+14 比较，属 owner 认可的假设（见 `apps/admin-worker/AGENTS.md`）。`PATCH /commissions/:id` 是整行替换且同样校验日期，已有的未来日期行在改正日期前任何编辑都会失败；编辑表单的日期字段只在输入、选择或失焦时做同一校验，预填值不预先提示。
+- **branch protection（P11）**：master 由 ruleset `protect-master` 保护（必须经 PR、必需检查 `Validate & Build`），设置与核验命令见 `.github/AGENTS.md`。
 
 ## 10-05 web 审计
 
