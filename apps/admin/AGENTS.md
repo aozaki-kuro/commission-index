@@ -87,7 +87,7 @@ Standalone admin frontend: React 19 + Vite 8 SPA served from `admin.crystallize.
 - A failed thumbnail retries on card activation or when its row refreshes, never in a loop.
 - Another page opens a commission here through `src/lib/editIntent.ts` (a one-shot in-memory request consumed once data is ready), not through the URL: admin routes are bare pathnames.
 - A save response must not reopen a closed or switched edit dialog; upload/delete pending states wait for their Promise, and conflicting operations are never submitted together.
-- Scroll restoration: `App` restores after SPA route commit and Edit signals `onReady`; reload restoration from storage belongs to Edit alone, and the two paths must not race: the navigation entry stays `reload` for the whole document, so only the first Edit mount may claim it, and only when the reloaded URL is the edit route. `history.scrollRestoration = 'manual'` applies only on the edit route (set in `App.tsx`). On unload, persist the stable anchor on `beforeunload`; `pagehide` is a fallback only, because fonts may be gone by then and re-measuring would overwrite a correct snapshot.
+- Scroll restoration: `App` restores after SPA route commit and Edit signals `onReady`; reload restoration from storage belongs to Edit alone, and the two paths must not race. `history.scrollRestoration = 'manual'` applies only on the edit route (set in `App.tsx`). On unload, persist the stable anchor on `beforeunload`; `pagehide` is a fallback only, because fonts may be gone by then and re-measuring would overwrite a correct snapshot.
 
 ## Publish, Suggestion, Aliases
 
