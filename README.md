@@ -16,15 +16,15 @@ Don't look. Personal use only.
 ```bash
 pnpm run dev            # web (4321)
 pnpm run dev:admin      # admin worker (8787) + frontend (4174), remote D1/R2
-pnpm run preview        # preview apps/web/dist/ locally
+pnpm run preview        # export fact source, clean-build apps/web, then serve dist/ locally
 ```
 
 ## Build
 
 ```bash
 pnpm run build          # Astro → apps/web/dist/
-pnpm run build:admin    # admin Worker + SPA assets
-pnpm run build:all      # all workspaces
+pnpm run build:admin    # admin SPA (Vite) → apps/admin/dist/; Wrangler bundles the Worker at deploy
+pnpm run build:all      # web, then admin
 pnpm run typecheck      # TS check all workspaces
 ```
 

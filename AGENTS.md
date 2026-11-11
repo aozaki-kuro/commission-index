@@ -29,7 +29,7 @@ pnpm run build:all        # build web and admin workspaces
 pnpm run lint             # ESLint (also lints Markdown), --max-warnings=0
 pnpm run check            # Astro type-check; exports fact-source first (remote D1/R2 read)
 # offline: pnpm -C apps/web exec astro check .  (uses the existing apps/web/generated/)
-pnpm run typecheck        # TS check all workspaces (pnpm -r)
+pnpm run typecheck        # TS check all workspaces (pnpm -r), then the tools tsconfig
 
 # Test
 pnpm run test             # Vitest unit tests (all workspaces)
@@ -45,6 +45,9 @@ Never run pnpm commands that verify/relink dependencies in parallel in the same 
 typecheck, test, build): they race on `node_modules/.pnpm` and produce fake `.bin` ENOENT / `workerd`
 errors. Run them sequentially.
 
+The web `dev` script first syncs missing source images from R2; `pnpm -C apps/web run dev:offline` starts Astro dev
+on the existing local files without touching R2.
+
 ## Architecture
 
 ### Workspace Layout
@@ -54,7 +57,7 @@ apps/web            Astro 7 static site — public runtime (crystallize.cc)
 apps/admin          React 19 + Vite 8 SPA — admin UI (admin.crystallize.cc)
 apps/admin-worker   Cloudflare Worker — admin API, D1/R2 CRUD, asset serving
 packages/domain     Shared types and pure domain helpers; single export surface src/index.ts
-scripts/            Repo-level dev scripts (devAdminRemote.ts backs dev:admin; not covered by `typecheck`;
+scripts/            Repo-level dev scripts (devAdminRemote.ts backs dev:admin; type-checked by `typecheck:tools`;
                     its `adminPort` must match apps/admin/package.json `dev`)
 test/visual/        Committed cross-workspace Playwright baselines
 ```
@@ -71,8 +74,9 @@ Admin features go in `apps/admin` + `apps/admin-worker`, never `apps/web`.
 - `apps/admin/playwright.ui.config.ts` owns frontend-only API-fixture tests and matches `*.spec.ts` while
   excluding the `admin-*.spec.ts` screenshot specs owned by cross-workspace Playwright. The cross-workspace admin
   project matches only `admin-*.spec.ts`, so each spec file has exactly one owning config.
-- The web visual server always runs against the committed fixture (`apps/web/generated-fixture/`, selected via
-  `FACT_SOURCE_DIR`); it never reads D1/R2 or `apps/web/generated/`. Web baselines are fixture screenshots: never
+- The web visual server always runs against the committed fixture (`apps/admin-worker/scripts/webVisualFixture.ts`,
+  written to the git-ignored `apps/web/generated-fixture/` and selected via `FACT_SOURCE_DIR`); it never reads D1/R2
+  or `apps/web/generated/`. Web baselines are fixture screenshots: never
   refresh them from live data. Web visual specs must call `expectFixtureData`
   (`apps/web/test/visual/fixtureGuard.ts`) before layout checks or screenshots, so an orphan real-data server fails
   loudly. `VISUAL_OFFLINE=1` only skips the admin project (it needs the admin Vite server).
@@ -87,7 +91,8 @@ Admin features go in `apps/admin` + `apps/admin-worker`, never `apps/web`.
 
 ### Tech Stack
 
-- **Runtime:** Node 24 (mise) + pnpm 12 (new scripts use `.ts`, not `.mjs`, and must be type-checked)
+- **Runtime:** Node 24 (mise) + pnpm 12 (new scripts use `.ts`, not `.mjs`; root `scripts/*.ts`, `config/*.ts` and
+  `apps/admin/playwright.ui.config.ts` are type-checked by `typecheck:tools` via `config/tsconfig.tools.json`)
 - **Public site:** Astro 7 + Tailwind CSS 4 (vanilla TS client behavior, no React on the client)
 
 ### Data Flow
@@ -99,7 +104,8 @@ Admin features go in `apps/admin` + `apps/admin-worker`, never `apps/web`.
 3. content 与 source-image manifest 的 `meta.revision` 共同标识内容版本，排除 `exportedAt`；Astro 从这份固定
    输入生成 HTML，无运行时 D1/R2 访问
 4. `exportedAt` 在 D1 快照读取之前采样（不参与 `revision`），因此 admin 能拒绝一份早于发布请求读取的快照
-5. `apps/web/wrangler.jsonc` carries read-only D1/R2 bindings for build-time export
+5. `apps/web/wrangler.jsonc` and `apps/admin-worker/wrangler.jsonc` bind the same D1 database and R2 bucket; the
+   export is read-only because it only runs SELECTs and object gets, not because of the binding
 
 ### Home Page Architecture
 
@@ -175,7 +181,7 @@ Pipeline order, release concurrency locks, the `deploy-web-snapshot` composite a
   upgrade in stages and pin back only packages with a real peer conflict or failing gate
 - Keep TypeScript on 6.x until both `@astrojs/check` and `typescript-eslint` publish TypeScript 7-compatible
   peer ranges; never bypass the mismatch with peer overrides
-- Keep `@types/node` on the runtime major pinned in `mise.toml` (`node = "24"`), not npm `latest`; `pnpm outdated`
+- Keep `@types/node` on the runtime major pinned in `.mise.toml` (`node = "24"`), not npm `latest`; `pnpm outdated`
   will keep listing the newer major
 - Do not adopt Vite+ (`vite-plus`) or replace ESLint/prettier with oxlint/oxfmt: the 2026-10-11 evaluation found
   `vp dev/build` unusable with Astro, ~0 gain for admin build/tests, and lint/format losing `.astro`, pnpm-policy
@@ -189,10 +195,13 @@ Pipeline order, release concurrency locks, the `deploy-web-snapshot` composite a
 ### Build scripts
 
 - Root build/check scripts are plain pnpm (no task runner). The web build and `check` first run apps/web's
-  `fact-source:export`, which points the export at the read-only web bindings via
-  `FACT_SOURCE_WRANGLER_CONFIG=../web/wrangler.jsonc`; that order must be preserved. The pinned release build
+  `fact-source:export`, which points the export at `apps/web/wrangler.jsonc` via
+  `FACT_SOURCE_WRANGLER_CONFIG=../web/wrangler.jsonc`; that order must be preserved. The release path
+  (`.github/actions/deploy-web-snapshot`) instead runs the root `web:fact-source:export`, which uses the default
+  `apps/admin-worker/wrangler.jsonc`. Both configs bind the same DB and bucket, so "read-only" is a property of the
+  export (SELECTs and object gets only), not of either binding. The pinned release build
   reuses the snapshot via `FACT_SOURCE_USE_EXISTING_SNAPSHOT=1`. `typecheck` is `pnpm -r run typecheck` (bails
-  on the first workspace failure; parallel is safe because each runs only `tsc`).
+  on the first workspace failure; parallel is safe because each runs only `tsc`) followed by `typecheck:tools`.
 - Because these are plain pnpm scripts, environment variables (`CLOUDFLARE_API_TOKEN`, `FACT_SOURCE_USE_EXISTING_SNAPSHOT`) are inherited by child processes; no pass-through allowlist is needed.
 - A prerequisite owned by one workspace (e.g. apps/web's `fact-source:export`) must stay wired into the script
   that needs it, not hoisted into a shared recursive task.
@@ -218,6 +227,9 @@ Pipeline order, release concurrency locks, the `deploy-web-snapshot` composite a
 - Home search UX rules live in `apps/web/AGENTS.md`; the matcher itself is `packages/domain/src/search.ts`
 - JS `\b` is ASCII-only: never wrap user search terms in `\b…\b`; strict matching adds a boundary only on
   sides with an ASCII word char, so CJK/kana terms match as substrings.
+- `|` separates AND-groups (`a | b c` = a ∪ (b ∩ c)) on both the strict and the fuzzy (Fuse) path.
+- On the fuzzy path date index tokens (`date_y_*` / `date_ym_*`) match exactly, so a year or month with no works
+  returns nothing instead of fuzzily hitting a neighbouring date.
 
 ### Images
 
@@ -230,7 +242,8 @@ Pipeline order, release concurrency locks, the `deploy-web-snapshot` composite a
 - `sourceImageRegistry.ts` resolves a commission's image by integer `id` through the generated manifest only (exact
   match, no filename/stem fallback); a missing image renders as missing. User-visible identity and search never parse
   `fileName`
-- Listing widths: inline `<img>` and LCP preload `768/1280` (width 1280); sizes `(max-width: 768px) 92vw, 640px`
+- Listing widths: inline `<img>` and LCP preload `768/1080/1280` (width 1280; 1080 serves 390px phones at DPR 3,
+  92vw × 3 ≈ 1077px); sizes `(max-width: 768px) 92vw, 640px`
 - The registry resolves images only for visible commissions: `Hidden: true` originals are kept out of the module graph by the `hidden-source-image-stub` Vite plugin in `apps/web/server/assetsPipelineAstro.ts`. Astro emits every image that enters the graph and deletes originals only after `getImage`, so an eager glob would otherwise ship hidden originals in `dist/_astro/`.
 
 ### 数据库迁移验证
@@ -257,7 +270,8 @@ commit, not instructions.
 - `audit-2026-11-01-design-consistency.md` — web/admin style consistency audit (IDs DS-W/DS-A), owner decisions
   D1–D7 and the fix phases; re-verify line numbers before acting
 - `audit-2026-10-05-web-architecture.md` — web architecture decision (keep static Astro, no SSR) and the
-  WS1–WS5 work packages; fold into `open-issues.md` once they land
+  WS1–WS5 work packages; closed (all packages landed, remaining items live in `open-issues.md`), kept as the record
+  of the static-Astro ruling
 - `superpowers/plans/` — dated execution plans with their rulings (evidence of why a change was made, not
   instructions)
 

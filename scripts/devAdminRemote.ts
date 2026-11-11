@@ -10,7 +10,8 @@ const workerReadyTimeoutMs = Number.parseInt(
   10,
 ) || 30_000
 const workerReadyPollMs = 400
-// Must match `--port` in apps/admin/package.json `dev` (--strictPort); Vite would otherwise fail late.
+// Must match `--port` in apps/admin/package.json `dev`. That script has no --strictPort, so Vite would silently
+// move to another port when 4174 is taken; the up-front port check fails fast instead.
 const adminPort = 4174
 
 const children = new Set<ReturnType<typeof spawn>>()
