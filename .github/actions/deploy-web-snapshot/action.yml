@@ -70,7 +70,7 @@ runs:
     - name: Restore cached source images
       id: restore-images
       if: steps.candidate.outputs.current == 'true'
-      uses: actions/cache/restore@v6
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: apps/web/generated/source-images
         key: web-source-images-v2-${{ github.run_id }}
@@ -139,7 +139,7 @@ runs:
       if: >-
         steps.candidate.outputs.current == 'true' &&
         steps.restore-images.outputs.cache-matched-key != format('web-source-images-v2-{0}', env.WEB_BUILD_CACHE_TOKEN)
-      uses: actions/cache/save@v6
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: apps/web/generated/source-images
         key: web-source-images-v2-${{ env.WEB_BUILD_CACHE_TOKEN }}
