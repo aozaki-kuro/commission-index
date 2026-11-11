@@ -30,16 +30,13 @@ const defaultBucketName
   = process.env.FACT_SOURCE_IMAGES_BUCKET?.trim()
     || process.env.ADMIN_WORKER_IMAGES_BUCKET?.trim()
     || 'commission-index-images'
-const webRoot = path.resolve(adminWorkerRoot, '../web')
-const generatedRoot = path.resolve(webRoot, 'generated')
-const manifestPath = path.resolve(generatedRoot, 'fact-source/source-images-manifest.json')
-const outputImagesDir = path.resolve(generatedRoot, 'source-images')
+const defaultGeneratedRoot = path.resolve(adminWorkerRoot, '../web/generated')
 const maxDownloadAttempts = 3
 const downloadFileWaitAttempts = 5
 const downloadFileWaitMilliseconds = 50
 const defaultDownloadConcurrency = 8
 const maxDownloadConcurrency = 16
-const missingObjectPattern = /NoSuchKey|The specified key does not exist|not found|404/i
+const missingObjectPattern = /NoSuchKey|The specified key does not exist|not found/i
 
 function getWranglerCommand() {
   return existsSync(localWranglerBinPath)
@@ -152,7 +149,10 @@ async function downloadImage(bucketName: string, objectKey: string, outputPath: 
       : (result.stderr || result.stdout || '').trim()
     rmSync(outputPath, { force: true })
 
-    if (missingObjectPattern.test(message)) {
+    // Wrangler echoes the key and path, and real keys carry digits such as `20240421`; only its own wording counts.
+    const ownText = [`${bucketName}/${objectKey}`, objectKey, outputPath]
+      .reduce((text, value) => text.replaceAll(value, ''), message)
+    if (result.status !== 0 && missingObjectPattern.test(ownText)) {
       return { message, missing: true, ok: false }
     }
 
@@ -173,7 +173,7 @@ function hashFile(filePath: string) {
 
 // 本地落盘位置由 manifest 的 relativePath 决定，与导出器写入的路径一致；
 // objectKey 是 R2 对象身份：新 key 只有 source-images/ 分类前缀，历史 key 也可能含作品目录；不能当作本地路径。
-function resolveLocalImagePath(file: Pick<GeneratedSourceImageManifestFile, 'relativePath'>) {
+function resolveLocalImagePath(generatedRoot: string, file: Pick<GeneratedSourceImageManifestFile, 'relativePath'>) {
   return path.join(generatedRoot, file.relativePath)
 }
 
@@ -192,12 +192,11 @@ function isStale(
   return hashFile(filePath) !== expected.sha256
 }
 
-async function main() {
+export async function syncSourceImages({ generatedRoot, bucketName }: { generatedRoot: string, bucketName: string }) {
   // ==================== 读取 manifest ====================
+  const manifestPath = path.resolve(generatedRoot, 'fact-source/source-images-manifest.json')
   if (!existsSync(manifestPath)) {
-    console.error(`Manifest not found at ${manifestPath}`)
-    console.error('Run `pnpm run fact-source:export` first to generate it.')
-    process.exit(1)
+    throw new Error(`Manifest not found at ${manifestPath}\nRun \`pnpm run fact-source:export\` first to generate it.`)
   }
 
   let manifest: GeneratedSourceImageManifest
@@ -205,34 +204,38 @@ async function main() {
     manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as GeneratedSourceImageManifest
   }
   catch (e) {
-    console.error(`Failed to parse manifest: ${e}`)
-    process.exit(1)
+    throw new Error(`Failed to parse manifest: ${e}`)
   }
 
   const { files } = manifest
 
   // ==================== 检查：哪些图片缺失或内容已变更 ====================
   const staleFiles = files.filter(file =>
-    isStale(resolveLocalImagePath(file), file),
+    isStale(resolveLocalImagePath(generatedRoot, file), file),
   )
 
   if (staleFiles.length === 0) {
     console.log(`Source images OK (${files.length}/${files.length} present and up to date)`)
-    return
+    return { failed: 0, stale: 0 }
   }
 
   const downloadConcurrency = resolveDownloadConcurrency()
   const resolvedDownloadConcurrency = Math.min(downloadConcurrency, staleFiles.length)
   console.log(`Downloading ${staleFiles.length} missing/stale source image(s) from R2 (concurrency=${resolvedDownloadConcurrency})...`)
-  mkdirSync(outputImagesDir, { recursive: true })
+  mkdirSync(path.resolve(generatedRoot, 'source-images'), { recursive: true })
 
   const results = await mapWithConcurrency(staleFiles, downloadConcurrency, async (file, index) => {
-    const outputPath = resolveLocalImagePath(file)
+    const outputPath = resolveLocalImagePath(generatedRoot, file)
     const tempPath = `${outputPath}.download`
     rmSync(tempPath, { force: true })
 
     console.log(`  ↓ [${index + 1}/${staleFiles.length}] ${file.objectKey}`)
-    const result = await downloadImage(defaultBucketName, file.objectKey, tempPath)
+    const result = await downloadImage(bucketName, file.objectKey, tempPath)
+    if (result.ok && isStale(tempPath, file)) {
+      rmSync(tempPath, { force: true })
+      console.error(`  ✗ Downloaded bytes do not match the manifest sha256/byteSize: ${file.objectKey}`)
+      return false
+    }
     if (result.ok) {
       writeFileSync(outputPath, readFileSync(tempPath))
       rmSync(tempPath, { force: true })
@@ -250,16 +253,22 @@ async function main() {
   const failCount = results.filter(result => !result).length
   const downloaded = staleFiles.length - failCount
   console.log(`Downloaded ${downloaded}/${staleFiles.length} images`)
+  return { failed: failCount, stale: staleFiles.length }
+}
 
-  if (failCount > 0) {
-    console.error(`${failCount} image(s) failed. Run \`pnpm run fact-source:export\` to retry.`)
+async function main() {
+  const { failed } = await syncSourceImages({ generatedRoot: defaultGeneratedRoot, bucketName: defaultBucketName })
+  if (failed > 0) {
+    console.error(`${failed} image(s) failed. Run \`pnpm run fact-source:export\` to retry.`)
     process.exit(1)
   }
 }
 
-void main().catch((error) => {
-  console.error(error instanceof Error
-    ? error.message
-    : String(error))
-  process.exit(1)
-})
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  void main().catch((error) => {
+    console.error(error instanceof Error
+      ? error.message
+      : String(error))
+    process.exit(1)
+  })
+}

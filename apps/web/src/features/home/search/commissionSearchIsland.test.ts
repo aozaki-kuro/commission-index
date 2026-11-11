@@ -111,4 +111,74 @@ describe('mountCommissionSearchIsland', () => {
     expect(root.querySelector<HTMLElement>('#search-keyword-list')!.dataset.pendingKeyword).toBeUndefined()
     await vi.waitFor(() => expect(initSearchController).toHaveBeenCalledWith(root, { pendingKeyword: 'alpha' }))
   })
+
+  describe('when the controller chunk fails to load', () => {
+    function mountWithFlakyImport() {
+      const importController = vi.fn()
+        .mockRejectedValueOnce(new TypeError('Failed to fetch dynamically imported module'))
+        .mockResolvedValue({ initSearchController })
+      const teardown = mountCommissionSearchIsland({ importController })
+      return { importController, teardown }
+    }
+
+    it('logs once and retries on the next chip tap', async () => {
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const root = document.getElementById('commission-search')!
+      root.innerHTML = '<ul id="search-keyword-list"><li><button type="button" data-keyword="alpha">alpha</button></li></ul>'
+      const { importController } = mountWithFlakyImport()
+      runPendingIdleCallbacks()
+      await vi.waitFor(() => expect(consoleError).toHaveBeenCalledTimes(1))
+
+      root.querySelector<HTMLButtonElement>('[data-keyword]')!.click()
+
+      await vi.waitFor(() => expect(initSearchController).toHaveBeenCalledWith(root, { pendingKeyword: 'alpha' }))
+      expect(importController).toHaveBeenCalledTimes(2)
+      expect(consoleError).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not replay a chip tapped before the failure when focus retries', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const root = document.getElementById('commission-search')!
+      root.innerHTML = '<ul id="search-keyword-list"><li><button type="button" data-keyword="alpha">alpha</button></li></ul><input />'
+      const { importController } = mountWithFlakyImport()
+      root.querySelector<HTMLButtonElement>('[data-keyword]')!.click()
+      await vi.waitFor(() => expect(importController).toHaveBeenCalledTimes(1))
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      root.querySelector('input')!.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+
+      await vi.waitFor(() => expect(initSearchController).toHaveBeenCalledWith(root, { pendingKeyword: undefined }))
+    })
+
+    it('retries when the search input is focused', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const root = document.getElementById('commission-search')!
+      root.innerHTML = '<input id="commission-search-input" />'
+      const { importController } = mountWithFlakyImport()
+      runPendingIdleCallbacks()
+      await vi.waitFor(() => expect(importController).toHaveBeenCalledTimes(1))
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      root.querySelector('input')!.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+
+      await vi.waitFor(() => expect(initSearchController).toHaveBeenCalledTimes(1))
+      expect(importController).toHaveBeenCalledTimes(2)
+    })
+
+    it('does not retry after teardown', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const root = document.getElementById('commission-search')!
+      root.innerHTML = '<input id="commission-search-input" />'
+      const { importController, teardown } = mountWithFlakyImport()
+      runPendingIdleCallbacks()
+      await vi.waitFor(() => expect(importController).toHaveBeenCalledTimes(1))
+      await new Promise(resolve => setTimeout(resolve, 0))
+      teardown()
+
+      root.querySelector('input')!.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      expect(importController).toHaveBeenCalledTimes(1)
+    })
+  })
 })

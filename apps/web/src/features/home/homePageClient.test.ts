@@ -152,6 +152,19 @@ describe('mountHomePageClient', () => {
     ])
   })
 
+  it('reveals a page the pre-paint script hid when a critical mount throws', () => {
+    const trace: Trace = []
+    const { deps } = createDeps(trace)
+    document.documentElement.setAttribute('data-home-scroll-restoring', 'true')
+    deps.mountCommissionViewModeDomSync = vi.fn(() => {
+      throw new Error('critical mount failed')
+    })
+
+    expect(() => mountHomePageClient({ deps })).toThrow()
+    expect(deps.mountHomeScrollRestore).not.toHaveBeenCalled()
+    expect(document.documentElement.hasAttribute('data-home-scroll-restoring')).toBe(false)
+  })
+
   it('isolates a throwing deferred mount', () => {
     const trace: Trace = []
     const { deps, getDeferredTask } = createDeps(trace)

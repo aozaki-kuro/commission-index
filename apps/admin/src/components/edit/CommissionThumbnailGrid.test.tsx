@@ -112,6 +112,36 @@ describe('commission thumbnail grid image loading', () => {
     expect(images()).toHaveLength(2)
   })
 
+  it('retries a failed placeholder when its card is activated or its data refreshes', async () => {
+    const failTwice = async () => {
+      await act(async () => images()[0]!.dispatchEvent(new Event('error', { bubbles: true })))
+      await act(async () => images()[0]!.dispatchEvent(new Event('error', { bubbles: true })))
+      expect(container.textContent).toContain('No image')
+    }
+    await render(true)
+    const healthy = images()[1]!
+    await failTwice()
+    await act(async () => container.querySelector<HTMLButtonElement>('[data-commission-id="1"]')!.click())
+    expect(container.textContent).not.toContain('No image')
+    expect(images()).toHaveLength(3)
+    // Activating a healthy card must not remount (and refetch) its image.
+    await act(async () => container.querySelector<HTMLButtonElement>('[data-commission-id="2"]')!.click())
+    expect(images()[1]).toBe(healthy)
+
+    await failTwice()
+    await act(async () => root.render(
+      <CommissionThumbnailGrid
+        commissions={commissions.map(commission => ({ ...commission }))}
+        selectedCommissionId={null}
+        onSelect={() => {}}
+        isExpanded
+      />,
+    ))
+    expect(container.textContent).not.toContain('No image')
+    expect(images()).toHaveLength(3)
+    expect(images()[1]).toBe(healthy)
+  })
+
   it('defers image fetches until a card nears the viewport', async () => {
     vi.stubGlobal('IntersectionObserver', MockIntersectionObserver)
     await render(true)

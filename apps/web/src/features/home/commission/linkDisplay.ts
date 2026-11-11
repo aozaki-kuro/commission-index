@@ -16,36 +16,42 @@ export interface DisplayLinksSelection {
 
 export const COMMISSION_LINK_TEXT_CLASS = 'select-none underline underline-offset-2'
 
-const LINK_PRIORITY: Array<{ type: string, patterns: string[] }> = [
+const LINK_PRIORITY: Array<{ type: string, domains: string[] }> = [
   {
     type: 'Twitter',
-    patterns: ['twitter.com', 'x.com'],
+    domains: ['twitter.com', 'x.com'],
   },
   {
     type: 'Pixiv',
-    patterns: ['pixiv.net'],
+    domains: ['pixiv.net'],
   },
   {
     type: 'Nijie',
-    patterns: ['nijie.info'],
+    domains: ['nijie.info'],
   },
   {
     type: 'Fanbox',
-    patterns: ['fanbox.cc'],
+    domains: ['fanbox.cc'],
   },
   {
     type: 'Patreon',
-    patterns: ['patreon.com'],
+    domains: ['patreon.com'],
   },
   {
     type: 'Fantia',
-    patterns: ['fantia.jp'],
+    domains: ['fantia.jp'],
   },
   {
     type: 'Hedao',
-    patterns: ['hedaoapp.com'],
+    domains: ['hedaoapp.com'],
   },
 ]
+
+// Hostname, not substring: `x.com` inside a dropbox.com path or a query string is not Twitter. Links on no known
+// host stay undisplayed on purpose; admin's "Most wanted" counts such a work as votable.
+function isOnDomain(hostname: string, domain: string) {
+  return hostname === domain || hostname.endsWith(`.${domain}`)
+}
 
 // Both fields end up in href. The worker validates links on write, but design is free text and rows written
 // before that validation are never re-checked, so anything that is not an absolute http(s) URL is not a link.
@@ -65,8 +71,9 @@ export function selectDisplayLinks({
 
   const buckets: Record<string, string[]> = {}
   for (const url of links.filter(isWebUrl)) {
-    for (const { type, patterns } of LINK_PRIORITY) {
-      if (patterns.some(pattern => url.includes(pattern))) {
+    const { hostname } = new URL(url)
+    for (const { type, domains } of LINK_PRIORITY) {
+      if (domains.some(domain => isOnDomain(hostname, domain))) {
         if (!buckets[type])
           buckets[type] = []
         buckets[type].push(url)

@@ -786,7 +786,7 @@ describe('admin worker CRUD contract routing', () => {
     formData.set('workGroupId', '')
     formData.set('partNumber', '')
     formData.set('links', ' https://a.example \n\nhttps://b.example ')
-    formData.set('design', '  outfit  ')
+    formData.set('design', '  https://design.example/outfit  ')
     formData.set('description', '  desc  ')
     formData.set('keyword', '  tag  ')
     formData.set('hidden', 'on')
@@ -837,7 +837,7 @@ describe('admin worker CRUD contract routing', () => {
         part_number: null,
         file_name: expect.stringMatching(/^commission-[\w-]+$/),
         links: '["https://a.example","https://b.example"]',
-        design: 'outfit',
+        design: 'https://design.example/outfit',
         description: 'desc',
         keyword: 'tag',
         hidden: 1,
@@ -938,7 +938,7 @@ describe('admin worker CRUD contract routing', () => {
           workGroupId: '',
           partNumber: '',
           links: ' https://one.example \n https://two.example ',
-          design: '  new design  ',
+          design: '  https://design.example/new  ',
           description: '',
           keyword: '  glow  ',
           hidden: true,
@@ -964,7 +964,7 @@ describe('admin worker CRUD contract routing', () => {
       part_number: null,
       file_name: '20250301_sample-piece',
       links: '["https://one.example","https://two.example"]',
-      design: 'new design',
+      design: 'https://design.example/new',
       description: null,
       keyword: 'glow',
       hidden: 1,
@@ -1778,5 +1778,193 @@ describe('admin worker CRUD contract routing', () => {
         expect(response.status).toBe(200)
       }
     })
+  })
+})
+
+describe('commission design links', () => {
+  function createForm(design: string) {
+    const formData = new FormData()
+    formData.set('characterId', '7')
+    formData.set('commissionDate', '2025-03-01')
+    formData.set('links', '')
+    formData.set('design', design)
+    formData.set('sourceImage', new File([
+      imageBytes('jpg'),
+    ], 'a.jpg', { type: 'image/jpeg' }))
+    return new Request(`${baseUrl}/api/admin/commissions`, { method: 'POST', body: formData })
+  }
+
+  function patch(design: unknown) {
+    return new Request(`${baseUrl}/api/admin/commissions/19`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        characterId: 7,
+        commissionDate: '2025-03-01',
+        creatorName: null,
+        workGroupId: null,
+        partNumber: null,
+        links: '',
+        ...(design === undefined
+          ? {}
+          : { design }),
+        hidden: false,
+      }),
+    })
+  }
+
+  it.each(['Casual', 'javascript:alert(1)', 'example.com/design'])('rejects design %s on create and PATCH', async (design) => {
+    const { database, db } = createSQLiteD1()
+    insertCharacter(database, 7, 'Alice')
+    insertCommission(database, {
+      id: 19,
+      characterId: 7,
+      fileName: 'existing',
+      design: 'https://design.example/old',
+    })
+    const { bucket, put } = createImagesBucketRecorder()
+
+    const created = await handleAdminApiRequest(createForm(design), { DB: db, IMAGES: bucket })
+    const updated = await handleAdminApiRequest(patch(design), { DB: db, IMAGES: bucket })
+
+    for (const response of [created, updated]) {
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({ status: 'error', message: `Design "${design}" must be an http(s) URL.` })
+    }
+    expect(put).not.toHaveBeenCalled()
+    expect(database.prepare('SELECT design FROM commissions WHERE id = 19').get()).toEqual({ design: 'https://design.example/old' })
+  })
+
+  it('stores an http(s) design and clears it when PATCH sends an empty or omitted design', async () => {
+    const { database, db } = createSQLiteD1()
+    insertCharacter(database, 7, 'Alice')
+    insertCommission(database, { id: 19, characterId: 7, fileName: 'existing' })
+    const { bucket } = createImagesBucketRecorder()
+
+    expect((await handleAdminApiRequest(createForm(' http://design.example/a '), { DB: db, IMAGES: bucket })).status).toBe(200)
+    expect(database.prepare('SELECT design FROM commissions WHERE id != 19').get()).toEqual({ design: 'http://design.example/a' })
+
+    expect((await handleAdminApiRequest(patch('https://design.example/b'), { DB: db })).status).toBe(200)
+    expect(database.prepare('SELECT design FROM commissions WHERE id = 19').get()).toEqual({ design: 'https://design.example/b' })
+    expect((await handleAdminApiRequest(patch(''), { DB: db })).status).toBe(200)
+    expect(database.prepare('SELECT design FROM commissions WHERE id = 19').get()).toEqual({ design: null })
+    expect((await handleAdminApiRequest(patch('https://design.example/c'), { DB: db })).status).toBe(200)
+    expect((await handleAdminApiRequest(patch(undefined), { DB: db })).status).toBe(200)
+    expect(database.prepare('SELECT design FROM commissions WHERE id = 19').get()).toEqual({ design: null })
+  })
+})
+
+describe('featured keyword payload shape', () => {
+  it.each([
+    {
+      label: 'a mistyped key',
+      body: {
+        featuredKeywords: ['maid'],
+      },
+    },
+    {
+      label: 'keywordsJson that is not an array',
+      body: { keywordsJson: '"maid"' },
+    },
+    {
+      label: 'keywords that is neither an array nor a string',
+      body: {
+        keywords: { maid: true },
+      },
+    },
+  ])('rejects $label with 400 and keeps the saved keywords', async ({ body }) => {
+    const { database, db } = createSQLiteD1()
+    database.exec('INSERT INTO home_featured_search_keywords (keyword, sort_order) VALUES (\'kept\', 1)')
+
+    const response = await handleAdminApiRequest(new Request(`${baseUrl}/api/admin/suggestion`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }), { DB: db })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      status: 'error',
+      message: 'Featured keywords must be sent as a `keywords` array (or a `keywordsJson` JSON array string).',
+    })
+    expect(database.prepare('SELECT keyword FROM home_featured_search_keywords').all()).toEqual([
+      { keyword: 'kept' },
+    ])
+  })
+
+  it('still clears the featured keywords for an explicit empty array', async () => {
+    const { database, db } = createSQLiteD1()
+    database.exec('INSERT INTO home_featured_search_keywords (keyword, sort_order) VALUES (\'gone\', 1)')
+
+    const response = await handleAdminApiRequest(new Request(`${baseUrl}/api/admin/suggestion`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keywords: [] }),
+    }), { DB: db })
+
+    expect(response.status).toBe(200)
+    expect(database.prepare('SELECT keyword FROM home_featured_search_keywords').all()).toEqual([])
+  })
+})
+
+describe('upload body size precheck', () => {
+  it.each([
+    '/api/admin/commissions',
+    '/api/admin/commissions/19/source-image',
+  ])('rejects %s from Content-Length before reading the body', async (path) => {
+    const { database, db } = createSQLiteD1()
+    insertCharacter(database, 7, 'Alice')
+    insertCommission(database, { id: 19, characterId: 7, fileName: 'existing' })
+    const { bucket, put } = createImagesBucketRecorder()
+    const request = new Request(`${baseUrl}${path}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'multipart/form-data; boundary=x',
+        'Content-Length': String(12 * 1024 * 1024),
+      },
+      body: 'unread',
+    })
+
+    const response = await handleAdminApiRequest(request, { DB: db, IMAGES: bucket })
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ status: 'error', message: 'Uploaded image must be 10 MiB or smaller.' })
+    expect(request.bodyUsed).toBe(false)
+    expect(put).not.toHaveBeenCalled()
+  })
+})
+
+describe('source-image response content type', () => {
+  async function serve(contentType: string | undefined, objectKey = 'source-images/commission-opaque-key/hash.jpg') {
+    const { database, db } = createSQLiteD1()
+    seedAdminReadFixture(database)
+    database.prepare('UPDATE source_images SET object_key = ? WHERE commission_id = 10').run(objectKey)
+    const get = vi.fn(async () => createR2SourceImageObject(new Uint8Array([1, 2, 3]).buffer, { contentType }))
+    return handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/commissions/10/source-image`, { method: 'GET' }),
+      {
+        DB: db,
+        IMAGES: { get },
+      },
+    )
+  }
+
+  it.each([
+    { stored: 'image/png', key: 'source-images/x.jpg', served: 'image/png' },
+    { stored: 'text/html', key: 'source-images/x.png', served: 'image/png' },
+    { stored: 'image/svg+xml', key: 'source-images/x.jpeg', served: 'image/jpeg' },
+    { stored: undefined, key: 'source-images/x.JPG', served: 'image/jpeg' },
+  ])('serves $served for stored $stored on $key', async ({ stored, key, served }) => {
+    const response = await serve(stored, key)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Content-Type')).toBe(served)
+  })
+
+  it('refuses to serve an object that is neither a stored JPEG/PNG nor a .jpg/.png key', async () => {
+    const response = await serve('text/html', 'source-images/x.html')
+
+    expect(response.status).toBe(500)
+    expect(response.headers.get('Content-Type')).toContain('application/json')
   })
 })

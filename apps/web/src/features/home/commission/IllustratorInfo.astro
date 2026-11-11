@@ -24,12 +24,14 @@ const linkId = `#${kebabName}-commission-${commission.publicId}`
 const formattedDate = compactDate
 ? parseAndFormatDate(compactDate, 'yyyy/MM/dd')
 : ''
+// Derived from the validated display date, so an unparseable raw value never reaches `datetime`.
+const isoDate = formattedDate.replaceAll('/', '-')
 const quotedDescription = `"${description}"`
 
-const creatorName = commission.creatorName?.trim() || 'Anon'
+const creatorName = commission.creatorName?.trim() || messages.listing.anonymousCreator
 const partLabel = commission.partNumber == null
 ? null
-: `Part ${commission.partNumber}`
+: messages.listing.formatPartLabel(commission.partNumber)
 const hasDescription = Boolean(description)
 
 const displayLinks = selectDisplayLinks({ links, designLink })
@@ -46,7 +48,9 @@ const rootClass = `flex w-full flex-wrap items-center gap-y-2 font-mono text-xs 
         md:mr-10
       "
     >
-      <time>{formattedDate}</time>
+      {formattedDate
+? <time datetime={isoDate}>{formattedDate}</time>
+: null}
     </a>
 
     <span>{creatorName}</span>

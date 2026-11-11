@@ -409,7 +409,6 @@ export function AddCommissionForm({
         onCommissionDateChange={setCommissionDate}
         creatorName={creatorName}
         onCreatorNameChange={setCreatorName}
-        designPlaceholder="Design reference"
         descriptionPlaceholder="Short description"
         keywordValue={keywordValue}
         onKeywordChange={setKeywordValue}

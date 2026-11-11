@@ -149,4 +149,43 @@ describe('mountHomeScrollRestore', () => {
 
     cleanup()
   })
+
+  describe('when site storage is blocked', () => {
+    function blockSessionStorage() {
+      vi.spyOn(window, 'sessionStorage', 'get').mockImplementation(() => {
+        throw new DOMException('The operation is insecure.', 'SecurityError')
+      })
+    }
+
+    it('mounts, reveals the shell and skips the restore instead of throwing', () => {
+      document.documentElement.setAttribute('data-home-scroll-restoring', 'true')
+      blockSessionStorage()
+      const restoreScrollPosition = vi.fn()
+
+      const cleanup = mountHomeScrollRestore({
+        deps: {
+          readNavigationType: () => 'reload',
+          restoreScrollPosition,
+        },
+      })
+
+      expect(restoreScrollPosition).not.toHaveBeenCalled()
+      expect(document.documentElement.hasAttribute('data-home-scroll-restoring')).toBe(false)
+      cleanup()
+    })
+
+    it('does not throw when persisting on pagehide', () => {
+      blockSessionStorage()
+      const cleanup = mountHomeScrollRestore({
+        deps: {
+          readNavigationType: () => 'navigate',
+        },
+      })
+
+      expect(() => window.dispatchEvent(new Event('pagehide'))).not.toThrow()
+      window.history.replaceState(null, '', '/#section-alpha')
+      expect(() => window.dispatchEvent(new Event('pagehide'))).not.toThrow()
+      cleanup()
+    })
+  })
 })

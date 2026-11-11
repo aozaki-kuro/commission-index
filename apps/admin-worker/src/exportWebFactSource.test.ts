@@ -745,4 +745,90 @@ describe('事实源快照导出', () => {
 
     expect(spawnSync).toHaveBeenCalledTimes(1)
   })
+
+  function singleImageRow(objectKey: string, mimeType: string, bytes: string) {
+    return buildSnapshotRow({
+      characters: [
+        {
+          id: 1,
+          name: 'fixture',
+          status: 'active',
+          sortOrder: 1,
+        },
+      ],
+      commissions: [
+        {
+          id: 1,
+          characterId: 1,
+          commissionDate: '2024-04-21',
+          creatorName: 'creator',
+          fileName: '20240421',
+          links: '[]',
+          hidden: 0,
+        },
+      ],
+      imageRows: [
+        {
+          commissionId: 1,
+          commissionFileName: '20240421',
+          objectKey,
+          mimeType,
+          byteSize: bytes.length,
+          sha256: createHash('sha256').update(bytes).digest('hex'),
+        },
+      ],
+    })
+  }
+
+  it('treats a transient failure as a hard failure even when the key and path contain "404"', async () => {
+    const directory = temporaryDirectory()
+    const objectKey = 'source-images/20240421-404.jpg'
+    mockD1Snapshot(singleImageRow(objectKey, 'image/jpeg', 'image'))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(spawn).mockImplementation(((_command: string, args: string[]) => {
+      const child = Object.assign(new EventEmitter(), {
+        stdout: new PassThrough(),
+        stderr: new PassThrough(),
+      })
+      queueMicrotask(() => {
+        child.stderr.write(`Downloading "${args[3]}" to "${args[args.indexOf('--file') + 1]}"\n✘ [ERROR] fetch failed: ECONNRESET`)
+        child.emit('close', 1)
+      })
+      return child
+    }) as unknown as typeof spawn)
+
+    await expect(main(['--output-root', directory])).rejects.toThrow()
+
+    // Retried as a transient error, never re-read D1 as if the object had been replaced.
+    expect(spawn).toHaveBeenCalledTimes(3)
+    expect(spawnSync).toHaveBeenCalledTimes(1)
+  })
+
+  it('records the D1 mime type for downloaded and reused images alike, so the revision ignores cache state', async () => {
+    const directory = temporaryDirectory()
+    // The row says PNG while the key ends in .jpg: both paths must agree on one value.
+    mockD1Snapshot(singleImageRow('source-images/hash-uuid.jpg', 'image/png', 'image'))
+    vi.mocked(spawn).mockImplementation(((_command: string, args: string[]) => {
+      const child = Object.assign(new EventEmitter(), {
+        stdout: new PassThrough(),
+        stderr: new PassThrough(),
+      })
+      queueMicrotask(() => {
+        writeFileSync(args[args.indexOf('--file') + 1], 'image')
+        child.emit('close', 0)
+      })
+      return child
+    }) as unknown as typeof spawn)
+    const readManifest = () => JSON.parse(readFileSync(path.join(directory, 'fact-source/source-images-manifest.json'), 'utf8'))
+
+    await main(['--output-root', directory])
+    const downloaded = readManifest()
+    await main(['--output-root', directory])
+    const reused = readManifest()
+
+    expect(spawn).toHaveBeenCalledTimes(1)
+    expect(downloaded.files[0].mimeType).toBe('image/png')
+    expect(reused.files[0].mimeType).toBe('image/png')
+    expect(reused.meta.revision).toBe(downloaded.meta.revision)
+  })
 })

@@ -136,10 +136,22 @@ export function validateGeneratedFactSourceSnapshot(
 
   const ids = new Set<number>()
   const publicIds = new Set<string>()
+  const characterIds = new Set<number>()
+  const characterNames = new Set<string>()
   for (const character of content.characters) {
     if (!isRecord(character) || !Array.isArray(character.commissions)) {
       throw new Error('Generated fact-source content has an invalid character record.')
     }
+    // Section anchors fall back to `character-<id>` and are keyed by name (D1: integer primary key, name NOT NULL UNIQUE).
+    const characterId = character.id
+    if (!Number.isSafeInteger(characterId) || (characterId as number) <= 0 || characterIds.has(characterId as number)) {
+      throw new Error(`Invalid or duplicate character ID in generated fact source: ${characterId}`)
+    }
+    if (typeof character.name !== 'string' || characterNames.has(character.name)) {
+      throw new Error(`Invalid or duplicate character name for character ID ${characterId}`)
+    }
+    characterIds.add(characterId as number)
+    characterNames.add(character.name)
     for (const commission of character.commissions) {
       if (!isRecord(commission)) {
         throw new Error('Generated fact-source content has an invalid commission record.')

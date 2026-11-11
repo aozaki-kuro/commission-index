@@ -26,6 +26,13 @@
 /
   Cache-Control: no-cache
 
+# Non-default locale homepages: one rule per WEB_LOCALES entry in src/config/locales.ts (keep in sync).
+/zh-tw/
+  Cache-Control: no-cache
+
+/ja/
+  Cache-Control: no-cache
+
 /rss.xml
   Cache-Control: no-cache
 

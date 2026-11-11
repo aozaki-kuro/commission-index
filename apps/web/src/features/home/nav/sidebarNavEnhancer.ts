@@ -30,13 +30,14 @@ import { SIDEBAR_SEARCH_STATE_EVENT } from '@lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '@lib/navigation/syncHiddenSectionLinkAvailability'
 import { revealArchivedHomeNavTarget } from './homeNavTargetClient'
 import { mountSidebarDisclosureSlide } from './sidebarDisclosureSlide'
+import { applyViewModeToggleClasses, SIDEBAR_VIEW_MODE_TOGGLE_CLASSES } from './viewModeToggleClasses'
 
 const SIDEBAR_ROOT_ID = 'Character List'
 const SIDEBAR_CONTROLS_ROOT_ID = 'Home Controls'
 const SEARCH_LINK_SELECTOR = '[data-sidebar-search-link="true"]'
 const CHARACTER_LINK_SELECTOR = '[data-sidebar-character-link="true"]'
 const NAV_PANEL_SELECTOR = '[data-sidebar-nav-panel]'
-const VIEW_MODE_TOGGLE_SELECTOR = '[data-sidebar-view-mode-toggle="true"]'
+const VIEW_MODE_TOGGLE_SELECTOR = SIDEBAR_VIEW_MODE_TOGGLE_CLASSES.toggleSelector
 const ARCHIVED_DETAILS_SELECTOR = '[data-sidebar-archived-details="true"]'
 const LOCALE_MENU_SELECTOR = '[data-sidebar-locale-menu]'
 const ARCHIVED_LOAD_TRIGGER_SELECTOR = '[data-load-archived-characters="true"]'
@@ -108,15 +109,7 @@ function toggleDotState(dot: HTMLElement, active: boolean) {
 }
 
 function toggleViewModeButtonState(button: HTMLButtonElement, active: boolean) {
-  button.classList.toggle('text-gray-900', active)
-  button.classList.toggle('dark:text-white', active)
-  button.classList.toggle('text-gray-700', !active)
-  button.classList.toggle('dark:text-gray-200', !active)
-
-  const indicator = button.querySelector<HTMLElement>('[data-sidebar-view-mode-indicator]')
-  if (indicator) {
-    toggleDotState(indicator, active)
-  }
+  applyViewModeToggleClasses(button, SIDEBAR_VIEW_MODE_TOGGLE_CLASSES, active)
 }
 
 function createActivePanelSnapshot({

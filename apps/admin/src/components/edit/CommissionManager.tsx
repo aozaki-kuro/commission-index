@@ -6,6 +6,7 @@ import type {
   SearchIndexLike,
 } from '@commission-index/domain'
 import type { AdminCommissionSearchEntry } from '../../lib/search/adminCommissionSearch'
+import type { DiscardGuard } from './CommissionEditDrawer'
 import {
   createSearchIndex,
   getMatchedEntryIds,
@@ -16,16 +17,18 @@ import {
   useCallback,
   useDeferredValue,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from 'react'
 import { buttonStyles, formControlStyles } from '../../app/ui'
 import { useCommissionManager } from '../../hooks/useCommissionManager'
-import { useNativeDragReorder } from '../../hooks/useNativeDragReorder'
+import { arrayMove, useNativeDragReorder } from '../../hooks/useNativeDragReorder'
 import { fetchCharacterCommissionsAction } from '../../lib/adminActions'
 import { compareCommissionsByDate, formatCommissionPublicId, getCommissionAccessibleLabel } from '../../lib/commissionPresentation'
 import { notifyDataUpdate } from '../../lib/dataUpdateSignal'
+import { consumeCommissionEditRequest } from '../../lib/editIntent'
 import { markPendingRebuild } from '../../lib/pendingRebuildSignal'
 import {
   buildAdminCommissionSearchEntries,
@@ -39,6 +42,8 @@ import { CommissionThumbnail } from './CommissionThumbnailGrid'
 import { KeywordReplacePopover } from './KeywordReplacePopover'
 import { CharacterCardSkeleton, SortableCharacterCard } from './SortableCharacterCard'
 import { SortableDivider } from './SortableDivider'
+
+type MoveDirection = 'down' | 'up'
 
 interface CommissionManagerProps {
   characters: CharacterRow[]
@@ -87,6 +92,9 @@ export function CommissionManager({
   const commissionSearchRowsRef = useRef(commissionSearchRows)
   const cancelDeleteButtonRef = useRef<HTMLButtonElement | null>(null)
   const deleteReturnFocusRef = useRef<HTMLElement | null>(null)
+  const drawerDiscardGuardRef = useRef<DiscardGuard | null>(null)
+  const [lastMove, setLastMove] = useState<{ characterId: number, direction: MoveDirection } | null>(null)
+  const [moveAnnouncement, setMoveAnnouncement] = useState('')
   const {
     cancelEditing,
     closeConfirmDialog,
@@ -188,6 +196,37 @@ export function CommissionManager({
     itemCount: list.length,
     onReorder: handleReorder,
   })
+
+  const moveCharacter = (fromIndex: number, toIndex: number, character: CharacterRow, direction: MoveDirection) => {
+    const nextList = arrayMove(list, fromIndex, toIndex)
+    const nextCharacters = nextList.filter(item => item.type === 'character')
+    const position = nextCharacters.findIndex(item => item.data.id === character.id) + 1
+    const nextDividerIndex = nextList.findIndex(item => item.type === 'divider')
+    const crossedDivider = (fromIndex < dividerIndex) !== (toIndex < nextDividerIndex)
+    const status = toIndex < nextDividerIndex
+      ? 'active'
+      : 'archived'
+    handleReorder(fromIndex, toIndex)
+    setLastMove({ characterId: character.id, direction })
+    setMoveAnnouncement(`${character.name} moved to position ${position} of ${nextCharacters.length}${crossedDivider
+      ? `, ${status}`
+      : ''}`)
+  }
+
+  // React moves the focused card's node (or disables the pressed control at an end), which blurs it; restore it before paint.
+  useLayoutEffect(() => {
+    if (!lastMove)
+      return
+    const card = document.getElementById(`admin-character-${lastMove.characterId}`)
+    const pressed = card?.querySelector<HTMLButtonElement>(`[data-move-direction="${lastMove.direction}"]`)
+    const opposite = card?.querySelector<HTMLButtonElement>(`[data-move-direction="${lastMove.direction === 'up'
+      ? 'down'
+      : 'up'}"]`)
+    const target = pressed && !pressed.disabled
+      ? pressed
+      : opposite
+    target?.focus()
+  }, [lastMove])
 
   const loadCharacterCommissions = useCallback((characterId: number, force = false): Promise<CommissionRow[] | null> => {
     const inFlight = inFlightLoadPromisesRef.current.get(characterId)
@@ -395,9 +434,32 @@ export function CommissionManager({
     })
   }, [clearPendingSelection, loadCharacterCommissions, loadedCommissions])
 
+  // Overview's Edit buttons hand over a commission to open once this page has data.
+  useEffect(() => {
+    if (isInitialLoading) {
+      return
+    }
+    const request = consumeCommissionEditRequest()
+    if (request && !isInitialError) {
+      // Deferred so the selection is an event-like update, not a state write during the effect.
+      queueMicrotask(() => handleSearchResultSelect(request.commissionId, request.characterId))
+    }
+  }, [handleSearchResultSelect, isInitialError, isInitialLoading])
+
+  // Switching records unmounts the open form, so a dirty draft must be confirmed first.
+  const requestSearchResultSelect = useCallback((commissionId: number, characterId: number) => {
+    const select = () => handleSearchResultSelect(commissionId, characterId)
+    const guard = drawerDiscardGuardRef.current
+    if (guard && selectedCommission && selectedCommission.id !== commissionId) {
+      guard(select)
+      return
+    }
+    select()
+  }, [handleSearchResultSelect, selectedCommission])
+
   const handleSelectCommission = useCallback((commission: CommissionRow) => {
-    handleSearchResultSelect(commission.id, commission.characterId)
-  }, [handleSearchResultSelect])
+    requestSearchResultSelect(commission.id, commission.characterId)
+  }, [requestSearchResultSelect])
 
   const handleCloseDrawer = useCallback(() => {
     clearPendingSelection()
@@ -451,6 +513,8 @@ export function CommissionManager({
 
   return (
     <section className="space-y-5">
+      {/* Mounted before any move so the first announcement is read; sr-only keeps it out of layout. */}
+      <p role="status" aria-live="polite" className="sr-only">{moveAnnouncement}</p>
       <header className="space-y-1">
         <h2 className="
           text-lg font-semibold text-gray-900
@@ -477,7 +541,7 @@ export function CommissionManager({
       {selectionError && !hasAppliedSearchQuery && (
         <FloatingNotice tone="error" onDismiss={() => setSelectionError(null)}>
           <p className="text-inherit">Could not load the latest commission. Try again before editing.</p>
-          <button type="button" onClick={() => handleSearchResultSelect(selectionError.commissionId, selectionError.characterId)} className="mt-2 font-medium underline underline-offset-2">Retry opening commission</button>
+          <button type="button" onClick={() => requestSearchResultSelect(selectionError.commissionId, selectionError.characterId)} className="mt-2 font-medium underline underline-offset-2">Retry opening commission</button>
         </FloatingNotice>
       )}
       {refreshError && (
@@ -567,7 +631,7 @@ export function CommissionManager({
                   title={`Public ID: ${row.publicId}`}
                   aria-label={`${row.characterName} · ${getCommissionAccessibleLabel(row)}`}
                   aria-busy={pendingCommissionId === row.id && loadingCharacterIds.has(row.characterId)}
-                  onClick={() => handleSearchResultSelect(row.id, row.characterId)}
+                  onClick={() => requestSearchResultSelect(row.id, row.characterId)}
                   className="group flex min-h-16 w-full min-w-0 items-center gap-3 admin-surface rounded-xl border border-gray-200 p-2 text-left transition hover:border-gray-300 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 dark:border-gray-800 dark:hover:bg-gray-800"
                 >
                   <span className="w-28 shrink-0 overflow-hidden rounded-md sm:w-40">
@@ -575,6 +639,7 @@ export function CommissionManager({
                       commissionId={row.id}
                       alt={`Source image for ${row.characterName} · ${getCommissionAccessibleLabel(row)}`}
                       isEnabled
+                      retryKey={row}
                     />
                   </span>
                   <span className="flex min-w-0 flex-1 flex-col gap-1">
@@ -668,10 +733,10 @@ export function CommissionManager({
                             isReorderMode={isReorderMode}
                             onMoveUp={index === 0
                               ? undefined
-                              : () => handleReorder(index, index - 1)}
+                              : () => moveCharacter(index, index - 1, character, 'up')}
                             onMoveDown={index === list.length - 1
                               ? undefined
-                              : () => handleReorder(index, index + 1)}
+                              : () => moveCharacter(index, index + 1, character, 'down')}
                           />
                         </div>
                       )
@@ -701,6 +766,7 @@ export function CommissionManager({
         commission={selectedCommission}
         characters={orderedCharacters}
         commissionSearchRows={currentSearchRows}
+        discardGuardRef={drawerDiscardGuardRef}
         onClose={handleCloseDrawer}
         onDelete={handleDrawerDelete}
         onSaveSuccess={handleDrawerSaveSuccess}

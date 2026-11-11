@@ -32,12 +32,14 @@ const defaultDeps: HomeScrollRestoreDeps = {
   restoreScrollPosition: restoreWindowScrollPosition,
 }
 
+// Site storage can be blocked (the `sessionStorage` getter itself throws a SecurityError). This is a critical mount,
+// so every access degrades to "nothing saved" instead of tearing down the home runtime.
 function readSavedState(win: Window): SavedHomeScrollState | null {
-  const rawState = win.sessionStorage.getItem(HOME_SCROLL_STATE_STORAGE_KEY)
-  if (!rawState)
-    return null
-
   try {
+    const rawState = win.sessionStorage.getItem(HOME_SCROLL_STATE_STORAGE_KEY)
+    if (!rawState)
+      return null
+
     const parsedState = JSON.parse(rawState) as Partial<SavedHomeScrollState>
     if (
       typeof parsedState.pathname !== 'string'
@@ -61,10 +63,15 @@ function readSavedState(win: Window): SavedHomeScrollState | null {
 }
 
 function clearSavedState(win: Window) {
-  win.sessionStorage.removeItem(HOME_SCROLL_STATE_STORAGE_KEY)
+  try {
+    win.sessionStorage.removeItem(HOME_SCROLL_STATE_STORAGE_KEY)
+  }
+  catch {
+    // Storage blocked: nothing was saved either.
+  }
 }
 
-function revealRestoringShell(win: Window) {
+export function revealRestoringShell(win: Window) {
   win.document.documentElement.removeAttribute(HOME_SCROLL_RESTORING_ATTRIBUTE)
 }
 
@@ -74,15 +81,20 @@ function persistScrollState(win: Window) {
     return
   }
 
-  win.sessionStorage.setItem(
-    HOME_SCROLL_STATE_STORAGE_KEY,
-    JSON.stringify({
-      pathname: win.location.pathname,
-      search: win.location.search,
-      x: win.scrollX,
-      y: win.scrollY,
-    } satisfies SavedHomeScrollState),
-  )
+  try {
+    win.sessionStorage.setItem(
+      HOME_SCROLL_STATE_STORAGE_KEY,
+      JSON.stringify({
+        pathname: win.location.pathname,
+        search: win.location.search,
+        x: win.scrollX,
+        y: win.scrollY,
+      } satisfies SavedHomeScrollState),
+    )
+  }
+  catch {
+    // Storage blocked or full: the next reload just starts at the top.
+  }
 }
 
 function shouldRestoreSavedState({

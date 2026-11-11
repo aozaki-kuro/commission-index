@@ -19,6 +19,7 @@ import { jumpToCommissionSearch } from '@lib/navigation/jumpToCommissionSearch'
 import { SIDEBAR_SEARCH_STATE_EVENT } from '@lib/navigation/sidebarSearchState'
 import { syncHiddenSectionLinkAvailability } from '@lib/navigation/syncHiddenSectionLinkAvailability'
 import { revealArchivedHomeNavTarget } from '../homeNavTargetClient'
+import { applyViewModeToggleClasses, HAMBURGER_VIEW_MODE_TOGGLE_CLASSES } from '../viewModeToggleClasses'
 import { MENU_TRANSITION_MS } from './constants'
 
 const ROOT_SELECTOR = '[data-mobile-hamburger="true"]'
@@ -30,7 +31,7 @@ const CLOSE_ICON_SELECTOR = '[data-mobile-hamburger-icon-close="true"]'
 const BACKDROP_SELECTOR = '[data-mobile-hamburger-backdrop="true"]'
 const PANEL_SELECTOR = '[data-mobile-hamburger-panel="true"]'
 const SEARCH_ACTION_SELECTOR = '[data-mobile-hamburger-search-action="true"]'
-const VIEW_MODE_TOGGLE_SELECTOR = '[data-mobile-hamburger-view-mode-toggle="true"]'
+const VIEW_MODE_TOGGLE_SELECTOR = HAMBURGER_VIEW_MODE_TOGGLE_CLASSES.toggleSelector
 const NAV_PANEL_SELECTOR = '[data-mobile-hamburger-nav-panel]'
 const NAV_ROOT_SELECTOR = '[data-mobile-nav-root="true"]'
 const NAV_LINK_SELECTOR = '[data-mobile-nav-link="true"]'
@@ -38,6 +39,7 @@ const CHARACTER_SECTION_SELECTOR = '[data-mobile-character-section]'
 const CHARACTER_SECTION_TOGGLE_SELECTOR = '[data-mobile-character-section-toggle="true"]'
 const AGE_GATE_ROOT_SELECTOR = '[data-age-gate-root]'
 const AGE_GATE_STATE_EVENT = 'age-gate-state-change'
+const PANEL_FOCUSABLE_SELECTOR = 'a[href]:not([aria-disabled="true"]), button:not([disabled])'
 // apple.com's menu curve. Only transform/opacity animate: WebKit cannot hand a height or grid-row transition to Core
 // Animation, so on iPhone it laid out and repainted the full-screen panel on the main thread every frame.
 const SECTION_SLIDE_MS = 320
@@ -111,19 +113,7 @@ function setHtmlScrollLocked(doc: Document, locked: boolean) {
 
 function syncViewModeIndicatorState(button: HTMLButtonElement, active: boolean) {
   button.setAttribute('aria-pressed', String(active))
-  button.classList.toggle('text-gray-900', active)
-  button.classList.toggle('dark:text-white', active)
-  button.classList.toggle('text-gray-800', !active)
-  button.classList.toggle('dark:text-gray-100', !active)
-
-  const indicator = button.querySelector<HTMLElement>('[data-mobile-hamburger-view-mode-indicator]')
-  if (!indicator)
-    return
-
-  indicator.classList.toggle('scale-100', active)
-  indicator.classList.toggle('opacity-100', active)
-  indicator.classList.toggle('scale-95', !active)
-  indicator.classList.toggle('opacity-0', !active)
+  applyViewModeToggleClasses(button, HAMBURGER_VIEW_MODE_TOGGLE_CLASSES, active)
 }
 
 export function mountMobileHamburgerMenu({
@@ -193,7 +183,6 @@ export function mountMobileHamburgerMenu({
   let closeTimerId: number | null = null
   let openRafId: number | null = null
   let hasTrackedSearchUsage = false
-  let didHandleSearchPointerDown = false
   let expandedCharacterSection: CharacterSectionKey | null = 'active'
   let settleCharacterSectionSlide: (() => void) | null = null
   let ageGateOpen = readAgeGateOpen(doc)
@@ -236,6 +225,8 @@ export function mountMobileHamburgerMenu({
     toggle.setAttribute('aria-label', open ? closeNavigationLabel : openNavigationLabel)
     toggleLabel.textContent = open ? closeNavigationLabel : openNavigationLabel
     panel.setAttribute('aria-hidden', String(!open))
+    // Closed and closing alike: links must leave the tab order the moment the panel stops being the menu.
+    panel.toggleAttribute('inert', !open)
 
     backdrop.classList.toggle('hidden', !isVisible)
     panel.classList.toggle('hidden', !isVisible)
@@ -268,10 +259,28 @@ export function mountMobileHamburgerMenu({
     dispatchMountedChange(nextMounted)
   }
 
+  const focusFirstPanelControl = () => {
+    const target = [
+      ...panel.querySelectorAll<HTMLElement>(PANEL_FOCUSABLE_SELECTOR),
+    ]
+      .find(node => !node.closest('[data-collapsed], .hidden'))
+    if (target) {
+      target.focus({ preventScroll: true })
+      return
+    }
+    if (!panel.hasAttribute('tabindex'))
+      panel.setAttribute('tabindex', '-1')
+    panel.focus({ preventScroll: true })
+  }
+
   const closeMenu = () => {
     clearOpenRaf()
+    const focusWasInPanel = panel.contains(doc.activeElement)
     open = false
     syncOpenState()
+    // inert just blurred whatever had focus inside the panel; hand it back to the trigger instead of <body>.
+    if (focusWasInPanel)
+      toggle.focus({ preventScroll: true })
     clearCloseTimer()
     closeTimerId = win.setTimeout(() => {
       closeTimerId = null
@@ -290,6 +299,7 @@ export function mountMobileHamburgerMenu({
       open = true
       syncOpenState()
       openRafId = null
+      focusFirstPanelControl()
     })
   }
 
@@ -468,18 +478,12 @@ export function mountMobileHamburgerMenu({
     closeMenu()
   }
 
+  // The action runs on click, so a touch that turns into a scroll never fires it; pointerdown only keeps the press
+  // from moving focus onto the button.
   const onRootPointerDown = (event: PointerEvent) => {
     const target = event.target
-    if (!(target instanceof Element))
-      return
-
-    const actionButton = target.closest<HTMLButtonElement>(SEARCH_ACTION_SELECTOR)
-    if (!actionButton)
-      return
-
-    event.preventDefault()
-    didHandleSearchPointerDown = true
-    runSearchAction()
+    if (target instanceof Element && target.closest(SEARCH_ACTION_SELECTOR))
+      event.preventDefault()
   }
 
   const onRootClick = (event: MouseEvent) => {
@@ -529,10 +533,6 @@ export function mountMobileHamburgerMenu({
 
     const searchButton = target.closest<HTMLButtonElement>(SEARCH_ACTION_SELECTOR)
     if (searchButton) {
-      if (didHandleSearchPointerDown) {
-        didHandleSearchPointerDown = false
-        return
-      }
       runSearchAction()
       return
     }

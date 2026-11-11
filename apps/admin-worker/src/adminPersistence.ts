@@ -35,10 +35,6 @@ export interface D1DatabaseLike {
   prepare: (query: string) => D1PreparedStatementLike
 }
 
-interface MaxSortOrderRow {
-  maxOrder?: number | null
-}
-
 interface CharacterIdRow {
   id: number
   name: string
@@ -326,15 +322,11 @@ export async function createCharacter(
     throw new Error('Character name is required.')
   }
 
-  const maxOrderRow = await queryFirstRow<MaxSortOrderRow>(
-    db,
-    'SELECT COALESCE(MAX(sort_order), 0) as maxOrder FROM characters',
-  )
-
+  // One statement, so two concurrent creates cannot both read the same max and share a sort_order.
   await runStatement(
     db,
-    'INSERT INTO characters (name, status, sort_order) VALUES (?, ?, ?)',
-    [name, input.status, Number(maxOrderRow?.maxOrder ?? 0) + 1],
+    'INSERT INTO characters (name, status, sort_order) SELECT ?, ?, COALESCE(MAX(sort_order), 0) + 1 FROM characters',
+    [name, input.status],
   )
 
   return name
@@ -439,35 +431,21 @@ export async function updateCharacterOrder(
     return
   }
 
-  const existingRows = await queryRows<CharacterIdRow>(
-    db,
-    `SELECT id FROM characters WHERE id IN (${orderedIds.map(() => '?').join(', ')})`,
-    orderedIds,
-  )
-  if (existingRows.length !== orderedIds.length) {
+  // D1 caps a statement at 100 bound parameters, so neither the existence check nor the updates may bind every id.
+  const existingIds = new Set((await queryRows<{ id: number }>(db, 'SELECT id FROM characters'))
+    .map(row => Number(row.id)))
+  if (orderedIds.some(id => !existingIds.has(id))) {
     throw new Error('Character order payload must include existing character identifiers only.')
   }
 
-  const buildOrderUpdate = (ids: number[], status: CharacterStatus, offset: number) => {
-    if (ids.length === 0) {
-      return null
-    }
-    const cases = ids.map(() => 'WHEN ? THEN ?').join(' ')
-    return {
-      query: `UPDATE characters SET sort_order = CASE id ${cases} END, status = ? WHERE id IN (${ids.map(() => '?').join(', ')})`,
-      values: [
-        ...ids.flatMap((id, index) => [id, offset + index + 1]),
-        status,
-        ...ids,
-      ],
-    }
-  }
-  const operations = [
-    buildOrderUpdate(activeIds, 'active', 0),
-    buildOrderUpdate(archivedIds, 'archived', activeIds.length),
-  ].filter((operation): operation is NonNullable<typeof operation> => operation !== null)
-
-  await runStatementsAtomically(db, operations)
+  const statuses: CharacterStatus[] = [
+    ...activeIds.map(() => 'active' as const),
+    ...archivedIds.map(() => 'archived' as const),
+  ]
+  await runStatementsAtomically(db, orderedIds.map((id, index) => ({
+    query: 'UPDATE characters SET sort_order = ?, status = ? WHERE id = ?',
+    values: [index + 1, statuses[index], id],
+  })))
 }
 
 // Rows link to a commission by commission_id (0004) or, legacy, by commission_file_name. The SELECT and
@@ -834,11 +812,55 @@ export async function getSourceImageMetadata(db: D1DatabaseLike, commissionFileN
   )
 }
 
+// Alias tables are keyed by the exact stored name, but reads merge rows by each type's normalized key. A save must
+// therefore replace every stored row with the submitted key, or a differently cased/spaced duplicate survives the
+// save, keeps contributing aliases to reads, and can never be deleted through the API.
+async function replaceAliasRowsAtomically(
+  db: D1DatabaseLike,
+  table: {
+    name: 'creator_aliases' | 'character_aliases' | 'keyword_aliases'
+    keyColumn: 'creator_name' | 'character_name' | 'base_keyword'
+    normalizeKey: (storedName: string) => string | null
+  },
+  rows: Map<string, { name: string, aliases: string[] }>,
+) {
+  if (rows.size === 0) {
+    return
+  }
+
+  const storedNames = await queryRows<{ name: string }>(
+    db,
+    `SELECT ${table.keyColumn} AS name FROM ${table.name}`,
+  )
+  const operations: Array<{ query: string, values?: unknown[] }> = []
+  for (const [key, row] of rows) {
+    for (const stored of storedNames) {
+      if (table.normalizeKey(stored.name) === key) {
+        operations.push({
+          query: `DELETE FROM ${table.name} WHERE ${table.keyColumn} = ?`,
+          values: [stored.name],
+        })
+      }
+    }
+    if (row.aliases.length > 0) {
+      operations.push({
+        query: `INSERT INTO ${table.name} (${table.keyColumn}, aliases) VALUES (?, ?)`,
+        values: [
+          row.name,
+          JSON.stringify(row.aliases),
+        ],
+      })
+    }
+  }
+
+  await runStatementsAtomically(db, operations)
+}
+
 export async function saveCreatorAliasesBatch(
   db: D1DatabaseLike,
   rows: Array<{ creatorName: string, aliases: string[] | string }>,
 ) {
-  const mergedRows = new Map<string, string[]>()
+  const mergedRows = new Map<string, { name: string, aliases: string[] }>()
 
   rows.forEach((row) => {
     const creatorName = normalizeCreatorName(row.creatorName)
@@ -847,41 +869,29 @@ export async function saveCreatorAliasesBatch(
     }
 
     const aliases = normalizeAliases(row.aliases)
-    mergedRows.set(
-      creatorName,
-      normalizeAliases([
-        ...(mergedRows.get(creatorName) ?? []),
+    mergedRows.set(creatorName, {
+      name: creatorName,
+      aliases: normalizeAliases([
+        ...(mergedRows.get(creatorName)?.aliases ?? []),
         ...aliases,
       ]),
-    )
+    })
   })
 
   await ensureCreatorAliasesTable(db)
-  await runStatementsAtomically(db, [
-    ...mergedRows.entries(),
-  ].map(([creatorName, aliases]) => aliases.length === 0
-    ? {
-        query: 'DELETE FROM creator_aliases WHERE creator_name = ?',
-        values: [creatorName],
-      }
-    : {
-        query: `
-        INSERT INTO creator_aliases (creator_name, aliases)
-        VALUES (?, ?)
-        ON CONFLICT(creator_name) DO UPDATE SET aliases = excluded.aliases
-      `,
-        values: [
-          creatorName,
-          JSON.stringify(aliases),
-        ],
-      }))
+  // Creator keys stay case-sensitive; only the `(part N)` suffix that reads strip is folded.
+  await replaceAliasRowsAtomically(db, {
+    name: 'creator_aliases',
+    keyColumn: 'creator_name',
+    normalizeKey: normalizeCreatorName,
+  }, mergedRows)
 }
 
 export async function saveCharacterAliasesBatch(
   db: D1DatabaseLike,
   rows: Array<{ characterName: string, aliases: string[] | string }>,
 ) {
-  const mergedRows = new Map<string, { characterName: string, aliases: string[] }>()
+  const mergedRows = new Map<string, { name: string, aliases: string[] }>()
 
   rows.forEach((row) => {
     const characterName = normalizeCharacterAliasName(row.characterName)
@@ -897,7 +907,7 @@ export async function saveCharacterAliasesBatch(
     const aliases = normalizeCharacterAliases(row.aliases)
     const previous = mergedRows.get(key)
     mergedRows.set(key, {
-      characterName: previous?.characterName ?? characterName,
+      name: previous?.name ?? characterName,
       aliases: normalizeCharacterAliases([
         ...(previous?.aliases ?? []),
         ...aliases,
@@ -906,31 +916,18 @@ export async function saveCharacterAliasesBatch(
   })
 
   await ensureCharacterAliasesTable(db)
-  await runStatementsAtomically(db, [
-    ...mergedRows.values(),
-  ].map(row => row.aliases.length === 0
-    ? {
-        query: 'DELETE FROM character_aliases WHERE character_name = ?',
-        values: [row.characterName],
-      }
-    : {
-        query: `
-        INSERT INTO character_aliases (character_name, aliases)
-        VALUES (?, ?)
-        ON CONFLICT(character_name) DO UPDATE SET aliases = excluded.aliases
-      `,
-        values: [
-          row.characterName,
-          JSON.stringify(row.aliases),
-        ],
-      }))
+  await replaceAliasRowsAtomically(db, {
+    name: 'character_aliases',
+    keyColumn: 'character_name',
+    normalizeKey: normalizeCharacterAliasKey,
+  }, mergedRows)
 }
 
 export async function saveKeywordAliasesBatch(
   db: D1DatabaseLike,
   rows: Array<{ baseKeyword: string, aliases: string[] | string }>,
 ) {
-  const mergedRows = new Map<string, { baseKeyword: string, aliases: string[] }>()
+  const mergedRows = new Map<string, { name: string, aliases: string[] }>()
 
   rows.forEach((row) => {
     const baseKeyword = normalizeKeywordBaseTerm(row.baseKeyword)
@@ -946,7 +943,7 @@ export async function saveKeywordAliasesBatch(
     const aliases = normalizeKeywordAliases(row.aliases)
     const previous = mergedRows.get(key)
     mergedRows.set(key, {
-      baseKeyword: previous?.baseKeyword ?? baseKeyword,
+      name: previous?.name ?? baseKeyword,
       aliases: normalizeKeywordAliases([
         ...(previous?.aliases ?? []),
         ...aliases,
@@ -955,24 +952,11 @@ export async function saveKeywordAliasesBatch(
   })
 
   await ensureKeywordAliasesTable(db)
-  await runStatementsAtomically(db, [
-    ...mergedRows.values(),
-  ].map(row => row.aliases.length === 0
-    ? {
-        query: 'DELETE FROM keyword_aliases WHERE base_keyword = ?',
-        values: [row.baseKeyword],
-      }
-    : {
-        query: `
-        INSERT INTO keyword_aliases (base_keyword, aliases)
-        VALUES (?, ?)
-        ON CONFLICT(base_keyword) DO UPDATE SET aliases = excluded.aliases
-      `,
-        values: [
-          row.baseKeyword,
-          JSON.stringify(row.aliases),
-        ],
-      }))
+  await replaceAliasRowsAtomically(db, {
+    name: 'keyword_aliases',
+    keyColumn: 'base_keyword',
+    normalizeKey: normalizeKeywordAliasKey,
+  }, mergedRows)
 }
 
 export async function saveHomeFeaturedSearchKeywords(db: D1DatabaseLike, keywords: string[]) {

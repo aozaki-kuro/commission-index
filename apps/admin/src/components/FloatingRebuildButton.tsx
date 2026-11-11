@@ -7,9 +7,14 @@ import { FloatingNotice } from './FloatingNotice'
 export function FloatingRebuildButton() {
   const hasPending = useSyncExternalStore(subscribeToPendingRebuild, isPendingRebuild, () => false)
   const rebuild = useSyncExternalStore(subscribeToWebsiteRebuild, getWebsiteRebuildState, getServerWebsiteRebuildState)
-  const status = rebuild.status === 'success' && hasPending
+  // A save during confirmation leaves newer changes unpublished; the older success (and its message) no longer applies.
+  const isSupersededSuccess = rebuild.status === 'success' && hasPending
+  const status = isSupersededSuccess
     ? 'idle'
     : rebuild.status
+  const message = isSupersededSuccess
+    ? null
+    : rebuild.message
   if (!hasPending && status === 'idle')
     return null
 
@@ -36,7 +41,7 @@ export function FloatingRebuildButton() {
     >
       <div className="flex min-w-0 items-center justify-between gap-4">
         <p className="min-w-0 text-xs text-inherit">
-          {rebuild.message ?? (status === 'error'
+          {message ?? (status === 'error'
             ? 'Rebuild could not be queued.'
             : status === 'success'
               ? 'Website updated and confirmed live.'

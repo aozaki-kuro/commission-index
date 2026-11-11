@@ -214,6 +214,7 @@ export function SortableCharacterCard({
             <button
               type="button"
               data-rename-action={isEditing ? 'save' : undefined}
+              data-move-direction={isReorderMode ? 'up' : undefined}
               onPointerDown={(event) => {
                 if (isEditing)
                   event.preventDefault()
@@ -250,6 +251,7 @@ export function SortableCharacterCard({
             <button
               type="button"
               data-rename-action={isEditing ? 'cancel' : undefined}
+              data-move-direction={isReorderMode ? 'down' : undefined}
               onPointerDown={(event) => {
                 if (isEditing)
                   event.preventDefault()

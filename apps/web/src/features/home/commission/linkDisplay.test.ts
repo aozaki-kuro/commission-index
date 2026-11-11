@@ -135,4 +135,29 @@ describe('linkDisplay', () => {
       { type: 'Pixiv', url: 'https://www.pixiv.net/artworks/1' },
     ])
   })
+
+  it('classifies by hostname, not by substring', () => {
+    const result = selectDisplayLinks({
+      links: [
+        'https://www.dropbox.com/s/abc/x.com.png',
+        'https://example.org/?ref=pixiv.net',
+        'https://mobile.twitter.com/example/status/1',
+        'https://www.pixiv.net/artworks/1',
+      ],
+    })
+
+    expect(result.mainLinks).toEqual([
+      { type: 'Twitter', url: 'https://mobile.twitter.com/example/status/1' },
+      { type: 'Pixiv', url: 'https://www.pixiv.net/artworks/1' },
+    ])
+  })
+
+  it('keeps a work whose only link is on an unknown host votable', () => {
+    expect(hasDisplayableLinks({
+      links: ['https://www.dropbox.com/s/abc/x.com.png'],
+    })).toBe(false)
+    expect(hasDisplayableLinks({
+      links: ['https://notx.com/post/1'],
+    })).toBe(false)
+  })
 })

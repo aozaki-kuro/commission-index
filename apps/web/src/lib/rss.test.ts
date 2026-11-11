@@ -18,9 +18,9 @@ describe('buildRssItem', () => {
     })
 
     expect(item.guid).toBe('commission-00000000-0000-4000-8000-000000000042')
-    expect(item.author).toBe('Artist Name')
+    expect(item.creator).toBe('Artist Name')
     expect(item.pubDate).toBe(new Date('2024-02-03T00:00:00Z').toUTCString())
-    expect(item.link).toBe('https://crystallize.cc#alpha-commission-00000000-0000-4000-8000-000000000042')
+    expect(item.link).toBe('https://crystallize.cc/#alpha-commission-00000000-0000-4000-8000-000000000042')
     expect(item.description).toContain('2024/02/03')
   })
 
@@ -37,8 +37,20 @@ describe('buildRssItem', () => {
       character: 'Alpha',
     })
 
-    expect(item.author).toBe('Anon')
+    expect(item.creator).toBe('Anon')
     expect(item.pubDate).toBeNull()
+    const cjk = buildRssItem({
+      id: 43,
+      publicId: 'p43',
+      commissionDate: null,
+      creatorName: null,
+      fileName: 'k',
+      workGroupId: null,
+      partNumber: null,
+      Links: [],
+      character: '雪ノ下',
+    })
+    expect(cjk.link).toBe(`https://crystallize.cc/#${encodeURIComponent('character-雪ノ下-commission-p43')}`)
     expect(item.description).not.toContain('published on')
   })
 })
@@ -76,7 +88,9 @@ describe('renderRssFeed', () => {
 
     expect(doc.querySelector('parsererror')).toBeNull()
     expect(doc.querySelector('item > title')?.textContent).toBe('Tom & <Jerry>')
-    expect(doc.querySelector('item > author')?.textContent).toBe('A & <B> ]]> "C"')
+    expect(doc.querySelector('item > author')).toBeNull()
+    const creator = doc.getElementsByTagNameNS('http://purl.org/dc/elements/1.1/', 'creator')[0]
+    expect(creator?.textContent).toBe('A & <B> ]]> "C"')
     expect(doc.querySelector('item > description')?.textContent).toContain('A & <B> ]]> "C"')
     const atom = doc.getElementsByTagName('atom:link')[0]
     expect(atom?.getAttribute('href')).toBe('https://crystallize.cc/rss.xml')

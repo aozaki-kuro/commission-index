@@ -1,4 +1,4 @@
-const PART_SUFFIX_PATTERN = /\s+\(part\s+\d+\)$/i
+const PART_SUFFIX_PATTERN = /\s*\(part\s*\d+\)$/i
 const ALIAS_SPLIT_PATTERN = /[,\n，、;；]/
 const CJK_CHARACTER_PATTERN = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u
 

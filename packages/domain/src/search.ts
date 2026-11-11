@@ -55,6 +55,7 @@ interface SuggestionMatch {
 interface ParsedFuseQuery {
   normalizedRawQuery: string
   tokens: string[]
+  fuseQuery: string
 }
 
 interface ParsedSuggestionInputState {
@@ -76,6 +77,9 @@ const NORMALIZE_PIPE_PATTERN = /\s*\|\s*/g
 const NORMALIZE_NEGATION_PATTERN = /\s*!\s*/g
 const NORMALIZE_MULTI_SPACE_PATTERN = /\s+/g
 const QUOTED_TOKEN_BOUNDARY_PATTERN = /("[^"]*")(?=[^\s|!])/g
+const QUOTED_SEGMENT_SPLIT_PATTERN = /("[^"]*")/
+const PIPE_CHAR_PATTERN = /\|/g
+const DATE_INDEX_TOKEN_PATTERN = /^date_ym?_\d{4}(?:_\d{2})?$/
 const HAS_DIGIT_PATTERN = /\d/
 const LIKELY_DATE_QUERY_PATTERN = /^[\d./-]+$/
 const PREVIEW_PART_SUFFIX_PATTERN = /\s*\((?:preview|part\s*\d+)\)$/i
@@ -195,6 +199,8 @@ function getStrictTermMatches<T extends SearchEntryLike>(index: SearchIndexLike<
   if (cached)
     return cached
 
+  // Exact-match-first is intentional: once any entry has the exact term `cat`, prefix matches such
+  // as `catgirl` are not added; prefix matching applies only when no exact term exists.
   const indexedMatches = index.strictTermIndex?.get(term)
   if (indexedMatches) {
     termCache.set(term, indexedMatches)
@@ -238,13 +244,6 @@ function excludeInPlace(source: Set<number>, excluded: Set<number>) {
   }
 }
 
-function includeInverseInPlace(source: Set<number>, allIds: Set<number>, excluded: Set<number>) {
-  for (const id of allIds) {
-    if (!excluded.has(id))
-      source.add(id)
-  }
-}
-
 const tokenizeQuery = (query: string) => query.match(TOKENIZE_QUERY_PATTERN) ?? []
 function getSuggestionTokenTailStart(rawQuery: string) {
   let inQuote = false
@@ -272,12 +271,11 @@ function getParsedFuseQuery(rawQuery: string): ParsedFuseQuery {
   if (cached)
     return cached
 
-  const normalizedRawQuery = toFuseOperatorQuery(rawQuery)
+  const tokens = toNormalizedQueryTokens(rawQuery)
   const parsed = {
-    normalizedRawQuery,
-    tokens: normalizedRawQuery
-      ? tokenizeQuery(normalizedRawQuery)
-      : [],
+    normalizedRawQuery: tokens.join(' '),
+    tokens,
+    fuseQuery: tokens.map(toFuseQueryToken).join(' '),
   }
 
   return setLruCacheEntry(parsedFuseQueryCache, rawQuery, parsed, MAX_PARSED_QUERY_CACHE_SIZE)
@@ -402,14 +400,25 @@ function collectExcludedSuggestionTerms(rawQuery: string) {
   return excludedTerms
 }
 
+function unionGroup(result: Set<number> | null, group: Set<number> | null) {
+  if (!group)
+    return result
+  if (!result)
+    return group
+  for (const id of group) result.add(id)
+  return result
+}
+
+// `|` separates AND-groups (`a | b c` = a ∪ (b ∩ c)), matching Fuse extended search, so both
+// paths agree; a group's exclusions apply only inside that group.
 function evaluateStrictQuery<T extends SearchEntryLike>(index: SearchIndexLike<T>, tokens: string[]) {
-  let current: Set<number> | null = null
-  let hasTerm = false
-  let pendingOperator: 'and' | 'or' = 'and'
+  let result: Set<number> | null = null
+  let group: Set<number> | null = null
 
   for (const token of tokens) {
     if (token === '|') {
-      pendingOperator = 'or'
+      result = unionGroup(result, group)
+      group = null
       continue
     }
 
@@ -418,33 +427,23 @@ function evaluateStrictQuery<T extends SearchEntryLike>(index: SearchIndexLike<T
       continue
     const { isNegated, rawTerm } = parsedToken
 
-    hasTerm = true
     const termMatches = getStrictTermMatches(index, rawTerm)
-    if (!current) {
-      current = isNegated
+    if (!group) {
+      group = isNegated
         ? new Set(index.allIds)
         : new Set(termMatches)
       if (isNegated)
-        excludeInPlace(current, termMatches)
+        excludeInPlace(group, termMatches)
     }
-    else if (pendingOperator === 'or') {
-      if (isNegated) {
-        includeInverseInPlace(current, index.allIds, termMatches)
-      }
-      else {
-        for (const id of termMatches) current.add(id)
-      }
+    else if (isNegated) {
+      excludeInPlace(group, termMatches)
     }
     else {
-      if (isNegated)
-        excludeInPlace(current, termMatches)
-      else intersectInPlace(current, termMatches)
+      intersectInPlace(group, termMatches)
     }
-
-    pendingOperator = 'and'
   }
 
-  return hasTerm ? current : null
+  return unionGroup(result, group)
 }
 
 function getSuggestionEntriesById(entries: SuggestionEntryLike[]) {
@@ -658,13 +657,27 @@ function normalizeDateTokenInQuery(token: string) {
   return `${parsedToken.isNegated ? '!' : ''}${normalizedDate}`
 }
 
-function toFuseOperatorQuery(rawQuery: string) {
+function toNormalizedQueryTokens(rawQuery: string) {
+  // Operators are normalized only outside closed quotes, so `"k-on! movie"` stays one literal phrase.
   const normalizedQuery = normalize(rawQuery)
-    .replace(NORMALIZE_PIPE_PATTERN, ' | ')
-    .replace(NORMALIZE_NEGATION_PATTERN, ' !')
+    .split(QUOTED_SEGMENT_SPLIT_PATTERN)
+    .map((segment, i) => i % 2 === 1
+      ? segment
+      : segment.replace(NORMALIZE_PIPE_PATTERN, ' | ').replace(NORMALIZE_NEGATION_PATTERN, ' !'))
+    .join('')
     .replace(NORMALIZE_MULTI_SPACE_PATTERN, ' ')
-  const tokens = normalizedQuery.match(TOKENIZE_QUERY_PATTERN) ?? []
-  return tokens.map(normalizeDateTokenInQuery).join(' ')
+  return tokenizeQuery(normalizedQuery).map(normalizeDateTokenInQuery)
+}
+
+function toFuseQueryToken(token: string) {
+  // Fuse splits OR groups on `|` before reading quotes; only an escaped pipe stays literal.
+  if (token !== '|' && token.includes('|'))
+    return token.replace(PIPE_CHAR_PATTERN, '\\|')
+  // Date index tokens must match exactly (Fuse include-match): fuzzily, date_y_2019 would match
+  // date_y_2018. Negated tokens are already exact in Fuse (`!term` is inverse-include).
+  if (DATE_INDEX_TOKEN_PATTERN.test(token))
+    return `'${token}`
+  return token
 }
 
 export function normalizeSuggestionTerm(term: string) {
@@ -707,7 +720,7 @@ export function applySuggestionToQuery(rawQuery: string, suggestion: string) {
 
 export function getMatchedEntryIds<T extends SearchEntryLike>(rawQuery: string, index: SearchIndexLike<T>) {
   const { entries, allIds, fuse } = index
-  const { normalizedRawQuery, tokens } = getParsedFuseQuery(rawQuery)
+  const { normalizedRawQuery, tokens, fuseQuery } = getParsedFuseQuery(rawQuery)
   if (!entries.length)
     return EMPTY_IDS
   if (!normalizedRawQuery)
@@ -733,7 +746,7 @@ export function getMatchedEntryIds<T extends SearchEntryLike>(rawQuery: string, 
   const matched
     = strictMatchIds && strictMatchIds.size > 0
       ? strictMatchIds
-      : new Set(fuse.search(normalizedRawQuery).map(result => result.item.id))
+      : new Set(fuse.search(fuseQuery).map(result => result.item.id))
   return setLruCacheEntry(queryCache, normalizedRawQuery, matched, MAX_QUERY_CACHE_SIZE)
 }
 

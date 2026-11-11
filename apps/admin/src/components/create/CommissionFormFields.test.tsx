@@ -3,7 +3,7 @@ import { act, createElement, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getDefaultPartNumber } from '../../lib/commissionWorkGroups'
-import { CommissionCharacterField, CommissionDateField, CommissionWorkGroupField } from './CommissionFormFields'
+import { CommissionCharacterField, CommissionDateField, CommissionDesignDescriptionFields, CommissionWorkGroupField } from './CommissionFormFields'
 
 function PartingHarness({ initialGroup = '', initialPart = '' }: { initialGroup?: string, initialPart?: string }) {
   const [value, setValue] = useState(initialGroup)
@@ -23,8 +23,8 @@ function PartingHarness({ initialGroup = '', initialPart = '' }: { initialGroup?
   )
 }
 
-function DateFieldHarness() {
-  const [value, setValue] = useState('2026-04-01')
+function DateFieldHarness({ initialValue = '2026-04-01' }: { initialValue?: string }) {
+  const [value, setValue] = useState(initialValue)
 
   return createElement(
     'form',
@@ -42,13 +42,13 @@ describe('commission form fields', () => {
     container?.remove()
   })
 
-  async function renderDateField() {
+  async function renderDateField(initialValue?: string) {
     Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
     container = document.createElement('div')
     document.body.append(container)
     root = createRoot(container)
 
-    await act(async () => root.render(createElement(DateFieldHarness)))
+    await act(async () => root.render(createElement(DateFieldHarness, { initialValue })))
   }
 
   it('keeps the ISO date required and included in create/edit form data', async () => {
@@ -90,6 +90,68 @@ describe('commission form fields', () => {
     expect(input?.value).toBe('2026-04-27')
     expect(new FormData(container.querySelector('form')!).get('commissionDate')).toBe('2026-04-27')
     expect(document.querySelector('[role="dialog"][aria-label="Choose delivery date"]')).toBeNull()
+  })
+
+  it('keeps exactly one tabbable day in every visible month', async () => {
+    vi.useFakeTimers({
+      toFake: ['Date'],
+    })
+    vi.setSystemTime(new Date('2026-04-15T12:00:00Z'))
+    try {
+      const openCalendar = async (initialValue: string) => {
+        await act(async () => root?.unmount())
+        container?.remove()
+        await renderDateField(initialValue)
+        await act(async () => {
+          container.querySelector<HTMLButtonElement>('button[aria-label="Choose delivery date"]')?.click()
+        })
+        return document.querySelector<HTMLElement>('[role="dialog"][aria-label="Choose delivery date"]')!
+      }
+      let calendar = await openCalendar('2026-04-01')
+      const tabbableDays = () => [
+        ...calendar.querySelectorAll<HTMLButtonElement>('[data-calendar-date]'),
+      ]
+        .filter(day => day.tabIndex === 0)
+        .map(day => day.dataset.calendarDate)
+
+      // Selected date and today share April: the selected date wins.
+      expect(tabbableDays()).toEqual(['2026-04-01'])
+      expect(document.activeElement?.getAttribute('data-calendar-date')).toBe('2026-04-01')
+
+      // May holds neither, so its first day carries the tab stop.
+      await act(async () => {
+        calendar.querySelector<HTMLButtonElement>('button[aria-label="Next month"]')?.click()
+      })
+      expect(tabbableDays()).toEqual(['2026-05-01'])
+
+      // A selection in another month leaves today as the April tab stop.
+      calendar = await openCalendar('2026-03-31')
+      await act(async () => {
+        calendar.querySelector<HTMLButtonElement>('button[aria-label="Next month"]')?.click()
+      })
+      expect(tabbableDays()).toEqual(['2026-04-15'])
+    }
+    finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('presents the design field as a single-line URL input', async () => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+    await act(async () => root.render(<form><CommissionDesignDescriptionFields /></form>))
+
+    const input = container.querySelector<HTMLInputElement>('input[name="design"]')!
+    expect(container.querySelector('label[for="create-commission-design"]')?.textContent).toBe('Design link (optional)')
+    expect(input.type).toBe('url')
+    expect(input.inputMode).toBe('url')
+    expect(input.placeholder).toBe('https://example.com')
+    input.value = 'Design reference'
+    expect(input.validity.valid).toBe(false)
+    input.value = 'https://example.com/design'
+    expect(input.validity.valid).toBe(true)
   })
 
   it('flags a future delivery date with a custom validity message before submit', async () => {

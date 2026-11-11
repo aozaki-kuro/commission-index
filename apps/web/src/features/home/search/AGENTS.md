@@ -75,3 +75,14 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
   through `bindSoftNavMount` (`@lib/astro/softNavMount`) on `astro:page-load` and tear down on `astro:before-swap`.
   A mount that defers work (idle callback, dynamic import) must cancel it in its teardown and check a disposed flag
   after the import resolves.
+  The controller keeps every rAF/timer id and cancels them on teardown, and its index `.then`, recompute and
+  schedulers check `disposed`: a pass that outlived a soft navigation would filter the next page and `replaceState`
+  `?q=` onto it. A failed controller-chunk import resets the island's `loading` and retries on the next chip tap or
+  focus inside the search root.
+- Recompute: immediate requests collapse to one rAF per frame. A request made while a pass runs (a synchronous
+  archived reveal notifies the panel-state subscriber mid-pass) reruns it once in the same frame, which is what keeps
+  an archived-only keyword filtered on its first painted frame; do not reintroduce a second scheduling call for it.
+  Every suggestion-panel close clears the listbox's active option (`listboxCtrl.clear()`, not `reset()`: the closing
+  options stay in the DOM until the transition ends) and again when the closed list empties.
+  `requestedArchivedForSearch` follows archived visibility: collapsing archived (e.g. from the sidebar) re-arms the
+  reveal, so an archived-only query still applied at that moment reopens it.

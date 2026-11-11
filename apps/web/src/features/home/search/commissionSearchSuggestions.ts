@@ -7,6 +7,7 @@ interface SuggestionPanelController {
   shouldSuppressInputFocusOpen: () => boolean
   bindOutsideListeners: (searchRoot: HTMLElement, dismissFn: () => void) => void
   unbindOutsideListeners: () => void
+  dispose: () => void
 }
 
 export function createSuggestionPanelController(
@@ -15,16 +16,20 @@ export function createSuggestionPanelController(
   let suppressNextFocusOpen = false
   let pointerHandler: ((e: PointerEvent) => void) | null = null
   let keyHandler: ((e: KeyboardEvent) => void) | null = null
+  let focusRafId = 0
 
   function focusInputAfterSelection(nextQuery: string, options?: FocusInputOptions) {
     suppressNextFocusOpen = true
 
-    requestAnimationFrame(() => {
+    if (focusRafId)
+      cancelAnimationFrame(focusRafId)
+    focusRafId = requestAnimationFrame(() => {
       inputEl.focus(options)
       const cursor = nextQuery.length
       inputEl.setSelectionRange(cursor, cursor)
 
-      requestAnimationFrame(() => {
+      focusRafId = requestAnimationFrame(() => {
+        focusRafId = 0
         suppressNextFocusOpen = false
       })
     })
@@ -75,5 +80,11 @@ export function createSuggestionPanelController(
     shouldSuppressInputFocusOpen,
     bindOutsideListeners,
     unbindOutsideListeners,
+    dispose() {
+      unbindOutsideListeners()
+      if (focusRafId)
+        cancelAnimationFrame(focusRafId)
+      focusRafId = 0
+    },
   }
 }

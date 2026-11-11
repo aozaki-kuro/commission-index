@@ -4,6 +4,11 @@ import type { CharacterCommissions } from '@data/types'
 import Listing from '@features/home/commission/Listing.astro'
 import TimelineView from '@features/home/commission/TimelineView.astro'
 import { getHomeLocaleMessages, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
+import {
+  HAMBURGER_VIEW_MODE_TOGGLE_CLASSES,
+  MOBILE_VIEW_MODE_TAB_CLASSES,
+  SIDEBAR_VIEW_MODE_TOGGLE_CLASSES,
+} from '@features/home/nav/viewModeToggleClasses'
 import { buildHomeSearchEntriesArtifact } from '@lib/pipeline/homeSearchEntries'
 
 type CharacterDisplay = {
@@ -160,6 +165,7 @@ const archivedCommissionCount = archivedChars.reduce(
     class="hidden"
   >
     <TimelineView
+      locale={locale}
       groups={timelineGroups}
       characterAliasesMap={characterAliasesMap}
       creatorAliasesMap={creatorAliasesMap}
@@ -168,7 +174,16 @@ const archivedCommissionCount = archivedChars.reduce(
   </div>
 </div>
 
-<script is:inline>
+<script
+  is:inline
+  define:vars={{
+    viewModeToggleTables: [
+      SIDEBAR_VIEW_MODE_TOGGLE_CLASSES,
+      MOBILE_VIEW_MODE_TAB_CLASSES,
+      HAMBURGER_VIEW_MODE_TOGGLE_CLASSES,
+    ],
+  }}
+>
 const initialMode
   = new URLSearchParams(window.location.search).get('view') === 'timeline'
     ? 'timeline'
@@ -222,8 +237,9 @@ if (initialMode === 'timeline') {
         button.classList.toggle(className, !active)
       })
 
+      // Sidebar and hamburger indicators are <svg> icons, so test for Element, not HTMLElement.
       const indicator = button.querySelector(indicatorSelector)
-      if (!(indicator instanceof HTMLElement))
+      if (!(indicator instanceof Element))
         return
 
       activeIndicatorClasses.forEach((className) => {
@@ -247,30 +263,8 @@ if (initialMode === 'timeline') {
     dataKey: 'mobileHamburgerNavPanel',
   })
 
-  syncToggleGroupState({
-    toggleSelector: '[data-sidebar-view-mode-toggle="true"]',
-    indicatorSelector: '[data-sidebar-view-mode-indicator]',
-    activeTextClasses: ['text-gray-900', 'dark:text-white'],
-    inactiveTextClasses: ['text-gray-700', 'dark:text-gray-200'],
-    activeIndicatorClasses: ['scale-100', 'opacity-100'],
-    inactiveIndicatorClasses: ['scale-95', 'opacity-0'],
-  })
-  syncToggleGroupState({
-    toggleSelector: '[data-mobile-view-mode-toggle="true"]',
-    indicatorSelector: '[data-mobile-view-mode-indicator]',
-    activeTextClasses: ['text-gray-700', 'dark:text-gray-300'],
-    inactiveTextClasses: ['text-gray-500', 'dark:text-gray-400'],
-    activeIndicatorClasses: ['w-full', 'opacity-100'],
-    inactiveIndicatorClasses: ['w-0', 'opacity-0'],
-  })
-  syncToggleGroupState({
-    toggleSelector: '[data-mobile-hamburger-view-mode-toggle="true"]',
-    indicatorSelector: '[data-mobile-hamburger-view-mode-indicator="true"]',
-    activeTextClasses: ['text-gray-900', 'dark:text-white'],
-    inactiveTextClasses: ['text-gray-700', 'dark:text-gray-200'],
-    activeIndicatorClasses: ['scale-100', 'opacity-100'],
-    inactiveIndicatorClasses: ['scale-95', 'opacity-0'],
-  })
+  // Class tables come from nav/viewModeToggleClasses.ts, which the mount code toggles too.
+  viewModeToggleTables.forEach(syncToggleGroupState)
 
   // Native fragment scroll targets the first matching id, which is the hidden character-panel copy of a
   // shared entry id, so jump to the timeline copy before first paint. homeHashTarget owns it after mount.

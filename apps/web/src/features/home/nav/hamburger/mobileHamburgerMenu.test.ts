@@ -157,7 +157,7 @@ describe('mobileHamburgerMenu', () => {
     window.removeEventListener(HAMBURGER_MENU_MOUNTED_CHANGE_EVENT, onMountedChanged)
   })
 
-  it('runs search action on pointerdown and keeps analytics payloads', () => {
+  it('runs search action on click, not on a pointerdown that never becomes one', () => {
     const trackEvent = vi.fn()
     const jumpToSearch = vi.fn()
     const syncLinkAvailability = vi.fn()
@@ -167,8 +167,17 @@ describe('mobileHamburgerMenu', () => {
     })
 
     getToggle()!.click()
-    getSearchAction()!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    // A touch that turns into a scroll: pointerdown, no click.
+    const pointerDown = new PointerEvent('pointerdown', { bubbles: true, cancelable: true })
+    getSearchAction()!.dispatchEvent(pointerDown)
+    expect(pointerDown.defaultPrevented).toBe(true)
+    expect(jumpToSearch).not.toHaveBeenCalled()
+    expect(getRoot()?.dataset.mobileHamburgerOpen).toBe('true')
 
+    // A later keyboard activation (click without pointerdown) must not be swallowed by the earlier press.
+    getSearchAction()!.click()
+
+    expect(jumpToSearch).toHaveBeenCalledTimes(1)
     expect(jumpToSearch).toHaveBeenCalledWith({ topGap: 40, focusMode: 'immediate' })
     expect(trackEvent).toHaveBeenCalledWith(ANALYTICS_EVENTS.sidebarNavUsed, {
       source: 'search_link',
@@ -176,6 +185,66 @@ describe('mobileHamburgerMenu', () => {
       view_mode: 'character',
     })
 
+    vi.advanceTimersByTime(MENU_TRANSITION_MS)
+    cleanup()
+  })
+
+  it('runs search action once for a tap (pointerdown then click)', () => {
+    const jumpToSearch = vi.fn()
+    const cleanup = mountMobileHamburgerMenu({
+      deps: {
+        trackEvent: vi.fn(),
+        jumpToSearch,
+      },
+    })
+
+    getToggle()!.click()
+    getSearchAction()!.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }))
+    getSearchAction()!.click()
+
+    expect(jumpToSearch).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(MENU_TRANSITION_MS)
+    cleanup()
+  })
+
+  it('moves focus into the panel on open, makes it inert while closed or closing and returns focus on close', () => {
+    const cleanup = mountMobileHamburgerMenu()
+    const panel = document.querySelector<HTMLElement>('[data-mobile-hamburger-panel="true"]')!
+
+    expect(panel.hasAttribute('inert')).toBe(true)
+    getToggle()!.focus()
+    getToggle()!.click()
+
+    expect(panel.hasAttribute('inert')).toBe(false)
+    expect(document.activeElement).toBe(getSearchAction())
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+
+    // Still mounted for the close transition, but no longer reachable.
+    expect(getRoot()?.dataset.mobileHamburgerMounted).toBe('true')
+    expect(panel.getAttribute('aria-hidden')).toBe('true')
+    expect(panel.hasAttribute('inert')).toBe(true)
+    expect(document.activeElement).toBe(getToggle())
+
+    vi.advanceTimersByTime(MENU_TRANSITION_MS)
+    expect(panel.hasAttribute('inert')).toBe(true)
+    cleanup()
+  })
+
+  it('leaves focus alone on close when it already moved outside the panel', () => {
+    const outside = document.createElement('input')
+    document.body.append(outside)
+    const cleanup = mountMobileHamburgerMenu({
+      deps: {
+        trackEvent: vi.fn(),
+        jumpToSearch: () => outside.focus(),
+      },
+    })
+
+    getToggle()!.click()
+    getSearchAction()!.click()
+
+    expect(document.activeElement).toBe(outside)
     vi.advanceTimersByTime(MENU_TRANSITION_MS)
     cleanup()
   })

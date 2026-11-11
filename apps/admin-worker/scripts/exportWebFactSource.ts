@@ -140,7 +140,7 @@ const defaultBucketName
 const imageOutputDirectoryName = 'source-images'
 const factSourceDirectoryName = 'fact-source'
 const normalizeSpacesPattern = /\s+/g
-const missingObjectPattern = /NoSuchKey|The specified key does not exist|not found|404/i
+const missingObjectPattern = /NoSuchKey|The specified key does not exist|not found/i
 const maxDownloadAttempts = 3
 const downloadFileWaitAttempts = 5
 const downloadFileWaitMilliseconds = 50
@@ -491,8 +491,11 @@ function buildFeaturedSearchKeywords(rows: FeaturedKeywordRow[]): string[] {
   return dedupeKeywords(rows.map(row => row.keyword))
 }
 
-function looksLikeMissingObject(message: string): boolean {
-  return missingObjectPattern.test(message)
+// Wrangler echoes the object key and output path, and real keys carry digits such as `20240421`; strip them so only
+// wrangler's own not-found wording can classify a failure as a missing object (a bare `404` is never matched).
+function looksLikeMissingObject(message: string, echoedValues: string[] = []): boolean {
+  const ownText = echoedValues.filter(Boolean).reduce((text, value) => text.replaceAll(value, ''), message)
+  return missingObjectPattern.test(ownText)
 }
 
 function ensureOutputImagePath(outputImagesDir: string, fileName: string): string {
@@ -637,11 +640,22 @@ function writeJsonFile(filePath: string, payload: unknown) {
   writeFileSync(filePath, `${JSON.stringify(payload, null, 2)}\n`, 'utf8')
 }
 
+// Downloaded and reused records must take mimeType from the same source, or meta.revision would depend on whether
+// the image happened to be cached locally.
+function resolveManifestMimeType(objectKey: string, storedMimeType?: string) {
+  const mimeType = storedMimeType || getSourceImageMimeType(objectKey)
+  if (!mimeType) {
+    throw new Error(`不支持的源图扩展名：${objectKey}`)
+  }
+  return mimeType
+}
+
 export function buildSourceImageFileRecord(
   commissionFileName: string,
   objectKey: string,
   filePath: string,
   commissionId: number,
+  storedMimeType?: string,
 ): GeneratedSourceImageManifestFile {
   const fileStats = statSync(filePath)
 
@@ -650,7 +664,7 @@ export function buildSourceImageFileRecord(
     commissionFileName,
     objectKey,
     relativePath: path.posix.join(imageOutputDirectoryName, getLocalImageName(commissionFileName, objectKey)),
-    mimeType: getSourceImageMimeType(objectKey),
+    mimeType: resolveManifestMimeType(objectKey, storedMimeType),
     byteSize: fileStats.size,
     sha256: hashFile(filePath),
   }
@@ -709,7 +723,7 @@ export function resolveReusableSourceImageRecord(
     commissionFileName: sourceImageRow.commissionFileName,
     objectKey: sourceImageRow.objectKey,
     relativePath: path.posix.join(imageOutputDirectoryName, localName),
-    mimeType: sourceImageRow.mimeType || getSourceImageMimeType(sourceImageRow.objectKey),
+    mimeType: resolveManifestMimeType(sourceImageRow.objectKey, sourceImageRow.mimeType),
     byteSize: sourceImageRow.byteSize,
     sha256: sourceImageRow.sha256,
   }
@@ -801,7 +815,7 @@ async function downloadSourceImageObject(
     ])
 
     if (result.status === 0 && await waitForFile(outputPath)) {
-      return { message: '', ok: true }
+      return { message: '', missing: false, ok: true }
     }
 
     const message = result.status === 0
@@ -810,8 +824,8 @@ async function downloadSourceImageObject(
 
     rmSync(outputPath, { force: true })
 
-    if (looksLikeMissingObject(message)) {
-      return { message, ok: false }
+    if (result.status !== 0 && looksLikeMissingObject(message, [`${bucketName}/${objectKey}`, objectKey, outputPath])) {
+      return { message, missing: true, ok: false }
     }
 
     if (attempt === maxDownloadAttempts) {
@@ -821,6 +835,7 @@ async function downloadSourceImageObject(
 
   return {
     message: hardFailureMessage || (result?.stderr || result?.stdout || '').trim(),
+    missing: false,
     ok: false,
   }
 }
@@ -899,7 +914,7 @@ async function stageSourceImages(
 
         const downloadResult = await downloadSourceImageObject(bucketName, objectKey, tempOutputPath)
         if (downloadResult.ok) {
-          const record = buildSourceImageFileRecord(commissionFileName, objectKey, tempOutputPath, commissionId)
+          const record = buildSourceImageFileRecord(commissionFileName, objectKey, tempOutputPath, commissionId, sourceImageRow.mimeType)
           if (sourceImageRow.sha256 !== record.sha256 || sourceImageRow.byteSize !== record.byteSize) {
             rmSync(tempOutputPath, { force: true })
             hardFailureMessage = `图片内容与读取的 D1 快照不一致：${commissionFileName}`
@@ -916,9 +931,8 @@ async function stageSourceImages(
 
         rmSync(tempOutputPath, { force: true })
 
-        const message = downloadResult.message
-        if (!looksLikeMissingObject(message)) {
-          hardFailureMessage = message
+        if (!downloadResult.missing) {
+          hardFailureMessage = downloadResult.message
           break
         }
       }

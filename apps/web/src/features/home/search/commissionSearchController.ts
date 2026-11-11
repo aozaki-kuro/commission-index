@@ -156,6 +156,8 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
   let panelState: PanelLoadedState = readPanelLoadedState()
   let didAutoJump = false
   let requestedArchivedForSearch = false
+  // Teardown runs on astro:before-swap; anything resolving later would read and write the next page.
+  let disposed = false
 
   if (initialUrlQuery) {
     input.value = initialUrlQuery
@@ -170,6 +172,33 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
   setFuseHydrationCallback(() => scheduleRecompute({ immediate: true }))
 
   const suggestionCtrl = createSuggestionPanelController(input)
+
+  // ==================== Listbox controller ====================
+
+  const listboxCtrl = createListboxController({
+    inputEl: input,
+    listEl: suggestionList,
+    getItemCount: () => getDropdownItemCount(suggestionList),
+    onSelect: (index) => {
+      const items = suggestionList.querySelectorAll<HTMLElement>('[role="option"]')
+      const item = items[index]
+      if (!item)
+        return
+      const value = item.dataset.value
+      if (!value)
+        return
+      if (value === LOAD_ARCHIVED_COMMAND_VALUE) {
+        requestArchivedCharactersVisibility(window, 'visible')
+      }
+      else {
+        applySuggestion(value)
+      }
+    },
+    onDismiss: () => {
+      dismissSuggestionPanel()
+      scheduleRecompute({ immediate: true })
+    },
+  })
 
   // ==================== Derived keyword computation ====================
 
@@ -190,6 +219,9 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
 
   function dismissSuggestionPanel() {
     isSuggestionPanelDismissed = true
+    // The options stay in the DOM until the close transition ends; an active option left set would make Enter
+    // select an invisible suggestion and point aria-activedescendant at a node about to be removed.
+    listboxCtrl.clear()
   }
 
   function applySuggestion(suggestion: string | null) {
@@ -248,33 +280,6 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
     requestArchivedCharactersVisibility(window, 'visible')
   }
 
-  // ==================== Listbox controller ====================
-
-  const listboxCtrl = createListboxController({
-    inputEl: input,
-    listEl: suggestionList,
-    getItemCount: () => getDropdownItemCount(suggestionList),
-    onSelect: (index) => {
-      const items = suggestionList.querySelectorAll<HTMLElement>('[role="option"]')
-      const item = items[index]
-      if (!item)
-        return
-      const value = item.dataset.value
-      if (!value)
-        return
-      if (value === LOAD_ARCHIVED_COMMAND_VALUE) {
-        requestArchivedCharactersVisibility(window, 'visible')
-      }
-      else {
-        applySuggestion(value)
-      }
-    },
-    onDismiss: () => {
-      dismissSuggestionPanel()
-      scheduleRecompute({ immediate: true })
-    },
-  })
-
   // ==================== Core recompute ====================
   // Split into two paths:
   // - Immediate (rAF): cheap UI updates (button visibility, ARIA)
@@ -296,7 +301,7 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
   // Keeps refresh/share in step with the query the list actually shows, without a write per keystroke.
   function scheduleAddressSync() {
     cancelAddressSync()
-    if (query === getUrlQuerySnapshot())
+    if (disposed || query === getUrlQuerySnapshot())
       return
     const appliedQuery = query
     addressSyncTimerId = window.setTimeout(() => {
@@ -308,6 +313,12 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
 
   let recomputeRafId = 0
   let recomputeTimerId = 0
+  let immediateRecomputeRafId = 0
+  let autoJumpRafId = 0
+  let isRecomputing = false
+  let isRerunRequested = false
+  let suggestionCloseTimerId = 0
+  let suggestionCloseOnEnd: (() => void) | null = null
   let prevSuggestionKey = ''
   // Seeded from the server-rendered chips, so the first recompute keeps them when it derives the same list.
   let prevPopularKeywordsKey = keywordListEl
@@ -335,6 +346,8 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
 
   /** Heavy computation — debounced to avoid running on every keystroke */
   function recompute() {
+    if (disposed)
+      return
     // Read URL query snapshot for effective query
     const urlQuery = getUrlQuerySnapshot()
     const effectiveQuery = inputQuery ?? urlQuery
@@ -346,7 +359,8 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
     // Auto-jump on initial URL query (once)
     if (!didAutoJump && urlQuery) {
       didAutoJump = true
-      requestAnimationFrame(() => {
+      autoJumpRafId = requestAnimationFrame(() => {
+        autoJumpRafId = 0
         jumpToCommissionSearch({ focusMode: 'none' })
       })
     }
@@ -406,6 +420,7 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
       : ''
     if (suggestionKey !== prevSuggestionKey) {
       prevSuggestionKey = suggestionKey
+      cancelSuggestionClose()
       if (model.shouldShowSuggestionPanel) {
         renderDropdown({
           container: suggestionList,
@@ -431,19 +446,20 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
         // Animate close: collapse and disable pointer events
         suggestionList.classList.add('opacity-0', 'scale-y-[0.96]', 'pointer-events-none', ...SUGGESTION_EXIT_MOTION)
         suggestionList.classList.remove('opacity-100', 'scale-y-100', 'pointer-events-auto', ...SUGGESTION_ENTER_MOTION)
+        listboxCtrl.clear()
         // Clear content after transition
         const onEnd = () => {
+          cancelSuggestionClose()
+          // Arrow keys during the close window can re-activate a closing option; nothing may stay active once empty.
+          listboxCtrl.clear()
           if (suggestionList.classList.contains('opacity-0')) {
             suggestionList.textContent = ''
           }
         }
+        suggestionCloseOnEnd = onEnd
         suggestionList.addEventListener('transitionend', onEnd, { once: true })
         // Fallback for motion-reduce (no transition fires)
-        setTimeout(() => {
-          if (suggestionList.classList.contains('opacity-0')) {
-            suggestionList.textContent = ''
-          }
-        }, 200)
+        suggestionCloseTimerId = window.setTimeout(onEnd, 200)
       }
     }
 
@@ -462,14 +478,60 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
     }
   }
 
+  function cancelSuggestionClose() {
+    if (suggestionCloseTimerId)
+      clearTimeout(suggestionCloseTimerId)
+    suggestionCloseTimerId = 0
+    if (suggestionCloseOnEnd)
+      suggestionList.removeEventListener('transitionend', suggestionCloseOnEnd)
+    suggestionCloseOnEnd = null
+  }
+
+  // One recompute per frame however many triggers asked for it. A request made while a pass runs (a synchronous
+  // archived reveal notifies the panel-state subscriber mid-pass) reruns it once in the same frame, so the list
+  // the reveal exposed is filtered before it paints; anything further waits for the next frame.
+  function runImmediateRecompute() {
+    immediateRecomputeRafId = 0
+    if (disposed)
+      return
+    isRecomputing = true
+    try {
+      recompute()
+      if (isRerunRequested) {
+        isRerunRequested = false
+        recompute()
+      }
+    }
+    finally {
+      isRecomputing = false
+    }
+    if (isRerunRequested) {
+      isRerunRequested = false
+      requestImmediateRecompute()
+    }
+  }
+
+  function requestImmediateRecompute() {
+    if (disposed)
+      return
+    if (isRecomputing) {
+      isRerunRequested = true
+      return
+    }
+    if (!immediateRecomputeRafId)
+      immediateRecomputeRafId = requestAnimationFrame(runImmediateRecompute)
+  }
+
   /**
    * Schedule recompute: immediate rAF for cheap UI, debounced for heavy work.
    * Pass `immediate: true` for non-typing triggers (focus, suggestion select, external state)
    * where the user expects instant feedback.
    */
   function scheduleRecompute(options?: { immediate?: boolean }) {
+    if (disposed)
+      return
     // Always update buttons on next frame (cheap)
-    if (!recomputeRafId) {
+    if (!recomputeRafId && !immediateRecomputeRafId) {
       recomputeRafId = requestAnimationFrame(() => {
         recomputeRafId = 0
         updateButtonVisibility()
@@ -486,14 +548,14 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
         cancelAnimationFrame(recomputeRafId)
         recomputeRafId = 0
       }
-      requestAnimationFrame(recompute)
+      requestImmediateRecompute()
     }
     else {
       if (recomputeTimerId)
         clearTimeout(recomputeTimerId)
       recomputeTimerId = window.setTimeout(() => {
         recomputeTimerId = 0
-        requestAnimationFrame(recompute)
+        requestImmediateRecompute()
       }, RECOMPUTE_DEBOUNCE_MS)
     }
   }
@@ -514,14 +576,12 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
     trackRybbitEvent(ANALYTICS_EVENTS.popularKeywordClicked, { keyword, from })
     querySource = 'keyword'
     prepareSearchInteraction()
+    // When this pass reveals archived (an archived-only match suspends filtering), the panel-state listener's
+    // request reruns it in the same frame (`runImmediateRecompute`), so the revealed list is filtered before it paints.
     applySelectedQuery(nextQuery, {
       preventScroll: true,
       focusInput: !shouldUseTapLikeFocus(),
     })
-    // Not redundant: this queues a second recompute in the same frame. When the first one reveals
-    // archived (suspending filtering), the panel-state listener's recompute would land a frame later,
-    // so this pass is what filters the revealed list before it paints.
-    scheduleRecompute({ immediate: true })
   }
 
   // ==================== Bind event listeners ====================
@@ -589,10 +649,14 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
 
       try {
         await navigator.clipboard.writeText(buildSearchUrl(query))
+        if (disposed)
+          return
         copyState = 'success'
         live.textContent = controls.searchUrlCopied
       }
       catch {
+        if (disposed)
+          return
         copyState = 'idle'
         live.textContent = controls.searchUrlCopyFailed
       }
@@ -661,9 +725,8 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
 
   const unsubPanelState = subscribePanelState((nextState) => {
     panelState = nextState
-    if (nextState.archivedVisible) {
-      requestedArchivedForSearch = true
-    }
+    // Collapsed again (e.g. from the sidebar): a later archived-only query must be able to reveal it once more.
+    requestedArchivedForSearch = nextState.archivedVisible
     scheduleRecompute({ immediate: true })
   })
 
@@ -695,6 +758,8 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
   // Fetch external search index
   void ensureHomeSearchEntriesPromise()
     .then((entries) => {
+      if (disposed)
+        return
       externalEntries = entries
       popularKeywordPool = buildPopularKeywordPoolFromEntries(entries)
       scheduleRecompute({ immediate: true })
@@ -712,6 +777,7 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
 
   // Return cleanup function
   return () => {
+    disposed = true
     setFuseHydrationCallback(null)
     keywordListEl?.removeEventListener('pointerdown', onChipPointerDown)
     keywordListEl?.removeEventListener('click', onChipClick)
@@ -722,8 +788,14 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
     suggestionCtrl.unbindOutsideListeners()
     if (recomputeRafId)
       cancelAnimationFrame(recomputeRafId)
+    if (immediateRecomputeRafId)
+      cancelAnimationFrame(immediateRecomputeRafId)
+    if (autoJumpRafId)
+      cancelAnimationFrame(autoJumpRafId)
     if (recomputeTimerId)
       clearTimeout(recomputeTimerId)
+    cancelSuggestionClose()
+    suggestionCtrl.dispose()
     if (copyResetTimer)
       clearTimeout(copyResetTimer)
     cancelAddressSync()

@@ -6,7 +6,7 @@ import { mountScrollDepthTracker } from '@features/home/commission/scrollDepthTr
 import { mountScrollReveal } from '@features/home/commission/scrollReveal'
 import { mountUnpublishedInterestButtons } from '@features/home/commission/unpublishedInterestClient'
 import { mountHomeHashTarget } from '@features/home/homeHashTarget'
-import { mountHomeScrollRestore } from '@features/home/homeScrollRestore'
+import { mountHomeScrollRestore, revealRestoringShell } from '@features/home/homeScrollRestore'
 import { mountFloatingButtonsAutoHide } from '@features/home/nav/hamburger/floatingButtonsAutoHide'
 import { mountMobileHamburgerMenu } from '@features/home/nav/hamburger/mobileHamburgerMenu'
 import { mountMobileKeywordButton } from '@features/home/nav/hamburger/mobileKeywordButton'
@@ -147,6 +147,8 @@ export function mountHomePageClient({ deps: depsOverrides }: MountHomePageClient
     cancelDeferredMount?.()
     cancelDeferredMount = null
     cleanupAll()
+    // The inline pre-paint script may have hidden the listing for a scroll restore that will now never run.
+    revealRestoringShell(window)
     throw error
   }
 

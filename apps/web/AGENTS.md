@@ -7,6 +7,7 @@ product context is `PRODUCT.md`.
 
 - Static output only. `generated/*` is the only fact source; never read SQLite or `data/images/*`.
 - Fact-source schema v3: `publicId` is the identity for anchors, search, RSS and update summaries. Integer `id` is internal only.
+- Character anchor ids come only from `getCharacterSectionId` (`lib/characters/nav.ts`; title ids, hashes, entry anchors via `getCommissionEntryAnchorId`, RSS links derive from it). It keeps the ASCII slug (public deep links) and falls back to `character-<character id>` when the slug is empty (all-CJK names) or already held by a character earlier in `sortOrder`. Never re-slug a name with `kebabCase` elsewhere.
 - Never parse `fileName` for metadata or identity. Source images resolve only by integer `id` through the generated manifest (exact match); a missing image renders as missing, never a neighbouring file.
 - Multi-part works (`workGroupId`/`partNumber`) stay separate; lists, search and RSS keep every numbered non-preview part.
 - The exporter derives legacy preview markers from filenames. Web aggregation consumes the explicit `legacySeriesKind`/`seriesOrder` fields and never parses `fileName`.
@@ -39,7 +40,9 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   when needed and scrolls; sidebar and hamburger resolve their own clicks through the same helpers. Entry ids are
   `<sectionId>-commission-<publicId>` and the same id appears in both the character and timeline panels;
   `getHashTarget` (`lib/navigation/hashAnchor.ts`) picks the copy in the active panel, so never resolve with a
-  bare `getElementById`. Search treats entries inside the collapsed container as hidden matches (the "load
+  bare `getElementById`. The `?view=timeline` pre-paint script there gets the three view-mode toggle class tables
+  from `nav/viewModeToggleClasses.ts` via `define:vars`, the same tables the sidebar, hamburger and mobile-tab mount
+  code toggles; change classes there, never in the script. Search treats entries inside the collapsed container as hidden matches (the "load
   archived" notice), not visible ones.
 - **Search index file:** `/search/home-search-entries.<hash>.json` is the only hashed artifact. The hash is a truncated
   SHA-256 (`contentHash`, `lib/utils/contentHash.ts`) over the final serialized payload, so editing one commission, a localized message or an
@@ -75,6 +78,9 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   (its CSS transform transition drives the open stagger); move its children instead. The panel scrolls, so FLIP
   measures in scroll-content coordinates: snapping to a shorter layout clamps `scrollTop`, and the slide restores it and
   carries the panel content down by the clamp so the clamp at settle does not jump.
+  Opening moves focus to the first enabled control in the panel after the mount frame; closing returns it to the
+  toggle if it was inside. The panel is `inert` whenever it is not open, the close transition included. The search
+  action runs on `click` (pointerdown only prevents default), so a touch that becomes a scroll never fires it.
   `STYLES.floatingButton` (blur included; no inline `backdrop-filter`) is shared with the mobile keyword button (it
   opens the browse popover from above the hamburger), the mobile browse panel's X and the desktop back-to-top button
   (every 40px round button, icons `size-5`, dark surface `gray-900/80` like the menus). Its hairline ring plus a tight
@@ -120,6 +126,9 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   that out every frame, the hamburger gotcha above. Set `open` through the slide's `setOpen`, not directly (except the
   mount snap in `sidebarNavEnhancer.ts`). Tailwind 4 `scale-*`/`translate-*` set the
   `scale`/`translate` properties: transition those, not `transform`.
+- **Reload restore failsafe:** `html[data-home-scroll-restoring]` hides the listing shell (inline head script in
+  `HomePage.astro`) until the client clears it; a 1.5 s delayed `forwards` animation on the same rule shows it anyway if
+  the runtime never runs. Clearing the attribute earlier unmatches the rule, so the normal path never sees it.
 - **Hash cleanup:** a hash left in the address bar wins over the saved scroll position on reload. `clearHashIfTargetOffscreen`
   drops it once the target's top edge leaves the viewport, not when the whole target does: character sections span
   many screens.

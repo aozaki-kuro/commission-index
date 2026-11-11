@@ -21,8 +21,10 @@ import {
   saveKeywordAliasesBatch,
 } from './adminPersistence'
 import {
+  MAX_SOURCE_IMAGE_BYTES,
   resolveImageWriteBucket,
   saveSourceImageToBucket,
+  UPLOAD_TOO_LARGE_MESSAGE,
 } from './adminSourceImages'
 
 // R2 bulk delete rejects calls with more than 1000 keys.
@@ -217,7 +219,11 @@ function parseCommissionFieldsFromJson(payload: Record<string, unknown>) {
   })
 }
 
-function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' | 'commissionDate' | 'creatorName' | 'workGroupId' | 'partNumber' | 'links'>) {
+function isHttpUrl(value: string) {
+  return URL.canParse(value) && ['http:', 'https:'].includes(new URL(value).protocol)
+}
+
+function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' | 'commissionDate' | 'creatorName' | 'workGroupId' | 'partNumber' | 'links' | 'design'>) {
   if (!Number.isFinite(fields.characterId) || fields.characterId <= 0) {
     return 'Character selection is required.'
   }
@@ -238,11 +244,14 @@ function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' |
     return 'Creator name must be a string or null.'
   }
 
-  // Links are rendered into href on the public site, so only absolute http(s) URLs may pass (blocks javascript: etc.).
+  // Links and design are rendered into href on the public site, so only absolute http(s) URLs may pass (blocks javascript: etc.).
   for (const link of fields.links) {
-    if (!URL.canParse(link) || !['http:', 'https:'].includes(new URL(link).protocol)) {
+    if (!isHttpUrl(link)) {
       return `Link "${link}" must be an http(s) URL.`
     }
+  }
+  if (fields.design && !isHttpUrl(fields.design)) {
+    return `Design "${fields.design}" must be an http(s) URL.`
   }
 
   const uuidV4Pattern = /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/
@@ -257,6 +266,16 @@ function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' |
   }
 
   return null
+}
+
+// Allowance for the other form fields and multipart framing around the image part.
+const UPLOAD_MULTIPART_OVERHEAD_BYTES = 1024 * 1024
+
+// request.formData() buffers the whole body, so reject a declared oversized body before reading it. A body without
+// Content-Length (chunked) still reaches the per-file check in saveSourceImageToBucket.
+function exceedsUploadBodyLimit(request: Request) {
+  const declaredLength = Number(request.headers.get('content-length'))
+  return Number.isFinite(declaredLength) && declaredLength > MAX_SOURCE_IMAGE_BYTES + UPLOAD_MULTIPART_OVERHEAD_BYTES
 }
 
 function getUploadedSourceImage(formData: FormData) {
@@ -289,6 +308,23 @@ function parseStructuredArray<T>(value: unknown, fallbackFieldValue?: unknown): 
   return Array.isArray(parsed)
     ? parsed as T[]
     : []
+}
+
+// Full replace: a payload that carries no recognisable list must not be read as "clear everything".
+function parseFeaturedKeywords(body: Record<string, unknown>) {
+  if (Array.isArray(body.keywords)) {
+    return body.keywords.map(String)
+  }
+  const raw = typeof body.keywordsJson === 'string'
+    ? body.keywordsJson
+    : body.keywords
+  if (typeof raw !== 'string') {
+    return null
+  }
+  const parsed = JSON.parse(raw) as unknown
+  return Array.isArray(parsed)
+    ? parsed.map(String)
+    : null
 }
 
 async function handleCrudBackendRequest(operation: () => Promise<Response>) {
@@ -532,6 +568,9 @@ async function handleCrudRequest(request: Request, backend: AdminCrudBackend) {
   }
 
   if (request.method === 'POST' && pathname === '/api/admin/commissions') {
+    if (exceedsUploadBodyLimit(request)) {
+      return failure(UPLOAD_TOO_LARGE_MESSAGE)
+    }
     const formData = await request.formData()
     const fields = parseCommissionFieldsFromForm(formData)
     const validation = validateCommissionFields(fields)
@@ -587,6 +626,9 @@ async function handleCrudRequest(request: Request, backend: AdminCrudBackend) {
       return failure('Invalid commission identifier.')
     }
 
+    if (exceedsUploadBodyLimit(request)) {
+      return failure(UPLOAD_TOO_LARGE_MESSAGE)
+    }
     const formData = await request.formData()
     const sourceImage = getUploadedSourceImage(formData)
     if (!sourceImage) {
@@ -657,7 +699,10 @@ const BATCH_WRITE_ROUTES: Record<string, {
   },
   '/api/admin/suggestion': {
     save: async (db, body) => {
-      const keywords = parseStructuredArray<unknown>(body.keywords, body.keywordsJson).map(String)
+      const keywords = parseFeaturedKeywords(body)
+      if (!keywords) {
+        throw new Error('Featured keywords must be sent as a `keywords` array (or a `keywordsJson` JSON array string).')
+      }
 
       await saveHomeFeaturedSearchKeywords(db, keywords)
     },

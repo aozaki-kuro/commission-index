@@ -9,19 +9,29 @@
 - On R2 not-found the exporter re-reads the D1 snapshot once and retries (closes the replace-image
   window: D1 commits before the old object is deleted); a hash/size mismatch is not that race and
   aborts immediately. Still aborts after one retry.
+- "Not found" means a non-zero wrangler exit whose output, with the object key and output path removed, contains
+  wrangler's not-found wording. Never match a bare `404`: keys and paths carry dates such as `20240421`.
+  `syncMissingSourceImages.ts` uses the same rule.
+- Manifest `mimeType` comes from the D1 row (extension only as fallback) for downloaded and reused images alike,
+  so `meta.revision` never depends on the local cache.
 - `FACT_SOURCE_USE_EXISTING_SNAPSHOT=1` only validates the snapshot and image bytes, makes no Wrangler call, and requires `WEB_BUILD_CACHE_TOKEN` (if set) to equal the snapshot revision.
 - Importing the module is side-effect free; the CLI runs behind a main guard. Tests: `../src/exportWebFactSource.test.ts`.
 
 ## listR2Orphans.ts
 
 Offline inventory: lists R2 objects under `source-images/` via the Cloudflare REST API (Wrangler cannot list
-R2), diffs against D1 `source_images.object_key`, and reports unreferenced keys. Requires
-`CLOUDFLARE_API_TOKEN` (R2 read, plus write for `--delete`) and `CLOUDFLARE_ACCOUNT_ID`. Dry-run by default;
-deletion only with `--delete`. Run: `pnpm -C apps/admin-worker run r2:list-orphans`.
+R2), then reads D1 `source_images.object_key` (in that order, so an upload committed in between is referenced),
+and reports unreferenced keys. Requires `CLOUDFLARE_API_TOKEN` (R2 read, plus write for `--delete`) and
+`CLOUDFLARE_ACCOUNT_ID`. Dry-run by default; `--delete` removes only orphans whose listed `last_modified` is at
+least 24 h old (missing/unparseable means kept), and is refused when D1 returns no references. Both payloads are
+shape-checked. Decision logic: `planOrphanCleanup` / `parseReferencedObjectKeys`, tested in
+`../src/listR2Orphans.test.ts`; the CLI runs behind a main guard. Run: `pnpm -C apps/admin-worker run r2:list-orphans`.
 
 ## syncMissingSourceImages.ts
 
-Reads the manifest only (no D1). Downloads by `objectKey`, validates and writes at `generated/<relativePath>`.
+Reads the manifest only (no D1). Downloads by `objectKey`, checks the bytes against the manifest `sha256` /
+`byteSize` (a mismatch fails that item and writes nothing), and writes at `generated/<relativePath>`.
+`syncSourceImages` is importable (main guard); tests: `../src/syncMissingSourceImages.test.ts`.
 
 ## writeOfflineFactSource.ts
 

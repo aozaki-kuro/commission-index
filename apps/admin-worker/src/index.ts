@@ -63,13 +63,19 @@ function getAllowedCorsOrigin(request: Request) {
   return null
 }
 
-function withCorsHeaders(request: Request, response: Response) {
+function withApiHeaders(request: Request, response: Response) {
+  const headers = new Headers(response.headers)
+  // The API also streams stored image bytes; never let a browser sniff them (or an error body) into another type.
+  headers.set('X-Content-Type-Options', 'nosniff')
+
   const allowedOrigin = getAllowedCorsOrigin(request)
   if (!allowedOrigin) {
-    return response
+    return new Response(response.body, {
+      status: response.status,
+      headers,
+    })
   }
 
-  const headers = new Headers(response.headers)
   const requestedHeaders = request.headers.get('access-control-request-headers')
 
   headers.set('Access-Control-Allow-Origin', allowedOrigin)
@@ -138,11 +144,11 @@ export default {
     const { pathname } = new URL(request.url)
 
     if (request.method === 'OPTIONS' && pathname.startsWith('/api/admin/')) {
-      return withCorsHeaders(request, noContent())
+      return withApiHeaders(request, noContent())
     }
 
     if (pathname.startsWith('/api/admin/')) {
-      return withCorsHeaders(request, await handleApiRequest(request, env))
+      return withApiHeaders(request, await handleApiRequest(request, env))
     }
 
     return env.ASSETS.fetch(request)
