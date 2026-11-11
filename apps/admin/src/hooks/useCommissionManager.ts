@@ -53,7 +53,8 @@ interface CharacterOrderPayload {
 
 interface CharacterOrderSaveQueueOptions {
   onError: (message: string) => void
-  onSaved: () => void
+  /** Called for every committed write; `isLatest` is false when a newer order is still queued. */
+  onSaved: (isLatest: boolean) => void
   saveOrder: (payload: CharacterOrderPayload) => Promise<FormState>
 }
 
@@ -97,8 +98,9 @@ export function createLatestCharacterOrderSaveQueue({
 
       try {
         const result = await saveOrder(payload)
-        if (!disposed && result.status === 'success' && targetVersion === requestedVersion) {
-          onSaved()
+        if (!disposed && result.status === 'success') {
+          // A superseded order is still committed server-side; a later failure must not hide it from the rebuild.
+          onSaved(targetVersion === requestedVersion)
         }
         else if (!disposed && result.status === 'error' && targetVersion === requestedVersion) {
           onError(result.message ?? 'Unable to save character order.')
@@ -331,6 +333,8 @@ export function useCommissionManager({
   const [editing, setEditing] = useState<EditingState>(null)
   const renameSessionRef = useRef(0)
   const renameRequestsRef = useRef(new Map<number, Promise<FormState>>())
+  // The draft object in flight: Enter submits and the input stays mounted, so its blur must not PATCH again.
+  const submittingRenameRef = useRef<EditingState>(null)
   const characterWritesRef = useRef<Promise<unknown>>(Promise.resolve())
   const pendingOrderRef = useRef(false)
   const onDataChangedRef = useRef(onDataChanged)
@@ -407,10 +411,12 @@ export function useCommissionManager({
         setFeedback({ text: message, type: 'error' })
         onDataChangedRef.current?.()
       },
-      onSaved: () => {
-        pendingOrderRef.current = false
+      onSaved: (isLatest) => {
         notifyDataUpdate()
         markPendingRebuild()
+        if (!isLatest)
+          return
+        pendingOrderRef.current = false
         onDataChangedRef.current?.()
       },
       saveOrder: payload => enqueueCharacterWrite(() => saveCharacterOrder(payload)),
@@ -518,6 +524,10 @@ export function useCommissionManager({
       return
     }
 
+    if (submittingRenameRef.current === current) {
+      return
+    }
+
     const trimmed = current.value.trim()
     if (!trimmed) {
       cancelEditing()
@@ -561,6 +571,7 @@ export function useCommissionManager({
         status,
       }))
       renameRequestsRef.current.set(current.id, request)
+      submittingRenameRef.current = current
       request
         .then((result) => {
           if (result.status === 'error') {
@@ -585,6 +596,8 @@ export function useCommissionManager({
         .finally(() => {
           if (renameRequestsRef.current.get(current.id) === request)
             renameRequestsRef.current.delete(current.id)
+          if (submittingRenameRef.current === current)
+            submittingRenameRef.current = null
         })
     })
   }, [
@@ -610,7 +623,8 @@ export function useCommissionManager({
       ? null
       : current))
 
-    void deleteCharacterAction(character.id)
+    // Shares the character write queue so a delete cannot race an in-flight reorder or rename.
+    void enqueueCharacterWrite(() => deleteCharacterAction(character.id))
       .then((result) => {
         if (result.status === 'error') {
           setFeedback({ text: result.message ?? 'Unable to delete character.', type: 'error' })
@@ -634,7 +648,7 @@ export function useCommissionManager({
           setIsDeletePending(false)
         }
       })
-  }, [toFeedback])
+  }, [enqueueCharacterWrite, toFeedback])
 
   const orderedCharacters = useMemo(
     () => list.filter((item): item is CharacterItem => item.type === 'character').map(item => item.data),

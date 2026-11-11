@@ -50,6 +50,8 @@ export interface HomeLocaleMessages {
     wantThisTitle: string
     wantThisRecorded: string
     wantThisRecordedTitle: string
+    anonymousCreator: string
+    formatPartLabel: (partNumber: number) => string
   }
   warning: {
     title: string
@@ -126,6 +128,8 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       wantThisTitle: 'Record interest in this unpublished commission',
       wantThisRecorded: 'Recorded',
       wantThisRecordedTitle: 'Already recorded',
+      anonymousCreator: 'Anon',
+      formatPartLabel: partNumber => `Part ${partNumber}`,
     },
     warning: {
       title: '[ Warning ]',
@@ -203,6 +207,8 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       wantThisTitle: '記錄你對此未公開委託的興趣',
       wantThisRecorded: '已記錄',
       wantThisRecordedTitle: '已記錄過',
+      anonymousCreator: '匿名',
+      formatPartLabel: partNumber => `第 ${partNumber} 部分`,
     },
     warning: {
       title: '[ 警告 ]',
@@ -277,6 +283,8 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       wantThisTitle: '未公開コミッションへの関心を記録する',
       wantThisRecorded: '記録済み',
       wantThisRecordedTitle: '記録済みです',
+      anonymousCreator: '匿名',
+      formatPartLabel: partNumber => `パート ${partNumber}`,
     },
     warning: {
       title: '[ 警告 ]',

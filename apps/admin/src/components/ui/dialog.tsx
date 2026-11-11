@@ -26,7 +26,7 @@ function DialogOverlay({
       className={cn(
         'fixed inset-0',
         variant === 'alert'
-          ? 'z-50 data-[state=closed]:animate-none motion-safe:animate-[dialog-overlay-in_200ms_ease-out]'
+          ? 'z-80 data-[state=closed]:animate-none motion-safe:animate-[dialog-overlay-in_200ms_ease-out]'
           : variant === 'crop'
             ? 'z-60 motion-safe:data-[state=open]:animate-[dialog-overlay-in_150ms_ease-out] motion-safe:data-[state=closed]:animate-[dialog-crop-content-out_150ms_ease-in]'
             : 'z-60 data-[state=open]:animate-[dialog-overlay-in_150ms_ease-out] data-[state=closed]:animate-[dialog-overlay-in_150ms_ease-in_reverse] motion-reduce:animate-none',
@@ -47,8 +47,9 @@ type DialogContentVariant = 'alert' | 'crop' | 'default' | 'sheet'
 
 const dialogContentBase = {
   // alert：沿用旧删除确认框的尺寸与入场动画；Radix 负责焦点与键盘行为。
+  // 层级高于 sheet / default（z-70）：确认框可能从打开的编辑抽屉里弹出。
   alert: `
-    fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md
+    fixed top-1/2 left-1/2 z-80 w-[calc(100%-2rem)] max-w-md
     -translate-x-1/2 -translate-y-1/2 rounded-2xl admin-surface shadow-xl
     p-6
     ring-1 ring-gray-900/10 dark:ring-white/10

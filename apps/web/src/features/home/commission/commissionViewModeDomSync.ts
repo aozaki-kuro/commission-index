@@ -24,7 +24,26 @@ export function mountCommissionViewModeDomSync({
   win = window,
   doc = document,
 }: MountCommissionViewModeDomSyncOptions = {}) {
-  let transitioning = false
+  // Timers, rAFs and listeners of the transition in flight. A new sync cancels them: left running, a stale
+  // fade-out would hide the panel the newer sync just showed.
+  let pendingCancels: Array<() => void> = []
+  const cancelPendingTransition = () => {
+    for (const cancel of pendingCancels)
+      cancel()
+    pendingCancels = []
+  }
+  const later = (task: () => void, ms: number) => {
+    const id = win.setTimeout(task, ms)
+    pendingCancels.push(() => win.clearTimeout(id))
+  }
+  const nextFrame = (task: () => void) => {
+    const id = requestAnimationFrame(task)
+    pendingCancels.push(() => cancelAnimationFrame(id))
+  }
+  const onceTransitionEnd = (element: HTMLElement, task: () => void) => {
+    element.addEventListener('transitionend', task, { once: true })
+    pendingCancels.push(() => element.removeEventListener('transitionend', task))
+  }
   // 各视图各自记住滚动位置：没打开过的视图从顶部开始，而不是继承另一个视图的 scrollY
   const savedScrollY = new Map<string, number>()
 
@@ -46,6 +65,7 @@ export function mountCommissionViewModeDomSync({
   }
 
   const syncPanelsByMode = () => {
+    cancelPendingTransition()
     const mode = readCommissionViewMode(win)
     const panels = doc.querySelectorAll<HTMLElement>(PANEL_SELECTOR)
 
@@ -62,21 +82,19 @@ export function mountCommissionViewModeDomSync({
         outgoing = panel
     }
 
-    if (!outgoing || !incoming || outgoing === incoming || transitioning || prefersReducedMotion()) {
-      const outgoingMode = outgoing && incoming && outgoing !== incoming && !transitioning
+    if (!outgoing || !incoming || outgoing === incoming || prefersReducedMotion()) {
+      const outgoingMode = outgoing && incoming && outgoing !== incoming
         ? outgoing.dataset.commissionViewPanel
         : undefined
       const switched = outgoingMode !== undefined
       if (outgoingMode)
         savedScrollY.set(outgoingMode, win.scrollY)
       applyInstant(panels, mode)
-      transitioning = false
       if (switched)
         restoreScrollFor(mode)
       return
     }
 
-    transitioning = true
     // 必须在隐藏 outgoing 前读取，隐藏后文档变短会被浏览器钳制 scrollY
     savedScrollY.set(outgoing.dataset.commissionViewPanel!, win.scrollY)
 
@@ -99,9 +117,9 @@ export function mountCommissionViewModeDomSync({
       incoming.dataset.commissionViewActive = 'true'
       restoreScrollFor(mode)
 
-      requestAnimationFrame(() => {
+      nextFrame(() => {
         incoming.style.transition = `opacity ${FADE_IN_MS}ms ${EASE_OUT}`
-        requestAnimationFrame(() => {
+        nextFrame(() => {
           incoming.style.opacity = '1'
 
           let inDone = false
@@ -111,17 +129,16 @@ export function mountCommissionViewModeDomSync({
             inDone = true
             incoming.style.removeProperty('transition')
             incoming.style.removeProperty('opacity')
-            transitioning = false
           }
 
-          incoming.addEventListener('transitionend', cleanup, { once: true })
-          setTimeout(cleanup, FADE_IN_MS + 50)
+          onceTransitionEnd(incoming, cleanup)
+          later(cleanup, FADE_IN_MS + 50)
         })
       })
     }
 
-    outgoing.addEventListener('transitionend', onOutDone, { once: true })
-    setTimeout(onOutDone, FADE_OUT_MS + 50)
+    onceTransitionEnd(outgoing, onOutDone)
+    later(onOutDone, FADE_OUT_MS + 50)
   }
 
   win.addEventListener('popstate', syncPanelsByMode)
@@ -131,5 +148,6 @@ export function mountCommissionViewModeDomSync({
   return () => {
     win.removeEventListener('popstate', syncPanelsByMode)
     win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, syncPanelsByMode)
+    cancelPendingTransition()
   }
 }

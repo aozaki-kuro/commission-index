@@ -1,6 +1,6 @@
 import type { DragHandleProps } from '../hooks/useNativeDragReorder'
 import { IconArrowDown, IconArrowUp, IconGripHorizontal, IconX } from '@tabler/icons-react'
-import { useActionState, useCallback, useMemo, useState } from 'react'
+import { useActionState, useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { adminSurfaceStyles, buttonStyles, formControlStyles } from '../app/ui'
 import { arrayMove, useNativeDragReorder } from '../hooks/useNativeDragReorder'
 import { saveHomeFeaturedKeywordsAction } from '../lib/adminActions'
@@ -29,20 +29,22 @@ interface KeywordItemProps {
   index: number
   count: number
   onRemove: (keyword: string) => void
-  onReorder: (from: number, to: number) => void
+  onMove: (keyword: string, index: number, direction: MoveDirection, button: HTMLButtonElement) => void
 }
 
-function KeywordItem({ dragHandleProps, isDragging, keyword, index, count, onRemove, onReorder }: KeywordItemProps) {
+type MoveDirection = 'up' | 'down'
+
+function KeywordItem({ dragHandleProps, isDragging, keyword, index, count, onRemove, onMove }: KeywordItemProps) {
   return (
     <div className={`flex min-w-0 items-center gap-1 py-1 ${isDragging ? 'opacity-55' : ''}`}>
       <button type="button" className={`${buttonStyles.icon} size-11 cursor-grab active:cursor-grabbing max-sm:hidden`} aria-label={`Drag ${keyword}`} {...dragHandleProps}>
         <IconGripHorizontal className="size-4" stroke={1.8} aria-hidden="true" />
       </button>
       <span className="min-w-0 flex-1 truncate text-sm text-gray-800 dark:text-gray-200" title={keyword}>{keyword}</span>
-      <button type="button" className={`${buttonStyles.icon} size-11`} disabled={index === 0} aria-label={`Move ${keyword} up`} onClick={() => onReorder(index, index - 1)}>
+      <button type="button" className={`${buttonStyles.icon} size-11`} disabled={index === 0} aria-label={`Move ${keyword} up`} data-move-keyword={keyword} data-move-direction="up" onClick={event => onMove(keyword, index, 'up', event.currentTarget)}>
         <IconArrowUp className="size-4" stroke={1.8} aria-hidden="true" />
       </button>
-      <button type="button" className={`${buttonStyles.icon} size-11`} disabled={index === count - 1} aria-label={`Move ${keyword} down`} onClick={() => onReorder(index, index + 1)}>
+      <button type="button" className={`${buttonStyles.icon} size-11`} disabled={index === count - 1} aria-label={`Move ${keyword} down`} data-move-keyword={keyword} data-move-direction="down" onClick={event => onMove(keyword, index, 'down', event.currentTarget)}>
         <IconArrowDown className="size-4" stroke={1.8} aria-hidden="true" />
       </button>
       <button type="button" className={`${buttonStyles.icon} size-11`} aria-label={`Remove ${keyword}`} onClick={() => onRemove(keyword)}>
@@ -104,6 +106,32 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
     }))
   }, [])
   const { containerProps, dragHandleProps, dragItemAttr, draggingIndex, dropIndicatorIndex } = useNativeDragReorder({ itemCount: selectedKeywords.length, onReorder: handleReorder, disabled })
+  const orderListRef = useRef<HTMLDivElement>(null)
+  const pendingMoveFocusRef = useRef<{ direction: MoveDirection, keyword: string } | null>(null)
+  const [orderAnnouncement, setOrderAnnouncement] = useState('')
+  const moveKeyword = (keyword: string, index: number, direction: MoveDirection, button: HTMLButtonElement) => {
+    const toIndex = direction === 'up'
+      ? index - 1
+      : index + 1
+    // React re-inserts the moved row, which drops focus; only restore it when the press came with focus (keyboard).
+    if (button === document.activeElement)
+      pendingMoveFocusRef.current = { direction, keyword }
+    handleReorder(index, toIndex)
+    setOrderAnnouncement(`${keyword} moved to position ${toIndex + 1} of ${selectedKeywords.length}.`)
+  }
+  useLayoutEffect(() => {
+    const pending = pendingMoveFocusRef.current
+    if (!pending)
+      return
+    pendingMoveFocusRef.current = null
+    const controls = [
+      ...orderListRef.current?.querySelectorAll<HTMLButtonElement>('button[data-move-direction]') ?? [],
+    ]
+      .filter(control => control.dataset.moveKeyword === pending.keyword && !control.disabled)
+    // At either end the pressed control is now disabled, so fall back to the opposite one.
+    const target = controls.find(control => control.dataset.moveDirection === pending.direction) ?? controls[0]
+    target?.focus()
+  }, [selectedKeywords])
   const addKeyword = (raw: string) => {
     const keyword = normalizeKeyword(raw)
     setSelection((previous) => {
@@ -148,7 +176,7 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
               <h3 id="suggestion-order-title" className={labelStyles}>Display order</h3>
               <span className="text-xs text-gray-500 dark:text-gray-400">First to last</span>
             </div>
-            <div className="h-80 overflow-y-auto border-y border-gray-200 dark:border-gray-800">
+            <div ref={orderListRef} className="h-80 overflow-y-auto border-y border-gray-200 dark:border-gray-800">
               {!isReady
                 ? <p className="p-3 text-sm text-gray-500 dark:text-gray-400">{isLoading ? 'Loading featured keywords…' : 'Featured keywords are unavailable.'}</p>
                 : selectedKeywords.length === 0
@@ -158,13 +186,14 @@ export function AdminSuggestionDashboard({ featuredKeywords, keywordOptions, isR
                         {selectedKeywords.map((keyword, index) => (
                           <div key={keyword} role="listitem" className="relative" {...dragItemAttr(index)}>
                             {dropIndicatorIndex === index && <DropIndicator offsetClass="-top-1.5" />}
-                            <KeywordItem keyword={keyword} index={index} count={selectedKeywords.length} onRemove={removeKeyword} onReorder={handleReorder} dragHandleProps={dragHandleProps(index)} isDragging={draggingIndex === index} />
+                            <KeywordItem keyword={keyword} index={index} count={selectedKeywords.length} onRemove={removeKeyword} onMove={moveKeyword} dragHandleProps={dragHandleProps(index)} isDragging={draggingIndex === index} />
                           </div>
                         ))}
                         {dropIndicatorIndex === selectedKeywords.length && <DropIndicator offsetClass="-top-1.5" />}
                       </div>
                     )}
             </div>
+            <p className="sr-only" aria-live="polite" data-keyword-order-status>{orderAnnouncement}</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
               <span className="hidden sm:inline">Drag to reorder, or use the arrow buttons.</span>
               <span className="sm:hidden">Use the arrow buttons to reorder.</span>

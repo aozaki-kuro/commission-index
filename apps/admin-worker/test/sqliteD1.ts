@@ -4,6 +4,8 @@ import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { onTestFinished } from 'vitest'
 
+const D1_MAX_BOUND_PARAMETERS = 100
+
 export function createSQLiteD1({ failAtBatchStatement }: { failAtBatchStatement?: number } = {}) {
   const database = new DatabaseSync(':memory:')
   onTestFinished(() => database.close())
@@ -15,7 +17,12 @@ export function createSQLiteD1({ failAtBatchStatement }: { failAtBatchStatement?
   let batchCalls = 0
   function prepare(query: string, values: unknown[] = []): D1PreparedStatementLike {
     return {
-      bind: (...nextValues) => prepare(query, nextValues),
+      // SQLite accepts far more variables, so enforce D1's per-statement limit here or tests cannot catch it.
+      bind: (...nextValues) => {
+        if (nextValues.length > D1_MAX_BOUND_PARAMETERS)
+          throw new Error(`D1 allows at most ${D1_MAX_BOUND_PARAMETERS} bound parameters per statement.`)
+        return prepare(query, nextValues)
+      },
       async all<TRow>() {
         return {
           results: database.prepare(query).all(...values as never[]) as TRow[],

@@ -13,6 +13,7 @@ const api = vi.hoisted(() => ({
   upload: vi.fn(),
   saved: vi.fn(),
   deleted: vi.fn(),
+  dirty: vi.fn(),
 }))
 vi.mock('../../lib/adminActions', () => ({
   updateCommissionAction: api.save,
@@ -100,7 +101,7 @@ describe('edit form mutation lifecycle', () => {
     root = createRoot(container)
     await act(async () => root.render(
       <FloatingNoticeProvider>
-        <CommissionEditForm characters={characters} commission={commission} commissionSearchRows={[]} onSaveSuccess={api.saved} onDelete={api.deleted} />
+        <CommissionEditForm characters={characters} commission={commission} commissionSearchRows={[]} onSaveSuccess={api.saved} onDelete={api.deleted} onDirtyChange={api.dirty} />
       </FloatingNoticeProvider>,
     ))
   })
@@ -149,6 +150,18 @@ describe('edit form mutation lifecycle', () => {
     await typeCreator('Changed')
     await submit()
     expect(unloadPrevented()).toBe(false)
+  })
+
+  it('reports dirtiness to its container and is clean again after a successful save', async () => {
+    expect(api.dirty).toHaveBeenLastCalledWith(false)
+    await typeCreator('Changed')
+    expect(api.dirty).toHaveBeenLastCalledWith(true)
+    await submit()
+    expect(api.dirty).toHaveBeenLastCalledWith(false)
+    await typeCreator('Not saved')
+    api.save.mockResolvedValueOnce({ status: 'error', message: 'Nope' })
+    await submit()
+    expect(api.dirty).toHaveBeenLastCalledWith(true)
   })
 
   it('stays clean after saving a non-canonical part number', async () => {

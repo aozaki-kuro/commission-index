@@ -36,7 +36,6 @@ interface CommissionSharedFieldsProps {
   onDesignChange?: (value: string) => void
   descriptionValue?: string
   onDescriptionChange?: (value: string) => void
-  designPlaceholder?: string
   descriptionPlaceholder?: string
   keywordValue?: string
   onKeywordChange?: (value: string) => void
@@ -63,7 +62,6 @@ export function CommissionSharedFields({
   onDesignChange,
   descriptionValue,
   onDescriptionChange,
-  designPlaceholder,
   descriptionPlaceholder,
   keywordValue,
   onKeywordChange,
@@ -118,7 +116,6 @@ export function CommissionSharedFields({
           onDesignChange={onDesignChange}
           descriptionValue={descriptionValue}
           onDescriptionChange={onDescriptionChange}
-          designPlaceholder={designPlaceholder}
           descriptionPlaceholder={descriptionPlaceholder}
         />
 

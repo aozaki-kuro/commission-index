@@ -5,6 +5,7 @@ import {
   applySuggestionToQuery,
   buildStrictTermIndex,
   collectSuggestions,
+  createSearchFuse,
   createSearchIndex,
   filterSuggestions,
   getMatchedEntryIds,
@@ -58,6 +59,15 @@ describe('search strict matching', () => {
 
     expect(sortedIds(getMatchedEntryIds('lucia', prefixIndex))).toEqual([1])
     expect(sortedIds(getMatchedEntryIds('luci', prefixIndex))).toEqual([1, 2])
+  })
+
+  it('returns only exact-term entries once any exist, otherwise prefix matches', () => {
+    const catEntries: Entry[] = [
+      { id: 1, searchText: 'cat' },
+      { id: 2, searchText: 'catgirl' },
+    ]
+    expect(sortedIds(getMatchedEntryIds('cat', buildStrictIndex(catEntries)))).toEqual([1])
+    expect(sortedIds(getMatchedEntryIds('cat', buildStrictIndex([catEntries[1]])))).toEqual([2])
   })
 
   it('intersects implicit AND terms and supports explicit OR', () => {
@@ -505,5 +515,87 @@ describe('resolveSuggestionContextMatchedIds', () => {
         }),
       ),
     ).toEqual([2])
+  })
+})
+
+describe('search operators inside quoted phrases', () => {
+  const entries: Entry[] = [
+    { id: 1, searchText: 'k-on! movie' },
+    { id: 2, searchText: 'k-on movie' },
+    { id: 3, searchText: 'black|white set' },
+    { id: 4, searchText: 'black white set' },
+  ]
+  const spyFuse = () => ({
+    search: vi.fn(() => []),
+  }) as unknown as Fuse<Entry>
+
+  it('matches a quoted phrase containing ! or | literally on the strict path', () => {
+    const index = buildStrictIndex(entries)
+    expect(sortedIds(getMatchedEntryIds('"k-on! movie"', index))).toEqual([1])
+    expect(sortedIds(getMatchedEntryIds('"black|white set"', index))).toEqual([3])
+    expect(sortedIds(getMatchedEntryIds('!"k-on! movie"', index))).toEqual([2, 3, 4])
+    expect(sortedIds(getMatchedEntryIds('! "k-on! movie"', index))).toEqual([2, 3, 4])
+    expect(sortedIds(getMatchedEntryIds('set|"k-on! movie"', index))).toEqual([1, 3, 4])
+    expect(sortedIds(getMatchedEntryIds('"k-on! movie"|set', index))).toEqual([1, 3, 4])
+  })
+
+  it('keeps quoted ! literal and escapes quoted | in the query sent to Fuse', () => {
+    const fuse = spyFuse()
+    const index = buildStrictIndex(entries, fuse)
+    getMatchedEntryIds('"k-on! zzz"', index)
+    getMatchedEntryIds('"black|zzz" | qqq', index)
+    expect(vi.mocked(fuse.search).mock.calls.map(call => call[0])).toEqual([
+      '"k-on! zzz"',
+      '"black\\|zzz" | qqq',
+    ])
+  })
+})
+
+describe('search OR precedence', () => {
+  const entries: Entry[] = [
+    { id: 1, searchText: 'blue' },
+    { id: 2, searchText: 'wolf red' },
+    { id: 3, searchText: 'red' },
+    { id: 4, searchText: 'blue sky' },
+  ]
+
+  it('treats | as OR between space-separated AND groups on the strict path', () => {
+    const index = buildStrictIndex(entries)
+    expect(sortedIds(getMatchedEntryIds('blue | wolf red', index))).toEqual([1, 2, 4])
+    expect(sortedIds(getMatchedEntryIds('blue !sky | red', index))).toEqual([1, 2, 3])
+    expect(sortedIds(getMatchedEntryIds('blue | zzz red', index))).toEqual([1, 4])
+    expect(sortedIds(getMatchedEntryIds('blue | | red', index))).toEqual([1, 2, 3, 4])
+    expect(sortedIds(getMatchedEntryIds('blue |', index))).toEqual([1, 4])
+  })
+
+  it('uses the same grouping on the fuzzy path', async () => {
+    const fuzzyEntries = entries.slice(0, 3)
+    const index = buildStrictIndex(fuzzyEntries, await createSearchFuse(fuzzyEntries))
+    // Strict misses every term, so the result comes from Fuse alone.
+    expect(sortedIds(getMatchedEntryIds('bleu | wolff redd', index))).toEqual([1, 2])
+  })
+})
+
+describe('search fuzzy fallback with date tokens', () => {
+  const entries: Entry[] = [
+    { id: 1, searchText: 'lucia date_y_2018 date_ym_2018_05' },
+    { id: 2, searchText: 'max date_y_2010 date_ym_2010_01' },
+  ]
+
+  it('returns nothing for a year or month with no works, before and after Fuse loads', async () => {
+    const cold = buildStrictIndex(entries)
+    const warm = buildStrictIndex(entries, await createSearchFuse(entries))
+    for (const index of [cold, warm]) {
+      expect(sortedIds(getMatchedEntryIds('2019', index))).toEqual([])
+      expect(sortedIds(getMatchedEntryIds('2018/06', index))).toEqual([])
+      expect(sortedIds(getMatchedEntryIds('lucia 2019', index))).toEqual([])
+    }
+  })
+
+  it('keeps typo tolerance for words combined with a matching date', async () => {
+    const warm = buildStrictIndex(entries, await createSearchFuse(entries))
+    expect(sortedIds(getMatchedEntryIds('lucai', warm))).toEqual([1])
+    expect(sortedIds(getMatchedEntryIds('lucai 2018', warm))).toEqual([1])
+    expect(sortedIds(getMatchedEntryIds('lucai 2010', warm))).toEqual([])
   })
 })

@@ -29,7 +29,8 @@ GET, POST, PUT, PATCH, DELETE, OPTIONS`, `Access-Control-Allow-Headers` (echoes
 ```
 
 Every successful mutation is `200 OK` (no `201`/`204`). `GET` endpoints return their payload
-directly. All JSON responses send `Cache-Control: no-store`.
+directly. All JSON responses send `Cache-Control: no-store`. Every `/api/admin/*` response (including
+`OPTIONS`, `403`, and the source image) sends `X-Content-Type-Options: nosniff`.
 
 **Status codes.**
 
@@ -144,7 +145,7 @@ All characters, a flat commission row list for admin search, and creator alias d
     status: 'active' | 'archived'
     sortOrder: number
     commissionCount: number
-  }> // ordered by sortOrder
+  }> // ordered by sortOrder, then id
   creatorAliases: Array<{ creatorName: string; aliases: string[]; commissionCount: number }>
   commissionSearchRows: Array<{
     id: number
@@ -161,7 +162,7 @@ All characters, a flat commission row list for admin search, and creator alias d
     description: string | null
     keyword: string | null
     hidden: boolean
-  }> // ordered by character sortOrder, commissionDate desc, id desc
+  }> // ordered by character sortOrder, character id, commissionDate desc, id desc
 }
 ```
 
@@ -248,8 +249,9 @@ internal `file_name` (`COALESCE` in `adminData.ts`). The stored `object_key` is 
 as-is. A commission with no `source_images` row has no image; the bucket is never probed by
 file name.
 
-**`200`:** image bytes. `Content-Type` is the R2 object's stored content type, falling back to
-`image/png` for a `.png` key and `image/jpeg` otherwise. Also sends `Content-Length` (when known),
+**`200`:** image bytes. `Content-Type` is always `image/jpeg` or `image/png`: the R2 object's stored
+content type when it is one of those two, otherwise derived from the key's extension (`.png` ->
+`image/png`, `.jpg`/`.jpeg` -> `image/jpeg`). Also sends `Content-Length` (when known),
 `ETag` (when R2 provides one), and `Cache-Control: private, no-cache`.
 
 **`304`:** empty body when `If-None-Match` (comma-separated list or `*`) matches the `ETag`;
@@ -262,7 +264,8 @@ file name.
 3. `503` — `DB` binding missing
 4. `404` — **plain-text** `Not Found` (not JSON): unknown commission, no `source_images` row, or
    object missing from R2
-5. `500` — JSON envelope, lookup or R2 read failed
+5. `500` — JSON envelope, lookup or R2 read failed, or the object is neither stored as JPEG/PNG nor
+   keyed `.jpg`/`.jpeg`/`.png` (`Stored source image is not a JPEG or PNG.`)
 
 ```bash
 curl -O https://admin.crystallize.cc/api/admin/commissions/12/source-image
@@ -283,7 +286,8 @@ All require `DB`. Request bodies are JSON. A body that is not a JSON object is t
 }
 ```
 
-The new character gets `sortOrder = max(sort_order) + 1` regardless of status.
+The new character gets `sortOrder = max(sort_order) + 1` regardless of status, computed inside the
+`INSERT` so concurrent creates do not read the same maximum. Reads order by `sortOrder`, then `id`.
 
 **`200`:** `{ "status": "success", "message": "Character \"Aria\" created." }`
 
@@ -327,7 +331,8 @@ Semantics:
   removed. Their old `sort_order` values may collide with the new sequence.
 - Both lists empty (or not arrays — non-arrays are coerced to `[]`) is a no-op that still
   returns `200`.
-- Entries are mapped with `Number()`. All updates run in one D1 batch.
+- Entries are mapped with `Number()`. Each listed character gets its own single-row `UPDATE`, all in
+  one atomic D1 batch, so the list length is not bound by D1's 100-parameters-per-statement limit.
 
 **`200`:** `{ "status": "success", "message": "Character order updated." }`
 
@@ -366,17 +371,18 @@ curl -X DELETE https://admin.crystallize.cc/api/admin/characters/3
 
 ### Commission fields
 
-| Field                   | Rule                                                                                                                                                  |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `characterId`           | Required; finite number > 0; must reference an existing character                                                                                     |
-| `commissionDate`        | Required; real calendar date `YYYY-MM-DD`, not later than today's date in UTC+14 at request time (see below)                                          |
-| `creatorName`           | Form: send empty string when unknown. JSON (`PATCH`): required, string or `null`. Trimmed; empty stores `null`; control characters (<= 0x1F) rejected |
-| `workGroupId`           | `null`/empty for standalone works, else a lowercase UUID v4 (input is trimmed and lowercased), or the sentinel `new`                                  |
-| `partNumber`            | Positive integer; must be set if and only if `workGroupId` is set                                                                                     |
-| `links`                 | Newline-separated string; trimmed, blank lines dropped, stored as a JSON array; each entry must be an absolute `http(s)` URL                          |
-| `design`, `description` | Trimmed; empty stores `null`                                                                                                                          |
-| `keyword`               | Normalized on write (see [Keyword](#keyword)); empty stores `null`                                                                                    |
-| `hidden`                | Boolean (see [Hidden](#hidden))                                                                                                                       |
+| Field            | Rule                                                                                                                                                  |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `characterId`    | Required; finite number > 0; must reference an existing character                                                                                     |
+| `commissionDate` | Required; real calendar date `YYYY-MM-DD`, not later than today's date in UTC+14 at request time (see below)                                          |
+| `creatorName`    | Form: send empty string when unknown. JSON (`PATCH`): required, string or `null`. Trimmed; empty stores `null`; control characters (<= 0x1F) rejected |
+| `workGroupId`    | `null`/empty for standalone works, else a lowercase UUID v4 (input is trimmed and lowercased), or the sentinel `new`                                  |
+| `partNumber`     | Positive integer; must be set if and only if `workGroupId` is set                                                                                     |
+| `links`          | Newline-separated string; trimmed, blank lines dropped, stored as a JSON array; each entry must be an absolute `http(s)` URL                          |
+| `design`         | Trimmed; empty stores `null`; a non-empty value must be an absolute `http(s)` URL (rendered into a public `href`)                                     |
+| `description`    | Trimmed; empty stores `null`                                                                                                                          |
+| `keyword`        | Normalized on write (see [Keyword](#keyword)); empty stores `null`                                                                                    |
+| `hidden`         | Boolean (see [Hidden](#hidden))                                                                                                                       |
 
 `workGroupId: "new"` (case-insensitive) makes the worker generate a fresh UUID v4 group and is
 accepted on both create and `PATCH`. Parts keep separate commission rows, IDs, and images; the
@@ -385,7 +391,8 @@ group only expresses grouping and order. `fileName` is never accepted from calle
 Validation errors (`400`): `Character selection is required.`, `Commission date must use
 YYYY-MM-DD format.`, `Commission date must be a real calendar date.`, `Creator name must be a
 string or null.`, `Work group and part number must be set together.`, `Work group must be a
-lowercase UUID v4.`, `Part number must be a positive integer.`, `Commission date cannot be in the future.`, `Link "<value>" must be an http(s) URL.`
+lowercase UUID v4.`, `Part number must be a positive integer.`, `Commission date cannot be in the future.`, `Link "<value>" must be an http(s) URL.`,
+`Design "<value>" must be an http(s) URL.`
 
 **Future dates.** `commissionDate` is rejected when it is later than the current calendar date in
 UTC+14 (`packages/domain/src/commissionDate.ts`). This is an owner-approved assumption: the UTC+14
@@ -405,15 +412,15 @@ creatorName    string  empty string when unknown
 workGroupId    string  optional (see fields table)
 partNumber     string  optional; required together with workGroupId
 links          string  newline-separated URLs
-design         string  optional
+design         string  optional; absolute http(s) URL
 description    string  optional
 keyword        string  optional
 hidden         string  "on" hides; anything else / omitted = visible
 sourceImage    File    JPEG or PNG, non-empty, with a file name
 ```
 
-Order of operations: validate fields -> check `sourceImage` -> check bindings -> upload to R2 ->
-D1 insert. The worker assigns the internal asset key `commission-<uuid>`; the R2 key is
+Order of operations: `Content-Length` precheck -> read the form -> validate fields -> check
+`sourceImage` -> check bindings -> upload to R2 -> D1 insert. The worker assigns the internal asset key `commission-<uuid>`; the R2 key is
 `source-images/<sha256>-<UUIDv4>.jpg|png` (see [Source image storage](#source-image-storage)).
 
 **`200`:** `{ "status": "success", "message": "Commission dated 2024-03-15 added to Aria." }`
@@ -421,8 +428,8 @@ D1 insert. The worker assigns the internal asset key `commission-<uuid>`; the R2
 **Errors:**
 
 - `400` — any field validation error above; `Source image is required for new commission entries.`
-  (missing, unnamed, or empty file); `Only JPG and PNG uploads are supported.`; `Uploaded image is
-empty.`; `Uploaded image must be 10 MiB or smaller.`
+  (missing, unnamed, or empty file); `Only JPG and PNG uploads are supported.`; `Uploaded image must
+be 10 MiB or smaller.` (also returned, before the body is read, when `Content-Length` exceeds 11 MiB)
 - `400 Selected character does not exist.` — raised after upload, so the R2 object is orphaned
 - `400` — any D1 failure after upload (uniqueness conflict, `D1 write operation failed.`); the
   uploaded object is kept
@@ -434,7 +441,7 @@ curl -X POST https://admin.crystallize.cc/api/admin/commissions \
   -F 'commissionDate=2024-03-15' \
   -F 'creatorName=creator' \
   -F 'links=https://example.com/art1' \
-  -F 'design=Casual' \
+  -F 'design=https://example.com/design/casual' \
   -F 'description=Summer outfit' \
   -F 'keyword=casual,summer' \
   -F 'sourceImage=@/path/to/image.jpg;type=image/jpeg'
@@ -455,7 +462,7 @@ bytes.
   workGroupId: string | null // key must be present; null for standalone
   partNumber: number | null  // key must be present; null for standalone
   links?: string             // newline-separated string, NOT an array; omitted -> []
-  design?: string            // omitted -> cleared (null)
+  design?: string            // absolute http(s) URL; empty or omitted -> cleared (null)
   description?: string       // omitted -> cleared (null)
   keyword?: string           // omitted -> cleared (null)
   hidden?: boolean           // omitted -> false
@@ -480,7 +487,7 @@ curl -X PATCH https://admin.crystallize.cc/api/admin/commissions/12 \
     "workGroupId": null,
     "partNumber": null,
     "links": "https://example.com/art1\nhttps://example.com/art2",
-    "design": "Casual",
+    "design": "https://example.com/design/casual",
     "description": "Summer outfit",
     "keyword": "casual,summer",
     "hidden": false
@@ -514,9 +521,10 @@ previous object on a best-effort basis.
 
 **Errors:**
 
-- `400 Invalid commission identifier.` (ID `0`); `400 Source image is required.`; `400 Commission
-not found.`; `400 Only JPG and PNG uploads are supported.`; `400 Uploaded image must be 10 MiB or
-smaller.`
+- `400 Invalid commission identifier.` (ID `0`); `400 Source image is required.` (missing, unnamed, or
+  empty file); `400 Commission not found.`; `400 Only JPG and PNG uploads are supported.`; `400 Uploaded
+image must be 10 MiB or smaller.` (also returned, before the body is read, when `Content-Length` exceeds
+  11 MiB)
 - `400` — D1 update failed, or the commission was deleted while the upload was in flight (`Commission not
 found.`): no `source_images` row is written, the previous image stays active, and the newly uploaded object
   is deleted on a best-effort basis (an orphan only if that cleanup also fails)
@@ -539,9 +547,11 @@ All four endpoints require `DB` and a JSON body. Malformed JSON is caught here a
 
 **Alias row semantics** (the three `*/batch` endpoints):
 
-- **Upsert per row; not a full replace.** For each submitted row: non-empty aliases are
-  upserted by name, an empty alias list **deletes** that name's record. Names not in the request
-  are untouched. Everything is applied in one atomic batch. An empty `rows` is a successful no-op.
+- **Replace per row; not a full replace of the table.** For each submitted row, every stored row whose
+  name has the same normalized key (table below) is deleted, then non-empty aliases are written as one
+  row under the submitted name (trimmed, spaces collapsed; creator `(part N)` stripped); an empty alias
+  list leaves no row. Names not in the request are untouched. Everything is applied in one atomic
+  batch. An empty `rows` is a successful no-op.
 - Rows in one request with the same normalized name are merged (aliases unioned) first; rows with an
   empty name are skipped.
 - `aliases` may be `string[]` or a single string split on `, \n ， 、 ; ；`. A row's singular `alias`
@@ -608,7 +618,9 @@ curl -X POST https://admin.crystallize.cc/api/admin/keyword-aliases/batch \
 
 Each keyword is converted with `String()`, whitespace-collapsed, empty values dropped, deduped
 case-insensitively (first wins), then the first 6 unique keywords are kept. An empty list clears
-the featured keywords.
+the featured keywords. A body with no `keywords` array and no `keywordsJson` (or `keywords`) string
+that parses to a JSON array — a mistyped key, for example — is rejected with `400` ("Featured keywords
+must be sent as a `keywords` array (or a `keywordsJson` JSON array string).") and changes nothing.
 
 **`200`:** `{ "status": "success", "message": "Home featured keywords saved." }`
 
@@ -660,7 +672,10 @@ split it on `,`.
 ### Source image formats
 
 Accepted by `POST /commissions` and `POST /commissions/:id/source-image`: the file must be
-non-empty, have a non-empty name, and be at most 10 MiB (checked before the body is read). The type
+non-empty, have a non-empty name, and be at most 10 MiB. A request whose `Content-Length` exceeds
+11 MiB (10 MiB plus 1 MiB for the other fields and multipart framing) is rejected before the body is
+read; otherwise the whole multipart body is read and the file size checked before hashing or any R2
+write. The type
 is decided by the file's magic bytes only: JPEG (`FF D8 FF`) -> `.jpg`, PNG (`89 50 4E 47 0D 0A 1A
 0A`) -> `.png`. `Content-Type` and the file name are ignored, so a PNG named `x.jpg` is stored as
 `.png`. Anything else (including WebP/HEIC renamed to `.jpg`) is rejected with `Only JPG and PNG

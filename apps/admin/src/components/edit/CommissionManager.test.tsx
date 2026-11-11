@@ -3,6 +3,7 @@ import type { AdminCommissionSearchRow, CharacterRow, CommissionRow } from '@com
 import { act, createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { consumeCommissionEditRequest, requestCommissionEdit } from '../../lib/editIntent'
 import { FloatingNoticeProvider } from '../FloatingNotice'
 import { CommissionManager } from './CommissionManager'
 
@@ -12,6 +13,7 @@ const api = vi.hoisted(() => ({
   rename: vi.fn(),
   saveOrder: vi.fn(),
   pendingSave: null as (() => void) | null,
+  deferredDiscard: null as (() => void) | null,
 }))
 vi.mock('../../lib/adminActions', () => ({
   fetchCharacterCommissionsAction: api.load,
@@ -23,8 +25,15 @@ vi.mock('./KeywordReplacePopover', () => ({
   KeywordReplacePopover: ({ onComplete }: { onComplete: () => void }) => createElement('button', { onClick: onComplete }, 'Complete replacement'),
 }))
 vi.mock('./CommissionEditDrawer', () => ({
-  CommissionEditDrawer: ({ commission, onSaveSuccess, onDelete, onClose }: { commission: CommissionRow | null, onSaveSuccess: (row: CommissionRow) => void, onDelete: () => void, onClose: () => void }) => commission
+  CommissionEditDrawer: ({ commission, discardGuardRef, onSaveSuccess, onDelete, onClose }: { commission: CommissionRow | null, discardGuardRef?: { current: ((action: () => void) => void) | null }, onSaveSuccess: (row: CommissionRow) => void, onDelete: () => void, onClose: () => void }) => commission
     ? createElement('div', { 'role': 'dialog', 'data-keyword': commission.keyword }, `Editing ${commission.id}`, createElement('button', {
+        // Stands in for a dirty form: the drawer's guard holds the action until the user confirms.
+        onClick: () => {
+          discardGuardRef!.current = (action) => {
+            api.deferredDiscard = action
+          }
+        },
+      }, 'Make dirty'), createElement('button', {
         onClick: () => onSaveSuccess({ ...commission, creatorName: 'Changed creator' }),
       }, 'Save edit'), createElement('button', {
         onClick: () => onSaveSuccess({ ...commission, keyword: 'Fresh keyword' }),
@@ -80,6 +89,7 @@ describe('commission manager search and disclosure lifecycle', () => {
     api.rename.mockReset().mockResolvedValue({ status: 'success' })
     api.saveOrder.mockReset().mockResolvedValue({ status: 'success' })
     api.pendingSave = null
+    api.deferredDiscard = null
   })
   afterEach(async () => {
     await act(async () => root.unmount())
@@ -111,6 +121,36 @@ describe('commission manager search and disclosure lifecycle', () => {
       active: [1, 2],
       archived: [],
     })
+  })
+
+  it('keeps focus on the pressed move control and announces the new position', async () => {
+    await render()
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Enter reorder mode"]')!.click())
+    const control = (label: string) => container.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!
+    const announcement = () => container.querySelector('[role="status"]')?.textContent
+    const press = async (label: string) => {
+      const button = control(label)
+      button.focus()
+      await act(async () => button.click())
+    }
+    expect(container.querySelector('[role="status"]')).not.toBeNull()
+    await press('Move First down')
+    expect(container.querySelector('#admin-character-1')?.getAttribute('data-character-status')).toBe('active')
+    expect(document.activeElement).toBe(control('Move First down'))
+    expect(announcement()).toBe('First moved to position 2 of 2')
+    // Crossing the divider puts First at the end, where its down control becomes disabled.
+    await press('Move First down')
+    expect(container.querySelector('#admin-character-1')?.getAttribute('data-character-status')).toBe('archived')
+    expect(control('Move First down').disabled).toBe(true)
+    expect(document.activeElement).toBe(control('Move First up'))
+    expect(announcement()).toBe('First moved to position 2 of 2, archived')
+    await press('Move First up')
+    expect(document.activeElement).toBe(control('Move First up'))
+    expect(announcement()).toBe('First moved to position 2 of 2, active')
+    await press('Move First up')
+    expect(control('Move First up').disabled).toBe(true)
+    expect(document.activeElement).toBe(control('Move First down'))
+    expect(announcement()).toBe('First moved to position 1 of 2')
   })
 
   it('saves the current name when focus moves to another character action', async () => {
@@ -239,6 +279,29 @@ describe('commission manager search and disclosure lifecycle', () => {
     await act(async () => api.pendingSave?.())
     await search('Late edit')
     expect(container.querySelector('[aria-label="Search results"]')?.textContent).toContain('Second')
+  })
+
+  it('asks the dirty editor before switching to another search result', async () => {
+    await render()
+    await search('Creator')
+    const results = () => container.querySelectorAll<HTMLButtonElement>('[aria-label="Search results"] button')
+    await act(async () => results()[0]!.click())
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Editing 1')
+    await act(async () => [
+      ...container.querySelectorAll('button'),
+    ].find(button => button.textContent === 'Make dirty')!.click())
+    await act(async () => results()[1]!.click())
+    expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Editing 1')
+    expect(api.deferredDiscard).not.toBeNull()
+    await act(async () => api.deferredDiscard?.())
+    await vi.waitFor(() => expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Editing 2'))
+  })
+
+  it('opens the commission another page asked to edit, once', async () => {
+    requestCommissionEdit({ commissionId: 2, characterId: 2 })
+    await render()
+    await vi.waitFor(() => expect(container.querySelector('[role="dialog"]')?.textContent).toContain('Editing 2'))
+    expect(consumeCommissionEditRequest()).toBeNull()
   })
 
   it('keeps a closed editor closed when its save finishes later', async () => {

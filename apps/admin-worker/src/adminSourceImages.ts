@@ -49,6 +49,7 @@ function getSourceImageContentType(extension: '.jpg' | '.png') {
 
 // The crop output is 1280x525; the largest live image is under 1 MB and a worst-case PNG is ~2.7 MB.
 export const MAX_SOURCE_IMAGE_BYTES = 10 * 1024 * 1024
+export const UPLOAD_TOO_LARGE_MESSAGE = `Uploaded image must be ${MAX_SOURCE_IMAGE_BYTES / 1024 / 1024} MiB or smaller.`
 
 // Magic bytes decide the type: a renamed WebP/HEIC would otherwise be stored and break the publish build.
 function sniffImageExtension(bytes: Uint8Array): '.jpg' | '.png' | null {
@@ -91,17 +92,24 @@ export function buildVersionedSourceImageKey(
   return `source-images/${sha256}-${crypto.randomUUID()}${extension}`
 }
 
-export function getSourceImageMimeType(key: string, object?: R2ObjectBodyLike | null) {
-  const contentType = object?.httpMetadata?.contentType?.trim()
-  if (contentType) {
-    return contentType
+// Only these two types are ever written, so a stored value outside them is untrusted metadata, not a format.
+const SOURCE_IMAGE_MIME_TYPES = new Set(['image/jpeg', 'image/png'])
+
+export function getSourceImageMimeType(key: string, object?: R2ObjectBodyLike | null): 'image/jpeg' | 'image/png' | null {
+  const contentType = object?.httpMetadata?.contentType?.trim().toLowerCase()
+  if (contentType && SOURCE_IMAGE_MIME_TYPES.has(contentType)) {
+    return contentType as 'image/jpeg' | 'image/png'
   }
 
-  if (key.toLowerCase().endsWith('.png')) {
+  const lowerKey = key.toLowerCase()
+  if (lowerKey.endsWith('.png')) {
     return 'image/png'
   }
+  if (lowerKey.endsWith('.jpg') || lowerKey.endsWith('.jpeg')) {
+    return 'image/jpeg'
+  }
 
-  return 'image/jpeg'
+  return null
 }
 
 export function resolveImageWriteBucket(value: unknown): R2WriteBucketLike | null {
@@ -142,9 +150,9 @@ export async function saveSourceImageToBucket(
     throw new Error('Uploaded image is empty.')
   }
 
-  // Checked before arrayBuffer() so an oversized upload is never read into memory.
+  // The multipart body is already buffered by formData(); this only keeps an oversized file out of hashing and R2.
   if (input.file.size > MAX_SOURCE_IMAGE_BYTES) {
-    throw new Error(`Uploaded image must be ${MAX_SOURCE_IMAGE_BYTES / 1024 / 1024} MiB or smaller.`)
+    throw new Error(UPLOAD_TOO_LARGE_MESSAGE)
   }
 
   const fileName = normalizeCommissionFileName(input.commissionFileName)

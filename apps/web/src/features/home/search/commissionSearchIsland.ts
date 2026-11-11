@@ -13,19 +13,40 @@ function scheduleIdle(task: () => void): CancelScheduled {
   return () => clearTimeout(id)
 }
 
-export function mountCommissionSearchIsland(): () => void {
+type ControllerModule = Pick<typeof import('@features/home/search/commissionSearchController'), 'initSearchController'>
+
+interface MountCommissionSearchIslandOptions {
+  importController?: () => Promise<ControllerModule>
+}
+
+const importControllerChunk = () => import('@features/home/search/commissionSearchController')
+
+export function mountCommissionSearchIsland({
+  importController = importControllerChunk,
+}: MountCommissionSearchIslandOptions = {}): () => void {
   let disposed = false
   let loading = false
   let pendingKeyword: string | undefined
   let teardownController: (() => void) | undefined
   let cancelIdle: CancelScheduled | undefined
+  let hasLoggedLoadFailure = false
   const keywordList = document.getElementById('search-keyword-list')
+  const searchRoot = document.getElementById('commission-search')
 
-  const loadController = () => {
+  // A failed load (a tab kept open across a deploy asks for a chunk that is gone) retries on the next interaction:
+  // a chip tap through the early listener, which stays bound, or focus moving into the search UI.
+  function onRetryInteraction() {
+    searchRoot?.removeEventListener('focusin', onRetryInteraction)
+    loadController()
+  }
+
+  function loadController() {
     if (loading)
       return
     loading = true
-    void import('@features/home/search/commissionSearchController').then(({ initSearchController }) => {
+    // Rejection handler, not a trailing catch: a throw inside initSearchController is not a load failure, and
+    // retrying it would init a half-bound root a second time.
+    void importController().then(({ initSearchController }) => {
       keywordList?.removeEventListener('click', onEarlyChipClick)
       // Teardown can run while the chunk is still loading; mounting now would target a dead DOM.
       if (disposed)
@@ -34,6 +55,17 @@ export function mountCommissionSearchIsland(): () => void {
       if (!root)
         return
       teardownController = initSearchController(root, { pendingKeyword })
+    }, (error: unknown) => {
+      loading = false
+      // A retry triggered by focus must not replay a chip tapped before the failure.
+      pendingKeyword = undefined
+      if (disposed)
+        return
+      if (!hasLoggedLoadFailure) {
+        hasLoggedLoadFailure = true
+        console.error('[search] controller chunk failed to load', error)
+      }
+      searchRoot?.addEventListener('focusin', onRetryInteraction)
     })
   }
 
@@ -67,6 +99,7 @@ export function mountCommissionSearchIsland(): () => void {
     disposed = true
     pendingKeyword = undefined
     keywordList?.removeEventListener('click', onEarlyChipClick)
+    searchRoot?.removeEventListener('focusin', onRetryInteraction)
     cancelIdle?.()
     teardownController?.()
     teardownController = undefined

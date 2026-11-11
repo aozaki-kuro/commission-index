@@ -4,24 +4,13 @@ import {
   resolveCommissionViewModeFromElement,
 } from '@features/home/commission/viewModeState'
 import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '@features/home/events'
+import { applyViewModeToggleClasses, MOBILE_VIEW_MODE_TAB_CLASSES } from '@features/home/nav/viewModeToggleClasses'
 
-const TOGGLE_SELECTOR = '[data-mobile-view-mode-toggle="true"]'
+const TOGGLE_SELECTOR = MOBILE_VIEW_MODE_TAB_CLASSES.toggleSelector
 
 function syncToggleButtonState(button: HTMLButtonElement, active: boolean) {
   button.setAttribute('aria-pressed', String(active))
-  button.classList.toggle('text-gray-700', active)
-  button.classList.toggle('dark:text-gray-300', active)
-  button.classList.toggle('text-gray-500', !active)
-  button.classList.toggle('dark:text-gray-400', !active)
-
-  const indicator = button.querySelector<HTMLElement>('[data-mobile-view-mode-indicator]')
-  if (!indicator)
-    return
-
-  indicator.classList.toggle('scale-x-100', active)
-  indicator.classList.toggle('opacity-100', active)
-  indicator.classList.toggle('scale-x-0', !active)
-  indicator.classList.toggle('opacity-0', !active)
+  applyViewModeToggleClasses(button, MOBILE_VIEW_MODE_TAB_CLASSES, active)
 }
 
 interface MountMobileViewModeTabsOptions {

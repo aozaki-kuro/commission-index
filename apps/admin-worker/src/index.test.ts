@@ -86,4 +86,38 @@ describe('admin worker entry', () => {
     expect(await response.json()).toMatchObject({ status: 'error' })
     expect(response.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:4174')
   })
+
+  it('sends nosniff on every API response, with or without an allowed Origin', async () => {
+    const throwingEnv = {
+      ...env,
+      DB: {
+        prepare() {
+          throw new Error('boom')
+        },
+      },
+    } as unknown as Env
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const responses = [
+      await send(`${api}/health`),
+      await send(`${api}/health`, {
+        headers: { Origin: 'https://admin.example.com' },
+      }),
+      await send(`${api}/characters`, {
+        method: 'OPTIONS',
+        headers: { Origin: 'https://admin.example.com' },
+      }),
+      await send(`${api}/rebuild`, {
+        method: 'POST',
+        headers: { Origin: 'https://evil.example' },
+      }),
+      await send(`${api}/characters`, { method: 'POST', body: '{not json' }, devEnv),
+      await send(`${api}/unknown`),
+      await send(`${api}/bootstrap`, {}, throwingEnv),
+    ]
+
+    expect(responses.map(response => response.status)).toEqual([200, 200, 204, 403, 400, 404, 500])
+    for (const response of responses) {
+      expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff')
+    }
+  })
 })

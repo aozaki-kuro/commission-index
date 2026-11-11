@@ -23,6 +23,14 @@ vi.mock('../lib/adminActions', () => ({
 
 vi.mock('../lib/storageHelper', () => storage)
 
+const signals = vi.hoisted(() => ({
+  markPendingRebuild: vi.fn(),
+  notifyDataUpdate: vi.fn(),
+}))
+
+vi.mock('../lib/pendingRebuildSignal', () => ({ markPendingRebuild: signals.markPendingRebuild }))
+vi.mock('../lib/dataUpdateSignal', () => ({ notifyDataUpdate: signals.notifyDataUpdate }))
+
 const characters: CharacterRow[] = [
   {
     id: 1,
@@ -85,6 +93,8 @@ describe('useCommissionManager request lifecycle', () => {
     actions.deleteCharacterAction.mockReset()
     actions.renameCharacter.mockReset()
     storage.safeStorageSet.mockReset().mockReturnValue(true)
+    signals.markPendingRebuild.mockReset()
+    signals.notifyDataUpdate.mockReset()
     window.localStorage.clear()
   })
 
@@ -361,5 +371,51 @@ describe('useCommissionManager request lifecycle', () => {
       finishDelete({ status: 'success', message: 'Deleted.' })
       await Promise.resolve()
     })
+  })
+  it('publishes a superseded order that committed before the latest order failed', async () => {
+    let finishFirst!: (result: { status: 'success' }) => void
+    let finishSecond!: (result: { status: 'error', message: string }) => void
+    actions.saveCharacterOrder
+      .mockImplementationOnce(() => new Promise(resolve => finishFirst = resolve))
+      .mockImplementationOnce(() => new Promise(resolve => finishSecond = resolve))
+    await act(async () => root.render(createElement(RenameHarness)))
+    await act(async () => manager.handleReorder(0, 1))
+    await act(async () => manager.handleReorder(0, 2))
+    await act(async () => finishFirst({ status: 'success' }))
+    // v1 is now committed on the server even though a newer order is queued.
+    expect(signals.markPendingRebuild).toHaveBeenCalledTimes(1)
+    expect(signals.notifyDataUpdate).toHaveBeenCalledTimes(1)
+    expect(actions.saveCharacterOrder).toHaveBeenCalledTimes(2)
+    await act(async () => finishSecond({ status: 'error', message: 'Order was not saved' }))
+    expect(signals.markPendingRebuild).toHaveBeenCalledTimes(1)
+    expect(manager.feedback).toEqual({ text: 'Order was not saved', type: 'error' })
+  })
+
+  it('submits one rename when the input blurs after Enter while the save is pending', async () => {
+    let finish!: (result: { status: 'success' }) => void
+    actions.renameCharacter.mockImplementation(() => new Promise(resolve => finish = resolve))
+    await act(async () => root.render(createElement(RenameHarness)))
+    await editName(characters[0]!, 'Entered name')
+    await act(async () => manager.submitRename())
+    await act(async () => manager.submitRename())
+    await act(async () => finish({ status: 'success' }))
+    // Writes are serialized, so a duplicate would only be issued after the first response.
+    expect(actions.renameCharacter).toHaveBeenCalledTimes(1)
+    expect(manager.editing).toBeNull()
+    expect(signals.markPendingRebuild).toHaveBeenCalledTimes(1)
+  })
+
+  it('queues a character delete behind an in-flight reorder', async () => {
+    let finishOrder!: (result: { status: 'success' }) => void
+    actions.saveCharacterOrder.mockImplementationOnce(() => new Promise(resolve => finishOrder = resolve))
+    actions.deleteCharacterAction.mockResolvedValue({ status: 'success', message: 'Deleted.' })
+    await act(async () => root.render(createElement(RenameHarness)))
+    await act(async () => manager.handleReorder(0, 1))
+    await act(async () => manager.performDeleteCharacter(characters[0]!))
+    expect(actions.deleteCharacterAction).not.toHaveBeenCalled()
+    await act(async () => finishOrder({ status: 'success' }))
+    expect(actions.deleteCharacterAction).toHaveBeenCalledWith(1)
+    expect(manager.orderedCharacters.map(character => character.id)).toEqual([2])
+    expect(manager.isDeletePending).toBe(false)
   })
 })

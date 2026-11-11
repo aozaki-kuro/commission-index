@@ -181,6 +181,16 @@ const resolvedCanonicalPath
     html[data-home-scroll-restoring='true'] [data-home-scroll-restore-shell='true'] {
       opacity: 0;
       pointer-events: none;
+      /* Failsafe: if the client runtime never clears the attribute, the listing still shows. Clearing it earlier
+         unmatches this rule and drops the animation, so the normal restore path is unaffected. */
+      animation: home-scroll-restore-failsafe 0s 1.5s forwards;
+    }
+
+    @keyframes home-scroll-restore-failsafe {
+      to {
+        opacity: 1;
+        pointer-events: auto;
+      }
     }
   </style>
   <script
@@ -257,7 +267,7 @@ catch {
     updateSummary={homeUpdateSummary}
   />
   <div class="relative mx-auto flex justify-center">
-    <div id="Main Contents" class="w-full max-w-2xl">
+    <div class="w-full max-w-2xl">
       <CommissionSearchIsland
         locale={resolvedLocale}
         featuredKeywords={featuredSearchKeywords}

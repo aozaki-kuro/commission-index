@@ -41,6 +41,7 @@ interface CommissionEditFormProps {
   commission: CommissionRow
   commissionSearchRows: AdminCommissionSearchRow[]
   onDelete?: () => void
+  onDirtyChange?: (isDirty: boolean) => void
   onSaveSuccess?: (updated: CommissionRow) => void
 }
 
@@ -89,6 +90,7 @@ export function CommissionEditForm({
   commission,
   commissionSearchRows,
   onDelete,
+  onDirtyChange,
   onSaveSuccess,
 }: CommissionEditFormProps) {
   const [state, formAction, isSaving] = useActionState(saveCommission, INITIAL_FORM_STATE)
@@ -152,7 +154,12 @@ export function CommissionEditForm({
     keyword: keywordValue,
   })
   const [savedSnapshot, setSavedSnapshot] = useState(draftSnapshot)
-  useUnsavedChangesGuard(draftSnapshot !== savedSnapshot || pendingCropFile !== null)
+  const isDirty = draftSnapshot !== savedSnapshot || pendingCropFile !== null
+  useUnsavedChangesGuard(isDirty)
+  useEffect(() => {
+    onDirtyChange?.(isDirty)
+    return () => onDirtyChange?.(false)
+  }, [isDirty, onDirtyChange])
   const previewImageSrc = imageVersion > 0
     ? `${imageSrc}?v=${imageVersion}`
     : imageSrc

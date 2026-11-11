@@ -23,9 +23,19 @@ Standalone admin Cloudflare Worker: API router, D1/R2 CRUD, asset serving. Produ
 - Writes are origin-checked in `src/index.ts` (`isForgedWrite`): a non-GET `/api/admin/*` request with an `Origin` other than the worker's own gets 403 (Zero Trust is cookie auth and simple POSTs skip preflight). No `Origin` passes. Local origins pass only with `ALLOW_LOCAL_ORIGINS=1`, injected by the `dev` script's `--var`; never add it to `wrangler.jsonc`. Do not infer "local" from `request.url`: `wrangler dev` reports the route host there.
 - The entry also catches anything a handler throws: malformed JSON → 400, other faults → logged 500, both as the JSON envelope with CORS headers.
 - Create/PATCH take `commissionDate` + `creatorName`; `workGroupId` and `partNumber` are given together or both `null`, and `workGroupId: "new"` creates a group.
-- Commission `links` must be absolute `http(s)` URLs (`validateCommissionFields`); they render into public `href`s.
+- Commission `links` and a non-empty `design` must be absolute `http(s)` URLs (`validateCommissionFields`); they
+  render into public `href`s. `normalizeCommissionMutation` in `adminPersistence.ts` does not re-check URLs.
 - Source-image uploads are typed by magic bytes only (JPEG/PNG; MIME and file name ignored) and capped at 10 MiB
-  (`MAX_SOURCE_IMAGE_BYTES` in `adminSourceImages.ts`).
+  (`MAX_SOURCE_IMAGE_BYTES` in `adminSourceImages.ts`). `request.formData()` buffers the whole body, so upload
+  routes first reject a `Content-Length` above the cap plus 1 MiB (`exceedsUploadBodyLimit` in `adminApi.ts`).
+- `index.ts` adds `X-Content-Type-Options: nosniff` to every `/api/admin/*` response. Source-image GET serves only
+  `image/jpeg`/`image/png` (`getSourceImageMimeType`): a stored R2 content type outside those is ignored in favour
+  of the key extension, and an unknown extension is a 500.
+- Alias batch saves (`replaceAliasRowsAtomically`) delete every stored row whose normalized key matches the
+  submitted one before writing one row, because the tables are keyed by the exact name while reads merge by
+  normalized key. Creator keys stay case-sensitive (only `(part N)` is folded).
+- D1 allows at most 100 bound parameters per statement (the sqlite test double enforces it); never bind one
+  parameter per row of an unbounded list. A `db.batch()` counts as one query toward the per-invocation limit.
 - Renaming a character re-homes its `character_aliases` row in the same atomic batch (the table is keyed by the exact
   name); an existing row under the new name is merged, not replaced.
 - Editing date/creator only updates D1; it never renames, copies, moves, or deletes R2 objects. Replacing an image is a separate explicit operation.

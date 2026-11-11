@@ -88,4 +88,39 @@ describe('admin read path on a fully migrated D1', () => {
     expect(payload.featuredKeywords).toEqual(['maid', 'maker'])
     expect(statements).toHaveLength(5)
   })
+
+  it('sums commission counts of characters that share a normalized alias key', async () => {
+    const { database, db } = createSQLiteD1()
+    database.exec(`
+      INSERT INTO characters (id, name, status, sort_order) VALUES (1, 'Aria', 'active', 1), (2, 'aria ', 'active', 2);
+      INSERT INTO commissions (id, character_id, file_name, links, commission_date) VALUES
+        (10, 1, 'a', '[]', '2025-01-01'),
+        (11, 2, 'b', '[]', '2025-01-02'),
+        (12, 2, 'c', '[]', '2025-01-03');
+    `)
+
+    const response = await handleAdminReadRequest(new Request(`${baseUrl}/api/admin/aliases/bootstrap`), { DB: db })
+    const payload = await response!.json() as { characterAliases: Array<{ characterName: string, commissionCount: number }> }
+
+    expect(payload.characterAliases).toEqual([
+      expect.objectContaining({ commissionCount: 3 }),
+    ])
+  })
+
+  it('keeps each character contiguous in bootstrap rows when sort_order values tie', async () => {
+    const { database, db } = createSQLiteD1()
+    database.exec(`
+      INSERT INTO characters (id, name, status, sort_order) VALUES (1, 'First', 'active', 1), (2, 'Second', 'active', 1);
+      INSERT INTO commissions (id, character_id, file_name, links, commission_date) VALUES
+        (10, 2, 'a', '[]', '2025-06-01'),
+        (11, 1, 'b', '[]', '2025-01-01'),
+        (12, 2, 'c', '[]', '2024-01-01');
+    `)
+
+    const response = await handleAdminReadRequest(new Request(`${baseUrl}/api/admin/bootstrap`), { DB: db })
+    const payload = await response!.json() as { characters: Array<{ id: number }>, commissionSearchRows: Array<{ characterId: number }> }
+
+    expect(payload.characters.map(row => row.id)).toEqual([1, 2])
+    expect(payload.commissionSearchRows.map(row => row.characterId)).toEqual([1, 2, 2])
+  })
 })

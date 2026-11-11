@@ -17,7 +17,7 @@ const commissions = [1, 2].map(id => ({
     ? 2
     : null,
   fileName: `asset-${id}`,
-  design: 'Reference',
+  design: 'https://example.com/design',
   description: null,
   keyword: 'studio, skeb',
   links: ['https://example.com/work'],

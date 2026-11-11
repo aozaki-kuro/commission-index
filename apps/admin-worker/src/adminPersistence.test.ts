@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createSQLiteD1 } from '../test/sqliteD1'
-import { createCommission, deleteCharacter, saveHomeFeaturedSearchKeywords, saveSourceImageMetadata, updateCharacter, updateCharacterOrder } from './adminPersistence'
+import { createCharacter, createCommission, deleteCharacter, saveCharacterAliasesBatch, saveCreatorAliasesBatch, saveHomeFeaturedSearchKeywords, saveKeywordAliasesBatch, saveSourceImageMetadata, updateCharacter, updateCharacterOrder } from './adminPersistence'
 
 describe('d1 batch persistence', () => {
   it('stores explicit identity fields and binds source-image metadata to the new commission id', async () => {
@@ -327,5 +327,172 @@ describe('source-image metadata replacement', () => {
       .rejects
       .toThrow('Commission not found.')
     expect(database.prepare('SELECT * FROM source_images').all()).toEqual([])
+  })
+})
+
+describe('character order at scale', () => {
+  it('reorders 150 characters across both statuses in one batch within the D1 bound-parameter limit', async () => {
+    const { database, db, batchCallCount } = createSQLiteD1()
+    database.exec('BEGIN')
+    for (let id = 1; id <= 150; id += 1) {
+      database.prepare('INSERT INTO characters (id, name, status, sort_order) VALUES (?, ?, ?, ?)')
+        .run(id, `Character ${id}`, id <= 75
+          ? 'active'
+          : 'archived', id)
+    }
+    database.exec('COMMIT')
+    // Reverse the order and swap the two status groups.
+    const archived = Array.from({ length: 75 }, (_, index) => 75 - index)
+    const active = Array.from({ length: 75 }, (_, index) => 150 - index)
+
+    await updateCharacterOrder(db, { active, archived })
+
+    expect(batchCallCount()).toBe(1)
+    const rows = database.prepare('SELECT id, status FROM characters ORDER BY sort_order').all()
+    expect(rows).toEqual([
+      ...active.map(id => ({ id, status: 'active' })),
+      ...archived.map(id => ({ id, status: 'archived' })),
+    ])
+  })
+
+  it('still rejects an unknown identifier among many without writing', async () => {
+    const { database, db } = createSQLiteD1()
+    database.exec('BEGIN')
+    for (let id = 1; id <= 120; id += 1) {
+      database.prepare('INSERT INTO characters (id, name, status, sort_order) VALUES (?, ?, \'active\', ?)').run(id, `C${id}`, id)
+    }
+    database.exec('COMMIT')
+
+    await expect(updateCharacterOrder(db, {
+      active: [
+        ...Array.from({ length: 120 }, (_, index) => index + 1),
+        999,
+      ],
+      archived: [],
+    })).rejects.toThrow('Character order payload must include existing character identifiers only.')
+    expect(database.prepare('SELECT sort_order FROM characters WHERE id = 1').get()).toEqual({ sort_order: 1 })
+  })
+})
+
+describe('character creation order', () => {
+  it('gives concurrent creates distinct sort_order values', async () => {
+    const { database, db } = createSQLiteD1()
+
+    await Promise.all([
+      createCharacter(db, { name: 'A', status: 'active' }),
+      createCharacter(db, { name: 'B', status: 'active' }),
+    ])
+
+    expect(database.prepare('SELECT DISTINCT sort_order FROM characters').all()).toHaveLength(2)
+  })
+
+  it('appends after the highest sort_order', async () => {
+    const { database, db } = createSQLiteD1()
+    database.exec('INSERT INTO characters (id, name, status, sort_order) VALUES (1, \'A\', \'active\', 7)')
+
+    await createCharacter(db, { name: 'B', status: 'archived' })
+    await createCharacter(db, { name: 'C', status: 'active' })
+
+    expect(database.prepare('SELECT name, status, sort_order FROM characters ORDER BY id').all()).toEqual([
+      { name: 'A', status: 'active', sort_order: 7 },
+      { name: 'B', status: 'archived', sort_order: 8 },
+      { name: 'C', status: 'active', sort_order: 9 },
+    ])
+  })
+})
+
+describe('alias batch key normalization', () => {
+  const rows = (database: ReturnType<typeof createSQLiteD1>['database'], table: string, key: string) =>
+    database.prepare(`SELECT ${key} AS name, aliases FROM ${table} ORDER BY ${key}`).all()
+
+  it('replaces every keyword alias row with the same normalized key and deletes them all on an empty save', async () => {
+    const { database, db } = createSQLiteD1()
+
+    await saveKeywordAliasesBatch(db, [
+      {
+        baseKeyword: 'Full Body',
+        aliases: ['fb'],
+      },
+    ])
+    await saveKeywordAliasesBatch(db, [
+      {
+        baseKeyword: 'full  body',
+        aliases: ['fullbody'],
+      },
+    ])
+    expect(rows(database, 'keyword_aliases', 'base_keyword')).toEqual([
+      { name: 'full body', aliases: '["fullbody"]' },
+    ])
+
+    await saveKeywordAliasesBatch(db, [
+      { baseKeyword: 'FULL BODY', aliases: [] },
+    ])
+    expect(rows(database, 'keyword_aliases', 'base_keyword')).toEqual([])
+  })
+
+  it('collapses pre-existing duplicate keyword rows into one canonical row', async () => {
+    const { database, db } = createSQLiteD1()
+    database.exec(`INSERT INTO keyword_aliases (base_keyword, aliases) VALUES ('Full Body', '["a"]'), ('full body', '["b"]'), ('Other', '["o"]')`)
+
+    await saveKeywordAliasesBatch(db, [
+      {
+        baseKeyword: 'Full Body',
+        aliases: ['c'],
+      },
+    ])
+
+    expect(rows(database, 'keyword_aliases', 'base_keyword')).toEqual([
+      { name: 'Full Body', aliases: '["c"]' },
+      { name: 'Other', aliases: '["o"]' },
+    ])
+  })
+
+  it('replaces every character alias row with the same normalized key and deletes them all on an empty save', async () => {
+    const { database, db } = createSQLiteD1()
+
+    await saveCharacterAliasesBatch(db, [
+      {
+        characterName: 'Aria Rose',
+        aliases: ['ar'],
+      },
+    ])
+    await saveCharacterAliasesBatch(db, [
+      {
+        characterName: 'aria rose',
+        aliases: ['rose'],
+      },
+    ])
+    expect(rows(database, 'character_aliases', 'character_name')).toEqual([
+      { name: 'aria rose', aliases: '["rose"]' },
+    ])
+
+    await saveCharacterAliasesBatch(db, [
+      { characterName: 'ARIA  ROSE', aliases: '' },
+    ])
+    expect(rows(database, 'character_aliases', 'character_name')).toEqual([])
+  })
+
+  it('keeps creator keys case-sensitive but replaces rows stored with a (part N) suffix', async () => {
+    const { database, db } = createSQLiteD1()
+    database.exec(`INSERT INTO creator_aliases (creator_name, aliases) VALUES ('Q (part 2)', '["old"]'), ('q', '["lower"]')`)
+
+    await saveCreatorAliasesBatch(db, [
+      {
+        creatorName: 'Q',
+        aliases: ['new'],
+      },
+    ])
+    expect(rows(database, 'creator_aliases', 'creator_name')).toEqual([
+      { name: 'Q', aliases: '["new"]' },
+      { name: 'q', aliases: '["lower"]' },
+    ])
+
+    database.exec(`INSERT INTO creator_aliases (creator_name, aliases) VALUES ('Q (part 3)', '["stale"]')`)
+    await saveCreatorAliasesBatch(db, [
+      { creatorName: 'Q (part 1)', aliases: [] },
+    ])
+    expect(rows(database, 'creator_aliases', 'creator_name')).toEqual([
+      { name: 'q', aliases: '["lower"]' },
+    ])
   })
 })

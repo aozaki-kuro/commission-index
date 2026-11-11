@@ -277,7 +277,7 @@ async function loadCharacters(db: D1DatabaseLike): Promise<CharacterRow[]> {
       FROM characters
       LEFT JOIN commissions ON commissions.character_id = characters.id
       GROUP BY characters.id
-      ORDER BY characters.sort_order ASC
+      ORDER BY characters.sort_order ASC, characters.id ASC
     `,
   )
 
@@ -397,7 +397,7 @@ async function loadCharacterAliasesAdminDataFromDatabase(db: D1DatabaseLike): Pr
       FROM characters
       LEFT JOIN commissions ON commissions.character_id = characters.id
       GROUP BY characters.id
-      ORDER BY characters.sort_order ASC
+      ORDER BY characters.sort_order ASC, characters.id ASC
     `,
   )
 
@@ -413,9 +413,10 @@ async function loadCharacterAliasesAdminDataFromDatabase(db: D1DatabaseLike): Pr
       return
     }
 
+    const previous = characterCounts.get(key)
     characterCounts.set(key, {
-      characterName,
-      commissionCount: Number(row.commissionCount ?? 0),
+      characterName: previous?.characterName ?? characterName,
+      commissionCount: (previous?.commissionCount ?? 0) + Number(row.commissionCount ?? 0),
     })
   })
 
@@ -559,7 +560,7 @@ async function loadAdminBootstrapData(db: D1DatabaseLike): Promise<AdminBootstra
         commissions.hidden as hidden
       FROM commissions
       JOIN characters ON characters.id = commissions.character_id
-      ORDER BY characters.sort_order ASC, commissions.commission_date DESC, commissions.id DESC
+      ORDER BY characters.sort_order ASC, characters.id ASC, commissions.commission_date DESC, commissions.id DESC
     `,
   )
 
@@ -788,8 +789,14 @@ async function loadCommissionSourceImageResponse(
     return notFound()
   }
 
+  const contentType = getSourceImageMimeType(key, object)
+  if (!contentType) {
+    await object.body?.cancel()
+    return failure('Stored source image is not a JPEG or PNG.', 500)
+  }
+
   const headers = new Headers({
-    'Content-Type': getSourceImageMimeType(key, object),
+    'Content-Type': contentType,
     // Browser may cache the bytes but must revalidate, so a replaced image is never stale.
     'Cache-Control': 'private, no-cache',
   })

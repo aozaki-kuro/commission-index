@@ -13,14 +13,18 @@ const archivedCharactersMock = vi.hoisted(() => ({
   requestArchivedCharactersVisibility: vi.fn(),
 }))
 
+interface MockSearchEntry { id: number, domKey: string, searchText: string, searchSuggest?: string }
+
 const searchEntriesMock = vi.hoisted(() => ({
-  entries: [] as Array<{ id: number, domKey: string, searchText: string, searchSuggest?: string }>,
+  entries: [] as MockSearchEntry[],
+  promise: null as Promise<MockSearchEntry[]> | null,
 }))
 
 const panelStateMock = vi.hoisted(() => ({
   state: {
     archivedVisible: false,
   },
+  subscribers: new Set<(state: { archivedVisible: boolean }) => void>(),
 }))
 
 vi.mock('@features/home/commission/archivedCharactersState', async (importOriginal) => {
@@ -38,14 +42,17 @@ vi.mock('@features/home/search/commissionSearchDeferred', async (importOriginal)
     ...actual,
     buildPopularKeywordPoolFromEntries: () => [],
     buildSearchEntriesFromDom: () => [],
-    ensureHomeSearchEntriesPromise: () => Promise.resolve(searchEntriesMock.entries),
+    ensureHomeSearchEntriesPromise: () => searchEntriesMock.promise ?? Promise.resolve(searchEntriesMock.entries),
     getCachedHomeSearchEntries: () => null,
   }
 })
 
 vi.mock('@features/home/search/commissionSearchPanelState', () => ({
   readPanelLoadedState: () => panelStateMock.state,
-  subscribePanelState: () => () => {},
+  subscribePanelState: (fn: (state: { archivedVisible: boolean }) => void) => {
+    panelStateMock.subscribers.add(fn)
+    return () => panelStateMock.subscribers.delete(fn)
+  },
 }))
 
 // Mirrors the island's server-rendered chip markup.
@@ -89,8 +96,10 @@ describe('initSearchController', () => {
     panelStateMock.state = {
       archivedVisible: false,
     }
-    archivedCharactersMock.requestArchivedCharactersVisibility.mockClear()
+    panelStateMock.subscribers.clear()
+    archivedCharactersMock.requestArchivedCharactersVisibility.mockReset()
     searchEntriesMock.entries = []
+    searchEntriesMock.promise = null
     vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
       return window.setTimeout(() => callback(performance.now()), 0)
     })
@@ -518,5 +527,303 @@ describe('initSearchController', () => {
     expect(document.getElementById('character-alpha')?.classList.contains('hidden')).toBe(false)
 
     cleanup?.()
+  })
+
+  describe('frame scheduling and teardown', () => {
+    let frames: Map<number, FrameRequestCallback>
+    let nextFrameId: number
+
+    // Runs the callbacks queued before this frame; ones requested while it runs wait for the next, as in a browser.
+    function flushFrame() {
+      const batch = [
+        ...frames.values(),
+      ]
+      frames.clear()
+      for (const callback of batch)
+        callback(performance.now())
+    }
+
+    async function settle() {
+      for (let i = 0; i < 4; i++) {
+        await vi.advanceTimersByTimeAsync(400)
+        flushFrame()
+      }
+    }
+
+    function typeQuery(value: string) {
+      const input = document.querySelector<HTMLInputElement>('#commission-search-input')!
+      input.value = value
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+
+    function renderListing({ archived = false }: { archived?: boolean } = {}) {
+      const archivedMarkup = archived
+        ? `
+          <div data-archived-sections-container="true" class="hidden">
+            <section id="character-blue" data-character-section="true" data-character-status="archived">
+              <article
+                data-commission-entry="true"
+                data-character-section-id="character-blue"
+                data-commission-search-key="character-blue::blue"
+              ></article>
+            </section>
+          </div>`
+        : `
+          <section id="character-beta" data-character-section="true" data-character-status="active">
+            <article
+              data-commission-entry="true"
+              data-character-section-id="character-beta"
+              data-commission-search-key="character-beta::beta"
+            ></article>
+          </section>`
+      return `
+        <div data-commission-view-panel="character" data-commission-view-active="true">
+          <section id="character-alpha" data-character-section="true" data-character-status="active">
+            <article
+              data-commission-entry="true"
+              data-character-section-id="character-alpha"
+              data-commission-search-key="character-alpha::alpha"
+            ></article>
+          </section>
+          ${archivedMarkup}
+        </div>`
+    }
+
+    // The real toggle answers a show request synchronously, then notifies panel-state subscribers.
+    function answerArchivedRequestsSynchronously() {
+      archivedCharactersMock.requestArchivedCharactersVisibility.mockImplementation((_win: Window, visibility: string) => {
+        const visible = visibility === 'visible'
+        document.querySelector('[data-archived-sections-container]')?.classList.toggle('hidden', !visible)
+        panelStateMock.state = { archivedVisible: visible }
+        for (const fn of panelStateMock.subscribers)
+          fn(panelStateMock.state)
+      })
+    }
+
+    function collapseArchivedFromOutside() {
+      document.querySelector('[data-archived-sections-container]')?.classList.add('hidden')
+      panelStateMock.state = { archivedVisible: false }
+      for (const fn of panelStateMock.subscribers)
+        fn(panelStateMock.state)
+    }
+
+    function visibleRequestCount() {
+      return archivedCharactersMock.requestArchivedCharactersVisibility.mock.calls
+        .filter(([, visibility]) => visibility === 'visible')
+        .length
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers()
+      frames = new Map()
+      nextFrameId = 1
+      vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+        const id = nextFrameId++
+        frames.set(id, callback)
+        return id
+      })
+      vi.stubGlobal('cancelAnimationFrame', (id: number) => {
+        frames.delete(id)
+      })
+      Element.prototype.scrollIntoView = vi.fn()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+      delete (Element.prototype as Partial<Element>).scrollIntoView
+    })
+
+    it('writes nothing to the next page when torn down before the index resolves', async () => {
+      searchEntriesMock.entries = [
+        { id: 0, domKey: 'character-alpha::alpha', searchText: 'alpha' },
+        { id: 1, domKey: 'character-beta::beta', searchText: 'beta' },
+      ]
+      let resolveIndex!: (entries: MockSearchEntry[]) => void
+      searchEntriesMock.promise = new Promise((resolve) => {
+        resolveIndex = resolve
+      })
+      const cleanup = initSearchController(mountSearchRoot())
+      typeQuery('alpha')
+      cleanup?.()
+
+      // Soft navigation swapped in the next page before the slow index arrived.
+      window.history.replaceState(null, '', '/ja/')
+      document.body.innerHTML = renderListing()
+      const replaceSpy = vi.spyOn(window.history, 'replaceState')
+      resolveIndex(searchEntriesMock.entries)
+      await settle()
+
+      expect(document.getElementById('character-beta')!.classList.contains('hidden')).toBe(false)
+      expect(document.getElementById('character-alpha')!.classList.contains('hidden')).toBe(false)
+      expect(replaceSpy).not.toHaveBeenCalled()
+      expect(window.location.search).toBe('')
+      expect(frames.size).toBe(0)
+    })
+
+    it('runs several immediate requests in one frame as a single recompute', async () => {
+      searchEntriesMock.entries = [
+        { id: 0, domKey: 'character-alpha::alpha', searchText: 'alpha' },
+        { id: 1, domKey: 'character-beta::beta', searchText: 'beta' },
+      ]
+      const root = mountSearchRoot({
+        featuredKeywords: ['alpha'],
+        serverChips: ['alpha'],
+      })
+      root.insertAdjacentHTML('afterend', renderListing())
+      const cleanup = initSearchController(root)
+      await settle()
+      const combobox = root.querySelector('[role="combobox"]')!
+      const setAttributeSpy = vi.spyOn(combobox, 'setAttribute')
+
+      root.querySelector<HTMLButtonElement>('[data-keyword="alpha"]')!.click()
+      window.dispatchEvent(new PopStateEvent('popstate'))
+      flushFrame()
+
+      expect(setAttributeSpy.mock.calls.filter(([name]) => name === 'aria-expanded')).toHaveLength(1)
+      expect(document.getElementById('character-beta')!.classList.contains('hidden')).toBe(true)
+      cleanup?.()
+    })
+
+    it('filters an archived-only keyword match in the frame that reveals archived', async () => {
+      answerArchivedRequestsSynchronously()
+      searchEntriesMock.entries = [
+        {
+          id: 0,
+          domKey: 'character-alpha::alpha',
+          searchText: 'alpha',
+          searchSuggest: 'Keyword\talpha',
+        },
+        {
+          id: 1,
+          domKey: 'character-blue::blue',
+          searchText: 'blue archive',
+          searchSuggest: 'Character\tBlue Archive',
+        },
+      ]
+      const root = mountSearchRoot({
+        featuredKeywords: ['Blue Archive'],
+        serverChips: ['Blue Archive'],
+      })
+      root.insertAdjacentHTML('afterend', renderListing({ archived: true }))
+      const cleanup = initSearchController(root)
+      await settle()
+
+      root.querySelector<HTMLButtonElement>('[data-keyword="Blue Archive"]')!.click()
+      flushFrame()
+
+      expect(visibleRequestCount()).toBeGreaterThan(0)
+      expect(panelStateMock.state.archivedVisible).toBe(true)
+      expect(document.getElementById('character-alpha')!.classList.contains('hidden')).toBe(true)
+      expect(document.getElementById('character-blue')!.classList.contains('hidden')).toBe(false)
+      cleanup?.()
+    })
+
+    it('reveals archived again for a new archived-only query after archived was collapsed', async () => {
+      answerArchivedRequestsSynchronously()
+      searchEntriesMock.entries = [
+        {
+          id: 0,
+          domKey: 'character-alpha::alpha',
+          searchText: 'alpha',
+          searchSuggest: 'Keyword\talpha',
+        },
+        {
+          id: 1,
+          domKey: 'character-blue::blue',
+          searchText: 'blue archive',
+          searchSuggest: 'Character\tBlue Archive',
+        },
+      ]
+      const root = mountSearchRoot()
+      root.insertAdjacentHTML('afterend', renderListing({ archived: true }))
+      const cleanup = initSearchController(root)
+      await settle()
+
+      typeQuery('blue')
+      await settle()
+      expect(visibleRequestCount()).toBe(1)
+
+      typeQuery('')
+      await settle()
+      collapseArchivedFromOutside()
+      await settle()
+      expect(visibleRequestCount()).toBe(1)
+
+      typeQuery('blu')
+      await settle()
+      expect(visibleRequestCount()).toBe(2)
+      expect(panelStateMock.state.archivedVisible).toBe(true)
+      cleanup?.()
+    })
+
+    it('clears the active option when the suggestion panel closes so Enter is not swallowed', async () => {
+      searchEntriesMock.entries = [
+        {
+          id: 0,
+          domKey: 'character-alpha::alpha',
+          searchText: 'alpha',
+          searchSuggest: 'Keyword\talpha',
+        },
+        {
+          id: 1,
+          domKey: 'character-beta::beta',
+          searchText: 'beta',
+          searchSuggest: 'Keyword\tbeta',
+        },
+      ]
+      const root = mountSearchRoot()
+      root.insertAdjacentHTML('afterend', renderListing())
+      const cleanup = initSearchController(root)
+      await settle()
+      const input = root.querySelector<HTMLInputElement>('#commission-search-input')!
+
+      input.focus()
+      typeQuery('al')
+      await settle()
+      expect(root.querySelector('[role="option"]')).not.toBeNull()
+      expect(input.hasAttribute('aria-activedescendant')).toBe(true)
+
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      expect(input.hasAttribute('aria-activedescendant')).toBe(false)
+      await settle()
+      expect(input.hasAttribute('aria-activedescendant')).toBe(false)
+
+      const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+      input.dispatchEvent(enter)
+      expect(enter.defaultPrevented).toBe(false)
+      cleanup?.()
+    })
+
+    it('leaves no active option once a closing list empties, even after arrow keys in the close window', async () => {
+      searchEntriesMock.entries = [
+        {
+          id: 0,
+          domKey: 'character-alpha::alpha',
+          searchText: 'alpha',
+          searchSuggest: 'Keyword\talpha',
+        },
+      ]
+      const root = mountSearchRoot()
+      root.insertAdjacentHTML('afterend', renderListing())
+      const cleanup = initSearchController(root)
+      await settle()
+      const input = root.querySelector<HTMLInputElement>('#commission-search-input')!
+      input.focus()
+      typeQuery('al')
+      await settle()
+
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      flushFrame()
+      expect(root.querySelector('[role="option"]')).not.toBeNull()
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+      await settle()
+
+      expect(root.querySelector('[role="option"]')).toBeNull()
+      expect(input.hasAttribute('aria-activedescendant')).toBe(false)
+      const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+      input.dispatchEvent(enter)
+      expect(enter.defaultPrevented).toBe(false)
+      cleanup?.()
+    })
   })
 })

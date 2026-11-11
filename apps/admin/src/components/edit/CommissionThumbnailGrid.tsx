@@ -58,12 +58,15 @@ export function CommissionThumbnail({
   alt,
   isEnabled,
   className = '',
+  retryKey,
 }: {
   commissionId: number
   alt: string
   /** Gates fetching entirely (e.g. while the owning section is collapsed). */
   isEnabled: boolean
   className?: string
+  /** A new value lets a failed placeholder try again; a healthy image is left alone. */
+  retryKey?: unknown
 }) {
   const [errorSrc, setErrorSrc] = useState<string | null>(null)
   const imageSrc = useMemo(() => buildThumbnailSrc(commissionId), [commissionId])
@@ -100,6 +103,14 @@ export function CommissionThumbnail({
 
   // Retry the same URL once by remounting the image, then show the fallback.
   const [retriedSrc, setRetriedSrc] = useState<string | null>(null)
+  const [lastRetryKey, setLastRetryKey] = useState(() => retryKey)
+  if (!Object.is(lastRetryKey, retryKey)) {
+    setLastRetryKey(() => retryKey)
+    if (errorSrc !== null) {
+      setErrorSrc(null)
+      setRetriedSrc(null)
+    }
+  }
   const shouldRenderImage = isEnabled && isNearViewport && errorSrc !== imageSrc
   const handleImageError = () => {
     if (retriedSrc !== previewSrc) {
@@ -167,12 +178,18 @@ function ThumbnailCard({
     hasBeenExpandedRef.current = true
   }
   const hasBeenExpanded = hasBeenExpandedRef.current
+  // No automatic loop: a failed thumbnail retries only on user activation or when its row is refreshed.
+  const [activationCount, setActivationCount] = useState(0)
+  const retryKey = useMemo(() => ({ activationCount, commission }), [activationCount, commission])
 
   return (
     <button
       type="button"
       data-commission-id={commission.id}
-      onClick={onSelect}
+      onClick={() => {
+        setActivationCount(count => count + 1)
+        onSelect()
+      }}
       aria-label={accessibleLabel}
       title={`Public ID: ${commission.publicId}`}
       className={`
@@ -192,6 +209,7 @@ function ThumbnailCard({
         commissionId={commission.id}
         alt={`Source image for ${accessibleLabel}`}
         isEnabled={hasBeenExpanded}
+        retryKey={retryKey}
       />
 
       <div className={`

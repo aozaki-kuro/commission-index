@@ -34,8 +34,8 @@ function snapshot(commissions: unknown[] = [
     content: {
       meta: { ...meta },
       characters: [
-        { commissions },
-      ],
+        { id: 1, name: 'Alpha', commissions },
+      ] as Array<Record<string, unknown>>,
       creatorAliases: [],
       characterAliases: [],
       keywordAliases: [],
@@ -117,6 +117,22 @@ describe('generated fact-source snapshot validation', () => {
 
     expect(() => validateGeneratedFactSourceSnapshot(invalidDate.content, invalidDate.manifest)).toThrow(/commission date/)
     expect(() => validateGeneratedFactSourceSnapshot(mismatchedRevision.content, mismatchedRevision.manifest)).toThrow(/revisions do not match/)
+  })
+
+  it('rejects characters without a unique integer ID or a unique string name', () => {
+    const missingId = snapshot()
+    delete missingId.content.characters[0].id
+    const duplicateId = snapshot()
+    duplicateId.content.characters.push({ id: 1, name: 'Beta', commissions: [] })
+    const duplicateName = snapshot()
+    duplicateName.content.characters.push({ id: 2, name: 'Alpha', commissions: [] })
+    const unique = snapshot()
+    unique.content.characters.push({ id: 2, name: '雪', commissions: [] })
+
+    expect(() => validateGeneratedFactSourceSnapshot(missingId.content, missingId.manifest)).toThrow(/character ID/)
+    expect(() => validateGeneratedFactSourceSnapshot(duplicateId.content, duplicateId.manifest)).toThrow(/character ID/)
+    expect(() => validateGeneratedFactSourceSnapshot(duplicateName.content, duplicateName.manifest)).toThrow(/character name/)
+    expect(() => validateGeneratedFactSourceSnapshot(unique.content, unique.manifest)).not.toThrow()
   })
 
   it('rejects duplicate manifest IDs and manifests that omit a commission', () => {

@@ -4,13 +4,14 @@ import CommissionEntries from '@features/home/commission/CommissionEntries.astro
 import { getCharacterSectionId } from '@lib/characters/nav'
 
 interface TimelineViewProps {
+  locale?: string
   groups: TimelineYearGroup[]
   characterAliasesMap: Map<string, string[]> | null
   creatorAliasesMap: Map<string, string[]> | null
   keywordAliasesMap: Map<string, string[]> | null
 }
 
-const { groups, characterAliasesMap, creatorAliasesMap, keywordAliasesMap }
+const { locale, groups, characterAliasesMap, creatorAliasesMap, keywordAliasesMap }
   = Astro.props as TimelineViewProps
 ---
 
@@ -55,6 +56,7 @@ const { groups, characterAliasesMap, creatorAliasesMap, keywordAliasesMap }
           sectionId: group.sectionId,
           entryAnchorPrefix: getCharacterSectionId(entry.character),
         }))}
+        locale={locale}
         characterAliasesMap={characterAliasesMap}
         creatorAliasesMap={creatorAliasesMap}
         keywordAliasesMap={keywordAliasesMap}

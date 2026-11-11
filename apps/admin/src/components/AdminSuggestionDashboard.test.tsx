@@ -110,4 +110,54 @@ describe('suggestion editor', () => {
     await render(['Remote'], ['Summer', 'Winter', 'Remote'])
     expect(values()).toEqual(['Winter', 'Summer'])
   })
+
+  async function pressMove(label: string) {
+    const button = container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!
+    button.focus()
+    await act(async () => button.click())
+  }
+
+  function liveRegion() {
+    return container.querySelector('[data-keyword-order-status]')
+  }
+
+  it('keeps focus on the moved keyword control and announces its new position', async () => {
+    await render(['A', 'B', 'C'], ['A', 'B', 'C'])
+    expect(liveRegion()?.getAttribute('aria-live')).toBe('polite')
+    expect(liveRegion()?.textContent).toBe('')
+
+    await pressMove('Move A down')
+    expect(values()).toEqual(['B', 'A', 'C'])
+    await vi.waitFor(() => expect(document.activeElement?.getAttribute('aria-label')).toBe('Move A down'))
+    expect(liveRegion()?.textContent).toBe('A moved to position 2 of 3.')
+
+    await pressMove('Move C up')
+    expect(values()).toEqual(['B', 'C', 'A'])
+    await vi.waitFor(() => expect(document.activeElement?.getAttribute('aria-label')).toBe('Move C up'))
+    expect(liveRegion()?.textContent).toBe('C moved to position 2 of 3.')
+  })
+
+  it('moves focus to the opposite control when a move reaches either end', async () => {
+    await render(['A', 'B'], ['A', 'B'])
+    await pressMove('Move A down')
+    expect(values()).toEqual(['B', 'A'])
+    await vi.waitFor(() => expect(document.activeElement?.getAttribute('aria-label')).toBe('Move A up'))
+
+    await pressMove('Move B down')
+    expect(values()).toEqual(['A', 'B'])
+    await pressMove('Move B up')
+    expect(values()).toEqual(['B', 'A'])
+    await vi.waitFor(() => expect(document.activeElement?.getAttribute('aria-label')).toBe('Move B down'))
+    expect(liveRegion()?.textContent).toBe('B moved to position 1 of 2.')
+  })
+
+  it('never submits when Enter is pressed in the keyword filter', async () => {
+    vi.mocked(saveHomeFeaturedKeywordsAction).mockClear()
+    await render(['Summer'], ['Summer', 'Winter'])
+    const filter = container.querySelector<HTMLInputElement>('input[aria-label="Search keywords"]')!
+    const enter = new KeyboardEvent('keydown', { bubbles: true, cancelable: true, key: 'Enter' })
+    await act(async () => filter.dispatchEvent(enter))
+    expect(enter.defaultPrevented).toBe(true)
+    expect(saveHomeFeaturedKeywordsAction).not.toHaveBeenCalled()
+  })
 })

@@ -58,7 +58,10 @@ stores a JSON array. Do not send an array to `PATCH`: the worker applies `String
 **raw stored JSON string** in `commissionSearchRows[].links` (you must `JSON.parse` it), while
 `GET /characters/:id/commissions` returns a parsed `string[]`. Every link must be an absolute
 `http://` or `https://` URL (`400` otherwise, e.g. `javascript:` or a bare `example.com`); links are
-never auto-prefixed.
+never auto-prefixed. `design` is a link too: a non-empty value must be an absolute `http(s)` URL (a free-text
+label such as `Casual` is a `400`); empty clears it. Rows stored before this rule may still hold free text, and
+because `PATCH` re-validates the whole body, every edit of such a row fails until `design` is replaced by a URL or
+cleared.
 
 **`hidden`.** `PATCH` coerces with `Boolean()`, so the string `"false"` or `"0"` becomes `true`.
 Send a real boolean. FormData hides only on the exact value `"on"`.
@@ -85,7 +88,7 @@ runs with `ALLOW_LOCAL_ORIGINS=1`, which the `dev` script passes via `--var` and
 
 ## 5. Alias Batches
 
-**Alias batch endpoints are upsert-per-row, not "replace all".** (Contract: AR "Alias Mutations".)
+**Alias batch endpoints replace per row, not "replace all".** (Contract: AR "Alias Mutations".)
 
 - To delete an entry you must send it with empty `aliases` (`[]` or `""`). Omitting it leaves it
   intact. Partial submissions are safe: only send changed rows.
@@ -95,11 +98,15 @@ runs with `ALLOW_LOCAL_ORIGINS=1`, which the `dev` script passes via `--var` and
 - Matching is by normalized name, and the three types normalize differently (AR table). Creator
   aliases dedupe case-sensitively; character and keyword aliases dedupe case-insensitively and keep
   the first casing. Example: keyword aliases `"full body, FullBody , full body"` are stored as
-  `["full body", "FullBody"]`; `baseKeyword` `"Full Body"` and `"full body"` address the same row.
+  `["full body", "FullBody"]`; `baseKeyword` `"Full Body"` and `"full body"` address the same row: saving
+  either replaces every stored row with that key by one row under the name you sent (its aliases replace
+  the old ones, they are not merged), and an empty list deletes them all. Creator names stay case-sensitive;
+  only a trailing ` (part N)` is folded, so `Q (part 2)` and `Q` are one row but `q` is another.
 - `GET /aliases/bootstrap` hides creator/keyword rows that collide with a higher-priority name, so a
   name you just saved under one type may not show up in that list.
 - `POST /suggestion` is the opposite: it is a **full replace** of the featured list (empty list
-  clears it, duplicates are dropped before the cap of 6).
+  clears it, duplicates are dropped before the cap of 6). A body without a `keywords` array (or a
+  `keywordsJson` array string), such as a mistyped key, is a `400` and keeps the current list.
 
 ---
 
@@ -114,7 +121,11 @@ runs with `ALLOW_LOCAL_ORIGINS=1`, which the `dev` script passes via `--var` and
   a key name looks like success.
 - `POST` / `PATCH /characters` coerce `status`: anything other than the string `"archived"` becomes
   `"active"`, so omitting `status` on `PATCH` un-archives the character.
-- `sortOrder` set by `PATCH` is unchanged; new characters go to the end (`max + 1`).
+- `sortOrder` set by `PATCH` is unchanged; new characters go to the end (`max + 1`, computed in the
+  `INSERT`). Equal `sortOrder` values (possible after a partial order PUT) are read in `id` order by both
+  the admin API and the public export.
+- Any number of characters can be sent in one order PUT: each gets its own single-row `UPDATE` inside
+  one atomic batch, so D1's 100-bound-parameter limit per statement does not apply to the list length.
 
 ---
 
@@ -136,7 +147,12 @@ format and image rules: AR "Source image storage".)
 **Footgun: image bytes decide.** Uploads must really be JPEG or PNG: the worker sniffs the magic
 bytes and ignores `Content-Type` and the file name, so renaming a WebP/HEIC to `.jpg` is a `400`, and a
 PNG named `.jpg` is stored under a `.png` key. Files over 10 MiB are rejected with `400` before any R2
-write.
+write; a request declaring `Content-Length` above 11 MiB is rejected before its body is read. An empty file
+reports `Source image is required…`, not a separate "empty" error.
+
+**Serving.** `GET .../source-image` only ever answers `image/jpeg` or `image/png` (stored type if it is one of
+them, else from the key extension; anything else is a `500`), and every API response carries
+`X-Content-Type-Options: nosniff`.
 
 **Footgun: `DELETE /characters/:id` cascades** to every commission and `source_images` row of that
 character in one atomic batch. There is no confirmation and no undo. After the batch commits, the
@@ -146,9 +162,11 @@ nothing is deleted. Read `GET /characters/:id/commissions` first and confirm int
 /commissions/:id` on an unknown ID returns `200` and does nothing, so a success message does not
 prove a row existed.
 
-**Cleaning up orphans is an operator task** (`r2:list-orphans`, dry-run by default). Before deleting
-any object: list the actual bucket inventory, read fresh D1 `source_images.object_key` references, and
-confirm the backup and retention policy. Never delete based on a single stale export snapshot, and
+**Cleaning up orphans is an operator task** (`r2:list-orphans`, dry-run by default). The script lists R2
+first and reads D1 afterwards (an upload committed in between is then referenced), only deletes orphans
+whose listed upload time is at least 24 h old, refuses `--delete` when D1 returns no references, and aborts
+on an unexpected D1 or R2 payload shape. Before deleting any object: confirm the backup and retention
+policy. Never delete based on a single stale export snapshot, and
 never delete after an ambiguous create until the D1 state is verified. The legacy root and
 commission-folder R2 layouts were deleted and the migration tooling and backups removed; that is
 **not rollbackable**. Do not assume any key layout: `object_key` is opaque, and historical keys are

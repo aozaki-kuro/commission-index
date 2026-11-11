@@ -12,6 +12,7 @@ export interface ListboxController {
   setActiveIndex: (index: number) => void
   getActiveIndex: () => number
   reset: () => void
+  clear: () => void
 }
 
 function getItems(listEl: HTMLElement): NodeListOf<HTMLElement> {
@@ -98,6 +99,9 @@ export function createListboxController(options: ListboxOptions): ListboxControl
       setActiveIndex(count > 0
         ? 0
         : -1)
+    },
+    clear() {
+      setActiveIndex(-1)
     },
   }
 }

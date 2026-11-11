@@ -436,6 +436,10 @@ function CommissionCalendarGrid({
   onSelect,
   onMoveFocus,
 }: CommissionCalendarGridProps) {
+  // Roving tabindex: exactly one in-month day is the grid's tab stop, so Prev/Next never strands the grid.
+  const monthDates = dates.filter(date => date.getUTCMonth() === month.getUTCMonth()).map(formatIsoDate)
+  const tabStopValue = [selectedValue, today].find(value => value !== undefined && monthDates.includes(value))
+    ?? monthDates[0]
   return (
     <div role="grid" aria-label={monthFormatter.format(month)}>
       <div role="row" className="mb-1 grid grid-cols-7">
@@ -458,7 +462,7 @@ function CommissionCalendarGrid({
               date={date}
               month={month}
               isSelected={formatIsoDate(date) === selectedValue}
-              isToday={formatIsoDate(date) === today}
+              isTabStop={formatIsoDate(date) === tabStopValue}
               onSelect={onSelect}
               onMoveFocus={onMoveFocus}
             />
@@ -473,7 +477,7 @@ interface CalendarDayProps {
   date: Date
   month: Date
   isSelected: boolean
-  isToday: boolean
+  isTabStop: boolean
   onSelect: (date: Date) => void
   onMoveFocus: (date: Date) => void
 }
@@ -489,7 +493,7 @@ function CalendarDay({
   date,
   month,
   isSelected,
-  isToday,
+  isTabStop,
   onSelect,
   onMoveFocus,
 }: CalendarDayProps) {
@@ -515,7 +519,7 @@ function CalendarDay({
             date.getUTCDate() + offset,
           )))
         }}
-        tabIndex={isSelected || isToday
+        tabIndex={isTabStop
           ? 0
           : -1}
         className={`
@@ -694,7 +698,6 @@ interface CommissionDesignDescriptionFieldsProps {
   onDesignChange?: (value: string) => void
   descriptionValue?: string
   onDescriptionChange?: (value: string) => void
-  designPlaceholder?: string
   descriptionPlaceholder?: string
 }
 
@@ -703,7 +706,6 @@ export function CommissionDesignDescriptionFields({
   onDesignChange,
   descriptionValue,
   onDescriptionChange,
-  designPlaceholder,
   descriptionPlaceholder,
 }: CommissionDesignDescriptionFieldsProps) {
   return (
@@ -714,13 +716,14 @@ export function CommissionDesignDescriptionFields({
     >
       <div className={alignedFieldStyles}>
         <label className={fieldLabelStyles} htmlFor="create-commission-design">
-          Design (optional)
+          Design link (optional)
         </label>
         <input
           id="create-commission-design"
-          type="text"
+          type="url"
+          inputMode="url"
           name="design"
-          placeholder={designPlaceholder}
+          placeholder="https://example.com"
           className={formControlStyles}
           {...bindValue(designValue, onDesignChange)}
         />

@@ -37,3 +37,16 @@ describe('homeLocale document metadata', () => {
     expect(meta.description).toBe(SiteMeta.description)
   })
 })
+
+describe('homeLocale listing creator labels', () => {
+  it.each([
+    ['en', 'Anon', 'Part 2'],
+    ['ja', '匿名', 'パート 2'],
+    ['zh-tw', '匿名', '第 2 部分'],
+  ] as const)('labels anonymous creators and parts in %s', (locale, anonymous, part) => {
+    const { listing } = getHomeLocaleMessages(locale)
+
+    expect(listing.anonymousCreator).toBe(anonymous)
+    expect(listing.formatPartLabel(2)).toBe(part)
+  })
+})
