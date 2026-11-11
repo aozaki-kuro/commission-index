@@ -43,11 +43,6 @@ export interface AdminCommissionSearchRow {
   hidden: boolean
 }
 
-export interface AdminData {
-  characters: CharacterRow[]
-  commissions: CommissionRow[]
-}
-
 export interface AdminBootstrapData {
   characters: CharacterRow[]
   creatorAliases: CreatorAliasRow[]

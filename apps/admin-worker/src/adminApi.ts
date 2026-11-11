@@ -1,6 +1,7 @@
+import type { CharacterStatus } from '../../../packages/domain/src/index'
 import type { D1DatabaseLike } from './adminPersistence'
 import { isFutureCommissionDate } from '../../../packages/domain/src/index'
-import { handleAdminReadRequest } from './adminData'
+import { failure, failureFrom, handleAdminReadRequest, json, parseIdFromPath, success } from './adminData'
 import { INTEREST_SINCE, loadInterestCounts, loadLinkClicks } from './adminInterest'
 import {
   createCharacter as persistCharacterCreate,
@@ -13,6 +14,7 @@ import {
   updateCommission as persistCommissionUpdate,
   saveSourceImageMetadata as persistSourceImageMetadata,
   getSourceImageMetadata as persistSourceImageMetadataGet,
+  resolveD1Database,
   saveCharacterAliasesBatch,
   saveCreatorAliasesBatch,
   saveHomeFeaturedSearchKeywords,
@@ -27,14 +29,10 @@ import {
 const R2_DELETE_BATCH_LIMIT = 1000
 const CHARACTER_ITEM_PATH_PATTERN = /^\/api\/admin\/characters\/\d+$/
 const CHARACTER_ITEM_ID_PATTERN = /^\/api\/admin\/characters\/(\d+)$/
-const CHARACTER_COMMISSIONS_PATH_PATTERN = /^\/api\/admin\/characters\/\d+\/commissions$/
-const CHARACTER_COMMISSIONS_ID_PATTERN = /^\/api\/admin\/characters\/(\d+)\/commissions$/
 const COMMISSION_ITEM_PATH_PATTERN = /^\/api\/admin\/commissions\/\d+$/
 const COMMISSION_ITEM_ID_PATTERN = /^\/api\/admin\/commissions\/(\d+)$/
 const COMMISSION_SOURCE_IMAGE_PATH_PATTERN = /^\/api\/admin\/commissions\/\d+\/source-image$/
 const COMMISSION_SOURCE_IMAGE_ID_PATTERN = /^\/api\/admin\/commissions\/(\d+)\/source-image$/
-
-export type CharacterStatus = 'active' | 'archived'
 
 export interface Env {
   DB?: unknown
@@ -50,11 +48,6 @@ function buildRebuildDispatchBody(dispatchedAt: string) {
       fact_source_version: dispatchedAt,
     },
   }
-}
-
-export interface ApiState {
-  status: 'success' | 'error'
-  message: string
 }
 
 interface CommissionFields {
@@ -98,7 +91,6 @@ export interface ReplaceCommissionSourceImageInput {
 }
 
 export interface AdminCrudBackend {
-  getCharacterCommissions: (characterId: number) => Promise<Response>
   createCharacter: (input: CreateCharacterInput) => Promise<Response>
   updateCharacter: (input: UpdateCharacterInput) => Promise<Response>
   updateCharacterOrder: (payload: CharacterOrderPayload) => Promise<Response>
@@ -109,28 +101,11 @@ export interface AdminCrudBackend {
   replaceCommissionSourceImage: (input: ReplaceCommissionSourceImageInput) => Promise<Response>
 }
 
-function json(payload: unknown, status = 200) {
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'no-store',
-    },
-  })
-}
-
 function notFound() {
   return json({
     status: 'error',
     message: 'Not Found',
   }, 404)
-}
-
-function failure(message: string, status = 400) {
-  return json({
-    status: 'error',
-    message,
-  } satisfies ApiState, status)
 }
 
 function bindingFailure(message: string) {
@@ -148,19 +123,6 @@ function createMissingBindingResponses(hasDb: boolean, hasImages: boolean) {
           : 'Admin worker DB and IMAGES bindings are required for this route.',
     ),
   }
-}
-
-function resolveD1Database(value: unknown): D1DatabaseLike | null {
-  if (!value || typeof value !== 'object') {
-    return null
-  }
-
-  const candidate = value as { prepare?: unknown }
-  if (typeof candidate.prepare !== 'function') {
-    return null
-  }
-
-  return value as D1DatabaseLike
 }
 
 function parseLinks(rawValue: string) {
@@ -297,18 +259,6 @@ function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' |
   return null
 }
 
-function parseIdFromPath(pathname: string, pattern: RegExp) {
-  const match = pathname.match(pattern)
-  if (!match) {
-    return null
-  }
-
-  const id = Number(match[1])
-  return Number.isFinite(id) && id > 0
-    ? id
-    : null
-}
-
 function getUploadedSourceImage(formData: FormData) {
   const entry = formData.get('sourceImage')
   if (!(entry instanceof File)) {
@@ -346,13 +296,7 @@ async function handleCrudBackendRequest(operation: () => Promise<Response>) {
     return await operation()
   }
   catch (error) {
-    const message = error instanceof Error
-      ? error.message
-      : 'Admin worker request failed.'
-    return json({
-      status: 'error',
-      message,
-    }, 500)
+    return failureFrom(error, 'Admin worker request failed.', 500)
   }
 }
 
@@ -360,7 +304,6 @@ function createUnavailableCrudBackend(hasDb: boolean, hasImages: boolean): Admin
   const missing = createMissingBindingResponses(hasDb, hasImages)
 
   return {
-    getCharacterCommissions: async () => missing.dbOnly(),
     createCharacter: async () => missing.dbOnly(),
     updateCharacter: async () => missing.dbOnly(),
     updateCharacterOrder: async () => missing.dbOnly(),
@@ -383,43 +326,28 @@ function createNativeCrudBackend(
     async createCharacter(input) {
       try {
         const name = await persistCharacterCreate(db, input)
-        return json({
-          status: 'success',
-          message: `Character "${name}" created.`,
-        })
+        return success(`Character "${name}" created.`)
       }
       catch (error) {
-        return failure(error instanceof Error
-          ? error.message
-          : 'Failed to create character.')
+        return failureFrom(error, 'Failed to create character.')
       }
     },
     async updateCharacter(input) {
       try {
         const name = await persistCharacterUpdate(db, input)
-        return json({
-          status: 'success',
-          message: `Character "${name}" updated.`,
-        })
+        return success(`Character "${name}" updated.`)
       }
       catch (error) {
-        return failure(error instanceof Error
-          ? error.message
-          : 'Failed to update character.')
+        return failureFrom(error, 'Failed to update character.')
       }
     },
     async updateCharacterOrder(payload) {
       try {
         await persistCharacterOrderUpdate(db, payload)
-        return json({
-          status: 'success',
-          message: 'Character order updated.',
-        })
+        return success('Character order updated.')
       }
       catch (error) {
-        return failure(error instanceof Error
-          ? error.message
-          : 'Failed to update character order.')
+        return failureFrom(error, 'Failed to update character order.')
       }
     },
     async deleteCharacter(id) {
@@ -433,9 +361,7 @@ function createNativeCrudBackend(
         objectKeys = await persistCharacterDelete(db, id)
       }
       catch (error) {
-        return failure(error instanceof Error
-          ? error.message
-          : 'Failed to delete character.')
+        return failureFrom(error, 'Failed to delete character.')
       }
 
       try {
@@ -449,10 +375,7 @@ function createNativeCrudBackend(
         console.warn(`Character ${id} deleted, but R2 cleanup for ${objectKeys.length} object(s) failed.`, error)
       }
 
-      return json({
-        status: 'success',
-        message: 'Character deleted.',
-      })
+      return success('Character deleted.')
     },
     async createCommission(input) {
       if (!imagesBucket) {
@@ -469,9 +392,7 @@ function createNativeCrudBackend(
         })
       }
       catch (error) {
-        return failure(error instanceof Error
-          ? error.message
-          : 'Failed to save source image.')
+        return failureFrom(error, 'Failed to save source image.')
       }
 
       try {
@@ -479,45 +400,30 @@ function createNativeCrudBackend(
           ...input,
           fileName: assetKey,
         }, uploadedSourceImage)
-        return json({
-          status: 'success',
-          message: `Commission dated ${input.commissionDate} added to ${characterName}.`,
-        })
+        return success(`Commission dated ${input.commissionDate} added to ${characterName}.`)
       }
       catch (error) {
         // 保留新对象以覆盖“D1 已提交但响应丢失”的不确定窗口；孤儿对象可安全清理。
-        return failure(error instanceof Error
-          ? error.message
-          : 'Failed to add commission.')
+        return failureFrom(error, 'Failed to add commission.')
       }
     },
     async updateCommission(input) {
       try {
         await persistCommissionUpdate(db, input)
 
-        return json({
-          status: 'success',
-          message: `Commission dated ${input.commissionDate} updated.`,
-        })
+        return success(`Commission dated ${input.commissionDate} updated.`)
       }
       catch (error) {
-        return failure(error instanceof Error
-          ? error.message
-          : 'Failed to update commission.')
+        return failureFrom(error, 'Failed to update commission.')
       }
     },
     async deleteCommission(id) {
       try {
         await persistCommissionDelete(db, id)
-        return json({
-          status: 'success',
-          message: 'Commission deleted.',
-        })
+        return success('Commission deleted.')
       }
       catch (error) {
-        return failure(error instanceof Error
-          ? error.message
-          : 'Failed to delete commission.')
+        return failureFrom(error, 'Failed to delete commission.')
       }
     },
     async replaceCommissionSourceImage(input) {
@@ -540,9 +446,7 @@ function createNativeCrudBackend(
           await imagesBucket.delete(savedSourceImage.objectKey).catch((cleanupError) => {
             console.warn('Source image metadata was not saved and the uploaded object could not be removed.', cleanupError)
           })
-          return failure(error instanceof Error
-            ? error.message
-            : 'Failed to update source image metadata.')
+          return failureFrom(error, 'Failed to update source image metadata.')
         }
 
         if (previousImage && previousImage.objectKey !== savedSourceImage.objectKey) {
@@ -550,15 +454,10 @@ function createNativeCrudBackend(
             console.warn('已完成图片替换，但旧图片清理失败。', error)
           })
         }
-        return json({
-          status: 'success',
-          message: `Source image for commission ${input.id} replaced.`,
-        })
+        return success(`Source image for commission ${input.id} replaced.`)
       }
       catch (error) {
-        return failure(error instanceof Error
-          ? error.message
-          : 'Failed to replace source image.')
+        return failureFrom(error, 'Failed to replace source image.')
       }
     },
   }
@@ -578,15 +477,6 @@ function createDefaultCrudBackend(env: Env): AdminCrudBackend {
 
 async function handleCrudRequest(request: Request, backend: AdminCrudBackend) {
   const { pathname } = new URL(request.url)
-
-  if (request.method === 'GET' && CHARACTER_COMMISSIONS_PATH_PATTERN.test(pathname)) {
-    const id = parseIdFromPath(pathname, CHARACTER_COMMISSIONS_ID_PATTERN)
-    if (!id) {
-      return failure('Invalid character identifier.')
-    }
-
-    return handleCrudBackendRequest(() => backend.getCharacterCommissions(id))
-  }
 
   if (request.method === 'POST' && pathname === '/api/admin/characters') {
     const body = await parseJsonBody(request)
@@ -712,21 +602,13 @@ async function handleCrudRequest(request: Request, backend: AdminCrudBackend) {
   return null
 }
 
-async function handleBatchWriteRequest(request: Request, env: Env) {
-  if (request.method !== 'POST') {
-    return null
-  }
-
-  const { pathname } = new URL(request.url)
-  const db = resolveD1Database(env.DB)
-
-  if (pathname === '/api/admin/aliases/batch') {
-    if (!db) {
-      return bindingFailure('Admin worker DB binding is required for this route.')
-    }
-
-    try {
-      const body = await parseJsonBody(request)
+const BATCH_WRITE_ROUTES: Record<string, {
+  save: (db: D1DatabaseLike, body: Record<string, unknown>) => Promise<void>
+  ok: string
+  fail: string
+}> = {
+  '/api/admin/aliases/batch': {
+    save: async (db, body) => {
       const rows = parseStructuredArray<{
         creatorName?: string
         alias?: string
@@ -737,22 +619,12 @@ async function handleBatchWriteRequest(request: Request, env: Env) {
       }))
 
       await saveCreatorAliasesBatch(db, rows)
-      return json({ status: 'success', message: 'Creator aliases saved.' } satisfies ApiState)
-    }
-    catch (error) {
-      return failure(error instanceof Error
-        ? error.message
-        : 'Failed to save creator aliases.')
-    }
-  }
-
-  if (pathname === '/api/admin/character-aliases/batch') {
-    if (!db) {
-      return bindingFailure('Admin worker DB binding is required for this route.')
-    }
-
-    try {
-      const body = await parseJsonBody(request)
+    },
+    ok: 'Creator aliases saved.',
+    fail: 'Failed to save creator aliases.',
+  },
+  '/api/admin/character-aliases/batch': {
+    save: async (db, body) => {
       const rows = parseStructuredArray<{
         characterName?: string
         alias?: string
@@ -763,22 +635,12 @@ async function handleBatchWriteRequest(request: Request, env: Env) {
       }))
 
       await saveCharacterAliasesBatch(db, rows)
-      return json({ status: 'success', message: 'Character aliases saved.' } satisfies ApiState)
-    }
-    catch (error) {
-      return failure(error instanceof Error
-        ? error.message
-        : 'Failed to save character aliases.')
-    }
-  }
-
-  if (pathname === '/api/admin/keyword-aliases/batch') {
-    if (!db) {
-      return bindingFailure('Admin worker DB binding is required for this route.')
-    }
-
-    try {
-      const body = await parseJsonBody(request)
+    },
+    ok: 'Character aliases saved.',
+    fail: 'Failed to save character aliases.',
+  },
+  '/api/admin/keyword-aliases/batch': {
+    save: async (db, body) => {
       const rows = parseStructuredArray<{
         baseKeyword?: string
         alias?: string
@@ -789,35 +651,46 @@ async function handleBatchWriteRequest(request: Request, env: Env) {
       }))
 
       await saveKeywordAliasesBatch(db, rows)
-      return json({ status: 'success', message: 'Keyword aliases saved.' } satisfies ApiState)
-    }
-    catch (error) {
-      return failure(error instanceof Error
-        ? error.message
-        : 'Failed to save keyword aliases.')
-    }
-  }
-
-  if (pathname === '/api/admin/suggestion') {
-    if (!db) {
-      return bindingFailure('Admin worker DB binding is required for this route.')
-    }
-
-    try {
-      const body = await parseJsonBody(request)
+    },
+    ok: 'Keyword aliases saved.',
+    fail: 'Failed to save keyword aliases.',
+  },
+  '/api/admin/suggestion': {
+    save: async (db, body) => {
       const keywords = parseStructuredArray<unknown>(body.keywords, body.keywordsJson).map(String)
 
       await saveHomeFeaturedSearchKeywords(db, keywords)
-      return json({ status: 'success', message: 'Home featured keywords saved.' } satisfies ApiState)
-    }
-    catch (error) {
-      return failure(error instanceof Error
-        ? error.message
-        : 'Failed to save home featured keywords.')
-    }
+    },
+    ok: 'Home featured keywords saved.',
+    fail: 'Failed to save home featured keywords.',
+  },
+}
+
+async function handleBatchWriteRequest(request: Request, env: Env) {
+  if (request.method !== 'POST') {
+    return null
   }
 
-  return null
+  const { pathname } = new URL(request.url)
+  const route = Object.hasOwn(BATCH_WRITE_ROUTES, pathname)
+    ? BATCH_WRITE_ROUTES[pathname]
+    : undefined
+  if (!route) {
+    return null
+  }
+
+  const db = resolveD1Database(env.DB)
+  if (!db) {
+    return bindingFailure('Admin worker DB binding is required for this route.')
+  }
+
+  try {
+    await route.save(db, await parseJsonBody(request))
+    return success(route.ok)
+  }
+  catch (error) {
+    return failureFrom(error, route.fail)
+  }
 }
 
 export async function handleAdminApiRequest(
@@ -886,9 +759,7 @@ export async function handleAdminApiRequest(
         : ''}`, 502)
     }
     catch (error) {
-      return failure(error instanceof Error
-        ? error.message
-        : 'Failed to dispatch rebuild.', 502)
+      return failureFrom(error, 'Failed to dispatch rebuild.', 502)
     }
   }
 

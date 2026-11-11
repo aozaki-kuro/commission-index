@@ -73,7 +73,6 @@ function createR2SourceImageObject(
 
 function createCrudBackend(overrides: Partial<AdminCrudBackend> = {}): AdminCrudBackend {
   return {
-    getCharacterCommissions: vi.fn(async () => createJsonResponse({ commissions: [] })),
     createCharacter: vi.fn(async () => createJsonResponse({ status: 'success', message: 'ok' })),
     updateCharacter: vi.fn(async () => createJsonResponse({ status: 'success', message: 'ok' })),
     updateCharacterOrder: vi.fn(async () => createJsonResponse({ status: 'success', message: 'ok' })),

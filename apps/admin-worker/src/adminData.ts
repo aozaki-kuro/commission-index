@@ -4,12 +4,11 @@ import type {
   AdminCommissionSearchRow,
   CharacterAliasRow,
   CharacterRow,
+  CharacterStatus,
   CommissionRow,
   CreatorAliasRow,
   HomeSuggestionAdminData,
   KeywordAliasRow,
-  SuggestionRows,
-  SuggestionSource,
 } from '../../../packages/domain/src/index'
 import type { D1DatabaseLike } from './adminPersistence'
 import {
@@ -22,14 +21,16 @@ import {
   normalizeKeywordAliases,
   normalizeKeywordAliasKey,
   normalizeKeywordBaseTerm,
-  normalizeSuggestionTerm,
   parseAliasesJson,
   parseCharacterAliasesJson,
   parseKeywordAliasesJson,
+  parseSuggestionRows,
   splitKeywordTerms,
 } from '../../../packages/domain/src/index'
+import { dedupeKeywords, MAX_FEATURED_SEARCH_KEYWORDS, queryFirstRow, queryRows, resolveD1Database } from './adminPersistence'
+import { getSourceImageMimeType } from './adminSourceImages'
 
-interface ApiState {
+export interface ApiState {
   status: 'success' | 'error'
   message: string
 }
@@ -37,7 +38,7 @@ interface ApiState {
 interface CharacterCountRow {
   id: number
   name: string
-  status: 'active' | 'archived'
+  status: CharacterStatus
   sortOrder: number
   commissionCount: number
 }
@@ -56,11 +57,6 @@ interface BootstrapCommissionRow {
   design?: string | null
   description?: string | null
   keyword?: string | null
-  hidden: number
-}
-
-interface CommissionDetailRow extends BootstrapCommissionRow {
-  links: string
   hidden: number
 }
 
@@ -122,11 +118,9 @@ export interface R2BucketLike {
 
 const CHARACTER_COMMISSIONS_PATH_PATTERN = /^\/api\/admin\/characters\/\d+\/commissions$/
 const CHARACTER_COMMISSIONS_ID_PATTERN = /^\/api\/admin\/characters\/(\d+)\/commissions$/
-const NORMALIZE_SPACES_PATTERN = /\s+/g
-const MAX_FEATURED_SEARCH_KEYWORDS = 6
 const MAX_POPULAR_KEYWORDS = 240
 
-function json(payload: unknown, status = 200) {
+export function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
     headers: {
@@ -136,11 +130,21 @@ function json(payload: unknown, status = 200) {
   })
 }
 
-function failure(message: string, status = 400) {
+export function failure(message: string, status = 400) {
   return json({
     status: 'error',
     message,
   } satisfies ApiState, status)
+}
+
+export function failureFrom(error: unknown, fallback: string, status = 400) {
+  return failure(error instanceof Error
+    ? error.message
+    : fallback, status)
+}
+
+export function success(message: string) {
+  return json({ status: 'success', message } satisfies ApiState)
 }
 
 function missingDbBinding() {
@@ -160,7 +164,7 @@ function notFound() {
   })
 }
 
-function parseIdFromPath(pathname: string, pattern: RegExp) {
+export function parseIdFromPath(pathname: string, pattern: RegExp) {
   const match = pathname.match(pattern)
   if (!match) {
     return null
@@ -186,74 +190,6 @@ function parseLinks(raw?: string | null): string[] {
   catch {
     return []
   }
-}
-
-function normalizeKeyword(value: string) {
-  return value.trim().replace(NORMALIZE_SPACES_PATTERN, ' ')
-}
-
-function dedupeKeywords(keywords: Iterable<string>, maxCount = Number.POSITIVE_INFINITY) {
-  const uniqueKeywords: string[] = []
-  const seen = new Set<string>()
-
-  for (const keyword of keywords) {
-    const normalized = normalizeKeyword(keyword)
-    if (!normalized) {
-      continue
-    }
-
-    const key = normalized.toLowerCase()
-    if (seen.has(key)) {
-      continue
-    }
-
-    seen.add(key)
-    uniqueKeywords.push(normalized)
-
-    if (uniqueKeywords.length >= maxCount) {
-      break
-    }
-  }
-
-  return uniqueKeywords
-}
-
-function normalizeSuggestionSource(rawSource: string): SuggestionSource {
-  if (
-    rawSource === 'Character'
-    || rawSource === 'Creator'
-    || rawSource === 'Keyword'
-    || rawSource === 'Date'
-  ) {
-    return rawSource
-  }
-
-  return 'Keyword'
-}
-
-function parseSuggestionRows(suggestText: string): SuggestionRows {
-  const rows = new Map<string, { source: SuggestionSource, term: string }>()
-
-  for (const rawRow of suggestText.split('\n')) {
-    const row = rawRow.trim()
-    if (!row) {
-      continue
-    }
-
-    const [rawSource = 'Keyword', ...rest] = row.split('\t')
-    const term = normalizeSuggestionTerm(rest.join('\t').trim())
-    const normalizedTerm = term.toLowerCase()
-    if (!normalizedTerm || rows.has(normalizedTerm)) {
-      continue
-    }
-
-    rows.set(normalizedTerm, {
-      source: normalizeSuggestionSource(rawSource),
-      term: term || normalizedTerm,
-    })
-  }
-
-  return rows
 }
 
 function buildPopularKeywordPoolFromSuggestTexts(
@@ -315,19 +251,6 @@ function buildPopularKeywordPoolFromSuggestTexts(
     .map(item => item.term)
 }
 
-function resolveD1Database(value: unknown): D1DatabaseLike | null {
-  if (!value || typeof value !== 'object') {
-    return null
-  }
-
-  const candidate = value as { prepare?: unknown }
-  if (typeof candidate.prepare !== 'function') {
-    return null
-  }
-
-  return value as D1DatabaseLike
-}
-
 function resolveImagesBucket(value: unknown): R2BucketLike | null {
   if (!value || typeof value !== 'object') {
     return null
@@ -339,29 +262,6 @@ function resolveImagesBucket(value: unknown): R2BucketLike | null {
   }
 
   return value as R2BucketLike
-}
-
-async function queryRows<TRow>(
-  db: D1DatabaseLike,
-  query: string,
-  values: unknown[] = [],
-): Promise<TRow[]> {
-  const statement = values.length > 0
-    ? db.prepare(query).bind(...values)
-    : db.prepare(query)
-  const result = await statement.all<TRow>()
-  return Array.isArray(result.results)
-    ? result.results
-    : []
-}
-
-async function queryFirstRow<TRow>(
-  db: D1DatabaseLike,
-  query: string,
-  values: unknown[] = [],
-): Promise<TRow | null> {
-  const rows = await queryRows<TRow>(db, query, values)
-  return rows[0] ?? null
 }
 
 async function loadCharacters(db: D1DatabaseLike): Promise<CharacterRow[]> {
@@ -616,6 +516,27 @@ function normalizeAliasPriorityKey(value: string) {
   return normalizeCharacterAliasKey(value) ?? value.trim().toLowerCase()
 }
 
+function mapCommissionRow(row: BootstrapCommissionRow) {
+  return {
+    id: Number(row.id),
+    publicId: row.publicId,
+    characterId: Number(row.characterId),
+    characterName: row.characterName,
+    commissionDate: row.commissionDate ?? null,
+    creatorName: row.creatorName ?? null,
+    workGroupId: row.workGroupId ?? null,
+    partNumber: row.partNumber == null
+      ? null
+      : Number(row.partNumber),
+    fileName: row.fileName,
+    links: row.links ?? '',
+    design: row.design ?? null,
+    description: row.description ?? null,
+    keyword: row.keyword ?? null,
+    hidden: Boolean(row.hidden),
+  }
+}
+
 async function loadAdminBootstrapData(db: D1DatabaseLike): Promise<AdminBootstrapData> {
   const characters = await loadCharacters(db)
   const rawRows = await queryRows<BootstrapCommissionRow>(
@@ -642,24 +563,7 @@ async function loadAdminBootstrapData(db: D1DatabaseLike): Promise<AdminBootstra
     `,
   )
 
-  const commissionSearchRows: AdminCommissionSearchRow[] = rawRows.map(row => ({
-    id: Number(row.id),
-    publicId: row.publicId,
-    characterId: Number(row.characterId),
-    characterName: row.characterName,
-    commissionDate: row.commissionDate ?? null,
-    creatorName: row.creatorName ?? null,
-    workGroupId: row.workGroupId ?? null,
-    partNumber: row.partNumber == null
-      ? null
-      : Number(row.partNumber),
-    fileName: row.fileName,
-    links: row.links ?? '',
-    design: row.design ?? null,
-    description: row.description ?? null,
-    keyword: row.keyword ?? null,
-    hidden: Boolean(row.hidden),
-  }))
+  const commissionSearchRows: AdminCommissionSearchRow[] = rawRows.map(mapCommissionRow)
 
   return {
     characters,
@@ -815,7 +719,7 @@ async function loadCharacterCommissions(
   db: D1DatabaseLike,
   characterId: number,
 ): Promise<CommissionRow[]> {
-  const rows = await queryRows<CommissionDetailRow>(
+  const rows = await queryRows<BootstrapCommissionRow>(
     db,
     `
       SELECT
@@ -842,37 +746,9 @@ async function loadCharacterCommissions(
   )
 
   return rows.map(row => ({
-    id: Number(row.id),
-    publicId: row.publicId,
-    characterId: Number(row.characterId),
-    characterName: row.characterName,
-    commissionDate: row.commissionDate ?? null,
-    creatorName: row.creatorName ?? null,
-    workGroupId: row.workGroupId ?? null,
-    partNumber: row.partNumber == null
-      ? null
-      : Number(row.partNumber),
-    fileName: row.fileName,
+    ...mapCommissionRow(row),
     links: parseLinks(row.links),
-    design: row.design ?? null,
-    description: row.description ?? null,
-    keyword: row.keyword ?? null,
-    hidden: Boolean(row.hidden),
   }))
-}
-
-function getSourceImageMimeType(key: string, object: R2ObjectBodyLike) {
-  const contentType = object.httpMetadata?.contentType?.trim()
-  if (contentType) {
-    return contentType
-  }
-
-  const lowerKey = key.toLowerCase()
-  if (lowerKey.endsWith('.png')) {
-    return 'image/png'
-  }
-
-  return 'image/jpeg'
 }
 
 async function loadCommissionSourceImageResponse(
@@ -967,9 +843,7 @@ export async function handleAdminReadRequest(request: Request, env: AdminReadEnv
       return await loadCommissionSourceImageResponse(bucket, db, commissionId, request.headers)
     }
     catch (error) {
-      return failure(error instanceof Error
-        ? error.message
-        : 'Failed to load source image.', 500)
+      return failureFrom(error, 'Failed to load source image.', 500)
     }
   }
 
@@ -982,9 +856,7 @@ export async function handleAdminReadRequest(request: Request, env: AdminReadEnv
       return json(await loadAdminBootstrapData(db))
     }
     catch (error) {
-      return failure(error instanceof Error
-        ? error.message
-        : 'Failed to load admin bootstrap data.', 500)
+      return failureFrom(error, 'Failed to load admin bootstrap data.', 500)
     }
   }
 
@@ -997,9 +869,7 @@ export async function handleAdminReadRequest(request: Request, env: AdminReadEnv
       return json(await loadAdminAliasesData(db))
     }
     catch (error) {
-      return failure(error instanceof Error
-        ? error.message
-        : 'Failed to load admin aliases data.', 500)
+      return failureFrom(error, 'Failed to load admin aliases data.', 500)
     }
   }
 
@@ -1012,9 +882,7 @@ export async function handleAdminReadRequest(request: Request, env: AdminReadEnv
       return json(await loadHomeSuggestionAdminData(db))
     }
     catch (error) {
-      return failure(error instanceof Error
-        ? error.message
-        : 'Failed to load suggestion data.', 500)
+      return failureFrom(error, 'Failed to load suggestion data.', 500)
     }
   }
 
@@ -1034,9 +902,7 @@ export async function handleAdminReadRequest(request: Request, env: AdminReadEnv
       })
     }
     catch (error) {
-      return failure(error instanceof Error
-        ? error.message
-        : 'Failed to load commissions.', 500)
+      return failureFrom(error, 'Failed to load commissions.', 500)
     }
   }
 
