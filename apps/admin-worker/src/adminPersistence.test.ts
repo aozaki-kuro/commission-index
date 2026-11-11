@@ -496,3 +496,83 @@ describe('alias batch key normalization', () => {
     ])
   })
 })
+
+describe('persistence-side commission validation', () => {
+  it('refuses invalid dates and work-group pairs on direct calls without writing', async () => {
+    const { database, db } = createSQLiteD1()
+    database.exec('INSERT INTO characters (id, name, status, sort_order) VALUES (1, \'Fixture\', \'active\', 1)')
+    const sourceImage = {
+      commissionFileName: 'invalid',
+      objectKey: 'source-images/invalid.jpg',
+      mimeType: 'image/jpeg',
+      byteSize: 12,
+      sha256: 'hash',
+    }
+    const base = {
+      characterId: 1,
+      commissionDate: '2025-03-02',
+      fileName: 'invalid',
+      links: [],
+    }
+
+    await expect(createCommission(db, { ...base, commissionDate: '2025-3-2' }, sourceImage))
+      .rejects
+      .toThrow('Commission date must use YYYY-MM-DD format.')
+    await expect(createCommission(db, { ...base, commissionDate: '2025-02-30' }, sourceImage))
+      .rejects
+      .toThrow('Commission date must be a real calendar date.')
+    await expect(createCommission(db, { ...base, workGroupId: 'new' }, sourceImage))
+      .rejects
+      .toThrow('Work group and part number must be set together.')
+    await expect(createCommission(db, { ...base, workGroupId: 'not-a-uuid', partNumber: 1 }, sourceImage))
+      .rejects
+      .toThrow('Work group must be a lowercase UUID v4.')
+    await expect(createCommission(db, { ...base, workGroupId: 'new', partNumber: 0 }, sourceImage))
+      .rejects
+      .toThrow('Part number must be a positive integer.')
+    expect(database.prepare('SELECT COUNT(*) AS count FROM commissions').get()).toEqual({ count: 0 })
+  })
+})
+
+describe('runtime source_images DDL', () => {
+  function describeTable(database: ReturnType<typeof createSQLiteD1>['database']) {
+    return {
+      columns: database.prepare('PRAGMA table_info(source_images)').all(),
+      foreignKeys: database.prepare('PRAGMA foreign_key_list(source_images)').all(),
+    }
+  }
+
+  // Only the alias/featured/source_images tables have runtime DDL, so the database keeps the migrated
+  // characters/commissions tables and loses source_images, which ensureSourceImagesTable must then recreate.
+  it('recreates a source_images table that accepts a commission create and a metadata save', async () => {
+    const migrated = createSQLiteD1()
+    const { database, db } = createSQLiteD1()
+    database.exec('DROP TABLE source_images')
+    database.exec('INSERT INTO characters (id, name, status, sort_order) VALUES (1, \'Fixture\', \'active\', 1)')
+
+    await createCommission(db, {
+      characterId: 1,
+      commissionDate: '2025-03-02',
+      fileName: 'runtime-ddl',
+      links: [],
+    }, {
+      commissionFileName: 'runtime-ddl',
+      objectKey: 'source-images/runtime-ddl-a.jpg',
+      mimeType: 'image/jpeg',
+      byteSize: 12,
+      sha256: 'hash-a',
+    })
+    await saveSourceImageMetadata(db, {
+      commissionFileName: 'runtime-ddl',
+      objectKey: 'source-images/runtime-ddl-b.png',
+      mimeType: 'image/png',
+      byteSize: 34,
+      sha256: 'hash-b',
+    })
+
+    expect(describeTable(database)).toEqual(describeTable(migrated.database))
+    expect(database.prepare('SELECT commission_id, object_key, mime_type FROM source_images').all()).toEqual([
+      { commission_id: 1, object_key: 'source-images/runtime-ddl-b.png', mime_type: 'image/png' },
+    ])
+  })
+})

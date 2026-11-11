@@ -1,6 +1,6 @@
 import type { CharacterStatus } from '../../../packages/domain/src/index'
 import {
-  isFutureCommissionDate,
+  dedupeKeywords,
   normalizeAliases,
   normalizeCharacterAliases,
   normalizeCharacterAliasKey,
@@ -12,6 +12,10 @@ import {
   parseCharacterAliasesJson,
   splitKeywordTerms,
 } from '../../../packages/domain/src/index'
+import { validateCommissionDate, validateCommissionWorkGroup } from './commissionValidation'
+
+// adminData imports dedupeKeywords from here.
+export { dedupeKeywords }
 
 interface D1ResultLike {
   success?: boolean
@@ -85,7 +89,6 @@ interface SourceImageMetadataInput {
 }
 
 export const MAX_FEATURED_SEARCH_KEYWORDS = 6
-const NORMALIZE_SPACES_PATTERN = /\s+/g
 
 const CREATE_CREATOR_ALIASES_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS creator_aliases (
@@ -115,6 +118,8 @@ const CREATE_HOME_FEATURED_SEARCH_KEYWORDS_TABLE_SQL = `
   )
 `
 
+// Must stay identical to the table that migrations 0002 + 0004 produce (column order included): writes bind
+// commission_id. The partial unique index from 0004 is not recreated here; D1 prepares one statement at a time.
 const CREATE_SOURCE_IMAGES_TABLE_SQL = `
   CREATE TABLE IF NOT EXISTS source_images (
     commission_file_name TEXT PRIMARY KEY,
@@ -122,13 +127,10 @@ const CREATE_SOURCE_IMAGES_TABLE_SQL = `
     mime_type TEXT NOT NULL,
     byte_size INTEGER NOT NULL,
     sha256 TEXT NOT NULL,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    commission_id INTEGER REFERENCES commissions(id) ON DELETE CASCADE
   )
 `
-
-function normalizeKeyword(value: string) {
-  return value.trim().replace(NORMALIZE_SPACES_PATTERN, ' ')
-}
 
 function normalizeCommissionKeyword(value?: string | null) {
   const keywords = splitKeywordTerms(value)
@@ -153,32 +155,20 @@ function normalizeCommissionMutation(input: {
   hidden?: boolean
 }): NormalizedCommissionMutation {
   const commissionDate = input.commissionDate.trim()
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(commissionDate) || Number.isNaN(Date.parse(`${commissionDate}T00:00:00Z`))) {
-    throw new Error('Commission date must use YYYY-MM-DD format.')
-  }
-  const date = new Date(`${commissionDate}T00:00:00Z`)
-  if (date.toISOString().slice(0, 10) !== commissionDate) {
-    throw new Error('Commission date must be a real calendar date.')
-  }
-  if (isFutureCommissionDate(commissionDate, new Date())) {
-    throw new Error('Commission date cannot be in the future.')
+  const dateError = validateCommissionDate(commissionDate)
+  if (dateError) {
+    throw new Error(dateError)
   }
 
   const rawWorkGroupId = input.workGroupId?.trim().toLowerCase() || null
+  const partNumber = input.partNumber ?? null
+  const workGroupError = validateCommissionWorkGroup(rawWorkGroupId, partNumber)
+  if (workGroupError) {
+    throw new Error(workGroupError)
+  }
   const workGroupId = rawWorkGroupId === 'new'
     ? crypto.randomUUID().toLowerCase()
     : rawWorkGroupId
-  const partNumber = input.partNumber ?? null
-  const uuidV4Pattern = /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/
-  if ((workGroupId === null) !== (partNumber === null)) {
-    throw new Error('Work group and part number must be set together.')
-  }
-  if (workGroupId && !uuidV4Pattern.test(workGroupId)) {
-    throw new Error('Work group must be a lowercase UUID v4.')
-  }
-  if (partNumber !== null && (!Number.isSafeInteger(partNumber) || partNumber <= 0)) {
-    throw new Error('Part number must be a positive integer.')
-  }
 
   return {
     characterId: input.characterId,
@@ -193,32 +183,6 @@ function normalizeCommissionMutation(input: {
     keyword: normalizeCommissionKeyword(input.keyword),
     hidden: input.hidden ? 1 : 0,
   }
-}
-
-export function dedupeKeywords(keywords: Iterable<string>, maxCount = Number.POSITIVE_INFINITY) {
-  const uniqueKeywords: string[] = []
-  const seen = new Set<string>()
-
-  for (const keyword of keywords) {
-    const normalized = normalizeKeyword(keyword)
-    if (!normalized) {
-      continue
-    }
-
-    const key = normalized.toLowerCase()
-    if (seen.has(key)) {
-      continue
-    }
-
-    seen.add(key)
-    uniqueKeywords.push(normalized)
-
-    if (uniqueKeywords.length >= maxCount) {
-      break
-    }
-  }
-
-  return uniqueKeywords
 }
 
 export function resolveD1Database(value: unknown): D1DatabaseLike | null {
@@ -417,11 +381,9 @@ export async function updateCharacterOrder(
     throw new Error('Invalid character order payload.')
   }
 
-  const activeIds = active.map(Number)
-  const archivedIds = archived.map(Number)
   const orderedIds = [
-    ...activeIds,
-    ...archivedIds,
+    ...active,
+    ...archived,
   ]
   if (new Set(orderedIds).size !== orderedIds.length) {
     throw new Error('Character order payload contains duplicate identifiers.')
@@ -439,8 +401,8 @@ export async function updateCharacterOrder(
   }
 
   const statuses: CharacterStatus[] = [
-    ...activeIds.map(() => 'active' as const),
-    ...archivedIds.map(() => 'archived' as const),
+    ...active.map(() => 'active' as const),
+    ...archived.map(() => 'archived' as const),
   ]
   await runStatementsAtomically(db, orderedIds.map((id, index) => ({
     query: 'UPDATE characters SET sort_order = ?, status = ? WHERE id = ?',
@@ -812,16 +774,55 @@ export async function getSourceImageMetadata(db: D1DatabaseLike, commissionFileN
   )
 }
 
+interface AliasTableConfig {
+  name: 'creator_aliases' | 'character_aliases' | 'keyword_aliases'
+  keyColumn: 'creator_name' | 'character_name' | 'base_keyword'
+  ensureTable: (db: D1DatabaseLike) => Promise<void>
+  normalizeName: (value: string) => string | null
+  // Key that merges submitted rows; `normalizeKey(storedName)` must produce the same key for a stored row.
+  mergeKey: (normalizedName: string) => string | null
+  normalizeKey: (storedName: string) => string | null
+  normalizeAliases: (aliases: string[] | string) => string[]
+}
+
+// Fixed table configs only: the table and column names are interpolated into SQL.
+const CREATOR_ALIAS_TABLE: AliasTableConfig = {
+  name: 'creator_aliases',
+  keyColumn: 'creator_name',
+  ensureTable: ensureCreatorAliasesTable,
+  normalizeName: normalizeCreatorName,
+  // Creator keys stay case-sensitive; only the `(part N)` suffix that reads strip is folded.
+  mergeKey: name => name,
+  normalizeKey: normalizeCreatorName,
+  normalizeAliases,
+}
+
+const CHARACTER_ALIAS_TABLE: AliasTableConfig = {
+  name: 'character_aliases',
+  keyColumn: 'character_name',
+  ensureTable: ensureCharacterAliasesTable,
+  normalizeName: normalizeCharacterAliasName,
+  mergeKey: normalizeCharacterAliasKey,
+  normalizeKey: normalizeCharacterAliasKey,
+  normalizeAliases: normalizeCharacterAliases,
+}
+
+const KEYWORD_ALIAS_TABLE: AliasTableConfig = {
+  name: 'keyword_aliases',
+  keyColumn: 'base_keyword',
+  ensureTable: ensureKeywordAliasesTable,
+  normalizeName: normalizeKeywordBaseTerm,
+  mergeKey: normalizeKeywordAliasKey,
+  normalizeKey: normalizeKeywordAliasKey,
+  normalizeAliases: normalizeKeywordAliases,
+}
+
 // Alias tables are keyed by the exact stored name, but reads merge rows by each type's normalized key. A save must
 // therefore replace every stored row with the submitted key, or a differently cased/spaced duplicate survives the
 // save, keeps contributing aliases to reads, and can never be deleted through the API.
 async function replaceAliasRowsAtomically(
   db: D1DatabaseLike,
-  table: {
-    name: 'creator_aliases' | 'character_aliases' | 'keyword_aliases'
-    keyColumn: 'creator_name' | 'character_name' | 'base_keyword'
-    normalizeKey: (storedName: string) => string | null
-  },
+  table: AliasTableConfig,
   rows: Map<string, { name: string, aliases: string[] }>,
 ) {
   if (rows.size === 0) {
@@ -856,107 +857,58 @@ async function replaceAliasRowsAtomically(
   await runStatementsAtomically(db, operations)
 }
 
-export async function saveCreatorAliasesBatch(
+async function saveAliasRowsBatch(
   db: D1DatabaseLike,
-  rows: Array<{ creatorName: string, aliases: string[] | string }>,
+  table: AliasTableConfig,
+  rows: Array<{ name: string, aliases: string[] | string }>,
 ) {
   const mergedRows = new Map<string, { name: string, aliases: string[] }>()
 
   rows.forEach((row) => {
-    const creatorName = normalizeCreatorName(row.creatorName)
-    if (!creatorName) {
+    const name = table.normalizeName(row.name)
+    if (!name) {
       return
     }
 
-    const aliases = normalizeAliases(row.aliases)
-    mergedRows.set(creatorName, {
-      name: creatorName,
-      aliases: normalizeAliases([
-        ...(mergedRows.get(creatorName)?.aliases ?? []),
+    const key = table.mergeKey(name)
+    if (!key) {
+      return
+    }
+
+    const aliases = table.normalizeAliases(row.aliases)
+    const previous = mergedRows.get(key)
+    mergedRows.set(key, {
+      name: previous?.name ?? name,
+      aliases: table.normalizeAliases([
+        ...(previous?.aliases ?? []),
         ...aliases,
       ]),
     })
   })
 
-  await ensureCreatorAliasesTable(db)
-  // Creator keys stay case-sensitive; only the `(part N)` suffix that reads strip is folded.
-  await replaceAliasRowsAtomically(db, {
-    name: 'creator_aliases',
-    keyColumn: 'creator_name',
-    normalizeKey: normalizeCreatorName,
-  }, mergedRows)
+  await table.ensureTable(db)
+  await replaceAliasRowsAtomically(db, table, mergedRows)
+}
+
+export async function saveCreatorAliasesBatch(
+  db: D1DatabaseLike,
+  rows: Array<{ creatorName: string, aliases: string[] | string }>,
+) {
+  await saveAliasRowsBatch(db, CREATOR_ALIAS_TABLE, rows.map(row => ({ name: row.creatorName, aliases: row.aliases })))
 }
 
 export async function saveCharacterAliasesBatch(
   db: D1DatabaseLike,
   rows: Array<{ characterName: string, aliases: string[] | string }>,
 ) {
-  const mergedRows = new Map<string, { name: string, aliases: string[] }>()
-
-  rows.forEach((row) => {
-    const characterName = normalizeCharacterAliasName(row.characterName)
-    if (!characterName) {
-      return
-    }
-
-    const key = normalizeCharacterAliasKey(characterName)
-    if (!key) {
-      return
-    }
-
-    const aliases = normalizeCharacterAliases(row.aliases)
-    const previous = mergedRows.get(key)
-    mergedRows.set(key, {
-      name: previous?.name ?? characterName,
-      aliases: normalizeCharacterAliases([
-        ...(previous?.aliases ?? []),
-        ...aliases,
-      ]),
-    })
-  })
-
-  await ensureCharacterAliasesTable(db)
-  await replaceAliasRowsAtomically(db, {
-    name: 'character_aliases',
-    keyColumn: 'character_name',
-    normalizeKey: normalizeCharacterAliasKey,
-  }, mergedRows)
+  await saveAliasRowsBatch(db, CHARACTER_ALIAS_TABLE, rows.map(row => ({ name: row.characterName, aliases: row.aliases })))
 }
 
 export async function saveKeywordAliasesBatch(
   db: D1DatabaseLike,
   rows: Array<{ baseKeyword: string, aliases: string[] | string }>,
 ) {
-  const mergedRows = new Map<string, { name: string, aliases: string[] }>()
-
-  rows.forEach((row) => {
-    const baseKeyword = normalizeKeywordBaseTerm(row.baseKeyword)
-    if (!baseKeyword) {
-      return
-    }
-
-    const key = normalizeKeywordAliasKey(baseKeyword)
-    if (!key) {
-      return
-    }
-
-    const aliases = normalizeKeywordAliases(row.aliases)
-    const previous = mergedRows.get(key)
-    mergedRows.set(key, {
-      name: previous?.name ?? baseKeyword,
-      aliases: normalizeKeywordAliases([
-        ...(previous?.aliases ?? []),
-        ...aliases,
-      ]),
-    })
-  })
-
-  await ensureKeywordAliasesTable(db)
-  await replaceAliasRowsAtomically(db, {
-    name: 'keyword_aliases',
-    keyColumn: 'base_keyword',
-    normalizeKey: normalizeKeywordAliasKey,
-  }, mergedRows)
+  await saveAliasRowsBatch(db, KEYWORD_ALIAS_TABLE, rows.map(row => ({ name: row.baseKeyword, aliases: row.aliases })))
 }
 
 export async function saveHomeFeaturedSearchKeywords(db: D1DatabaseLike, keywords: string[]) {

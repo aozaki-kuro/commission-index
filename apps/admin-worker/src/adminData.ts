@@ -13,6 +13,7 @@ import type {
 import type { D1DatabaseLike } from './adminPersistence'
 import {
   buildCommissionSearchMetadata,
+  buildPopularKeywordPoolFromSuggestTexts,
   normalizeAliases,
   normalizeCharacterAliases,
   normalizeCharacterAliasKey,
@@ -23,8 +24,8 @@ import {
   normalizeKeywordBaseTerm,
   parseAliasesJson,
   parseCharacterAliasesJson,
+  parseCommissionLinksJson,
   parseKeywordAliasesJson,
-  parseSuggestionRows,
   splitKeywordTerms,
 } from '../../../packages/domain/src/index'
 import { dedupeKeywords, MAX_FEATURED_SEARCH_KEYWORDS, queryFirstRow, queryRows, resolveD1Database } from './adminPersistence'
@@ -176,81 +177,6 @@ export function parseIdFromPath(pathname: string, pattern: RegExp) {
     : null
 }
 
-function parseLinks(raw?: string | null): string[] {
-  if (!raw) {
-    return []
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as unknown
-    return Array.isArray(parsed)
-      ? parsed.map(link => String(link))
-      : []
-  }
-  catch {
-    return []
-  }
-}
-
-function buildPopularKeywordPoolFromSuggestTexts(
-  suggestTexts: Iterable<string>,
-  maxKeywords = MAX_POPULAR_KEYWORDS,
-) {
-  const termStats = new Map<string, { term: string, count: number }>()
-
-  for (const suggestText of suggestTexts) {
-    const parsedRows = parseSuggestionRows(suggestText)
-    let hasPrimaryCreatorInEntry = false
-
-    for (const { source, term } of parsedRows.values()) {
-      if (source === 'Date') {
-        continue
-      }
-
-      if (source === 'Creator' && hasPrimaryCreatorInEntry) {
-        continue
-      }
-
-      const normalizedTerm = source === 'Creator'
-        ? (normalizeCreatorName(term) ?? term.trim())
-        : term.trim()
-
-      if (!normalizedTerm) {
-        continue
-      }
-
-      const key = normalizedTerm.toLowerCase()
-      const previous = termStats.get(key)
-      if (previous) {
-        previous.count += 1
-      }
-      else {
-        termStats.set(key, {
-          term: normalizedTerm,
-          count: 1,
-        })
-      }
-
-      if (source === 'Creator') {
-        hasPrimaryCreatorInEntry = true
-      }
-    }
-  }
-
-  return [
-    ...termStats.values(),
-  ]
-    .toSorted((left, right) => {
-      if (left.count !== right.count) {
-        return right.count - left.count
-      }
-
-      return left.term.localeCompare(right.term)
-    })
-    .slice(0, maxKeywords)
-    .map(item => item.term)
-}
-
 function resolveImagesBucket(value: unknown): R2BucketLike | null {
   if (!value || typeof value !== 'object') {
     return null
@@ -391,8 +317,6 @@ async function loadCharacterAliasesAdminDataFromDatabase(db: D1DatabaseLike): Pr
     `
       SELECT
         characters.name as characterName,
-        commissions.commission_date as commissionDate,
-        commissions.creator_name as creatorName,
         COUNT(commissions.id) as commissionCount
       FROM characters
       LEFT JOIN commissions ON commissions.character_id = characters.id
@@ -748,7 +672,7 @@ async function loadCharacterCommissions(
 
   return rows.map(row => ({
     ...mapCommissionRow(row),
-    links: parseLinks(row.links),
+    links: parseCommissionLinksJson(row.links),
   }))
 }
 
