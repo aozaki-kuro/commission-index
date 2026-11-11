@@ -886,6 +886,23 @@ test('overview keeps primary actions stable and queues publishing once', async (
   await page.setViewportSize({ width: 1280, height: 1000 })
 })
 
+test('overview keeps the publish card in place while data arrives at 390px', async ({ page }) => {
+  const control = await mockApi(page)
+  const gate = deferred()
+  control.bootstrapGate = gate.promise
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/')
+  const rebuild = page.getByRole('button', { name: 'Rebuild website', exact: true })
+  await expect(rebuild).toBeVisible()
+  await page.evaluate(() => document.fonts.ready)
+  const before = await rebuild.boundingBox()
+  gate.resolve()
+  await expect(page.getByRole('region', { name: 'Collection summary' })).toHaveAttribute('aria-busy', 'false')
+  expect(await rebuild.boundingBox()).toEqual(before)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390)
+  await page.setViewportSize({ width: 1280, height: 1000 })
+})
+
 test('suggestion preserves editor geometry, ordering and manual additions', async ({ page }) => {
   const control = await mockApi(page)
   const gate = deferred()

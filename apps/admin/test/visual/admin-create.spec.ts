@@ -356,12 +356,13 @@ test('admin nav switches sections without a full reload', async ({ page }, testI
   await expect.poll(async () => page.evaluate(() => sessionStorage.getItem('__admin-beforeunload'))).toBeNull()
 })
 
-test('overview quick actions stay inside the client shell', async ({ page }, testInfo) => {
+test('an overview card opens its commission in the edit drawer without a full reload', async ({ page }, testInfo) => {
   skipUnlessProject(testInfo, ADMIN_PROJECT_NAME)
   await mockAdminApi(page)
   await page.goto('/')
   await page.getByRole('heading', { level: 1, name: 'Admin Overview' }).waitFor()
-  await page.getByRole('heading', { name: 'Manage content' }).waitFor()
+  const card = page.getByRole('tabpanel', { name: 'Latest' }).getByRole('button', { name: /^Edit 2026-08-15 · Nanashi/ })
+  await card.waitFor()
 
   await page.evaluate(() => {
     sessionStorage.removeItem('__admin-beforeunload')
@@ -370,11 +371,11 @@ test('overview quick actions stay inside the client shell', async ({ page }, tes
     }, { once: true })
   })
 
-  await page.getByRole('link', { name: 'Edit existing' }).click()
+  await card.click()
   await page.getByRole('heading', { level: 1, name: 'Edit' }).waitFor()
-  await page.getByRole('heading', { name: 'Existing commissions' }).waitFor()
-
   await expect(page).toHaveURL(/\/edit$/)
+  // The second fixture commission, not merely any drawer.
+  await expect(page.getByRole('dialog').getByLabel(/^Keywords/)).toHaveValue('Summer, Winter')
   await expect.poll(async () => page.evaluate(() => sessionStorage.getItem('__admin-beforeunload'))).toBeNull()
 })
 

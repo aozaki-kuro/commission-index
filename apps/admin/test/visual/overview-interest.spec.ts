@@ -89,8 +89,10 @@ async function mockOverview(page: Page, mode: keyof typeof responses) {
   return control
 }
 
-function mostWanted(page: Page) {
-  return page.getByRole('region', { name: 'Most wanted' })
+// The three lists share one tabbed panel; only the selected one is exposed.
+async function openList(page: Page, name: 'Latest' | 'Most wanted' | 'Popular') {
+  await page.getByRole('tab', { name, exact: true }).click()
+  return page.getByRole('tabpanel', { name, exact: true })
 }
 
 for (const { width, colorScheme } of [
@@ -102,7 +104,7 @@ for (const { width, colorScheme } of [
     await page.emulateMedia({ colorScheme })
     await mockOverview(page, 'ok')
     await page.goto('/')
-    const section = mostWanted(page)
+    const section = await openList(page, 'Most wanted')
     const items = section.getByRole('listitem')
     // Published (links) and zero-vote works are excluded; ties fall back to newest first.
     await expect(items).toHaveCount(3)
@@ -120,12 +122,12 @@ for (const { width, colorScheme } of [
 test('most wanted shows a calm not-connected state on 503 and never retries it', async ({ page }) => {
   const control = await mockOverview(page, 'not-configured')
   await page.goto('/')
-  const section = mostWanted(page)
+  const section = await openList(page, 'Most wanted')
   await expect(section).toContainText('Visitor analytics is not connected.')
   await expect(section.getByRole('button')).toHaveCount(0)
   await expect(section.getByRole('alert')).toHaveCount(0)
   // The rest of the overview is unaffected.
-  await expect(page.getByRole('region', { name: 'Latest commissions' }).getByRole('listitem')).toHaveCount(rows.length)
+  await expect((await openList(page, 'Latest')).getByRole('listitem')).toHaveCount(rows.length)
   const settled = control.interestRequests
   // Longer than the 250 ms retry backoff a 502 would get.
   await page.waitForTimeout(600)
@@ -135,7 +137,7 @@ test('most wanted shows a calm not-connected state on 503 and never retries it',
 test('most wanted offers a retry after a Rybbit failure', async ({ page }) => {
   const control = await mockOverview(page, 'rybbit-down')
   await page.goto('/')
-  const section = mostWanted(page)
+  const section = await openList(page, 'Most wanted')
   await expect(section.getByRole('alert')).toContainText('Could not load visitor votes.')
   const failed = control.interestRequests
   control.mode = 'ok'
@@ -147,7 +149,7 @@ test('most wanted offers a retry after a Rybbit failure', async ({ page }) => {
 test('popular this year ranks link clicks with votes beside them', async ({ page }) => {
   await mockOverview(page, 'ok')
   await page.goto('/')
-  const section = page.getByRole('region', { name: 'Popular this year' })
+  const section = await openList(page, 'Popular')
   const items = section.getByRole('listitem')
   await expect(section).toContainText('Link clicks since 2026-01-01')
   // Clicks first; votes-only works follow by votes, then newest.
@@ -165,9 +167,10 @@ test('popular this year fails on its own and retries', async ({ page }) => {
   const control = await mockOverview(page, 'ok')
   control.linkClicksMode = 'rybbit-down'
   await page.goto('/')
-  const section = page.getByRole('region', { name: 'Popular this year' })
+  const section = await openList(page, 'Popular')
   await expect(section.getByRole('alert')).toContainText('Could not load visitor link clicks.')
-  await expect(mostWanted(page).getByRole('listitem')).toHaveCount(3)
+  await expect((await openList(page, 'Most wanted')).getByRole('listitem')).toHaveCount(3)
+  await openList(page, 'Popular')
   control.linkClicksMode = 'ok'
   await section.getByRole('button', { name: 'Try again' }).click()
   await expect(section.getByRole('listitem')).toHaveCount(4)
