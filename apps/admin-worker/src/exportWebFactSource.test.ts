@@ -407,7 +407,10 @@ describe('事实源快照导出', () => {
       signal: null,
       output: [],
     })
-    await expect(main(['--output-root', directory])).rejects.toThrow('20260102_orphan, 20260103_orphan')
+    // Works are named by integer id: build logs are public and asset names can carry a date and a creator.
+    const failure = await main(['--output-root', directory]).then(() => null, (error: unknown) => String(error))
+    expect(failure).toContain('#2, #3')
+    expect(failure).not.toContain('orphan')
     expect(spawn).not.toHaveBeenCalled()
     expect(readFileSync(path.join(directory, 'fact-source/source-images-manifest.json'), 'utf8')).toBe(oldManifest)
   })

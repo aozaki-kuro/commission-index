@@ -467,7 +467,7 @@ export function verifyExistingSnapshot(outputRoot: string, expectedRevision?: st
     const localName = getLocalImageName(file.commissionFileName, file.objectKey)
     const expectedPath = path.posix.join(imageOutputDirectoryName, localName)
     if (file.relativePath !== expectedPath || hashFile(path.join(outputRoot, expectedPath)) !== file.sha256) {
-      throw new Error(`事实源图片校验失败：${file.commissionFileName}`)
+      throw new Error(`事实源图片校验失败：作品 #${file.commissionId}`)
     }
   }
   return revision
@@ -525,11 +525,13 @@ function assertSourceImageMetadataComplete(
   expectedImages: ExpectedSourceImage[],
   sourceImageRowMap: Map<number, SourceImageRow>,
 ) {
-  const missingFileNames = expectedImages
+  // Logs of a public repository are public: name works by their integer id, never by the internal asset name,
+  // which can carry a date and a creator, including for hidden works.
+  const missingIds = expectedImages
     .filter(image => !sourceImageRowMap.has(image.commissionId))
-    .map(image => image.commissionFileName)
-  if (missingFileNames.length > 0) {
-    throw new Error(`作品缺少 source_images 元数据，无法定位 R2 对象：${missingFileNames.join(', ')}`)
+    .map(image => `#${image.commissionId}`)
+  if (missingIds.length > 0) {
+    throw new Error(`作品缺少 source_images 元数据，无法定位 R2 对象：${missingIds.join(', ')}`)
   }
 }
 
@@ -688,7 +690,7 @@ async function stageSourceImages(
     expectedImages,
     downloadConcurrency,
     async ({ commissionId, commissionFileName }, index): Promise<ExportSourceImageTaskResult> => {
-      const progressLabel = `[${index + 1}/${expectedImages.length}] ${commissionFileName}`
+      const progressLabel = `[${index + 1}/${expectedImages.length}] #${commissionId}`
       const sourceImageRow = sourceImageRowMap.get(commissionId)
       // 完整性已在上方断言；这里的空值判断只为类型收窄。
       if (!sourceImageRow || sourceImageRow.commissionFileName !== commissionFileName) {
@@ -721,7 +723,7 @@ async function stageSourceImages(
           const record = buildSourceImageFileRecord(commissionFileName, objectKey, tempOutputPath, commissionId, sourceImageRow.mimeType)
           if (sourceImageRow.sha256 !== record.sha256 || sourceImageRow.byteSize !== record.byteSize) {
             rmSync(tempOutputPath, { force: true })
-            hardFailureMessage = `图片内容与读取的 D1 快照不一致：${commissionFileName}`
+            hardFailureMessage = `图片内容与读取的 D1 快照不一致：作品 #${commissionId}`
             break
           }
           rmSync(outputPath, { force: true })
