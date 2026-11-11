@@ -32,18 +32,18 @@ function toggleHiddenClass(element: HTMLElement, shouldHide: boolean) {
 function syncEntryVisibilityForIndexChange({
   entryById,
   matchedIds,
-  hasDeferredQuery,
+  hasQuery,
   visibleSectionIds,
 }: {
   entryById: SearchIndex['entryById']
   matchedIds: Set<number>
-  hasDeferredQuery: boolean
+  hasQuery: boolean
   visibleSectionIds: Set<string> | null
 }) {
   let didLayoutChange = false
 
   for (const entry of entryById.values()) {
-    const isMatched = !hasDeferredQuery || matchedIds.has(entry.id)
+    const isMatched = !hasQuery || matchedIds.has(entry.id)
 
     if (isMatched && visibleSectionIds && entry.sectionId) {
       visibleSectionIds.add(entry.sectionId)
@@ -63,13 +63,11 @@ function syncEntryVisibilityForMatchedDiff({
   entryById,
   matchedIds,
   previousMatchedIds,
-  indexChanged,
   visibleSectionIds,
 }: {
   entryById: SearchIndex['entryById']
   matchedIds: Set<number>
   previousMatchedIds: Set<number>
-  indexChanged: boolean
   visibleSectionIds: Set<string> | null
 }) {
   let didLayoutChange = false
@@ -95,7 +93,7 @@ function syncEntryVisibilityForMatchedDiff({
       visibleSectionIds.add(entry.sectionId)
     }
 
-    const shouldEnsureVisible = indexChanged || !previousMatchedIds.has(id)
+    const shouldEnsureVisible = !previousMatchedIds.has(id)
     if (!shouldEnsureVisible || !entry.element)
       continue
 
@@ -109,12 +107,12 @@ function syncEntryVisibilityForMatchedDiff({
 
 function syncSectionVisibility({
   sections,
-  hasDeferredQuery,
+  hasQuery,
   visibleSectionIds,
   sectionVisibilityById,
 }: {
   sections: SearchIndex['sections']
-  hasDeferredQuery: boolean
+  hasQuery: boolean
   visibleSectionIds: Set<string> | null
   sectionVisibilityById: Map<string, boolean>
 }) {
@@ -123,7 +121,7 @@ function syncSectionVisibility({
   let visibleArchivedSections = 0
 
   for (const section of sections) {
-    const visible = !hasDeferredQuery || Boolean(visibleSectionIds?.has(section.id))
+    const visible = !hasQuery || Boolean(visibleSectionIds?.has(section.id))
 
     if (sectionVisibilityById.get(section.id) !== visible) {
       sectionVisibilityById.set(section.id, visible)
@@ -132,7 +130,7 @@ function syncSectionVisibility({
       }
     }
 
-    if (!visible || !hasDeferredQuery)
+    if (!visible || !hasQuery)
       continue
     if (section.status === 'active')
       visibleActiveSections += 1
@@ -145,14 +143,14 @@ function syncSectionVisibility({
 
 function syncArchivedDividerVisibility({
   archivedDivider,
-  hasDeferredQuery,
+  hasQuery,
   archivedVisible,
   visibleActiveSections,
   visibleArchivedSections,
   previousVisible,
 }: {
   archivedDivider: HTMLElement | null
-  hasDeferredQuery: boolean
+  hasQuery: boolean
   archivedVisible: boolean
   visibleActiveSections: number
   visibleArchivedSections: number
@@ -164,7 +162,7 @@ function syncArchivedDividerVisibility({
 
   const shouldShowDivider
     = archivedVisible
-      && (!hasDeferredQuery || (visibleActiveSections > 0 && visibleArchivedSections > 0))
+      && (!hasQuery || (visibleActiveSections > 0 && visibleArchivedSections > 0))
 
   if (shouldShowDivider === previousVisible) {
     return { didLayoutChange: false, nextVisible: previousVisible }
@@ -176,7 +174,7 @@ function syncArchivedDividerVisibility({
 
 export interface DomSyncState {
   disableDomFiltering: boolean
-  hasDeferredQuery: boolean
+  hasQuery: boolean
   hiddenArchivedMatchedCount: number
   matchedIds: Set<number>
   resolvedIndex: SearchIndex
@@ -206,7 +204,7 @@ export function createDomSyncRefs(): DomSyncRefs {
 export function syncDom(state: DomSyncState, refs: DomSyncRefs) {
   const {
     disableDomFiltering,
-    hasDeferredQuery,
+    hasQuery,
     hiddenArchivedMatchedCount,
     matchedIds,
     resolvedIndex,
@@ -226,7 +224,7 @@ export function syncDom(state: DomSyncState, refs: DomSyncRefs) {
   const previousMatchedIds = refs.previousMatchedIds
   const matchedIdsChanged = !areSetsEqual(previousMatchedIds, matchedIds)
   const indexChanged = refs.previousFilterIndex !== resolvedIndex
-  const visibleSectionIds = hasDeferredQuery
+  const visibleSectionIds = hasQuery
     ? new Set<string>()
     : null
   let didLayoutChange = false
@@ -241,17 +239,17 @@ export function syncDom(state: DomSyncState, refs: DomSyncRefs) {
       = syncEntryVisibilityForIndexChange({
         entryById,
         matchedIds,
-        hasDeferredQuery,
+        hasQuery,
         visibleSectionIds,
       }) || didLayoutChange
   }
-  else if (matchedIdsChanged) {
+  else {
+    // The early return above leaves only a matched-id change on this path.
     didLayoutChange
       = syncEntryVisibilityForMatchedDiff({
         entryById,
         matchedIds,
         previousMatchedIds,
-        indexChanged,
         visibleSectionIds,
       }) || didLayoutChange
   }
@@ -263,7 +261,7 @@ export function syncDom(state: DomSyncState, refs: DomSyncRefs) {
   // keeping it visible would let users click into a section with zero results.
   const { archivedPlaceholder } = resolvedIndex
   if (archivedPlaceholder) {
-    const shouldHidePlaceholder = archivedVisible || (hasDeferredQuery && hiddenArchivedMatchedCount === 0)
+    const shouldHidePlaceholder = archivedVisible || (hasQuery && hiddenArchivedMatchedCount === 0)
     if (toggleHiddenClass(archivedPlaceholder, shouldHidePlaceholder)) {
       didLayoutChange = true
     }
@@ -275,7 +273,7 @@ export function syncDom(state: DomSyncState, refs: DomSyncRefs) {
 
   const sectionSyncResult = syncSectionVisibility({
     sections,
-    hasDeferredQuery,
+    hasQuery,
     visibleSectionIds,
     sectionVisibilityById: refs.sectionVisibilityById,
   })
@@ -283,7 +281,7 @@ export function syncDom(state: DomSyncState, refs: DomSyncRefs) {
 
   const dividerSyncResult = syncArchivedDividerVisibility({
     archivedDivider,
-    hasDeferredQuery,
+    hasQuery,
     archivedVisible,
     visibleActiveSections: sectionSyncResult.visibleActiveSections,
     visibleArchivedSections: sectionSyncResult.visibleArchivedSections,

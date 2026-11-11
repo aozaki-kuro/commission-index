@@ -2,14 +2,12 @@
 import type { CommissionSearchEntrySource } from './commissionSearchIndex'
 import type { SearchControls } from './commissionSearchModel'
 import type { PanelLoadedState } from './commissionSearchPanelState'
-import { LOAD_ARCHIVED_COMMAND_VALUE } from '@features/home/search/commissionSearchConstants'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   computeSearchModel,
   dispatchSearchQueryLocationChange,
   getDomSnapshotKeyForMode,
   resetModelState,
-  resolveEffectiveDomSnapshotKey,
   subscribeToUrlQuerySnapshot,
 } from './commissionSearchModel'
 
@@ -32,22 +30,6 @@ describe('getDomSnapshotKeyForMode', () => {
     expect(getDomSnapshotKeyForMode({ mode: 'timeline', archivedVisible: false })).not.toBe(
       getDomSnapshotKeyForMode({ mode: 'character', archivedVisible: false }),
     )
-  })
-})
-
-describe('resolveEffectiveDomSnapshotKey', () => {
-  it('uses a stable key when dom context is skipped', () => {
-    const first = resolveEffectiveDomSnapshotKey({
-      domSnapshotKey: 'character:archived-hidden',
-      skipDomContext: true,
-    })
-    const second = resolveEffectiveDomSnapshotKey({
-      domSnapshotKey: 'character:archived-loaded',
-      skipDomContext: true,
-    })
-
-    expect(first).toBe('skip-dom-context')
-    expect(second).toBe(first)
   })
 })
 
@@ -114,13 +96,9 @@ describe('computeSearchModel archived matches', () => {
       isIndexReady: true,
       shouldWarmFuse: false,
       isSuggestionPanelDismissed: false,
-      // The keyboard-selected command is "load archived"; it only stays active while the notice shows.
-      activeCommandValue: LOAD_ARCHIVED_COMMAND_VALUE,
       controls,
       suggestionAliasGroups: [],
       querySource: 'input',
-      disableDomFiltering: false,
-      suppressInitialSuggestionPanelAnimation: false,
     })
   }
 
@@ -138,7 +116,6 @@ describe('computeSearchModel archived matches', () => {
     expect(model.hiddenArchivedMatchedCount).toBe(1)
     expect(model.shouldShowHiddenArchivedNotice).toBe(true)
     expect(model.shouldShowSuggestionPanel).toBe(true)
-    expect(model.resolvedActiveCommandValue).toBe(LOAD_ARCHIVED_COMMAND_VALUE)
   })
 
   it('counts archived matches as visible once archived is expanded', () => {
@@ -150,6 +127,5 @@ describe('computeSearchModel archived matches', () => {
     expect(model.visibleEntriesCount).toBe(2)
     expect(model.hiddenArchivedMatchedCount).toBe(0)
     expect(model.shouldShowHiddenArchivedNotice).toBe(false)
-    expect(model.resolvedActiveCommandValue).not.toBe(LOAD_ARCHIVED_COMMAND_VALUE)
   })
 })

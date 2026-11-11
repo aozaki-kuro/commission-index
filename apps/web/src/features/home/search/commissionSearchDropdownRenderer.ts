@@ -47,9 +47,9 @@ const BADGE_CLASS = [
   'dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300',
 ].join(' ')
 
-// cmdk CommandItem base classes merged with per-item overrides
+// Shared dropdown row base classes merged with per-item overrides
 const SUGGESTION_ITEM_CLASS = [
-  // CommandItem base
+  // shared row base
   'relative flex items-center rounded-sm px-2 py-1.5',
   'text-sm outline-none select-none',
   'data-[disabled=true]:pointer-events-none',
@@ -64,7 +64,7 @@ const SUGGESTION_ITEM_CLASS = [
 ].join(' ')
 
 const ARCHIVED_ITEM_CLASS = [
-  // CommandItem base
+  // shared row base
   'relative flex items-center rounded-sm px-2 py-1.5',
   'text-sm outline-none select-none',
   'data-[disabled=true]:pointer-events-none',

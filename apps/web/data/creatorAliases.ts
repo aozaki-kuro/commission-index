@@ -42,8 +42,4 @@ export function getCreatorAliases(): CreatorAliasEntry[] {
   return result
 }
 
-export function getCreatorAliasesMap() {
-  return new Map(getCreatorAliases().map(row => [row.creatorName, row.aliases] as const))
-}
-
 export const normalizeCreatorSearchName = (value: string) => normalizeCreatorName(value)

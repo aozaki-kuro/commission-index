@@ -1,5 +1,5 @@
 import type { WebLocale } from '../../../config/locales'
-import { DEFAULT_WEB_LOCALE, WEB_LOCALES } from '../../../config/locales'
+import { normalizeWebLocale } from '../../../config/locales'
 
 type HomeSearchLocale = WebLocale
 
@@ -38,14 +38,7 @@ export interface HomeSearchControls {
   searchHelpAliasHint: string
   searchHelpClose: string
   searchHelpRows: SearchHelpRow[]
-  surpriseMe: string
-  surpriseMeRandom: string
-  surpriseMeArtist: string
-  surpriseMeYear: string
 }
-
-const DEFAULT_HOME_SEARCH_LOCALE: HomeSearchLocale = DEFAULT_WEB_LOCALE
-const HOME_SEARCH_LOCALE_SET = new Set<HomeSearchLocale>(WEB_LOCALES)
 
 const HOME_SEARCH_CONTROLS: Record<HomeSearchLocale, HomeSearchControls> = {
   'en': {
@@ -101,10 +94,6 @@ const HOME_SEARCH_CONTROLS: Record<HomeSearchLocale, HomeSearchControls> = {
         example: '!sketch',
       },
     ],
-    surpriseMe: 'Surprise me',
-    surpriseMeRandom: 'Random',
-    surpriseMeArtist: 'By artist',
-    surpriseMeYear: 'By year',
   },
   'zh-tw': {
     searchPlaceholder: '搜尋',
@@ -152,10 +141,6 @@ const HOME_SEARCH_CONTROLS: Record<HomeSearchLocale, HomeSearchControls> = {
         example: '!sketch',
       },
     ],
-    surpriseMe: '手氣不錯',
-    surpriseMeRandom: '隨機',
-    surpriseMeArtist: '同繪師',
-    surpriseMeYear: '同年份',
   },
   'ja': {
     searchPlaceholder: '検索',
@@ -203,19 +188,10 @@ const HOME_SEARCH_CONTROLS: Record<HomeSearchLocale, HomeSearchControls> = {
         example: '!sketch',
       },
     ],
-    surpriseMe: 'おまかせ',
-    surpriseMeRandom: 'ランダム',
-    surpriseMeArtist: '絵師別',
-    surpriseMeYear: '年別',
   },
 }
 
-export function normalizeHomeSearchLocale(locale?: string | null): HomeSearchLocale {
-  const normalized = locale?.toLowerCase() ?? DEFAULT_HOME_SEARCH_LOCALE
-  return HOME_SEARCH_LOCALE_SET.has(normalized as HomeSearchLocale)
-    ? (normalized as HomeSearchLocale)
-    : DEFAULT_HOME_SEARCH_LOCALE
-}
+export const normalizeHomeSearchLocale: (locale?: string | null) => HomeSearchLocale = normalizeWebLocale
 
 export function resolveHomeSearchControls(locale?: string | null) {
   return HOME_SEARCH_CONTROLS[normalizeHomeSearchLocale(locale)]

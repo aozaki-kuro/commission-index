@@ -7,7 +7,6 @@ import type {
 import type { PanelLoadedState } from '@features/home/search/commissionSearchPanelState'
 import type { CommissionViewMode } from '@features/home/search/commissionViewMode'
 import type { SuggestionTokenOperator } from '@lib/search/index'
-import { LOAD_ARCHIVED_COMMAND_VALUE } from '@features/home/search/commissionSearchConstants'
 import {
   buildRelatedSuggestionTermsMap,
   buildSearchIndex,
@@ -25,7 +24,7 @@ import {
   resolveSuggestionContextMatchedIds,
 } from '@lib/search/index'
 
-// ==================== URL query snapshot (re-exported for tests) ====================
+// ==================== URL query snapshot ====================
 
 const SEARCH_QUERY_LOCATION_CHANGE_EVENT = 'home:search-query-location-change'
 
@@ -54,7 +53,7 @@ export function subscribeToUrlQuerySnapshot(onStoreChange: () => void) {
   }
 }
 
-// ==================== DOM snapshot key helpers (re-exported for tests) ====================
+// ==================== DOM snapshot key ====================
 
 export function getDomSnapshotKeyForMode({
   mode,
@@ -66,16 +65,6 @@ export function getDomSnapshotKeyForMode({
   return mode === 'character'
     ? `character:archived-${archivedVisible ? 'visible' : 'hidden'}`
     : 'timeline'
-}
-
-export function resolveEffectiveDomSnapshotKey({
-  domSnapshotKey,
-  skipDomContext,
-}: {
-  domSnapshotKey: string
-  skipDomContext: boolean
-}) {
-  return skipDomContext ? 'skip-dom-context' : domSnapshotKey
 }
 
 // ==================== Module-level mutable state ====================
@@ -149,12 +138,8 @@ export interface SearchModelInput {
   isIndexReady: boolean
   shouldWarmFuse: boolean
   isSuggestionPanelDismissed: boolean
-  activeCommandValue: string
   controls: SearchControls
   suggestionAliasGroups: SearchSuggestionAliasGroup[]
-  disableDomFiltering: boolean
-  suppressInitialSuggestionPanelAnimation: boolean
-  initialQuery?: string
   /** What last set the query; reported once per mount as `search_used.source`. */
   querySource: SearchQuerySource
 }
@@ -164,13 +149,11 @@ export type SearchQuerySource = 'input' | 'keyword' | 'url_query'
 export interface SearchModelOutput {
   resolvedIndex: SearchIndex
   matchedIds: Set<number>
-  hasDeferredQuery: boolean
   hasQuery: boolean
   suggestionViewModels: SuggestionViewModel[]
   suggestionOperator: SuggestionTokenOperator
   suggestionIsExclusion: boolean
   shouldShowSuggestionPanel: boolean
-  shouldAnimateSuggestionPanel: boolean
   shouldShowHiddenArchivedNotice: boolean
   /** True when auto-expand archived should be considered by the caller */
   shouldAutoShowArchived: boolean
@@ -179,15 +162,13 @@ export interface SearchModelOutput {
   visibleEntriesCount: number
   visibleMatchedCount: number
   hiddenArchivedMatchedCount: number
-  resolvedActiveCommandValue: string
 }
 
 // ==================== Core computation ====================
 
 /**
- * Pure-ish computation that replaces the React hook body.
- * Side effects: analytics, archived auto-expand.
- * In vanilla mode `useDeferredValue` is unnecessary — the caller batches via rAF.
+ * Derives the search output from the controller's state; the controller batches calls via rAF.
+ * Side effects: analytics, archived auto-expand bookkeeping.
  */
 export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   const {
@@ -198,12 +179,8 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
     isIndexReady,
     shouldWarmFuse,
     isSuggestionPanelDismissed,
-    activeCommandValue,
     controls,
     suggestionAliasGroups,
-    disableDomFiltering,
-    suppressInitialSuggestionPanelAnimation,
-    initialQuery,
     querySource,
   } = input
 
@@ -215,9 +192,7 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   // cachedHydratedIndex !== null is included so the memoized result is invalidated once
   // Fuse.js finishes loading — otherwise a keyword-click recompute (which runs before Fuse is
   // ready) would be permanently cached and a subsequent retry would return the stale empty result.
-  const outputKey = `${query}\0${mode}\0${isIndexReady}\0${shouldWarmFuse}\0${isSuggestionPanelDismissed}\0${activeCommandValue}\0${archivedVisible}\0${externalEntries?.length ?? -1}\0${disableDomFiltering}\0${suppressInitialSuggestionPanelAnimation}\0${initialQuery === undefined
-    ? 'unset'
-    : `set:${initialQuery}`}\0${cachedHydratedIndex !== null}`
+  const outputKey = `${query}\0${mode}\0${isIndexReady}\0${shouldWarmFuse}\0${isSuggestionPanelDismissed}\0${archivedVisible}\0${externalEntries?.length ?? -1}\0${cachedHydratedIndex !== null}`
   if (
     cachedOutput
     && cachedOutputKey === outputKey
@@ -235,30 +210,21 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
     Date: controls.sourceDate,
   } as const
 
-  // In vanilla mode, deferredQuery === query (caller batches via rAF)
-  const deferredQuery = query
   const normalizedQuery = normalizeQuery(query)
   const hasQuery = !!normalizedQuery
-  const normalizedDeferredQuery = normalizeQuery(deferredQuery)
-  const hasDeferredQuery = !!normalizedDeferredQuery
 
   // Parse suggestion input state
-  const parsed = parseSuggestionInputState(deferredQuery)
+  const parsed = parseSuggestionInputState(query)
   const suggestionQuery = normalizeQuery(parsed.suggestionQuery)
   const suggestionContextQuery = parsed.suggestionContextQuery
   const suggestionOperator = parsed.suggestionOperator
   const suggestionIsExclusion = parsed.suggestionIsExclusion
 
   // ---- Index building with memoization ----
-  const shouldSkipDomContext = disableDomFiltering && Boolean(externalEntries)
   const domSnapshotKey = getDomSnapshotKeyForMode({ mode, archivedVisible })
-  const effectiveDomSnapshotKey = resolveEffectiveDomSnapshotKey({
-    domSnapshotKey,
-    skipDomContext: shouldSkipDomContext,
-  })
 
   // Build index key from all inputs that affect index construction
-  const indexKey = `${effectiveDomSnapshotKey}:${shouldSkipDomContext}:${mode}:${isIndexReady}`
+  const indexKey = `${domSnapshotKey}:${mode}:${isIndexReady}`
 
   let index: SearchIndex
   if (!isIndexReady) {
@@ -272,10 +238,7 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
     index = cachedIndex
   }
   else {
-    index = buildSearchIndex(mode, externalEntries, {
-      domSnapshotKey: effectiveDomSnapshotKey,
-      skipDomContext: shouldSkipDomContext,
-    })
+    index = buildSearchIndex(mode, externalEntries)
     cachedIndexKey = indexKey
     cachedIndex = index
     cachedIndexExternalEntries = externalEntries
@@ -313,29 +276,28 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   }
 
   // ---- Matched IDs ----
-  const matchedIds = getMatchedEntryIds(deferredQuery, resolvedIndex)
+  const matchedIds = getMatchedEntryIds(query, resolvedIndex)
 
   // ---- Display metrics ----
   const { visibleEntriesCount, visibleMatchedCount, hiddenArchivedMatchedCount }
     = getDisplayMetrics({
       searchIndex: resolvedIndex,
       matchedIds,
-      disableDomFiltering,
-      hasDeferredQuery,
+      hasQuery,
       mode,
       archivedVisible,
     })
 
-  // ---- Auto-show archived (deferred to caller — not triggered here) ----
-  // The caller (controller) handles auto-show with a longer debounce so it only
-  // fires after typing has truly stopped, not on every intermediate recompute.
-  if (!hasDeferredQuery || visibleMatchedCount > 0) {
+  // ---- Auto-show archived (performed by the caller, not here) ----
+  // The controller requests the reveal when `shouldAutoShowArchived` is set; this only resets the
+  // once-per-query guard.
+  if (!hasQuery || visibleMatchedCount > 0) {
     didAutoShowArchived = false
   }
 
   // ---- Suggestion filtering and view models ----
   const suggestionContextMatchedIds = resolveSuggestionContextMatchedIds({
-    rawQuery: deferredQuery,
+    rawQuery: query,
     suggestionQuery,
     suggestionContextQuery,
     matchedIds,
@@ -361,10 +323,9 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
 
   const shouldAutoShowArchived
     = !didAutoShowArchived
-      && !disableDomFiltering
       && mode === 'character'
       && !archivedVisible
-      && hasDeferredQuery
+      && hasQuery
       && visibleMatchedCount === 0
       && hiddenArchivedMatchedCount > 0
       && queryLooksComplete
@@ -388,36 +349,17 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
       && hasQuery
       && (suggestionViewModels.length > 0 || shouldShowHiddenArchivedNotice)
 
-  const shouldSuppressHandoffPanelAnimation
-    = suppressInitialSuggestionPanelAnimation && !!initialQuery && query === initialQuery
-  const shouldAnimateSuggestionPanel = !shouldSuppressHandoffPanelAnimation
-
   // ---- Status messages ----
-  const visibleStatusMessage = hasDeferredQuery
+  const visibleStatusMessage = hasQuery
     ? controls.formatSearchResultsStatus(visibleMatchedCount, visibleEntriesCount)
     : controls.formatSearchClearedStatus(visibleEntriesCount)
   const hiddenArchivedNoticeMessage = controls.formatHiddenArchivedResultsNotice(
     hiddenArchivedMatchedCount,
   )
 
-  // ---- Active command value resolution ----
-  let resolvedActiveCommandValue: string
-  if (shouldShowHiddenArchivedNotice && activeCommandValue === LOAD_ARCHIVED_COMMAND_VALUE) {
-    resolvedActiveCommandValue = LOAD_ARCHIVED_COMMAND_VALUE
-  }
-  else if (suggestionViewModels.some(item => item.term === activeCommandValue)) {
-    resolvedActiveCommandValue = activeCommandValue
-  }
-  else if (suggestionViewModels.length > 0) {
-    resolvedActiveCommandValue = suggestionViewModels[0].term
-  }
-  else {
-    resolvedActiveCommandValue = shouldShowHiddenArchivedNotice ? LOAD_ARCHIVED_COMMAND_VALUE : ''
-  }
-
   // ---- Analytics (side effect, dedup) ----
   if (
-    normalizedDeferredQuery.length >= MIN_TRACK_QUERY_LENGTH
+    normalizedQuery.length >= MIN_TRACK_QUERY_LENGTH
     && !hasTrackedSearchUsage
     && (resolvedIndex.entries.length === 0 || resolvedIndex.fuse)
   ) {
@@ -428,13 +370,11 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   const output: SearchModelOutput = {
     resolvedIndex,
     matchedIds,
-    hasDeferredQuery,
     hasQuery,
     suggestionViewModels,
     suggestionOperator,
     suggestionIsExclusion,
     shouldShowSuggestionPanel,
-    shouldAnimateSuggestionPanel,
     shouldShowHiddenArchivedNotice,
     shouldAutoShowArchived,
     visibleStatusMessage,
@@ -442,7 +382,6 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
     visibleEntriesCount,
     visibleMatchedCount,
     hiddenArchivedMatchedCount,
-    resolvedActiveCommandValue,
   }
   cachedOutputKey = outputKey
   cachedOutput = output

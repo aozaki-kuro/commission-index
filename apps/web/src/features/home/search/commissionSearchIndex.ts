@@ -190,29 +190,18 @@ function finalizeSearchIndex(entries: Entry[], {
 export function getDisplayMetrics({
   searchIndex,
   matchedIds,
-  disableDomFiltering,
-  hasDeferredQuery,
+  hasQuery,
   mode,
   archivedVisible,
 }: {
   searchIndex: SearchIndex
   matchedIds: Set<number>
-  disableDomFiltering: boolean
-  hasDeferredQuery: boolean
+  hasQuery: boolean
   mode: 'character' | 'timeline'
   archivedVisible: boolean
 }) {
-  if (disableDomFiltering) {
-    const visibleEntriesCount = searchIndex.entries.length
-    return {
-      visibleEntriesCount,
-      visibleMatchedCount: hasDeferredQuery ? matchedIds.size : visibleEntriesCount,
-      hiddenArchivedMatchedCount: 0,
-    }
-  }
-
   const { hiddenEntryIds, visibleEntriesCount, visibleEntryIds } = searchIndex
-  if (!hasDeferredQuery) {
+  if (!hasQuery) {
     return {
       visibleEntriesCount,
       visibleMatchedCount: visibleEntriesCount,
@@ -297,12 +286,10 @@ function getDomSearchContext(viewMode: 'character' | 'timeline') {
 
 export function buildSearchIndex(viewMode: 'character' | 'timeline', externalEntries?: CommissionSearchEntrySource[], options?: {
   skipDomContext?: boolean
-  domSnapshotKey?: string
 }): SearchIndex {
   if (typeof window === 'undefined')
     return createEmptySearchIndex()
 
-  void options?.domSnapshotKey
   const shouldSkipDomContext = options?.skipDomContext === true
   const domContext = shouldSkipDomContext
     ? {

@@ -58,7 +58,7 @@ describe('mountCommissionSearchIsland', () => {
 
     runPendingIdleCallbacks()
     await vi.waitFor(() => expect(initSearchController).toHaveBeenCalledTimes(1))
-    expect(initSearchController).toHaveBeenCalledWith(document.getElementById('commission-search'))
+    expect(initSearchController).toHaveBeenCalledWith(document.getElementById('commission-search'), { pendingKeyword: undefined })
   })
 
   it('cancels a pending idle callback on teardown so nothing mounts into a dead DOM', () => {

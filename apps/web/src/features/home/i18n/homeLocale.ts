@@ -1,4 +1,4 @@
-import { DEFAULT_WEB_LOCALE, WEB_LOCALES } from '../../../config/locales'
+import { DEFAULT_WEB_LOCALE, normalizeWebLocale, WEB_LOCALES } from '../../../config/locales'
 
 export const HOME_LOCALES = WEB_LOCALES
 export type HomeLocale = (typeof HOME_LOCALES)[number]
@@ -9,14 +9,6 @@ export interface HomeLocaleOption {
   locale: HomeLocale
   label: string
   href: string
-}
-
-const HOME_LOCALE_SET = new Set<string>(HOME_LOCALES)
-
-interface SearchHelpRow {
-  syntax: string
-  description: string
-  example: string
 }
 
 export interface HomeLocaleMessages {
@@ -69,23 +61,12 @@ export interface HomeLocaleMessages {
   }
   controls: {
     search: string
-    searchPlaceholder: string
-    searchCommissions: string
-    searchHelp: string
-    browseKeywordsLabel: string
     browseKeywordsButton: string
-    clearSearch: string
-    copySearchUrl: string
-    searchUrlCopied: string
-    searchUrlCopyFailed: string
     backToTop: string
     byCharacter: string
     byDate: string
-    view: string
     closeNavigationMenu: string
     openNavigationMenu: string
-    loadingCharacters: string
-    loadingYears: string
     loadArchivedCharacters: string
     archivedCharactersCollapsedTitle: string
     archivedCharactersCollapsedHint: string
@@ -95,25 +76,7 @@ export interface HomeLocaleMessages {
     timelineTitle: string
     noActiveCharacters: string
     noArchivedCharacters: string
-    sourceCharacter: string
-    sourceCreator: string
-    sourceKeyword: string
-    sourceDate: string
-    sourcePrefix: string
     formatCollapsedArchivedSummary: (characterCount: number, commissionCount: number) => string
-    formatMatchCount: (count: number) => string
-    formatSearchResultsStatus: (matchedCount: number, entriesCount: number) => string
-    formatSearchClearedStatus: (entriesCount: number) => string
-    formatHiddenArchivedResultsNotice: (count: number) => string
-    searchHelpTitle: string
-    searchHelpIntro: string
-    searchHelpSyntaxHeader: string
-    searchHelpMeaningHeader: string
-    searchHelpExampleLabel: string
-    searchHelpCombinedExampleLabel: string
-    searchHelpAliasHint: string
-    searchHelpClose: string
-    searchHelpRows: SearchHelpRow[]
   }
 }
 
@@ -174,23 +137,12 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
     },
     controls: {
       search: 'Search',
-      searchPlaceholder: 'Search',
-      searchCommissions: 'Search commissions',
-      searchHelp: 'Search help',
-      browseKeywordsLabel: 'All',
       browseKeywordsButton: 'Browse keywords',
-      clearSearch: 'Clear search',
-      copySearchUrl: 'Copy search URL',
-      searchUrlCopied: 'Search URL copied',
-      searchUrlCopyFailed: 'Failed to copy search URL.',
       backToTop: 'Back to top',
       byCharacter: 'By Character',
       byDate: 'By Date',
-      view: 'View',
       closeNavigationMenu: 'Close navigation menu',
       openNavigationMenu: 'Open navigation menu',
-      loadingCharacters: 'Loading characters...',
-      loadingYears: 'Loading years...',
       loadArchivedCharacters: 'Show archived',
       archivedCharactersCollapsedTitle: 'Archived characters stay folded by default',
       archivedCharactersCollapsedHint: 'Expand only when you want to browse the older entries.',
@@ -200,54 +152,12 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       timelineTitle: 'Timeline',
       noActiveCharacters: 'No active characters.',
       noArchivedCharacters: 'No archived characters.',
-      sourceCharacter: 'character',
-      sourceCreator: 'creator',
-      sourceKeyword: 'keyword',
-      sourceDate: 'date',
-      sourcePrefix: 'in',
       formatCollapsedArchivedSummary: (characterCount, commissionCount) =>
         `${characterCount} Archived Character${characterCount === 1
           ? ''
           : 's'} / ${commissionCount} commission${commissionCount === 1
           ? ''
           : 's'}`,
-      formatMatchCount: count => `${count} ${count === 1
-        ? 'match'
-        : 'matches'}`,
-      formatSearchResultsStatus: (matchedCount, entriesCount) =>
-        `Search results: ${matchedCount} of ${entriesCount} commissions shown.`,
-      formatSearchClearedStatus: entriesCount =>
-        `Search cleared. Showing all ${entriesCount} commissions.`,
-      formatHiddenArchivedResultsNotice: count =>
-        `${count} archived match${count === 1
-          ? ''
-          : 'es'} hidden.`,
-      searchHelpTitle: 'Search Help',
-      searchHelpIntro: 'Type one or more keywords to filter commissions.',
-      searchHelpSyntaxHeader: 'Syntax',
-      searchHelpMeaningHeader: 'Meaning',
-      searchHelpExampleLabel: 'Example',
-      searchHelpCombinedExampleLabel: 'Combined example',
-      searchHelpAliasHint:
-        'Creator search also matches registered aliases (for example, romanized names).',
-      searchHelpClose: 'Close',
-      searchHelpRows: [
-        {
-          syntax: 'space',
-          description: 'All terms must match',
-          example: 'blue hair',
-        },
-        {
-          syntax: '|',
-          description: 'Either side can match',
-          example: 'blue | silver',
-        },
-        {
-          syntax: '!',
-          description: 'Exclude a term',
-          example: '!sketch',
-        },
-      ],
     },
   },
   'zh-tw': {
@@ -304,23 +214,12 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
     },
     controls: {
       search: '搜尋',
-      searchPlaceholder: '搜尋',
-      searchCommissions: '搜尋委託',
-      searchHelp: '搜尋說明',
-      browseKeywordsLabel: '全部',
       browseKeywordsButton: '瀏覽關鍵字',
-      clearSearch: '清除搜尋',
-      copySearchUrl: '複製搜尋網址',
-      searchUrlCopied: '已複製搜尋網址',
-      searchUrlCopyFailed: '複製搜尋網址失敗。',
       backToTop: '回到頂部',
       byCharacter: '依角色',
       byDate: '依日期',
-      view: '檢視',
       closeNavigationMenu: '關閉導覽選單',
       openNavigationMenu: '開啟導覽選單',
-      loadingCharacters: '載入角色中...',
-      loadingYears: '載入年份中...',
       loadArchivedCharacters: '顯示停更角色',
       archivedCharactersCollapsedTitle: '停更角色預設會先收起',
       archivedCharactersCollapsedHint: '想查看較舊的委託時，再展開即可。',
@@ -330,43 +229,8 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       timelineTitle: '時間軸',
       noActiveCharacters: '目前沒有活躍角色。',
       noArchivedCharacters: '目前沒有停更角色。',
-      sourceCharacter: '角色',
-      sourceCreator: '繪師',
-      sourceKeyword: '關鍵字',
-      sourceDate: '日期',
-      sourcePrefix: '於',
       formatCollapsedArchivedSummary: (characterCount, commissionCount) =>
         `${characterCount} 位停更角色 / ${commissionCount} 筆委託`,
-      formatMatchCount: count => `${count} 筆`,
-      formatSearchResultsStatus: (matchedCount, entriesCount) =>
-        `搜尋結果：顯示 ${matchedCount} / ${entriesCount} 筆委託。`,
-      formatSearchClearedStatus: entriesCount => `已清除搜尋，顯示全部 ${entriesCount} 筆委託。`,
-      formatHiddenArchivedResultsNotice: count => `另有 ${count} 筆停更結果未展開。`,
-      searchHelpTitle: '搜尋說明',
-      searchHelpIntro: '輸入一個或多個關鍵字來篩選委託。',
-      searchHelpSyntaxHeader: '語法',
-      searchHelpMeaningHeader: '說明',
-      searchHelpExampleLabel: '範例',
-      searchHelpCombinedExampleLabel: '組合範例',
-      searchHelpAliasHint: '搜尋繪師時也會比對已登記別名（例如羅馬拼音）。',
-      searchHelpClose: '關閉',
-      searchHelpRows: [
-        {
-          syntax: 'space',
-          description: '所有關鍵字都必須符合',
-          example: 'blue hair',
-        },
-        {
-          syntax: '|',
-          description: '任一側符合即可',
-          example: 'blue | silver',
-        },
-        {
-          syntax: '!',
-          description: '排除此關鍵字',
-          example: '!sketch',
-        },
-      ],
     },
   },
   'ja': {
@@ -424,23 +288,12 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
     },
     controls: {
       search: '検索',
-      searchPlaceholder: '検索',
-      searchCommissions: 'コミッションを検索',
-      searchHelp: '検索ヘルプ',
-      browseKeywordsLabel: 'すべて',
       browseKeywordsButton: 'キーワード一覧',
-      clearSearch: '検索をクリア',
-      copySearchUrl: '検索URLをコピー',
-      searchUrlCopied: '検索URLをコピーしました',
-      searchUrlCopyFailed: '検索URLのコピーに失敗しました。',
       backToTop: '先頭へ戻る',
       byCharacter: 'キャラクター別',
       byDate: '日付別',
-      view: '表示',
       closeNavigationMenu: 'ナビゲーションメニューを閉じる',
       openNavigationMenu: 'ナビゲーションメニューを開く',
-      loadingCharacters: 'キャラクターを読み込み中...',
-      loadingYears: '年別一覧を読み込み中...',
       loadArchivedCharacters: '停止中を表示',
       archivedCharactersCollapsedTitle: '停止中のキャラクターは初期状態で折りたたみ表示です',
       archivedCharactersCollapsedHint: '過去のコミッションを見たいときだけ展開できます。',
@@ -450,63 +303,16 @@ const HOME_LOCALE_MESSAGES: Record<HomeLocale, HomeLocaleMessages> = {
       timelineTitle: 'タイムライン',
       noActiveCharacters: '活動中のキャラクターはありません。',
       noArchivedCharacters: '停止中のキャラクターはありません。',
-      sourceCharacter: 'キャラクター',
-      sourceCreator: '作者',
-      sourceKeyword: 'キーワード',
-      sourceDate: '日付',
-      sourcePrefix: '対象',
       formatCollapsedArchivedSummary: (characterCount, commissionCount) =>
         `停止中キャラクター ${characterCount} 人 / コミッション ${commissionCount} 件`,
-      formatMatchCount: count => `${count}件`,
-      formatSearchResultsStatus: (matchedCount, entriesCount) =>
-        `検索結果：${entriesCount}件中 ${matchedCount}件を表示。`,
-      formatSearchClearedStatus: entriesCount =>
-        `検索をクリアしました。全 ${entriesCount}件を表示。`,
-      formatHiddenArchivedResultsNotice: count => `停止中の検索結果 ${count} 件が非表示です。`,
-      searchHelpTitle: '検索ヘルプ',
-      searchHelpIntro: '1つ以上のキーワードでコミッションを絞り込みます。',
-      searchHelpSyntaxHeader: '構文',
-      searchHelpMeaningHeader: '意味',
-      searchHelpExampleLabel: '例',
-      searchHelpCombinedExampleLabel: '組み合わせ例',
-      searchHelpAliasHint: '作者検索では、登録済みの別名（例：ローマ字表記）にも一致します。',
-      searchHelpClose: '閉じる',
-      searchHelpRows: [
-        {
-          syntax: 'space',
-          description: 'すべての語句が一致する必要があります',
-          example: 'blue hair',
-        },
-        {
-          syntax: '|',
-          description: 'どちらか一方が一致すればOKです',
-          example: 'blue | silver',
-        },
-        {
-          syntax: '!',
-          description: '語句を除外します',
-          example: '!sketch',
-        },
-      ],
     },
   },
 }
 
-export function normalizeHomeLocale(locale?: string | null): HomeLocale {
-  const normalized = locale?.toLowerCase() ?? DEFAULT_HOME_LOCALE
-  return HOME_LOCALE_SET.has(normalized)
-    ? (normalized as HomeLocale)
-    : DEFAULT_HOME_LOCALE
-}
+export const normalizeHomeLocale: (locale?: string | null) => HomeLocale = normalizeWebLocale
 
 export function getHomeLocaleMessages(locale?: string | null) {
   return HOME_LOCALE_MESSAGES[normalizeHomeLocale(locale)]
-}
-
-export const resolveHomeLocaleMessages = (locale?: string | null) => getHomeLocaleMessages(locale)
-
-export function resolveHomeControls(locale?: string | null) {
-  return resolveHomeLocaleMessages(locale).controls
 }
 
 export const HOME_LOCALE_SWITCH_ITEMS = HOME_LOCALES.map(locale => ({

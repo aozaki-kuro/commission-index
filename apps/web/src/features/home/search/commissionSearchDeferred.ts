@@ -169,20 +169,6 @@ export function getPopularKeywordBatch(keywords: string[], page: number, batchSi
 
 const normalizeKeywordVariantKey = (value: string) => value.trim().toLowerCase()
 
-function collectSearchEntryElementsFromNode(root: ParentNode): HTMLElement[] {
-  const directEntries = [
-    ...root.querySelectorAll<HTMLElement>(COMMISSION_ENTRY_SELECTOR),
-  ]
-  const nestedTemplateEntries = [
-    ...root.querySelectorAll<HTMLTemplateElement>('template'),
-  ].flatMap(template => collectSearchEntryElementsFromNode(template.content))
-
-  return [
-    ...directEntries,
-    ...nestedTemplateEntries,
-  ]
-}
-
 function buildAliasKeyLookup(aliasGroups: SearchSuggestionAliasGroup[]) {
   const keyToGroup = new Map<string, string>()
 
@@ -295,7 +281,7 @@ export function buildSearchEntriesFromDom(): CommissionSearchEntrySource[] {
     return []
 
   const entriesByKey = new Map<string, Omit<CommissionSearchEntrySource, 'id'>>()
-  collectSearchEntryElementsFromNode(document).forEach((element) => {
+  document.querySelectorAll<HTMLElement>(COMMISSION_ENTRY_SELECTOR).forEach((element) => {
     const domKey = element.dataset.commissionSearchKey
     const searchText = element.dataset.searchText
     if (!domKey || !searchText || entriesByKey.has(domKey))

@@ -109,29 +109,6 @@ describe('unpublishedInterestClient', () => {
     cleanup()
   })
 
-  it('handles buttons appended after mount', () => {
-    const trackEvent = vi.fn()
-    const cleanup = mountUnpublishedInterestButtons({ trackEvent })
-    const wrapper = document.createElement('div')
-    wrapper.innerHTML = buildButtonMarkup('mash-kyrielight-20240311')
-    const button = wrapper.querySelector<HTMLButtonElement>('[data-commission-interest-key]')
-    if (!button)
-      throw new Error('expected interest button')
-    document.body.append(button)
-
-    button.click()
-
-    expect(trackEvent).toHaveBeenCalledTimes(1)
-    expect(trackEvent).toHaveBeenCalledWith({ commission: 'mash-kyrielight-20240311' })
-    expect(button?.disabled).toBe(true)
-    expect(button.getAttribute('aria-pressed')).toBe('true')
-    expect(button.querySelector('[data-commission-interest-label]')?.textContent).toBe('Recorded')
-    expectInterestIconState(button, { defaultHidden: true, recordedHidden: false })
-    expect(storage.getItem('commission-index:unpublished-interest:mash-kyrielight-20240311')).toBe('1')
-
-    cleanup()
-  })
-
   it('syncs all buttons that share the same interest key', () => {
     const trackEvent = vi.fn()
     document.body.innerHTML = `
@@ -163,42 +140,6 @@ describe('unpublishedInterestClient', () => {
     }
 
     expect(storage.getItem('commission-index:unpublished-interest:shared-20240315')).toBe('1')
-
-    cleanup()
-  })
-
-  it('hydrates deferred buttons appended after the interest was already recorded', async () => {
-    const trackEvent = vi.fn()
-    document.body.innerHTML = `<section data-view-mode="date">${buildButtonMarkup('deferred-20240316')}</section>`
-
-    const cleanup = mountUnpublishedInterestButtons({ trackEvent })
-    const dateButton = document.querySelector<HTMLButtonElement>('[data-commission-interest-key]')
-    if (!dateButton)
-      throw new Error('expected initial interest button')
-
-    dateButton.click()
-
-    const wrapper = document.createElement('div')
-    wrapper.innerHTML = `<section data-view-mode="character">${buildButtonMarkup('deferred-20240316')}</section>`
-    document.body.append(wrapper)
-
-    await Promise.resolve()
-
-    const buttons = [
-      ...document.querySelectorAll<HTMLButtonElement>('[data-commission-interest-key]'),
-    ]
-    const deferredButton = buttons.at(-1)
-    if (!deferredButton)
-      throw new Error('expected deferred interest button')
-
-    expect(trackEvent).toHaveBeenCalledTimes(1)
-    expect(trackEvent).toHaveBeenCalledWith({ commission: 'deferred-20240316' })
-    expect(deferredButton.disabled).toBe(true)
-    expect(deferredButton.getAttribute('aria-pressed')).toBe('true')
-    expect(deferredButton.title).toBe('Already recorded')
-    expect(deferredButton.dataset.linkStyle).toBeUndefined()
-    expect(deferredButton.querySelector('[data-commission-interest-label]')?.textContent).toBe('Recorded')
-    expectInterestIconState(deferredButton, { defaultHidden: true, recordedHidden: false })
 
     cleanup()
   })

@@ -41,8 +41,8 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   `getHashTarget` (`lib/navigation/hashAnchor.ts`) picks the copy in the active panel, so never resolve with a
   bare `getElementById`. Search treats entries inside the collapsed container as hidden matches (the "load
   archived" notice), not visible ones.
-- **Search index file:** `/search/home-search-entries.<hash>.json` is the only hashed artifact. The hash is djb2
-  (`lib/utils/hash.ts`) over the final serialized payload, so editing one commission, a localized message or an
+- **Search index file:** `/search/home-search-entries.<hash>.json` is the only hashed artifact. The hash is a truncated
+  SHA-256 (`contentHash`, `lib/utils/contentHash.ts`) over the final serialized payload, so editing one commission, a localized message or an
   alias changes only the affected filename. Its version `v` is built once by `lib/pipeline/homeSearchEntries.ts`,
   rendered onto the root `data-search-index-version` and served at `/search/home-search-version.json`
   (`Cache-Control: no-cache`); they cannot disagree. The entries file is served `Cache-Control: immutable`.

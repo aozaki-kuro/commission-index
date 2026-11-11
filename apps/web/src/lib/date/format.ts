@@ -22,16 +22,9 @@ export function parseDateString(dateStr: string): Date | null {
 /**
  * Format a Date object.
  */
-export function formatDate(date: Date, format: 'yyyy/MM/dd' | 'readable'): string {
+export function formatDate(date: Date, format: 'yyyy/MM/dd'): string {
   if (format === 'yyyy/MM/dd') {
     return date.toISOString().slice(0, 10).replace(DASH_PATTERN, '/')
-  }
-  if (format === 'readable') {
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    })
   }
   throw new Error(`Unsupported date format: ${format}`)
 }
@@ -39,7 +32,7 @@ export function formatDate(date: Date, format: 'yyyy/MM/dd' | 'readable'): strin
 /**
  * Parse and format a "yyyyMMdd" date string.
  */
-export function parseAndFormatDate(dateStr: string, format: 'yyyy/MM/dd' | 'readable'): string {
+export function parseAndFormatDate(dateStr: string, format: 'yyyy/MM/dd'): string {
   const date = parseDateString(dateStr)
   return date
     ? formatDate(date, format)
