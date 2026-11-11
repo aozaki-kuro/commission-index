@@ -40,3 +40,8 @@ manifest's `missing`) as a `databaseBinding: fixture` snapshot for the web visua
 or relative to `apps/web`) picks the target, `<dir>/fact-source`; the web loader reads the same variable. Unset, it
 writes `apps/web/generated/fact-source` and refuses to overwrite a non-fixture snapshot. CI runs it with
 `working-directory: apps/admin-worker` and `FACT_SOURCE_DIR=generated-fixture`, then `check:astro` reads the same dir.
+
+`FACT_SOURCE_PLACEHOLDER_IMAGES=1` (requires `FACT_SOURCE_DIR`) also writes deterministic placeholder PNGs
+(`fixturePlaceholderImages.ts`) into `apps/web/generated/source-images/` and lists them under the manifest's `files`,
+so a fixture `astro build` can run; the PR job uses it. The image glob in the web registry ignores `FACT_SOURCE_DIR`,
+which is why the placeholders go there, and the writer refuses if that tree holds anything but earlier placeholders.

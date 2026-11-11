@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.base.json",
+  "include": [
+    "./*.ts",
+    "../scripts/**/*.ts",
+    "../apps/admin/playwright.ui.config.ts"
+  ]
+}

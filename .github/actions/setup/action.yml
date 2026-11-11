@@ -1,11 +1,6 @@
 name: Setup
 description: Install Node/pnpm, cache pnpm store, and install dependencies. Repo must already be checked out.
 
-outputs:
-  install-duration:
-    description: Duration of pnpm install in seconds
-    value: ${{ steps.install.outputs.duration_seconds }}
-
 runs:
   using: composite
   steps:
@@ -20,10 +15,5 @@ runs:
         cache: pnpm
 
     - name: Install dependencies
-      id: install
       shell: bash
-      run: |
-        started_at=$(date +%s)
-        pnpm install --frozen-lockfile
-        ended_at=$(date +%s)
-        echo "duration_seconds=$((ended_at - started_at))" >> "$GITHUB_OUTPUT"
+      run: pnpm install --frozen-lockfile

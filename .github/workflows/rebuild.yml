@@ -15,6 +15,8 @@ jobs:
   rebuild:
     if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
+    # Covers in-lock validation plus a cold-cache export; bounds how long a hung step can hold the release lock.
+    timeout-minutes: 35
     # `checks: read` lets the composite read this SHA's check runs to reuse the CI `Validate & Build`
     # result; `contents: read` is needed by the candidate/ref lookups.
     permissions:

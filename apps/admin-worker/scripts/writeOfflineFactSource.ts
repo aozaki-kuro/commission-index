@@ -3,6 +3,8 @@
  * Content comes from webVisualFixture.ts. With `FACT_SOURCE_DIR` set (absolute, or relative to `apps/web`) the
  * snapshot goes to `<dir>/fact-source`; unset, it goes to `apps/web/generated/fact-source` behind the real-export guard.
  * Both paths get the same fixture. CI runs this script (cwd apps/admin-worker, for bare workspace specifiers).
+ * `FACT_SOURCE_PLACEHOLDER_IMAGES=1` (requires `FACT_SOURCE_DIR`) also writes placeholder image files and lists them
+ * under `files`, so `astro build` can run offline; the default output stays byte-identical for the visual baselines.
  */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -10,6 +12,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { GENERATED_FACT_SOURCE_SCHEMA_VERSION } from '@commission-index/domain'
 import { createSnapshot } from './exportWebFactSource'
+import { writePlaceholderImages } from './fixturePlaceholderImages'
 import { resolveOfflineFactSourceTarget } from './offlineFactSourceTarget'
 import {
   webVisualCharacterAliases,
@@ -51,14 +54,39 @@ const content: SnapshotInput[0] = {
   keywordAliases: webVisualKeywordAliases,
   featuredSearchKeywords: webVisualFeaturedSearchKeywords,
 }
-// The validator requires every commission in the manifest; with no image files they are all reported missing.
-const missing = webVisualCharacters.flatMap(character => character.commissions).map(commission => ({
-  commissionId: commission.id,
-  commissionFileName: commission.fileName,
-  candidateObjectKeys: [],
-  reason: 'not_found' as const,
-}))
-const snapshot = createSnapshot(content, { meta, files: [], missing } satisfies SnapshotInput[1])
+const commissions = webVisualCharacters.flatMap(character => character.commissions)
+let manifest: SnapshotInput[1]
+if (process.env.FACT_SOURCE_PLACEHOLDER_IMAGES === '1') {
+  // Without an override the fixture would land in generated/fact-source next to the placeholders.
+  if (!process.env.FACT_SOURCE_DIR?.trim()) {
+    console.error('FACT_SOURCE_PLACEHOLDER_IMAGES=1 requires FACT_SOURCE_DIR.')
+    process.exit(1)
+  }
+  try {
+    manifest = {
+      meta,
+      files: writePlaceholderImages(webRoot, commissions),
+      missing: [],
+    }
+  }
+  catch (error) {
+    console.error(error instanceof Error
+      ? error.message
+      : error)
+    process.exit(1)
+  }
+}
+else {
+  // The validator requires every commission in the manifest; with no image files they are all reported missing.
+  const missing = commissions.map(commission => ({
+    commissionId: commission.id,
+    commissionFileName: commission.fileName,
+    candidateObjectKeys: [],
+    reason: 'not_found' as const,
+  }))
+  manifest = { meta, files: [], missing }
+}
+const snapshot = createSnapshot(content, manifest)
 
 mkdirSync(directory, { recursive: true })
 writeFileSync(target.contentPath, JSON.stringify(snapshot.content))
