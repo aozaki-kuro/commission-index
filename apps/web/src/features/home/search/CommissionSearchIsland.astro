@@ -112,8 +112,7 @@ const browseTermClass = `
           type="button"
           class="
             absolute right-0 inline-flex size-7 items-center justify-center
-            rounded-full text-gray-500 transition-[transform,opacity]
-            duration-200
+            rounded-full text-gray-500
             hover:opacity-70
             focus-visible:outline-2 focus-visible:outline-offset-2
             focus-visible:outline-gray-500
@@ -518,6 +517,16 @@ document.getElementById('search-keyword-list')?.addEventListener('click', (event
     max-height: calc(100dvh - 1rem);
   }
 
+  /* anchor-name is dropped only after the popover's 120ms exit: Chromium keeps the closing popover in the top layer
+     while it fades, and without its anchor it would fade out at the viewport's top-left corner. */
+  #search-help-trigger {
+    transition-property: transform, opacity, anchor-name;
+    transition-duration: 200ms, 200ms, 0s;
+    transition-delay: 0s, 0s, 120ms;
+    transition-timing-function: var(--default-transition-timing-function);
+    transition-behavior: normal, normal, allow-discrete;
+  }
+
   #search-browse-popover {
     /* The page column plus the 1.5rem overhang on each side (fallback width without anchor positioning). */
     --search-browse-width: min(calc(100vw - 1rem), calc(var(--container-2xl) + 3rem));
@@ -562,6 +571,8 @@ document.getElementById('search-keyword-list')?.addEventListener('click', (event
        the trigger slides aside on every first keystroke and clear. */
     #commission-search:has(#search-help-popover:popover-open) #search-help-trigger {
       anchor-name: --search-help;
+      /* Opening takes the anchor at once; only the close below waits. */
+      transition-property: transform, opacity;
     }
 
     #search-help-popover {

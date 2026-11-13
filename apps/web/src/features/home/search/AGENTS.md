@@ -68,7 +68,11 @@ Vanilla TS search for the home page. Goals: stable first paint, precise filterin
 - Help and browse popovers: native `popover` does not position or animate itself. Their anchor positioning, 8px gap, collision fallbacks and transitions live together in the scoped CSS of `CommissionSearchIsland.astro`. Without CSS anchor support, keep the centered `m-auto` fallback.
   The help trigger makes room for the copy/clear buttons with `transform`, never `right` (a layout transition runs on
   WebKit's main thread every frame), and it is an anchor only while its popover is open: WebKit also keeps an anchor
-  element's transform transition on the main thread. `anchor()` follows the transformed box in Chromium and WebKit.
+  element's transform transition on the main thread. It keeps `anchor-name` through the popover's 120ms exit (a
+  delayed discrete `anchor-name` transition on the trigger, none on open): Chromium keeps the closing popover in the
+  top layer while it fades, and with the anchor gone it fades out at the viewport's top-left. The trigger's whole
+  transition therefore lives in the scoped CSS; a `transition-*` utility on it would drop the delay.
+  `anchor()` follows the transformed box in Chromium and WebKit.
   No per-row entrance stagger on the browse popover: it is opened repeatedly while picking tags, so a cascade reads
   as lag (apple.com also cascades only on a cold open). The mobile hamburger menu keeps its stagger.
 - Browse popover chip looks and hovers live in the scoped CSS; a color-hover or `transition-colors` utility on these
