@@ -100,17 +100,32 @@ test('help animates both opening and closing in the top layer', async ({ page })
   await expect.poll(() => popover.evaluate(el => el.getAnimations().length)).toBe(0)
 
   const closing = await popover.evaluate(async (panel) => {
+    const openBox = panel.getBoundingClientRect()
     ;(panel as HTMLElement).hidePopover()
     await new Promise(requestAnimationFrame)
-    return {
+    const state = {
       open: panel.matches(':popover-open'),
       display: getComputedStyle(panel).display,
       animations: panel.getAnimations().length,
     }
+    // The fading panel must stay at its anchor, not jump to the viewport origin when the trigger drops anchor-name.
+    // Sampled until the panel leaves the top layer, so the 120ms hand-off where the trigger drops its anchor is covered.
+    let maxDrift = 0
+    let frames = 0
+    while (getComputedStyle(panel).display !== 'none' && frames < 60) {
+      const box = panel.getBoundingClientRect()
+      maxDrift = Math.max(maxDrift, Math.abs(box.top - openBox.top), Math.abs(box.right - openBox.right))
+      frames++
+      await new Promise(requestAnimationFrame)
+    }
+    return { ...state, maxDrift, frames }
   })
   expect(closing.open).toBe(false)
   expect(closing.display).not.toBe('none')
   expect(closing.animations).toBeGreaterThan(0)
+  // The exit scale(0.97) from the top-right origin moves neither edge.
+  expect(closing.maxDrift).toBeLessThan(2)
+  expect(closing.frames).toBeLessThan(60)
   await expect(popover).toBeHidden()
 })
 
