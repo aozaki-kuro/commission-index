@@ -95,7 +95,7 @@ Admin features go in `apps/admin` + `apps/admin-worker`, never `apps/web`.
 
 ### Tech Stack
 
-- **Runtime:** Node 24 (mise) + pnpm 12 (new scripts use `.ts`, not `.mjs`; root `scripts/*.ts`, `config/*.ts` and
+- **Runtime:** Node 26 (mise) + pnpm 12 (new scripts use `.ts`, not `.mjs`; root `scripts/*.ts`, `config/*.ts` and
   `apps/admin/playwright.ui.config.ts` are type-checked by `typecheck:tools` via `config/tsconfig.tools.json`)
 - **Public site:** Astro 7 + Tailwind CSS 4 (vanilla TS client behavior, no React on the client)
 
@@ -185,8 +185,10 @@ Pipeline order, release concurrency locks, the `deploy-web-snapshot` composite a
   upgrade in stages and pin back only packages with a real peer conflict or failing gate
 - Keep TypeScript on 6.x until both `@astrojs/check` and `typescript-eslint` publish TypeScript 7-compatible
   peer ranges; never bypass the mismatch with peer overrides
-- Keep `@types/node` on the runtime major pinned in `.mise.toml` (`node = "24"`), not npm `latest`; `pnpm outdated`
-  will keep listing the newer major
+- Keep `@types/node` on the runtime major pinned in `.mise.toml` (`node = "26"`), not npm `latest`; `pnpm outdated`
+  will keep listing the newer major. Move the runtime only to an Active LTS line, and bump `.mise.toml`, `node-version`
+  in `.github/actions/setup/action.yml` and `@types/node` in one change: Renovate opens them as separate PRs, so neither
+  PR's CI tests the combination
 - Do not adopt Vite+ (`vite-plus`) or replace ESLint/prettier with oxlint/oxfmt: the 2026-10-11 evaluation found
   `vp dev/build` unusable with Astro, ~0 gain for admin build/tests, and lint/format losing `.astro`, pnpm-policy
   and markdown rules; owner ruled not to switch
