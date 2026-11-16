@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <path d="M32 9L52 24L44 47H20L12 24L32 9Z" fill="#9D3757" />
-  <path d="M32 9L44 24H20L32 9Z" fill="#C15779" />
-  <path d="M20 24H44L32 39L20 24Z" fill="#F7EEF1" />
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><path fill="#9D3757" d="M32 9L52 24L44 47H20L12 24L32 9Z"/><path fill="#C15779" d="M32 9L44 24H20L32 9Z"/><path fill="#F7EEF1" d="M20 24H44L32 39L20 24Z"/></svg>
