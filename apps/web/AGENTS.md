@@ -54,7 +54,12 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
 - **Soft navigation lifecycle:** `<ClientRouter />` never fires `pagehide` and runs bundled module scripts once.
   Client islands mount via `bindSoftNavMount` (`@lib/astro/softNavMount`) on `astro:page-load` and dispose on
   `astro:before-swap`; never mount from top-level module code
-- **Hero fade-in:** the intro block and both desktop sidebars share `.animate-hero-reveal` (200ms, no delays, `backwards` fill), separate from the `.animate-reveal-up` that `scrollReveal.ts` uses for entries. Their old staggered 500ms reveals (0/120/200ms) read as the page stuttering in; owner delegated the A/B pick to the advisor on 2026-11-03, who picked this over keeping it or dropping the fade. Do not reintroduce per-piece delays. The intro paragraph is the LCP element when no image beats it (the age gate and fixture runs), and Chrome counts text fading in from opacity 0 only once the fade ends, so this fade puts PSI mobile LCP at 2.0–3.8 s against 1.1 s before; owner accepted that lab cost for the feel on 2026-11-03. A `both` fill never ends and hides the paragraph from LCP entirely; that is metric hiding, not a fix
+- **No hero load animation:** the intro block and desktop sidebars render static (owner ruled 2026-11-16; only entries
+  keep the scroll-driven `.animate-reveal-up`). The removed 200ms hero fade never showed on iOS Safari, because WebKit
+  starts a CSS animation's clock when the element is styled during parsing, not at first paint (~190 of 200ms gone by
+  the first frame), while in Chrome it pushed the LCP of the intro paragraph from 1.1 s to 2.0–3.8 s (Chrome counts
+  text fading in from opacity 0 only once the fade ends). Do not reintroduce a load-time entrance animation on
+  above-the-fold content
 - **Image fade-in:** `commission/imageFadeIn.ts` (mounted in `criticalMounts`) fades `[data-commission-image] > img` in on `load`. Fail open: CSS hides images only under `html[data-image-fade=on]`, which the mount sets after marking already-`complete` images `data-loaded`, so no-JS and cached reloads never flash. The LCP image (`priority`) is server-rendered with `data-loaded`: Chrome ignores `opacity: 0` paints for LCP. `load`/`error` do not bubble, so the listeners are document-level capture; `error` also marks loaded so a broken image never stays invisible. Dispose leaves the attribute; ClientRouter resets `<html>` attributes on swap and the next mount sets it again
 - **Shared nav clicks:** the sidebar and the hamburger share the view-mode toggle, the character-link click (archived
   reveal, `aria-disabled`, timeline intercept) and `sidebar_nav_used` tracking through `nav/homeNavClick.ts`; only the
