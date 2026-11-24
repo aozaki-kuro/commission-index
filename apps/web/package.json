@@ -23,14 +23,14 @@
   },
   "dependencies": {
     "@commission-index/domain": "workspace:*",
-    "@iconify-json/tabler": "^1.2.43",
+    "@iconify-json/tabler": "^1.2.46",
     "astro-icon": "^1.2.0",
     "fuse.js": "^7.5.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.12",
-    "astro": "^7.4.5",
-    "jsdom": "^31.0.0",
+    "astro": "^7.4.13",
+    "jsdom": "^31.0.1",
     "sharp": "^0.35.5"
   }
 }
