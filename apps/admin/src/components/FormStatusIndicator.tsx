@@ -1,7 +1,7 @@
 import type { FormStatus } from '../lib/formState'
-import { IconCheck } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { useFormStatus } from 'react-dom'
+import { useToast } from '../hooks/useToast'
 import { FloatingNotice } from './FloatingNotice'
 
 interface FormStatusIndicatorProps {
@@ -27,42 +27,36 @@ function FormNotice({
   errorFallback = 'Unable to save.',
 }: FormStatusIndicatorProps) {
   const [dismissed, setDismissed] = useState(false)
+  const { push } = useToast()
 
   useEffect(() => {
     if (status !== 'success') {
       return
     }
-    const timer = setTimeout(setDismissed, 2500, true)
-    return () => clearTimeout(timer)
-  }, [status])
+    push({
+      id: `form-success:${successLabel}`,
+      tone: 'success',
+      message: successLabel,
+      durationMs: 2500,
+    })
+  }, [push, status, successLabel])
 
-  if (dismissed) {
+  if (status !== 'error' || dismissed) {
     return null
   }
 
   return (
     <FloatingNotice
-      tone={status === 'error'
-        ? 'error'
-        : 'success'}
+      tone="error"
       onDismiss={() => setDismissed(true)}
     >
-      {status === 'error'
-        ? (
-            <details>
-              <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-offset-2">
-                {errorFallback}
-                <span className="ml-1 text-xs underline underline-offset-2">Details</span>
-              </summary>
-              <p className="mt-2 whitespace-pre-wrap text-xs text-inherit">{message ?? errorFallback}</p>
-            </details>
-          )
-        : (
-            <span className="inline-flex items-center gap-1.5 font-medium">
-              <IconCheck className="size-3.5" stroke={1.8} aria-hidden="true" />
-              {successLabel}
-            </span>
-          )}
+      <details>
+        <summary className="cursor-pointer font-medium focus-visible:outline-2 focus-visible:outline-offset-2">
+          {errorFallback}
+          <span className="ml-1 text-xs underline underline-offset-2">Details</span>
+        </summary>
+        <p className="mt-2 whitespace-pre-wrap text-xs text-inherit">{message ?? errorFallback}</p>
+      </details>
     </FloatingNotice>
   )
 }

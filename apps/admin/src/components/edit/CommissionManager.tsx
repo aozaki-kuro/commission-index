@@ -367,7 +367,17 @@ export function CommissionManager({
         </p>
       </header>
 
-      {feedback && <FloatingNotice tone={feedback.type} onDismiss={dismissFeedback}>{feedback.text}</FloatingNotice>}
+      {feedback && (
+        <FloatingNotice
+          placement={feedback.type === 'success'
+            ? 'toast'
+            : 'default'}
+          tone={feedback.type}
+          onDismiss={dismissFeedback}
+        >
+          {feedback.text}
+        </FloatingNotice>
+      )}
       {pendingCommissionId !== null && !selectionError && !hasAppliedSearchQuery && (
         <FloatingNotice>Loading commission…</FloatingNotice>
       )}

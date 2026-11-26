@@ -1,8 +1,6 @@
 import type { CharacterRow, CommissionRow } from '@commission-index/domain'
-import type { StatusMessage } from './useAutoClearSuccess'
 import { useMemo, useState } from 'react'
 import { getCommissionSourceImageUrl } from '../lib/sourceImagePreview'
-import { useAutoClearSuccess } from './useAutoClearSuccess'
 
 interface UseCommissionEditStateParams {
   characters: CharacterRow[]
@@ -34,14 +32,10 @@ export function useCommissionEditState({
   const [descriptionValue, setDescriptionValue] = useState(commission.description ?? '')
   const [keywordValue, setKeywordValue] = useState(commission.keyword ?? '')
   const [errorSrc, setErrorSrc] = useState<string | null>(null)
-  const [deleteStatus, setDeleteStatus] = useState<StatusMessage | null>(null)
 
   const imageSrc = useMemo(() => getCommissionSourceImageUrl(commission.id), [commission.id])
 
-  useAutoClearSuccess(deleteStatus, () => setDeleteStatus(null), 2000)
-
   return {
-    deleteStatus,
     commissionDate,
     creatorName,
     descriptionValue,
@@ -53,7 +47,6 @@ export function useCommissionEditState({
     keywordValue,
     linksValue,
     selectedCharacterId,
-    setDeleteStatus,
     setCommissionDate,
     setCreatorName,
     setDescriptionValue,

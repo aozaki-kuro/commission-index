@@ -478,13 +478,26 @@ test('edit aligns field edges, preserves grouped values and floats persistent er
   expect(await relativeBox(character)).toEqual(before)
   await dialog.getByRole('button', { name: 'Dismiss notification' }).click()
   const save = dialog.getByRole('button', { name: 'Save changes', exact: true })
+  const cancel = dialog.getByRole('button', { name: 'Cancel', exact: true })
+  const deleteButton = dialog.getByRole('button', { name: 'Delete', exact: true })
+  const [deleteBox, cancelBox, saveBox] = await Promise.all([deleteButton, cancel, save].map(locator => locator.boundingBox()))
+  expect(deleteBox!.x).toBeLessThan(cancelBox!.x)
+  expect(cancelBox!.x).toBeLessThan(saveBox!.x)
   const saveBefore = await relativeBox(save)
   await save.click()
   await expect(dialog.getByText('Unable to update commission.')).toBeVisible()
   await dialog.getByText('Unable to update commission.').click()
+  const errorBannerBox = await dialog.locator('[data-notice-viewport="dialog"]').boundingBox()
+  const saveAfterBox = await save.boundingBox()
+  expect(errorBannerBox!.y + errorBannerBox!.height).toBeLessThanOrEqual(saveAfterBox!.y)
   expect(await relativeBox(character)).toEqual(before)
   expect(await relativeBox(save)).toEqual(saveBefore)
   await dialog.getByRole('button', { name: 'Dismiss notification' }).click()
+  await deleteButton.click()
+  const deleteAlert = page.getByRole('alertdialog', { name: 'Delete commission?' })
+  await expect(deleteAlert).toBeVisible()
+  await deleteAlert.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(deleteAlert).toBeHidden()
   await page.setViewportSize({ width: 390, height: 844 })
   expect(await dialog.evaluate(element => element.scrollWidth)).toBeLessThanOrEqual(390)
 })
@@ -929,13 +942,15 @@ test('suggestion preserves editor geometry, ordering and manual additions', asyn
   expect(control.mutations[0].body).toEqual({
     keywords: ['Winter', 'Summer', 'Custom keyword'],
   })
-  const notices = page.locator('[data-notice-viewport="page"] > [role="status"]')
-  await expect(notices).toHaveCount(2)
-  const noticeBoxes = await notices.evaluateAll(elements => elements.map((element) => {
-    const box = element.getBoundingClientRect()
-    return { top: box.top, bottom: box.bottom }
-  }))
-  expect(noticeBoxes[1].top - noticeBoxes[0].bottom).toBeGreaterThanOrEqual(7)
+  const toast = page.locator('[data-notice-viewport="toast"] > [role="status"]')
+  const pageNotice = page.locator('[data-notice-viewport="page"] > [role="status"]')
+  await expect(toast).toHaveCount(1)
+  await expect(pageNotice).toHaveCount(1)
+  const [toastBox, pageNoticeBox] = await Promise.all([
+    toast.boundingBox(),
+    pageNotice.boundingBox(),
+  ])
+  expect(toastBox!.y + toastBox!.height).toBeLessThan(pageNoticeBox!.y)
   await page.setViewportSize({ width: 1280, height: 1000 })
 })
 

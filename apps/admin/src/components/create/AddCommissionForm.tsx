@@ -389,7 +389,13 @@ export function AddCommissionForm({
 
       {sourceImageNotice
         ? (
-            <FloatingNotice tone={sourceImageNotice.tone} onDismiss={() => setSourceImageNotice(null)}>
+            <FloatingNotice
+              placement={sourceImageNotice.tone === 'success'
+                ? 'toast'
+                : 'default'}
+              tone={sourceImageNotice.tone}
+              onDismiss={() => setSourceImageNotice(null)}
+            >
               {sourceImageNotice.message}
             </FloatingNotice>
           )

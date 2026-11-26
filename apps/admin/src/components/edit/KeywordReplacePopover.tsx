@@ -2,13 +2,14 @@ import type { AdminCommissionSearchRow } from '@commission-index/domain'
 import { IconReplace } from '@tabler/icons-react'
 import { useCallback, useMemo, useState, useTransition } from 'react'
 import { buttonStyles, fieldLabelStyles, formControlStyles } from '../../app/ui'
+import { useToast } from '../../hooks/useToast'
 import { getAdminApiUrl } from '../../lib/adminApi'
 import {
   getCommissionAccessibleLabel,
   getCommissionDisplayLabel,
 } from '../../lib/commissionPresentation'
 import { parseCommissionLinks } from '../../lib/popularCommissions'
-import { FloatingNotice } from '../FloatingNotice'
+import { DialogNoticeSlot, FloatingNotice } from '../FloatingNotice'
 import { Dialog, DialogClose, DialogCloseButton, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog'
 
 interface KeywordReplacePopoverProps {
@@ -67,6 +68,7 @@ export function KeywordReplacePopover({
   commissionSearchRows,
   onComplete,
 }: KeywordReplacePopoverProps) {
+  const toast = useToast()
   const [open, setOpen] = useState(false)
   const [findTerm, setFindTerm] = useState('')
   const [replaceTerm, setReplaceTerm] = useState('')
@@ -158,9 +160,16 @@ export function KeywordReplacePopover({
       setReplaceTerm('')
       setCompletedIds(new Set())
       setOpen(false)
+      toast.push({
+        id: 'keyword-replace-success',
+        tone: 'success',
+        message: `Updated ${savedIds.length} ${savedIds.length === 1
+          ? 'commission'
+          : 'commissions'}.`,
+      })
       onComplete()
     })
-  }, [matchesWithPreview, onComplete])
+  }, [matchesWithPreview, onComplete, toast])
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen && isPending)
@@ -268,6 +277,7 @@ export function KeywordReplacePopover({
             </div>
           </section>
         </div>
+        <DialogNoticeSlot />
         {error && <FloatingNotice tone="error" onDismiss={() => setError(null)}>{error}</FloatingNotice>}
         <footer className="flex shrink-0 items-center justify-end gap-3 border-t border-gray-200 px-5 py-4 dark:border-gray-800">
           <DialogClose asChild>

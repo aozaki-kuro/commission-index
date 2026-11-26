@@ -204,20 +204,43 @@ describe('edit form mutation lifecycle', () => {
     expect(container.querySelectorAll('input[name="hidden"]')).toHaveLength(1)
   })
 
-  it('keeps delete pending until completion and retains errors until dismissal', async () => {
+  it('confirms delete in an alert dialog, keeps delete pending until completion and retains errors until dismissal', async () => {
     let finish!: (value: { status: 'error', message: string }) => void
     api.remove.mockImplementationOnce(() => new Promise((resolve) => {
       finish = resolve
     }))
     await act(async () => button('Delete').click())
-    await act(async () => button('Confirm delete').click())
-    expect(button('Deleting…').disabled).toBe(true)
+    const alertDialog = document.querySelector('[role="alertdialog"]')!
+    expect(alertDialog).not.toBeNull()
+    expect(alertDialog.textContent).toContain('Delete commission?')
+    expect(document.activeElement?.textContent).toBe('Cancel')
+    const confirmDelete = [
+      ...alertDialog.querySelectorAll('button'),
+    ].find(element => element.textContent === 'Delete')!
+    await act(async () => confirmDelete.click())
+    const deletingButton = [
+      ...alertDialog.querySelectorAll('button'),
+    ].find(element => element.textContent === 'Deleting…')!
+    expect(deletingButton.disabled).toBe(true)
     expect(button('Save changes').disabled).toBe(true)
     vi.useFakeTimers()
     await act(async () => finish({ status: 'error', message: 'Offline' }))
+    expect(document.querySelector('[role="alertdialog"]')).toBeNull()
     await act(async () => vi.advanceTimersByTime(5000))
     expect(container.textContent).toContain('Offline')
     expect(api.deleted).not.toHaveBeenCalled()
+  })
+
+  it('pushes a global toast on delete so feedback survives drawer unmount', async () => {
+    api.remove.mockResolvedValueOnce({ status: 'success' })
+    await act(async () => button('Delete').click())
+    const alertDialog = document.querySelector('[role="alertdialog"]')!
+    const confirmDelete = [
+      ...alertDialog.querySelectorAll('button'),
+    ].find(element => element.textContent === 'Delete')!
+    await act(async () => confirmDelete.click())
+    expect(api.deleted).toHaveBeenCalledOnce()
+    expect(container.querySelector('[data-notice-viewport="toast"]')?.textContent).toContain('Entry deleted.')
   })
 
   it('keeps image replacement pending until the upload resolves', async () => {
