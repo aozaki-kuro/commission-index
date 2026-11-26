@@ -1,11 +1,41 @@
 // @vitest-environment jsdom
-import { act, createElement } from 'react'
+import { act, createElement, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useToast } from '../hooks/useToast'
 import { AdminBootstrapStatus } from './AdminBootstrapStatus'
-import { FloatingNotice, FloatingNoticeProvider } from './FloatingNotice'
+import { DialogNoticeSlot, FloatingNotice, FloatingNoticeProvider } from './FloatingNotice'
 import { FormStatusIndicator } from './FormStatusIndicator'
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
+
+function DialogToastHarness() {
+  const [open, setOpen] = useState(true)
+  const toast = useToast()
+  return (
+    <>
+      <FloatingNotice tone="error">Background refresh failed</FloatingNotice>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent aria-describedby={undefined}>
+          <DialogTitle>Edit</DialogTitle>
+          <form>
+            <FloatingNotice tone="error">Save failed</FloatingNotice>
+            <button
+              type="button"
+              onClick={() => {
+                toast.push({ id: 'entry-deleted', tone: 'success', message: 'Entry deleted.' })
+                setOpen(false)
+              }}
+            >
+              Confirm delete
+            </button>
+          </form>
+          <DialogNoticeSlot />
+          <footer><button type="button">Save changes</button></footer>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
 
 describe('浮动通知的布局与生命周期', () => {
   let container: HTMLDivElement
@@ -73,30 +103,37 @@ describe('浮动通知的布局与生命周期', () => {
     await act(async () => retry.click())
     expect(onRetry).toHaveBeenCalledOnce()
     await render(null)
-    expect(container.querySelector('[data-notice-viewport]')!.childElementCount).toBe(0)
+    expect(container.querySelector('[data-notice-viewport="page"]')!.childElementCount).toBe(0)
   })
 
-  it('模态框通知留在对话框内部且不插入滚动表单', async () => {
+  it('模态框错误留在对话框内联托盘，成功 Toast 悬浮在页面右上角且关窗后不丢失', async () => {
+    vi.useFakeTimers()
     await act(async () => root.render(
       <FloatingNoticeProvider>
-        <FloatingNotice tone="error">Background refresh failed</FloatingNotice>
-        <Dialog open>
-          <DialogContent aria-describedby={undefined}>
-            <DialogTitle>Edit</DialogTitle>
-            <form><FloatingNotice tone="error">Save failed</FloatingNotice></form>
-          </DialogContent>
-        </Dialog>
+        <DialogToastHarness />
       </FloatingNoticeProvider>,
     ))
     const dialog = document.querySelector('[role="dialog"]')!
-    expect(dialog.querySelector('form')!.childElementCount).toBe(0)
+    expect(dialog.querySelector('form')!.querySelector('[role="status"]')).toBeNull()
     expect(dialog.querySelector('[data-notice-viewport="dialog"] [role="status"]')!.textContent).toBe('Save failed')
     const pageViewport = container.querySelector('[data-notice-viewport="page"]')!
+    const toastViewport = container.querySelector('[data-notice-viewport="toast"]')!
     const dialogViewport = dialog.querySelector('[data-notice-viewport="dialog"]')!
-    expect(pageViewport.className).toContain('fixed z-40')
-    expect(dialogViewport.className).toContain('absolute z-10')
+    expect(pageViewport.className).toContain('fixed')
+    expect(pageViewport.className).toContain('z-40')
     expect(pageViewport.className).toContain('env(safe-area-inset-bottom)')
+    expect(toastViewport.className).toContain('fixed')
+    expect(toastViewport.className).toContain('z-90')
+    expect(toastViewport.className).toContain('env(safe-area-inset-top)')
+    // The dialog notice slot sits right above the footer, never overlaid on it.
+    expect(dialogViewport.nextElementSibling?.tagName).toBe('FOOTER')
     expect(pageViewport.textContent).toBe('Background refresh failed')
     expect(dialog.querySelector('[role="status"]')!.closest('[aria-hidden="true"]')).toBeNull()
+
+    await act(async () => dialog.querySelector<HTMLButtonElement>('button')!.click())
+    expect(document.querySelector('[role="dialog"]')).toBeNull()
+    expect(toastViewport.textContent).toContain('Entry deleted.')
+    await act(async () => vi.advanceTimersByTime(2600))
+    expect(toastViewport.childElementCount).toBe(0)
   })
 })

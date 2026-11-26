@@ -88,11 +88,18 @@ const dialogContentBase = {
   `,
 } as const satisfies Record<DialogContentVariant, string>
 
+function isToastInteraction(event: Event) {
+  const target = event.target
+  return target instanceof Element && target.closest('[data-notice-viewport="toast"]') !== null
+}
+
 function DialogContent({
   ref,
   className,
   children,
   variant = 'default',
+  onPointerDownOutside,
+  onInteractOutside,
   ...props
 }: React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
   ref?: React.RefObject<React.ComponentRef<typeof DialogPrimitive.Content> | null>
@@ -104,6 +111,20 @@ function DialogContent({
       <DialogPrimitive.Content
         ref={ref}
         className={cn(dialogContentBase[variant], className)}
+        onPointerDownOutside={(event) => {
+          if (isToastInteraction(event)) {
+            event.preventDefault()
+            return
+          }
+          onPointerDownOutside?.(event)
+        }}
+        onInteractOutside={(event) => {
+          if (isToastInteraction(event)) {
+            event.preventDefault()
+            return
+          }
+          onInteractOutside?.(event)
+        }}
         {...props}
       >
         <FloatingNoticeProvider local>{children}</FloatingNoticeProvider>

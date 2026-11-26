@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CommissionEditDrawer } from './CommissionEditDrawer'
 
 vi.mock('./CommissionEditForm', () => ({
-  CommissionEditForm: ({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => void }) => {
+  CommissionEditForm: ({ onCancel, onDirtyChange }: { onCancel?: () => void, onDirtyChange?: (dirty: boolean) => void }) => {
     const [value, setValue] = useState('')
     return (
       <div>
@@ -21,6 +21,7 @@ vi.mock('./CommissionEditForm', () => ({
           }}
         />
         <button type="button" onClick={() => onDirtyChange?.(false)}>Mark saved</button>
+        <button type="button" onClick={onCancel}>Cancel</button>
       </div>
     )
   },
@@ -99,7 +100,7 @@ describe('commission edit drawer discard guard', () => {
 
   it('closes after Discard is confirmed', async () => {
     await typeDraft('Unsaved')
-    await act(async () => button('Close').click())
+    await act(async () => button('Cancel').click())
     expect(onClose).not.toHaveBeenCalled()
     await act(async () => button('Discard').click())
     expect(onClose).toHaveBeenCalledTimes(1)

@@ -78,13 +78,17 @@ export function CommissionEditDrawer({
   }
   const displayCommission = commission ?? lastCommissionRef.current
 
+  const handleRequestClose = useCallback(() => {
+    guardDiscard(onClose)
+  }, [guardDiscard, onClose])
+
   return (
     <>
       <Dialog
         open={open}
         onOpenChange={(isOpen) => {
           if (!isOpen)
-            guardDiscard(onClose)
+            handleRequestClose()
         }}
       >
         <DialogContent variant="sheet" aria-describedby={undefined}>
@@ -121,19 +125,18 @@ export function CommissionEditDrawer({
             </DialogTitle>
             <DialogCloseButton />
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto px-5 py-5">
-            {displayCommission && (
-              <CommissionEditForm
-                key={displayCommission.id}
-                characters={characters}
-                commission={displayCommission}
-                commissionSearchRows={commissionSearchRows}
-                onDelete={onDelete}
-                onDirtyChange={handleDirtyChange}
-                onSaveSuccess={onSaveSuccess}
-              />
-            )}
-          </div>
+          {displayCommission && (
+            <CommissionEditForm
+              key={displayCommission.id}
+              characters={characters}
+              commission={displayCommission}
+              commissionSearchRows={commissionSearchRows}
+              onCancel={handleRequestClose}
+              onDelete={onDelete}
+              onDirtyChange={handleDirtyChange}
+              onSaveSuccess={onSaveSuccess}
+            />
+          )}
         </DialogContent>
       </Dialog>
       <Dialog

@@ -266,6 +266,9 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
       <AdminBootstrapStatus errorMessage={state.errorMessage} isLoading={state.isLoading} hasPayload={payload !== null} onRetry={reload} />
       {(rebuild.status === 'success' || rebuild.status === 'error' || rebuild.status === 'unconfirmed') && (
         <FloatingNotice
+          placement={rebuild.status === 'success'
+            ? 'toast'
+            : 'default'}
           tone={rebuild.status === 'unconfirmed'
             ? 'error'
             : rebuild.status}

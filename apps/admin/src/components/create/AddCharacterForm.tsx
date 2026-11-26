@@ -113,6 +113,7 @@ export function AddCharacterForm({ onSaved, onPendingChange }: { onSaved: () => 
           <FormStatusIndicator
             status={state.status}
             message={state.message}
+            successLabel="Character saved"
             errorFallback="Unable to save character."
           />
         </div>
