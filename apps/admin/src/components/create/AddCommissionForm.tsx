@@ -270,10 +270,13 @@ export function AddCommissionForm({
     setCroppedImage(output)
     setSourceFile(source)
     setSourceCropState(editorState)
+    const formatLabel = output.type === 'image/png'
+      ? 'PNG'
+      : 'JPG'
 
     // Re-cropping the retained source must not overwrite details typed since the first crop.
     if (source === sourceFile) {
-      setSourceImageNotice({ tone: 'success', message: 'Image updated (1280×525 JPG).' })
+      setSourceImageNotice({ tone: 'success', message: `Image updated (1280×525 ${formatLabel}).` })
       return
     }
 
@@ -281,7 +284,7 @@ export function AddCommissionForm({
     if (!details) {
       setSourceImageNotice({
         tone: 'success',
-        message: `Ready: ${output.name} (1280×525 JPG). Add delivery details if known.`,
+        message: `Ready: ${output.name} (1280×525 ${formatLabel}). Add delivery details if known.`,
       })
       return
     }
@@ -307,8 +310,8 @@ export function AddCommissionForm({
     setSourceImageNotice({
       tone: 'success',
       message: details.partNumber
-        ? `Image ready (1280×525 JPG). Details were suggested; enable part grouping to use part ${details.partNumber}.`
-        : 'Image ready (1280×525 JPG). Delivery details were suggested from the image name.',
+        ? `Image ready (1280×525 ${formatLabel}). Details were suggested; enable part grouping to use part ${details.partNumber}.`
+        : `Image ready (1280×525 ${formatLabel}). Delivery details were suggested from the image name.`,
     })
   }
 

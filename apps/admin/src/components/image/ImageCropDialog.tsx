@@ -113,6 +113,7 @@ export function ImageCropDialog({
         fillColor,
         imageUrl,
         mediaSize: snapshot.mediaSize,
+        sourceFile: file,
         transform: snapshot.transform,
       })
       closeWithAction(() => onConfirm(output, editorState))

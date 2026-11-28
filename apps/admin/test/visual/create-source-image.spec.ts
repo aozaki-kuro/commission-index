@@ -189,7 +189,7 @@ test('overflow mode lets the frame take the full image height and fills the side
   const overflowFrame = (await frame.boundingBox())!
   const imageBox = (await image.boundingBox())!
   expect(overflowFrame.width).toBeGreaterThan(imageBox.width)
-  // The kept axis still carries the 2px-of-1280 bleed on each side.
+  // At 0°, the kept axis aligns cleanly with the image edges (no 2px bleed upscaling).
   expect(Math.abs(overflowFrame.height - imageBox.height)).toBeLessThan(imageBox.height * 0.02)
   expect(overflowFrame.y).toBeGreaterThanOrEqual(imageBox.y - 0.5)
   await confirmCrop(page)
@@ -230,4 +230,73 @@ test('overflow mode lets the frame take the full image height and fills the side
   await expect.poll(async () => (await frame.boundingBox())?.width ?? 0).toBeLessThanOrEqual(imageBox.width)
   await dialog.getByRole('button', { name: 'Cancel' }).click()
   await expect(dialog).toBeHidden()
+})
+
+test('exact 1280x525 uploads pass through untouched and downscaled exports keep 4:4:4 chroma', async ({ page }) => {
+  await mockAdminApi(page)
+  await page.goto('/create')
+  await page.getByRole('heading', { name: 'Entry details' }).waitFor()
+
+  // 1. Exact 1280×525 opaque PNG: no upscale warning, passes through bit-for-bit untouched.
+  const exactPng = await createTestSourceImage(page, { height: 525, width: 1280 })
+  await dropFile(page, {
+    base64: exactPng.toString('base64'),
+    name: '20260929_Exact.png',
+    type: 'image/png',
+  })
+  const dialog = page.getByRole('dialog', { name: 'Crop source image' })
+  await expect(dialog.getByRole('button', { name: 'Use image' })).toBeEnabled()
+  await expect(dialog.getByText(/This crop will be enlarged/)).toHaveCount(0)
+  await confirmCrop(page)
+
+  expect(await readAttachedImage(page)).toMatchObject({
+    height: 525,
+    name: '20260929_Exact.png',
+    size: exactPng.byteLength,
+    type: 'image/png',
+    width: 1280,
+  })
+  await expect(page.getByText('Image ready (1280×525 PNG). Delivery details were suggested from the image name.')).toBeVisible()
+
+  // 2. High-res 2560×1050 PNG: downscaled via Lanczos-3 and encoded as 4:4:4 JPEG (sampling 1x1/1x1/1x1).
+  const hiResPng = await createTestSourceImage(page, { height: 1050, width: 2560 })
+  await dropFile(page, {
+    base64: hiResPng.toString('base64'),
+    name: '20260930_HiRes.png',
+    type: 'image/png',
+  })
+  await confirmCrop(page)
+
+  const samplingFactors = await page.getByLabel('Source image').evaluate(async (input: HTMLInputElement) => {
+    const file = input.files?.[0]
+    if (!file)
+      return null
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    let offset = 2
+    while (offset < bytes.length - 1) {
+      if (bytes[offset] !== 0xFF)
+        return null
+      while (offset < bytes.length && bytes[offset] === 0xFF) offset += 1
+      const marker = bytes[offset++]
+      if (marker === 0xD9 || marker === 0xDA)
+        break
+      const length = (bytes[offset] << 8) | bytes[offset + 1]
+      if (marker === 0xC0 || marker === 0xC2) {
+        const componentCount = bytes[offset + 7]
+        const factors: string[] = []
+        for (let index = 0; index < componentCount; index += 1) {
+          const hv = bytes[offset + 9 + index * 3]
+          factors.push(`${hv >> 4}x${hv & 0x0F}`)
+        }
+        return { factors, type: file.type }
+      }
+      offset += length
+    }
+    return null
+  })
+
+  expect(samplingFactors).toEqual({
+    factors: ['1x1', '1x1', '1x1'],
+    type: 'image/jpeg',
+  })
 })

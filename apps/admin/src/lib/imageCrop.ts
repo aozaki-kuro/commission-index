@@ -39,14 +39,31 @@ interface CropEditorResizeOptions {
 
 export const SOURCE_IMAGE_ASPECT = 1280 / 525
 export const SOURCE_IMAGE_HEIGHT = 525
-export const SOURCE_IMAGE_JPEG_QUALITY = 0.95
+export const SOURCE_IMAGE_JPEG_QUALITY = 1
 export const SOURCE_IMAGE_WIDTH = 1280
 
+const MAX_PASSTHROUGH_BYTES = 10 * 1024 * 1024
+const MAX_RESAMPLE_FACTOR = 4
 const OUTPUT_EDGE_BLEED = 2
 // Slack for accumulated float error in coverage comparisons, in canvas pixels.
 const COVERAGE_TOLERANCE = 1e-7
 const SUPPORTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png'])
 const SUPPORTED_IMAGE_EXTENSION_PATTERN = /\.(?:jpe?g|png)$/i
+const JPEG_SOF_MARKERS = new Set([
+  0xC0,
+  0xC1,
+  0xC2,
+  0xC3,
+  0xC5,
+  0xC6,
+  0xC7,
+  0xC9,
+  0xCA,
+  0xCB,
+  0xCD,
+  0xCE,
+  0xCF,
+])
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -130,12 +147,20 @@ function getRelaxedAxis(size: CropSize, rotation: number, allowOverflow: boolean
     : null
 }
 
+// Diagonal rotations cross pixel boundaries and need a 2px bleed to avoid antialiased white edge slivers;
+// axis-aligned crops (0°/90°/180°/270°) align to pixel edges, so bleed would only force a 1.0076× upscale on 1280×525.
+function getOutputEdgeBleed(rotation: number) {
+  return Math.abs(Math.sin(2 * rotation)) < 1e-6
+    ? 0
+    : OUTPUT_EDGE_BLEED
+}
+
 function getSelectionExtents(selection: CropSize, rotation: number) {
   const cos = Math.abs(Math.cos(rotation))
   const sin = Math.abs(Math.sin(rotation))
 
   return {
-    bleed: OUTPUT_EDGE_BLEED * selection.width / SOURCE_IMAGE_WIDTH,
+    bleed: getOutputEdgeBleed(rotation) * selection.width / SOURCE_IMAGE_WIDTH,
     x: cos * selection.width / 2 + sin * selection.height / 2,
     y: sin * selection.width / 2 + cos * selection.height / 2,
   }
@@ -233,6 +258,31 @@ export function normalizeCropImageMatrix(
   ]
 }
 
+// Fit the opening image tightly onto the selection instead of leaving it at canvas-contain size,
+// so an already-sized 1280×525 image opens at 1:1 with zero unintended crop or upscaling.
+export function getInitialCropImageMatrix(
+  image: CropImageGeometry,
+  selection: CropSelection,
+  allowOverflow = false,
+): CropMatrix {
+  const frameCenter = getSelectionCenter(selection)
+  const scale = Math.max(
+    selection.width / Math.max(image.size.width, Number.EPSILON),
+    selection.height / Math.max(image.size.height, Number.EPSILON),
+  )
+  return normalizeCropImageMatrix({
+    ...image,
+    matrix: [
+      scale,
+      0,
+      0,
+      scale,
+      frameCenter.x - image.baseCenter.x,
+      frameCenter.y - image.baseCenter.y,
+    ],
+  }, selection, allowOverflow)
+}
+
 interface CropWidthOptions {
   allowOverflow?: boolean
   aspectRatio: number
@@ -250,7 +300,7 @@ function getImageBoundSelectionWidth({
   const cos = Math.abs(Math.cos(rotation))
   const sin = Math.abs(Math.sin(rotation))
   const local = toImageLocal(center, imageCenter, rotation)
-  const bleedRate = OUTPUT_EDGE_BLEED / SOURCE_IMAGE_WIDTH
+  const bleedRate = getOutputEdgeBleed(rotation) / SOURCE_IMAGE_WIDTH
   const xRate = (cos + sin / aspectRatio) / 2 + bleedRate
   const yRate = (sin + cos / aspectRatio) / 2 + bleedRate
   const availableX = image.size.width * scale / 2 - Math.abs(local.x)
@@ -644,12 +694,367 @@ export async function sampleOverflowFillColor(imageUrl: string, axis: CropAxis) 
   return getEdgeMedianColor(data, canvas.width, canvas.height, axis)
 }
 
+export interface RawSourceImageHeader {
+  format: 'jpeg' | 'png'
+  hasNonDefaultOrientation: boolean
+  height: number
+  width: number
+}
+
+const PNG_SIGNATURE = [
+  0x89,
+  0x50,
+  0x4E,
+  0x47,
+  0x0D,
+  0x0A,
+  0x1A,
+  0x0A,
+]
+const EXIF_HEADER = [0x45, 0x78, 0x69, 0x66, 0x00, 0x00]
+
+function hasExifNonDefaultOrientation(segment: Uint8Array) {
+  if (segment.length < EXIF_HEADER.length || !EXIF_HEADER.every((byte, index) => segment[index] === byte)) {
+    return false
+  }
+
+  const tiffBase = EXIF_HEADER.length
+  if (segment.length < tiffBase + 8) {
+    return true
+  }
+
+  const littleEndian = segment[tiffBase] === 0x49 && segment[tiffBase + 1] === 0x49
+  const bigEndian = segment[tiffBase] === 0x4D && segment[tiffBase + 1] === 0x4D
+  if (!littleEndian && !bigEndian) {
+    return true
+  }
+
+  const view = new DataView(segment.buffer, segment.byteOffset, segment.byteLength)
+  if (view.getUint16(tiffBase + 2, littleEndian) !== 42) {
+    return true
+  }
+
+  const ifdStart = tiffBase + view.getUint32(tiffBase + 4, littleEndian)
+  if (ifdStart < tiffBase + 8 || ifdStart + 2 > segment.length) {
+    return true
+  }
+
+  const entryCount = view.getUint16(ifdStart, littleEndian)
+  if (ifdStart + 2 + entryCount * 12 > segment.length) {
+    return true
+  }
+
+  for (let index = 0; index < entryCount; index += 1) {
+    const entryOffset = ifdStart + 2 + index * 12
+    if (view.getUint16(entryOffset, littleEndian) === 0x0112) {
+      const type = view.getUint16(entryOffset + 2, littleEndian)
+      const count = view.getUint32(entryOffset + 4, littleEndian)
+      if (type !== 3 || count < 1) {
+        return true
+      }
+      return view.getUint16(entryOffset + 8, littleEndian) !== 1
+    }
+  }
+
+  return false
+}
+
+export function readRawSourceImageHeader(bytes: Uint8Array): RawSourceImageHeader | null {
+  if (bytes.length >= 24 && PNG_SIGNATURE.every((byte, index) => bytes[index] === byte)) {
+    // IHDR must be the first chunk in a valid PNG (bytes 12..15).
+    if (bytes[12] !== 0x49 || bytes[13] !== 0x48 || bytes[14] !== 0x44 || bytes[15] !== 0x52) {
+      return null
+    }
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+    const width = view.getUint32(16, false)
+    const height = view.getUint32(20, false)
+    return width > 0 && height > 0
+      ? {
+          format: 'png',
+          hasNonDefaultOrientation: false,
+          height,
+          width,
+        }
+      : null
+  }
+
+  if (bytes.length < 4 || bytes[0] !== 0xFF || bytes[1] !== 0xD8 || bytes[2] !== 0xFF) {
+    return null
+  }
+
+  let offset = 2
+  let width = 0
+  let height = 0
+  let hasNonDefaultOrientation = false
+
+  while (offset < bytes.length) {
+    if (bytes[offset] !== 0xFF) {
+      return null
+    }
+    while (offset < bytes.length && bytes[offset] === 0xFF) {
+      offset += 1
+    }
+    if (offset >= bytes.length) {
+      return null
+    }
+    const marker = bytes[offset]
+    offset += 1
+
+    if (marker === 0xD9 || marker === 0xDA) {
+      break
+    }
+    if (marker === 0x01 || (marker >= 0xD0 && marker <= 0xD8)) {
+      continue
+    }
+    if (marker === 0x00 || offset + 2 > bytes.length) {
+      return null
+    }
+
+    const segmentLength = (bytes[offset] << 8) | bytes[offset + 1]
+    if (segmentLength < 2 || offset + segmentLength > bytes.length) {
+      return null
+    }
+
+    const payloadStart = offset + 2
+    if (marker === 0xE1 && hasExifNonDefaultOrientation(bytes.subarray(payloadStart, offset + segmentLength))) {
+      hasNonDefaultOrientation = true
+    }
+    else if (JPEG_SOF_MARKERS.has(marker) && segmentLength >= 7) {
+      height = (bytes[payloadStart + 1] << 8) | bytes[payloadStart + 2]
+      width = (bytes[payloadStart + 3] << 8) | bytes[payloadStart + 4]
+    }
+
+    offset += segmentLength
+  }
+
+  return width > 0 && height > 0
+    ? {
+        format: 'jpeg',
+        hasNonDefaultOrientation,
+        height,
+        width,
+      }
+    : null
+}
+
+function buildLanczos3Table(sourceLength: number, targetLength: number) {
+  const scale = targetLength / sourceLength
+  const filterScale = Math.min(1, scale)
+  const radius = 3 / filterScale
+  const maxTaps = Math.ceil(radius * 2) + 2
+  const starts = new Int32Array(targetLength)
+  const counts = new Int32Array(targetLength)
+  const weights = new Float32Array(targetLength * maxTaps)
+
+  for (let targetIndex = 0; targetIndex < targetLength; targetIndex += 1) {
+    const center = (targetIndex + 0.5) / scale - 0.5
+    const left = Math.max(0, Math.floor(center - radius))
+    const right = Math.min(sourceLength - 1, Math.ceil(center + radius))
+    const count = right - left + 1
+    starts[targetIndex] = left
+    counts[targetIndex] = count
+
+    const base = targetIndex * maxTaps
+    let weightSum = 0
+    for (let offset = 0; offset < count; offset += 1) {
+      const x = (left + offset - center) * filterScale
+      let weight = 0
+      if (x === 0) {
+        weight = 1
+      }
+      else if (Math.abs(x) < 3) {
+        const piX = Math.PI * x
+        const piXOver3 = piX / 3
+        weight = (Math.sin(piX) / piX) * (Math.sin(piXOver3) / piXOver3)
+      }
+      weights[base + offset] = weight
+      weightSum += weight
+    }
+
+    const inverseSum = weightSum > 0
+      ? 1 / weightSum
+      : 1
+    for (let offset = 0; offset < count; offset += 1) {
+      weights[base + offset] *= inverseSum
+    }
+  }
+
+  return { counts, maxTaps, starts, weights }
+}
+
+export function resampleLanczos3(
+  source: Uint8ClampedArray,
+  sourceWidth: number,
+  sourceHeight: number,
+  targetWidth: number,
+  targetHeight: number,
+): Uint8ClampedArray {
+  if (sourceWidth <= 0 || sourceHeight <= 0 || targetWidth <= 0 || targetHeight <= 0) {
+    throw new Error('Image resample dimensions must be positive.')
+  }
+  if (source.length < sourceWidth * sourceHeight * 4) {
+    throw new Error('Image pixel buffer is smaller than expected.')
+  }
+
+  const horizontal = buildLanczos3Table(sourceWidth, targetWidth)
+  const vertical = buildLanczos3Table(sourceHeight, targetHeight)
+  const intermediate = new Float32Array(targetWidth * sourceHeight * 3)
+
+  for (let y = 0; y < sourceHeight; y += 1) {
+    const sourceRowOffset = y * sourceWidth * 4
+    const targetRowOffset = y * targetWidth * 3
+    for (let targetX = 0; targetX < targetWidth; targetX += 1) {
+      const start = horizontal.starts[targetX]
+      const count = horizontal.counts[targetX]
+      const weightBase = targetX * horizontal.maxTaps
+      let red = 0
+      let green = 0
+      let blue = 0
+      for (let tap = 0; tap < count; tap += 1) {
+        const weight = horizontal.weights[weightBase + tap]
+        const pixelOffset = sourceRowOffset + (start + tap) * 4
+        red += source[pixelOffset] * weight
+        green += source[pixelOffset + 1] * weight
+        blue += source[pixelOffset + 2] * weight
+      }
+      const outOffset = targetRowOffset + targetX * 3
+      intermediate[outOffset] = red
+      intermediate[outOffset + 1] = green
+      intermediate[outOffset + 2] = blue
+    }
+  }
+
+  const output = new Uint8ClampedArray(targetWidth * targetHeight * 4)
+  const intermediateRowStride = targetWidth * 3
+  for (let targetY = 0; targetY < targetHeight; targetY += 1) {
+    const start = vertical.starts[targetY]
+    const count = vertical.counts[targetY]
+    const weightBase = targetY * vertical.maxTaps
+    const outRowOffset = targetY * targetWidth * 4
+    for (let targetX = 0; targetX < targetWidth; targetX += 1) {
+      let red = 0
+      let green = 0
+      let blue = 0
+      const columnOffset = targetX * 3
+      for (let tap = 0; tap < count; tap += 1) {
+        const weight = vertical.weights[weightBase + tap]
+        const pixelOffset = (start + tap) * intermediateRowStride + columnOffset
+        red += intermediate[pixelOffset] * weight
+        green += intermediate[pixelOffset + 1] * weight
+        blue += intermediate[pixelOffset + 2] * weight
+      }
+      const outOffset = outRowOffset + targetX * 4
+      output[outOffset] = clamp(Math.round(red), 0, 255)
+      output[outOffset + 1] = clamp(Math.round(green), 0, 255)
+      output[outOffset + 2] = clamp(Math.round(blue), 0, 255)
+      output[outOffset + 3] = 255
+    }
+  }
+
+  return output
+}
+
+function drawCroppedFrame(
+  context: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  width: number,
+  height: number,
+  fillColor: string,
+  outputScale: number,
+  drawScale: number,
+  transform: CropTransform,
+) {
+  context.fillStyle = fillColor
+  context.fillRect(0, 0, width, height)
+  context.imageSmoothingEnabled = true
+  context.imageSmoothingQuality = 'high'
+  context.save()
+  context.scale(width / SOURCE_IMAGE_WIDTH, height / SOURCE_IMAGE_HEIGHT)
+  context.translate(
+    SOURCE_IMAGE_WIDTH / 2 + transform.crop.x * outputScale,
+    SOURCE_IMAGE_HEIGHT / 2 + transform.crop.y * outputScale,
+  )
+  context.rotate(transform.rotation * Math.PI / 180)
+  context.scale(drawScale, drawScale)
+  context.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2)
+  context.restore()
+}
+
+function isImageFullyOpaque(image: HTMLImageElement, width: number, height: number) {
+  const canvas = document.createElement('canvas')
+  canvas.width = width
+  canvas.height = height
+  const context = canvas.getContext('2d')
+  if (!context) {
+    return false
+  }
+  context.drawImage(image, 0, 0, width, height)
+  const { data } = context.getImageData(0, 0, width, height)
+  canvas.width = 0
+  canvas.height = 0
+  for (let index = 3; index < data.length; index += 4) {
+    if (data[index] !== 255) {
+      return false
+    }
+  }
+  return true
+}
+
+async function resolveIdentityPassthroughFile(
+  sourceFile: File | undefined,
+  image: HTMLImageElement,
+  transform: CropTransform,
+  outputScale: number,
+  drawScale: number,
+) {
+  if (
+    !sourceFile
+    || sourceFile.size <= 0
+    || sourceFile.size > MAX_PASSTHROUGH_BYTES
+    || image.naturalWidth !== SOURCE_IMAGE_WIDTH
+    || image.naturalHeight !== SOURCE_IMAGE_HEIGHT
+  ) {
+    return null
+  }
+
+  const normalizedRotation = ((transform.rotation % 360) + 360) % 360
+  if (
+    Math.min(normalizedRotation, 360 - normalizedRotation) >= 0.01
+    || Math.abs(drawScale - 1) >= 1e-3
+    || Math.abs(transform.crop.x * outputScale) >= 0.5
+    || Math.abs(transform.crop.y * outputScale) >= 0.5
+  ) {
+    return null
+  }
+
+  const bytes = new Uint8Array(await sourceFile.arrayBuffer())
+  const header = readRawSourceImageHeader(bytes)
+  if (!header || header.hasNonDefaultOrientation || header.width !== SOURCE_IMAGE_WIDTH || header.height !== SOURCE_IMAGE_HEIGHT) {
+    return null
+  }
+
+  if (header.format === 'png' && !isImageFullyOpaque(image, SOURCE_IMAGE_WIDTH, SOURCE_IMAGE_HEIGHT)) {
+    return null
+  }
+
+  const expectedMime = header.format === 'png'
+    ? 'image/png'
+    : 'image/jpeg'
+  return sourceFile.type === expectedMime
+    ? sourceFile
+    : new File([sourceFile], sourceFile.name, {
+        lastModified: sourceFile.lastModified,
+        type: expectedMime,
+      })
+}
+
 interface ExportCroppedImageOptions {
   cropSize: CropSize
   fileName: string
   fillColor?: string
   imageUrl: string
   mediaSize: CropMediaSize
+  sourceFile?: File
   transform: CropTransform
 }
 
@@ -659,9 +1064,25 @@ export async function exportCroppedImage({
   fillColor = DEFAULT_CROP_FILL_COLOR,
   imageUrl,
   mediaSize,
+  sourceFile,
   transform,
 }: ExportCroppedImageOptions) {
   const image = await loadImage(imageUrl)
+  const outputScale = SOURCE_IMAGE_WIDTH / cropSize.width
+  const mediaScale = mediaSize.width / image.naturalWidth
+  const drawScale = mediaScale * transform.zoom * outputScale
+
+  const passthrough = await resolveIdentityPassthroughFile(
+    sourceFile,
+    image,
+    transform,
+    outputScale,
+    drawScale,
+  )
+  if (passthrough) {
+    return passthrough
+  }
+
   const canvas = document.createElement('canvas')
   canvas.width = SOURCE_IMAGE_WIDTH
   canvas.height = SOURCE_IMAGE_HEIGHT
@@ -671,23 +1092,58 @@ export async function exportCroppedImage({
     throw new Error('Image processing is not available in this browser.')
   }
 
-  const outputScale = SOURCE_IMAGE_WIDTH / cropSize.width
-  const mediaScale = mediaSize.width / image.naturalWidth
+  const supersample = drawScale < 0.999
+    ? Math.min(1 / drawScale, MAX_RESAMPLE_FACTOR)
+    : 1
+  const intermediateWidth = Math.max(SOURCE_IMAGE_WIDTH, Math.round(SOURCE_IMAGE_WIDTH * supersample))
+  const intermediateHeight = Math.max(SOURCE_IMAGE_HEIGHT, Math.round(SOURCE_IMAGE_HEIGHT * supersample))
 
-  context.fillStyle = fillColor
-  context.fillRect(0, 0, canvas.width, canvas.height)
-  context.imageSmoothingEnabled = true
-  context.imageSmoothingQuality = 'high'
-  context.translate(
-    canvas.width / 2 + transform.crop.x * outputScale,
-    canvas.height / 2 + transform.crop.y * outputScale,
-  )
-  context.rotate(transform.rotation * Math.PI / 180)
-  context.scale(
-    mediaScale * transform.zoom * outputScale,
-    mediaScale * transform.zoom * outputScale,
-  )
-  context.drawImage(image, -image.naturalWidth / 2, -image.naturalHeight / 2)
+  if (intermediateWidth > SOURCE_IMAGE_WIDTH || intermediateHeight > SOURCE_IMAGE_HEIGHT) {
+    const intermediateCanvas = document.createElement('canvas')
+    intermediateCanvas.width = intermediateWidth
+    intermediateCanvas.height = intermediateHeight
+    const intermediateContext = intermediateCanvas.getContext('2d', { willReadFrequently: true })
+    if (!intermediateContext) {
+      throw new Error('Image processing is not available in this browser.')
+    }
+
+    drawCroppedFrame(
+      intermediateContext,
+      image,
+      intermediateWidth,
+      intermediateHeight,
+      fillColor,
+      outputScale,
+      drawScale,
+      transform,
+    )
+    const intermediatePixels = intermediateContext.getImageData(0, 0, intermediateWidth, intermediateHeight).data
+    intermediateCanvas.width = 0
+    intermediateCanvas.height = 0
+
+    const resampled = resampleLanczos3(
+      intermediatePixels,
+      intermediateWidth,
+      intermediateHeight,
+      SOURCE_IMAGE_WIDTH,
+      SOURCE_IMAGE_HEIGHT,
+    )
+    const outputImageData = context.createImageData(SOURCE_IMAGE_WIDTH, SOURCE_IMAGE_HEIGHT)
+    outputImageData.data.set(resampled)
+    context.putImageData(outputImageData, 0, 0)
+  }
+  else {
+    drawCroppedFrame(
+      context,
+      image,
+      SOURCE_IMAGE_WIDTH,
+      SOURCE_IMAGE_HEIGHT,
+      fillColor,
+      outputScale,
+      drawScale,
+      transform,
+    )
+  }
 
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(

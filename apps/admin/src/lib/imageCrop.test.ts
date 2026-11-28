@@ -4,7 +4,9 @@ import {
   constrainCropSelectionChange,
   exportCroppedImage,
   getCropOverflowAxis,
+  getCropUpscaleFactor,
   getEdgeMedianColor,
+  getInitialCropImageMatrix,
   getMaximumCropSelectionWidth,
   getSourceImageFileSizeError,
   getSourceImagePixelCountError,
@@ -12,10 +14,14 @@ import {
   MAX_SOURCE_IMAGE_FILE_BYTES,
   MAX_SOURCE_IMAGE_PIXELS,
   normalizeCropImageMatrix,
+  readRawSourceImageHeader,
   refitCropSelectionAfterRotation,
+  resampleLanczos3,
   resizeCropEditorState,
   restoreCropEditorState,
   SOURCE_IMAGE_ASPECT,
+  SOURCE_IMAGE_HEIGHT,
+  SOURCE_IMAGE_WIDTH,
   toCropTransform,
   zoomImageToFitOverflowFrame,
 } from './imageCrop'
@@ -367,11 +373,9 @@ describe('image crop geometry', () => {
         center,
         image,
       })
-      // Each side keeps the 2px-of-1280 output bleed.
-      const bleedRate = 2 / 1280
-
-      expect(contained).toBeCloseTo(4093 * 0.2 / (1 + 2 * bleedRate), 6)
-      expect(width / SOURCE_IMAGE_ASPECT).toBeCloseTo(2894 * 0.2 / (1 + 2 * bleedRate * SOURCE_IMAGE_ASPECT), 6)
+      // Axis-aligned (0°) crops keep zero edge bleed, so the frame aligns cleanly with the image bounds.
+      expect(contained).toBeCloseTo(4093 * 0.2, 6)
+      expect(width / SOURCE_IMAGE_ASPECT).toBeCloseTo(2894 * 0.2, 6)
       expect(width).toBeGreaterThan(4093 * 0.2)
       const selection = {
         height: width / SOURCE_IMAGE_ASPECT,
@@ -457,7 +461,7 @@ describe('image crop geometry', () => {
 
       expect(scale).toBeLessThan(0.4)
       expect(width).toBeCloseTo(Math.min(canvasSize.width, canvasSize.height * SOURCE_IMAGE_ASPECT), 6)
-      expect(width / SOURCE_IMAGE_ASPECT).toBeCloseTo(2894 * scale / (1 + 2 * 2 / 1280 * SOURCE_IMAGE_ASPECT), 6)
+      expect(width / SOURCE_IMAGE_ASPECT).toBeCloseTo(2894 * scale, 6)
       expect(zoomImageToFitOverflowFrame({
         aspectRatio: SOURCE_IMAGE_ASPECT,
         canvasSize,
@@ -590,6 +594,367 @@ describe('source image size limits', () => {
         zoom: 1,
       },
     })).rejects.toThrow(/megapixels/)
+    expect(createElement).not.toHaveBeenCalled()
+  })
+})
+
+function buildMinimalPngHeaderBytes(width: number, height: number) {
+  const bytes = new Uint8Array(24)
+  bytes.set([
+    0x89,
+    0x50,
+    0x4E,
+    0x47,
+    0x0D,
+    0x0A,
+    0x1A,
+    0x0A,
+  ], 0)
+  // Chunk length = 13, chunk type = 'IHDR'
+  bytes.set([
+    0x00,
+    0x00,
+    0x00,
+    0x0D,
+    0x49,
+    0x48,
+    0x44,
+    0x52,
+  ], 8)
+  const view = new DataView(bytes.buffer)
+  view.setUint32(16, width, false)
+  view.setUint32(20, height, false)
+  return bytes
+}
+
+function buildMinimalJpegHeaderBytes(
+  width: number,
+  height: number,
+  options: { sofMarker?: number, exifOrientation?: number, littleEndian?: boolean } = {},
+) {
+  const segments: number[] = [0xFF, 0xD8]
+
+  if (options.exifOrientation !== undefined) {
+    const le = options.littleEndian ?? false
+    const tiff = new Uint8Array(26)
+    const view = new DataView(tiff.buffer)
+    tiff[0] = le
+      ? 0x49
+      : 0x4D
+    tiff[1] = tiff[0]
+    view.setUint16(2, 42, le)
+    view.setUint32(4, 8, le)
+    view.setUint16(8, 1, le) // 1 IFD entry
+    view.setUint16(10, 0x0112, le) // Orientation tag
+    view.setUint16(12, 3, le) // SHORT
+    view.setUint32(14, 1, le)
+    view.setUint16(18, options.exifOrientation, le)
+    const exifPayload = [
+      0x45,
+      0x78,
+      0x69,
+      0x66,
+      0x00,
+      0x00,
+      ...tiff,
+    ]
+    const app1Length = exifPayload.length + 2
+    segments.push(0xFF, 0xE1, (app1Length >> 8) & 0xFF, app1Length & 0xFF, ...exifPayload)
+  }
+
+  const sofMarker = options.sofMarker ?? 0xC0
+  // SOF length = 11 (2 length + 1 precision + 2 height + 2 width + 1 components + 3 comp)
+  segments.push(
+    0xFF,
+    sofMarker,
+    0x00,
+    0x0B,
+    0x08,
+    (height >> 8) & 0xFF,
+    height & 0xFF,
+    (width >> 8) & 0xFF,
+    width & 0xFF,
+    0x01,
+    0x01,
+    0x11,
+    0x00,
+    0xFF,
+    0xD9,
+  )
+  return new Uint8Array(segments)
+}
+
+describe('axis-aligned bleed, opening fit, and quality preservation', () => {
+  it('applies zero bleed for axis-aligned rotations (0°, ±90°, 180°) and 2px bleed for diagonal rotations', () => {
+    const canvasSize = { height: 700, width: 1400 }
+    const center = { x: 700, y: 350 }
+
+    for (const degrees of [0, 90, -90, 180]) {
+      const radians = degrees * Math.PI / 180
+      const isQuarterTurn = Math.abs(degrees) === 90
+      const size = isQuarterTurn
+        ? { height: SOURCE_IMAGE_WIDTH, width: SOURCE_IMAGE_HEIGHT }
+        : { height: SOURCE_IMAGE_HEIGHT, width: SOURCE_IMAGE_WIDTH }
+      const image = {
+        baseCenter: center,
+        matrix: [
+          Math.cos(radians),
+          Math.sin(radians),
+          -Math.sin(radians),
+          Math.cos(radians),
+          0,
+          0,
+        ] as [number, number, number, number, number, number],
+        size,
+      }
+      const maximumWidth = getMaximumCropSelectionWidth({
+        aspectRatio: SOURCE_IMAGE_ASPECT,
+        canvasSize,
+        center,
+        image,
+      })
+      expect(maximumWidth).toBeCloseTo(SOURCE_IMAGE_WIDTH, 6)
+      const selection = {
+        height: maximumWidth / SOURCE_IMAGE_ASPECT,
+        width: maximumWidth,
+        x: center.x - maximumWidth / 2,
+        y: center.y - maximumWidth / SOURCE_IMAGE_ASPECT / 2,
+      }
+      const transform = toCropTransform(image, selection)
+      expect(getCropUpscaleFactor(
+        { ...size, naturalHeight: size.height, naturalWidth: size.width },
+        selection,
+        transform.zoom,
+      )).toBeCloseTo(1, 10)
+    }
+
+    // Diagonal 37° rotation still requires the 2px edge bleed.
+    const diagonalRadians = 37 * Math.PI / 180
+    const diagonalImage = {
+      baseCenter: center,
+      matrix: [
+        Math.cos(diagonalRadians),
+        Math.sin(diagonalRadians),
+        -Math.sin(diagonalRadians),
+        Math.cos(diagonalRadians),
+        0,
+        0,
+      ] as [number, number, number, number, number, number],
+      size: { height: SOURCE_IMAGE_HEIGHT, width: SOURCE_IMAGE_WIDTH },
+    }
+    const diagonalMax = getMaximumCropSelectionWidth({
+      aspectRatio: SOURCE_IMAGE_ASPECT,
+      canvasSize,
+      center,
+      image: diagonalImage,
+    })
+    const cos = Math.abs(Math.cos(diagonalRadians))
+    const sin = Math.abs(Math.sin(diagonalRadians))
+    const bleedRate = 2 / SOURCE_IMAGE_WIDTH
+    const expectedWithoutBleed = Math.min(
+      SOURCE_IMAGE_WIDTH / (cos + sin / SOURCE_IMAGE_ASPECT),
+      SOURCE_IMAGE_HEIGHT / (sin + cos / SOURCE_IMAGE_ASPECT),
+    )
+    const expectedWithBleed = Math.min(
+      SOURCE_IMAGE_WIDTH / (cos + sin / SOURCE_IMAGE_ASPECT + 2 * bleedRate),
+      SOURCE_IMAGE_HEIGHT / (sin + cos / SOURCE_IMAGE_ASPECT + 2 * bleedRate),
+    )
+    expect(diagonalMax).toBeCloseTo(expectedWithBleed, 6)
+    expect(diagonalMax).toBeLessThan(expectedWithoutBleed)
+  })
+
+  it('opens an exact 1280×525 image at 1:1 and fits wider/taller artworks tightly to the selection', () => {
+    const selection = {
+      height: 500 / SOURCE_IMAGE_ASPECT,
+      width: 500,
+      x: 200,
+      y: 150,
+    }
+
+    const exactImage = {
+      baseCenter: { x: 450, y: 250 },
+      matrix: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
+      size: { height: 262.5, width: 640 },
+    }
+    const exactMatrix = getInitialCropImageMatrix(exactImage, selection)
+    const exactTransform = toCropTransform({ ...exactImage, matrix: exactMatrix }, selection)
+    expect(exactTransform.crop.x).toBeCloseTo(0, 10)
+    expect(exactTransform.crop.y).toBeCloseTo(0, 10)
+    expect(getCropUpscaleFactor(
+      { ...exactImage.size, naturalHeight: SOURCE_IMAGE_HEIGHT, naturalWidth: SOURCE_IMAGE_WIDTH },
+      selection,
+      exactTransform.zoom,
+    )).toBeCloseTo(1, 10)
+
+    for (const size of [
+      { height: 2894, width: 4093 },
+      { height: 1000, width: 4000 },
+    ]) {
+      const image = {
+        baseCenter: { x: 450, y: 250 },
+        matrix: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
+        size,
+      }
+      const matrix = getInitialCropImageMatrix(image, selection)
+      expect(isCropSelectionCovered(selection, { ...image, matrix })).toBe(true)
+      const scale = Math.hypot(matrix[0], matrix[1])
+      expect(scale).toBeCloseTo(Math.max(selection.width / size.width, selection.height / size.height), 10)
+    }
+  })
+
+  it('resamples uniform color bit-exactly and preserves sharp edges with Lanczos-3', () => {
+    const uniformWidth = 16
+    const uniformHeight = 12
+    const uniform = new Uint8ClampedArray(uniformWidth * uniformHeight * 4)
+    for (let index = 0; index < uniform.length; index += 4) {
+      uniform[index] = 42
+      uniform[index + 1] = 173
+      uniform[index + 2] = 219
+      uniform[index + 3] = 255
+    }
+    const uniformOut = resampleLanczos3(uniform, uniformWidth, uniformHeight, 8, 6)
+    expect(uniformOut).toHaveLength(8 * 6 * 4)
+    for (let index = 0; index < uniformOut.length; index += 4) {
+      expect([
+        uniformOut[index],
+        uniformOut[index + 1],
+        uniformOut[index + 2],
+        uniformOut[index + 3],
+      ])
+        .toEqual([42, 173, 219, 255])
+    }
+
+    // 2x downscale of crisp high-contrast stripes (2px black, 2px white -> 1px black, 1px white).
+    const stripeWidth = 32
+    const stripeHeight = 16
+    const stripes = new Uint8ClampedArray(stripeWidth * stripeHeight * 4)
+    for (let y = 0; y < stripeHeight; y += 1) {
+      for (let x = 0; x < stripeWidth; x += 1) {
+        const value = Math.floor(x / 2) % 2 === 0
+          ? 0
+          : 255
+        const offset = (y * stripeWidth + x) * 4
+        stripes[offset] = value
+        stripes[offset + 1] = value
+        stripes[offset + 2] = value
+        stripes[offset + 3] = 255
+      }
+    }
+    const resampled = resampleLanczos3(stripes, stripeWidth, stripeHeight, 16, 8)
+    const evenPixel = resampled[(4 * 16 + 4) * 4]
+    const oddPixel = resampled[(4 * 16 + 5) * 4]
+    expect(oddPixel - evenPixel).toBeGreaterThan(180)
+    expect(resampled[3]).toBe(255)
+    expect(resampled[resampled.length - 1]).toBe(255)
+  })
+
+  it('sniffs PNG/JPEG headers and EXIF orientation safely', () => {
+    expect(readRawSourceImageHeader(buildMinimalPngHeaderBytes(1280, 525))).toEqual({
+      format: 'png',
+      hasNonDefaultOrientation: false,
+      height: 525,
+      width: 1280,
+    })
+    expect(readRawSourceImageHeader(buildMinimalJpegHeaderBytes(1280, 525, { sofMarker: 0xC0 }))).toEqual({
+      format: 'jpeg',
+      hasNonDefaultOrientation: false,
+      height: 525,
+      width: 1280,
+    })
+    expect(readRawSourceImageHeader(buildMinimalJpegHeaderBytes(1280, 525, {
+      exifOrientation: 1,
+      littleEndian: true,
+      sofMarker: 0xC2,
+    }))).toEqual({
+      format: 'jpeg',
+      hasNonDefaultOrientation: false,
+      height: 525,
+      width: 1280,
+    })
+    expect(readRawSourceImageHeader(buildMinimalJpegHeaderBytes(1280, 525, {
+      exifOrientation: 6,
+      littleEndian: true,
+    }))?.hasNonDefaultOrientation).toBe(true)
+    expect(readRawSourceImageHeader(buildMinimalJpegHeaderBytes(1280, 525, {
+      exifOrientation: 8,
+      littleEndian: false,
+    }))?.hasNonDefaultOrientation).toBe(true)
+
+    // Malformed APP1 Exif header is treated conservatively as non-default orientation.
+    const malformedExif = new Uint8Array([
+      0xFF,
+      0xD8,
+      0xFF,
+      0xE1,
+      0x00,
+      0x0A,
+      0x45,
+      0x78,
+      0x69,
+      0x66,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0xFF,
+      0xC0,
+      0x00,
+      0x0B,
+      0x08,
+      0x02,
+      0x0D,
+      0x05,
+      0x00,
+      0x01,
+      0x01,
+      0x11,
+      0x00,
+      0xFF,
+      0xD9,
+    ])
+    expect(readRawSourceImageHeader(malformedExif)?.hasNonDefaultOrientation).toBe(true)
+    expect(readRawSourceImageHeader(new Uint8Array([0x52, 0x49, 0x46, 0x46]))).toBeNull()
+  })
+
+  it('passes through an exact 1280×525 JPEG sourceFile untouched without creating a canvas', async () => {
+    const createElement = vi.fn()
+    vi.stubGlobal('document', { createElement })
+    vi.stubGlobal('Image', class {
+      decoding = ''
+      naturalHeight = SOURCE_IMAGE_HEIGHT
+      naturalWidth = SOURCE_IMAGE_WIDTH
+      onerror: (() => void) | null = null
+      onload: (() => void) | null = null
+      get src() {
+        return ''
+      }
+
+      set src(_value: string) {
+        queueMicrotask(() => this.onload?.())
+      }
+    })
+
+    const rawBytes = buildMinimalJpegHeaderBytes(SOURCE_IMAGE_WIDTH, SOURCE_IMAGE_HEIGHT)
+    const sourceFile = new File([rawBytes], 'exact-artwork.jpg', { type: 'image/jpeg' })
+    const result = await exportCroppedImage({
+      cropSize: { height: 210, width: 512 },
+      fileName: 'exact-artwork.jpg',
+      imageUrl: 'blob:exact',
+      mediaSize: {
+        height: 210,
+        naturalHeight: SOURCE_IMAGE_HEIGHT,
+        naturalWidth: SOURCE_IMAGE_WIDTH,
+        width: 512,
+      },
+      sourceFile,
+      transform: {
+        crop: { x: 0, y: 0 },
+        rotation: 0,
+        zoom: 1,
+      },
+    })
+
+    expect(result).toBe(sourceFile)
     expect(createElement).not.toHaveBeenCalled()
   })
 })
