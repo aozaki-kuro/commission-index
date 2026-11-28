@@ -35,5 +35,5 @@ export function renderRssFeed(rssItems: RssItem[]): string {
     ? ''
     : `\n    <lastBuildDate>${new Date(newest).toUTCString()}</lastBuildDate>`
 
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">\n  <channel>\n    <title>${escapeXml(SITE_TITLE)}</title>\n    <link>${escapeXml(SITE_URL)}</link>\n    <atom:link href="${escapeXml(`${SITE_URL}/rss.xml`)}" rel="self" type="application/rss+xml" />\n    <description>Feed from Crystallize</description>\n    <language>en-US</language>\n    <webMaster>Crystallize</webMaster>\n    <ttl>60</ttl>${lastBuildDate}${items}\n  </channel>\n</rss>`
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/">\n  <channel>\n    <title>${escapeXml(SITE_TITLE)}</title>\n    <link>${escapeXml(SITE_URL)}</link>\n    <atom:link href="${escapeXml(`${SITE_URL}/rss.xml`)}" rel="self" type="application/rss+xml" />\n    <description>Feed from Crystallize</description>\n    <language>en-US</language>\n    <ttl>60</ttl>${lastBuildDate}${items}\n  </channel>\n</rss>`
 }

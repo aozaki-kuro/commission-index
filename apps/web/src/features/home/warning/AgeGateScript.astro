@@ -15,7 +15,7 @@ const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
 <div
   data-age-gate-root
   data-state="closed"
-  class="fixed inset-0 z-80 hidden items-center justify-center p-4"
+  class="fixed inset-0 z-90 hidden items-center justify-center p-4"
 >
   <div
     data-age-gate-overlay
@@ -37,7 +37,6 @@ const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
     class="
       relative z-10 w-full max-w-md overflow-hidden rounded-2xl border-none
       bg-white p-6 text-left opacity-0 shadow-xl
-      data-[state=closed]:scale-95
       data-[state=closed]:animate-[dialog-content-out_200ms_ease-in]
       data-[state=closed]:opacity-0
       data-[state=open]:scale-100
@@ -51,7 +50,8 @@ const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
     <div class="flex items-center justify-center">
       <img
         src="/favicon-transparent.svg"
-        alt="Commission Index mark"
+        alt=""
+        aria-hidden="true"
         loading="eager"
         decoding="async"
         width="88"
@@ -133,6 +133,16 @@ const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
     opacity: 1;
     scale: 1;
     animation: none;
+  }
+
+  /* Keep mobile floating roots hidden while the age gate is shown, including before deferred mounts hydrate. */
+  html[data-age-gate-initial='open'] [data-mobile-hamburger],
+  html[data-age-gate-initial='open'] [data-mobile-keyword-button-root],
+  html[data-age-gate-open='true'] [data-mobile-hamburger],
+  html[data-age-gate-open='true'] [data-mobile-keyword-button-root] {
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
   }
 </style>
 

@@ -4,6 +4,7 @@ import type {
   CommissionRow,
   CreatorAliasRow,
 } from '@commission-index/domain'
+import type { DataUpdateScope } from '../../lib/dataUpdateSignal'
 import type { DiscardGuard } from './CommissionEditDrawer'
 import { IconArrowsSort, IconSearch, IconX } from '@tabler/icons-react'
 import {
@@ -43,7 +44,7 @@ interface CommissionManagerProps {
   isInitialLoading?: boolean
   isInitialError?: boolean
   onOpenGroupsLoaded?: () => void
-  onRefresh?: () => void
+  onRefresh?: (scope?: DataUpdateScope) => void
   // Characters to refetch when new bootstrap rows land; null/undefined refetches every loaded group.
   refreshScope?: ReadonlySet<number> | null
 }
@@ -231,7 +232,11 @@ export function CommissionManager({
     }
     replaceLoadedCommission(updated)
     updateSearchRow(updated.id, updated)
-    onRefresh?.()
+    onRefresh?.({
+      characterIds: previous && previous.characterId !== updated.characterId
+        ? [updated.characterId, previous.characterId]
+        : [updated.characterId],
+    })
   }, [
     invalidateCharacterLoad,
     loadedCommissions,
@@ -326,7 +331,9 @@ export function CommissionManager({
     )
     updateSearchRow(selectedCommission.id, null)
     setSelectedCommission(null)
-    onRefresh?.()
+    onRefresh?.({
+      characterIds: [selectedCommission.characterId],
+    })
   }, [
     handleDeleteCommission,
     invalidateCharacterLoad,

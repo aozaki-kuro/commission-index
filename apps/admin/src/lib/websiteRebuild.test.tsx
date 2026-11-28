@@ -181,4 +181,22 @@ describe('shared website rebuild lifecycle', () => {
     })
     expect(api.trigger).toHaveBeenCalledOnce()
   })
+
+  it('hides stale success notice in AdminOverviewPage when newer edits mark pending rebuild', async () => {
+    Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+    container = document.createElement('div')
+    document.body.append(container)
+    root = createRoot(container)
+    await queueWebsiteRebuild()
+    markPendingRebuild()
+
+    await act(async () => root!.render(
+      <FloatingNoticeProvider>
+        <AdminOverviewPage onNavigate={() => {}} />
+      </FloatingNoticeProvider>,
+    ))
+
+    expect(container.textContent).toContain('Saved changes are waiting to be published.')
+    expect(container.textContent).not.toContain('Website updated and confirmed live.')
+  })
 })

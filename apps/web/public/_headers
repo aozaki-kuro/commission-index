@@ -35,6 +35,7 @@
 
 /rss.xml
   Cache-Control: no-cache
+  Content-Type: application/rss+xml; charset=utf-8
 
 /favicon.ico
   Cache-Control: public, max-age=86400

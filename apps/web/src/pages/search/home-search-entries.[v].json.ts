@@ -16,7 +16,7 @@ export const GET: APIRoute = ({ params }) => {
     return new Response(null, { status: 404 })
   }
 
-  return new Response(`${JSON.stringify(entries, null, 2)}\n`, {
+  return new Response(JSON.stringify(entries), {
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
     },

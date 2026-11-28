@@ -38,7 +38,7 @@ const sidebarNavLinkClass
 ---
 
 <aside
-  id="Home Controls"
+  id="home-controls"
   class="
     hidden
     md:top-52 md:right-[calc(50%+22rem)] md:bottom-0 md:w-full
@@ -55,7 +55,7 @@ const sidebarNavLinkClass
       "
       >
         <span class={sidebarLeadSlotClass} aria-hidden="true">
-          <Icon name="tabler:search" class={`${sidebarIconClass} text-gray-400 transition-colors duration-300`} aria-hidden="true" />
+          <Icon name="tabler:search" class={`${sidebarIconClass} text-gray-400`} aria-hidden="true" />
         </span>
         <a
           href="#commission-search"
@@ -70,9 +70,10 @@ const sidebarNavLinkClass
         <summary
           data-link-style="true"
           class="
-            flex min-h-5 list-none items-center gap-2
+            flex min-h-5 list-none items-center gap-2 rounded-sm
             text-gray-700 no-underline
-            dark:text-gray-200
+            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500
+            dark:text-gray-200 dark:focus-visible:outline-gray-400
           "
           aria-label={localeSwitcherLabel}
         >
@@ -125,9 +126,10 @@ const sidebarNavLinkClass
           data-link-style="true"
           class="
             flex min-h-5 w-full appearance-none items-center
-            gap-2 border-0 bg-transparent p-0 text-left text-gray-900
+            gap-2 rounded-sm border-0 bg-transparent p-0 text-left text-gray-900
             no-underline
-            dark:text-white
+            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500
+            dark:text-white dark:focus-visible:outline-gray-400
           "
         >
           <span class={sidebarLeadSlotClass} aria-hidden="true">
@@ -146,9 +148,10 @@ const sidebarNavLinkClass
           data-link-style="true"
           class="
             flex min-h-5 w-full appearance-none items-center
-            gap-2 border-0 bg-transparent p-0 text-left text-gray-700
+            gap-2 rounded-sm border-0 bg-transparent p-0 text-left text-gray-700
             no-underline
-            dark:text-gray-200
+            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500
+            dark:text-gray-200 dark:focus-visible:outline-gray-400
           "
         >
           <span class={sidebarLeadSlotClass} aria-hidden="true">
@@ -165,10 +168,8 @@ const sidebarNavLinkClass
   </div>
 </aside>
 
-{/* Fill `backwards`, not `both`: a retained transform makes this aside the containing block of the fixed back-to-top
-    button and pushes it off-screen. */}
 <aside
-  id="Character List"
+  id="character-list"
   class="
     hidden
     md:top-52 md:left-[calc(50%+22rem)] md:bottom-0 md:w-full
@@ -236,9 +237,10 @@ const sidebarNavLinkClass
                   data-load-archived-characters="true"
                   data-link-style="true"
                   class="
-                    flex min-h-5 list-none items-center gap-2
+                    flex min-h-5 list-none items-center gap-2 rounded-sm
                     text-gray-700 no-underline
-                    dark:text-gray-200
+                    focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500
+                    dark:text-gray-200 dark:focus-visible:outline-gray-400
                   "
                 >
                   <span class={sidebarLeadSlotClass} aria-hidden="true">

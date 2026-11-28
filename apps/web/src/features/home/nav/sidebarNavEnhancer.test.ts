@@ -8,7 +8,7 @@ import { mountSidebarNavEnhancer } from './sidebarNavEnhancer'
 
 function renderSidebarRoot() {
   document.body.innerHTML = `
-    <div id="Character List">
+    <div id="character-list">
       <button data-sidebar-view-mode-toggle="true" data-view-mode="character" aria-pressed="true">
         <span data-sidebar-view-mode-indicator class="scale-100 opacity-100"></span>
       </button>
@@ -196,12 +196,16 @@ describe('sidebarNavEnhancer', () => {
     )
     expect(backToTopButton?.classList.contains('opacity-0')).toBe(true)
     expect(backToTopButton?.classList.contains('pointer-events-none')).toBe(true)
+    expect(backToTopButton?.disabled).toBe(true)
+    expect(backToTopButton?.tabIndex).toBe(-1)
 
     window.scrollY = 500
     window.dispatchEvent(new Event('scroll'))
 
     expect(backToTopButton?.classList.contains('opacity-100')).toBe(true)
     expect(backToTopButton?.classList.contains('pointer-events-auto')).toBe(true)
+    expect(backToTopButton?.disabled).toBe(false)
+    expect(backToTopButton?.tabIndex).toBe(0)
 
     backToTopButton?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
 

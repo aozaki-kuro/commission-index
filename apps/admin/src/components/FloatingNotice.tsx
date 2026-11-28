@@ -56,8 +56,12 @@ function NoticeCard({
 }) {
   return (
     <div
-      role="status"
-      aria-live="polite"
+      role={tone === 'error'
+        ? 'alert'
+        : 'status'}
+      aria-live={tone === 'error'
+        ? 'assertive'
+        : 'polite'}
       aria-atomic="true"
       className={cn(
         variant === 'dialog'

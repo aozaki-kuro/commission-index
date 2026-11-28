@@ -23,26 +23,32 @@ export async function mapWithConcurrency<TItem, TResult>(
 ) {
   const results: TResult[] = []
   let nextIndex = 0
+  const state: { firstError: { reason: unknown } | null } = { firstError: null }
 
   async function runWorker() {
-    while (true) {
+    while (!state.firstError) {
       const currentIndex = nextIndex
       if (currentIndex >= items.length) {
         return
       }
 
       nextIndex += 1
-      results[currentIndex] = await worker(items[currentIndex], currentIndex)
+      try {
+        results[currentIndex] = await worker(items[currentIndex], currentIndex)
+      }
+      catch (reason) {
+        state.firstError ??= { reason }
+        return
+      }
     }
   }
 
   const workerCount = Math.min(Math.max(1, concurrency), items.length)
   const workerSlots = Array.from({ length: workerCount }, (_, index) => index)
   // Let in-flight workers settle before rethrowing, so no download keeps writing after the caller has moved on.
-  const outcomes = await Promise.allSettled(workerSlots.map(() => runWorker()))
-  const rejected = outcomes.find(outcome => outcome.status === 'rejected')
-  if (rejected?.status === 'rejected') {
-    throw rejected.reason
+  await Promise.all(workerSlots.map(() => runWorker()))
+  if (state.firstError) {
+    throw state.firstError.reason
   }
   return results
 }

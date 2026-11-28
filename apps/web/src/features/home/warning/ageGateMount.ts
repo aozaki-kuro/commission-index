@@ -5,6 +5,7 @@ import { CONFIRMED_AGE_KEY, CONFIRMED_IN_MEMORY_FLAG, hasValidAgeConfirmation, r
 const AGE_CONFIRM_EVENT = 'age-confirm-changed'
 export const AGE_GATE_STATE_EVENT = 'age-gate-state-change'
 const INITIAL_ATTRIBUTE = 'ageGateInitial'
+const EXIT_ANIMATION_MS = 220
 
 const memoryFlags = window as unknown as Record<string, unknown>
 
@@ -39,9 +40,32 @@ export function mountAgeGate(): (() => void) | null {
 
   let hasOpened = false
   let isOpen = false
+  let closeTimerId: number | null = null
   let inertElements: HTMLElement[] = []
   const originalHtmlOverflow = document.documentElement.style.overflow
   const originalBodyOverflow = document.body.style.overflow
+
+  const clearCloseTimer = () => {
+    if (closeTimerId === null)
+      return
+    window.clearTimeout(closeTimerId)
+    closeTimerId = null
+  }
+
+  const prefersReducedMotion = () => {
+    try {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    }
+    catch {
+      return false
+    }
+  }
+
+  const hideRoot = () => {
+    clearCloseTimer()
+    root.classList.add('hidden')
+    root.classList.remove('flex')
+  }
 
   const releaseInert = () => {
     for (const element of inertElements)
@@ -71,6 +95,7 @@ export function mountAgeGate(): (() => void) | null {
   }
 
   const updateState = (open: boolean) => {
+    clearCloseTimer()
     const adoptingInitial = document.documentElement.dataset[INITIAL_ATTRIBUTE] === 'open'
     if (adoptingInitial && open && !isOpen) {
       overlay.style.animation = 'none'
@@ -81,6 +106,7 @@ export function mountAgeGate(): (() => void) | null {
       releaseEntranceSuppression()
     }
     delete document.documentElement.dataset[INITIAL_ATTRIBUTE]
+    const wasOpen = isOpen
     isOpen = open
     // Once per mount: `shown` minus `confirmed` is how many visitors the gate turned away.
     if (open && !hasOpened)
@@ -88,15 +114,17 @@ export function mountAgeGate(): (() => void) | null {
     if (open)
       hasOpened = true
 
-    const shouldRender = open || hasOpened
-    root.classList.toggle('hidden', !shouldRender)
-    root.classList.toggle('flex', shouldRender)
+    if (open) {
+      root.classList.remove('hidden')
+      root.classList.add('flex')
+    }
     root.classList.toggle('pointer-events-none', !open)
     root.classList.toggle('pointer-events-auto', open)
 
     const state = open ? 'open' : 'closed'
     root.dataset.state = state
     root.setAttribute('aria-hidden', open ? 'false' : 'true')
+    root.toggleAttribute('inert', !open)
     overlay.dataset.state = state
     panel.dataset.state = state
     document.documentElement.dataset.ageGateOpen = open ? 'true' : 'false'
@@ -115,9 +143,18 @@ export function mountAgeGate(): (() => void) | null {
       return
     }
 
+    if (root.contains(document.activeElement) && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
     releaseInert()
     document.documentElement.style.overflow = originalHtmlOverflow
     document.body.style.overflow = originalBodyOverflow
+
+    if (!wasOpen || prefersReducedMotion()) {
+      hideRoot()
+      return
+    }
+    closeTimerId = window.setTimeout(hideRoot, EXIT_ANIMATION_MS)
   }
 
   const syncOpenState = () => {
@@ -136,7 +173,7 @@ export function mountAgeGate(): (() => void) | null {
   }
 
   const onStorage = (event: StorageEvent) => {
-    if (event.key !== CONFIRMED_AGE_KEY)
+    if (event.key !== null && event.key !== CONFIRMED_AGE_KEY)
       return
     syncOpenState()
   }
@@ -196,6 +233,7 @@ export function mountAgeGate(): (() => void) | null {
   syncOpenState()
 
   return () => {
+    clearCloseTimer()
     confirmButton.removeEventListener('click', onConfirmAge)
     leaveButton.removeEventListener('click', onLeave)
     window.removeEventListener('storage', onStorage)

@@ -41,6 +41,8 @@ describe('keyword normalisation', () => {
       'x',
       'y',
     ])
+    expect(dedupeKeywords(['a', 'b'], 0)).toEqual([])
+    expect(dedupeKeywords(['a', 'b'], -1)).toEqual([])
   })
 })
 
@@ -86,18 +88,16 @@ describe('parseCommissionLinksJson', () => {
     expect(parseCommissionLinksJson('', { dropBlank: true })).toEqual([])
   })
 
-  it('keeps items verbatim (stringified) by default', () => {
+  it('keeps string items verbatim and drops non-strings by default', () => {
     expect(parseCommissionLinksJson('[" https://a.example ","",1]')).toEqual([
       ' https://a.example ',
       '',
-      '1',
     ])
   })
 
-  it('trims and drops blank items with dropBlank', () => {
+  it('trims and drops blank or non-string items with dropBlank', () => {
     expect(parseCommissionLinksJson('[" https://a.example ","","  ",1]', { dropBlank: true })).toEqual([
       'https://a.example',
-      '1',
     ])
   })
 })

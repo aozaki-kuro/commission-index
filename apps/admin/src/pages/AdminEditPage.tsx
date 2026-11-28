@@ -168,12 +168,8 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
     all: false,
     ids: new Set(),
   })
-  const refreshData = useCallback(() => {
-    pendingRefreshRef.current.all = true
-    setReloadToken(token => token + 1)
-  }, [])
-  const handleDataUpdate = useCallback((scope?: DataUpdateScope) => {
-    if (scope) {
+  const refreshData = useCallback((scope?: DataUpdateScope) => {
+    if (scope && Array.isArray(scope.characterIds)) {
       scope.characterIds.forEach(id => pendingRefreshRef.current.ids.add(id))
     }
     else {
@@ -181,6 +177,7 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
     }
     setReloadToken(token => token + 1)
   }, [])
+  const retryLoad = useCallback(() => refreshData(), [refreshData])
   const [storageQuotaNotice, setStorageQuotaNotice] = useState(false)
   const handleStorageQuotaExceeded = useCallback(() => setStorageQuotaNotice(true), [])
 
@@ -210,7 +207,7 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
     }
   }, [hasRestoredScroll, pendingScrollState])
 
-  useEffect(() => subscribeToDataUpdates(handleDataUpdate), [handleDataUpdate])
+  useEffect(() => subscribeToDataUpdates(refreshData), [refreshData])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -374,7 +371,7 @@ export function AdminEditPage({ onReady }: { onReady?: () => void }) {
         errorMessage={state.errorMessage}
         isLoading={state.isLoading}
         hasPayload={state.payload !== null}
-        onRetry={refreshData}
+        onRetry={retryLoad}
       />
       {storageQuotaNotice && (
         <FloatingNotice tone="warning" onDismiss={() => setStorageQuotaNotice(false)}>

@@ -172,7 +172,7 @@ export function parseIdFromPath(pathname: string, pattern: RegExp) {
   }
 
   const id = Number(match[1])
-  return Number.isFinite(id) && id > 0
+  return Number.isSafeInteger(id) && id > 0
     ? id
     : null
 }
@@ -602,6 +602,7 @@ async function loadPopularKeywordOptions(db: D1DatabaseLike) {
         commissions.keyword as keyword
       FROM commissions
       JOIN characters ON characters.id = commissions.character_id
+      WHERE commissions.hidden = 0
     `,
   )
 
@@ -738,13 +739,24 @@ async function loadCommissionSourceImageResponse(
   return new Response(object.body ?? await object.arrayBuffer(), { status: 200, headers })
 }
 
+function stripWeakEtagPrefix(value: string) {
+  const trimmed = value.trim()
+  return trimmed.startsWith('W/') || trimmed.startsWith('w/')
+    ? trimmed.slice(2).trimStart()
+    : trimmed
+}
+
 function matchesIfNoneMatch(headerValue: string | null, etag: string) {
   if (!headerValue) {
     return false
   }
+  const normalizedEtag = stripWeakEtagPrefix(etag)
   return headerValue
     .split(',')
-    .some(value => value.trim() === '*' || value.trim() === etag)
+    .some((value) => {
+      const trimmed = value.trim()
+      return trimmed === '*' || trimmed === etag || stripWeakEtagPrefix(trimmed) === normalizedEtag
+    })
 }
 
 export interface AdminReadEnv {

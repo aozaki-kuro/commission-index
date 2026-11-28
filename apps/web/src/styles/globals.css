@@ -200,3 +200,9 @@
     scroll-behavior: auto !important;
   }
 }
+
+@media print {
+  [data-commission-entry] {
+    opacity: 1 !important;
+  }
+}

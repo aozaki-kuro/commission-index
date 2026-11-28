@@ -162,9 +162,7 @@ describe('commission future-date rule in persistence', () => {
 })
 
 describe('malformed JSON on non-batch mutation routes', () => {
-  // Pins current behaviour: body parsing sits outside the try/catch, so the handler
-  // rejects instead of returning the JSON error envelope.
-  it('rejects a character create with a SyntaxError', async () => {
+  it('rejects a character create with a 400 JSON error envelope', async () => {
     const backend = createBackend()
     const request = new Request(`${baseUrl}/api/admin/characters`, {
       method: 'POST',
@@ -172,11 +170,16 @@ describe('malformed JSON on non-batch mutation routes', () => {
       body: '{"name":',
     })
 
-    await expect(handleAdminApiRequest(request, {}, backend)).rejects.toThrow(SyntaxError)
+    const response = await handleAdminApiRequest(request, {}, backend)
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      status: 'error',
+      message: 'Request body is not valid JSON.',
+    })
     expect(backend.createCharacter).not.toHaveBeenCalled()
   })
 
-  it('rejects a commission PATCH with a SyntaxError', async () => {
+  it('rejects a commission PATCH with a 400 JSON error envelope', async () => {
     const backend = createBackend()
     const request = new Request(`${baseUrl}/api/admin/commissions/19`, {
       method: 'PATCH',
@@ -184,7 +187,12 @@ describe('malformed JSON on non-batch mutation routes', () => {
       body: '{"characterId":',
     })
 
-    await expect(handleAdminApiRequest(request, {}, backend)).rejects.toThrow(SyntaxError)
+    const response = await handleAdminApiRequest(request, {}, backend)
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      status: 'error',
+      message: 'Request body is not valid JSON.',
+    })
     expect(backend.updateCommission).not.toHaveBeenCalled()
   })
 })

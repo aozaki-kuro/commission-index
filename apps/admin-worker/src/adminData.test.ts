@@ -123,4 +123,69 @@ describe('admin read path on a fully migrated D1', () => {
     expect(payload.characters.map(row => row.id)).toEqual([1, 2])
     expect(payload.commissionSearchRows.map(row => row.characterId)).toEqual([1, 2, 2])
   })
+
+  it('excludes hidden commissions from suggestion keywordOptions', async () => {
+    const { payload } = await readOverview('/api/admin/suggestion')
+
+    expect(payload.keywordOptions).toEqual(expect.arrayContaining([
+      'Alice',
+      'alice-maker',
+      'Alicia',
+      'cafe',
+      'maid',
+      'uniform',
+    ]))
+    expect(payload.keywordOptions).not.toContain('armor')
+    expect(payload.keywordOptions).not.toContain('beta-maker')
+    expect(payload.keywordOptions).not.toContain('Beta')
+  })
+
+  it('matches weak W/ ETag prefixes against strong ETags and vice versa on source-image revalidation', async () => {
+    const { database, db } = createSQLiteD1()
+    database.exec(`
+      INSERT INTO characters (id, name, status, sort_order) VALUES (1, 'Alice', 'active', 1);
+      INSERT INTO commissions (id, character_id, file_name, links, commission_date) VALUES
+        (10, 1, 'alice-work', '[]', '2025-03-01');
+      INSERT INTO source_images (commission_file_name, commission_id, object_key, mime_type, byte_size, sha256) VALUES
+        ('alice-work', 10, 'source-images/alice.jpg', 'image/jpeg', 3, 'hash');
+    `)
+
+    const weakMatchResponse = await handleAdminReadRequest(
+      new Request(`${baseUrl}/api/admin/commissions/10/source-image`, {
+        method: 'GET',
+        headers: { 'If-None-Match': 'W/"strong-etag"' },
+      }),
+      {
+        DB: db,
+        IMAGES: {
+          get: async () => ({
+            httpMetadata: { contentType: 'image/jpeg' },
+            httpEtag: '"strong-etag"',
+            size: 3,
+            async arrayBuffer() { return new Uint8Array([1, 2, 3]).buffer },
+          }),
+        },
+      },
+    )
+    expect(weakMatchResponse?.status).toBe(304)
+
+    const strongClientWeakStoredResponse = await handleAdminReadRequest(
+      new Request(`${baseUrl}/api/admin/commissions/10/source-image`, {
+        method: 'GET',
+        headers: { 'If-None-Match': '"strong-etag"' },
+      }),
+      {
+        DB: db,
+        IMAGES: {
+          get: async () => ({
+            httpMetadata: { contentType: 'image/jpeg' },
+            httpEtag: 'W/"strong-etag"',
+            size: 3,
+            async arrayBuffer() { return new Uint8Array([1, 2, 3]).buffer },
+          }),
+        },
+      },
+    )
+    expect(strongClientWeakStoredResponse?.status).toBe(304)
+  })
 })

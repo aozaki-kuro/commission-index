@@ -102,10 +102,13 @@ describe('search strict matching', () => {
     expect(sortedIds(getMatchedEntryIds('2024', index))).toEqual([4])
   })
 
-  it('returns every entry for empty, whitespace-only, or operator-only queries', () => {
-    expect(sortedIds(getMatchedEntryIds('', index))).toEqual([1, 2, 3, 4])
-    expect(sortedIds(getMatchedEntryIds('   ', index))).toEqual([1, 2, 3, 4])
-    expect(sortedIds(getMatchedEntryIds('|', index))).toEqual([1, 2, 3, 4])
+  it('returns every entry for empty, whitespace-only, or operator-only queries before and after Fuse loads', async () => {
+    const warm = buildStrictIndex(entries, await createSearchFuse(entries))
+    for (const currentIndex of [index, warm]) {
+      expect(sortedIds(getMatchedEntryIds('', currentIndex))).toEqual([1, 2, 3, 4])
+      expect(sortedIds(getMatchedEntryIds('   ', currentIndex))).toEqual([1, 2, 3, 4])
+      expect(sortedIds(getMatchedEntryIds('|', currentIndex))).toEqual([1, 2, 3, 4])
+    }
   })
 
   it('returns an empty set when no entry has an index', () => {
@@ -528,6 +531,11 @@ describe('search operators inside quoted phrases', () => {
   const spyFuse = () => ({
     search: vi.fn(() => []),
   }) as unknown as Fuse<Entry>
+
+  it('treats trailing ! inside an unquoted word literally instead of negating the next word', () => {
+    const index = buildStrictIndex(entries)
+    expect(sortedIds(getMatchedEntryIds('k-on! movie', index))).toEqual([1])
+  })
 
   it('matches a quoted phrase containing ! or | literally on the strict path', () => {
     const index = buildStrictIndex(entries)

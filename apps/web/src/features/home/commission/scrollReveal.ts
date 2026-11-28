@@ -7,7 +7,7 @@
  * visibility changes; entries are never inserted after mount.
  */
 
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '@features/home/events'
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT, COMMISSION_VIEW_PANEL_SHOWN_EVENT } from '@features/home/events'
 
 const REVEAL_ATTR = 'data-commission-entry'
 const REVEALED_ATTR = 'data-revealed'
@@ -61,9 +61,13 @@ export function mountScrollReveal(): () => void {
 
   let pendingReveals: HTMLElement[] = []
   let rafId: number | null = null
+  let rescanRafId: number | null = null
+  let disposed = false
 
   const flushReveals = () => {
     rafId = null
+    if (disposed)
+      return
     if (pendingReveals.length > 0) {
       revealBatch(pendingReveals)
       pendingReveals = []
@@ -72,6 +76,8 @@ export function mountScrollReveal(): () => void {
 
   const io = new IntersectionObserver(
     (ioEntries) => {
+      if (disposed)
+        return
       for (const entry of ioEntries) {
         if (!entry.isIntersecting)
           continue
@@ -91,6 +97,8 @@ export function mountScrollReveal(): () => void {
   // observe entries below the fold. All geometry is read before any entry is hidden: a read after a style write
   // forces a style recalc, once per entry across the whole listing.
   const observeAll = (root: ParentNode = document) => {
+    if (disposed)
+      return
     const elements = [
       ...root.querySelectorAll<HTMLElement>(`[${REVEAL_ATTR}]`),
     ]
@@ -115,6 +123,8 @@ export function mountScrollReveal(): () => void {
   // The listing is fully server-rendered, so only visibility toggles on the panels and the archived
   // container can bring new entries into layout; no entry is inserted after mount.
   const mo = new MutationObserver((mutations) => {
+    if (disposed)
+      return
     for (const mutation of mutations) {
       if (mutation.target instanceof HTMLElement)
         observeAll(mutation.target)
@@ -132,21 +142,32 @@ export function mountScrollReveal(): () => void {
   }
 
   const rescan = () => {
-    requestAnimationFrame(() => {
+    if (disposed || rescanRafId !== null)
+      return
+    rescanRafId = requestAnimationFrame(() => {
+      rescanRafId = null
       observeAll()
     })
   }
 
   window.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, rescan)
+  window.addEventListener(COMMISSION_VIEW_PANEL_SHOWN_EVENT, rescan)
   window.addEventListener('popstate', rescan)
 
   return () => {
+    disposed = true
     io.disconnect()
     mo.disconnect()
     window.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, rescan)
+    window.removeEventListener(COMMISSION_VIEW_PANEL_SHOWN_EVENT, rescan)
     window.removeEventListener('popstate', rescan)
     if (rafId !== null) {
       cancelAnimationFrame(rafId)
+      rafId = null
+    }
+    if (rescanRafId !== null) {
+      cancelAnimationFrame(rescanRafId)
+      rescanRafId = null
     }
   }
 }

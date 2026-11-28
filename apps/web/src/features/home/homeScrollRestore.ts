@@ -123,14 +123,33 @@ function scheduleRestore({
   savedState: SavedHomeScrollState
   win: Window
 }) {
-  win.requestAnimationFrame(() => {
-    win.requestAnimationFrame(() => {
+  let disposed = false
+  let rafId: number | null = null
+
+  const queue = (task: () => void) => {
+    rafId = win.requestAnimationFrame(() => {
+      rafId = null
+      if (!disposed)
+        task()
+    })
+  }
+
+  queue(() => {
+    queue(() => {
       deps.restoreScrollPosition(win, { x: savedState.x, y: savedState.y })
-      win.requestAnimationFrame(() => {
+      queue(() => {
         revealRestoringShell(win)
       })
     })
   })
+
+  return () => {
+    disposed = true
+    if (rafId !== null) {
+      win.cancelAnimationFrame(rafId)
+      rafId = null
+    }
+  }
 }
 
 export function mountHomeScrollRestore({
@@ -165,9 +184,10 @@ export function mountHomeScrollRestore({
 
   clearSavedState(win)
   // Every section is in the static HTML, so the saved offset is reachable on mount.
-  scheduleRestore({ deps, savedState, win })
+  const cancelRestore = scheduleRestore({ deps, savedState, win })
 
   return () => {
+    cancelRestore()
     revealRestoringShell(win)
     win.removeEventListener('pagehide', persistNow)
     win.removeEventListener('beforeunload', persistNow)

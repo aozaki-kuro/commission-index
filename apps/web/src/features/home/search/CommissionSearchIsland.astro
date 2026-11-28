@@ -48,8 +48,9 @@ const browseTermClass = `
   <div class="flex h-12 items-center justify-end">
     <div class="
       relative h-11 w-full overflow-visible border-b border-gray-300/80
-      bg-transparent text-gray-700
-      dark:border-gray-700 dark:text-gray-300
+      bg-transparent text-gray-700 transition-colors
+      focus-within:border-gray-500
+      dark:border-gray-700 dark:text-gray-300 dark:focus-within:border-gray-400
     "
     >
       {/* Search icon */}
@@ -86,8 +87,11 @@ const browseTermClass = `
             class="
               peer m-0 flex h-10 w-[calc(100%/0.875)] origin-left
               scale-[0.875] appearance-none rounded-md bg-transparent p-0
-              pr-24 text-base/5 outline-none
+              pr-28 text-base/5
+              focus-visible:outline-2 focus-visible:outline-offset-2
+              focus-visible:outline-gray-500
               placeholder:text-gray-400
+              dark:focus-visible:outline-gray-400
             "
           />
 
@@ -145,8 +149,9 @@ const browseTermClass = `
               {controls.searchHelpTitle}
             </h2>
             <p class="
-              text-xs
+              text-xs text-gray-700
               md:text-sm
+              dark:text-gray-300
             "
             >
               {controls.searchHelpIntro}
@@ -278,6 +283,7 @@ const browseTermClass = `
         <button
           id="search-copy-url"
           type="button"
+          disabled
           class="
             absolute right-8 inline-flex size-7 items-center justify-center
             rounded-full text-gray-500 transition-opacity duration-150
@@ -291,15 +297,16 @@ const browseTermClass = `
           aria-label={controls.copySearchUrl}
         >
           {/* Share icon (visible by default) */}
-          <Icon name="tabler:share-3" data-icon="share" class="size-4.5" aria-hidden="true" />
+          <Icon name="tabler:share-3" data-copy-icon="share" class="size-4.5" aria-hidden="true" />
           {/* Check icon (hidden, shown on copy success) */}
-          <Icon name="tabler:check" data-icon="check" class="size-4.5 hidden" aria-hidden="true" />
+          <Icon name="tabler:check" data-copy-icon="check" class="size-4.5 hidden" aria-hidden="true" />
         </button>
 
         {/* Clear button (hidden until query exists) */}
         <button
           id="search-clear"
           type="button"
+          disabled
           class="
             absolute right-0 inline-flex size-7 items-center justify-center
             rounded-full text-gray-500 transition-opacity
@@ -352,7 +359,7 @@ const browseTermClass = `
     </ul>
     {/* The chips paint before `astro:page-load` mounts the island; keep a tap from that window for the mount to replay.
         Writes after the mount are never read: the island reads this once and a soft navigation swaps the list. */}
-    <script is:inline>
+    <script is:inline data-astro-rerun>
 document.getElementById('search-keyword-list')?.addEventListener('click', (event) => {
   const chip = event.target instanceof Element
     ? event.target.closest('[data-keyword]')
@@ -383,7 +390,7 @@ document.getElementById('search-keyword-list')?.addEventListener('click', (event
       id="search-browse-popover"
       popover
       role="dialog"
-      aria-label={controls.browseKeywordsLabel}
+      aria-label={controls.browseKeywordsTitle}
       class="
         m-auto max-h-[min(70dvh,34rem)] w-(--search-browse-width)
         menu-glass flex-col overflow-hidden p-0

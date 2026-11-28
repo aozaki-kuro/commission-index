@@ -61,6 +61,15 @@
   }
 }
 
+@keyframes dialog-overlay-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 @keyframes dialog-content-in {
   from {
     opacity: 0;
@@ -343,6 +352,14 @@
     width: 1px;
     height: 8px;
     background: rgb(255 255 255 / 0.88);
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .crop-rotation-handle {
+      background: rgb(28 28 30 / 0.94);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
   }
 
   @media (pointer: coarse) {

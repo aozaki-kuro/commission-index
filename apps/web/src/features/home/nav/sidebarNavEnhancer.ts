@@ -9,7 +9,7 @@ import {
   readCommissionViewMode,
   resolveCommissionViewModeFromElement,
 } from '@features/home/commission/viewModeState'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '@features/home/events'
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT, COMMISSION_VIEW_PANEL_SHOWN_EVENT } from '@features/home/events'
 import { trackRybbitEvent } from '@lib/analytics/track'
 import {
   getActiveSectionId,
@@ -29,8 +29,8 @@ import { handleHomeNavCharacterLinkClick, handleViewModeToggleClick, trackHomeNa
 import { mountSidebarDisclosureSlide } from './sidebarDisclosureSlide'
 import { applyViewModeToggleClasses, SIDEBAR_VIEW_MODE_TOGGLE_CLASSES } from './viewModeToggleClasses'
 
-const SIDEBAR_ROOT_ID = 'Character List'
-const SIDEBAR_CONTROLS_ROOT_ID = 'Home Controls'
+const SIDEBAR_ROOT_ID = 'character-list'
+const SIDEBAR_CONTROLS_ROOT_ID = 'home-controls'
 const SEARCH_LINK_SELECTOR = '[data-sidebar-search-link="true"]'
 const CHARACTER_LINK_SELECTOR = '[data-sidebar-character-link="true"]'
 const NAV_PANEL_SELECTOR = '[data-sidebar-nav-panel]'
@@ -205,6 +205,9 @@ export function mountSidebarNavEnhancer({
   const archivedSlide = archivedDetails
     ? mountSidebarDisclosureSlide(archivedDetails, { win })
     : null
+  if (archivedDetails && archivedSlide) {
+    archivedDetails.dataset.sidebarSlideBound = 'true'
+  }
 
   let activePanelSnapshot: SidebarActivePanelSnapshot | null = null
   let activeDots: HTMLElement[] = []
@@ -330,6 +333,7 @@ export function mountSidebarNavEnhancer({
   }
 
   const clearHashTask = frameTask(win, () => deps.clearHash())
+  const clearHashNowTask = frameTask(win, () => deps.clearHashNow())
   const linksTask = frameTask(win, syncCharacterLinkAvailability)
   const dotsTask = frameTask(win, syncActiveDots)
   const scheduleClearHashIfTargetMissing = clearHashTask.schedule
@@ -351,6 +355,10 @@ export function mountSidebarNavEnhancer({
     if (!backToTopButton)
       return
 
+    backToTopButton.disabled = !visible
+    backToTopButton.tabIndex = visible
+      ? 0
+      : -1
     backToTopButton.classList.toggle('pointer-events-auto', visible)
     backToTopButton.classList.toggle('opacity-100', visible)
     backToTopButton.classList.toggle('translate-y-0', visible)
@@ -468,9 +476,7 @@ export function mountSidebarNavEnhancer({
     })
     if (outcome === 'navigated') {
       // 浏览器默认行为会把 hash 写入地址栏，等原生滚动完成后清除
-      win.requestAnimationFrame(() => {
-        deps.clearHashNow()
-      })
+      clearHashNowTask.schedule()
     }
   }
 
@@ -505,6 +511,7 @@ export function mountSidebarNavEnhancer({
   win.addEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSidebarSearchState)
   win.addEventListener(ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, onArchivedStateChanged)
   win.addEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, syncAll)
+  win.addEventListener(COMMISSION_VIEW_PANEL_SHOWN_EVENT, syncAll)
   win.addEventListener('popstate', syncAll)
 
   syncAll()
@@ -517,6 +524,8 @@ export function mountSidebarNavEnhancer({
       return
     disposed = true
 
+    if (archivedDetails)
+      delete archivedDetails.dataset.sidebarSlideBound
     controlsRoot.removeEventListener('click', onSidebarClick)
     if (controlsRoot !== navRoot) {
       navRoot.removeEventListener('click', onSidebarClick)
@@ -534,9 +543,11 @@ export function mountSidebarNavEnhancer({
     win.removeEventListener(SIDEBAR_SEARCH_STATE_EVENT, onSidebarSearchState)
     win.removeEventListener(ARCHIVED_CHARACTERS_STATE_CHANGE_EVENT, onArchivedStateChanged)
     win.removeEventListener(COMMISSION_VIEW_MODE_CHANGE_EVENT, syncAll)
+    win.removeEventListener(COMMISSION_VIEW_PANEL_SHOWN_EVENT, syncAll)
     win.removeEventListener('popstate', syncAll)
 
     clearHashTask.cancel()
+    clearHashNowTask.cancel()
     linksTask.cancel()
     dotsTask.cancel()
     backToTopTask.cancel()

@@ -132,6 +132,97 @@ describe('initSearchController', () => {
     cleanup?.()
   })
 
+  it('adopts typed input present before controller hydration', async () => {
+    searchEntriesMock.entries = [
+      { id: 0, domKey: 'character-alpha::alpha', searchText: 'alpha' },
+      { id: 1, domKey: 'character-beta::beta', searchText: 'beta' },
+    ]
+    document.body.innerHTML = `
+      <main>
+        <section id="commission-search" data-featured-keywords='["alpha"]' data-suggestion-alias-groups="[]">
+          <div>
+            <input id="commission-search-input" role="combobox" aria-controls="search-suggestion-list" value="" />
+            <ul id="search-suggestion-list" role="listbox"></ul>
+          </div>
+          <button id="search-help-trigger"></button>
+          <button id="search-copy-url" disabled></button>
+          <button id="search-clear" disabled></button>
+          <div id="search-popular-keywords"></div>
+          <ul id="search-keyword-list"></ul>
+          <p id="search-live-region"></p>
+        </section>
+        <section id="character-alpha" data-character-section="true" data-character-status="active">
+          <article data-commission-entry="true" data-character-section-id="character-alpha" data-commission-search-key="character-alpha::alpha"></article>
+        </section>
+        <section id="character-beta" data-character-section="true" data-character-status="active">
+          <article data-commission-entry="true" data-character-section-id="character-beta" data-commission-search-key="character-beta::beta"></article>
+        </section>
+      </main>
+    `
+    const root = document.getElementById('commission-search')!
+    const input = document.querySelector<HTMLInputElement>('#commission-search-input')!
+    input.value = 'beta'
+
+    const cleanup = initSearchController(root)
+    expect(searchEntriesMock.ensure).toHaveBeenCalledTimes(1)
+
+    await vi.waitFor(() => {
+      expect(document.getElementById('character-alpha')?.classList.contains('hidden')).toBe(true)
+    })
+    expect(document.getElementById('character-beta')?.classList.contains('hidden')).toBe(false)
+    expect(document.querySelector<HTMLButtonElement>('#search-copy-url')?.disabled).toBe(false)
+    expect(document.querySelector<HTMLButtonElement>('#search-clear')?.disabled).toBe(false)
+
+    cleanup?.()
+  })
+
+  it('toggles disabled on action buttons and updates data-copy-icon feedback on copy', async () => {
+    vi.useFakeTimers()
+    try {
+      const writeText = vi.fn(async () => {})
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText },
+      })
+      const root = mountSearchRoot()
+      const copyBtn = root.querySelector<HTMLButtonElement>('#search-copy-url')!
+      const clearBtn = root.querySelector<HTMLButtonElement>('#search-clear')!
+      copyBtn.innerHTML = '<svg data-copy-icon="share"></svg><svg data-copy-icon="check" class="hidden"></svg>'
+
+      const cleanup = initSearchController(root)
+      await vi.advanceTimersByTimeAsync(50)
+      expect(copyBtn.disabled).toBe(true)
+      expect(clearBtn.disabled).toBe(true)
+
+      const input = root.querySelector<HTMLInputElement>('#commission-search-input')!
+      input.value = 'alpha'
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      await vi.advanceTimersByTimeAsync(50)
+      expect(copyBtn.disabled).toBe(false)
+      expect(clearBtn.disabled).toBe(false)
+
+      copyBtn.click()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(writeText).toHaveBeenCalledWith(expect.stringContaining('?q=alpha'))
+      expect(copyBtn.querySelector('[data-copy-icon="share"]')?.classList.contains('hidden')).toBe(true)
+      expect(copyBtn.querySelector('[data-copy-icon="check"]')?.classList.contains('hidden')).toBe(false)
+
+      await vi.advanceTimersByTimeAsync(1200)
+      expect(copyBtn.querySelector('[data-copy-icon="share"]')?.classList.contains('hidden')).toBe(false)
+      expect(copyBtn.querySelector('[data-copy-icon="check"]')?.classList.contains('hidden')).toBe(true)
+
+      clearBtn.click()
+      await vi.advanceTimersByTimeAsync(50)
+      expect(copyBtn.disabled).toBe(true)
+      expect(clearBtn.disabled).toBe(true)
+
+      cleanup?.()
+    }
+    finally {
+      vi.useRealTimers()
+    }
+  })
+
   describe('address sync', () => {
     function typeQuery(value: string) {
       const input = document.querySelector<HTMLInputElement>('#commission-search-input')!
@@ -473,16 +564,22 @@ describe('initSearchController', () => {
       cleanup?.()
     })
 
-    it('fetches the index when back/forward lands on a ?q=', async () => {
-      const cleanup = initSearchController(mountSearchRoot({
-        featuredKeywords: ['alpha'],
-      }))
+    it('fetches the index and filters when back/forward lands on a ?q=', async () => {
+      searchEntriesMock.entries = [
+        { id: 0, domKey: 'character-alpha::alpha', searchText: 'alpha' },
+        { id: 1, domKey: 'character-beta::beta', searchText: 'beta' },
+      ]
+      const cleanup = initSearchController(renderSearchListing(['alpha']))
       await tick()
       expect(searchEntriesMock.ensure).not.toHaveBeenCalled()
 
       window.history.replaceState(null, '', '/?q=alpha')
       window.dispatchEvent(new PopStateEvent('popstate'))
       expect(searchEntriesMock.ensure).toHaveBeenCalledTimes(1)
+      await vi.waitFor(() => {
+        expect(document.getElementById('character-beta')?.classList.contains('hidden')).toBe(true)
+      })
+      expect(document.getElementById('character-alpha')?.classList.contains('hidden')).toBe(false)
 
       cleanup?.()
     })

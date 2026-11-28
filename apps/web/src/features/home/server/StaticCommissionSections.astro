@@ -19,6 +19,7 @@ interface StaticCommissionSectionsProps {
   locale?: string
   activeChars: CharacterDisplay[]
   archivedChars: CharacterDisplay[]
+  firstVisibleActiveIndex?: number
   commissionMap: Map<string, CharacterCommissions>
   timelineGroups: TimelineYearGroup[]
   characterAliasesMap: Map<string, string[]>
@@ -30,6 +31,7 @@ const {
   locale,
   activeChars,
   archivedChars,
+  firstVisibleActiveIndex,
   commissionMap,
   timelineGroups,
   characterAliasesMap,
@@ -38,6 +40,9 @@ const {
 }
   = Astro.props as StaticCommissionSectionsProps
 const messages = getHomeLocaleMessages(normalizeHomeLocale(locale))
+const resolvedFirstVisibleActiveIndex = firstVisibleActiveIndex ?? activeChars.findIndex(
+  chara => (commissionMap.get(chara.DisplayName)?.Commissions.length ?? 0) > 0,
+)
 const activeCommissionCount = activeChars.reduce(
   (count, chara) => count + (commissionMap.get(chara.DisplayName)?.Commissions.length ?? 0),
   0,
@@ -67,7 +72,7 @@ const archivedCommissionCount = archivedChars.reduce(
           characterAliasesMap={characterAliasesMap}
           creatorAliasesMap={creatorAliasesMap}
           keywordAliasesMap={keywordAliasesMap}
-          priorityFirstImage={charIndex === 0}
+          priorityFirstImage={charIndex === resolvedFirstVisibleActiveIndex}
         />
       ))
     }
@@ -107,11 +112,13 @@ const archivedCommissionCount = archivedChars.reduce(
                 type="button"
                 data-load-archived-characters="true"
                 class="
-                  group mt-5 inline-flex items-center gap-1.5
+                  group mt-5 inline-flex items-center gap-1.5 rounded-sm
                   border-0 bg-transparent p-0 text-sm text-gray-600
                   transition-opacity
                   hover:opacity-70
-                  dark:text-gray-300
+                  focus-visible:outline-2 focus-visible:outline-offset-2
+                  focus-visible:outline-gray-500
+                  dark:text-gray-300 dark:focus-visible:outline-gray-400
                 "
               >
                 <svg
@@ -176,6 +183,7 @@ const archivedCommissionCount = archivedChars.reduce(
 
 <script
   is:inline
+  data-astro-rerun
   define:vars={{
     viewModeToggleTables: [
       SIDEBAR_VIEW_MODE_TOGGLE_CLASSES,

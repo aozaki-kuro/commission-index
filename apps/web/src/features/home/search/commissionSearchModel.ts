@@ -84,6 +84,7 @@ let hasTrackedSearchUsage = false
 // Output memoization — skip full pipeline when inputs are unchanged
 let cachedOutputKey = ''
 let cachedOutput: SearchModelOutput | null = null
+let cachedOutputEntries: SearchIndex['entries'] | undefined
 let cachedOutputExternalEntries: CommissionSearchEntrySource[] | undefined
 let cachedOutputAliasGroups: SearchSuggestionAliasGroup[] | undefined
 let cachedOutputControls: SearchControls | undefined
@@ -112,6 +113,7 @@ export function resetModelState() {
   hasTrackedSearchUsage = false
   cachedOutputKey = ''
   cachedOutput = null
+  cachedOutputEntries = undefined
   cachedOutputExternalEntries = undefined
   cachedOutputAliasGroups = undefined
   cachedOutputControls = undefined
@@ -186,39 +188,8 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
 
   const { archivedVisible } = panelState
 
-  // Fast-path: if all inputs that affect output are unchanged, return cached result.
-  // This avoids re-running index build, Fuse matching, suggestion filtering, and view model
-  // construction on every rAF when only the panel state listener or external subscription fired.
-  // cachedHydratedIndex !== null is included so the memoized result is invalidated once
-  // Fuse.js finishes loading — otherwise a keyword-click recompute (which runs before Fuse is
-  // ready) would be permanently cached and a subsequent retry would return the stale empty result.
-  const outputKey = `${query}\0${mode}\0${isIndexReady}\0${shouldWarmFuse}\0${isSuggestionPanelDismissed}\0${archivedVisible}\0${externalEntries?.length ?? -1}\0${cachedHydratedIndex !== null}`
-  if (
-    cachedOutput
-    && cachedOutputKey === outputKey
-    && cachedOutputExternalEntries === externalEntries
-    && cachedOutputAliasGroups === suggestionAliasGroups
-    && cachedOutputControls === controls
-  ) {
-    return cachedOutput
-  }
-
-  const suggestionSourceLabels = {
-    Character: controls.sourceCharacter,
-    Creator: controls.sourceCreator,
-    Keyword: controls.sourceKeyword,
-    Date: controls.sourceDate,
-  } as const
-
   const normalizedQuery = normalizeQuery(query)
   const hasQuery = !!normalizedQuery
-
-  // Parse suggestion input state
-  const parsed = parseSuggestionInputState(query)
-  const suggestionQuery = normalizeQuery(parsed.suggestionQuery)
-  const suggestionContextQuery = parsed.suggestionContextQuery
-  const suggestionOperator = parsed.suggestionOperator
-  const suggestionIsExclusion = parsed.suggestionIsExclusion
 
   // ---- Index building with memoization ----
   const domSnapshotKey = getDomSnapshotKeyForMode({ mode, archivedVisible })
@@ -274,6 +245,33 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
       pendingHydration = { index, promise }
     }
   }
+
+  // Fast-path after resolving the memoized index/Fuse pair so outputKey tracks actual entry identity and Fuse readiness.
+  const outputKey = `${query}\0${mode}\0${isIndexReady}\0${shouldWarmFuse}\0${isSuggestionPanelDismissed}\0${archivedVisible}\0${externalEntries?.length ?? -1}\0${Boolean(resolvedIndex.fuse)}`
+  if (
+    cachedOutput
+    && cachedOutputKey === outputKey
+    && cachedOutputEntries === resolvedIndex.entries
+    && cachedOutputExternalEntries === externalEntries
+    && cachedOutputAliasGroups === suggestionAliasGroups
+    && cachedOutputControls === controls
+  ) {
+    return cachedOutput
+  }
+
+  const suggestionSourceLabels = {
+    Character: controls.sourceCharacter,
+    Creator: controls.sourceCreator,
+    Keyword: controls.sourceKeyword,
+    Date: controls.sourceDate,
+  } as const
+
+  // Parse suggestion input state
+  const parsed = parseSuggestionInputState(query)
+  const suggestionQuery = normalizeQuery(parsed.suggestionQuery)
+  const suggestionContextQuery = parsed.suggestionContextQuery
+  const suggestionOperator = parsed.suggestionOperator
+  const suggestionIsExclusion = parsed.suggestionIsExclusion
 
   // ---- Matched IDs ----
   const matchedIds = getMatchedEntryIds(query, resolvedIndex)
@@ -385,6 +383,7 @@ export function computeSearchModel(input: SearchModelInput): SearchModelOutput {
   }
   cachedOutputKey = outputKey
   cachedOutput = output
+  cachedOutputEntries = resolvedIndex.entries
   cachedOutputExternalEntries = externalEntries
   cachedOutputAliasGroups = suggestionAliasGroups
   cachedOutputControls = controls

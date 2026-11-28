@@ -250,6 +250,7 @@ Pipeline order, release concurrency locks, the `deploy-web-snapshot` composite a
   `fileName`
 - Listing widths: inline `<img>` and LCP preload `768/1080/1280` (width 1280; 1080 serves 390px phones at DPR 3,
   92vw × 3 ≈ 1077px); sizes `(max-width: 768px) 92vw, 640px`
+- Image resizing in `apps/web/astro.config.ts` uses Sharp with `kernel: 'lanczos3'` and `webp: { quality: 92, smartSubsample: true, effort: 6 }`
 - The registry resolves images only for visible commissions: `Hidden: true` originals are kept out of the module graph by the `hidden-source-image-stub` Vite plugin in `apps/web/server/assetsPipelineAstro.ts`. Astro emits every image that enters the graph and deletes originals only after `getImage`, so an eager glob would otherwise ship hidden originals in `dist/_astro/`.
 
 ### 数据库迁移验证
@@ -269,6 +270,7 @@ commit, not instructions.
 
 - `api-reference.md`, `ai-agent-guide.md` — admin API contract and integration pitfalls
 - `open-issues.md` — verified open backlog and "verified not a defect" list; re-verify before acting
+- `audit-2026-11-28-post-oct-review.md` — post-Oct-1 follow-up audit closing premature `已修` items, false comments, and test gaps
 - `audit-2026-11-11-full-repo.md` — full-repo audit (IDs A/W/F/S/P): defects, security, duplication, architecture,
   web performance and the admin overview review, with per-item status; supersedes the status of the 10-12 IDs
 - `audit-2026-10-12-full-repo.md` — full-repo audit findings (IDs PRIV/WEB/BLD/ADM/WRK/CI) and the plan order;

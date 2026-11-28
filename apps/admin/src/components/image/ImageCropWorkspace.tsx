@@ -617,7 +617,8 @@ export function ImageCropWorkspace({ allowOverflow, fillColor, imageUrl, initial
   return (
     <div
       ref={hostRef}
-      className="crop-workspace absolute inset-4 overflow-hidden sm:inset-6"
+      // Fixed px gutters keep the mobile crop canvas usable when root text scales to 200%.
+      className="crop-workspace absolute inset-[16px] overflow-hidden sm:inset-6"
       data-testid="cropper"
       aria-label="Crop image workspace"
     >

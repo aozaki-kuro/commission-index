@@ -116,6 +116,10 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
   const rebuild = useSyncExternalStore(subscribeToWebsiteRebuild, getWebsiteRebuildState, getServerWebsiteRebuildState)
   const isDispatching = rebuild.status === 'pending'
   const hasPending = useSyncExternalStore(subscribeToPendingRebuild, isPendingRebuild, () => false)
+  // Saved edits after an earlier confirmed rebuild take precedence over displaying the stale success notice.
+  const visibleRebuildStatus = rebuild.status === 'success' && hasPending
+    ? null
+    : rebuild.status
   const reload = useCallback(() => setReloadToken(value => value + 1), [])
   const [activeRanking, setActiveRanking] = useState<RankingKey>('latest')
   const tablistRef = useRef<HTMLDivElement>(null)
@@ -264,14 +268,14 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
   return (
     <div className="grid min-w-0 items-start gap-7 @min-[50rem]/workspace:grid-cols-[minmax(0,1fr)_17rem] @min-[50rem]/workspace:gap-x-8">
       <AdminBootstrapStatus errorMessage={state.errorMessage} isLoading={state.isLoading} hasPayload={payload !== null} onRetry={reload} />
-      {(rebuild.status === 'success' || rebuild.status === 'error' || rebuild.status === 'unconfirmed') && (
+      {(visibleRebuildStatus === 'success' || visibleRebuildStatus === 'error' || visibleRebuildStatus === 'unconfirmed') && (
         <FloatingNotice
-          placement={rebuild.status === 'success'
+          placement={visibleRebuildStatus === 'success'
             ? 'toast'
             : 'default'}
-          tone={rebuild.status === 'unconfirmed'
+          tone={visibleRebuildStatus === 'unconfirmed'
             ? 'error'
-            : rebuild.status}
+            : visibleRebuildStatus}
           onDismiss={dismissWebsiteRebuildNotice}
         >
           {rebuild.message}
@@ -295,14 +299,14 @@ export function AdminOverviewPage({ onNavigate }: { onNavigate: (path: string) =
           <div className="min-w-0 flex-1 space-y-1">
             <h2 id="overview-publish" className="text-base font-semibold text-gray-900 dark:text-gray-100">Publish website</h2>
             <p className="text-sm leading-relaxed text-gray-500 dark:text-gray-400">Rebuild the public site from saved content.</p>
-            {(rebuild.status === 'pending' || rebuild.status === 'success' || rebuild.status === 'error' || rebuild.status === 'unconfirmed') && (
+            {(visibleRebuildStatus === 'pending' || visibleRebuildStatus === 'success' || visibleRebuildStatus === 'error' || visibleRebuildStatus === 'unconfirmed') && (
               <p
-                role={rebuild.status === 'error' || rebuild.status === 'unconfirmed'
+                role={visibleRebuildStatus === 'error' || visibleRebuildStatus === 'unconfirmed'
                   ? 'alert'
                   : 'status'}
                 className="text-xs text-gray-600 dark:text-gray-400"
               >
-                {rebuild.message ?? (rebuild.status === 'pending'
+                {rebuild.message ?? (visibleRebuildStatus === 'pending'
                   ? 'Waiting for the public site to confirm the update.'
                   : null)}
               </p>

@@ -7,6 +7,7 @@ import type { ChangeEvent, DragEvent, ReactNode } from 'react'
 import type { CropEditorState } from '../../lib/imageCrop'
 import { IconCrop } from '@tabler/icons-react'
 import { useActionState, useEffect, useMemo, useRef, useState } from 'react'
+import { useToast } from '../../hooks/useToast'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { addCommissionAction } from '../../lib/adminActions'
 import {
@@ -43,11 +44,6 @@ interface AddCommissionFormProps {
   onAddCharacter: () => void
   // notifyDataUpdate ignores the current tab, so the page must refresh its own bootstrap data.
   onCreated?: () => void
-}
-
-interface SourceImageNotice {
-  tone: 'success' | 'error'
-  message: string
 }
 
 // links/design/description are uncontrolled, so they are read from the form instead of state.
@@ -105,7 +101,8 @@ export function AddCommissionForm({
   const [workGroupId, setWorkGroupId] = useState('')
   const [partNumber, setPartNumber] = useState('')
   const [keywordValue, setKeywordValue] = useState('')
-  const [sourceImageNotice, setSourceImageNotice] = useState<SourceImageNotice | null>(null)
+  const [sourceImageError, setSourceImageError] = useState<string | null>(null)
+  const toast = useToast()
   const [croppedImage, setCroppedImage] = useState<File | null>(null)
   const [pendingCropFile, setPendingCropFile] = useState<File | null>(null)
   // The original pick, kept so the crop can be redone without re-cropping the lossy 1280×525 output.
@@ -174,7 +171,7 @@ export function AddCommissionForm({
   )
 
   const rejectUnsupportedSourceImage = () => {
-    setSourceImageNotice({ tone: 'error', message: 'Choose a valid JPG or PNG image.' })
+    setSourceImageError('Choose a valid JPG or PNG image.')
   }
 
   // The file input only ever holds the confirmed crop output; anything else picked is put back.
@@ -260,13 +257,11 @@ export function AddCommissionForm({
     }
     catch {
       input.value = ''
-      setSourceImageNotice({
-        tone: 'error',
-        message: 'This browser could not attach the processed image to the form.',
-      })
+      setSourceImageError('This browser could not attach the processed image to the form.')
       return
     }
 
+    setSourceImageError(null)
     setCroppedImage(output)
     setSourceFile(source)
     setSourceCropState(editorState)
@@ -276,13 +271,14 @@ export function AddCommissionForm({
 
     // Re-cropping the retained source must not overwrite details typed since the first crop.
     if (source === sourceFile) {
-      setSourceImageNotice({ tone: 'success', message: `Image updated (1280×525 ${formatLabel}).` })
+      toast.push({ id: 'source-image-ready', tone: 'success', message: `Image updated (1280×525 ${formatLabel}).` })
       return
     }
 
     const details = extractCommissionDetails(source.name)
     if (!details) {
-      setSourceImageNotice({
+      toast.push({
+        id: 'source-image-ready',
         tone: 'success',
         message: `Ready: ${output.name} (1280×525 ${formatLabel}). Add delivery details if known.`,
       })
@@ -307,7 +303,8 @@ export function AddCommissionForm({
     }
     if (!workGroupId)
       setPartNumber(current => current || details.partNumber?.toString() || '')
-    setSourceImageNotice({
+    toast.push({
+      id: 'source-image-ready',
       tone: 'success',
       message: details.partNumber
         ? `Image ready (1280×525 ${formatLabel}). Details were suggested; enable part grouping to use part ${details.partNumber}.`
@@ -331,6 +328,7 @@ export function AddCommissionForm({
           setCroppedImage(null)
           setSourceFile(null)
           setSourceCropState(null)
+          setSourceImageError(null)
           setHasTextDraft(false)
           setSavedDraft(controlledDraft)
         }
@@ -390,16 +388,13 @@ export function AddCommissionForm({
         </button>
       </div>
 
-      {sourceImageNotice
+      {sourceImageError
         ? (
             <FloatingNotice
-              placement={sourceImageNotice.tone === 'success'
-                ? 'toast'
-                : 'default'}
-              tone={sourceImageNotice.tone}
-              onDismiss={() => setSourceImageNotice(null)}
+              tone="error"
+              onDismiss={() => setSourceImageError(null)}
             >
-              {sourceImageNotice.message}
+              {sourceImageError}
             </FloatingNotice>
           )
         : null}

@@ -1,8 +1,12 @@
 // @vitest-environment jsdom
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useUnsavedChangesGuard } from './useUnsavedChangesGuard'
+
+beforeEach(() => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+})
 
 function Probe({ dirty }: { dirty: boolean }) {
   useUnsavedChangesGuard(dirty)

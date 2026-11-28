@@ -15,6 +15,8 @@ type IdleWindow = Window & {
 
 const HOME_DEFERRED_MOUNT_TIMEOUT_MS = 1200
 const HOME_DEFERRED_MOUNT_FALLBACK_DELAY_MS = 180
+const EARLY_DEFERRED_TRIGGER_SELECTOR
+  = '#home-controls, #character-list, [data-mobile-hamburger], [data-mobile-view-mode-tabs], [data-commission-interest-button]'
 
 type DeferredMountName = keyof DeferredMounts
 
@@ -85,6 +87,8 @@ export function mountHomePageClient({ deps: depsOverrides }: MountHomePageClient
   const cleanups: Cleanup[] = []
   let cancelDeferredMount: Cleanup | null = null
   let disposed = false
+  let deferredLoading = false
+  let deferredMounted = false
 
   const cleanupAll = () => {
     while (cleanups.length > 0) {
@@ -92,34 +96,60 @@ export function mountHomePageClient({ deps: depsOverrides }: MountHomePageClient
     }
   }
 
+  const detachEarlyTriggers = () => {
+    document.removeEventListener('pointerdown', onEarlyInteraction, true)
+    document.removeEventListener('keydown', onEarlyInteraction, true)
+  }
+
+  const startDeferredLoad = () => {
+    if (disposed || deferredLoading || deferredMounted)
+      return
+    deferredLoading = true
+    cancelDeferredMount?.()
+    cancelDeferredMount = null
+
+    deps.loadDeferredMounts().then((loaded) => {
+      deferredLoading = false
+      // A soft navigation can tear down while the chunk loads; mounting now would bind to the next page.
+      if (disposed || deferredMounted)
+        return
+      deferredMounted = true
+      detachEarlyTriggers()
+      // Deferred features are independent; one failing must not tear down the critical mounts.
+      for (const name of DEFERRED_MOUNT_ORDER) {
+        try {
+          cleanups.push((depsOverrides?.[name] ?? loaded[name])())
+        }
+        catch (error) {
+          console.error('[home] deferred mount failed', error)
+        }
+      }
+    }, (error: unknown) => {
+      deferredLoading = false
+      console.error('[home] deferred mounts failed to load', error)
+    })
+  }
+
+  function onEarlyInteraction(event: Event) {
+    if (!(event.target instanceof Element) || !event.target.closest(EARLY_DEFERRED_TRIGGER_SELECTOR))
+      return
+    startDeferredLoad()
+  }
+
   try {
     for (const mount of criticalMounts) {
       cleanups.push(mount())
     }
 
+    document.addEventListener('pointerdown', onEarlyInteraction, true)
+    document.addEventListener('keydown', onEarlyInteraction, true)
     cancelDeferredMount = deps.scheduleDeferredMount(() => {
       cancelDeferredMount = null
-      if (disposed)
-        return
-      deps.loadDeferredMounts().then((loaded) => {
-        // A soft navigation can tear down while the chunk loads; mounting now would bind to the next page.
-        if (disposed)
-          return
-        // Deferred features are independent; one failing must not tear down the critical mounts.
-        for (const name of DEFERRED_MOUNT_ORDER) {
-          try {
-            cleanups.push((depsOverrides?.[name] ?? loaded[name])())
-          }
-          catch (error) {
-            console.error('[home] deferred mount failed', error)
-          }
-        }
-      }, (error: unknown) => {
-        console.error('[home] deferred mounts failed to load', error)
-      })
+      startDeferredLoad()
     })
   }
   catch (error) {
+    detachEarlyTriggers()
     cancelDeferredMount?.()
     cancelDeferredMount = null
     cleanupAll()
@@ -130,6 +160,7 @@ export function mountHomePageClient({ deps: depsOverrides }: MountHomePageClient
 
   return () => {
     disposed = true
+    detachEarlyTriggers()
     cancelDeferredMount?.()
     cancelDeferredMount = null
     cleanupAll()

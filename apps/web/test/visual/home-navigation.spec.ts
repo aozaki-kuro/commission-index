@@ -19,7 +19,7 @@ const publicId = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12
 // Section ids come from the sidebar hrefs on purpose: they are derived from display names and must not be hard-coded.
 async function sectionId(page: Page, displayName: string) {
   const href = await page
-    .locator('[id="Character List"] a')
+    .locator('#character-list a')
     .filter({ hasText: displayName })
     .first()
     .getAttribute('href')
@@ -156,14 +156,18 @@ test.describe('desktop sidebar', () => {
   test('sidebar jump to a deferred character lands on its title', async ({ page }) => {
     await page.goto('/')
     await expectFixtureData(page)
-    await page.locator('[id="Character List"] a').filter({ hasText: '枫霜 Kaede' }).first().click()
+    await page.locator('#character-list a').filter({ hasText: '枫霜 Kaede' }).first().click()
     await expectNearTop(page.locator('h2').filter({ hasText: '枫霜 Kaede' }).first())
   })
 
-  test('back-to-top button stays inside the viewport', async ({ page }) => {
+  test('back-to-top button is disabled at top and stays inside the viewport once visible', async ({ page }) => {
     await page.goto('/')
     await expectFixtureData(page)
     const button = page.locator('[data-sidebar-back-to-top-button="true"]')
+    await expect(button).toBeDisabled()
+
+    await page.evaluate(() => window.scrollTo(0, 500))
+    await expect(button).toBeEnabled()
     // A transform left on the sidebar after its entrance animation re-anchors this fixed button to the sidebar.
     await expect.poll(async () => {
       const box = await button.boundingBox()

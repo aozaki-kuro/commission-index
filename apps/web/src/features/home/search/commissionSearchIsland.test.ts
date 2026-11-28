@@ -131,6 +131,45 @@ describe('mountCommissionSearchIsland', () => {
     await vi.waitFor(() => expect(initSearchController).toHaveBeenCalledWith(root, { pendingKeyword: 'alpha' }))
   })
 
+  it.each([
+    {
+      label: 'focusin inside the search root',
+      setup: (root: HTMLElement) => {
+        root.innerHTML = '<input id="commission-search-input" />'
+        return () => root.querySelector('input')!.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+      },
+    },
+    {
+      label: 'input inside the search root',
+      setup: (root: HTMLElement) => {
+        root.innerHTML = '<input id="commission-search-input" />'
+        return () => {
+          const input = root.querySelector('input')!
+          input.value = 'blue'
+          input.dispatchEvent(new Event('input', { bubbles: true }))
+        }
+      },
+    },
+    {
+      label: 'browse popover beforetoggle',
+      setup: (root: HTMLElement) => {
+        root.innerHTML = '<div id="search-browse-popover" popover></div>'
+        return () => root.querySelector('#search-browse-popover')!.dispatchEvent(new Event('beforetoggle'))
+      },
+    },
+  ])('loads the controller immediately on early $label', async ({ setup }) => {
+    const root = document.getElementById('commission-search')!
+    const trigger = setup(root)
+    const teardown = mountCommissionSearchIsland()
+
+    expect(initSearchController).not.toHaveBeenCalled()
+    trigger()
+
+    expect(cancelIdleCallback).toHaveBeenCalledWith(1)
+    await vi.waitFor(() => expect(initSearchController).toHaveBeenCalledWith(root, { pendingKeyword: undefined }))
+    teardown()
+  })
+
   describe('when the controller chunk fails to load', () => {
     function mountWithFlakyImport() {
       const importController = vi.fn()

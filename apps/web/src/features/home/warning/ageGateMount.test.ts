@@ -121,7 +121,33 @@ describe('mountAgeGate', () => {
     renderPage()
     const remountTeardown = mountAgeGate()
     expect(gateRoot().getAttribute('aria-hidden')).toBe('true')
+    expect(gateRoot().hasAttribute('inert')).toBe(true)
     expect(byId('listing').hasAttribute('inert')).toBe(false)
     remountTeardown?.()
+  })
+
+  it('marks the closed gate inert, schedules exit hide, and re-opens when storage is cleared externally', () => {
+    vi.useFakeTimers()
+    try {
+      const teardown = mountAgeGate()
+      document.querySelector<HTMLButtonElement>('[data-age-gate-confirm]')!.click()
+
+      expect(gateRoot().hasAttribute('inert')).toBe(true)
+      expect(gateRoot().classList.contains('hidden')).toBe(false)
+
+      vi.advanceTimersByTime(250)
+      expect(gateRoot().classList.contains('hidden')).toBe(true)
+
+      localStorage.clear()
+      window.dispatchEvent(new StorageEvent('storage', { key: null }))
+      expect(gateRoot().getAttribute('aria-hidden')).toBe('false')
+      expect(gateRoot().classList.contains('hidden')).toBe(false)
+      expect(gateRoot().hasAttribute('inert')).toBe(false)
+
+      teardown?.()
+    }
+    finally {
+      vi.useRealTimers()
+    }
   })
 })

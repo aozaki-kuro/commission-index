@@ -27,9 +27,7 @@ function DialogOverlay({
         'fixed inset-0',
         variant === 'alert'
           ? 'z-80 data-[state=closed]:animate-none motion-safe:animate-[dialog-overlay-in_200ms_ease-out]'
-          : variant === 'crop'
-            ? 'z-60 motion-safe:data-[state=open]:animate-[dialog-overlay-in_150ms_ease-out] motion-safe:data-[state=closed]:animate-[dialog-crop-content-out_150ms_ease-in]'
-            : 'z-60 data-[state=open]:animate-[dialog-overlay-in_150ms_ease-out] data-[state=closed]:animate-[dialog-overlay-in_150ms_ease-in_reverse] motion-reduce:animate-none',
+          : 'z-60 motion-safe:data-[state=open]:animate-[dialog-overlay-in_150ms_ease-out] motion-safe:data-[state=closed]:animate-[dialog-overlay-out_150ms_ease-in]',
         variant === 'crop'
           ? 'bg-gray-200/[0.18] backdrop-blur-[20px] backdrop-saturate-150 dark:bg-gray-900/[0.18]'
           : variant === 'alert'

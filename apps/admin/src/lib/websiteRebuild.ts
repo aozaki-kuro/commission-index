@@ -21,12 +21,17 @@ let inFlight: Promise<void> | null = null
 let successTimer: ReturnType<typeof setTimeout> | null = null
 
 // Without a per-request bound, one hung poll keeps `inFlight` set forever and locks every rebuild button.
-// Uses setTimeout rather than AbortSignal.timeout so it follows fake timers in tests.
+// Uses setTimeout rather than AbortSignal.timeout so it follows fake timers in tests, and always clears on settle.
 const pollRequestTimeoutMs = 10000
-function pollSignal() {
+async function fetchLiveBuildInfoWithTimeout() {
   const controller = new AbortController()
-  setTimeout(() => controller.abort(new Error('Build info request timed out')), pollRequestTimeoutMs)
-  return controller.signal
+  const timer = setTimeout(() => controller.abort(new Error('Build info request timed out')), pollRequestTimeoutMs)
+  try {
+    return await fetchLiveBuildInfo(controller.signal)
+  }
+  finally {
+    clearTimeout(timer)
+  }
 }
 
 function publishState(next: RebuildState) {
@@ -81,7 +86,7 @@ export function queueWebsiteRebuild(): Promise<void> {
         if (Date.now() >= deadline)
           break
         try {
-          const info = await fetchLiveBuildInfo(pollSignal())
+          const info = await fetchLiveBuildInfoWithTimeout()
           if (isBuildConfirmed(info, dispatch.dispatchedAt)) {
             clearPendingRebuild(revision)
             publishState({ status: 'success', message: 'Website updated and confirmed live.' })

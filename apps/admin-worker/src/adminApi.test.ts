@@ -319,13 +319,17 @@ describe('admin worker CRUD contract routing', () => {
     }
   })
 
-  it('proxies Rybbit vote counts keyed by publicId and ignores other property keys', async () => {
+  it('proxies Rybbit vote counts keyed by canonical publicId and ignores non-UUID or unsafe property values', async () => {
+    const firstId = '11111111-1111-4111-8111-111111111111'
+    const secondId = '22222222-2222-4222-8222-222222222222'
     const today = new Date().toISOString().slice(0, 10)
     const rybbitFetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => Response.json({
       data: [
-        { propertyKey: 'commission', propertyValue: 'abc123', count: 2 },
-        { propertyKey: 'commission', propertyValue: ' abc123 ', count: 3 },
-        { propertyKey: 'commission', propertyValue: 'def456', count: 1 },
+        { propertyKey: 'commission', propertyValue: firstId, count: 2 },
+        { propertyKey: 'commission', propertyValue: ` ${firstId} `, count: 3 },
+        { propertyKey: 'commission', propertyValue: secondId, count: 1 },
+        { propertyKey: 'commission', propertyValue: '__proto__', count: 9 },
+        { propertyKey: 'commission', propertyValue: 'abc123', count: 4 },
         { propertyKey: 'commission', propertyValue: '  ', count: 9 },
         { propertyKey: 'commission', propertyValue: 'bad', count: Number.NaN },
         { propertyKey: 'sub_event', propertyValue: 'old-key', count: 7 },
@@ -343,7 +347,7 @@ describe('admin worker CRUD contract routing', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store')
     expect(await response.json()).toEqual({
       since: '2026-10-31',
-      counts: { abc123: 5, def456: 1 },
+      counts: { [firstId]: 5, [secondId]: 1 },
     })
     const [url, init] = rybbitFetch.mock.calls[0] ?? []
     // Read the clock on both sides so a run straddling UTC midnight still matches.
@@ -1325,13 +1329,13 @@ describe('admin worker CRUD contract routing', () => {
     }
 
     expect(payload.featuredKeywords).toEqual(['maid', 'maker'])
-    expect(payload.keywordOptions.slice(0, 6)).toEqual([
+    expect(payload.keywordOptions).toEqual([
       'Alice',
       'alice-maker',
       'Alicia',
-      'armor',
-      'B',
-      'Beta',
+      'cafe',
+      'maid',
+      'uniform',
     ])
   })
 
@@ -1747,6 +1751,9 @@ describe('admin worker CRUD contract routing', () => {
             body: JSON.stringify({
               characterId: 7,
               commissionDate: '2025-03-01',
+              creatorName: null,
+              workGroupId: null,
+              partNumber: null,
               links: rawLinks,
               hidden: false,
             }),
@@ -1760,6 +1767,10 @@ describe('admin worker CRUD contract routing', () => {
           message: expect.stringMatching(/^Link ".+" must be an http\(s\) URL\.$/),
         })
         expect(updated.status).toBe(400)
+        expect(await updated.json()).toEqual({
+          status: 'error',
+          message: expect.stringMatching(/^Link ".+" must be an http\(s\) URL\.$/),
+        })
         expect(put).not.toHaveBeenCalled()
       },
     )
@@ -1966,5 +1977,328 @@ describe('source-image response content type', () => {
 
     expect(response.status).toBe(500)
     expect(response.headers.get('Content-Type')).toContain('application/json')
+  })
+})
+
+describe('s-7 payload bounds and replace-image retention', () => {
+  it('rejects JSON bodies over 1 MiB with 413 for both declared Content-Length and streamed bodies', async () => {
+    const createCharacter = vi.fn(async () => createJsonResponse({ status: 'success', message: 'unexpected' }))
+    const backend = createCrudBackend({ createCharacter })
+
+    const declaredOversized = new Request(`${baseUrl}/api/admin/characters`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Length': String(1024 * 1024 + 1),
+      },
+      body: '{"name":"ok"}',
+    })
+    const declaredResponse = await handleAdminApiRequest(declaredOversized, {}, backend)
+    expect(declaredResponse.status).toBe(413)
+    expect(await declaredResponse.json()).toEqual({
+      status: 'error',
+      message: 'Request JSON body must be 1 MiB or smaller.',
+    })
+    expect(declaredOversized.bodyUsed).toBe(false)
+
+    const chunk = new TextEncoder().encode(JSON.stringify({
+      name: 'a'.repeat(1024 * 1024 + 32),
+    }))
+    const streamedOversized = new Request(`${baseUrl}/api/admin/characters`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: new ReadableStream({
+        start(controller) {
+          controller.enqueue(chunk)
+          controller.close()
+        },
+      }),
+      duplex: 'half',
+    } as RequestInit)
+    const streamedResponse = await handleAdminApiRequest(streamedOversized, {}, backend)
+    expect(streamedResponse.status).toBe(413)
+    expect(await streamedResponse.json()).toEqual({
+      status: 'error',
+      message: 'Request JSON body must be 1 MiB or smaller.',
+    })
+    expect(createCharacter).not.toHaveBeenCalled()
+  })
+
+  it('enforces length limits on character names', async () => {
+    const backend = createCrudBackend()
+    const tooLongName = 'x'.repeat(201)
+
+    const created = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/characters`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: tooLongName }),
+      }),
+      {},
+      backend,
+    )
+    const updated = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/characters/1`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: tooLongName, status: 'active' }),
+      }),
+      {},
+      backend,
+    )
+
+    for (const response of [created, updated]) {
+      expect(response.status).toBe(400)
+      expect(await response.json()).toEqual({
+        status: 'error',
+        message: 'Character name must be 200 characters or fewer.',
+      })
+    }
+  })
+
+  it.each([
+    {
+      label: 'creatorName over 200 chars',
+      patch: {
+        creatorName: 'c'.repeat(201),
+      },
+      message: 'Creator name must be 200 characters or fewer.',
+    },
+    {
+      label: 'description over 1000 chars',
+      patch: {
+        description: 'd'.repeat(1001),
+      },
+      message: 'Description must be 1000 characters or fewer.',
+    },
+    {
+      label: 'keyword over 1000 chars',
+      patch: {
+        keyword: 'k'.repeat(1001),
+      },
+      message: 'Keywords must be 1000 characters or fewer.',
+    },
+    {
+      label: 'more than 20 links',
+      patch: {
+        links: Array.from({ length: 21 }, (_, index) => `https://example.com/${index}`).join('\n'),
+      },
+      message: 'At most 20 links are allowed.',
+    },
+    {
+      label: 'link over 2048 chars',
+      patch: { links: `https://example.com/${'a'.repeat(2040)}` },
+      message: 'Each link must be 2048 characters or fewer.',
+    },
+    {
+      label: 'design over 2048 chars',
+      patch: { design: `https://example.com/${'b'.repeat(2040)}` },
+      message: 'Design URL must be 2048 characters or fewer.',
+    },
+    {
+      label: 'link with internal whitespace',
+      patch: { links: 'https://example.com/a b' },
+      message: 'Link "https://example.com/a b" must be an http(s) URL.',
+    },
+    {
+      label: 'design with control character',
+      patch: { design: 'https://example.com/\u0007' },
+      message: 'Design "https://example.com/\u0007" must be an http(s) URL.',
+    },
+  ])('rejects commission PATCH when $label', async ({ patch, message }) => {
+    const updateCommission = vi.fn(async () => createJsonResponse({ status: 'success', message: 'unexpected' }))
+    const backend = createCrudBackend({ updateCommission })
+
+    const response = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/commissions/19`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          characterId: 7,
+          commissionDate: '2025-03-01',
+          creatorName: 'artist',
+          workGroupId: null,
+          partNumber: null,
+          links: '',
+          hidden: false,
+          ...patch,
+        }),
+      }),
+      {},
+      backend,
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({ status: 'error', message })
+    expect(updateCommission).not.toHaveBeenCalled()
+  })
+
+  it('enforces batch row, per-row alias, term length, and featured keyword bounds', async () => {
+    const { db } = createSQLiteD1()
+
+    const tooManyRows = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/aliases/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rows: Array.from({ length: 1001 }, (_, index) => ({ creatorName: `c${index}`, aliases: [] })),
+        }),
+      }),
+      { DB: db },
+    )
+    expect(tooManyRows.status).toBe(400)
+    expect(await tooManyRows.json()).toEqual({
+      status: 'error',
+      message: 'At most 1000 alias rows may be updated per request.',
+    })
+
+    const tooManyAliases = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/character-aliases/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rows: [
+            {
+              characterName: 'Alice',
+              aliases: Array.from({ length: 101 }, (_, index) => `alias-${index}`),
+            },
+          ],
+        }),
+      }),
+      { DB: db },
+    )
+    expect(tooManyAliases.status).toBe(400)
+    expect(await tooManyAliases.json()).toEqual({
+      status: 'error',
+      message: 'At most 100 aliases may be submitted per row.',
+    })
+
+    const longAliasKey = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/keyword-aliases/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rows: [
+            {
+              baseKeyword: 'k'.repeat(201),
+              aliases: ['ok'],
+            },
+          ],
+        }),
+      }),
+      { DB: db },
+    )
+    expect(longAliasKey.status).toBe(400)
+    expect(await longAliasKey.json()).toEqual({
+      status: 'error',
+      message: 'Alias key must be 200 characters or fewer.',
+    })
+
+    const longAliasTerm = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/keyword-aliases/batch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rows: [
+            {
+              baseKeyword: 'maid',
+              aliases: [
+                'a'.repeat(201),
+              ],
+            },
+          ],
+        }),
+      }),
+      { DB: db },
+    )
+    expect(longAliasTerm.status).toBe(400)
+    expect(await longAliasTerm.json()).toEqual({
+      status: 'error',
+      message: 'Each alias must be 200 characters or fewer.',
+    })
+
+    const tooManyFeatured = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/suggestion`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          keywords: Array.from({ length: 201 }, (_, index) => `kw-${index}`),
+        }),
+      }),
+      { DB: db },
+    )
+    expect(tooManyFeatured.status).toBe(400)
+    expect(await tooManyFeatured.json()).toEqual({
+      status: 'error',
+      message: 'At most 200 featured keywords may be submitted.',
+    })
+
+    const longFeatured = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/suggestion`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          keywords: [
+            'f'.repeat(201),
+          ],
+        }),
+      }),
+      { DB: db },
+    )
+    expect(longFeatured.status).toBe(400)
+    expect(await longFeatured.json()).toEqual({
+      status: 'error',
+      message: 'Each featured keyword must be 200 characters or fewer.',
+    })
+  })
+
+  it('retains the uploaded R2 object on ambiguous D1 failures during source-image replacement', async () => {
+    const { database, db } = createSQLiteD1()
+    insertCharacter(database, 1, 'Alice')
+    insertCommission(database, { id: 19, characterId: 1, fileName: '20250301_alice-maker' })
+    insertSourceImage(database, '20250301_alice-maker', 19, 'source-images/previous.jpg')
+    const { bucket, put, deleteObject } = createImagesBucketRecorder()
+    const failingDb = {
+      ...db,
+      prepare(query: string) {
+        const statement = db.prepare(query)
+        if (!query.includes('INSERT INTO source_images')) {
+          return statement
+        }
+        return {
+          bind(...values: unknown[]) {
+            const bound = statement.bind(...values)
+            return {
+              ...bound,
+              async all() {
+                throw new Error('D1 connection lost after commit.')
+              },
+            }
+          },
+          all: async () => {
+            throw new Error('D1 connection lost after commit.')
+          },
+          run: () => statement.run(),
+        }
+      },
+    }
+
+    const formData = new FormData()
+    formData.set('sourceImage', new File([
+      imageBytes('png', 'replacement'),
+    ], 'sample.png', { type: 'image/png' }))
+
+    const response = await handleAdminApiRequest(
+      new Request(`${baseUrl}/api/admin/commissions/19/source-image`, { method: 'POST', body: formData }),
+      { DB: failingDb, IMAGES: bucket },
+    )
+
+    expect(response.status).toBe(400)
+    expect(await response.json()).toEqual({
+      status: 'error',
+      message: 'D1 connection lost after commit.',
+    })
+    expect(put).toHaveBeenCalledTimes(1)
+    expect(deleteObject).not.toHaveBeenCalled()
   })
 })

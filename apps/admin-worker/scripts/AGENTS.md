@@ -5,12 +5,11 @@
 - `lib/wrangler.ts` — repo-local Wrangler resolution, sync runner (64 MiB `maxBuffer`, `result.error` surfaced) and async
   runner (both `CI=true`), the missing-object classifier and `downloadR2Object` (3 attempts). Each script keeps
   resolving its own `--config` path.
-- `lib/concurrency.ts` — `FACT_SOURCE_DOWNLOAD_CONCURRENCY` (default 8, max 16) and `mapWithConcurrency`, which lets
-  in-flight workers settle before rethrowing the first failure.
+- `lib/concurrency.ts` — `FACT_SOURCE_DOWNLOAD_CONCURRENCY` (default 8, max 16) and `mapWithConcurrency`, which stops scheduling new items after the first error and lets in-flight workers settle before rethrowing it.
 
 ## exportWebFactSource.ts
 
-- Read-only export of remote D1/R2 to `apps/web/generated/*` (disposable build input); never writes back to D1. One D1 SELECT snapshot; local images are reused only if hash/size match it, and a mismatched download aborts the snapshot.
+- Read-only export of remote D1/R2 to `apps/web/generated/*` (disposable build input); never writes back to D1. One D1 SELECT snapshot; local images are reused only if hash/size match it, and a mismatched download aborts the snapshot. (`canonicalJson` sorts keys by deterministic UTF-16 code-unit order.)
 - Every commission must have a `source_images` row. A missing row is a hard error (lists the commission names); never guess an R2 key from the file name.
 - `objectKey` is the opaque R2 identity; `relativePath` (`source-images/<commissionFileName>.<ext>`) is the local path. Never derive one from the other.
 - content and manifest share `meta.revision` (excludes `exportedAt`). `exportedAt` is captured immediately before the D1 snapshot read whose result is exported (re-sampled before the not-found retry re-read), not after R2 image export, so consumers can safely reject snapshots whose reads began before a publish request.
@@ -28,7 +27,7 @@
 ## listR2Orphans.ts
 
 Offline inventory: lists R2 objects under `source-images/` via the Cloudflare REST API (Wrangler cannot list
-R2), then reads D1 `source_images.object_key` (in that order, so an upload committed in between is referenced),
+R2; 30 s per-request timeouts and `seenCursors` pagination cycle protection), then reads D1 `source_images.object_key` (in that order, so an upload committed in between is referenced),
 and reports unreferenced keys. Requires `CLOUDFLARE_API_TOKEN` (R2 read, plus write for `--delete`) and
 `CLOUDFLARE_ACCOUNT_ID`. Dry-run by default; `--delete` removes only orphans whose listed `last_modified` is at
 least 24 h old (missing/unparseable means kept), and is refused when D1 returns no references. Both payloads are
@@ -37,8 +36,8 @@ shape-checked. Decision logic: `planOrphanCleanup` / `parseReferencedObjectKeys`
 
 ## syncMissingSourceImages.ts
 
-Reads the manifest only (no D1). Downloads by `objectKey`, checks the bytes against the manifest `sha256` /
-`byteSize` (a mismatch fails that item and writes nothing), and writes at `generated/<relativePath>`.
+Reads the manifest only (no D1). Validates that `relativePath` stays within `generatedRoot`, downloads by `objectKey` into a `.download` temp file, checks the bytes against the manifest `sha256` /
+`byteSize` (a mismatch fails that item and cleans up the temp file), and atomically `renameSync`s to `generated/<relativePath>`.
 `syncSourceImages` is importable (main guard); tests: `../src/syncMissingSourceImages.test.ts`.
 
 ## writeOfflineFactSource.ts

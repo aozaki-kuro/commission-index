@@ -101,7 +101,7 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   (every 40px round button, icons `size-5`, dark surface `gray-900/80` like the menus). Its hairline ring plus a tight
   and a wide shadow keep the buttons apart from artwork behind them; do not soften them back. Only `listItem` belongs
   to this menu.
-- **Desktop sidebars:** every link and toggle is one ink, `gray-700`/`gray-200` (the selected view toggle
+- **Desktop sidebars:** landmark section ids are `#home-controls` and `#character-list`. Every link and toggle is one ink, `gray-700`/`gray-200` (the selected view toggle
   `gray-900`/white, kept in sync by `sidebarNavEnhancer.ts`), hovered only by the site link opacity; same no-color-hover
   rule as the hamburger. The ink sits on each `li` (or wrapper), because the base `p, li` rule beats an inherited
   color; anchors inherit it. The base link rule sets no color of its own (`dark:text-inherit`), so never restate a
@@ -125,7 +125,7 @@ Static markup is Astro templates. All client-side behavior uses Astro script com
   line-height still comes from the element); do not write `text-[11px]`. The token is `11px`, not rem, in both apps so
   it means one thing (admin's mobile nav relies on it not scaling). z-index uses bare Tailwind steps (`z-70`), never
   `z-[70]`; current layers: page 10–30 (image overlay, suggestion list, sidebars, back-to-top), image notice 50,
-  hamburger backdrop/panel/toggle 60/65/70, age gate 80, floating button roots 90.
+  hamburger backdrop/panel/toggle 60/65/70, floating button roots 80, age gate 90.
 - **Menu material and motion:** every floating menu (browse and help popovers, suggestion list) uses the
   `menu-glass` utility in `globals.css`; do not restate its classes. A breakpoint or variant utility layered on top
   wins over its `dark:` tint, so put per-breakpoint tints in scoped CSS with a dark override (the mobile browse panel does).
@@ -203,11 +203,13 @@ JSON / HTML, or the archived toggle / hash navigation contract change.
 
 - Search UI must be layout-stable on first paint — no shell-to-content swaps
 - Production search index: `/search/home-search-entries.<v>.json` (not DOM metadata), `v` from the root `data-search-index-version` attribute (`#--------Commissions--------`); a 404 retries once with `v` from `/search/home-search-version.json` (`no-cache`); no unversioned index route exists
-- The index is fetched only when needed: at controller init for a `?q=` load or when there are no featured keywords
+- The index is fetched only when needed: at controller init for a `?q=` load, pre-hydration typing (`earlyInputQuery` from `input.value`), or when there are no featured keywords
   (the keyword row is built from the entry pool), otherwise on the first search interaction
-  (`prepareSearchInteraction`: input focus/pointerdown/typing, chip, browse popover) or a `popstate` onto `?q=`. A
+  (`prepareSearchInteraction`: input focus/pointerdown/typing, chip, browse popover) or a `popstate` onto `?q=`. Early `focusin`, `input`, or browse-popover `beforetoggle` on the unhydrated island cancels the idle callback and loads the controller immediately. A
   query applied while the index is in flight is held, not run against the index-less DOM (that would hide every
   entry and announce no results); a failed load falls back to the DOM index and retries on the next interaction
+- Copy-link feedback toggles `data-copy-icon="share|check"` (`data-icon` is reserved by `astro-icon`)
+- Published works render valid `http(s)` links from any host in `linkDisplay.ts` (known platforms prioritized first, remaining valid hosts rendered after)
 - Search locale labels resolve from `homeSearchControls.ts` (not the full `homeLocale` graph)
 - `?q=` mirrors the applied query: written via `replaceState(history.state, …)` ~300 ms after it is applied (never `pushState`; `null` state would wipe ClientRouter's), removed on clear; a self-write fires no location-change event; a `popstate` that changes `?q=` makes the address win over typed text, a hash-only one keeps it
 - Link-click interceptors (sidebar, hamburger, hash) must bail on `!isUnmodifiedPrimaryClick(event)` (`lib/navigation/hashAnchor.ts`) so modified/middle clicks open normally

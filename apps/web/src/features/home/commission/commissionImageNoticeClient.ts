@@ -27,8 +27,16 @@ export function mountCommissionImageNoticeClient(initialNotice: NoticeState | nu
 
   let hideTimerId: number | null = null
   let removeTimerId: number | null = null
-  let animationFrameId: number | null = null
+  let animationFrameIds: number[] = []
   let hasVisibleNotice = false
+
+  const cancelPendingOpenFrames = () => {
+    if (animationFrameIds.length === 0)
+      return
+    for (const id of animationFrameIds)
+      win.cancelAnimationFrame(id)
+    animationFrameIds = []
+  }
 
   const clearTimers = () => {
     if (hideTimerId !== null) {
@@ -39,13 +47,15 @@ export function mountCommissionImageNoticeClient(initialNotice: NoticeState | nu
       win.clearTimeout(removeTimerId)
       removeTimerId = null
     }
-    if (animationFrameId !== null) {
-      win.cancelAnimationFrame(animationFrameId)
-      animationFrameId = null
-    }
+    cancelPendingOpenFrames()
   }
 
   const closeNotice = () => {
+    cancelPendingOpenFrames()
+    if (hideTimerId !== null) {
+      win.clearTimeout(hideTimerId)
+      hideTimerId = null
+    }
     if (!hasVisibleNotice && noticeElement.style.display === 'none')
       return
 
@@ -73,12 +83,17 @@ export function mountCommissionImageNoticeClient(initialNotice: NoticeState | nu
     noticeElement.classList.remove('opacity-100')
     noticeElement.classList.add('opacity-0')
 
-    animationFrameId = win.requestAnimationFrame(() => {
-      noticeElement.classList.remove('opacity-0')
-      noticeElement.classList.add('opacity-100')
-      hasVisibleNotice = true
-      animationFrameId = null
+    // Two frames ensure `display: block; opacity: 0` commits before transitioning to `opacity: 1`.
+    const firstId = win.requestAnimationFrame(() => {
+      const secondId = win.requestAnimationFrame(() => {
+        animationFrameIds = []
+        noticeElement.classList.remove('opacity-0')
+        noticeElement.classList.add('opacity-100')
+        hasVisibleNotice = true
+      })
+      animationFrameIds = [secondId]
     })
+    animationFrameIds = [firstId]
 
     if (scheduleHide) {
       hideTimerId = win.setTimeout(() => {
@@ -114,7 +129,7 @@ export function mountCommissionImageNoticeClient(initialNotice: NoticeState | nu
   win.addEventListener('scroll', onScrollOrWheel, { passive: true })
 
   if (initialNotice) {
-    openNotice(initialNotice, false)
+    openNotice(initialNotice, true)
   }
 
   return () => {

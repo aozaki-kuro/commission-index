@@ -2,6 +2,7 @@ import {
   buildCommissionSearchDomKey,
   buildCommissionSearchMetadata,
 } from '@commission-index/domain'
+import { cachedOutsideDev } from '../../../data/cachedOutsideDev'
 import { getCharacterAliasesMap } from '../../../data/characterAliases'
 import { getCommissionDataMap } from '../../../data/commissionData'
 import { getCharacterRecords } from '../../../data/commissionRecords'
@@ -67,20 +68,14 @@ export function buildHomeSearchEntries(): SearchEntry[] {
   return entries
 }
 
-let cachedArtifact: HomeSearchEntriesArtifact | null = null
-
 /**
  * Entries plus their content hash. The page's data-search-index-version and the search-entries endpoint
  * both read this so the advertised version and the served file cannot disagree.
  */
-export function buildHomeSearchEntriesArtifact(): HomeSearchEntriesArtifact {
-  if (cachedArtifact)
-    return cachedArtifact
-
+export const buildHomeSearchEntriesArtifact = cachedOutsideDev((): HomeSearchEntriesArtifact => {
   const entries = buildHomeSearchEntries()
-  cachedArtifact = {
+  return {
     entries,
     version: contentHash(JSON.stringify(entries)),
   }
-  return cachedArtifact
-}
+})

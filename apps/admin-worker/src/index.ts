@@ -38,7 +38,7 @@ function isLocalHostname(value: string | null) {
     || hostname.endsWith('.localhost')
 }
 
-function getAllowedCorsOrigin(request: Request) {
+function getAllowedCorsOrigin(request: Request, env: Env) {
   const origin = request.headers.get('origin')
   if (!origin) {
     return null
@@ -52,7 +52,7 @@ function getAllowedCorsOrigin(request: Request) {
       return originUrl.origin
     }
 
-    if (isLocalHostname(originUrl.hostname)) {
+    if (env.ALLOW_LOCAL_ORIGINS === '1' && isLocalHostname(originUrl.hostname)) {
       return originUrl.origin
     }
   }
@@ -63,12 +63,12 @@ function getAllowedCorsOrigin(request: Request) {
   return null
 }
 
-function withApiHeaders(request: Request, response: Response) {
+function withApiHeaders(request: Request, env: Env, response: Response) {
   const headers = new Headers(response.headers)
   // The API also streams stored image bytes; never let a browser sniff them (or an error body) into another type.
   headers.set('X-Content-Type-Options', 'nosniff')
 
-  const allowedOrigin = getAllowedCorsOrigin(request)
+  const allowedOrigin = getAllowedCorsOrigin(request, env)
   if (!allowedOrigin) {
     return new Response(response.body, {
       status: response.status,
@@ -144,11 +144,11 @@ export default {
     const { pathname } = new URL(request.url)
 
     if (request.method === 'OPTIONS' && pathname.startsWith('/api/admin/')) {
-      return withApiHeaders(request, noContent())
+      return withApiHeaders(request, env, noContent())
     }
 
     if (pathname.startsWith('/api/admin/')) {
-      return withApiHeaders(request, await handleApiRequest(request, env))
+      return withApiHeaders(request, env, await handleApiRequest(request, env))
     }
 
     return env.ASSETS.fetch(request)

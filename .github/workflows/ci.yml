@@ -75,6 +75,10 @@ jobs:
         env:
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          jq -e '.codeSha == null' apps/web/dist/build-info.json > /dev/null || {
+            echo "::error::apps/web/dist/build-info.json must keep codeSha == null."
+            exit 1
+          }
           for sha in "$(git rev-parse HEAD)" "$PR_HEAD_SHA"; do
             [ -n "$sha" ] || continue
             if grep -rlF "$sha" apps/web/dist; then

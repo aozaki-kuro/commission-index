@@ -145,6 +145,7 @@ function encodeObjectKey(key: string) {
 async function listR2Objects(bucketName: string, accountId: string, token: string) {
   const items: R2ListItem[] = []
   let cursor: string | null = null
+  const seenCursors = new Set<string>()
 
   do {
     const url = new URL(`${cloudflareApiBase}/accounts/${accountId}/r2/buckets/${bucketName}/objects`)
@@ -156,6 +157,7 @@ async function listR2Objects(bucketName: string, accountId: string, token: strin
 
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(30_000),
     })
     if (!response.ok) {
       throw new Error(`R2 list failed with HTTP ${response.status}.`)
@@ -167,9 +169,16 @@ async function listR2Objects(bucketName: string, accountId: string, token: strin
     }
     items.push(...body.result)
 
-    cursor = body.result_info?.is_truncated
+    const nextCursor = body.result_info?.is_truncated
       ? (body.result_info.cursor ?? null)
       : null
+    if (nextCursor && seenCursors.has(nextCursor)) {
+      throw new Error(`R2 list pagination repeated cursor "${nextCursor}".`)
+    }
+    if (nextCursor) {
+      seenCursors.add(nextCursor)
+    }
+    cursor = nextCursor
   } while (cursor)
 
   return items
@@ -200,6 +209,7 @@ async function deleteR2Object(bucketName: string, key: string, accountId: string
     {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(30_000),
     },
   )
   if (!response.ok) {

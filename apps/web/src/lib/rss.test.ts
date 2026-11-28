@@ -89,6 +89,7 @@ describe('renderRssFeed', () => {
     expect(doc.querySelector('parsererror')).toBeNull()
     expect(doc.querySelector('item > title')?.textContent).toBe('Tom & <Jerry>')
     expect(doc.querySelector('item > author')).toBeNull()
+    expect(doc.querySelector('channel > webMaster')).toBeNull()
     const creator = doc.getElementsByTagNameNS('http://purl.org/dc/elements/1.1/', 'creator')[0]
     expect(creator?.textContent).toBe('A & <B> ]]> "C"')
     expect(doc.querySelector('item > description')?.textContent).toContain('A & <B> ]]> "C"')

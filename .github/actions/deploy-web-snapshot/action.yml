@@ -118,7 +118,7 @@ runs:
     # cache-hit semantics for the kept images are unchanged.
     - name: Limit cached source images to visible commissions
       if: >-
-        steps.candidate.outputs.current == 'true' &&
+        steps.deploy.outputs.deployed == 'true' &&
         steps.restore-images.outputs.cache-matched-key != format('web-source-images-v2-{0}', env.WEB_BUILD_CACHE_TOKEN)
       shell: bash
       run: |
@@ -138,7 +138,7 @@ runs:
     # with the existing key, so skip it. `v2`: the cache content rule changed.
     - name: Save cached source images
       if: >-
-        steps.candidate.outputs.current == 'true' &&
+        steps.deploy.outputs.deployed == 'true' &&
         steps.restore-images.outputs.cache-matched-key != format('web-source-images-v2-{0}', env.WEB_BUILD_CACHE_TOKEN)
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:

@@ -39,10 +39,10 @@ if (!import.meta.env.DEV) {
 
     const script = document.createElement('script')
     script.src = 'https://sight.crystallize.cc/api/script.js'
-    script.defer = true
+    script.async = true
     script.dataset.siteId = '4d95bd3dc21f'
     script.addEventListener('load', flushPendingEvents, { once: true })
-    document.body.appendChild(script)
+    document.head.appendChild(script)
   }
 
   if (typeof analyticsWindow.requestIdleCallback === 'function') {
