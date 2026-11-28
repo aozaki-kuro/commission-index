@@ -219,12 +219,44 @@ function parseCommissionFieldsFromJson(payload: Record<string, unknown>) {
   })
 }
 
-function isHttpUrl(value: string) {
-  return URL.canParse(value) && ['http:', 'https:'].includes(new URL(value).protocol)
+const MAX_JSON_BODY_BYTES = 1024 * 1024
+const JSON_TOO_LARGE_MESSAGE = 'Request JSON body must be 1 MiB or smaller.'
+const MAX_CHARACTER_NAME_LENGTH = 200
+const MAX_CREATOR_NAME_LENGTH = 200
+const MAX_DESCRIPTION_LENGTH = 1000
+const MAX_KEYWORD_LENGTH = 1000
+const MAX_URL_LENGTH = 2048
+const MAX_LINKS_COUNT = 20
+const MAX_ALIAS_BATCH_ROWS = 1000
+const MAX_ALIASES_PER_ROW = 100
+const MAX_ALIAS_TERM_LENGTH = 200
+const MAX_FEATURED_KEYWORD_INPUT_COUNT = 200
+const MAX_FEATURED_KEYWORD_LENGTH = 200
+const REBUILD_DISPATCH_TIMEOUT_MS = 10_000
+const ALIAS_SPLIT_PATTERN = /[,\n，、;；]/
+const utf8Encoder = new TextEncoder()
+
+function hasDisallowedUrlChar(value: string) {
+  return /\s/.test(value)
+    || [...value].some((char) => {
+      const code = char.charCodeAt(0)
+      return code <= 0x1F || code === 0x7F
+    })
 }
 
-function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' | 'commissionDate' | 'creatorName' | 'workGroupId' | 'partNumber' | 'links' | 'design'>) {
-  if (!Number.isFinite(fields.characterId) || fields.characterId <= 0) {
+function isHttpUrl(value: string) {
+  return !hasDisallowedUrlChar(value)
+    && URL.canParse(value)
+    && ['http:', 'https:'].includes(new URL(value).protocol)
+}
+
+function validateCommissionFields(
+  fields: Pick<
+    CommissionFields,
+    'characterId' | 'commissionDate' | 'creatorName' | 'workGroupId' | 'partNumber' | 'links' | 'design' | 'description' | 'keyword'
+  >,
+) {
+  if (!Number.isSafeInteger(fields.characterId) || fields.characterId <= 0) {
     return 'Character selection is required.'
   }
 
@@ -236,12 +268,31 @@ function validateCommissionFields(fields: Pick<CommissionFields, 'characterId' |
   if (fields.creatorName && [...fields.creatorName].some(character => character.charCodeAt(0) <= 0x1F)) {
     return 'Creator name must be a string or null.'
   }
+  if (fields.creatorName && fields.creatorName.length > MAX_CREATOR_NAME_LENGTH) {
+    return `Creator name must be ${MAX_CREATOR_NAME_LENGTH} characters or fewer.`
+  }
+  if (fields.description && fields.description.length > MAX_DESCRIPTION_LENGTH) {
+    return `Description must be ${MAX_DESCRIPTION_LENGTH} characters or fewer.`
+  }
+  if (fields.keyword && fields.keyword.length > MAX_KEYWORD_LENGTH) {
+    return `Keywords must be ${MAX_KEYWORD_LENGTH} characters or fewer.`
+  }
+
+  if (fields.links.length > MAX_LINKS_COUNT) {
+    return `At most ${MAX_LINKS_COUNT} links are allowed.`
+  }
 
   // Links and design are rendered into href on the public site, so only absolute http(s) URLs may pass (blocks javascript: etc.).
   for (const link of fields.links) {
+    if (link.length > MAX_URL_LENGTH) {
+      return `Each link must be ${MAX_URL_LENGTH} characters or fewer.`
+    }
     if (!isHttpUrl(link)) {
       return `Link "${link}" must be an http(s) URL.`
     }
+  }
+  if (fields.design && fields.design.length > MAX_URL_LENGTH) {
+    return `Design URL must be ${MAX_URL_LENGTH} characters or fewer.`
   }
   if (fields.design && !isHttpUrl(fields.design)) {
     return `Design "${fields.design}" must be an http(s) URL.`
@@ -273,11 +324,46 @@ function getUploadedSourceImage(formData: FormData) {
   return entry
 }
 
-async function parseJsonBody(request: Request): Promise<Record<string, unknown>> {
-  const payload = await request.json() as unknown
-  return payload && typeof payload === 'object'
-    ? payload as Record<string, unknown>
-    : {}
+type JsonBodyReadResult
+  = | { ok: true, body: Record<string, unknown> }
+    | { ok: false, response: Response }
+
+async function readJsonBody(request: Request): Promise<JsonBodyReadResult> {
+  const declaredLength = Number(request.headers.get('content-length'))
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_JSON_BODY_BYTES) {
+    return {
+      ok: false,
+      response: failure(JSON_TOO_LARGE_MESSAGE, 413),
+    }
+  }
+  const rawText = await request.text()
+  if (utf8Encoder.encode(rawText).byteLength > MAX_JSON_BODY_BYTES) {
+    return {
+      ok: false,
+      response: failure(JSON_TOO_LARGE_MESSAGE, 413),
+    }
+  }
+
+  let payload: unknown
+  try {
+    payload = JSON.parse(rawText)
+  }
+  catch (error) {
+    if (error instanceof SyntaxError) {
+      return {
+        ok: false,
+        response: failure('Request body is not valid JSON.', 400),
+      }
+    }
+    throw error
+  }
+
+  return {
+    ok: true,
+    body: payload && typeof payload === 'object' && !Array.isArray(payload)
+      ? payload as Record<string, unknown>
+      : {},
+  }
 }
 
 function parseStructuredArray<T>(value: unknown, fallbackFieldValue?: unknown): T[] {
@@ -292,21 +378,59 @@ function parseStructuredArray<T>(value: unknown, fallbackFieldValue?: unknown): 
     : []
 }
 
+function validateAliasBatchRows(
+  rows: Array<{ name: string, aliases: string[] | string }>,
+) {
+  if (rows.length > MAX_ALIAS_BATCH_ROWS) {
+    throw new Error(`At most ${MAX_ALIAS_BATCH_ROWS} alias rows may be updated per request.`)
+  }
+
+  for (const row of rows) {
+    if (row.name.trim().length > MAX_ALIAS_TERM_LENGTH) {
+      throw new Error(`Alias key must be ${MAX_ALIAS_TERM_LENGTH} characters or fewer.`)
+    }
+    const items = Array.isArray(row.aliases)
+      ? row.aliases.filter((value): value is string => typeof value === 'string')
+      : String(row.aliases ?? '').split(ALIAS_SPLIT_PATTERN)
+    if (items.length > MAX_ALIASES_PER_ROW) {
+      throw new Error(`At most ${MAX_ALIASES_PER_ROW} aliases may be submitted per row.`)
+    }
+    for (const item of items) {
+      if (item.trim().length > MAX_ALIAS_TERM_LENGTH) {
+        throw new Error(`Each alias must be ${MAX_ALIAS_TERM_LENGTH} characters or fewer.`)
+      }
+    }
+  }
+}
+
 // Full replace: a payload that carries no recognisable list must not be read as "clear everything".
 function parseFeaturedKeywords(body: Record<string, unknown>) {
+  let keywords: string[] | null = null
   if (Array.isArray(body.keywords)) {
-    return body.keywords.map(String)
+    keywords = body.keywords.map(String)
   }
-  const raw = typeof body.keywordsJson === 'string'
-    ? body.keywordsJson
-    : body.keywords
-  if (typeof raw !== 'string') {
+  else {
+    const raw = typeof body.keywordsJson === 'string'
+      ? body.keywordsJson
+      : body.keywords
+    if (typeof raw !== 'string') {
+      return null
+    }
+    const parsed = JSON.parse(raw) as unknown
+    keywords = Array.isArray(parsed)
+      ? parsed.map(String)
+      : null
+  }
+  if (!keywords) {
     return null
   }
-  const parsed = JSON.parse(raw) as unknown
-  return Array.isArray(parsed)
-    ? parsed.map(String)
-    : null
+  if (keywords.length > MAX_FEATURED_KEYWORD_INPUT_COUNT) {
+    throw new Error(`At most ${MAX_FEATURED_KEYWORD_INPUT_COUNT} featured keywords may be submitted.`)
+  }
+  if (keywords.some(keyword => keyword.trim().length > MAX_FEATURED_KEYWORD_LENGTH)) {
+    throw new Error(`Each featured keyword must be ${MAX_FEATURED_KEYWORD_LENGTH} characters or fewer.`)
+  }
+  return keywords
 }
 
 async function handleCrudBackendRequest(operation: () => Promise<Response>) {
@@ -460,10 +584,13 @@ function createNativeCrudBackend(
           await persistSourceImageMetadata(db, savedSourceImage)
         }
         catch (error) {
-          // No row points at the object just uploaded; release it instead of leaving an orphan.
-          await imagesBucket.delete(savedSourceImage.objectKey).catch((cleanupError) => {
-            console.warn('Source image metadata was not saved and the uploaded object could not be removed.', cleanupError)
-          })
+          // Only deterministic pre-commit rejection ("Commission not found.") proves no D1 row references the
+          // uploaded object; ambiguous D1 failures retain the object to match createCommission's durability contract.
+          if (error instanceof Error && error.message === 'Commission not found.') {
+            await imagesBucket.delete(savedSourceImage.objectKey).catch((cleanupError) => {
+              console.warn('Source image metadata was not saved and the uploaded object could not be removed.', cleanupError)
+            })
+          }
           return failureFrom(error, 'Failed to update source image metadata.')
         }
 
@@ -497,10 +624,17 @@ async function handleCrudRequest(request: Request, backend: AdminCrudBackend) {
   const { pathname } = new URL(request.url)
 
   if (request.method === 'POST' && pathname === '/api/admin/characters') {
-    const body = await parseJsonBody(request)
+    const jsonResult = await readJsonBody(request)
+    if (!jsonResult.ok) {
+      return jsonResult.response
+    }
+    const body = jsonResult.body
     const name = String(body.name ?? '').trim()
     if (!name) {
       return failure('Character name is required.')
+    }
+    if (name.length > MAX_CHARACTER_NAME_LENGTH) {
+      return failure(`Character name must be ${MAX_CHARACTER_NAME_LENGTH} characters or fewer.`)
     }
 
     return handleCrudBackendRequest(() => backend.createCharacter({
@@ -515,10 +649,17 @@ async function handleCrudRequest(request: Request, backend: AdminCrudBackend) {
       return failure('Invalid character identifier.')
     }
 
-    const body = await parseJsonBody(request)
+    const jsonResult = await readJsonBody(request)
+    if (!jsonResult.ok) {
+      return jsonResult.response
+    }
+    const body = jsonResult.body
     const name = String(body.name ?? '').trim()
     if (!name) {
       return failure('Character name is required.')
+    }
+    if (name.length > MAX_CHARACTER_NAME_LENGTH) {
+      return failure(`Character name must be ${MAX_CHARACTER_NAME_LENGTH} characters or fewer.`)
     }
 
     return handleCrudBackendRequest(() => backend.updateCharacter({
@@ -529,7 +670,11 @@ async function handleCrudRequest(request: Request, backend: AdminCrudBackend) {
   }
 
   if (request.method === 'PUT' && pathname === '/api/admin/characters/order') {
-    const body = await parseJsonBody(request)
+    const jsonResult = await readJsonBody(request)
+    if (!jsonResult.ok) {
+      return jsonResult.response
+    }
+    const body = jsonResult.body
     return handleCrudBackendRequest(() => backend.updateCharacterOrder({
       active: Array.isArray(body.active)
         ? body.active.map(Number)
@@ -577,7 +722,11 @@ async function handleCrudRequest(request: Request, backend: AdminCrudBackend) {
       return failure('Invalid commission identifier.')
     }
 
-    const body = await parseJsonBody(request)
+    const jsonResult = await readJsonBody(request)
+    if (!jsonResult.ok) {
+      return jsonResult.response
+    }
+    const body = jsonResult.body
     if (!Object.hasOwn(body, 'workGroupId') || !Object.hasOwn(body, 'partNumber')) {
       return failure('workGroupId and partNumber must be present; use null for standalone commissions.')
     }
@@ -641,6 +790,7 @@ const BATCH_WRITE_ROUTES: Record<string, {
         creatorName: row.creatorName ?? '',
         aliases: row.aliases ?? row.alias ?? '',
       }))
+      validateAliasBatchRows(rows.map(row => ({ name: row.creatorName, aliases: row.aliases })))
 
       await saveCreatorAliasesBatch(db, rows)
     },
@@ -657,6 +807,7 @@ const BATCH_WRITE_ROUTES: Record<string, {
         characterName: row.characterName ?? '',
         aliases: row.aliases ?? row.alias ?? '',
       }))
+      validateAliasBatchRows(rows.map(row => ({ name: row.characterName, aliases: row.aliases })))
 
       await saveCharacterAliasesBatch(db, rows)
     },
@@ -673,6 +824,7 @@ const BATCH_WRITE_ROUTES: Record<string, {
         baseKeyword: row.baseKeyword ?? '',
         aliases: row.aliases ?? row.alias ?? '',
       }))
+      validateAliasBatchRows(rows.map(row => ({ name: row.baseKeyword, aliases: row.aliases })))
 
       await saveKeywordAliasesBatch(db, rows)
     },
@@ -711,8 +863,13 @@ async function handleBatchWriteRequest(request: Request, env: Env) {
     return bindingFailure('Admin worker DB binding is required for this route.')
   }
 
+  const jsonResult = await readJsonBody(request)
+  if (!jsonResult.ok) {
+    return jsonResult.response
+  }
+
   try {
-    await route.save(db, await parseJsonBody(request))
+    await route.save(db, jsonResult.body)
     return success(route.ok)
   }
   catch (error) {
@@ -773,6 +930,7 @@ export async function handleAdminApiRequest(
             'User-Agent': 'commission-index-admin-worker',
           },
           body: JSON.stringify(buildRebuildDispatchBody(dispatchedAt)),
+          signal: AbortSignal.timeout(REBUILD_DISPATCH_TIMEOUT_MS),
         },
       )
 

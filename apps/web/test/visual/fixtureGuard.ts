@@ -9,7 +9,7 @@ const FIXTURE_CHARACTER_NAME = 'Lumi Verde'
 // or screenshot instead of producing real-data output.
 export async function expectFixtureData(page: Page) {
   await expect(
-    page.locator('[id="Character List"]').getByText(FIXTURE_CHARACTER_NAME).first(),
+    page.locator('#character-list').getByText(FIXTURE_CHARACTER_NAME).first(),
     'page is not rendering the visual fixture; a stale non-fixture server may be running on the port',
   ).toBeAttached()
 }

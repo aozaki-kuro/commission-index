@@ -110,7 +110,10 @@ function readChipKeyword(target: EventTarget | null): string | null {
     : null
 }
 
-export function initSearchController(root: HTMLElement, options?: { pendingKeyword?: string }) {
+export function initSearchController(
+  root: HTMLElement,
+  options?: { pendingKeyword?: string, pendingScope?: string },
+) {
   // 1. Parse props from data attributes
   const locale = root.dataset.locale ?? undefined
   const featuredKeywords: string[] = JSON.parse(root.dataset.featuredKeywords ?? '[]')
@@ -139,13 +142,18 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
 
   // 3. Initialize state
   const initialUrlQuery = getUrlQuerySnapshot()
-  let query = initialUrlQuery
-  let inputQuery: string | null = null
-  let isIndexReady = !!initialUrlQuery
-  let shouldWarmFuse = !!initialUrlQuery
+  const earlyInputQuery = !initialUrlQuery
+    ? input.value
+    : ''
+  let query = initialUrlQuery || earlyInputQuery
+  let inputQuery: string | null = earlyInputQuery || null
+  let isIndexReady = Boolean(initialUrlQuery || earlyInputQuery)
+  let shouldWarmFuse = Boolean(initialUrlQuery || earlyInputQuery)
   let isSuggestionPanelDismissed = false
   let externalEntries = getCachedHomeSearchEntries()
-  let querySource: SearchQuerySource = 'url_query'
+  let querySource: SearchQuerySource = earlyInputQuery
+    ? 'input'
+    : 'url_query'
   let popularKeywordPool: string[] = externalEntries
     ? buildPopularKeywordPoolFromEntries(externalEntries)
     : []
@@ -368,10 +376,14 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
     if (copyUrlBtn) {
       copyUrlBtn.classList.toggle('pointer-events-none', !hasQuery)
       copyUrlBtn.classList.toggle('opacity-0', !hasQuery)
+      if (copyUrlBtn instanceof HTMLButtonElement)
+        copyUrlBtn.disabled = !hasQuery
     }
     if (clearBtn) {
       clearBtn.classList.toggle('pointer-events-none', !hasQuery)
       clearBtn.classList.toggle('opacity-0', !hasQuery)
+      if (clearBtn instanceof HTMLButtonElement)
+        clearBtn.disabled = !hasQuery
     }
     if (helpTriggerEl) {
       // transform, not right: a `right` transition lays out every frame on WebKit's main thread.
@@ -450,9 +462,9 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
     // ARIA 1.2 combobox: the input itself carries the role and its expanded state.
     input.setAttribute('aria-expanded', String(model.shouldShowSuggestionPanel))
 
-    // Render/hide suggestion dropdown (skip DOM rebuild if suggestions unchanged)
+    // Render/hide suggestion dropdown (skip DOM rebuild if suggestions or header counts unchanged)
     const suggestionKey = model.shouldShowSuggestionPanel
-      ? `${model.suggestionViewModels.map(s => s.term).join('\0')}:${model.shouldShowHiddenArchivedNotice}:${model.suggestionIsExclusion}:${model.suggestionOperator}`
+      ? `${model.suggestionViewModels.map(s => s.term).join('\0')}:${model.shouldShowHiddenArchivedNotice}:${model.hiddenArchivedNoticeMessage}:${model.visibleStatusMessage}:${model.suggestionIsExclusion}:${model.suggestionOperator}`
       : ''
     if (suggestionKey !== prevSuggestionKey) {
       prevSuggestionKey = suggestionKey
@@ -713,8 +725,8 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
   function updateCopyButtonIcon() {
     if (!copyUrlBtn)
       return
-    copyUrlBtn.querySelector<HTMLElement>('[data-icon="share"]')?.classList.toggle('hidden', copyState === 'success')
-    copyUrlBtn.querySelector<HTMLElement>('[data-icon="check"]')?.classList.toggle('hidden', copyState !== 'success')
+    copyUrlBtn.querySelector<HTMLElement>('[data-copy-icon="share"]')?.classList.toggle('hidden', copyState === 'success')
+    copyUrlBtn.querySelector<HTMLElement>('[data-copy-icon="check"]')?.classList.toggle('hidden', copyState !== 'success')
   }
 
   // Help trigger (the popover content is server-rendered)
@@ -770,9 +782,9 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
     // Back/forward landed on a different ?q=: the address wins over what was typed.
     // A hash-only popstate (fragment navigation) leaves typed text and the pending write alone.
     const addressQuery = getUrlQuerySnapshot()
-    // Back/forward onto a `?q=` is a search the reader did not type; it needs the index too.
+    // Back/forward onto a `?q=` is a search the reader did not type; mark the index ready too.
     if (addressQuery)
-      requestSearchIndex()
+      prepareSearchInteraction()
     if (addressQuery !== lastAddressQuery) {
       lastAddressQuery = addressQuery
       if (addressQuery !== query) {
@@ -794,17 +806,24 @@ export function initSearchController(root: HTMLElement, options?: { pendingKeywo
     }
   }
 
-  // Fetch the index now only when the page needs it before any interaction: a `?q=` load, or no featured
-  // keywords, where the keyword row is built from the index's entry pool.
-  if (initialUrlQuery || computeFeaturedKeywordChips(featuredKeywords, suggestionAliasGroups).length === 0)
+  // Fetch the index now only when the page needs it before any interaction: a `?q=` load, pre-hydration typing,
+  // or no featured keywords, where the keyword row is built from the index's entry pool.
+  if (initialUrlQuery || earlyInputQuery || computeFeaturedKeywordChips(featuredKeywords, suggestionAliasGroups).length === 0)
     requestSearchIndex()
 
   // Initial recompute (immediate — first render)
   scheduleRecompute({ immediate: true })
 
-  // A chip tapped before this chunk loaded (queued by the island mount)
-  if (options?.pendingKeyword)
-    applyPopularKeyword(options.pendingKeyword, 'row')
+  // A chip or browse term tapped before this chunk loaded (queued by the island mount)
+  if (options?.pendingKeyword) {
+    applyPopularKeyword(
+      options.pendingKeyword,
+      options.pendingScope
+        ? 'all'
+        : 'row',
+      options.pendingScope,
+    )
+  }
 
   // Return cleanup function
   return () => {

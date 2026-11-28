@@ -14,7 +14,7 @@ export function parseCommissionLinksJson(raw: string | null | undefined, options
       return []
     }
 
-    const links = parsed.map(link => String(link))
+    const links = parsed.filter((link): link is string => typeof link === 'string')
     return options.dropBlank
       ? links.map(link => link.trim()).filter(Boolean)
       : links

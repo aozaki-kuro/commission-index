@@ -41,14 +41,16 @@ const rootClass = `flex w-full flex-wrap items-center gap-y-2 font-mono text-xs 
 
 <div class={rootClass}>
   <div class="flex items-center">
-    <a
-      href={linkId}
-      class="mr-6 no-underline select-none md:mr-10"
-    >
-      {formattedDate
-? <time datetime={isoDate}>{formattedDate}</time>
-: null}
-    </a>
+    {formattedDate
+      ? (
+          <a
+            href={linkId}
+            class="mr-6 no-underline select-none md:mr-10"
+          >
+            <time datetime={isoDate}>{formattedDate}</time>
+          </a>
+        )
+      : null}
 
     <span>{creatorName}</span>
 

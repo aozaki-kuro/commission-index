@@ -23,7 +23,7 @@ describe('commissionSearchMetadata', () => {
       expect(metadata.searchSuggestionText).toContain('Creator\tArtist Name')
     })
 
-    it('includes design and description in search text', () => {
+    it('includes non-URL design text and description in search text, while skipping raw design URLs', () => {
       const metadata = buildCommissionSearchMetadata({
         characterName: 'Beta',
         commissionDate: null,
@@ -35,6 +35,18 @@ describe('commissionSearchMetadata', () => {
 
       expect(metadata.searchText).toContain('casual outfit')
       expect(metadata.searchText).toContain('winter scene')
+
+      const withUrl = buildCommissionSearchMetadata({
+        characterName: 'Beta',
+        commissionDate: null,
+        creatorName: null,
+        fileName: 'opaque-key',
+        design: 'https://x.com/artist/status/123',
+        description: 'winter scene',
+      })
+      expect(withUrl.searchText).not.toContain('x.com')
+      expect(withUrl.searchText).not.toContain('https')
+      expect(withUrl.searchText).toContain('winter scene')
     })
 
     it('expands character aliases into search text and suggestions', () => {

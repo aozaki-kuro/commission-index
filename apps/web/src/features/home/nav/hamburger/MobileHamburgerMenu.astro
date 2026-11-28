@@ -1,6 +1,7 @@
 ---
 import type { HomeLocaleMessages, HomeLocaleOption } from '@features/home/i18n/homeLocale'
 import type { CharacterNavItem } from '@lib/characters/nav'
+import { DEFAULT_WEB_LOCALE, normalizeWebLocale } from '@config/locales'
 import { STYLES } from '@features/home/nav/hamburger/constants'
 import { buildCharacterNavItems } from '@lib/characters/nav'
 import { Icon } from 'astro-icon/components'
@@ -20,20 +21,26 @@ interface MobileHamburgerMenuProps {
 }
 
 const { active, archived, monthNavItems, controls, locale, localeOptions, localeSwitcherLabel } = Astro.props as MobileHamburgerMenuProps
+const resolvedLocale = normalizeWebLocale(locale)
+const localeBasePath = resolvedLocale === DEFAULT_WEB_LOCALE
+  ? '/'
+  : `/${resolvedLocale}/`
 const activeNavItems = buildCharacterNavItems(active)
 const archivedNavItems = buildCharacterNavItems(archived)
 
 // Type follows apple.com's mobile menu: every link is one 28px/600 row in one ink; only group labels are smaller.
 // The ink is the site's heading color (gray-800/100), not apple.com's lighter #333336: rows this size read as headings.
 // Row size comes from --menu-font/--menu-pad (scoped CSS below), so the default view fits the screen.
+const focusOutlineClassName = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-500 dark:focus-visible:outline-gray-400 rounded-sm'
 const utilityActionButtonClassName
-  = 'inline-flex items-center gap-3 py-(--menu-pad) text-gray-800 dark:text-gray-100'
+  = `inline-flex items-center gap-3 py-(--menu-pad) text-gray-800 dark:text-gray-100 ${focusOutlineClassName}`
 const utilityActionTextClassName = 'text-(length:--menu-font) leading-[1.15] font-semibold tracking-[0.007em] no-underline'
 // Group labels are the quiet sentence-case label shared with the browse panel; they stay unhovered like other labels.
-const sectionToggleClassName = 'mt-(--menu-gap) mb-1 flex items-center gap-1.5 text-left text-sm font-normal text-gray-500 dark:text-gray-400'
+const sectionToggleClassName = `mt-(--menu-gap) mb-1 flex items-center gap-1.5 text-left text-sm font-normal text-gray-500 dark:text-gray-400 ${focusOutlineClassName}`
 // Rows fade in top to bottom on open; `--i` drives the stagger delay in the scoped CSS below.
 const rowStyle = (index: number) => `--i: ${index}`
 const archivedToggleRow = 4 + activeNavItems.length
+const languageRow = archivedToggleRow + 1
 ---
 
 <div
@@ -43,7 +50,7 @@ const archivedToggleRow = 4 + activeNavItems.length
   data-mobile-hamburger-open-label={controls.openNavigationMenu}
   data-mobile-hamburger-close-label={controls.closeNavigationMenu}
   class="
-    fixed right-8 bottom-8 z-90
+    fixed right-8 bottom-8 z-80
     transition-[opacity,translate] duration-200
     data-[floating-hidden]:translate-y-[calc(100%+2rem)] data-[floating-hidden]:opacity-0
     data-[floating-hidden]:pointer-events-none data-[floating-hidden]:*:pointer-events-none
@@ -89,7 +96,7 @@ const archivedToggleRow = 4 + activeNavItems.length
     style={`--menu-rows: ${3 + activeNavItems.length}`}
     class="
       pointer-events-none fixed inset-0 z-65 hidden overflow-y-auto overscroll-contain
-      bg-white/90 px-12 pt-16 pb-28 opacity-0 backdrop-blur-[20px]
+      bg-white/90 px-12 pt-16 pb-28 opacity-0 backdrop-blur-xl
       transition-opacity duration-220 ease-out
       focus:outline-hidden
       dark:bg-gray-900/80
@@ -251,7 +258,7 @@ const archivedToggleRow = 4 + activeNavItems.length
               monthNavItems.map((item, index) => (
                 <li class="relative" data-mobile-hamburger-row style={rowStyle(3 + index)}>
                   <a
-                    href={`/?view=timeline${item.sectionHash}`}
+                    href={`${localeBasePath}?view=timeline${item.sectionHash}`}
                     data-mobile-nav-link="true"
                     data-mobile-nav-section-id={item.sectionId}
                     class={STYLES.listItem}
@@ -267,7 +274,7 @@ const archivedToggleRow = 4 + activeNavItems.length
     </div>
 
     {/* Language is used in ~1% of mobile sessions, so it closes the menu in the quiet group-label style. */}
-    <div class="mt-(--menu-gap)" data-mobile-hamburger-row style={rowStyle(12)}>
+    <div class="mt-(--menu-gap)" data-mobile-hamburger-row style={rowStyle(languageRow)}>
       <p class="mb-1 text-sm text-gray-500 dark:text-gray-400">{localeSwitcherLabel}</p>
       {/* The current language is marked by ink and weight alone: a trailing mark would shift the row when it moves. */}
       <ul class="flex flex-wrap gap-x-5">
@@ -280,7 +287,7 @@ const archivedToggleRow = 4 + activeNavItems.length
                   href={option.href}
                   aria-current={isActive ? 'page' : undefined}
                   data-link-style="true"
-                  class={`inline-flex min-h-11 items-center text-base no-underline ${
+                  class={`inline-flex min-h-11 items-center text-base no-underline ${focusOutlineClassName} ${
                     isActive
                       ? 'font-semibold text-gray-800 dark:text-gray-100'
                       : 'font-normal text-gray-500 dark:text-gray-400'

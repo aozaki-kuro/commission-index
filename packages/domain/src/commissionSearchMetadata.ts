@@ -158,6 +158,12 @@ export function buildCommissionSearchMetadata({
     uniqueSuggestions.set(normalizedTerm, entry)
   }
 
+  const trimmedDesign = design?.trim() ?? ''
+  // Design links are external reference URLs; skip raw http(s) URLs so host/path fragments do not pollute text search.
+  const searchableDesign = trimmedDesign && !/^https?:\/\//i.test(trimmedDesign)
+    ? trimmedDesign
+    : ''
+
   return {
     searchText: [
       characterName,
@@ -168,7 +174,7 @@ export function buildCommissionSearchMetadata({
       ...(legacyIdentitySearchTerm
         ? [legacyIdentitySearchTerm]
         : []),
-      design ?? '',
+      searchableDesign,
       description ?? '',
       keywordSearchText,
       keywordAliasesSearchText,

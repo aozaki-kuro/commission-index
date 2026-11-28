@@ -165,18 +165,30 @@ describe('useCharacterCommissionGroups', () => {
         commission(characterId * 10, characterId, 'Saved'),
       ]
     })
-    act(() => groups.refreshLoadedGroups())
+    await act(async () => {
+      groups.refreshLoadedGroups()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
     await vi.waitFor(() => expect(groups.refreshError).toBe('Network down'))
 
     actions.fetchCharacterCommissionsAction.mockImplementation(async (characterId: number) => [
       commission(characterId * 10, characterId, 'Saved'),
     ])
-    act(() => groups.refreshLoadedGroups(new Set([2])))
+    await act(async () => {
+      groups.refreshLoadedGroups(new Set([2]))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
     await vi.waitFor(() => expect(actions.fetchCharacterCommissionsAction).toHaveBeenCalledTimes(5))
     await vi.waitFor(() => expect(groups.loadingCharacterIds.size).toBe(0))
     expect(groups.refreshError).toBe('Network down')
 
-    act(() => groups.refreshLoadedGroups())
+    await act(async () => {
+      groups.refreshLoadedGroups()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
     await vi.waitFor(() => expect(groups.refreshError).toBeNull())
   })
 })

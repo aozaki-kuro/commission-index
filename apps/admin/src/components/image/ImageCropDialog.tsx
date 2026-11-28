@@ -173,7 +173,7 @@ export function ImageCropDialog({
             event.preventDefault()
         }}
       >
-        <DialogHeader className="gap-4 pt-[max(1rem,env(safe-area-inset-top))]">
+        <DialogHeader className="gap-[16px] pt-[max(16px,env(safe-area-inset-top))] sm:gap-4 sm:pt-[max(1rem,env(safe-area-inset-top))]">
           <DialogTitle>
             <span className="block text-base font-semibold text-gray-900 dark:text-gray-100">
               Crop source image
@@ -208,8 +208,9 @@ export function ImageCropDialog({
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-white/45 bg-white px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-white/10 dark:bg-[#1c1c1e] sm:px-6 sm:pt-4">
-          <div className="flex flex-wrap items-center gap-1.5">
+        {/* Fixed px gutters below sm prevent 200% root text from doubling padding and crushing the canvas. */}
+        <div className="shrink-0 border-t border-white/45 bg-white px-[12px] pt-[12px] pb-[max(12px,env(safe-area-inset-bottom))] dark:border-white/10 dark:bg-[#1c1c1e] sm:px-6 sm:pt-4 sm:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="flex flex-wrap items-center gap-[6px] sm:gap-1.5">
             <button
               type="button"
               onClick={() => workspaceRef.current?.rotateBy(-90)}
@@ -299,7 +300,7 @@ export function ImageCropDialog({
               {`${Math.round(snapshot?.rotation ?? 0)}°`}
             </output>
 
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-[8px] sm:gap-2">
               <button
                 type="button"
                 onClick={handleCancel}
@@ -312,14 +313,14 @@ export function ImageCropDialog({
                 type="button"
                 onClick={handleSave}
                 disabled={!canSave}
-                className={`${buttonStyles.primary} min-w-28`}
+                className={`${buttonStyles.primary} sm:min-w-28`}
               >
                 {isProcessing ? 'Processing…' : 'Use image'}
               </button>
             </div>
           </div>
 
-          <div className="mt-2 min-h-5" aria-live="polite">
+          <div className="mt-[8px] min-h-5 sm:mt-2" aria-live="polite">
             {error
               ? <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
               : isUpscaling

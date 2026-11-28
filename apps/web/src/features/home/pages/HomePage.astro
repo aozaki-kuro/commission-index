@@ -131,8 +131,12 @@ if (missingSourceImages.length > 0) {
   }
 }
 
-const firstCharacterName
-  = payload.characterStatus.active[0]?.DisplayName ?? payload.characterStatus.archived[0]?.DisplayName
+const firstVisibleActiveIndex = payload.characterStatus.active.findIndex(
+  item => (commissionMap.get(item.DisplayName)?.Commissions?.length ?? 0) > 0,
+)
+const firstCharacterName = firstVisibleActiveIndex >= 0
+  ? payload.characterStatus.active[firstVisibleActiveIndex]?.DisplayName
+  : undefined
 const firstCommission = firstCharacterName
   ? commissionMap.get(firstCharacterName)?.Commissions?.[0]
   : undefined
@@ -293,6 +297,7 @@ catch {
           locale={resolvedLocale}
           activeChars={payload.characterStatus.active}
           archivedChars={payload.characterStatus.archived}
+          firstVisibleActiveIndex={firstVisibleActiveIndex}
           commissionMap={commissionMap}
           characterAliasesMap={characterAliasesMap}
           creatorAliasesMap={creatorAliasesMap}

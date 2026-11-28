@@ -8,7 +8,7 @@ import type {
   GeneratedSourceImageManifestFile,
 } from '@commission-index/domain'
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync } from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
@@ -54,7 +54,13 @@ function hashFile(filePath: string) {
 // 本地落盘位置由 manifest 的 relativePath 决定，与导出器写入的路径一致；
 // objectKey 是 R2 对象身份：新 key 只有 source-images/ 分类前缀，历史 key 也可能含作品目录；不能当作本地路径。
 function resolveLocalImagePath(generatedRoot: string, file: Pick<GeneratedSourceImageManifestFile, 'relativePath'>) {
-  return path.join(generatedRoot, file.relativePath)
+  const resolvedRoot = path.resolve(generatedRoot)
+  const resolvedPath = path.resolve(resolvedRoot, file.relativePath)
+  const relative = path.relative(resolvedRoot, resolvedPath)
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error(`Manifest relativePath escapes generated root: ${file.relativePath}`)
+  }
+  return resolvedPath
 }
 
 function isStale(
@@ -106,6 +112,7 @@ export async function syncSourceImages({ generatedRoot, bucketName }: { generate
 
   const results = await mapWithConcurrency(staleFiles, downloadConcurrency, async (file, index) => {
     const outputPath = resolveLocalImagePath(generatedRoot, file)
+    mkdirSync(path.dirname(outputPath), { recursive: true })
     const tempPath = `${outputPath}.download`
     rmSync(tempPath, { force: true })
 
@@ -117,8 +124,7 @@ export async function syncSourceImages({ generatedRoot, bucketName }: { generate
       return false
     }
     if (result.ok) {
-      writeFileSync(outputPath, readFileSync(tempPath))
-      rmSync(tempPath, { force: true })
+      renameSync(tempPath, outputPath)
       console.log(`  ✓ [${index + 1}/${staleFiles.length}] ${file.objectKey}`)
       return true
     }

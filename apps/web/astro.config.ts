@@ -1,6 +1,6 @@
 import tailwindcss from '@tailwindcss/vite'
 import icon from 'astro-icon'
-import { defineConfig, fontProviders } from 'astro/config'
+import { defineConfig, fontProviders, sharpImageService } from 'astro/config'
 import { assetsPipelineIntegration } from './server/assetsPipelineAstro'
 import { DEFAULT_WEB_LOCALE, WEB_LOCALES } from './src/config/locales'
 
@@ -8,6 +8,17 @@ export default defineConfig({
   output: 'static',
   // Persist image cache outside node_modules so it survives dependency reinstalls
   cacheDir: '.astro',
+  image: {
+    // High-contrast anime linework needs 4:4:4 chroma and Q92+ to avoid ringing and red/magenta bleed.
+    service: sharpImageService({
+      kernel: 'lanczos3',
+      webp: {
+        quality: 92,
+        smartSubsample: true,
+        effort: 6,
+      },
+    }),
+  },
   i18n: {
     defaultLocale: DEFAULT_WEB_LOCALE,
     locales: [...WEB_LOCALES],
@@ -29,6 +40,16 @@ export default defineConfig({
       provider: fontProviders.local(),
       name: 'Berkeley Mono',
       cssVariable: '--font-berkeley-mono',
+      fallbacks: [
+        'ui-monospace',
+        'SFMono-Regular',
+        'Menlo',
+        'Monaco',
+        'Consolas',
+        'Liberation Mono',
+        'Courier New',
+        'monospace',
+      ],
       options: {
         variants: [
           {

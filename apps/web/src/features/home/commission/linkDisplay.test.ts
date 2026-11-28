@@ -54,8 +54,11 @@ describe('linkDisplay', () => {
   it('reports whether any displayable link exists', () => {
     expect(hasDisplayableLinks({ links: [] })).toBe(false)
     expect(hasDisplayableLinks({
-      links: ['https://example.com/no-match'],
+      links: ['javascript:alert(1)', 'not-a-url'],
     })).toBe(false)
+    expect(hasDisplayableLinks({
+      links: ['https://example.com/no-match'],
+    })).toBe(true)
     expect(hasDisplayableLinks({ links: [], designLink: 'https://example.com/design' })).toBe(true)
     expect(hasDisplayableLinks({
       links: ['https://twitter.com/example/status/1'],
@@ -149,15 +152,30 @@ describe('linkDisplay', () => {
     expect(result.mainLinks).toEqual([
       { type: 'Twitter', url: 'https://mobile.twitter.com/example/status/1' },
       { type: 'Pixiv', url: 'https://www.pixiv.net/artworks/1' },
+      { type: 'dropbox.com', url: 'https://www.dropbox.com/s/abc/x.com.png' },
     ])
   })
 
-  it('keeps a work whose only link is on an unknown host votable', () => {
+  it('displays valid http(s) links on unknown hosts after priority platforms and rejects invalid URLs', () => {
+    const result = selectDisplayLinks({
+      links: [
+        'https://www.dropbox.com/s/abc/1.png',
+        'https://notx.com/post/1',
+        'https://notx.com/post/2',
+        'javascript:alert(1)',
+      ],
+    })
+
+    expect(result.mainLinks).toEqual([
+      { type: 'dropbox.com', url: 'https://www.dropbox.com/s/abc/1.png' },
+      { type: 'notx.com 1', url: 'https://notx.com/post/1' },
+      { type: 'notx.com 2', url: 'https://notx.com/post/2' },
+    ])
     expect(hasDisplayableLinks({
       links: ['https://www.dropbox.com/s/abc/x.com.png'],
-    })).toBe(false)
+    })).toBe(true)
     expect(hasDisplayableLinks({
-      links: ['https://notx.com/post/1'],
+      links: ['not a url', 'javascript:alert(1)'],
     })).toBe(false)
   })
 })

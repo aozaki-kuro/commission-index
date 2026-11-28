@@ -64,6 +64,10 @@ export function parseKeywordAliasesJson(value: string): string[] {
 
 // Case-insensitive dedupe that keeps the first spelling and order; blank entries are dropped before counting.
 export function dedupeKeywords(keywords: Iterable<string>, maxCount = Number.POSITIVE_INFINITY): string[] {
+  if (maxCount <= 0) {
+    return []
+  }
+
   const uniqueKeywords: string[] = []
   const seen = new Set<string>()
 

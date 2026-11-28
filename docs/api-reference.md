@@ -11,7 +11,7 @@ live in `ai-agent-guide.md`; this file links there instead of repeating them.
 worker performs no token validation. Local dev (direct to `127.0.0.1:8787`) needs no credentials.
 
 **CORS.** `Access-Control-Allow-Origin` is set only when the request `Origin` is same-origin with
-the request URL, or its hostname is `localhost`, `*.localhost`, or `127.0.0.1` (any port). Other
+the request URL, or (when the worker runs with `ALLOW_LOCAL_ORIGINS=1` in dev) its hostname is `localhost`, `*.localhost`, or `127.0.0.1` (any port). Other
 origins get no CORS headers. When allowed, responses carry `Access-Control-Allow-Methods:
 GET, POST, PUT, PATCH, DELETE, OPTIONS`, `Access-Control-Allow-Headers` (echoes
 `Access-Control-Request-Headers`, default `Authorization, Content-Type`), and `Vary: Origin`.
@@ -39,6 +39,7 @@ directly. All JSON responses send `Cache-Control: no-store`. Every `/api/admin/*
 | `400`  | Validation failure, **and** any failure inside a mutation (including D1 errors and missing rows)                                    |
 | `403`  | Non-GET request whose `Origin` header is not the worker's own origin (see below)                                                    |
 | `404`  | Unmatched route; unresolved source image                                                                                            |
+| `413`  | JSON request body exceeds 1 MiB (`Request JSON body must be 1 MiB or smaller.`)                                                     |
 | `500`  | Failure while loading a `GET` payload (bootstrap, aliases, suggestion, character commissions, source image); uncaught worker fault  |
 | `502`  | `POST /rebuild` could not reach or was rejected by GitHub; `GET /interest` / `GET /link-clicks` could not get a valid Rybbit answer |
 | `503`  | Missing `DB` / `IMAGES` binding, or missing `GITHUB_DISPATCH_TOKEN` / `RYBBIT_API_KEY`                                              |
@@ -200,7 +201,7 @@ curl https://admin.crystallize.cc/api/admin/aliases/bootstrap
 }
 ```
 
-`keywordOptions` is derived from commission search metadata (character, creator, keyword terms,
+`keywordOptions` is derived from **visible** (`hidden = 0`) commission search metadata (character, creator, keyword terms,
 including aliases). Dates are excluded and only a commission's primary creator is counted.
 
 ```bash
@@ -254,7 +255,7 @@ content type when it is one of those two, otherwise derived from the key's exten
 `image/png`, `.jpg`/`.jpeg` -> `image/jpeg`). Also sends `Content-Length` (when known),
 `ETag` (when R2 provides one), and `Cache-Control: private, no-cache`.
 
-**`304`:** empty body when `If-None-Match` (comma-separated list or `*`) matches the `ETag`;
+**`304`:** empty body when `If-None-Match` (comma-separated list or `*`, ignoring optional `W/` weak prefixes) matches the `ETag`;
 `ETag` and `Cache-Control` are still sent. Clients may cache bytes but must revalidate.
 
 **Errors** (checked in this order):
@@ -281,7 +282,7 @@ All require `DB`. Request bodies are JSON. A body that is not a JSON object is t
 
 ```text
 {
-  name: string                 // required; trimmed; empty -> 400 "Character name is required."
+  name: string                 // required; trimmed; empty -> 400 "Character name is required."; max 200 chars
   status?: 'active' | 'archived' // anything other than 'archived' becomes 'active'
 }
 ```
@@ -371,18 +372,18 @@ curl -X DELETE https://admin.crystallize.cc/api/admin/characters/3
 
 ### Commission fields
 
-| Field            | Rule                                                                                                                                                  |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `characterId`    | Required; finite number > 0; must reference an existing character                                                                                     |
-| `commissionDate` | Required; real calendar date `YYYY-MM-DD`, not later than today's date in UTC+14 at request time (see below)                                          |
-| `creatorName`    | Form: send empty string when unknown. JSON (`PATCH`): required, string or `null`. Trimmed; empty stores `null`; control characters (<= 0x1F) rejected |
-| `workGroupId`    | `null`/empty for standalone works, else a lowercase UUID v4 (input is trimmed and lowercased), or the sentinel `new`                                  |
-| `partNumber`     | Positive integer; must be set if and only if `workGroupId` is set                                                                                     |
-| `links`          | Newline-separated string; trimmed, blank lines dropped, stored as a JSON array; each entry must be an absolute `http(s)` URL                          |
-| `design`         | Trimmed; empty stores `null`; a non-empty value must be an absolute `http(s)` URL (rendered into a public `href`)                                     |
-| `description`    | Trimmed; empty stores `null`                                                                                                                          |
-| `keyword`        | Normalized on write (see [Keyword](#keyword)); empty stores `null`                                                                                    |
-| `hidden`         | Boolean (see [Hidden](#hidden))                                                                                                                       |
+| Field            | Rule                                                                                                                                                                        |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `characterId`    | Required; positive safe integer (`Number.isSafeInteger(id) && id > 0`); must reference an existing character                                                                |
+| `commissionDate` | Required; real calendar date `YYYY-MM-DD`, not later than today's date in UTC+14 at request time (see below)                                                                |
+| `creatorName`    | Form: send empty string when unknown. JSON (`PATCH`): required, string or `null`. Trimmed; empty stores `null`; control chars (<= 0x1F) rejected; max 200 chars             |
+| `workGroupId`    | `null`/empty for standalone works, else a lowercase UUID v4 (input is trimmed and lowercased), or the sentinel `new`                                                        |
+| `partNumber`     | Positive integer; must be set if and only if `workGroupId` is set                                                                                                           |
+| `links`          | Newline-separated string; trimmed, blank lines dropped, stored as a JSON array; max 20 entries, each <= 2048 chars, absolute `http(s)` URL without whitespace/control chars |
+| `design`         | Trimmed; empty stores `null`; a non-empty value <= 2048 chars and must be an absolute `http(s)` URL without whitespace/control chars (rendered into a public `href`)        |
+| `description`    | Trimmed; empty stores `null`; max 1000 chars                                                                                                                                |
+| `keyword`        | Normalized on write (see [Keyword](#keyword)); empty stores `null`; raw trimmed input max 1000 chars                                                                        |
+| `hidden`         | Boolean (see [Hidden](#hidden))                                                                                                                                             |
 
 `workGroupId: "new"` (case-insensitive) makes the worker generate a fresh UUID v4 group and is
 accepted on both create and `PATCH`. Parts keep separate commission rows, IDs, and images; the
@@ -525,9 +526,9 @@ previous object on a best-effort basis.
   empty file); `400 Commission not found.`; `400 Only JPG and PNG uploads are supported.`; `400 Uploaded
 image must be 10 MiB or smaller.` (also returned, before the body is read, when `Content-Length` exceeds
   11 MiB)
-- `400` — D1 update failed, or the commission was deleted while the upload was in flight (`Commission not
+- `400` — the commission was deleted while the upload was in flight (`Commission not
 found.`): no `source_images` row is written, the previous image stays active, and the newly uploaded object
-  is deleted on a best-effort basis (an orphan only if that cleanup also fails)
+  is deleted on a best-effort basis; on ambiguous D1 write errors the newly uploaded object is retained so a committed-but-lost write is not broken
 - `503` — missing `DB` or `IMAGES`
 
 If deleting the previous object fails after the D1 update, the request still returns `200` and
@@ -558,7 +559,7 @@ All four endpoints require `DB` and a JSON body. Malformed JSON is caught here a
   string is an undocumented fallback used only when `aliases` is absent. Array elements are not split.
 - `rows` must be an array to be used directly; otherwise the worker parses `rowsJson` (or, if
   absent, the `rows` value) with `JSON.parse(String(...))`. Use `rowsJson` only for clients that
-  cannot send nested JSON.
+  cannot send nested JSON. Bounds: at most 1000 rows per request, 100 aliases per row, and 200 characters per key or alias term.
 - Normalization per type:
 
 | Type      | Name key                                               | Alias normalization                                                |
@@ -617,7 +618,7 @@ curl -X POST https://admin.crystallize.cc/api/admin/keyword-aliases/batch \
 ```
 
 Each keyword is converted with `String()`, whitespace-collapsed, empty values dropped, deduped
-case-insensitively (first wins), then the first 6 unique keywords are kept. An empty list clears
+case-insensitively (first wins), then the first 6 unique keywords are kept (input accepts at most 200 entries, each <= 200 characters). An empty list clears
 the featured keywords. A body with no `keywords` array and no `keywordsJson` (or `keywords`) string
 that parses to a JSON array — a mistyped key, for example — is rejected with `400` ("Featured keywords
 must be sent as a `keywords` array (or a `keywordsJson` JSON array string).") and changes nothing.

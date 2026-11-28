@@ -74,6 +74,26 @@ describe('collectUniqueCommissions', () => {
     expect(unique.map(item => item.id)).toEqual([3, 1, 4])
   })
 
+  it('prefers non-preview over legacy preview even when preview sorts lexicographically later', () => {
+    const unique = collectUniqueCommissions([
+      makeCommission({
+        id: 10,
+        fileName: 'published-asset',
+        seriesOrder: 'Artist',
+        seriesKey: 'legacy-b',
+      }),
+      makeCommission({
+        id: 11,
+        fileName: 'preview-asset',
+        seriesOrder: 'Artist (preview)',
+        legacySeriesKind: 'preview',
+        seriesKey: 'legacy-b',
+      }),
+    ])
+
+    expect(unique.map(item => item.id)).toEqual([10])
+  })
+
   it('retains every legacy numbered part and folds its preview', () => {
     const unique = collectUniqueCommissions([
       makeCommission({

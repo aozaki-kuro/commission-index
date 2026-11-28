@@ -154,7 +154,7 @@ export function mountMobileHamburgerMenu({
   let mounted = false
   let disposed = false
   let closeTimerId: number | null = null
-  let openRafId: number | null = null
+  let openRafIds: number[] = []
   let hasTrackedSearchUsage = false
   let expandedCharacterSection: CharacterSectionKey | null = 'active'
   let settleCharacterSectionSlide: (() => void) | null = null
@@ -168,10 +168,11 @@ export function mountMobileHamburgerMenu({
   }
 
   const clearOpenRaf = () => {
-    if (openRafId === null)
+    if (openRafIds.length === 0)
       return
-    win.cancelAnimationFrame(openRafId)
-    openRafId = null
+    for (const id of openRafIds)
+      win.cancelAnimationFrame(id)
+    openRafIds = []
   }
 
   const dispatchMountedChange = (nextMounted: boolean) => {
@@ -245,6 +246,7 @@ export function mountMobileHamburgerMenu({
 
   const closeMenu = () => {
     clearOpenRaf()
+    settleCharacterSectionSlide?.()
     const focusWasInPanel = panel.contains(doc.activeElement)
     open = false
     syncOpenState()
@@ -265,19 +267,24 @@ export function mountMobileHamburgerMenu({
     clearCloseTimer()
     clearOpenRaf()
     setMounted(true)
-    openRafId = win.requestAnimationFrame(() => {
-      open = true
-      syncOpenState()
-      openRafId = null
-      focusFirstPanelControl()
+    // Two frames guarantee `display: block; opacity: 0` is committed before flipping open so CSS stagger/fade runs.
+    const firstId = win.requestAnimationFrame(() => {
+      const secondId = win.requestAnimationFrame(() => {
+        openRafIds = []
+        open = true
+        syncOpenState()
+        focusFirstPanelControl()
+      })
+      openRafIds = [secondId]
     })
+    openRafIds = [firstId]
   }
 
   const toggleMenu = () => {
     if (ageGateOpen)
       return
 
-    if (open) {
+    if (open || mounted) {
       closeMenu()
       return
     }
@@ -383,7 +390,7 @@ export function mountMobileHamburgerMenu({
     }
     settleCharacterSectionSlide = settle
     // The finished promises resolve before the frame renders, so the collapse and the cancel paint together.
-    void Promise.all(animations.map(animation => animation.finished)).then(settle, () => {})
+    void Promise.all(animations.map(animation => animation.finished)).then(settle, settle)
   }
 
   const syncViewModeState = () => {
@@ -503,7 +510,7 @@ export function mountMobileHamburgerMenu({
   }
 
   const onDocumentKeyDown = (event: KeyboardEvent) => {
-    if (event.key !== 'Escape')
+    if (event.key !== 'Escape' || (!open && !mounted))
       return
     closeMenu()
   }

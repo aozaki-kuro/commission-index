@@ -86,9 +86,9 @@ export function mountScrollDepthTracker({
   // reported once those conditions clear, on the next observer callback.
   const reachedTargets = new Set<HTMLElement>()
   let jumped = win.location.hash !== ''
-  // Nothing is reported before the reader scrolls: the observer's initial callback would otherwise count the
-  // first screen as reached depth.
-  let hasScrolled = false
+  // Track first scroll per view mode so switching from a scrolled character view into timeline
+  // does not immediately report timeline milestones before the reader scrolls there.
+  const scrolledModes = new Set<string>()
 
   // Both panels' targets are observed up front: the view toggle flips `data-commission-view-active` only after its
   // fade-out, and a `display: none` panel's targets simply never intersect.
@@ -108,12 +108,12 @@ export function mountScrollDepthTracker({
 
   function report() {
     // A filtered list has a different denominator; its depth would not be comparable.
-    if (!hasScrolled || hasSearchQuery(win))
+    if (hasSearchQuery(win))
       return
     const panel = doc.querySelector<HTMLElement>(ACTIVE_PANEL_SELECTOR)
     const viewMode = panel?.dataset.commissionViewPanel
     // Search hides entries ~300 ms before it writes `?q=`; a relayout in that window must not count as depth.
-    if (!panel || !viewMode || panel.querySelector(FILTERED_ENTRY_SELECTOR))
+    if (!panel || !viewMode || !scrolledModes.has(viewMode) || panel.querySelector(FILTERED_ENTRY_SELECTOR))
       return
     const reported = reportedByViewMode.get(viewMode) ?? new Set<number>()
     reportedByViewMode.set(viewMode, reported)
@@ -154,9 +154,13 @@ export function mountScrollDepthTracker({
     }
   }
 
-  const onFirstScroll = () => {
-    hasScrolled = true
-    win.removeEventListener('scroll', onFirstScroll)
+  const onScroll = () => {
+    const viewMode = doc.querySelector<HTMLElement>(ACTIVE_PANEL_SELECTOR)?.dataset.commissionViewPanel
+    if (!viewMode || scrolledModes.has(viewMode))
+      return
+    scrolledModes.add(viewMode)
+    if (scrolledModes.size >= 2)
+      win.removeEventListener('scroll', onScroll)
     report()
   }
 
@@ -164,12 +168,12 @@ export function mountScrollDepthTracker({
     jumped = true
   }
 
-  win.addEventListener('scroll', onFirstScroll, { passive: true })
+  win.addEventListener('scroll', onScroll, { passive: true })
   win.addEventListener(SCROLL_JUMP_EVENT, onJump)
 
   return () => {
     observer.disconnect()
-    win.removeEventListener('scroll', onFirstScroll)
+    win.removeEventListener('scroll', onScroll)
     win.removeEventListener(SCROLL_JUMP_EVENT, onJump)
   }
 }

@@ -49,7 +49,7 @@ const legacyAnchorIds = new Set<string>()
     const compactDate = commission.commissionDate?.replaceAll('-', '') ?? ''
     const year = commission.commissionDate?.slice(0, 4) ?? ''
     const creator = commission.creatorName?.trim() ?? ''
-    const copyrightCreator = creator || 'Anon'
+    const copyrightCreator = creator || messages.listing.anonymousCreator
     const altText = year
       ? `© ${year} ${copyrightCreator} & Crystallize`
       : `${copyrightCreator} & Crystallize`

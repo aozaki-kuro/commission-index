@@ -74,7 +74,7 @@ const TRAILING_WHITESPACE_PATTERN = /\s+$/
 const WHITESPACE_CHAR_PATTERN = /\s/
 const SEARCH_TEXT_TERM_PATTERN = /[a-z0-9_]+/g
 const NORMALIZE_PIPE_PATTERN = /\s*\|\s*/g
-const NORMALIZE_NEGATION_PATTERN = /\s*!\s*/g
+const NORMALIZE_NEGATION_PATTERN = /(^|\s)!\s*/g
 const NORMALIZE_MULTI_SPACE_PATTERN = /\s+/g
 const QUOTED_TOKEN_BOUNDARY_PATTERN = /("[^"]*")(?=[^\s|!])/g
 const QUOTED_SEGMENT_SPLIT_PATTERN = /("[^"]*")/
@@ -203,16 +203,13 @@ function getStrictTermMatches<T extends SearchEntryLike>(index: SearchIndexLike<
   // as `catgirl` are not added; prefix matching applies only when no exact term exists.
   const indexedMatches = index.strictTermIndex?.get(term)
   if (indexedMatches) {
-    termCache.set(term, indexedMatches)
-    return indexedMatches
+    return setLruCacheEntry(termCache, term, indexedMatches, MAX_QUERY_CACHE_SIZE)
   }
-  if (index.strictTermIndex && indexedTermPattern.test(term)) {
+  if (index.strictTermIndex && indexedTermPattern.test(term) && !DATE_INDEX_TOKEN_PATTERN.test(term)) {
     // Try prefix matching before giving up — handles partial-word queries
     // (e.g. "luc" matching "lucia") without needing Fuse.js
     const prefixMatches = getStrictPrefixMatches(index.strictTermIndex, term)
-    const result = prefixMatches ?? EMPTY_IDS
-    termCache.set(term, result)
-    return result
+    return setLruCacheEntry(termCache, term, prefixMatches ?? EMPTY_IDS, MAX_QUERY_CACHE_SIZE)
   }
 
   // JS \b is ASCII-only, so a term side without an ASCII word character (e.g. CJK/kana) gets no
@@ -227,8 +224,7 @@ function getStrictTermMatches<T extends SearchEntryLike>(index: SearchIndexLike<
   const matches = new Set(
     index.entries.filter(entry => pattern.test(entry.searchText)).map(entry => entry.id),
   )
-  termCache.set(term, matches)
-  return matches
+  return setLruCacheEntry(termCache, term, matches, MAX_QUERY_CACHE_SIZE)
 }
 
 function intersectInPlace(source: Set<number>, filter: Set<number>) {
@@ -663,7 +659,7 @@ function toNormalizedQueryTokens(rawQuery: string) {
     .split(QUOTED_SEGMENT_SPLIT_PATTERN)
     .map((segment, i) => i % 2 === 1
       ? segment
-      : segment.replace(NORMALIZE_PIPE_PATTERN, ' | ').replace(NORMALIZE_NEGATION_PATTERN, ' !'))
+      : segment.replace(NORMALIZE_PIPE_PATTERN, ' | ').replace(NORMALIZE_NEGATION_PATTERN, '$1!'))
     .join('')
     .replace(NORMALIZE_MULTI_SPACE_PATTERN, ' ')
   return tokenizeQuery(normalizedQuery).map(normalizeDateTokenInQuery)
@@ -734,7 +730,7 @@ export function getMatchedEntryIds<T extends SearchEntryLike>(rawQuery: string, 
   const strictMatchIds = tokens.length
     ? evaluateStrictQuery(index, tokens)
     : null
-  if (!fuse) {
+  if (!fuse || strictMatchIds === null) {
     return setLruCacheEntry(
       queryCache,
       normalizedRawQuery,
@@ -821,15 +817,23 @@ function isLikelyDateNumericQuery(query: string) {
 }
 
 function compareSuggestionMatches(a: SuggestionMatch, b: SuggestionMatch) {
+  if (a.rank !== b.rank) {
+    return a.rank - b.rank
+  }
+  if (a.isDateSuggestion !== b.isDateSuggestion) {
+    return a.isDateSuggestion
+      ? -1
+      : 1
+  }
   if (a.isDateSuggestion && b.isDateSuggestion) {
-    if (a.monthSortKey !== null && b.monthSortKey !== null && a.monthSortKey !== b.monthSortKey) {
-      return b.monthSortKey - a.monthSortKey
+    const monthDiff = (b.monthSortKey ?? -1) - (a.monthSortKey ?? -1)
+    if (monthDiff !== 0) {
+      return monthDiff
     }
   }
 
   return (
-    a.rank - b.rank
-    || b.contextCount - a.contextCount
+    b.contextCount - a.contextCount
     || b.suggestion.count - a.suggestion.count
     || a.suggestion.term.localeCompare(b.suggestion.term)
   )

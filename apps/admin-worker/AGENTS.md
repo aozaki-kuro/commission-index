@@ -20,12 +20,16 @@ Standalone admin Cloudflare Worker: API router, D1/R2 CRUD, asset serving. Produ
 - Missing `DB` / `IMAGES` bindings return 503 via `createMissingBindingResponses` in `adminApi.ts`.
 - `GET /api/admin/interest` (`adminInterest.ts`) proxies Rybbit vote counts by `commission` publicId; it is matched before any D1/R2 access, needs only the `RYBBIT_API_KEY` secret (503 if missing, 502 on Rybbit failure, single attempt) and must never echo the key. `GET /api/admin/link-clicks` follows the same contract and returns
   raw outbound `{ url, count }` for the calendar year to date (UTC); matching URLs to commissions is admin's job.
-- CORS: same-origin, or an `Origin` host of `localhost`, `*.localhost`, or `127.0.0.1` (see `isLocalHostname` in `src/index.ts`).
-- Writes are origin-checked in `src/index.ts` (`isForgedWrite`): a non-GET `/api/admin/*` request with an `Origin` other than the worker's own gets 403 (Zero Trust is cookie auth and simple POSTs skip preflight). No `Origin` passes. Local origins pass only with `ALLOW_LOCAL_ORIGINS=1`, injected by the `dev` script's `--var`; never add it to `wrangler.jsonc`. Do not infer "local" from `request.url`: `wrangler dev` reports the route host there.
+- CORS: same-origin on every method; `localhost`, `*.localhost`, or `127.0.0.1` `Origin`s receive CORS headers (`getAllowedCorsOrigin`) and pass non-GET write checks (`isForgedWrite`) only when `ALLOW_LOCAL_ORIGINS=1` (`dev` `--var`; never add it to `wrangler.jsonc`). Do not infer "local" from `request.url`: `wrangler dev` reports the route host there.
+- Reads and writes (`adminData.ts`, `adminApi.ts`) require `Number.isSafeInteger(id) && id > 0` for numeric path/body IDs.
+- JSON mutation bodies are capped at 1 MiB (`readJsonBody` checks both `Content-Length` and decoded UTF-8 byte length -> `413`; invalid JSON -> `400`). Text/array bounds enforced before writes: character/creator names <= 200, descriptions/keywords <= 1000, links <= 20, URLs <= 2048, alias batches <= 1000 rows / <= 100 aliases per row / <= 200 chars per term, featured keyword inputs <= 200 items / <= 200 chars.
 - The entry also catches anything a handler throws: malformed JSON → 400, other faults → logged 500, both as the JSON envelope with CORS headers.
 - Create/PATCH take `commissionDate` + `creatorName`; `workGroupId` and `partNumber` are given together or both `null`, and `workGroupId: "new"` creates a group.
-- Commission `links` and a non-empty `design` must be absolute `http(s)` URLs (`validateCommissionFields`); they
+- Commission `links` and a non-empty `design` must be absolute `http(s)` URLs without whitespace or control characters (`validateCommissionFields`); they
   render into public `href`s. `normalizeCommissionMutation` in `adminPersistence.ts` does not re-check URLs.
+- `GET /api/admin/suggestion` excludes hidden commissions (`WHERE commissions.hidden = 0`) when building `keywordOptions`.
+- `POST /api/admin/commissions/:id/source-image` deletes the newly uploaded R2 object best-effort only on deterministic `Commission not found.` rejection; ambiguous D1 failures retain the uploaded object to preserve create/replace durability.
+- `adminInterest.ts` outbound calls use 10 s timeouts and filter interest keys by canonical UUID on a null-prototype `counts` object; `POST /api/admin/rebuild` uses a 10 s timeout.
 - Source-image uploads are typed by magic bytes only (JPEG/PNG; MIME and file name ignored) and capped at 10 MiB
   (`MAX_SOURCE_IMAGE_BYTES` in `adminSourceImages.ts`). `request.formData()` buffers the whole body, so upload
   routes first reject a `Content-Length` above the cap plus 1 MiB (`exceedsUploadBodyLimit` in `adminApi.ts`).
@@ -41,7 +45,7 @@ Standalone admin Cloudflare Worker: API router, D1/R2 CRUD, asset serving. Produ
   name); an existing row under the new name is merged, not replaced.
 - Editing date/creator only updates D1; it never renames, copies, moves, or deletes R2 objects. Replacing an image is a separate explicit operation.
 - `commissionDate` may not be later than today in UTC+14 (`isFutureCommissionDate` in `packages/domain/src/commissionDate.ts`, applied by `validateCommissionDate` in `commissionValidation.ts`, which both `adminApi.ts` and `adminPersistence.ts` call). The UTC+14 zone is an owner-approved assumption; tighten it in that one helper if needed.
-- Source-image GET (`/api/admin/commissions/:id/source-image`) resolves the key from `source_images` (by `commission_id`, falling back to `commission_file_name = c.file_name` for legacy rows). No row means 404; never probe the bucket by filename.
+- Source-image GET (`/api/admin/commissions/:id/source-image`) resolves the key from `source_images` (by `commission_id`, falling back to `commission_file_name = c.file_name` for legacy rows). No row means 404; never probe the bucket by filename. `If-None-Match` accepts optional `W/` / `w/` weak ETag prefixes.
 - `DELETE /characters/:id` also deletes that character's commissions and their `source_images` rows; after the D1 batch commits it deletes the character's R2 objects (best effort — a cleanup failure leaves orphans, reclaimed via `r2:list-orphans`). Requires `IMAGES`; treat a cascade as data loss.
 
 ## D1 migrations
@@ -55,4 +59,4 @@ Standalone admin Cloudflare Worker: API router, D1/R2 CRUD, asset serving. Produ
 
 ## Tests
 
-- API/persistence tests use `test/sqliteD1.ts` (in-memory SQLite with the ordered migrations, atomic batches, failure injection). Assert stored results and rollback invariants, not SQL text; R2 stays mocked at the boundary.
+- API/persistence tests use `test/sqliteD1.ts` (in-memory SQLite with `PRAGMA foreign_keys = ON`, ordered migrations, atomic batches, failure injection). Assert stored results and rollback invariants, not SQL text; R2 stays mocked at the boundary.

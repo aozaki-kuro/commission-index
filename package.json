@@ -54,7 +54,7 @@
     "wrangler": "^4.166.0"
   },
   "lint-staged": {
-    "*": [
+    "!(*.md|*.mdx)": [
       "eslint --config config/eslint.config.ts --fix"
     ],
     "*.{md,mdx}": [

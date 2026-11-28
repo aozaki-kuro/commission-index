@@ -3,6 +3,7 @@ import {
   isArchivedCharactersVisible,
   requestArchivedCharactersVisibility,
 } from '@features/home/commission/archivedCharactersState'
+import { markScrollJump } from '@features/home/commission/scrollDepthTracker'
 import { getHashTarget, isUnmodifiedPrimaryClick, scrollToHashTargetFromHrefWithoutHash } from '@lib/navigation/hashAnchor'
 
 interface HomeHashTargetDeps {
@@ -34,6 +35,7 @@ export function mountHomeHashTarget({
       requestArchivedCharactersVisibility(win, 'visible')
     }
 
+    markScrollJump(win)
     if (rafId !== null)
       win.cancelAnimationFrame(rafId)
     rafId = win.requestAnimationFrame(() => {

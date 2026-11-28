@@ -11,6 +11,7 @@ const api = vi.hoisted(() => ({
   readCachedAdminJson: vi.fn(),
   groupsLoaded: null as null | (() => void),
   dataUpdate: null as null | ((scope?: { characterIds: number[] }) => void),
+  onRefresh: null as null | ((scope?: { characterIds: number[] }) => void),
   scopes: [] as (number[] | null)[],
 }))
 
@@ -22,8 +23,17 @@ vi.mock('../lib/dataUpdateSignal', () => ({
   },
 }))
 vi.mock('../components/edit/CommissionManager', () => ({
-  CommissionManager: ({ onOpenGroupsLoaded, refreshScope }: { onOpenGroupsLoaded: () => void, refreshScope: ReadonlySet<number> | null }) => {
+  CommissionManager: ({
+    onOpenGroupsLoaded,
+    onRefresh,
+    refreshScope,
+  }: {
+    onOpenGroupsLoaded: () => void
+    onRefresh?: (scope?: { characterIds: number[] }) => void
+    refreshScope: ReadonlySet<number> | null
+  }) => {
     api.groupsLoaded = onOpenGroupsLoaded
+    api.onRefresh = onRefresh ?? null
     api.scopes.push(refreshScope && [...refreshScope].toSorted())
     return createElement('h2', null, 'Cached dashboard')
   },
@@ -118,6 +128,14 @@ describe('admin edit page cached refresh recovery', () => {
       characterIds: [4],
     }))
     await vi.waitFor(() => expect(api.scopes.at(-1)).toEqual([4]))
+
+    await act(async () => api.onRefresh?.({
+      characterIds: [1],
+    }))
+    await vi.waitFor(() => expect(api.scopes.at(-1)).toEqual([1]))
+
+    await act(async () => api.onRefresh?.())
+    await vi.waitFor(() => expect(api.scopes.at(-1)).toBeNull())
   })
 
   it.each([false, true])('waits for groups before restoring once; user cancellation=%s', async (cancel) => {

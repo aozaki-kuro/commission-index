@@ -78,11 +78,14 @@ Work groups: `workGroupId: "new"` creates a fresh group; sending it again on a l
 already-grouped part moves that part to yet another new group, so reuse the existing UUID to keep it.
 
 **Bad bodies and cross-origin writes.** The worker entry (`index.ts`) wraps every `/api/admin/*` call: a
-body that is not valid JSON returns `400` with the JSON envelope, and any other uncaught error (for example a
-non-multipart upload) returns `500` with the envelope, both with CORS headers. A non-GET request whose
-`Origin` header is not the worker's own origin returns `403` before any handler runs; requests without an
-`Origin` header (curl, service-token clients) are not affected. Local origins are accepted only when the worker
-runs with `ALLOW_LOCAL_ORIGINS=1`, which the `dev` script passes via `--var` and production never sets.
+body that is not valid JSON returns `400` with the JSON envelope, JSON payloads over 1 MiB return `413`
+(`readJsonBody`), and any other uncaught error (for example a non-multipart upload) returns `500` with the
+envelope, both with CORS headers. String and array bounds (names/aliases <= 200, descriptions/keywords
+<= 1000, URLs <= 2048 without whitespace/control characters, links <= 20, batch rows <= 1000, per-row aliases
+<= 100, featured keyword inputs <= 200) return `400`. Both non-GET write checks and CORS headers require
+`ALLOW_LOCAL_ORIGINS=1` (set by `dev`, never in production) to allow `localhost` / `*.localhost` / `127.0.0.1`
+origins; non-GET requests from any other `Origin` return `403` before any handler runs, while requests without
+`Origin` (curl, service-token clients) are unaffected.
 
 ---
 
@@ -135,14 +138,14 @@ R2 and D1 have no shared transaction. R2 objects are only deleted as a best-effo
 D1 commit; the API never deletes an object that a live `source_images` row still references. (Key
 format and image rules: AR "Source image storage".)
 
-| Operation                              | D1 result                                                            | R2 result                                                    |
-| -------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------ |
-| `POST /commissions` succeeds           | rows inserted                                                        | new object                                                   |
-| `POST /commissions`, D1 step fails     | nothing (or ambiguous)                                               | uploaded object **kept** (orphan or live)                    |
-| `POST .../source-image` succeeds       | `object_key` switched                                                | new object; previous deleted best effort                     |
-| `POST .../source-image`, D1 step fails | unchanged, old image still live                                      | new object is an orphan; response is `400`                   |
-| `DELETE /commissions/:id`              | commission + image row removed                                       | object orphaned                                              |
-| `DELETE /characters/:id`               | **character, all its commissions, and all their image rows removed** | **all their objects deleted after the commit (best effort)** |
+| Operation                              | D1 result                                                            | R2 result                                                                                                            |
+| -------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `POST /commissions` succeeds           | rows inserted                                                        | new object                                                                                                           |
+| `POST /commissions`, D1 step fails     | nothing (or ambiguous)                                               | uploaded object **kept** (orphan or live)                                                                            |
+| `POST .../source-image` succeeds       | `object_key` switched                                                | new object; previous deleted best effort                                                                             |
+| `POST .../source-image`, D1 step fails | unchanged (or ambiguous), old image still live                       | new object deleted on deterministic `Commission not found.`; kept as orphan on ambiguous D1 error; response is `400` |
+| `DELETE /commissions/:id`              | commission + image row removed                                       | object orphaned                                                                                                      |
+| `DELETE /characters/:id`               | **character, all its commissions, and all their image rows removed** | **all their objects deleted after the commit (best effort)**                                                         |
 
 **Footgun: image bytes decide.** Uploads must really be JPEG or PNG: the worker sniffs the magic
 bytes and ignores `Content-Type` and the file name, so renaming a WebP/HEIC to `.jpg` is a `400`, and a

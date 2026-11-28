@@ -1,5 +1,8 @@
+import { CANONICAL_UUID_PATTERN } from '../../../packages/domain/src/index'
+
 const RYBBIT_ORIGIN = 'https://sight.aozaki.cc'
 const RYBBIT_SITE_ID = 3
+const RYBBIT_TIMEOUT_MS = 10_000
 // The web began reporting `commission` (publicId) on this day; older events only carry `sub_event`.
 export const INTEREST_SINCE = '2026-10-31'
 
@@ -28,6 +31,7 @@ async function fetchRybbitRows(path: string, query: URLSearchParams, apiKey: str
   try {
     response = await fetch(`${RYBBIT_ORIGIN}/api/sites/${RYBBIT_SITE_ID}${path}?${query}`, {
       headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(RYBBIT_TIMEOUT_MS),
     })
   }
   catch {
@@ -64,14 +68,14 @@ export async function loadInterestCounts(apiKey: string, now = new Date()): Prom
     return result
   }
 
-  const counts: Record<string, number> = {}
+  const counts: Record<string, number> = Object.create(null) as Record<string, number>
   for (const row of result.rows) {
     if (row?.propertyKey !== 'commission' || typeof row.propertyValue !== 'string') {
       continue
     }
     const publicId = row.propertyValue.trim()
     const count = row.count
-    if (!publicId || !isCount(count)) {
+    if (!CANONICAL_UUID_PATTERN.test(publicId) || !isCount(count)) {
       continue
     }
     counts[publicId] = (counts[publicId] ?? 0) + count

@@ -78,7 +78,7 @@ export function mountSidebarDisclosureSlide(
     }
     settleSlide = settle
     // The finished promises resolve before the frame renders, so the collapse and the cancel paint together.
-    void Promise.all(animations.map(animation => animation.finished)).then(settle, () => {})
+    void Promise.all(animations.map(animation => animation.finished)).then(settle, settle)
   }
 
   const onSummaryClick = (event: MouseEvent) => {

@@ -47,8 +47,7 @@ const LINK_PRIORITY: Array<{ type: string, domains: string[] }> = [
   },
 ]
 
-// Hostname, not substring: `x.com` inside a dropbox.com path or a query string is not Twitter. Links on no known
-// host stay undisplayed on purpose; admin's "Most wanted" counts such a work as votable.
+// Hostname, not substring: `x.com` inside a dropbox.com path or a query string is not Twitter.
 function isOnDomain(hostname: string, domain: string) {
   return hostname === domain || hostname.endsWith(`.${domain}`)
 }
@@ -57,6 +56,16 @@ function isOnDomain(hostname: string, domain: string) {
 // before that validation are never re-checked, so anything that is not an absolute http(s) URL is not a link.
 function isWebUrl(value: string) {
   return URL.canParse(value) && ['http:', 'https:'].includes(new URL(value).protocol)
+}
+
+function pushBucketLinks(target: DisplayLink[], label: string, urls: string[]) {
+  if (urls.length === 1) {
+    target.push({ type: label, url: urls[0] })
+    return
+  }
+  urls.forEach((url, index) => {
+    target.push({ type: `${label} ${index + 1}`, url })
+  })
 }
 
 export function selectDisplayLinks({
@@ -70,15 +79,24 @@ export function selectDisplayLinks({
   const maxLinks = hasDesign ? 2 : 3
 
   const buckets: Record<string, string[]> = {}
+  const otherBuckets = new Map<string, string[]>()
   for (const url of links.filter(isWebUrl)) {
     const { hostname } = new URL(url)
+    let matched = false
     for (const { type, domains } of LINK_PRIORITY) {
       if (domains.some(domain => isOnDomain(hostname, domain))) {
         if (!buckets[type])
           buckets[type] = []
         buckets[type].push(url)
+        matched = true
         break
       }
+    }
+    if (!matched) {
+      const label = hostname.replace(/^www\./i, '') || url
+      const bucket = otherBuckets.get(label) ?? []
+      bucket.push(url)
+      otherBuckets.set(label, bucket)
     }
   }
 
@@ -87,14 +105,10 @@ export function selectDisplayLinks({
     const urls = buckets[type]
     if (!urls)
       continue
-    if (urls.length === 1) {
-      flat.push({ type, url: urls[0] })
-    }
-    else {
-      urls.forEach((url, i) => {
-        flat.push({ type: `${type} ${i + 1}`, url })
-      })
-    }
+    pushBucketLinks(flat, type, urls)
+  }
+  for (const [label, urls] of otherBuckets) {
+    pushBucketLinks(flat, label, urls)
   }
 
   return {

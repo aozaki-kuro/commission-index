@@ -48,9 +48,9 @@ describe('buildHomeUpdateSummary', () => {
 
     expect(summary.totalCommissions).toBe(2)
     expect(summary.entries[0]).toEqual({
-      key: '00000000-0000-4000-8000-000000000002',
+      key: '00000000-0000-4000-8000-000000000001',
       character: 'Alpha',
-      href: '#alpha-commission-00000000-0000-4000-8000-000000000002',
+      href: '#alpha-commission-00000000-0000-4000-8000-000000000001',
       dateLabel: '2024/02/01',
     })
   })

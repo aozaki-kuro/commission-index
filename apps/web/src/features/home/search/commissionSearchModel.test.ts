@@ -128,4 +128,17 @@ describe('computeSearchModel archived matches', () => {
     expect(model.hiddenArchivedMatchedCount).toBe(0)
     expect(model.shouldShowHiddenArchivedNotice).toBe(false)
   })
+
+  it('invalidates cached output when archived visibility flips between cached DOM snapshots', () => {
+    renderCharacterPanel(false)
+    const hiddenModel = compute(false)
+    expect(hiddenModel.visibleMatchedCount).toBe(0)
+
+    renderCharacterPanel(true)
+    const visibleModel = compute(true)
+    expect(visibleModel.visibleMatchedCount).toBe(1)
+    expect(visibleModel.hiddenArchivedMatchedCount).toBe(0)
+    expect(visibleModel).not.toBe(hiddenModel)
+    expect(visibleModel.resolvedIndex).not.toBe(hiddenModel.resolvedIndex)
+  })
 })

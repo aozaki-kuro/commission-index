@@ -27,6 +27,7 @@ const pageTitle = fullTitle ?? (title
 : SiteMeta.site)
 const socialTitle = fullTitle ?? SiteMeta.site
 const canonicalUrl = new URL(canonicalPath, SiteMeta.canonicalUrl).toString()
+const socialImageUrl = new URL(SiteMeta.socialImage, SiteMeta.canonicalUrl).toString()
 ---
 
 <!doctype html>
@@ -57,11 +58,6 @@ const canonicalUrl = new URL(canonicalPath, SiteMeta.canonicalUrl).toString()
     <meta name="theme-color" content={SiteMeta.themeColor} />
     <script is:inline>
       (() => {
-        const themeColorMeta = document.querySelector('meta[name="theme-color"]')
-        if (!(themeColorMeta instanceof HTMLMetaElement)) {
-          return
-        }
-
         const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
         const lightThemeColor = '#ffffff'
         const darkThemeColor = '#171717'
@@ -71,10 +67,17 @@ const canonicalUrl = new URL(canonicalPath, SiteMeta.canonicalUrl).toString()
         }
 
         const syncThemeColor = (prefersDark = darkModeMediaQuery.matches) => {
+          const themeColorMeta = document.querySelector('meta[name="theme-color"]')
+          if (!(themeColorMeta instanceof HTMLMetaElement)) {
+            return
+          }
           themeColorMeta.content = prefersDark ? darkThemeColor : lightThemeColor
         }
 
         syncThemeColor()
+        document.addEventListener('astro:after-swap', () => {
+          syncThemeColor()
+        })
 
         if (typeof darkModeMediaQuery.addEventListener === 'function') {
           darkModeMediaQuery.addEventListener('change', (event) => {
@@ -98,14 +101,14 @@ const canonicalUrl = new URL(canonicalPath, SiteMeta.canonicalUrl).toString()
     <meta property="og:site_name" content={SiteMeta.site} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonicalUrl} />
-    <meta property="og:image" content={SiteMeta.socialImage} />
+    <meta property="og:image" content={socialImageUrl} />
     <meta property="og:image:width" content="800" />
     <meta property="og:image:height" content="451" />
     <meta property="og:image:alt" content={SiteMeta.site} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={socialTitle} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={SiteMeta.socialImage} />
+    <meta name="twitter:image" content={socialImageUrl} />
     <meta name="twitter:site" content={SiteMeta.twitterSite} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="icon" href="/favicon.ico" />
@@ -141,7 +144,7 @@ const canonicalUrl = new URL(canonicalPath, SiteMeta.canonicalUrl).toString()
     <div class="
       min-h-dvh antialiased
       selection:bg-gray-400/25
-      dark:bg-neutral-900
+      dark:bg-gray-900
     "
     >
       <main class="

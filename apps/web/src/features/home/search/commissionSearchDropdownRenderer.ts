@@ -50,30 +50,34 @@ const BADGE_CLASS = [
 // Shared dropdown row base classes merged with per-item overrides
 const SUGGESTION_ITEM_CLASS = [
   // shared row base
-  'relative flex items-center rounded-sm px-2 py-1.5',
+  'relative flex cursor-pointer items-center rounded-sm',
   'text-sm outline-none select-none',
   'data-[disabled=true]:pointer-events-none',
   'data-[disabled=true]:opacity-50',
   // suggestion-specific overrides; same row geometry as the language menu rows (36px touch height)
   'px-3 py-2 text-gray-700',
+  'hover:bg-gray-900/6',
   'data-[selected=true]:bg-gray-900/6',
   'data-[selected=true]:text-gray-900',
   'dark:text-gray-300',
+  'dark:hover:bg-white/10',
   'dark:data-[selected=true]:bg-white/10',
   'dark:data-[selected=true]:text-white',
 ].join(' ')
 
 const ARCHIVED_ITEM_CLASS = [
   // shared row base
-  'relative flex items-center rounded-sm px-2 py-1.5',
+  'relative flex cursor-pointer items-start rounded-sm',
   'text-sm outline-none select-none',
   'data-[disabled=true]:pointer-events-none',
   'data-[disabled=true]:opacity-50',
   // archived-specific overrides
-  'items-start gap-3 px-3 py-2 text-gray-700',
+  'gap-3 px-3 py-2 text-gray-700',
+  'hover:bg-gray-900/6',
   'data-[selected=true]:bg-gray-900/6',
   'data-[selected=true]:text-gray-900',
   'dark:text-gray-300',
+  'dark:hover:bg-white/10',
   'dark:data-[selected=true]:bg-white/10',
   'dark:data-[selected=true]:text-white',
 ].join(' ')

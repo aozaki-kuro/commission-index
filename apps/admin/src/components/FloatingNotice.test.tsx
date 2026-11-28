@@ -80,7 +80,7 @@ describe('浮动通知的布局与生命周期', () => {
     await act(async () => vi.advanceTimersByTime(10000))
     expect(container.querySelector('details')!.textContent).toContain('Connection lost')
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Dismiss notification"]')!.click())
-    expect(container.querySelector('[role="status"]')).toBeNull()
+    expect(container.querySelector('[role="alert"]')).toBeNull()
     await render('error', 'Server unavailable')
     expect(container.querySelector('details')!.textContent).toContain('Server unavailable')
   })
@@ -114,8 +114,8 @@ describe('浮动通知的布局与生命周期', () => {
       </FloatingNoticeProvider>,
     ))
     const dialog = document.querySelector('[role="dialog"]')!
-    expect(dialog.querySelector('form')!.querySelector('[role="status"]')).toBeNull()
-    expect(dialog.querySelector('[data-notice-viewport="dialog"] [role="status"]')!.textContent).toBe('Save failed')
+    expect(dialog.querySelector('form')!.querySelector('[role="alert"]')).toBeNull()
+    expect(dialog.querySelector('[data-notice-viewport="dialog"] [role="alert"]')!.textContent).toBe('Save failed')
     const pageViewport = container.querySelector('[data-notice-viewport="page"]')!
     const toastViewport = container.querySelector('[data-notice-viewport="toast"]')!
     const dialogViewport = dialog.querySelector('[data-notice-viewport="dialog"]')!
@@ -128,7 +128,7 @@ describe('浮动通知的布局与生命周期', () => {
     // The dialog notice slot sits right above the footer, never overlaid on it.
     expect(dialogViewport.nextElementSibling?.tagName).toBe('FOOTER')
     expect(pageViewport.textContent).toBe('Background refresh failed')
-    expect(dialog.querySelector('[role="status"]')!.closest('[aria-hidden="true"]')).toBeNull()
+    expect(dialog.querySelector('[role="alert"]')!.closest('[aria-hidden="true"]')).toBeNull()
 
     await act(async () => dialog.querySelector<HTMLButtonElement>('button')!.click())
     expect(document.querySelector('[role="dialog"]')).toBeNull()

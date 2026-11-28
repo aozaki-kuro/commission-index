@@ -1,14 +1,14 @@
 import { readCommissionViewMode } from '@features/home/commission/viewModeState'
-import { COMMISSION_VIEW_MODE_CHANGE_EVENT } from '@features/home/events'
+import { COMMISSION_VIEW_MODE_CHANGE_EVENT, COMMISSION_VIEW_PANEL_SHOWN_EVENT } from '@features/home/events'
 
 const PANEL_SELECTOR = '[data-commission-view-panel]'
 const FADE_OUT_MS = 150
 const FADE_IN_MS = 200
 const EASE_OUT = 'cubic-bezier(0.22, 1, 0.36, 1)'
 
-function prefersReducedMotion(): boolean {
+function prefersReducedMotion(win: Window): boolean {
   try {
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    return win.matchMedia('(prefers-reduced-motion: reduce)').matches
   }
   catch {
     return false
@@ -37,12 +37,18 @@ export function mountCommissionViewModeDomSync({
     pendingCancels.push(() => win.clearTimeout(id))
   }
   const nextFrame = (task: () => void) => {
-    const id = requestAnimationFrame(task)
-    pendingCancels.push(() => cancelAnimationFrame(id))
+    const id = win.requestAnimationFrame(task)
+    pendingCancels.push(() => win.cancelAnimationFrame(id))
   }
   const onceTransitionEnd = (element: HTMLElement, task: () => void) => {
-    element.addEventListener('transitionend', task, { once: true })
-    pendingCancels.push(() => element.removeEventListener('transitionend', task))
+    const handleTransitionEnd = (event: TransitionEvent) => {
+      if (event.target !== element || event.propertyName !== 'opacity')
+        return
+      element.removeEventListener('transitionend', handleTransitionEnd)
+      task()
+    }
+    element.addEventListener('transitionend', handleTransitionEnd)
+    pendingCancels.push(() => element.removeEventListener('transitionend', handleTransitionEnd))
   }
   // 各视图各自记住滚动位置：没打开过的视图从顶部开始，而不是继承另一个视图的 scrollY
   const savedScrollY = new Map<string, number>()
@@ -82,7 +88,7 @@ export function mountCommissionViewModeDomSync({
         outgoing = panel
     }
 
-    if (!outgoing || !incoming || outgoing === incoming || prefersReducedMotion()) {
+    if (!outgoing || !incoming || outgoing === incoming || prefersReducedMotion(win)) {
       const outgoingMode = outgoing && incoming && outgoing !== incoming
         ? outgoing.dataset.commissionViewPanel
         : undefined
@@ -90,8 +96,10 @@ export function mountCommissionViewModeDomSync({
       if (outgoingMode)
         savedScrollY.set(outgoingMode, win.scrollY)
       applyInstant(panels, mode)
-      if (switched)
+      if (switched) {
         restoreScrollFor(mode)
+        win.dispatchEvent(new Event(COMMISSION_VIEW_PANEL_SHOWN_EVENT))
+      }
       return
     }
 
@@ -116,6 +124,7 @@ export function mountCommissionViewModeDomSync({
       incoming.classList.remove('hidden')
       incoming.dataset.commissionViewActive = 'true'
       restoreScrollFor(mode)
+      win.dispatchEvent(new Event(COMMISSION_VIEW_PANEL_SHOWN_EVENT))
 
       nextFrame(() => {
         incoming.style.transition = `opacity ${FADE_IN_MS}ms ${EASE_OUT}`

@@ -68,11 +68,24 @@ describe('admin worker entry', () => {
     }
   })
 
-  it('does not guard reads', async () => {
-    const response = await send('https://admin.example.com/api/admin/health', {
+  it('does not guard reads, but omits local CORS headers unless ALLOW_LOCAL_ORIGINS is enabled', async () => {
+    const nonLocalResponse = await send('https://admin.example.com/api/admin/health', {
       headers: { Origin: 'https://evil.example' },
     })
-    expect(response.status).not.toBe(403)
+    expect(nonLocalResponse.status).not.toBe(403)
+    expect(nonLocalResponse.headers.get('Access-Control-Allow-Origin')).toBeNull()
+
+    const localProdResponse = await send('https://admin.example.com/api/admin/health', {
+      headers: { Origin: 'http://localhost:4174' },
+    })
+    expect(localProdResponse.status).toBe(200)
+    expect(localProdResponse.headers.get('Access-Control-Allow-Origin')).toBeNull()
+
+    const localDevResponse = await send('https://admin.example.com/api/admin/health', {
+      headers: { Origin: 'http://localhost:4174' },
+    }, devEnv)
+    expect(localDevResponse.status).toBe(200)
+    expect(localDevResponse.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:4174')
   })
 
   it('answers a malformed JSON body with the error envelope instead of throwing', async () => {

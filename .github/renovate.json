@@ -104,7 +104,9 @@
         "react-dom",
         "vite",
         "wrangler",
-        "sharp"
+        "sharp",
+        "@playwright/test",
+        "@tailwindcss/vite"
       ],
       "automerge": false
     }

@@ -63,6 +63,11 @@ function isLegacyPreview(commission: Commission) {
 
 function selectLegacySeriesWinner<T extends Commission>(series: T[]) {
   return series.reduce((winner, commission) => {
+    const commissionIsPreview = isLegacyPreview(commission)
+    const winnerIsPreview = isLegacyPreview(winner)
+    if (commissionIsPreview !== winnerIsPreview) {
+      return commissionIsPreview ? winner : commission
+    }
     if (commission.seriesOrder != null && winner.seriesOrder != null) {
       return commission.seriesOrder.localeCompare(winner.seriesOrder) > 0
         ? commission

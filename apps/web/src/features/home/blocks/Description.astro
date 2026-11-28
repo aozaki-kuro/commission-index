@@ -3,7 +3,6 @@ import type { Props as CommissionData } from '@data/types'
 import type { HomeUpdateSummary } from '@lib/home/updateSummary'
 import Update from '@features/home/blocks/Update.astro'
 import { getHomeLocaleMessages, normalizeHomeLocale } from '@features/home/i18n/homeLocale'
-import { getCharacterSectionHash, getCharacterTitleId } from '@lib/characters/nav'
 
 interface CommissionDescriptionProps {
   locale?: string
@@ -17,8 +16,6 @@ const { locale, commissionData, activeCharacters, updateSummary }
 const resolvedLocale = normalizeHomeLocale(locale)
 const messages = getHomeLocaleMessages(resolvedLocale)
 const introductionTitle = messages.description.introductionTitle
-const introductionTitleId = getCharacterTitleId(introductionTitle)
-const introductionSectionHash = getCharacterSectionHash(introductionTitle)
 ---
 
 <div id="--------Description--------">
@@ -27,11 +24,11 @@ const introductionSectionHash = getCharacterSectionHash(introductionTitle)
     md:pb-2
   "
   >{messages.description.heading}</h1>
-  <div id={introductionTitleId} class="mb-2 pt-4">
+  <div id="introduction" class="mb-2 pt-4">
     <h2 class="group relative">
       {introductionTitle}
       <a
-        href={introductionSectionHash}
+        href="#introduction"
         class="
           ml-2 font-bold text-gray-400 no-underline opacity-0 transition-opacity
           duration-200

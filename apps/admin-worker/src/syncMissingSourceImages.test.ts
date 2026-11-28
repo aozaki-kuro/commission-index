@@ -115,4 +115,38 @@ describe('source image sync', () => {
     expect(await syncSourceImages({ generatedRoot, bucketName: 'bucket' })).toEqual({ failed: 1, stale: 1 })
     expect(spawn).toHaveBeenCalledTimes(1)
   })
+
+  it('rejects a manifest entry whose relativePath traverses outside generatedRoot', async () => {
+    const generatedRoot = mkdtempSync(path.join(tmpdir(), 'sync-images-test-'))
+    directories.push(generatedRoot)
+    const outsidePath = path.resolve(generatedRoot, '../escape.jpg')
+    const manifest: GeneratedSourceImageManifest = {
+      meta: {
+        schemaVersion: 3,
+        source: 'remote-admin-fact-source',
+        exportedAt: '2026-01-01T00:00:00Z',
+        revision: 'r',
+        databaseBinding: 'DB',
+        imagesBucket: 'bucket',
+      },
+      files: [
+        {
+          commissionId: 1,
+          commissionFileName: 'escape',
+          objectKey: 'source-images/escape.jpg',
+          relativePath: '../escape.jpg',
+          mimeType: 'image/jpeg',
+          byteSize: 5,
+          sha256: createHash('sha256').update('image').digest('hex'),
+        },
+      ],
+      missing: [],
+    }
+    mkdirSync(path.join(generatedRoot, 'fact-source'), { recursive: true })
+    writeFileSync(path.join(generatedRoot, 'fact-source/source-images-manifest.json'), JSON.stringify(manifest))
+
+    await expect(syncSourceImages({ generatedRoot, bucketName: 'bucket' })).rejects.toThrow(/escapes/i)
+    expect(spawn).not.toHaveBeenCalled()
+    expect(existsSync(outsidePath)).toBe(false)
+  })
 })

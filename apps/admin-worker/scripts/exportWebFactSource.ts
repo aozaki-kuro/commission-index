@@ -418,12 +418,20 @@ export function getLocalImageName(commissionFileName: string, objectKey: string)
   return fileName
 }
 
+function compareCodeUnits(left: string, right: string) {
+  return left < right
+    ? -1
+    : left > right
+      ? 1
+      : 0
+}
+
 function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) {
     return `[${value.map(canonicalJson).join(',')}]`
   }
   if (value && typeof value === 'object') {
-    return `{${Object.entries(value).filter(([, entry]) => entry !== undefined).toSorted(([a], [b]) => a.localeCompare(b)).map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`).join(',')}}`
+    return `{${Object.entries(value).filter(([, entry]) => entry !== undefined).toSorted(([a], [b]) => compareCodeUnits(a, b)).map(([key, entry]) => `${JSON.stringify(key)}:${canonicalJson(entry)}`).join(',')}}`
   }
   return JSON.stringify(value) ?? 'null'
 }

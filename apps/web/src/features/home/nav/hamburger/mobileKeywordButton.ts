@@ -10,6 +10,7 @@ function applyHiddenState(root: HTMLElement, anchor: HTMLElement, hidden: boolea
   root.classList.toggle('opacity-100', !hidden)
   anchor.classList.toggle('pointer-events-none', hidden)
   anchor.classList.toggle('pointer-events-auto', !hidden)
+  anchor.toggleAttribute('inert', hidden)
 }
 
 function readHamburgerMounted(doc: Document) {

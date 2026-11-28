@@ -103,14 +103,14 @@ test.describe('home desktop shells', () => {
     await page.locator('#commission-search-input').waitFor()
     await prepareStablePage(page)
 
-    await expect(page.locator('[id="Home Controls"]')).toHaveScreenshot(
+    await expect(page.locator('#home-controls')).toHaveScreenshot(
       'home-controls-sidebar.png',
       {
         animations: 'disabled',
         caret: 'hide',
       },
     )
-    await expect(page.locator('[id="Character List"]')).toHaveScreenshot(
+    await expect(page.locator('#character-list')).toHaveScreenshot(
       'home-character-sidebar.png',
       {
         animations: 'disabled',

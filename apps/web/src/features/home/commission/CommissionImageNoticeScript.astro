@@ -16,6 +16,11 @@ async function loadNoticeClientModule(): Promise<NoticeClientModule> {
         cachedNoticeClientModule = module
         return module
       },
+      (error: unknown) => {
+        // Clear so a subsequent contextmenu after a transient/deploy chunk miss can retry.
+        noticeClientPromise = null
+        throw error
+      },
     )
   }
 

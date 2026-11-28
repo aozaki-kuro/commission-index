@@ -8,6 +8,7 @@ const D1_MAX_BOUND_PARAMETERS = 100
 
 export function createSQLiteD1({ failAtBatchStatement }: { failAtBatchStatement?: number } = {}) {
   const database = new DatabaseSync(':memory:')
+  database.exec('PRAGMA foreign_keys = ON')
   onTestFinished(() => database.close())
   const migrationsDirectory = path.resolve(import.meta.dirname, '../migrations')
   for (const name of readdirSync(migrationsDirectory).filter(name => name.endsWith('.sql')).sort()) {

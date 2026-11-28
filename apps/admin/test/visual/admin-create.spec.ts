@@ -221,14 +221,44 @@ test('source image cropper keeps controls available on a narrow screen', async (
   await page.evaluate(() => {
     document.documentElement.style.fontSize = '200%'
   })
-  await expect(page.getByRole('button', { name: 'Use image' })).toBeInViewport()
-  await expect(page.getByRole('button', { name: 'Rotate image freely' })).toBeInViewport()
-  await expect(page.getByRole('button', { name: 'Rotate image right 90 degrees' })).toBeInViewport()
+  const assertCropToolbarFits = async (buttonNames: string[]) => {
+    const dialog = page.getByRole('dialog')
+    const overflow = await dialog.evaluate(element => element.scrollWidth - element.clientWidth)
+    expect(overflow).toBeLessThanOrEqual(1)
 
-  // Overflow mode adds the edge-fill toggle; the toolbar must still leave room for the workspace.
+    const dialogBox = await dialog.boundingBox()
+    expect(dialogBox).not.toBeNull()
+    for (const name of buttonNames) {
+      const button = page.getByRole('button', { name })
+      await expect(button).toBeInViewport()
+      const box = await button.boundingBox()
+      expect(box).not.toBeNull()
+      expect(box!.x).toBeGreaterThanOrEqual(dialogBox!.x - 1)
+      expect(box!.x + box!.width).toBeLessThanOrEqual(dialogBox!.x + dialogBox!.width + 1)
+    }
+
+    const canvasBox = await page.locator('cropper-canvas').boundingBox()
+    expect(canvasBox?.height ?? 0).toBeGreaterThanOrEqual(160)
+  }
+
+  const baseToolbarButtons = [
+    'Use image',
+    'Cancel',
+    'Fit',
+    'Reset',
+    'Rotate image left 90 degrees',
+    'Rotate image right 90 degrees',
+    'Extend frame past image',
+  ]
+  await assertCropToolbarFits(baseToolbarButtons)
+  await expect(page.getByRole('button', { name: 'Rotate image freely' })).toBeInViewport()
+
+  // Overflow mode adds the edge-fill toggle; the toolbar must still fit without horizontal overflow and leave room for the workspace.
   await page.getByRole('button', { name: 'Extend frame past image' }).click()
-  await expect(page.getByRole('button', { name: 'Fill empty area with the image\'s edge colour' })).toBeInViewport()
-  await expect(page.getByRole('button', { name: 'Use image' })).toBeInViewport()
+  await assertCropToolbarFits([
+    ...baseToolbarButtons,
+    'Fill empty area with the image\'s edge colour',
+  ])
   await expect(page.getByRole('button', { name: 'Rotate image freely' })).toBeInViewport()
 })
 
@@ -415,10 +445,12 @@ for (const routeName of ['create', 'edit']) {
           Object.assign(window, { cropExitEvents: events })
           document.addEventListener('animationend', (event) => {
             const target = event.target as HTMLElement
-            if (event.animationName === 'dialog-crop-content-out') {
-              events.push(target.getAttribute('data-dialog-overlay') === 'crop'
-                ? 'overlay'
-                : 'content')
+            const isOverlay = target.getAttribute('data-dialog-overlay') === 'crop'
+            if (isOverlay && event.animationName === 'dialog-overlay-out') {
+              events.push('overlay')
+            }
+            else if (!isOverlay && event.animationName === 'dialog-crop-content-out') {
+              events.push('content')
             }
           })
         })
