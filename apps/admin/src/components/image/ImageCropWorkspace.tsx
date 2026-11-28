@@ -25,6 +25,7 @@ import {
   captureCropEditorState,
   constrainCropSelectionChange,
   getCenteredCropSelection,
+  getInitialCropImageMatrix,
   getMaximumCropSelectionWidth,
   getSelectionCenter,
   getSourceImagePixelCountError,
@@ -343,7 +344,7 @@ export function ImageCropWorkspace({ allowOverflow, fillColor, imageUrl, initial
       { x: canvasSize.width / 2, y: canvasSize.height / 2 },
       Math.min(canvasSize.width * 0.86, canvasSize.height * 0.66 * SOURCE_IMAGE_ASPECT),
     )
-    const matrix = normalizeCropImageMatrix(getImageGeometry(elements.image), selection, allowOverflowRef.current)
+    const matrix = getInitialCropImageMatrix(getImageGeometry(elements.image), selection, allowOverflowRef.current)
 
     preferredWidthRef.current = Number.POSITIVE_INFINITY
     initializedSizeRef.current = canvasSize
